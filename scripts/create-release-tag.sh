@@ -1,6 +1,6 @@
 #!/bin/bash
 # create-release-tag.sh
-# Script to create and push release tag for Diabot deployment
+# Script to create and push release tag for Anora deployment
 # Usage: ./scripts/create-release-tag.sh
 
 set -e
@@ -10,7 +10,7 @@ VERSION="0.9.0"
 IMAGE_NAME="ghcr.io/diabotai/diabot:release-2025-10-07"
 
 echo "=========================================="
-echo "Diabot Release Tag Creator"
+echo "Anora Release Tag Creator"
 echo "=========================================="
 echo "Release Tag: $RELEASE_TAG"
 echo "Version: $VERSION"

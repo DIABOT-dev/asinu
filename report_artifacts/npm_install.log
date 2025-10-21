@@ -1,0 +1,10 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'anora@0.9.0',
+npm warn EBADENGINE   required: { node: '>=20.11 <21', npm: '>=8.0.0' },
+npm warn EBADENGINE   current: { node: 'v22.19.0', npm: '11.4.2' }
+npm warn EBADENGINE }
+npm error Exit handler never called!
+npm error This is an error with npm itself. Please report this error at:
+npm error   <https://github.com/npm/cli/issues>
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-10-20T09_33_04_182Z-debug-0.log

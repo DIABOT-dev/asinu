@@ -37,32 +37,32 @@ export default function PrivacyPage() {
 
           </ul>
 
-          <h2>4. Provider Obligations / Trách nhiệm của DIABOT</h2>
+          <h2>4. Provider Obligations / Trách nhiệm của ANORA</h2>
           <ul>
             <li>Bảo mật dữ liệu theo Chính sách bảo mật.</li>
             <li>Duy trì & cải thiện dịch vụ; có quyền tạm ngừng khi phát hiện vi phạm.</li>
           </ul>
 
           <h2>5. Intellectual Property / Sở hữu trí tuệ</h2>
-          <p>Logo, thương hiệu, nội dung, mã nguồn thuộc DIABOT; không sao chép khai thác trái phép.</p>
+          <p>Logo, thương hiệu, nội dung, mã nguồn thuộc ANORA; không sao chép khai thác trái phép.</p>
 
           <h2>6. Medical Disclaimer / Miễn trừ y tế</h2>
-          <p>DIABOT không chẩn đoán/điều trị/kê đơn; chỉ hỗ trợ quản lý lối sống. Hãy tham khảo bác sĩ khi cần.</p>
+          <p>ANORA không chẩn đoán/điều trị/kê đơn; chỉ hỗ trợ quản lý lối sống. Hãy tham khảo bác sĩ khi cần.</p>
 
           <h2>7. Limitation of Liability / Giới hạn trách nhiệm</h2>
-          <p>DIABOT không chịu trách nhiệm cho thiệt hại gián tiếp/hệ quả; tổng trách nhiệm không vượt quá phí bạn đã trả trong 12 tháng gần nhất.</p>
+          <p>ANORA không chịu trách nhiệm cho thiệt hại gián tiếp/hệ quả; tổng trách nhiệm không vượt quá phí bạn đã trả trong 12 tháng gần nhất.</p>
 
           <h2>8. Subscription & Payments / Thanh toán</h2>
           <p><strong>Chỉ áp dụng khi Premium được kích hoạt.</strong> Dùng thử 7 ngày (khi triển khai). Sau đó 200.000đ/tháng hoặc 2.000.000đ/năm (tự gia hạn). Thanh toán qua Google Play/App Store; hoàn phí theo chính sách của họ.</p>
 
           <h2>9. Amendments / Sửa đổi</h2>
-          <p>DIABOT có thể cập nhật Điều khoản; thông báo trong app/website. Tiếp tục sử dụng là chấp nhận phiên bản mới.</p>
+          <p>ANORA có thể cập nhật Điều khoản; thông báo trong app/website. Tiếp tục sử dụng là chấp nhận phiên bản mới.</p>
 
           <h2>10. Governing Law & Disputes / Luật áp dụng & Tranh chấp</h2>
           <p>Luật Việt Nam; ưu tiên thương lượng, nếu không thành thì tòa án có thẩm quyền tại Hà Nội.</p>
 
           <h2>11. Contact / Liên hệ</h2>
-          <p>support@diabot.top • +84 898 888 917</p>
+          <p>support@anora.top • +84 898 888 917</p>
         </article>
       </LegalContainer>
       <div className="h-[84px] sm:h-0" aria-hidden /> 

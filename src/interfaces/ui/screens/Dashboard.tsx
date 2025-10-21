@@ -139,7 +139,7 @@ export default function Dashboard() {
         title="Trò chuyện với DIABOT"
       >
         <img
-          src="/assets/diabot.png"
+          src="/assets/anora.png"
           alt="DIABOT"
           width={180}
           height={180}

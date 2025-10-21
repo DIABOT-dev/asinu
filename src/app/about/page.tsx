@@ -96,13 +96,13 @@ export default function AboutPage() {
           <h3>Liên hệ</h3>
           <p>
             <strong>Website:</strong>{" "}
-            <a href="https://diabot.top" className="underline">
-              diabot.top
+            <a href="https://anora.top" className="underline">
+              anora.top
             </a>
             <br />
             <strong>Email:</strong>{" "}
-            <a href="mailto:support@diabot.top" className="underline">
-              support@diabot.top
+            <a href="mailto:support@anora.top" className="underline">
+              support@anora.top
             </a>
             <br />
             <strong>Điện thoại:</strong> +84 898 888 917

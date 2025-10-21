@@ -1,6 +1,6 @@
 {
-  "name": "DIABOT CloudOps Center",
-  "description": "Trung tâm điều hành DIABOT: build, deploy, monitor, backup qua GPT.",
+  "name": "ANORA CloudOps Center",
+  "description": "Trung tâm điều hành ANORA: build, deploy, monitor, backup qua GPT.",
   "permissions": [
     "filesystem.read_write",
     "network.outbound",

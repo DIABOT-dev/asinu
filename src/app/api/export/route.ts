@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
     }
 
     const csv = toCSV(csvRows);
-    const filename = `diabot_export_${uid.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `anora_export_${uid.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.csv`;
 
     return new Response(csv, {
       status: 200,

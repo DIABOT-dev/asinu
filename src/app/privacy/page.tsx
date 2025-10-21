@@ -18,8 +18,8 @@ export default function PrivacyPage() {
 
         <article className="prose prose-sm max-w-none dark:prose-invert">
           <h3>I. Scope &amp; Purpose / Phạm vi &amp; Mục đích</h3>
-          <p><strong>EN:</strong> DIABOT collects and processes data to: (i) log health metrics (blood glucose, weight, blood pressure, meals, water, insulin), (ii) display charts/reports, (iii) send safe reminders, (iv) provide AI-based suggestions (when enabled). The MVP has no in-app payments; subscription clauses apply only when Premium is activated later.</p>
-          <p><strong>VI:</strong> DIABOT thu thập & xử lý dữ liệu để: (i) ghi log sức khỏe (đường huyết, cân nặng, huyết áp, bữa ăn, nước, insulin), (ii) hiển thị biểu đồ/báo cáo, (iii) gửi nhắc nhở an toàn, (iv) cung cấp gợi ý AI (khi bật). Bản MVP chưa có thanh toán; điều khoản thanh toán chỉ áp dụng khi bật Premium sau này.</p>
+          <p><strong>EN:</strong> ANORA collects and processes data to: (i) log health metrics (blood glucose, weight, blood pressure, meals, water, insulin), (ii) display charts/reports, (iii) send safe reminders, (iv) provide AI-based suggestions (when enabled). The MVP has no in-app payments; subscription clauses apply only when Premium is activated later.</p>
+          <p><strong>VI:</strong> ANORA thu thập & xử lý dữ liệu để: (i) ghi log sức khỏe (đường huyết, cân nặng, huyết áp, bữa ăn, nước, insulin), (ii) hiển thị biểu đồ/báo cáo, (iii) gửi nhắc nhở an toàn, (iv) cung cấp gợi ý AI (khi bật). Bản MVP chưa có thanh toán; điều khoản thanh toán chỉ áp dụng khi bật Premium sau này.</p>
 
           <h3>II. Data We Collect / Dữ liệu thu thập</h3>
           <ul>
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
             <li>Xoá tài khoản & dữ liệu (xem Mục VIII).</li>
             <li>Rút lại đồng ý cho tính năng tùy chọn.</li>
           </ul>
-          <p>Qua Cài đặt hoặc email <a className="underline" href="mailto:support@diabot.top">support@diabot.top</a>.</p>
+          <p>Qua Cài đặt hoặc email <a className="underline" href="mailto:support@anora.top">support@anora.top</a>.</p>
 
           <h3>VII. Retention / Thời hạn lưu</h3>
           <ul>
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
           <p>Cập nhật sẽ hiển thị tại trang này; tiếp tục sử dụng là chấp nhận bản mới.</p>
 
           <h3>XII. Contact / Liên hệ</h3>
-          <p>Diabot — 12 A, ngách 1/16, Ngõ 1 Thúy Lĩnh, Hà Nội, Việt Nam • Email: support@diabot.top • Phone: +84 898 888 917</p>
+          <p>Anora — 12 A, ngách 1/16, Ngõ 1 Thúy Lĩnh, Hà Nội, Việt Nam • Email: support@anora.top • Phone: +84 898 888 917</p>
         </article>
       </LegalContainer>
     </>

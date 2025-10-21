@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    service: "diabot",
+    service: "anora",
     version: process.env.APP_VERSION ?? "dev",
     time: new Date().toISOString(),
   });

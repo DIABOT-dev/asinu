@@ -1,8 +1,8 @@
 #!/bin/bash
 # verify-deployment.sh
-# Post-deployment verification script for Diabot
+# Post-deployment verification script for Anora
 # Usage: ./scripts/verify-deployment.sh <BASE_URL>
-# Example: ./scripts/verify-deployment.sh https://diabot.example.com
+# Example: ./scripts/verify-deployment.sh https://anora.example.com
 
 set -e
 
@@ -10,7 +10,7 @@ BASE_URL="${1:-http://localhost}"
 REPORT_FILE="deployment-verification-$(date +%Y%m%d-%H%M%S).log"
 
 echo "=========================================="
-echo "Diabot Post-Deployment Verification"
+echo "Anora Post-Deployment Verification"
 echo "=========================================="
 echo "Base URL: $BASE_URL"
 echo "Report: $REPORT_FILE"
@@ -81,7 +81,7 @@ test_json_endpoint() {
 # Start verification
 {
     echo "=========================================="
-    echo "Diabot Post-Deployment Verification Report"
+    echo "Anora Post-Deployment Verification Report"
     echo "=========================================="
     echo "Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
     echo "Base URL: $BASE_URL"

@@ -1,6 +1,6 @@
 {
-  "name": "DiabotOps",
-  "description": "Triển khai, giám sát, sao lưu DIABOT trên Viettel VPS",
+  "name": "AnoraOps",
+  "description": "Triển khai, giám sát, sao lưu ANORA trên Viettel VPS",
   "triggers": [
     "manual",
     "daily_02h"

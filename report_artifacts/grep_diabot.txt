@@ -1,0 +1,297 @@
+DEBOLT_COMPLETION_REPORT.md:304:DATABASE_URL=postgresql://diabot:diabot@localhost:5432/diabot
+DEBOLT_COMPLETION_REPORT.md:308:SESSION_COOKIE_NAME=diabot_session
+DEBOLT_COMPLETION_REPORT.md:318:S3_BUCKET_HOT=diabot-hot
+DEBOLT_COMPLETION_REPORT.md:319:S3_BUCKET_COLD=diabot-cold
+.env.local.example:3:SESSION_COOKIE_NAME=diabot_sess
+migrations/010_rls.sql:2:CREATE OR REPLACE FUNCTION diabot_set_user(uid UUID)
+migrations/010_rls.sql:5:  PERFORM set_config('diabot.user_id', uid::text, TRUE);
+migrations/010_rls.sql:21:  FOR SELECT USING (user_id::text = current_setting('diabot.user_id', true));
+migrations/010_rls.sql:25:  USING (user_id::text = current_setting('diabot.user_id', true));
+migrations/010_rls.sql:39:                  AND p.user_id::text = current_setting(''diabot.user_id'', true))
+migrations/010_rls.sql:46:                  AND p.user_id::text = current_setting(''diabot.user_id'', true))
+.env.example:6:DB_NAME=diabot
+INDEX_SCHEMA_DOCS.md:215:- Database: diabot-postgres (production)
+INDEX_SCHEMA_DOCS.md:220:- Bucket: diabot-prod
+docker-compose.production.yml:9:  diabot:
+docker-compose.production.yml:13:    image: diabot/app:0.9.0
+docker-compose.production.yml:14:    container_name: diabot-staging
+docker-compose.production.yml:36:      - diabot-network
+docker-compose.production.yml:47:  diabot-network:
+docker-compose.production.yml:49:    name: diabot-staging-network
+docker-compose.production.yml:53:#   diabot-data:
+README_DOCKER.md:24:docker build -t diabot/app:0.9.0 .
+README_DOCKER.md:28:  --name diabot \
+README_DOCKER.md:31:  diabot/app:0.9.0
+README_DOCKER.md:78:S3_BUCKET=diabot-production
+README_DOCKER.md:115:docker inspect --format='{{.State.Health.Status}}' diabot
+README_DOCKER.md:172:ghcr.io/YOUR_ORG/diabot:0.9.0
+README_DOCKER.md:173:ghcr.io/YOUR_ORG/diabot:latest
+README_DOCKER.md:185:bash scripts/docker_scan.sh diabot/app:0.9.0
+README_DOCKER.md:188:bash scripts/docker_scan.sh diabot/app:0.9.0 HIGH,CRITICAL json > security-report.json
+README_DOCKER.md:198:  diabot/app:0.9.0
+README_DOCKER.md:209:  diabot:
+README_DOCKER.md:210:    image: ghcr.io/YOUR_ORG/diabot:0.9.0
+README_DOCKER.md:234:docker logs diabot
+README_DOCKER.md:246:docker exec diabot wget -qO- http://localhost:3000/api/healthz
+README_DOCKER.md:262:docker history diabot/app:0.9.0
+README_DOCKER.md:274:docker exec diabot whoami  # Should return: nextjs
+README_DOCKER.md:275:docker exec diabot id      # uid=1001(nextjs) gid=1001(nodejs)
+README_DOCKER.md:285:docker build --cache-from diabot/app:latest -t diabot/app:dev .
+README_DOCKER.md:300:docker run -it --rm diabot/app:dev sh
+README_DOCKER.md:303:docker exec -it diabot sh
+README_DOCKER.md:325:- Check logs: `docker logs diabot`
+DEPLOY_VIETTEL.md:49:mkdir -p /opt/diabot
+DEPLOY_VIETTEL.md:50:cd /opt/diabot
+DEPLOY_VIETTEL.md:78:cd /opt/diabot
+DEPLOY_VIETTEL.md:100:S3_BUCKET=diabot-production
+DEPLOY_VIETTEL.md:135:3. Create new bucket: `diabot-production`
+DEPLOY_VIETTEL.md:154:  amazon/aws-cli s3 ls s3://diabot-production --endpoint-url=https://s3.viettelcloud.vn
+DEPLOY_VIETTEL.md:172:cd /opt/diabot
+DEPLOY_VIETTEL.md:180:  diabot:
+DEPLOY_VIETTEL.md:181:    image: ghcr.io/YOUR_ORG/diabot:0.9.0
+DEPLOY_VIETTEL.md:182:    container_name: diabot
+DEPLOY_VIETTEL.md:200:      - diabot-network
+DEPLOY_VIETTEL.md:203:  diabot-network:
+DEPLOY_VIETTEL.md:220:docker-compose logs -f diabot
+DEPLOY_VIETTEL.md:253:nano /etc/nginx/sites-available/diabot
+DEPLOY_VIETTEL.md:257:upstream diabot_app {
+DEPLOY_VIETTEL.md:270:        proxy_pass http://diabot_app;
+DEPLOY_VIETTEL.md:288:        proxy_pass http://diabot_app;
+DEPLOY_VIETTEL.md:294:        proxy_pass http://diabot_app;
+DEPLOY_VIETTEL.md:303:ln -s /etc/nginx/sites-available/diabot /etc/nginx/sites-enabled/
+DEPLOY_VIETTEL.md:327:nano /opt/diabot/healthcheck.sh
+DEPLOY_VIETTEL.md:347:chmod +x /opt/diabot/healthcheck.sh
+DEPLOY_VIETTEL.md:351:*/5 * * * * /opt/diabot/healthcheck.sh
+DEPLOY_VIETTEL.md:359:docker-compose logs -f --tail=100 diabot
+DEPLOY_VIETTEL.md:369:# Check size: docker inspect diabot --format='{{.LogPath}}'
+DEPLOY_VIETTEL.md:393:cd /opt/diabot
+DEPLOY_VIETTEL.md:402:docker-compose logs -f diabot
+DEPLOY_VIETTEL.md:409:docker images | grep diabot
+DEPLOY_VIETTEL.md:412:nano docker-compose.yml  # Change to diabot:0.8.0
+DEPLOY_VIETTEL.md:434:docker-compose logs diabot
+DEPLOY_VIETTEL.md:440:docker-compose exec diabot node scripts/qa_db.mjs
+DEPLOY_VIETTEL.md:447:docker stats diabot
+DEPLOY_VIETTEL.md:450:docker-compose restart diabot
+DEPLOY_VIETTEL.md:457:docker-compose exec diabot node scripts/qa_storage.mjs
+DEPLOY_VIETTEL.md:493:  diabot:
+scripts/verify-deployment.sh:5:# Example: ./scripts/verify-deployment.sh https://diabot.example.com
+scripts/smoke_full.sh:19:  echo "$HEALTH" | grep -q "diabot" && echo "   Service: diabot" || echo "   Warning: Unexpected health response"
+scripts/create-release-tag.sh:10:IMAGE_NAME="ghcr.io/diabotai/diabot:release-2025-10-07"
+scripts/qa_stack.sh:5:until pg_isready -h localhost -U diabot -d diabot >/dev/null 2>&1; do
+scripts/qa_stack.sh:11:DB_URL="${DIABOT_DB_URL:-postgresql://diabot:diabot@localhost:5432/diabot}"
+scripts/qa_storage.mjs:62:  const testFile = join(tmpdir(), `diabot-test-${Date.now()}.json`);
+scripts/qa_storage.mjs:64:    test: 'diabot-storage-qa',
+scripts/qa_storage.mjs:107:  const bucket = process.env.S3_BUCKET || 'diabot-production';
+scripts/docker_scan.sh:7:IMAGE_NAME="${1:-diabot/app:latest}"
+.github/workflows/deploy_camp.yml:30:            CAMP_PATH="/home/ubuntu/diabot_camp"
+.github/workflows/deploy_camp.yml:44:            container_name: diabot-app
+.github/workflows/deploy_camp.yml:59:            curl -fsSL "https://camp.diabot.top/api/qa/selftest" >/dev/null || (echo "❌ Health check failed" && exit 1)
+.github/workflows/deploy_camp.yml:66:          BASE="https://camp.diabot.top"
+.github/workflows/docker.yml:72:          docker run -d --rm --name diabot -p 3000:3000 \
+.github/workflows/ci-diabot.yml:43:          OWNER_REPO=$(echo "${GITHUB_REPOSITORY,,}") # e.g. diabot-dev/final-test
+.github/workflows/ci-diabot.yml:79:          docker run -d --name diabot \
+.github/workflows/ci-diabot.yml:121:          docker run -d --name diabot \
+.github/workflows/auto-fix.yml:58:          git config user.email "bot@diabot.top"
+.github/workflows/auto-fix.yml:106:          # Ví dụ minh hoạ: npx @diabot/codex-cli diff --stdin-log > patch.diff
+.github/workflows/auto-fix.yml:107:          if npx -y @diabot/codex-cli@latest diff --prompt "${CODEX_PROMPT_PREFIX}" --log-file ./ci_tail.log > patch.diff 2> codex.err; then
+.github/workflows/gpt-control.yml:16:          code=$(curl -sk -o /dev/null -w "%{http_code}" https://diabot.top/api/qa/selftest || true)
+.github/workflows/qa_db.yml:16:          POSTGRES_DB: diabot
+.github/workflows/qa_db.yml:17:          POSTGRES_USER: diabot
+.github/workflows/qa_db.yml:18:          POSTGRES_PASSWORD: diabot
+.github/workflows/qa_db.yml:21:          --health-cmd "pg_isready -U diabot -d diabot"
+.github/workflows/qa_db.yml:25:      DIABOT_DB_URL: postgresql://diabot:diabot@localhost:5432/diabot
+.github/workflows/qa_report.yml:14:      BASE: https://camp.diabot.top
+QUICK_START_SCHEMA.md:65:S3_BUCKET=diabot-prod
+QUICK_START_SCHEMA.md:161:# Bucket: diabot-prod
+STANDARDIZATION_SUMMARY.md:37:S3_BUCKET=diabot-prod
+STANDARDIZATION_SUMMARY.md:384:- Database: diabot-postgres (production)
+STANDARDIZATION_SUMMARY.md:389:- Bucket: diabot-prod
+verify-deployment-package.sh:156:    echo "  3. Deploy app: ssh root@171.244.140.161 'cd /opt/diabot && ./deploy-viettel.sh'"
+DOCKER_BUILD_SUMMARY.md:117:- `S3_BUCKET=diabot-production`
+DOCKER_BUILD_SUMMARY.md:154:   cd /opt/diabot
+DOCKER_BUILD_SUMMARY.md:195:- Public: `ghcr.io/YOUR_ORG/diabot:0.9.0`
+DOCKER_BUILD_SUMMARY.md:242:- Review logs: `docker-compose logs -f diabot`
+setup-viettel-vps.sh:21:APP_DIR="/opt/diabot"
+package.json:2:  "name": "diabot",
+package.json:36:    "docker:build": "docker build -t diabot/app:latest .",
+package.json:38:    "docker:logs": "docker compose logs -f diabot",
+src/interfaces/ui/screens/Dashboard.tsx:142:          src="/assets/diabot.png"
+src/interfaces/ui/components/FloatingAIBtn.tsx:16:        src="/assets/diabot.png"
+src/app/terms/page.tsx:65:          <p>support@diabot.top • +84 898 888 917</p>
+src/app/about/page.tsx:99:            <a href="https://diabot.top" className="underline">
+src/app/about/page.tsx:100:              diabot.top
+src/app/about/page.tsx:104:            <a href="mailto:support@diabot.top" className="underline">
+src/app/about/page.tsx:105:              support@diabot.top
+src/app/profile/ExportProfileButton.tsx:10:export default function ExportProfileButton({ data, filename = 'diabot-profile.json' }: Props) {
+src/app/api/health/route.ts:7:    service: "diabot",
+src/app/api/export/route.ts:89:    const filename = `diabot_export_${uid.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.csv`;
+src/app/auth/register/page.tsx:6: * - Khi chọn Số điện thoại: normalize phone -> map sang email ảo `${E164NoPlus}@phone.diabot`
+src/app/auth/register/page.tsx:101:        const emailAlias = `${finalPhoneE164.replace('+', '')}@phone.diabot`;
+src/app/privacy/page.tsx:61:          <p>Qua Cài đặt hoặc email <a className="underline" href="mailto:support@diabot.top">support@diabot.top</a>.</p>
+src/app/privacy/page.tsx:84:          <p>Diabot — 12 A, ngách 1/16, Ngõ 1 Thúy Lĩnh, Hà Nội, Việt Nam • Email: support@diabot.top • Phone: +84 898 888 917</p>
+src/infrastructure/auth/session.ts:4:const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "diabot_sess";
+src/lib/storage/viettelS3.ts:78:      bucket: 'diabot-production',
+src/middleware.ts:38:    const sess = req.cookies.get(process.env.SESSION_COOKIE_NAME || "diabot_sess");
+STORE_SUBMISSION_CHECKLIST.md:31:  - URL: `https://staging.diabot.app` (example)
+STORE_SUBMISSION_CHECKLIST.md:37:  - URL: `https://diabot.app` or `https://app.diabot.top`
+STORE_SUBMISSION_CHECKLIST.md:345:  - Evidence: ⏳ `preview/diabot-preview.mp4`
+STORE_SUBMISSION_CHECKLIST.md:383:  - URL: `https://diabot.app/support` or `mailto:support@diabot.top`
+STORE_SUBMISSION_CHECKLIST.md:386:  - URL: `https://diabot.app/privacy` or `https://staging.diabot.app/privacy`
+STORE_SUBMISSION_CHECKLIST.md:389:  - URL: `https://diabot.app`
+STORE_SUBMISSION_CHECKLIST.md:394:  - Email: `reviewer@diabot.app`
+STORE_SUBMISSION_CHECKLIST.md:409:  Email: reviewer@diabot.app
+STORE_SUBMISSION_CHECKLIST.md:456:  - Email: `support@diabot.top`
+STORE_SUBMISSION_CHECKLIST.md:620:  - Create: `reviewer@diabot.app` with password `ReviewPass123!`
+STORE_SUBMISSION_CHECKLIST.md:785:- GitHub Issues: `https://github.com/diabot/app/issues`
+STORE_SUBMISSION_CHECKLIST.md:786:- Email: `dev@diabot.top`
+DEPLOYMENT_PACKAGE_README.md:35:git clone https://github.com/YOUR_ORG/diabot.git /opt/diabot
+DEPLOYMENT_PACKAGE_README.md:52:- Creates `/opt/diabot` directory
+DEPLOYMENT_PACKAGE_README.md:60:# Copy all project files to /opt/diabot
+DEPLOYMENT_PACKAGE_README.md:61:cp -r /root/diabot/* /opt/diabot/
+DEPLOYMENT_PACKAGE_README.md:62:cd /opt/diabot
+DEPLOYMENT_PACKAGE_README.md:85:docker ps -a --filter "name=diabot-staging"
+DEPLOYMENT_PACKAGE_README.md:89:docker exec diabot-staging node scripts/qa_db.mjs
+DEPLOYMENT_PACKAGE_README.md:90:docker exec diabot-staging node scripts/qa_storage.mjs
+DEPLOYMENT_PACKAGE_README.md:124:docker exec -it diabot-staging sh
+DEPLOYMENT_PACKAGE_README.md:127:docker stats diabot-staging
+DEPLOYMENT_PACKAGE_README.md:134:docker logs diabot-staging
+DEPLOYMENT_PACKAGE_README.md:141:docker exec diabot-staging node scripts/qa_db.mjs
+DEPLOYMENT_PACKAGE_README.md:142:docker exec diabot-staging wget -qO- http://localhost:3000/api/healthz
+docker-compose.yml:4:  diabot:
+docker-compose.yml:8:    image: diabot/app:local
+docker-compose.yml:31:    container_name: diabot-db
+docker-compose.yml:36:      POSTGRES_DB: diabot
+docker-compose.yml:40:      test: ["CMD-SHELL", "pg_isready -U postgres -d diabot"]
+SCHEMA_STANDARDIZATION.md:5:**Database**: diabot-postgres (Supabase)
+SCHEMA_STANDARDIZATION.md:501:S3_BUCKET=diabot-prod
+SCHEMA_STANDARDIZATION.md:573:**Database**: diabot-postgres (Supabase)
+qa_staging_manual.sh:8:BASE_URL="${BASE_URL:-https://staging.diabot.app}"
+qa_staging_manual.sh:13:USER1_EMAIL="test1+qa@diabot.top"
+qa_staging_manual.sh:15:USER2_EMAIL="test2+qa@diabot.top"
+QA_SMOKE.md:10:- [ ] Healthcheck ghi log OK/Fail vào `/opt/diabot/health_fail.log`
+DEPLOYMENT_VIETTEL_STORAGE.md:19:S3_BUCKET=diabot-prod
+DEPLOYMENT_VIETTEL_STORAGE.md:104:  "url": "https://s3-north1.viettelidc.com.vn/diabot-prod/meal/USER_ID/2025/10/07/UUID.jpg"
+DEPLOYMENT_VIETTEL_STORAGE.md:125:   - Bucket: `diabot-prod` (production data only)
+deploy-viettel.sh:20:APP_DIR="/opt/diabot"
+deploy-viettel.sh:94:if docker ps -q --filter "name=diabot-staging" | grep -q .; then
+deploy-viettel.sh:107:IMAGE_SIZE=$(docker images diabot/app:0.9.0 --format "{{.Size}}")
+deploy-viettel.sh:122:    HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' diabot-staging 2>/dev/null || echo "unknown")
+deploy-viettel.sh:144:docker ps -a --filter "name=diabot-staging" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+deploy-viettel.sh:170:echo -e "Container Name: ${BLUE}diabot-staging${NC}"
+deploy-viettel.sh:177:echo "  Shell access:  docker exec -it diabot-staging sh"
+deploy-viettel.sh:180:echo "  docker exec diabot-staging node scripts/qa_db.mjs"
+deploy-viettel.sh:181:echo "  docker exec diabot-staging node scripts/qa_storage.mjs"
+ops/backup_cron.sh:7:docker exec diabot-postgres pg_dump -U postgres diabot > "$FILE"
+ops/backup_cron.sh:9:S3_BUCKET="${S3_BUCKET:-s3://diabot-backup}"
+ops/restore_from_backup.sh:4:cat "$FILE" | docker exec -i diabot-postgres psql -U postgres -d diabot
+ops/healthcheck.sh:3:URL="${URL:-https://diabot.top/api/qa/selftest}"
+ops/healthcheck.sh:4:LOG="${LOG:-/opt/diabot/health_fail.log}"
+ops/deploy_viettel.sh:5:APP_DIR="${APP_DIR:-/opt/diabot}"
+ops/deploy_viettel.sh:6:IMAGE="${IMAGE:-ghcr.io/diabot-dev/diabot:latest}"
+ops/deploy_viettel.sh:11:mkdir -p /opt/diabot /backup
+ops/deploy_viettel.sh:15:ssh ${SSH_USER}@${SSH_HOST} "docker rm -f diabot || true"
+ops/deploy_viettel.sh:16:ssh ${SSH_USER}@${SSH_HOST} "docker run -d --name diabot   --restart=always   -p ${PORT}:3000   --env-file ${APP_DIR}/.env   -v /opt/diabot:/data   ${IMAGE} "
+ops/rollback.sh:5:APP_DIR="${APP_DIR:-/opt/diabot}"
+ops/rollback.sh:6:IMAGE="${IMAGE_ROLLBACK:-ghcr.io/diabot-dev/diabot:previous}"
+ops/rollback.sh:9:ssh ${SSH_USER}@${SSH_HOST} "docker rm -f diabot || true && docker pull ${IMAGE}"
+ops/rollback.sh:10:ssh ${SSH_USER}@${SSH_HOST} "docker run -d --name diabot --restart=always -p ${PORT}:3000   --env-file ${APP_DIR}/.env -v /opt/diabot:/data ${IMAGE}"
+.env.production:27:S3_BUCKET=diabot-prod
+QUICK_DEPLOYMENT_PLAN_OCM.md:46:cd /path/to/diabot
+QUICK_DEPLOYMENT_PLAN_OCM.md:59:- Image: ghcr.io/diabotai/diabot:release-2025-10-07"
+QUICK_DEPLOYMENT_PLAN_OCM.md:71:2. Tag as `ghcr.io/diabotai/diabot:release-2025-10-07`
+QUICK_DEPLOYMENT_PLAN_OCM.md:82:open https://github.com/[YOUR_ORG]/diabot/actions
+QUICK_DEPLOYMENT_PLAN_OCM.md:107:- Image path: `ghcr.io/diabotai/diabot:release-2025-10-07`
+QUICK_DEPLOYMENT_PLAN_OCM.md:117:- Image: ghcr.io/diabotai/diabot:release-2025-10-07
+QUICK_DEPLOYMENT_PLAN_OCM.md:119:- Digest: ghcr.io/diabotai/diabot@sha256:xyz789...
+QUICK_DEPLOYMENT_PLAN_OCM.md:191:docker pull ghcr.io/diabotai/diabot:release-2025-10-07
+QUICK_DEPLOYMENT_PLAN_OCM.md:195:  --name diabot-prod \
+QUICK_DEPLOYMENT_PLAN_OCM.md:198:  ghcr.io/diabotai/diabot:release-2025-10-07
+QUICK_DEPLOYMENT_PLAN_OCM.md:208:sed -i 's/image: .*/image: ghcr.io\/diabotai\/diabot:release-2025-10-07/' docker-compose.production.yml
+QUICK_DEPLOYMENT_PLAN_OCM.md:222:  - name: diabot
+QUICK_DEPLOYMENT_PLAN_OCM.md:223:    image: ghcr.io/diabotai/diabot:release-2025-10-07
+QUICK_DEPLOYMENT_PLAN_OCM.md:229:kubectl rollout status deployment/diabot
+QUICK_DEPLOYMENT_PLAN_OCM.md:292:docker stop diabot-prod
+QUICK_DEPLOYMENT_PLAN_OCM.md:296:  --name diabot-prod \
+QUICK_DEPLOYMENT_PLAN_OCM.md:299:  ghcr.io/diabotai/diabot:release-2025-09-30-stable
+QUICK_DEPLOYMENT_PLAN_OCM.md:453:  https://ghcr.io/v2/[ORG]/diabot/tags/list
+QUICK_DEPLOYMENT_PLAN_OCM.md:456:docker pull ghcr.io/diabotai/diabot@sha256:[DIGEST]
+QUICK_DEPLOYMENT_PLAN_OCM.md:469:- Review container logs: `docker logs diabot-prod`
+QA_FREEZE_REPORT_2025_10_07.md:23:Repository: diabotai/diabot
+QA_FREEZE_REPORT_2025_10_07.md:25:Full Image Path: ghcr.io/diabotai/diabot:release-2025-10-07
+QA_FREEZE_REPORT_2025_10_07.md:225:Image Registry: ghcr.io/diabotai/diabot
+QA_FREEZE_REPORT_2025_10_07.md:267:docker pull ghcr.io/diabotai/diabot:previous-stable-tag
+QA_FREEZE_REPORT_2025_10_07.md:270:docker stop diabot-staging
+QA_FREEZE_REPORT_2025_10_07.md:273:docker run -d --name diabot-staging -p 80:3000 \
+QA_FREEZE_REPORT_2025_10_07.md:275:  ghcr.io/diabotai/diabot:previous-stable-tag
+README.md:7:git clone https://github.com/<org>/<repo>.git diabot
+README.md:8:cd diabot
+audit_logs/api-ai.log:5:docs/docs/api/API_GATEWAY.md:4:https://diabot.top/api/ai/*
+audit_logs/api-ai.log:8:docs/docs/api/API_GATEWAY.md:18:curl -X POST https://diabot.top/api/ai/v1/predict/bg_next   -H "Content-Type: application/json"   -d '{"bg": 145, "carbs": 30, "insulin": 2, "time": "12:00"}'
+audit_logs/npm-ci.log:3:npm warn EBADENGINE   package: 'diabot@0.9.0',
+DEPLOY_VIETTEL_REPORT.md:32:- **Container Name:** diabot-staging
+DEPLOY_VIETTEL_REPORT.md:36:- **Network:** Isolated bridge network `diabot-staging-network`
+DEPLOY_VIETTEL_REPORT.md:46:  - Application directory creation at `/opt/diabot`
+DEPLOY_VIETTEL_REPORT.md:63:- **Execution:** Run from `/opt/diabot` directory as root
+DEPLOY_VIETTEL_REPORT.md:141:- **Bucket:** diabot-staging
+DEPLOY_VIETTEL_REPORT.md:216:   mkdir -p /root/diabot-deploy
+DEPLOY_VIETTEL_REPORT.md:217:   cd /root/diabot-deploy
+DEPLOY_VIETTEL_REPORT.md:224:     scp -r /path/to/diabot root@171.244.140.161:/root/diabot-deploy/
+DEPLOY_VIETTEL_REPORT.md:230:     cd /root/diabot-deploy
+DEPLOY_VIETTEL_REPORT.md:231:     git clone https://github.com/YOUR_ORG/diabot.git
+DEPLOY_VIETTEL_REPORT.md:232:     cd diabot
+DEPLOY_VIETTEL_REPORT.md:237:   cd /root/diabot-deploy/diabot
+DEPLOY_VIETTEL_REPORT.md:248:   - Creates `/opt/diabot` directory
+DEPLOY_VIETTEL_REPORT.md:257:   ls -la /opt/diabot       # Should show created directory
+DEPLOY_VIETTEL_REPORT.md:264:   cp -r /root/diabot-deploy/diabot/* /opt/diabot/
+DEPLOY_VIETTEL_REPORT.md:265:   cd /opt/diabot
+DEPLOY_VIETTEL_REPORT.md:270:   ls -la /opt/diabot
+DEPLOY_VIETTEL_REPORT.md:285:   chmod 600 /opt/diabot/.env.production
+DEPLOY_VIETTEL_REPORT.md:290:   cd /opt/diabot
+DEPLOY_VIETTEL_REPORT.md:309:   docker logs -f diabot-staging
+DEPLOY_VIETTEL_REPORT.md:316:   docker ps -a --filter "name=diabot-staging"
+DEPLOY_VIETTEL_REPORT.md:322:   xxxxxx         diabot/app:0.9.0   Up 2 minutes   0.0.0.0:80->3000/tcp
+DEPLOY_VIETTEL_REPORT.md:346:   docker exec diabot-staging node scripts/qa_db.mjs
+DEPLOY_VIETTEL_REPORT.md:353:   docker exec diabot-staging node scripts/qa_storage.mjs
+DEPLOY_VIETTEL_REPORT.md:374:cd /opt/diabot
+DEPLOY_VIETTEL_REPORT.md:380:cd /opt/diabot
+DEPLOY_VIETTEL_REPORT.md:386:cd /opt/diabot
+DEPLOY_VIETTEL_REPORT.md:392:docker exec -it diabot-staging sh
+DEPLOY_VIETTEL_REPORT.md:397:docker stats diabot-staging
+DEPLOY_VIETTEL_REPORT.md:402:docker images | grep diabot
+DEPLOY_VIETTEL_REPORT.md:445:/opt/diabot/.env.production   → 600 (rw-------)
+DEPLOY_VIETTEL_REPORT.md:446:/opt/diabot/*.sh              → 755 (rwxr-xr-x)
+DEPLOY_VIETTEL_REPORT.md:447:/opt/diabot/                  → 755 (rwxr-xr-x)
+DEPLOY_VIETTEL_REPORT.md:519:docker logs diabot-staging
+DEPLOY_VIETTEL_REPORT.md:520:docker inspect diabot-staging | jq '.State'
+DEPLOY_VIETTEL_REPORT.md:548:docker exec diabot-staging wget -qO- http://localhost:3000/api/healthz
+DEPLOY_VIETTEL_REPORT.md:559:docker exec diabot-staging node scripts/qa_db.mjs
+DEPLOY_VIETTEL_REPORT.md:562:docker exec diabot-staging env | grep SUPABASE
+DEPLOY_VIETTEL_REPORT.md:574:docker stats diabot-staging
+DEPLOY_VIETTEL_REPORT.md:583:docker logs diabot-staging | grep -i "memory\|heap"
+DEPLOY_VIETTEL_REPORT.md:594:docker exec diabot-staging node scripts/qa_db.mjs
+DEPLOY_VIETTEL_REPORT.md:669:- **Application Logs:** `docker logs diabot-staging`
+DEPLOY_VIETTEL_REPORT.md:676:2. **Environment Files:** Backup `/opt/diabot/.env.production` regularly
+DEPLOY_VIETTEL_REPORT.md:690:1. Pull latest code to `/root/diabot-deploy/diabot`
+DEPLOY_VIETTEL_REPORT.md:691:2. Copy updates to `/opt/diabot`
+DEPLOY_VIETTEL_REPORT.md:720:- [ ] Application files transferred to /opt/diabot
+docs/docs/api/API_GATEWAY.md:4:https://diabot.top/api/ai/*
+docs/docs/api/API_GATEWAY.md:18:curl -X POST https://diabot.top/api/ai/v1/predict/bg_next   -H "Content-Type: application/json"   -d '{"bg": 145, "carbs": 30, "insulin": 2, "time": "12:00"}'
+docs/EXECUTION_REPORT.md:22:| `node scripts/probe_storage.mjs` *(lần 2, đã export proxy/bucket)* | 1 | Thử live tới `https://diabot.top/api` trả về lỗi network (`fetch failed`). |
+docs/EXECUTION_REPORT.md:37:| 2 | live (proxy `https://diabot.top/api`) | 10 | fetch failed | N/A | N/A | N/A | `probe/2025-10-09/8c57965c-aa80-4ef2-8c88-a3bd8389310d.bin` | Proxy trả lỗi kết nối (không phản hồi HTTP). |
+docs/EXECUTION_REPORT.md:43:1. **Thiếu endpoint DIA BRAIN Storage proxy thực tế** – tài liệu chỉ cung cấp placeholder, thử với `https://diabot.top/api` dẫn tới `fetch failed`. → **Hành động:** yêu cầu DIABOT Ops cung cấp URL gateway chính thức (ví dụ `/api/storage-proxy`) cùng token hoặc cơ chế auth cần thiết.
+docs/DIABOT_Master_Spec_V5.md:207:- Run: docker run -d --name diabot -p 3000:3000 --env-file .env ghcr.io/<org>/<repo>:<tag>
+docs/DIABOT_Master_Spec_V5.md:250:- Ví dụ hashtag: #kiểmsoátđườnghuyết #sốngkhỏe #tiểuđường #chếđộăn #diabot
+.devcontainer/devcontainer.json:2:  "name": "diabot-dev",
+.env.local:11:S3_BUCKET=diabot-prod
+DEPLOYMENT_SUMMARY.txt:34:- Container: diabot-staging
+DEPLOYMENT_SUMMARY.txt:57:  cp -r /root/* /opt/diabot/
+DEPLOYMENT_SUMMARY.txt:58:  cd /opt/diabot && chmod 600 .env.production
+DEPLOYMENT_SUMMARY.txt:64:  docker exec diabot-staging node scripts/qa_db.mjs
+DEPLOYMENT_SUMMARY.txt:65:  docker exec diabot-staging node scripts/qa_storage.mjs
+DEPLOYMENT_SUMMARY.txt:82:Shell access:    docker exec -it diabot-staging sh
+DEPLOYMENT_SUMMARY.txt:83:Resource usage:  docker stats diabot-staging
+DEPLOYMENT_SUMMARY.md:104:docker build -t diabot:0.9.0 .
+DEPLOYMENT_SUMMARY.md:105:docker run -p 3001:3001 --env-file .env diabot:0.9.0
+DEPLOYMENT_SUMMARY.md:260:Expected: {"ok":true,"service":"diabot","version":"dev"}
+package-lock.json:2:  "name": "diabot",
+package-lock.json:8:      "name": "diabot",

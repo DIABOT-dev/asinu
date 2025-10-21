@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * /auth/register — DIABOT (MVP Freeze)
+ * /auth/register — ANORA (MVP Freeze)
  * - Giữ logic Supabase signUp như cũ
- * - Khi chọn Số điện thoại: normalize phone -> map sang email ảo `${E164NoPlus}@phone.diabot`
+ * - Khi chọn Số điện thoại: normalize phone -> map sang email ảo `${E164NoPlus}@phone.anora`
  * - "Điều khoản sử dụng" & "Chính sách quyền riêng tư": mở tại chỗ bằng Modal + Tabs (không rời trang)
  */
 
@@ -98,7 +98,7 @@ export default function RegisterPage() {
           return setErrors({ phone: 'Số điện thoại không hợp lệ' });
         }
         // email ảo: bỏ dấu '+' cho gọn
-        const emailAlias = `${finalPhoneE164.replace('+', '')}@phone.diabot`;
+        const emailAlias = `${finalPhoneE164.replace('+', '')}@phone.anora`;
         signUpEmail = emailAlias;
       }
 
