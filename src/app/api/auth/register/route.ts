@@ -129,12 +129,12 @@ export async function POST(req: NextRequest) {
 
   const validationErrors = buildValidationErrors({ ...payload, contactType });
   if (Object.keys(validationErrors).length > 0) {
-    const details = Object.entries(validationErrors).map(([field, detail]) => ({
+    const issues = Object.entries(validationErrors).map(([field, detail]) => ({
       field,
       code: detail.code,
       message: detail.message,
     }));
-    return jsonError("VALIDATION_ERROR", { request: req, details });
+    return jsonError("VALIDATION_ERROR", { request: req, details: { issues } });
   }
 
   const normalizedEmail = payload.email?.trim().toLowerCase() || null;
@@ -183,13 +183,13 @@ export async function POST(req: NextRequest) {
       (normalizedEmail ? normalizedEmail.split("@")[0] : null) ||
       normalizedPhone;
 
-    const insertUser = await db.query<{ user_id: string }>(
+    const insertUser = await db.query(
       `INSERT INTO app_user (email, phone, display_name)
        VALUES ($1, $2, $3)
        RETURNING user_id`,
       [normalizedEmail, normalizedPhone, derivedName],
     );
-    const userId = insertUser.rows[0]?.user_id;
+    const userId = (insertUser.rows[0] as { user_id: string } | undefined)?.user_id;
 
     if (!userId) {
       throw new Error("FAILED_TO_CREATE_USER");

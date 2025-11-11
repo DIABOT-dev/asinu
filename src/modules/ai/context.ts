@@ -238,7 +238,7 @@ async function loadRecentMetrics(userId: string): Promise<MetricLoadResult> {
 }
 
 function buildMealSummary(meal: MealRow): string {
-  const parts = [];
+  const parts: string[] = [];
   if (meal.meal_type) parts.push(meal.meal_type);
   if (meal.title) parts.push(meal.title);
   const base = parts.join(": ") || "Bữa gần nhất";

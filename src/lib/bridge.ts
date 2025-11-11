@@ -1,4 +1,4 @@
-import crypto, { randomUUID } from "crypto";
+import crypto from "crypto";
 import { query } from "@/lib/db_client";
 
 type BridgeEventPayload = Record<string, unknown>;
@@ -39,7 +39,7 @@ export async function emitBridgeEvent(event: string, payload: BridgeEventPayload
     return { delivered: false, skipped: true };
   }
 
-  const eventId = randomUUID();
+  const eventId = crypto.randomUUID();
   const userId = typeof payload.user_id === "string" ? payload.user_id : null;
   const userHash = userId ? hashUserId(userId) : null;
 
