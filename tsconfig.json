@@ -22,12 +22,11 @@
       "@ui/*": [
         "./src/interfaces/ui/*"
       ],
-<<<<<<< HEAD
-=======
+
       "@api/*": [
         "./src/interfaces/api/*"
       ],
->>>>>>> origin/main
+
       "@components/*": [
         "./src/interfaces/ui/components/*"
       ],
@@ -66,20 +65,6 @@
   },
   "include": [
     "next-env.d.ts",
-<<<<<<< HEAD
-    "src/**/*.ts",
-    "src/**/*.tsx",
-=======
-    "src/app/api/log/**/*.ts",
-    "src/app/api/log/**/*.tsx",
-    "src/app/api/chart/**/*.ts",
-    "src/app/api/chart/**/*.tsx",
-    "src/app/api/qa/**/*.ts",
-    "src/app/api/qa/**/*.tsx",
-    "src/app/admin/db-inspect/**/*.ts",
-    "src/lib/**/*.ts",
-    "src/lib/**/*.tsx",
->>>>>>> origin/main
     "types/**/*.d.ts",
     ".next/types/**/*.ts"
   ],

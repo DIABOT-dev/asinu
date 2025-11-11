@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-# ASINU — Clean Scaffold (Next.js 14.2 + Postgres 16 + Docker)
-=======
 # ASINU — Clean Scaffold (Next.js 14.2 + Postgres + Docker)
->>>>>>> origin/main
+
 
 ## 🚀 Quick Start
 
