@@ -1,6 +1,6 @@
 import type { SaveWaterLogDTO } from "../../domain/types";
 import { validateWater } from "../../domain/validators";
-import { WaterRepo } from "../../infrastructure/adapters/WaterRepo.supabase";
+import { WaterRepo } from "../../infrastructure/adapters/WaterRepo.api";
 
 export async function SaveWaterLog(dto: SaveWaterLogDTO) {
   const v = validateWater(dto);

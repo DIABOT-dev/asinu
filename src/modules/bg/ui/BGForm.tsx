@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import type { BGLogDTO, BGContext, BGUnit } from "@/modules/bg/domain/types";
 import { validateBG } from "@/modules/bg/domain/validators";
 import { SaveBGLog } from "@/modules/bg/application/usecases/SaveBGLog";
-import { BGRepoSupabase } from "@/modules/bg/infrastructure/adapters/BGRepo.supabase";
+import { BGRepoApi } from "@/modules/bg/infrastructure/adapters/BGRepo.api";
 
 export function BGForm() {
   // UI state
@@ -17,7 +17,7 @@ export function BGForm() {
 
   // repo + usecase (khởi tạo 1 lần)
   const saveBG = useMemo(() => {
-    const repo = new BGRepoSupabase();
+    const repo = new BGRepoApi();
     return new SaveBGLog(repo);
   }, []);
 

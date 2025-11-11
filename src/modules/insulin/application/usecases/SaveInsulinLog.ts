@@ -1,6 +1,6 @@
 import { SaveInsulinLogDTO, SaveResult } from "../../domain/types";
 import { validateInsulinDTO } from "../../domain/validators";
-import type { InsulinRepo } from "../../infrastructure/adapters/InsulinRepo.supabase";
+import type { InsulinRepo } from "../../infrastructure/adapters/InsulinRepo.api";
 
 export class SaveInsulinLog {
   constructor(private repo: InsulinRepo) {}

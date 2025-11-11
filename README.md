@@ -1,4 +1,4 @@
-# ASINU — Clean Scaffold (Next.js 14.2 + Postgres + Docker)
+# ASINU — Clean Scaffold (Next.js 14.2 + Postgres 16 + Docker)
 
 ## 🚀 Quick Start
 
@@ -67,6 +67,35 @@ curl -s http://localhost:3000/api/chart/7d
 ```bash
 curl -i http://localhost:3000/api/qa/selftest
 ```
+
+## 🌱 Mission Lite (Daily Actions)
+
+1. Enable the feature:
+   ```bash
+   export FEATURE_MISSION=true
+   export NEXT_PUBLIC_FEATURE_MISSION=true
+   ```
+2. Apply the latest migrations (includes `missions`, `user_missions`, `mission_log`).
+3. Hit the APIs with a valid `asinu.sid` session cookie:
+   ```bash
+   curl -i --cookie "asinu.sid=..." http://localhost:3000/api/missions/today
+   curl -i --cookie "asinu.sid=..." -X POST http://localhost:3000/api/missions/checkin \
+     -H "Content-Type: application/json" \
+     -d '{"mission_id":"<uuid-from-today>"}'
+   ```
+4. Visit `/dashboard` to see the “Today's Missions” checklist update live.
+
+## 🌉 Dia Brain Bridge
+
+Set the following environment variables to stream anonymized events to Dia Brain:
+
+```bash
+export BRIDGE_URL="https://bridge.example.com/v1/events"
+export BRIDGE_KEY="paste-issued-key"
+export BRIDGE_HASH_SECRET="per-env-random-secret"
+```
+
+The bridge client automatically hashes `user_id`, signs short-lived JWTs, and records all attempts in `bridge_log`.
 
 ## 🧠 Architecture
 

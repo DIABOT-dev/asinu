@@ -235,19 +235,6 @@ declare module 'openai' {
   }
 }
 
-declare module '@supabase/supabase-js' {
-  export type SupabaseClient = any
-  export function createClient(...args: any[]): SupabaseClient
-}
-
-declare module '@supabase/ssr' {
-  export const createServerComponentSupabaseClient: (...args: any[]) => any
-  export const createServerSupabaseClient: (...args: any[]) => any
-  export const createBrowserSupabaseClient: (...args: any[]) => any
-  export const createServerClient: (...args: any[]) => any
-  export type CookieOptions = any
-}
-
 declare module 'next/headers' {
   export const cookies: () => any
   export const headers: () => any

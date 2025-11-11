@@ -1,59 +1,83 @@
-# --- deps ---
-FROM node:20-alpine AS deps
+# syntax=docker/dockerfile:1.7
+
+ARG NODE_VERSION=20
+
+###############################################################################
+# deps – install production + build deps with cache/retry hardening
+###############################################################################
+FROM node:${NODE_VERSION}-bullseye-slim AS deps
+
 WORKDIR /app
 
-# Install security updates and ca-certificates
-RUN apk add --no-cache ca-certificates tzdata
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tzdata \
+    build-essential \
+    python3 \
+    pkg-config \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV \
+  npm_config_fetch_retries=5 \
+  npm_config_fetch_retry_maxtimeout=20000 \
+  npm_config_fetch_retry_mintimeout=2000 \
+  npm_config_loglevel=error \
+  NODE_ENV=production
 
 COPY package.json package-lock.json ./
-RUN HUSKY=0 npm ci --no-audit --no-fund
 
-# --- builder ---
-FROM node:20-alpine AS builder
+RUN --mount=type=cache,target=/root/.npm \
+  HUSKY=0 npm ci --no-audit --no-fund
+
+###############################################################################
+# builder – copy source and build Next.js app
+###############################################################################
+FROM node:${NODE_VERSION}-bullseye-slim AS builder
+
 WORKDIR /app
 
-# Install ca-certificates for build
-RUN apk add --no-cache ca-certificates
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates tzdata \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=production
 
 COPY --from=deps /app/node_modules ./node_modules
-
-# Copy source (excluding .env.local via .dockerignore)
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
+###############################################################################
+# runner – minimal image with standalone output
+###############################################################################
+FROM node:${NODE_VERSION}-bullseye-slim AS runner
 
-# --- runner ---
-FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apk add --no-cache \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
     wget \
-    && addgroup -g 1001 -S nodejs \
-    && adduser -S nextjs -u 1001
+  && rm -rf /var/lib/apt/lists/* \
+  && addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
 
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV TZ=UTC
+ENV NODE_ENV=production \
+    PORT=3000 \
+    TZ=UTC
 
-# 1) server.js + minimal node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-# 2) static assets
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# 3) server manifests
 COPY --from=builder --chown=nextjs:nodejs /app/.next/server ./.next/server
-# 4) public
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Switch to non-root user
 USER nextjs
 
 EXPOSE 3000
 
-# Health check using /api/healthz endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/healthz || exit 1
 

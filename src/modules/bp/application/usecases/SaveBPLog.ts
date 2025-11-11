@@ -1,4 +1,4 @@
-import { BPRepo } from "../../infrastructure/adapters/BPRepo.supabase"
+import { BPRepo } from "../../infrastructure/adapters/BPRepo.api"
 import { validateBP } from "../../domain/validators"
 import { BPLog } from "../../domain/types"
 

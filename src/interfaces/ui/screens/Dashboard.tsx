@@ -5,6 +5,7 @@ import Image from "next/image";
 import Card from "@/interfaces/ui/components/atoms/Card";
 import ChatOverlay from "@/interfaces/ui/components/ChatOverlay";
 import { apiFetch, ApiError } from "@/lib/http";
+import TodayMissions from "@/modules/mission/ui/TodayMissions";
 
 export default function Dashboard() {
   const [chatOpen, setChatOpen] = useState(false);
@@ -65,6 +66,8 @@ export default function Dashboard() {
         <div className="rounded-2xl p-4 bg-primary-50 border border-primary-100">
           <p className="text-2xl font-extrabold text-primary-700">Bạn hãy hoàn thành các mục tiêu nhé!</p>
         </div>
+
+        <TodayMissions />
 
         {/* Reminder – chỉ hiện khi có nhắc */}
         {reminderText && (

@@ -1,7 +1,6 @@
 // src/modules/meal/infrastructure/FeatureStoreRepo.ts
 // Query Feature Store tables (user_daily_features, user_meal_patterns, user_habit_scores)
-
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { query } from "@/lib/db_client";
 
 export interface DailyFeatures {
   date: string;
@@ -40,25 +39,25 @@ export class FeatureStoreRepo {
    */
   async getDailyFeatures(userId: string, date: string): Promise<DailyFeatures | null> {
     try {
-      const timeoutPromise = new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 150)
-      );
-
-      const queryPromise = supabaseAdmin()
-        .from('user_daily_features')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('date', date)
-        .limit(1) // Performance: explicit limit
-        .maybeSingle();
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
-
-      if (error) throw error;
-      return data;
+      return await runWithTimeout(async () => {
+        const result = await query<DailyFeatures & { date: Date }>(
+          `SELECT date::date, carb_g_total, protein_g_total, fat_g_total, dinner_pct, late_meal_count,
+                  fried_count, steamed_count, water_ml, water_target_pct
+           FROM user_daily_features
+           WHERE user_id = $1 AND date::date = $2::date
+           LIMIT 1`,
+          [userId, date],
+        );
+        const row = result.rows[0];
+        if (!row) return null;
+        return {
+          ...row,
+          date: toDateKey(row.date),
+        };
+      });
     } catch (error) {
-      console.error('Error fetching daily features:', error);
-      return null; // Fallback to null, caller will use fallback logic
+      console.error("Error fetching daily features:", error);
+      return null;
     }
   }
 
@@ -79,29 +78,27 @@ export class FeatureStoreRepo {
    */
   async getMealPatterns(userId: string, mealType?: string): Promise<MealPattern[]> {
     try {
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 150)
-      );
+      return await runWithTimeout(async () => {
+        const params: any[] = [userId];
+        let filterClause = "";
+        if (mealType) {
+          filterClause = "AND meal_type = $2";
+          params.push(mealType);
+        }
 
-      let query = supabaseAdmin()
-        .from('user_meal_patterns')
-        .select('meal_type, dish, portion_avg, freq_7d') // Explicit columns
-        .eq('user_id', userId)
-        .order('freq_7d', { ascending: false })
-        .limit(10); // Performance: top 10 only
-
-      if (mealType) {
-        query = query.eq('meal_type', mealType);
-      }
-
-      const result = await Promise.race([query, timeoutPromise]);
-      const { data, error } = result as any;
-
-      if (error) throw error;
-      return data || [];
+        const result = await query<MealPattern>(
+          `SELECT meal_type, dish, portion_avg, freq_7d
+           FROM user_meal_patterns
+           WHERE user_id = $1 ${filterClause}
+           ORDER BY freq_7d DESC
+           LIMIT 10`,
+          params,
+        );
+        return result.rows || [];
+      });
     } catch (error) {
-      console.error('Error fetching meal patterns:', error);
-      return []; // Fallback to empty array
+      console.error("Error fetching meal patterns:", error);
+      return [];
     }
   }
 
@@ -110,17 +107,22 @@ export class FeatureStoreRepo {
    */
   async getHabitScores(userId: string): Promise<HabitScore[]> {
     try {
-      const { data, error } = await supabaseAdmin()
-        .from('user_habit_scores')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false })
-        .limit(7);
-
-      if (error) throw error;
-      return data || [];
+      return await runWithTimeout(async () => {
+        const result = await query<HabitScore & { date: Date }>(
+          `SELECT date::date, cluster, score
+           FROM user_habit_scores
+           WHERE user_id = $1
+           ORDER BY date DESC
+           LIMIT 7`,
+          [userId],
+        );
+        return (result.rows || []).map((row) => ({
+          ...row,
+          date: toDateKey(row.date),
+        }));
+      });
     } catch (error) {
-      console.error('Error fetching habit scores:', error);
+      console.error("Error fetching habit scores:", error);
       return [];
     }
   }
@@ -133,36 +135,42 @@ export class FeatureStoreRepo {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - daysBack);
 
-      const { data, error } = await supabaseAdmin()
-        .from('meal_logs')
-        .select('carbs_g, protein_g, fat_g, meal_type, cooking_method, taken_at')
-        .eq('user_id', userId)
-        .gte('taken_at', startDate.toISOString());
+      const result = await query<{
+        carb_g: number | null;
+        protein_g: number | null;
+        fat_g: number | null;
+        notes: string | null;
+      }>(
+        `SELECT carb_g, protein_g, fat_g, notes
+         FROM log_meal
+         WHERE user_id = $1 AND noted_at >= $2`,
+        [userId, startDate.toISOString()],
+      );
 
-      if (error) throw error;
-      if (!data || data.length === 0) return {};
+      if (!result.rows || result.rows.length === 0) return {};
 
-      // Aggregate
       let totalCarb = 0;
       let totalProtein = 0;
       let totalFat = 0;
       let friedCount = 0;
 
-      for (const log of data) {
-        totalCarb += log.carbs_g || 0;
-        totalProtein += log.protein_g || 0;
-        totalFat += log.fat_g || 0;
-        if (log.cooking_method === 'fried') friedCount++;
+      for (const log of result.rows) {
+        totalCarb += log.carb_g ?? 0;
+        totalProtein += log.protein_g ?? 0;
+        totalFat += log.fat_g ?? 0;
+        if (log.notes && /fried/i.test(log.notes)) {
+          friedCount += 1;
+        }
       }
 
       return {
         carb_g_total: totalCarb,
         protein_g_total: totalProtein,
         fat_g_total: totalFat,
-        fried_count: friedCount
+        fried_count: friedCount,
       };
     } catch (error) {
-      console.error('Error computing features from logs:', error);
+      console.error("Error computing features from logs:", error);
       return {};
     }
   }
@@ -179,4 +187,20 @@ export class FeatureStoreRepo {
     console.warn('Feature Store empty, computing from raw logs');
     return this.computeFeaturesFromLogs(userId, 1);
   }
+}
+
+const DEFAULT_TIMEOUT_MS = 150;
+
+async function runWithTimeout<T>(fn: () => Promise<T>, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+  return Promise.race<T>([
+    fn(),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeoutMs)),
+  ]);
+}
+
+function toDateKey(value: Date | string): string {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  return value.slice(0, 10);
 }

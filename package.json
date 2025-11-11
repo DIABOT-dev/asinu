@@ -43,9 +43,6 @@
     "start-local": "node node_modules/next/dist/bin/next start"
   },
   "dependencies": {
-    "@supabase/auth-helpers-nextjs": "^0.10.0",
-    "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.57.4",
     "clsx": "^2.1.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.2",

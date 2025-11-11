@@ -1,11 +1,9 @@
-version: "3.9"
-
 services:
-  app:
+  asinu-app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: diabot/app:local
+    image: asinu/app:latest
     ports:
       - "3000:3000"
     env_file:
@@ -29,17 +27,17 @@ services:
 
   # Native Postgres service (replaces Supabase runtime)
   asinu-postgres:
-    image: postgres:15
+    image: postgres:16
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: VeryStrongPassword!
-      POSTGRES_DB: diabotdb
+      POSTGRES_DB: asinu_db
       PGPASSWORD: VeryStrongPassword!
     volumes:
       - ./data/db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d diabotdb"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d asinu_db"]
       interval: 10s
       timeout: 5s
       retries: 5

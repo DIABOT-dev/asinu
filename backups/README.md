@@ -9,20 +9,15 @@ This directory contains database snapshots for safe rollback.
 ## Usage
 
 To restore a snapshot:
-1. Go to Supabase Studio
-2. Navigate to SQL Editor
-3. Upload and run the SQL file
-4. Verify data integrity
+1. Copy the SQL file to the database host.
+2. Run `psql "$DATABASE_URL" -f backups/<filename>.sql`.
+3. Verify application health and smoke tests.
 
 ## Export New Snapshot
 
 ```bash
-# If using Supabase CLI
-supabase db dump -f backups/sb_$(date +%Y-%m-%d).sql
-
-# Manual export from Supabase Studio
-# 1. Go to Database > Backups
-# 2. Create new backup
-# 3. Download SQL file
-# 4. Save to this directory
+pg_dump "$DATABASE_URL" \
+  --schema=asinu_app \
+  --no-owner \
+  --file "backups/asinu_$(date +%Y-%m-%d).sql"
 ```

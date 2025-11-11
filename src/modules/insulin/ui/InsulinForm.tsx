@@ -4,7 +4,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { SaveInsulinLog } from "@/modules/insulin/application/usecases/SaveInsulinLog";
-import { InsulinRepoSupabase } from "@/modules/insulin/infrastructure/adapters/InsulinRepo.supabase";
+import { InsulinRepoApi } from "@/modules/insulin/infrastructure/adapters/InsulinRepo.api";
 import type { SaveInsulinLogDTO } from "../domain/types";
 
 function nowLocalISO(): string {
@@ -42,7 +42,7 @@ export default function InsulinForm() {
       return;
     }
 
-    const uc = new SaveInsulinLog(new InsulinRepoSupabase());
+    const uc = new SaveInsulinLog(new InsulinRepoApi());
     const res = await uc.execute(dto);
     setSubmitting(false);
 

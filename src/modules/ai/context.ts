@@ -1,262 +1,257 @@
-import { supabaseAdmin } from '@/lib/supabase/admin'; // Đã sửa import
-import type { AIContext, MetricPoint, BPPoint } from './types';
+import { query } from "@/lib/db_client";
+import type { AIContext, MetricPoint, BPPoint } from "./types";
 
-// New compressed context type for token optimization
+export type { AIContext } from "./types";
+
 export type CompressedAIContext = {
-  bg?: { latest: number; avg7d?: number; trend?: "up" | "down" | "flat" };
-  water?: { latestMl: number; avg7dMl?: number; trend?: "up" | "down" | "flat" };
-  weight?: { latestKg: number; avg7dKg?: number; trend?: "up" | "down" | "flat" };
-  bp?: { latest: { sys: number; dia: number }; avg7d?: { sys: number; dia: number }; trend?: "up" | "down" | "flat" };
-  meal?: { lastMeal: string; lastPortion?: string };
+  bg?: { latest?: number; avg7d?: number; trend?: "up" | "down" | "flat" };
+  water?: { latestMl?: number; avg7dMl?: number; trend?: "up" | "down" | "flat" };
+  weight?: { latestKg?: number; avg7dKg?: number; trend?: "up" | "down" | "flat" };
+  bp?: { latest?: { sys: number; dia: number }; avg7d?: { sys: number; dia: number }; trend?: "up" | "down" | "flat" };
+  meal?: { lastMeal: string; lastPortion?: string | null };
   notes?: string[];
 };
 
-export type { AIContext } from './types';
-
-// Cache cho context - 5 phút
 const contextCache = new Map<string, { data: AIContext; expires: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 phút
+const CACHE_TTL = 5 * 60 * 1000;
+const LOOKBACK_DAYS = 7;
+const MAX_ROWS = 200;
 
-/**
- * Đọc dữ liệu 7 ngày gần nhất của user để build context cho AI
- * Cache 5 phút để tránh query liên tục
- */
+type MealRow = {
+  title: string | null;
+  notes: string | null;
+  meal_type: string | null;
+  portion: string | null;
+  noted_at: Date;
+};
+
+type MetricLoadResult = {
+  bg: MetricPoint[];
+  water: MetricPoint[];
+  weight: MetricPoint[];
+  bp: BPPoint[];
+  insulin: MetricPoint[];
+  totalLogs: number;
+  latest: {
+    bg?: number;
+    bp?: { sys: number; dia: number };
+    weight?: number;
+  };
+  lastMeal: { brief: string; portion?: string | null } | null;
+};
+
 export async function buildContext(userId: string): Promise<AIContext> {
-  // Kiểm tra cache
   const cached = contextCache.get(userId);
   if (cached && Date.now() < cached.expires) {
     return cached.data;
   }
 
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
   try {
-    // Đọc song song tất cả logs 7 ngày
-    const [glucoseData, waterData, weightData, bpData, insulinData] = await Promise.all([
-      // Glucose logs - map cột chuẩn
-      supabaseAdmin() // Gọi supabaseAdmin như một hàm
-        .from('glucose_logs')
-        .select('value_mgdl, taken_at')
-        .eq('user_id', userId)
-        .gte('taken_at', sevenDaysAgo.toISOString())
-        .order('taken_at', { ascending: false }),
+    const metrics = await loadRecentMetrics(userId);
 
-      // Water logs - map cột chuẩn  
-      supabaseAdmin() // Gọi supabaseAdmin như một hàm
-        .from('water_logs')
-        .select('amount_ml, taken_at')
-        .eq('user_id', userId)
-        .gte('taken_at', sevenDaysAgo.toISOString())
-        .order('taken_at', { ascending: false }),
-
-      // Weight logs - map cột chuẩn
-      supabaseAdmin() // Gọi supabaseAdmin như một hàm
-        .from('weight_logs')
-        .select('weight_kg, taken_at')
-        .eq('user_id', userId)
-        .gte('taken_at', sevenDaysAgo.toISOString())
-        .order('taken_at', { ascending: false }),
-
-      // BP logs - map cột chuẩn
-      supabaseAdmin() // Gọi supabaseAdmin như một hàm
-        .from('bp_logs')
-        .select('systolic, diastolic, taken_at')
-        .eq('user_id', userId)
-        .gte('taken_at', sevenDaysAgo.toISOString())
-        .order('taken_at', { ascending: false }),
-
-      // Insulin logs - map cột chuẩn
-      supabaseAdmin() // Gọi supabaseAdmin như một hàm
-        .from('insulin_logs')
-        .select('dose_units, taken_at')
-        .eq('user_id', userId)
-        .gte('taken_at', sevenDaysAgo.toISOString())
-        .order('taken_at', { ascending: false })
-    ]);
-
-    // Xử lý glucose
-    const glucoseLogs = glucoseData.data || [];
-    const bg: MetricPoint[] = glucoseLogs.map(log => ({
-      ts: log.taken_at,
-      value: log.value_mgdl
-    }));
-
-    // Xử lý water
-    const waterLogs = waterData.data || [];
-    const water: MetricPoint[] = waterLogs.map(log => ({
-      ts: log.taken_at,
-      value: log.amount_ml
-    }));
-
-    // Xử lý weight
-    const weightLogs = weightData.data || [];
-    const weight: MetricPoint[] = weightLogs.map(log => ({
-      ts: log.taken_at,
-      value: log.weight_kg
-    }));
-
-    // Xử lý BP
-    const bpLogs = bpData.data || [];
-    const bp: BPPoint[] = bpLogs.map(log => ({
-      ts: log.taken_at,
-      sys: log.systolic,
-      dia: log.diastolic
-    }));
-
-    // Xử lý insulin
-    const insulinLogs = insulinData.data || [];
-    const insulin: MetricPoint[] = insulinLogs.map(log => ({
-      ts: log.taken_at,
-      value: log.dose_units
-    }));
-
-    // Latest values
-    const latest = {
-      bg: bg[0]?.value,
-      bp: bp[0] ? { sys: bp[0].sys, dia: bp[0].dia } : undefined,
-      weight: weight[0]?.value
-    };
-
-    // Tạo summary
     const summaryParts: string[] = [];
-    if (latest.bg) summaryParts.push(`BG gần nhất: ${latest.bg} mg/dL`);
-    if (latest.bp) summaryParts.push(`BP: ${latest.bp.sys}/${latest.bp.dia} mmHg`);
-    if (latest.weight) summaryParts.push(`Cân nặng: ${latest.weight} kg`);
-    
-    const totalLogs = bg.length + water.length + weight.length + bp.length + insulin.length;
-    summaryParts.push(`${totalLogs} bản ghi trong 7 ngày`);
-    
-    if (water.length > 0) {
-      const avgWater = water.reduce((sum, w) => sum + w.value, 0) / 7;
-      summaryParts.push(`Nước TB: ${Math.round(avgWater)}ml/ngày`);
+    if (metrics.latest.bg) summaryParts.push(`BG gần nhất: ${metrics.latest.bg} mg/dL`);
+    if (metrics.latest.bp) summaryParts.push(`BP: ${metrics.latest.bp.sys}/${metrics.latest.bp.dia} mmHg`);
+    if (metrics.latest.weight) summaryParts.push(`Cân nặng: ${metrics.latest.weight} kg`);
+    summaryParts.push(`${metrics.totalLogs} bản ghi trong ${LOOKBACK_DAYS} ngày`);
+    if (metrics.water.length) {
+      const avg = Math.round(metrics.water.reduce((sum, row) => sum + row.value, 0) / LOOKBACK_DAYS);
+      summaryParts.push(`Nước TB: ${avg} ml/ngày`);
     }
-
-    const summary = summaryParts.join('. ') + '.';
+    const summary = `${summaryParts.join(". ")}.`;
 
     const context: AIContext = {
       userId,
-      windowDays: 7,
+      windowDays: LOOKBACK_DAYS,
       summary,
-      metrics: { bg, water, weight, bp, insulin, latest }
+      metrics: {
+        bg: metrics.bg,
+        water: metrics.water,
+        weight: metrics.weight,
+        bp: metrics.bp,
+        insulin: metrics.insulin,
+        latest: metrics.latest,
+      },
     };
 
-    // Lưu cache
-    contextCache.set(userId, {
-      data: context,
-      expires: Date.now() + CACHE_TTL
-    });
-
+    contextCache.set(userId, { data: context, expires: Date.now() + CACHE_TTL });
     return context;
-
   } catch (error) {
-    console.error('Error building user context:', error);
-    
-    // Fallback context khi lỗi
+    console.error("Error building user context:", error);
     return {
       userId,
-      windowDays: 7,
-      summary: 'Không thể tải dữ liệu người dùng. Vui lòng thử lại sau.',
-      metrics: {
-        bg: [],
-        water: [],
-        weight: [],
-        bp: [],
-        insulin: [],
-        latest: {}
-      }
+      windowDays: LOOKBACK_DAYS,
+      summary: "Không thể tải dữ liệu người dùng. Vui lòng thử lại sau.",
+      metrics: { bg: [], water: [], weight: [], bp: [], insulin: [], latest: {} },
     };
   }
 }
 
-// Helper to calculate average and trend
-function calculateMetricStats(values: number[], latestValue?: number): { avg7d?: number; trend?: "up" | "down" | "flat" } {
-  if (values.length === 0) return {};
-  const sum = values.reduce((a, b) => a + b, 0);
-  const avg7d = Math.round(sum / values.length);
-
-  if (latestValue === undefined) return { avg7d };
-
-  const diff = latestValue - avg7d;
-  if (diff > avg7d * 0.05) return { avg7d, trend: "up" }; // > 5% increase
-  if (diff < -avg7d * 0.05) return { avg7d, trend: "down" }; // > 5% decrease
-  return { avg7d, trend: "flat" };
-}
-
-/**
- * Compressed context builder - reduces token usage by 60-70%
- * Returns only essential metrics: latest values, 7d averages, trends
- */
 export async function buildCompressedContext(userId: string): Promise<CompressedAIContext> {
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
   const context: CompressedAIContext = {};
 
   try {
-    // Fetch all relevant logs for the last 7 days
-    const [glucoseRes, waterRes, weightRes, bpRes, mealRes] = await Promise.all([
-      supabaseAdmin().from('glucose_logs').select('value_mgdl, taken_at').eq('user_id', userId).gte('taken_at', sevenDaysAgo.toISOString()).order('taken_at', { ascending: false }),
-      supabaseAdmin().from('water_logs').select('amount_ml, taken_at').eq('user_id', userId).gte('taken_at', sevenDaysAgo.toISOString()).order('taken_at', { ascending: false }),
-      supabaseAdmin().from('weight_logs').select('weight_kg, taken_at').eq('user_id', userId).gte('taken_at', sevenDaysAgo.toISOString()).order('taken_at', { ascending: false }),
-      supabaseAdmin().from('bp_logs').select('systolic, diastolic, taken_at').eq('user_id', userId).gte('taken_at', sevenDaysAgo.toISOString()).order('taken_at', { ascending: false }),
-      supabaseAdmin().from('meal_logs').select('items, taken_at').eq('user_id', userId).order('taken_at', { ascending: false }).limit(1)
-    ]);
+    const metrics = await loadRecentMetrics(userId);
 
-    // Glucose - compressed
-    const glucoseLogs = glucoseRes.data || [];
-    if (glucoseLogs.length > 0) {
-      const latest = glucoseLogs[0].value_mgdl;
-      const values = glucoseLogs.map(l => l.value_mgdl);
-      const { avg7d, trend } = calculateMetricStats(values, latest);
-      context.bg = { latest, avg7d, trend };
+    if (metrics.bg.length) {
+      const values = metrics.bg.map((item) => item.value);
+      const stats = calculateMetricStats(values, metrics.bg[0].value);
+      context.bg = { latest: metrics.bg[0].value, avg7d: stats.avg7d, trend: stats.trend };
     }
 
-    // Water - compressed
-    const waterLogs = waterRes.data || [];
-    if (waterLogs.length > 0) {
-      const latestMl = waterLogs[0].amount_ml;
-      const values = waterLogs.map(l => l.amount_ml);
-      const { avg7d, trend } = calculateMetricStats(values, latestMl);
-      context.water = { latestMl, avg7dMl: avg7d, trend };
+    if (metrics.water.length) {
+      const values = metrics.water.map((item) => item.value);
+      const stats = calculateMetricStats(values, metrics.water[0].value);
+      context.water = { latestMl: metrics.water[0].value, avg7dMl: stats.avg7d, trend: stats.trend };
     }
 
-    // Weight - compressed
-    const weightLogs = weightRes.data || [];
-    if (weightLogs.length > 0) {
-      const latestKg = weightLogs[0].weight_kg;
-      const values = weightLogs.map(l => l.weight_kg);
-      const { avg7d, trend } = calculateMetricStats(values, latestKg);
-      context.weight = { latestKg, avg7dKg: avg7d, trend };
+    if (metrics.weight.length) {
+      const values = metrics.weight.map((item) => item.value);
+      const stats = calculateMetricStats(values, metrics.weight[0].value);
+      context.weight = { latestKg: metrics.weight[0].value, avg7dKg: stats.avg7d, trend: stats.trend };
     }
 
-    // Blood Pressure - compressed
-    const bpLogs = bpRes.data || [];
-    if (bpLogs.length > 0) {
-      const latest = { sys: bpLogs[0].systolic, dia: bpLogs[0].diastolic };
-      const sysValues = bpLogs.map(l => l.systolic);
-      const diaValues = bpLogs.map(l => l.diastolic);
-      const { avg7d: avgSys, trend: trendSys } = calculateMetricStats(sysValues, latest.sys);
-      const { avg7d: avgDia, trend: trendDia } = calculateMetricStats(diaValues, latest.dia);
-      context.bp = {
-        latest,
-        avg7d: avgSys && avgDia ? { sys: avgSys, dia: avgDia } : undefined,
-        trend: trendSys === trendDia ? trendSys : undefined
-      };
+    if (metrics.bp.length) {
+      const latest = metrics.bp[0];
+      const avgSys = Math.round(metrics.bp.reduce((sum, row) => sum + row.sys, 0) / metrics.bp.length);
+      const avgDia = Math.round(metrics.bp.reduce((sum, row) => sum + row.dia, 0) / metrics.bp.length);
+      context.bp = { latest: { sys: latest.sys, dia: latest.dia }, avg7d: { sys: avgSys, dia: avgDia } };
     }
 
-    // Meal - compressed
-    const mealLog = mealRes.data?.[0];
-    if (mealLog && mealLog.items && Array.isArray(mealLog.items) && mealLog.items.length > 0) {
+    if (metrics.lastMeal) {
       context.meal = {
-        lastMeal: mealLog.items[0]?.name || "Unknown meal"
+        lastMeal: metrics.lastMeal.brief,
+        lastPortion: metrics.lastMeal.portion,
       };
     }
-
   } catch (error) {
     console.error("Error building compressed context:", error);
-    // Graceful degradation - return empty context, don't crash
   }
 
   return context;
+}
+
+function calculateMetricStats(values: number[], latestValue?: number): { avg7d?: number; trend?: "up" | "down" | "flat" } {
+  if (!values.length) return {};
+  const avg7d = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  if (latestValue === undefined) return { avg7d };
+  const diff = latestValue - avg7d;
+  if (diff > avg7d * 0.05) return { avg7d, trend: "up" };
+  if (diff < -avg7d * 0.05) return { avg7d, trend: "down" };
+  return { avg7d, trend: "flat" };
+}
+
+async function loadRecentMetrics(userId: string): Promise<MetricLoadResult> {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - LOOKBACK_DAYS);
+  const sinceIso = since.toISOString();
+
+  const [bgRes, waterRes, weightRes, bpRes, insulinRes, mealRes] = await Promise.all([
+    query<{ value_mgdl: number; noted_at: Date }>(
+      `SELECT value_mgdl, noted_at
+       FROM log_bg
+       WHERE user_id = $1 AND noted_at >= $2
+       ORDER BY noted_at DESC
+       LIMIT ${MAX_ROWS}`,
+      [userId, sinceIso],
+    ),
+    query<{ volume_ml: number; noted_at: Date }>(
+      `SELECT volume_ml, noted_at
+       FROM log_water
+       WHERE user_id = $1 AND noted_at >= $2
+       ORDER BY noted_at DESC
+       LIMIT ${MAX_ROWS}`,
+      [userId, sinceIso],
+    ),
+    query<{ weight_kg: number; noted_at: Date }>(
+      `SELECT weight_kg, noted_at
+       FROM log_weight
+       WHERE user_id = $1 AND noted_at >= $2
+       ORDER BY noted_at DESC
+       LIMIT ${MAX_ROWS}`,
+      [userId, sinceIso],
+    ),
+    query<{ sys: number; dia: number; noted_at: Date }>(
+      `SELECT sys, dia, noted_at
+       FROM log_bp
+       WHERE user_id = $1 AND noted_at >= $2
+       ORDER BY noted_at DESC
+       LIMIT ${MAX_ROWS}`,
+      [userId, sinceIso],
+    ),
+    query<{ dose_units: number; noted_at: Date }>(
+      `SELECT dose_units, noted_at
+       FROM log_insulin
+       WHERE user_id = $1 AND noted_at >= $2
+       ORDER BY noted_at DESC
+       LIMIT ${MAX_ROWS}`,
+      [userId, sinceIso],
+    ),
+    query<MealRow>(
+      `SELECT title, notes, meal_type, portion, noted_at
+       FROM log_meal
+       WHERE user_id = $1
+       ORDER BY noted_at DESC
+       LIMIT 1`,
+      [userId],
+    ),
+  ]);
+
+  const bg = (bgRes.rows || []).map<MetricPoint>((row) => ({
+    ts: toIso(row.noted_at),
+    value: Number(row.value_mgdl),
+  }));
+  const water = (waterRes.rows || []).map<MetricPoint>((row) => ({
+    ts: toIso(row.noted_at),
+    value: Number(row.volume_ml),
+  }));
+  const weight = (weightRes.rows || []).map<MetricPoint>((row) => ({
+    ts: toIso(row.noted_at),
+    value: Number(row.weight_kg),
+  }));
+  const bp = (bpRes.rows || []).map<BPPoint>((row) => ({
+    ts: toIso(row.noted_at),
+    sys: Number(row.sys),
+    dia: Number(row.dia),
+  }));
+  const insulin = (insulinRes.rows || []).map<MetricPoint>((row) => ({
+    ts: toIso(row.noted_at),
+    value: Number(row.dose_units),
+  }));
+
+  const totalLogs = bg.length + water.length + weight.length + bp.length + insulin.length;
+  const latest = {
+    bg: bg[0]?.value,
+    bp: bp[0] ? { sys: bp[0].sys, dia: bp[0].dia } : undefined,
+    weight: weight[0]?.value,
+  };
+
+  const meal = mealRes.rows?.[0] ?? null;
+  const lastMeal = meal
+    ? {
+      brief: buildMealSummary(meal),
+      portion: meal.portion,
+    }
+    : null;
+
+  return { bg, water, weight, bp, insulin, totalLogs, latest, lastMeal };
+}
+
+function buildMealSummary(meal: MealRow): string {
+  const parts = [];
+  if (meal.meal_type) parts.push(meal.meal_type);
+  if (meal.title) parts.push(meal.title);
+  const base = parts.join(": ") || "Bữa gần nhất";
+  if (meal.notes) return `${base} (${truncate(meal.notes, 60)})`;
+  return base;
+}
+
+function truncate(input: string, max: number): string {
+  if (input.length <= max) return input;
+  return `${input.slice(0, max)}…`;
+}
+
+function toIso(value: Date | string): string {
+  if (value instanceof Date) return value.toISOString();
+  return new Date(value).toISOString();
 }

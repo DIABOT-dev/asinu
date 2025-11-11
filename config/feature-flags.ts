@@ -38,6 +38,7 @@ export type FlagKey =
   | 'RELATIVE_ENABLED'        // boolean - FamilyLink module
   | 'NUDGE_ENABLED'           // boolean - Proactive Nudge system
   | 'SAFETY_RULES_ENABLED'    // boolean - Enhanced safety validation
+  | 'FEATURE_MISSION'         // boolean - Mission Lite module
 
   // Advanced AI features
   | 'AI_GATEWAY_ENABLED'
@@ -110,6 +111,7 @@ export function getFeatureFlags(): FeatureFlags {
     RELATIVE_ENABLED: readEnvBool('RELATIVE_ENABLED', false),
     NUDGE_ENABLED: readEnvBool('NUDGE_ENABLED', false),
     SAFETY_RULES_ENABLED: readEnvBool('SAFETY_RULES_ENABLED', false),
+    FEATURE_MISSION: readEnvBool('FEATURE_MISSION', false),
 
     // AI specific flags - server-side
     AI_CACHE_ENABLED: readEnvBool('AI_CACHE_ENABLED', true), // Default enabled
