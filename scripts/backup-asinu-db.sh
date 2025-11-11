@@ -6,7 +6,11 @@
 set -euo pipefail
 
 CONTAINER=${CONTAINER:-asinu-postgres}
+<<<<<<< HEAD
 DATABASE=${DATABASE:-asinu_db}
+=======
+DATABASE=${DATABASE:-diabotdb}
+>>>>>>> origin/main
 DB_USER=${DB_USER:-postgres}
 BACKUP_DIR=${BACKUP_DIR:-/mnt/diabot-prod/db-backup}
 RETENTION_DAYS=${RETENTION_DAYS:-14}

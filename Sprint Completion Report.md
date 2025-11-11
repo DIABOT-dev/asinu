@@ -22,7 +22,11 @@
 - `src/app/api/**` (các route liệt kê ở trên) & client screens/hooks sử dụng `apiFetch`
 
 ## 4) QA Evidence (A–F)
+<<<<<<< HEAD
 - **In progress**: Viettel S3/DB đã bật lại; cần chạy thực tế 6 bước (F → login → A/B/C/D) trên `https://asinu.top` và ghi lại mỗi response (status, `X-Request-Id`, JSON mẫu). Sẽ cập nhật bảng QA ngay khi có log.
+=======
+- **Pending**: App/API chưa được bring-up trong môi trường này (Viettel S3 + DB đang tạm ngưng gia hạn) nên chưa thể chạy bộ Acceptance A–F. Khi dịch vụ được nối lại, chạy curl/script cho từng scenario rồi đính kèm log headers + body JSON (status + `X-Request-Id` + mẫu dữ liệu).
+>>>>>>> origin/main
 
 ## 5) Type/Lint/Build
 - `npm run type-check`: PASS
@@ -34,5 +38,9 @@
 - Middleware chỉ guard routing; API trả JSON 401/422/5xx theo Error Contract v1.
 
 ## 7) Next Steps
+<<<<<<< HEAD
 - Thực hiện script/curl QA A–F trên môi trường production (`asinu.top`), thu thập log + headers + body mẫu cho mỗi scenario và đính kèm vào PR.
+=======
+- Sau khi Viettel S3/DB được gia hạn: bring-up runtime, chạy QA A–F, log lại từng request (status + `X-Request-Id` + 1 sample JSON/body) và đính kèm vào PR.
+>>>>>>> origin/main
 - Khi có log thực tế, dùng `request_id` để trace lỗi trong monitoring/observability.

@@ -4,11 +4,19 @@
 # Port: 80 (mapped from container port 3000)
 
 services:
+<<<<<<< HEAD
   asinu-app:
     build:
       context: .
       dockerfile: Dockerfile
     image: asinu/app:latest
+=======
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: diabot/app:0.9.0
+>>>>>>> origin/main
     ports:
       - "127.0.0.1:3000:3000"
     env_file:
@@ -52,17 +60,29 @@ services:
           memory: 512M
 
   asinu-postgres:
+<<<<<<< HEAD
     image: postgres:16
+=======
+    image: postgres:15
+>>>>>>> origin/main
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: VeryStrongPassword!
+<<<<<<< HEAD
       POSTGRES_DB: asinu_db
+=======
+      POSTGRES_DB: diabotdb
+>>>>>>> origin/main
       PGPASSWORD: VeryStrongPassword!
     volumes:
       - ./data/db:/var/lib/postgresql/data
     healthcheck:
+<<<<<<< HEAD
       test: ["CMD-SHELL", "pg_isready -U postgres -d asinu_db"]
+=======
+      test: ["CMD-SHELL", "pg_isready -U postgres -d diabotdb"]
+>>>>>>> origin/main
       interval: 10s
       timeout: 5s
       retries: 5
