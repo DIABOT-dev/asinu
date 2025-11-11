@@ -1,10 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Card from "@/interfaces/ui/components/atoms/Card";
 import ChatOverlay from "@/interfaces/ui/components/ChatOverlay";
 import { apiFetch, ApiError } from "@/lib/http";
+
+const TodayMissions = dynamic(() => import("@/modules/mission/ui/TodayMissions"), {
+  ssr: false,
+});
 
 
 export default function Dashboard() {
