@@ -23,7 +23,7 @@ ENV \
   npm_config_fetch_retry_maxtimeout=20000 \
   npm_config_fetch_retry_mintimeout=2000 \
   npm_config_loglevel=error \
-  NODE_ENV=production
+  NODE_ENV=development
 
 COPY package.json package-lock.json ./
 
