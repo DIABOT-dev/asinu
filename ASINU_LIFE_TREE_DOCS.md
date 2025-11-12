@@ -152,6 +152,8 @@ redemptions(id, user_id, item_id, cost, voucher_code, status, meta, created_at)
 
 rulesets(id, name, jsonb_rules, active)
 seeding_rules(id, ladder_json, active)
+
+> Cập nhật 12/11/2025: các bảng `tree_events`, `points_ledger`, `tree_state` đã được triển khai (migration `115_tree_ledger.sql`) để phục vụ Sprint 1.
 ```
 
 > Ledger là nguồn dữ liệu chính. Các bảng `balances` và `tree_state` được cập nhật async (eventually consistent).
@@ -303,6 +305,14 @@ seeding_rules(id, ladder_json, active)
 - **P4:** Gamified events + Voice Anora.  
 - **P5:** On-chain proof / SBT milestone (Soul-bound token).  
 
+#### Sprint roadmap chi tiết (cập nhật 12/11/2025)
+| Sprint | Hạng mục | Chi tiết |
+|--------|----------|----------|
+| 1 | Ledger & Tree State | Migration `tree_events`, `points_ledger`, `tree_state`; helper `awardPoints`; API `/api/tree/state` (Next.js) – chưa có UI. |
+| 2 | UI & Dopamine | Xây `LifeTreeScene` (React/Three hoặc Lottie), binding state, micro-feedback (rung, glow, seeding CTA). |
+| 3 | Rewards & Ladder | Catalog/offers/redemptions + seeding ladder (xem `docs/REWARDS_MODULE_SPEC.md`), flag `REWARDS_ENABLED=false` tới khi UI hoàn thành. |
+| 4 | Family Forest | Nhóm hóa cây (owner + relatives), bonus nhóm, CSR challenge. |
+
 ---
 
 ### 8. Kết luận
@@ -311,4 +321,7 @@ Life Tree là **sự kết hợp giữa sức khỏe – cảm xúc – trò ch�
 Nó tạo ra động lực lành mạnh giúp người bệnh và người thân **muốn quay lại mỗi ngày**, đồng thời mở ra một nền kinh tế quà tặng sức khỏe mà doanh nghiệp có thể cùng tham gia.
 
 ---
+<<<<<<< HEAD
 
+=======
+>>>>>>> 921d7f0 (feat(tree): implement sprint1-2 scaffolding and plan rewards)

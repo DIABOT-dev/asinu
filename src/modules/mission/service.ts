@@ -1,4 +1,5 @@
 import { emitMissionDoneEvent, type MissionDoneEvent } from "@/lib/bridge";
+import { awardTreePoints } from "@/modules/tree/service";
 import { createDbMissionRepository, getDbPoolClient, type MissionRepository } from "./repository";
 import type { MissionCheckinResult, MissionStatus, MissionTodayPayload } from "./types";
 import { determineMissionStatus, getDateKey, isDuplicateCheckin, summarizeMissions } from "./utils";
@@ -105,6 +106,16 @@ export function createMissionService(deps: MissionServiceDeps = {}) {
         ts: refDate.toISOString(),
       }).catch((error) => {
         console.warn("[mission] bridge emit failed", error);
+      });
+
+      awardTreePoints({
+        userId,
+        delta: missionPoints,
+        reason: missionCode ? `mission:${missionCode}` : "mission",
+        meta: { mission_id: missionId, mission_code: missionCode },
+        idempotencyKey: `mission:${missionId}:${key}`,
+      }).catch((error) => {
+        console.warn("[tree] award mission points failed", error);
       });
     }
 

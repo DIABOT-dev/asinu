@@ -35,6 +35,17 @@ Tuyệt đối không BaaS bên thứ ba.
 
 Nguyên tắc vàng: Asinu và Dia Brain tách rời hoàn toàn (hạ tầng + DB + storage). Giao tiếp chỉ qua Bridge (HTTPS + JWT), payload ẩn danh.
 
+### 0.1 Tiến độ 12/11/2025
+
+| Hạng mục | Tiến độ | Ghi chú |
+|-----------|---------|---------|
+| Mission Lite | ✅ Hoàn tất | DB (`missions`, `user_missions`, `mission_log`), API `/api/missions/*`, FE checklist + toast, Dia Brain bridge stub active. |
+| Life Tree | 🚧 Sprint 1–2 done | Ledger `tree_events/points_ledger/tree_state`, helper award từ nhiệm vụ, API `/api/tree/state`, UI `LifeTreeCard` (flag `TREE_ENABLED`). |
+| Rewards (Sprint 3) | 📘 Đã lên kế hoạch | Spec `docs/REWARDS_MODULE_SPEC.md`, migration skeleton `116_rewards_catalog.sql`, flag `REWARDS_ENABLED=false`. |
+| Family Module (Phase A) | ✅ Hạ tầng sẵn sàng | Migration `114` tạo `relatives`, enums, `logged_by` trên toàn bộ `log_*`, feature flag `RELATIVE_ENABLED` mặc định OFF. |
+| CI & Docker workflows | ✅ Ổn định | Core CI (lint/type/test/build), Docker Build & Smoke (ping `/api/qa/selftest`), Extended QA chờ dữ liệu lab. |
+| Các module khác | 🟧 Follow-up | Life Tree rendering nâng cao, Family Phase B (Viewer flows), Reward UI, Dia Brain bridge events, Emergency Mode pending sau MVP. |
+
 1) Kiến trúc hệ thống (Asinu)
 1.1 Sơ đồ tổng quát
 [ASINU APP — Next.js 15 (TARGET) / 14.2.7 (CURRENT)]
@@ -88,6 +99,13 @@ Cron seed hằng ngày (00:05) sinh user_missions.
 
 Hàm tính stage: life_tree.stage(E_day).
 
+> Chi tiết trải nghiệm, hiệu ứng dopamine, và roadmap Life Tree xem `ASINU_LIFE_TREE_DOCS.md` (phiên bản 1.0).
+
+**Roadmap thực thi (2025-11-12):**
+- Sprint 1 (đang triển khai): dựng schema `tree_events`, `points_ledger`, `tree_state` + helper award điểm + API `/api/tree/state`.
+- Sprint 2 (tiếp theo): dựng UI Life Tree (React/Three hoặc Lottie) + dopamine micro-feedback, chưa gắn rewards.
+- Sprint 3+: ladder rewards & catalog, Sprint 4 tie-in Family Forest (sau khi Family Phase B bật).
+
 2.3 Health Logs
 
 Bảng & field:
@@ -118,6 +136,8 @@ GET /api/family/dashboard
 
 POST /api/family/notify
 
+> **Tiến độ:** Phase A (schema, feature flag, API gate) đã xong – `RELATIVE_ENABLED=false` mặc định, `/api/relative/*` trả 404 đến khi bật. Phase B (viewer dashboard + invite flow) và Phase C (editor + emergency alert) vẫn chờ triển khai.
+
 2.5 Reports & Alerts
 
 Báo cáo tuần/tháng → PDF (reportlab hoặc node-pdf lib).
@@ -147,15 +167,15 @@ mission_log(id pk, user_id, mission_id, action, created_at)
 
 Health logs
 
-log_bg, log_bp, log_weight, log_sleep, log_activity, log_meal, log_mood (có user_id, taken_at/created_at)
+log_bg, log_bp, log_weight, log_sleep, log_activity, log_meal, log_mood (có user_id, taken_at/created_at, **logged_by** để track ghi hộ)
 
 Gia đình
 
-family(id pk, name, created_by)
+family(id pk, name, created_by) **(legacy – được thay bằng relatives)**
 
-family_members(family_id, user_id, role, unique(family_id, user_id))
+relatives(id uuid pk, owner_user_id, relative_user_id, relation, role, created_at, unique(owner_user_id, relative_user_id), logged_by audit thông qua các bảng log)
 
-notifications(id pk, user_id, family_id, type, payload jsonb, created_at)
+notifications(id pk, user_id, family_id, type, payload jsonb, created_at) *(đang freeze)*
 
 Tổng hợp
 
@@ -166,6 +186,12 @@ metrics_week(user_id, week, …)
 Bridge
 
 bridge_log(id pk, event_id, user_id, user_hash, type, payload jsonb, status, created_at)
+
+Life Tree Ledger
+
+tree_events(id, user_id, event_type, amount, meta, idempotency_key, created_at)  
+points_ledger(id, user_id, delta, reason, event_id, idempotency_key, created_at)  
+tree_state(user_id pk, total_points, level, e_day, streak, last_event_at, updated_at)
 
 3.2 RLS (áp dụng khi chuyển sang API hoặc ngay trong app nếu đã set GUC)
 -- ví dụ: health_log
@@ -247,6 +273,11 @@ RLS tại DB; không query chéo người dùng.
 Rate limit (Redis khi sẵn): 100 req/5 phút/IP.
 
 Bridge: HTTPS + Authorization: Bearer <BRIDGE_JWT>; IP allowlist.
+
+4.7 Life Tree
+
+GET /api/tree/state → trạng thái cây (level, E_day, streak, next milestone).  
+POST /api/tree/event (tbd) → ingest điểm từ nhiệm vụ/log.
 
 Tuyệt đối không gửi PII sang Dia Brain; chỉ user_hash + dữ liệu đã chuẩn hoá.
 

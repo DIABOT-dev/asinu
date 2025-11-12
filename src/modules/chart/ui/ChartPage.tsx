@@ -10,6 +10,7 @@ import { Segmented } from "./components/ToggleGroup";
 import { Skeleton } from "./components/Skeleton";
 import { useEffect, useState } from 'react';
 import { getFeatureFlag } from '../../../../config/feature-flags';
+import LifeTreeCard from "@/modules/tree/ui/LifeTreeCard";
 
 const timelineMetrics: Metric[] = ["BG", "BP", "Insulin", "Weight", "Water", "Meal"];
 
@@ -102,6 +103,8 @@ export default function ChartPage() {
   
   return (
     <div className="space-y-6">
+      <LifeTreeCard />
+
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         <Segmented
           ariaLabel="Chọn khoảng thời gian"

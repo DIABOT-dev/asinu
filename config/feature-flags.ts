@@ -39,6 +39,7 @@ export type FlagKey =
   | 'NUDGE_ENABLED'           // boolean - Proactive Nudge system
   | 'SAFETY_RULES_ENABLED'    // boolean - Enhanced safety validation
   | 'FEATURE_MISSION'         // boolean - Mission Lite module
+  | 'TREE_ENABLED'            // boolean - Life Tree module
 
   // Advanced AI features
   | 'AI_GATEWAY_ENABLED'
@@ -112,6 +113,7 @@ export function getFeatureFlags(): FeatureFlags {
     NUDGE_ENABLED: readEnvBool('NUDGE_ENABLED', false),
     SAFETY_RULES_ENABLED: readEnvBool('SAFETY_RULES_ENABLED', false),
     FEATURE_MISSION: readEnvBool('FEATURE_MISSION', false),
+    TREE_ENABLED: readEnvBool('TREE_ENABLED', false),
 
     // AI specific flags - server-side
     AI_CACHE_ENABLED: readEnvBool('AI_CACHE_ENABLED', true), // Default enabled
@@ -210,4 +212,12 @@ export function getFeatureFlagStatus(): {
     serverSide,
     killSwitch: isKillSwitchActive()
   };
+}
+
+/**
+ * Testing helper – clears the in-memory cache so subsequent reads
+ * reflect the latest process.env values.
+ */
+export function resetFeatureFlagCache(): void {
+  _cache = null;
 }
