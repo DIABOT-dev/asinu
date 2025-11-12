@@ -20,7 +20,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:vitest": "vitest run -c vitest.e2e.config.ts",
     "etl:daily": "tsx scripts/etlDaily.ts",
