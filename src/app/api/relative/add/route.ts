@@ -10,6 +10,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { featureGate } from '@/lib/middleware/featureGate';
+import { getSession } from '@/infrastructure/auth/session';
+import { familyService } from '@/modules/family/service';
+import { NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   // Feature gate: return 404 if RELATIVE_ENABLED is OFF
@@ -18,55 +21,33 @@ export async function POST(req: NextRequest) {
 
   // Feature is enabled, proceed with logic
   try {
+    const session = await getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { relative_id, relation_type, role } = body;
+    const { relative_id, relation_type, role = "viewer" } = body ?? {};
 
-    // Validation stub
-    if (!relative_id || !relation_type || !role) {
-      return NextResponse.json(
-        { error: 'Missing required fields: relative_id, relation_type, role' },
-        { status: 400 }
-      );
+    if (!relative_id || typeof relative_id !== "string") {
+      return NextResponse.json({ error: "relative_id is required" }, { status: 400 });
     }
 
-    // Validate role
-    if (!['viewer', 'editor'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be viewer or editor' },
-        { status: 400 }
-      );
-    }
+    const relation = String(relation_type ?? "other");
+    const resolvedRole = String(role ?? "viewer");
 
-    // Validate relation_type
-    const validRelations = ['father', 'mother', 'son', 'daughter', 'spouse', 'sibling', 'other'];
-    if (!validRelations.includes(relation_type)) {
-      return NextResponse.json(
-        { error: 'Invalid relation_type' },
-        { status: 400 }
-      );
-    }
+    await familyService.addRelative(session.user_id, relative_id, relation as any, resolvedRole as any);
 
-    // TODO: Implement actual logic
-    // 1. Get user_id from auth
-    // 2. Check relative_id exists in profiles
-    // 3. Insert into relatives table
-    // 4. Return success
-
-    // Stub response
+    const relatives = await familyService.listRelatives(session.user_id);
     return NextResponse.json({
       success: true,
-      message: 'Relative link created (stub)',
-      data: {
-        id: 'stub-uuid',
-        user_id: 'current-user-id',
-        relative_id,
-        relation_type,
-        role,
-        created_at: new Date().toISOString(),
-      },
+      data: relatives,
     }, { status: 201 });
   } catch (error) {
     console.error('Error in /api/relative/add:', error);
+    if (error instanceof Error && "status" in error && typeof (error as any).status === "number") {
+      return NextResponse.json({ error: error.message }, { status: (error as any).status });
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

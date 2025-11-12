@@ -42,7 +42,7 @@ Nguyên tắc vàng: Asinu và Dia Brain tách rời hoàn toàn (hạ tầng + 
 | Mission Lite | ✅ Hoàn tất | DB (`missions`, `user_missions`, `mission_log`), API `/api/missions/*`, FE checklist + toast, Dia Brain bridge stub active. |
 | Life Tree | 🚧 Sprint 1–2 done | Ledger `tree_events/points_ledger/tree_state`, helper award từ nhiệm vụ, API `/api/tree/state`, UI `LifeTreeCard` (flag `TREE_ENABLED`). |
 | Rewards (Sprint 3) | 📘 Đã lên kế hoạch | Spec `docs/REWARDS_MODULE_SPEC.md`, migration skeleton `116_rewards_catalog.sql`, flag `REWARDS_ENABLED=false`. |
-| Family Module (Phase A) | ✅ Hạ tầng sẵn sàng | Migration `114` tạo `relatives`, enums, `logged_by` trên toàn bộ `log_*`, feature flag `RELATIVE_ENABLED` mặc định OFF. |
+| Family Module | 🚧 Phase B backend | Phase A (schema + flag) hoàn tất; Phase B đã có API list/add/remove/dashboard với permission; Phase C (log hộ + emergency) pending. |
 | CI & Docker workflows | ✅ Ổn định | Core CI (lint/type/test/build), Docker Build & Smoke (ping `/api/qa/selftest`), Extended QA chờ dữ liệu lab. |
 | Các module khác | 🟧 Follow-up | Life Tree rendering nâng cao, Family Phase B (Viewer flows), Reward UI, Dia Brain bridge events, Emergency Mode pending sau MVP. |
 
@@ -132,11 +132,12 @@ Gói 3 / 5 người; người thân xem dashboard, nhắc nhau, tặng Premium.
 
 API (giai đoạn 1 – trong app):
 
-GET /api/family/dashboard
+GET /api/relative/list  
+POST /api/relative/add  
+DELETE /api/relative/remove  
+GET /api/relative/dashboard?user_id=
 
-POST /api/family/notify
-
-> **Tiến độ:** Phase A (schema, feature flag, API gate) đã xong – `RELATIVE_ENABLED=false` mặc định, `/api/relative/*` trả 404 đến khi bật. Phase B (viewer dashboard + invite flow) và Phase C (editor + emergency alert) vẫn chờ triển khai.
+> **Tiến độ:** Phase A (schema + flag) DONE. Phase B backend (list/add/remove/dashboard với kiểm soát owner/relative) đã hoàn thiện; Phase C (log hộ/editor + emergency alert) đang chờ UI/consent.
 
 2.5 Reports & Alerts
 
