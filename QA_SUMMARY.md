@@ -4,7 +4,7 @@
 - ✅ Repo đã khôi phục đầy đủ trên Bolt
 - ✅ Cấu hình CI/CD (lint → build:ci → smoke) có trong `.github/workflows/ci.yml`
 - ✅ Scripts smoke kiểm tra health, log water, chart bg 7d, etl weekly
-- ✅ Supabase schema: đủ logs (bg, meal, water, weight, bp, insulin)
+- ✅ Postgres schema: đủ logs (bg, meal, water, weight, bp, insulin)
 - ✅ RLS policies: user chỉ xem được dữ liệu của mình
 - ✅ Seed demo data có sẵn (scripts/db_seed_demo.ts + 99_seed_dev.sql)
 - ✅ Empty states & skeletons trong Chart/Meal

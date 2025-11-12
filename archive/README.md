@@ -1,6 +1,6 @@
-# Bolt & Supabase Legacy Archive
+# Bolt Legacy Archive
 
-Artifacts in this directory were moved out of the active codebase during the Bolt/Supabase retirement.
+Artifacts in this directory were moved out of the active codebase during the Bolt backend retirement.
 
 - **Retention window:** 4 weeks from the archive date stamped in each subdirectory (e.g. `2025-10-09`).
 - **Do not modify** files in place; any recovery must copy the asset back into the working tree in a new branch for review.

@@ -1,70 +1,11 @@
-name: Deploy Camp
+name: "[DEPRECATED] Deploy Camp"
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  workflow_dispatch: {}
 
 jobs:
-  deploy:
+  notice:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
-    env:
-      VPS_HOST: ${{ secrets.VPS_HOST }}
-      VPS_USER: ${{ secrets.VPS_USER }}          # nên là ubuntu
-      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-      IMAGE: ghcr.io/DIABOT-dev/git:${{ github.sha }}
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to Camp Server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.VPS_HOST }}
-          username: ${{ env.VPS_USER }}
-          key: ${{ env.VPS_SSH_KEY }}
-          script: |
-            set -e
-            CAMP_PATH="/home/ubuntu/diabot_camp"
-            IMAGE="${{ env.IMAGE }}"
-            HEALTH_IP="${{ env.VPS_HOST }}"
-
-            echo "🚀 Starting Deploy Camp at ${CAMP_PATH}"
-            mkdir -p "${CAMP_PATH}"
-            cd "${CAMP_PATH}"
-
-            # Nếu chưa có file docker-compose.yml thì tự tạo mẫu
-            if [ ! -f docker-compose.yml ]; then
-            cat > docker-compose.yml <<EOF
-            services:
-            app:
-            image: ${IMAGE}
-            container_name: diabot-app
-            restart: unless-stopped
-            ports:
-            - "3000:3000"
-            EOF
-            fi
-
-            echo "📦 Pull & restart"
-            docker compose pull || true
-            docker compose up -d || true
-
-            echo "⏳ Wait..."
-            sleep 10
-
-            echo "🩺 Health check (domain)"
-            curl -fsSL "https://camp.diabot.top/api/qa/selftest" >/dev/null || (echo "❌ Health check failed" && exit 1)
-
-            echo "✅ Deploy Camp OK"
-
-      - name: Smoke test APIs (external by IP)
-        run: |
-          set -e
-          BASE="https://camp.diabot.top"
-          echo "Testing ${BASE}"
-          curl -s -o /dev/null -w "selftest=%{http_code}\n"  "$BASE/api/qa/selftest"
-          curl -s -o /dev/null -w "chart7d=%{http_code}\n"   "$BASE/api/chart/7d" || true
-          curl -s -o /dev/null -w "profile=%{http_code}\n"   "$BASE/api/profile"  || true
+      - run: |
+          echo "Use the unified 'Deploy' workflow with environment inputs instead of this file."

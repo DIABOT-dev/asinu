@@ -8,10 +8,8 @@ set -Eeuo pipefail
 
 : "${BASE_URL:?Need BASE_URL}"
 : "${PROTECTED_API_PATH:?Need PROTECTED_API_PATH}"
-: "${SUPABASE_REST_URL:?Need SUPABASE_REST_URL}"
 
 COOKIE_FILE="${COOKIE_FILE:-.qa_cookies.txt}"
-SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-}"
 USER_A_JWT="${USER_A_JWT:-}"
 USER_B_JWT="${USER_B_JWT:-}"
 PROFILE_A_ID="${PROFILE_A_ID:-}"
@@ -90,35 +88,6 @@ else
   c="$(curl_status "$BASE_URL$PROTECTED_API_PATH" -H 'Cookie:')"
   check "QC-API-PROTECT" "Protected API should 401 or 302 when unauthenticated" "$c" \
     '[ "$actual_code" -eq 401 ] || [ "$actual_code" -eq 302 ]'
-fi
-
-# -------- 4) RLS Supabase --------
-if [ -n "$USER_A_JWT" ] && [ -n "$USER_B_JWT" ] && [ -n "$PROFILE_A_ID" ]; then
-  set +e
-  ra="$(curl -s -S -w '\n%{http_code}' \
-      -H "Authorization: Bearer $USER_A_JWT" \
-      ${SUPABASE_ANON_KEY:+-H "apikey: $SUPABASE_ANON_KEY"} \
-      "$SUPABASE_REST_URL/meal_logs?select=id,profile_id&limit=3")"
-  set -e
-  ca="${ra##*$'\n'}"
-  check "RLS-MEAL-OWN" "USER_A reads own rows (200)" "$ca" '[ "$actual_code" -eq 200 ]'
-
-  set +e
-  rb="$(curl -s -S -w '\n%{http_code}' \
-      -H "Authorization: Bearer $USER_B_JWT" \
-      ${SUPABASE_ANON_KEY:+-H "apikey: $SUPABASE_ANON_KEY"} \
-      "$SUPABASE_REST_URL/meal_logs?profile_id=eq.$PROFILE_A_ID&select=id")"
-  set -e
-  cb="${rb##*$'\n'}"; bb="${rb%$'\n'*}"
-  if [ "$cb" -eq 200 ] && [ "$bb" = "[]" ]; then
-    record "[RLS-MEAL-CROSS] PASS (code:$cb) USER_B sees 0 rows of USER_A"
-  else
-    record "[RLS-MEAL-CROSS] FAIL (code:$cb) Expect [], got: ${bb:0:200}"
-    fail_any=1
-  fi
-else
-  skip "RLS-MEAL-OWN"   "Missing USER_A_JWT/USER_B_JWT/PROFILE_A_ID; RLS tests skipped."
-  skip "RLS-MEAL-CROSS" "Missing USER_A_JWT/USER_B_JWT/PROFILE_A_ID; RLS tests skipped."
 fi
 
 # -------- Summary --------

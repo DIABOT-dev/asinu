@@ -1,7 +1,7 @@
 📄 DIABOT_AI_MEAL_TIP_CORE_SPEC.md
 0) Mục tiêu
 
-Một tài liệu “linh hồn AI” duy nhất cho DIABOT: thống nhất triết lý, trải nghiệm, quy tắc AI, dữ liệu cần nạp (Supabase), event chuẩn, API contract, KPI, và quy định an toàn.
+Một tài liệu “linh hồn AI” duy nhất cho DIABOT: thống nhất triết lý, trải nghiệm, quy tắc AI, dữ liệu cần nạp (warehouse nội bộ), event chuẩn, API contract, KPI, và quy định an toàn.
 
 1) Triết lý
 
@@ -134,7 +134,7 @@ Advisor: “tôi – anh/chị”, ngắn gọn, chuyên nghiệp.
 
 Luôn tránh từ cấm QC; không phán xét.
 
-10) Event Layer — Schema chuẩn (Supabase)
+10) Event Layer — Schema chuẩn (Postgres)
 
 Bảng: public.analytics_events
 
@@ -163,7 +163,7 @@ SELECT: auth.uid() = user_id
 
 INSERT: auth.uid() = user_id
 
-11) Data Intake Fields — Supabase (chuẩn hóa để nạp)
+11) Data Intake Fields — Postgres (chuẩn hóa để nạp)
 11.1 public.meal_logs (bổ sung, không phá cũ)
 
 id uuid pk
@@ -249,7 +249,7 @@ Safety guard: nếu pattern hạ/tăng đường huyết bất thường → nh�
 
 P0 (MVP)
 
-Supabase: analytics_events + bổ sung cột meal_logs (protein_g, fat_g, meal_type, cooking_method).
+Postgres: analytics_events + bổ sung cột meal_logs (protein_g, fat_g, meal_type, cooking_method).
 
 API /api/ai/meal-tip (rule-based + sanitize + fallback).
 

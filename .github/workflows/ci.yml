@@ -1,64 +1,54 @@
-name: CI
+name: Core CI
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - '**'
+    tags:
+      - 'v*'
+      - 'release/**'
   pull_request:
+    branches:
+      - '**'
+
+concurrency:
+  group: core-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  core:
     runs-on: ubuntu-latest
-
-    # Map secrets -> env (tránh dùng secrets trong if:)
     env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
+      RUN_GPT: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'gpt')) || startsWith(github.ref_name, 'gpt-') }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      # 1) Chẩn đoán cấu hình npm
-      - name: Diagnose npm config
-        run: |
-          echo "NPM_CONFIG_USERCONFIG=${NPM_CONFIG_USERCONFIG:-}"
-          npm config get registry || true
-          npm config list || true
-          [ -f .npmrc ] && echo "--- .npmrc (repo) ---" && cat .npmrc || true
-          [ -f ~/.npmrc ] && echo "--- ~/.npmrc (home) ---" && cat ~/.npmrc || true
-
-      # 2) Trung hoà .npmrc và proxy lạ, ép registry chuẩn
-      - name: Neutralize npmrc / proxy and set registry
-        shell: bash
-        run: |
-          rm -f .npmrc || true
-          rm -f ~/.npmrc || true
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
-            echo "registry=https://registry.npmjs.org/" > "$NPM_CONFIG_USERCONFIG"
-          fi
-          npm config set registry https://registry.npmjs.org/
-          npm config delete proxy || true
-          npm config delete https-proxy || true
-          npm config set strict-ssl true
-          npm cache verify || true
-
-      # 3) Auth npm CHỈ KHI có token (tránh if dùng secrets)
-      - name: Authenticate to npm (optional)
-        shell: bash
-        run: |
-          if [ -n "${NPM_TOKEN:-}" ]; then
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-            echo "NPM auth configured."
-          else
-            echo "No NPM_TOKEN provided; skipping npm auth."
-          fi
-
-      # 4) Cài đặt & kiểm tra Next
       - name: Install dependencies
         run: npm ci
 
-      - name: Check Next.js version
-        run: npx --yes next@latest --version
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Unit & integration tests
+        run: npm run test -- --runInBand
+
+      - name: Build (CI mode)
+        run: npm run build:ci
+
+      - name: No-Bolt/BaaS static scan
+        run: node scripts/qa_no_bolt.mjs
+
+      - name: GPT-specific suite (label gated)
+        if: env.RUN_GPT == 'true'
+        run: npm run test:e2e

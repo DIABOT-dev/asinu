@@ -43,6 +43,8 @@
     "start-local": "node node_modules/next/dist/bin/next start"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
+    "chartjs-adapter-date-fns": "^3.0.0",
     "clsx": "^2.1.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.2",

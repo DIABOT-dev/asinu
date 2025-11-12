@@ -11,8 +11,8 @@
 ### **🔧 ENVIRONMENT VARIABLES:**
 ```
 AUTH_DEV_MODE
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-NEXT_PUBLIC_SUPABASE_URL
+PGHOST / PGUSER / PGPASSWORD / PGDATABASE
+SESSION_COOKIE_NAME=asinu.sid
 ```
 
 ## 🚫 **STEP 2: SMOKE UNAUTH - RESULTS**
@@ -39,7 +39,7 @@ NEXT_PUBLIC_SUPABASE_URL
 2. **Login with credentials** (email/password or OAuth)
 3. **Extract cookies from DevTools:**
    - Open DevTools → Application → Cookies
-   - Copy values for: `sb-access-token` and `sb-refresh-token`
+   - Copy value for: `asinu.sid`
 
 ---
 
@@ -49,7 +49,7 @@ NEXT_PUBLIC_SUPABASE_URL
 
 ```bash
 # Set your cookies here
-COOKIES="sb-access-token=YOUR_ACCESS_TOKEN; sb-refresh-token=YOUR_REFRESH_TOKEN"
+COOKIES="asinu.sid=YOUR_SESSION_JWT"
 
 # Test all 6 POST endpoints
 curl -i -X POST -H "Cookie: $COOKIES" -H "Content-Type: application/json" \
@@ -87,17 +87,17 @@ curl -i -H "Cookie: $COOKIES" "http://localhost:3000/api/chart/bg_avg?range=7d"
 
 ## 🗄️ **STEP 5: DATABASE VERIFICATION**
 
-### **SQL QUERIES (Run in Supabase Studio):**
+### **SQL QUERIES (psql / direct Postgres connection):**
 
 ```sql
 -- Replace YOUR_USER_ID with actual authenticated user ID
-select count(*) from water_logs   where user_id='YOUR_USER_ID';
-select count(*) from meal_logs    where user_id='YOUR_USER_ID';  
-select count(*) from glucose_logs where user_id='YOUR_USER_ID';
-select count(*) from insulin_logs where user_id='YOUR_USER_ID';
-select count(*) from weight_logs  where user_id='YOUR_USER_ID';
-select count(*) from bp_logs      where user_id='YOUR_USER_ID';
-select * from profiles where id='YOUR_USER_ID';
+select count(*) from asinu_app.water_logs   where user_id='YOUR_USER_ID';
+select count(*) from asinu_app.meal_logs    where user_id='YOUR_USER_ID';  
+select count(*) from asinu_app.glucose_logs where user_id='YOUR_USER_ID';
+select count(*) from asinu_app.insulin_logs where user_id='YOUR_USER_ID';
+select count(*) from asinu_app.weight_logs  where user_id='YOUR_USER_ID';
+select count(*) from asinu_app.bp_logs      where user_id='YOUR_USER_ID';
+select * from asinu_app.profiles where id='YOUR_USER_ID';
 ```
 
 **Expected Results:** Counts > 0 for successful API calls, profile data present

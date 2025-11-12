@@ -1,7 +1,7 @@
 # ✅ DIABOT MVP — Definition of Done Checklist (2025-10-14)
 
 ## 1. Endpoint Implementation
-- [x] **Tất cả 6 POST log routes** (`/api/log/{bg,water,weight,bp,insulin,meal}`): trả 201 khi hợp lệ, 400 khi invalid, dùng Zod schema, không còn Supabase, telemetry, hoặc import thừa.
+- [x] **Tất cả 6 POST log routes** (`/api/log/{bg,water,weight,bp,insulin,meal}`): trả 201 khi hợp lệ, 400 khi invalid, dùng Zod schema, không còn backend BaaS cũ, telemetry, hoặc import thừa.
 - [x] **GET /api/chart/7d**: trả về series + summary 7 ngày, fallback demo nếu không có dữ liệu.
 - [x] **GET /api/qa/selftest**: trả về 200 với `{version, uptime_s, timestamp}`.
 
@@ -19,14 +19,14 @@
 - [x] **Asset/logo**: xác nhận asset/logo trong `/public` chuẩn, không lỗi import.
 
 ## 5. Cleanup
-- [x] **Xoá sạch Supabase, telemetry, caching cũ**.
+- [x] **Xoá sạch backend BaaS cũ, telemetry, caching cũ**.
 - [x] **Không còn adapter/import thừa hoặc demo stub.**
 
 ---
 
 ## Tổng kết:
 - ✅ **Repo đã đạt MVP Definition of Done.**
-- ✅ **Không còn legacy, Supabase, hoặc mã thừa.**
+- ✅ **Không còn legacy, backend BaaS cũ, hoặc mã thừa.**
 - ✅ **Kiến trúc, bảo mật, test, và hướng dẫn hoàn chỉnh.**
 - ❌ **Nếu còn lỗi hoặc cần bổ sung, hãy chỉ rõ để fix tiếp.**
 

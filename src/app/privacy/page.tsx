@@ -43,14 +43,14 @@ export default function PrivacyPage() {
 
           <h3>IV. Storage & Security / Lưu trữ & bảo mật</h3>
           <ul>
-            <li>Supabase + <em>Row Level Security (RLS)</em>.</li>
+            <li>Postgres riêng + <em>Row Level Security (RLS)</em> nội bộ.</li>
             <li>TLS khi truyền; bảo vệ tại chỗ theo nhà cung cấp.</li>
             <li>Backup ngắn hạn; dữ liệu xoá sẽ bị ghi đè theo chu kỳ.</li>
             <li>Có thể xử lý xuyên biên giới với biện pháp bảo vệ phù hợp.</li>
           </ul>
 
           <h3>V. Data Sharing / Chia sẻ dữ liệu</h3>
-          <p>Không bán dữ liệu. Chỉ chia sẻ với: sub-processors (Supabase, AI providers khi bật, Google/Apple khi bật billing), tuân thủ pháp luật, hoặc theo yêu cầu bạn (export/share).</p>
+          <p>Không bán dữ liệu. Chỉ chia sẻ với: sub-processors (Viettel Object Storage, AI providers khi bật, Google/Apple khi bật billing), tuân thủ pháp luật, hoặc theo yêu cầu bạn (export/share).</p>
 
           <h3>VI. Your Rights / Quyền của bạn</h3>
           <ul>

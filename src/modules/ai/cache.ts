@@ -30,7 +30,7 @@ export async function setCache(key: string, val: string, ttlMin: number): Promis
   const expiresAt = Date.now() + ttlMin * 60 * 1000;
   inMemoryCache.set(key, { value: val, expiresAt });
 
-  // TODO: For persistent caching, integrate with Supabase table "ai_cache"
+  // TODO: For persistent caching, integrate with Postgres table "ai_cache"
   // Graceful degradation - no crash if table doesn't exist
 }
 

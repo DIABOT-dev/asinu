@@ -134,7 +134,7 @@ async function main() {
     console.log('\n⚠️  Some endpoints failed. Check errors above.');
     console.log('\nCommon issues:');
     console.log('- 401: Auth middleware blocking (use x-debug-user-id header)');
-    console.log('- 500: ENV variables missing or Supabase connection issue');
+    console.log('- 500: ENV variables missing or database connection issue');
     console.log('- Network error: Dev server not running');
     process.exit(1);
   }

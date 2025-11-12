@@ -1,33 +1,55 @@
-# .github/workflows/docker.yml
-name: Build & Smoke Docker
+name: Docker Build & Smoke
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch: {}
+  workflow_run:
+    workflows: ["Core CI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (branch or tag) to build"
+        required: false
+
+concurrency:
+  group: docker-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        (
+          github.event.workflow_run.head_branch == 'main' ||
+          github.event.workflow_run.head_branch == 'develop' ||
+          startsWith(github.event.workflow_run.head_branch, 'release/') ||
+          startsWith(github.event.workflow_run.head_branch, 'v')
+        )
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write   # cần để push GHCR
+      packages: write
     outputs:
-      image: ${{ steps.prep.outputs.image }}
-      tag: ${{ steps.tag.outputs.tag }}
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha) || github.sha }}
 
-      # ↓ tên image lowercase: ghcr.io/<owner>/<repo>
-      - name: Prepare image name (lowercase)
-        id: prep
-        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - name: Prepare image metadata
+        id: meta
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          TAG="${GITHUB_SHA::12}"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Set tag
-        id: tag
-        run: echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Login to GHCR
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -37,22 +59,23 @@ jobs:
       - name: Build image
         run: |
           docker build \
-            -t "${{ steps.prep.outputs.image }}:${{ steps.tag.outputs.tag }}" \
-            -t "${{ steps.prep.outputs.image }}:latest" .
+            -t "${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}" \
+            -t "${{ steps.meta.outputs.image }}:latest" .
 
       - name: Push image
         run: |
-          docker push "${{ steps.prep.outputs.image }}:${{ steps.tag.outputs.tag }}"
-          docker push "${{ steps.prep.outputs.image }}:latest"
+          docker push "${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}"
+          docker push "${{ steps.meta.outputs.image }}:latest"
 
   smoke:
     runs-on: ubuntu-latest
     needs: build
     permissions:
       contents: read
-      packages: read     # cần để pull GHCR
+      packages: read
+    if: needs.build.result == 'success'
     steps:
-      - name: Login to GHCR
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -64,21 +87,32 @@ jobs:
 
       - name: Run container
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          PGHOST: ${{ secrets.PGHOST }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          BRIDGE_URL: ${{ secrets.BRIDGE_URL }}
+          BRIDGE_KEY: ${{ secrets.BRIDGE_KEY }}
         run: |
-          docker run -d --rm --name diabot -p 3000:3000 \
-            -e SUPABASE_URL -e SUPABASE_SERVICE_ROLE \
-            -e NEXT_PUBLIC_SUPABASE_URL -e NEXT_PUBLIC_SUPABASE_ANON_KEY \
+          docker run -d --rm --name diabot \
+            -e PGHOST -e PGUSER -e PGPASSWORD -e PGDATABASE \
+            -e BRIDGE_URL -e BRIDGE_KEY \
+            -p 3000:3000 \
             "${{ needs.build.outputs.image }}:${{ needs.build.outputs.tag }}"
-          # chờ app sẵn sàng (tối đa 60s)
-          for i in {1..60}; do
-            if curl -fsS http://localhost:3000/api/health >/dev/null; then exit 0; fi
+
+      - name: Wait for /healthz
+        run: |
+          for i in {1..90}; do
+            if curl -fsS http://localhost:3000/healthz >/dev/null; then exit 0; fi
             sleep 1
           done
-          echo "App not ready" && exit 1
+          echo "App did not report healthy in time" && exit 1
 
-      - name: Smoke test /api/qa/selftest
-        run: curl -fsS http://localhost:3000/api/qa/selftest
+      - name: Smoke endpoints
+        run: |
+          curl -fsS http://localhost:3000/healthz
+          curl -fsS http://localhost:3000/api/qa/selftest
+
+      - name: Stop container
+        if: always()
+        run: docker stop diabot || true

@@ -109,12 +109,12 @@ src/
 ```
 
 - API → Application → Domain (Clean Architecture)
-- RLS (Postgres) bắt buộc; không dùng Supabase runtime
+- RLS (Postgres) bắt buộc; không phụ thuộc BaaS/runtime bên thứ ba
 - Feature flags điều khiển AI, chart, rewards, v.v.
 
 ## 🛡️ Safety & Rules
 
-- ❌ Không commit secret, Supabase key, hoặc runtime
+- ❌ Không commit secret hoặc khoá dịch vụ bên thứ ba
 - 🔒 .env.example chỉ chứa placeholder, không secret thực
 - ✅ Mọi PR phải qua CI và QA Smoke pass
 - 🚫 Không force-push lên main

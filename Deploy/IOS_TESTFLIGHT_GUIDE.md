@@ -13,6 +13,6 @@
 ## App Privacy (Nutrition Labels) – gợi ý
 - Data Types: health (user input), identifiers (auth), usage data (optional)
 - Purpose: app functionality, health
-- Linked to user: **Có**, lưu trên Supabase
+- Linked to user: **Có**, lưu trên Postgres nội bộ
 - Tracking: **Không** (nếu không dùng SDK quảng cáo)
 > Khai đúng thực tế, đồng bộ với Privacy Policy trong app.

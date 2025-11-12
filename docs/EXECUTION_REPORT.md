@@ -17,7 +17,7 @@
 | `npm run typecheck` | 0 | `tsc --noEmit` xanh. |
 | `CI=1 npm run build` | 0 | Next.js 14.2.7 build thành công, sinh đủ 47 trang static. |
 | `npm run test -i -- --run tests/storage_client.spec.ts tests/profile_mappers.spec.ts` | 0 | 8 test Vitest pass (storage proxy + persona mapper). |
-| `node scripts/qa_no_bolt.mjs` | 0 | QA gate xác nhận không còn dấu Bolt/Supabase ngoài archive/docs. |
+| `node scripts/qa_no_bolt.mjs` | 0 | QA gate xác nhận không còn dấu Bolt/legacy BaaS ngoài archive/docs. |
 | `STORAGE_PROBE_MOCK=0 node scripts/probe_storage.mjs` *(lần 1)* | 0 | Chạy ở chế độ mock do thiếu `DIA_BRAIN_STORAGE_PROXY_URL`, PUT/GET 10MB thành công (200/200). |
 | `node scripts/probe_storage.mjs` *(lần 2, đã export proxy/bucket)* | 1 | Thử live tới `https://diabot.top/api` trả về lỗi network (`fetch failed`). |
 

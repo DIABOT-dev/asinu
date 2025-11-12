@@ -1,14 +1,26 @@
-name: QA DB & API (Postgres)
+name: Extended QA
 
 on:
-  push:
-    branches: [ main ]          # thêm nhánh khác nếu muốn
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to test'
+        required: false
+        default: 'main'
+      base_url:
+        description: 'External base URL for smoke (camp/prod)'
+        required: false
+        default: 'https://camp.diabot.top'
+  schedule:
+    - cron: '0 18 * * *'  # nightly
+
+concurrency:
+  group: extended-qa
+  cancel-in-progress: false
 
 jobs:
-  qa:
+  extended:
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:14
@@ -16,54 +28,121 @@ jobs:
           POSTGRES_DB: diabot
           POSTGRES_USER: diabot
           POSTGRES_PASSWORD: diabot
-        ports: [ "5432:5432" ]
+        ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U diabot -d diabot"
+          --health-cmd "pg_isready -U diabot -d diabot" \
           --health-interval 5s --health-timeout 5s --health-retries 30
-
     env:
       DIABOT_DB_URL: postgresql://diabot:diabot@localhost:5432/diabot
-
+      QA_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_url || 'https://camp.diabot.top' }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          node-version: "20"
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || 'main' }}
 
-      # ⛔️ Fix cứng registry công khai để tránh .npmrc nội bộ (9092)
-      - name: Force public npm registry
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          npm config delete proxy || true
-          npm config delete https-proxy || true
-          npm config set strict-ssl true
-          echo "NPM registry -> $(npm config get registry)"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        run: npm ci
+
+      - name: Build app (CI flags)
+        run: npm run build:ci
+
+      - name: Start Next.js (background)
         run: |
-          npm install --no-audit --no-fund --registry=https://registry.npmjs.org/
+          npm run start -- --port 3000 &
+          echo $! > app.pid
 
-      # Đảm bảo có Next/React dù project để ở devDependencies
-      - name: Ensure Next.js is available
+      - name: Run QA stack (DB + API)
         run: |
-          npx --yes --registry https://registry.npmjs.org/ next --version \
-          || npm i --no-audit --no-fund --registry=https://registry.npmjs.org/ next@14.2.7 react@18.3.1 react-dom@18.3.1
+          chmod +x scripts/qa_stack.sh
+          bash scripts/qa_stack.sh
 
-      - name: Build app
-        run: npx --yes --registry https://registry.npmjs.org/ next build
+      - name: Stop Next.js
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill "$(cat app.pid)" || true
+          fi
 
-      - name: Start app (background)
-        run: npx --yes --registry https://registry.npmjs.org/ next start -p 3000 &
+      - name: External smoke report
+        id: camp
+        shell: bash
+        run: |
+          set -e
+          mkdir -p qa_external
+          ts=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          endpoints=(
+            "/api/qa/selftest"
+            "/api/chart/7d"
+            "/api/profile"
+          )
 
-      - name: Make QA script executable
-        run: chmod +x scripts/qa_stack.sh
+          curlcode () {
+            curl -sS -m 10 --retry 2 --retry-all-errors -o /dev/null -w "%{http_code}" "$1"
+          }
+          curllat () {
+            curl -sS -m 10 --retry 2 --retry-all-errors -o /dev/null -w "%{time_total}s" "$1"
+          }
 
-      - name: Run QA stack
-        run: bash scripts/qa_stack.sh
+          {
+            echo "# 🧪 Extended QA Report"
+            echo "_${ts}_"
+            echo
+            echo "## External endpoints (${QA_BASE_URL})"
+            echo "| Endpoint | Status | Code | Latency |"
+            echo "|---------:|:------:|-----:|--------:|"
+            ok_self=0
+            for p in "${endpoints[@]}"; do
+              url="${QA_BASE_URL}${p}"
+              code=$(curlcode "$url" || echo 000)
+              lat=$(curllat "$url" || echo n/a)
+              status="✅"
+              if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then status="❌"; fi
+              printf "| \\`%s\\` | %s | %s | %s |\n" "$p" "$status" "$code" "$lat"
+              if [ "$p" = "/api/qa/selftest" ] && [ "$status" = "✅" ]; then ok_self=1; fi
+            done
+            echo
+            if [ "$ok_self" -eq 1 ]; then
+              echo "Gate: ✅ /api/qa/selftest"
+            else
+              echo "Gate: ❌ /api/qa/selftest"
+            fi
+          } > qa_external/report.md
 
-      - name: Upload QA_MVP.md
+          echo "self_ok=$ok_self" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: QA_MVP
-          path: QA_MVP.md
+          name: extended-qa-report
+          path: |
+            QA_MVP.md
+            qa_external/report.md
+
+      - name: Add summary
+        if: always()
+        run: |
+          if [ -f QA_MVP.md ]; then
+            echo '### QA_MVP.md' >> $GITHUB_STEP_SUMMARY
+            echo '```markdown' >> $GITHUB_STEP_SUMMARY
+            tail -n 100 QA_MVP.md >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f qa_external/report.md ]; then
+            echo '### External QA' >> $GITHUB_STEP_SUMMARY
+            cat qa_external/report.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Gate on external selftest
+        if: steps.camp.outputs.self_ok != '1'
+        run: |
+          echo "External /api/qa/selftest failed. See report."
+          exit 1

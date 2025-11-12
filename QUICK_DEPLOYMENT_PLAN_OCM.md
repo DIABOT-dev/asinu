@@ -24,10 +24,12 @@ This is a tag-driven deployment where creating a git tag automatically triggers 
 
 ### 2. GitHub Secrets Configured
 Verify these secrets exist in repository settings:
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `PGHOST`
+- `PGUSER`
+- `PGPASSWORD`
+- `PGDATABASE`
+- `BRIDGE_URL`
+- `BRIDGE_KEY`
 - `GITHUB_TOKEN` (automatically provided)
 
 ### 3. Permissions Check
@@ -435,7 +437,7 @@ docker build -t test .
 # Check specific failure from GitHub Actions logs
 # Common failures:
 # - AI Gateway (expected without OPENAI_API_KEY)
-# - Supabase connection (check secrets)
+# - Postgres connection (check secrets)
 # - Timeout (increase wait time)
 
 # Verify environment variables

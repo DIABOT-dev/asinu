@@ -2,7 +2,7 @@
 
 **Ngày cập nhật**: 2025-10-07
 **Version**: 1.0 (Post-MVP Preparation)
-**Database**: diabot-postgres (Supabase)
+**Database**: diabot-postgres cluster
 **Storage**: Viettel Object Storage
 
 ---
@@ -570,4 +570,4 @@ S3_SIGNATURE_VERSION=s3v4
 
 **Generated**: 2025-10-07
 **Document Owner**: DIABOT Team
-**Database**: diabot-postgres (Supabase)
+**Database**: diabot-postgres cluster

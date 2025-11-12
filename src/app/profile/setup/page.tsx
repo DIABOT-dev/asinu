@@ -56,7 +56,7 @@ export default function ProfileSetupPage() {
     );
 
   const onSubmit = async () => {
-    // Chuẩn payload -> map sang Supabase 'profiles' + bảng phụ nếu có
+    // Chuẩn payload -> map sang bảng profiles + bảng phụ trong Postgres
     const payload = {
       dob,
       gender,

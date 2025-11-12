@@ -1,7 +1,7 @@
 # Viettel Storage Policy
 
 ## Purpose
-This policy standardizes how DIABOT services interact with Viettel Object Storage and auxiliary backups after the Bolt/Supabase sunset.
+This policy standardizes how DIABOT services interact with Viettel Object Storage and auxiliary backups after the Bolt backend sunset.
 
 ## Storage Access Model
 - **Single entry point:** All upload and download operations MUST be performed through DIA BRAIN backend services. Frontend or mobile clients are prohibited from direct Viettel Object Storage calls.

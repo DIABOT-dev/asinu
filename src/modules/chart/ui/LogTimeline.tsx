@@ -4,27 +4,19 @@ import { FetchLogTimeline } from "../application/usecases/FetchLogTimeline";
 import { Metric, RangeOption, TimelineGroup } from "../domain/types";
 import { track } from "../infrastructure/adapters/Telemetry";
 import { Skeleton } from "./components/Skeleton";
-import { ChevronDown, ChevronUp } from 'lucide-react'; // Import icons
 
 export default function LogTimeline({ range, metrics }: { range: RangeOption; metrics?: Metric[] }) {
   const [groups, setGroups] = React.useState<TimelineGroup[]>([]);
   const [cursor, setCursor] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [done, setDone] = React.useState(false);
-  const [isCollapsed, setIsCollapsed] = React.useState(true); // Mặc định là đóng
-
   React.useEffect(() => {
-    // Reset state khi range hoặc metrics thay đổi
     setGroups([]);
     setCursor(null);
     setDone(false);
-
-    // Tải dữ liệu chỉ khi timeline được mở rộng
-    if (!isCollapsed) {
-      void loadMore(true);
-    }
+    void loadMore(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, JSON.stringify(metrics || []), isCollapsed]); // isCollapsed là một dependency
+  }, [range, JSON.stringify(metrics || [])]);
 
   async function loadMore(first=false) {
     if (loading || done) return;
@@ -41,55 +33,46 @@ return (
     <div className="rounded-2xl border p-3 bg-white shadow-sm" style={{ borderColor: "var(--color-border)" }}>
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-lg text-gray-800">Nhật ký hoạt động</h3>
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)} // Chuyển đổi trạng thái đóng/mở
-          className="p-1 rounded-full hover:bg-gray-100"
-          aria-expanded={!isCollapsed}
-          aria-controls="timeline-content"
-        >
-          {isCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />} {/* Hiển thị icon phù hợp */}
-        </button>
+        <span className="text-xs text-gray-400">Hiển thị mọi bản ghi mới nhất</span>
       </div>
 
-      {!isCollapsed && ( // Chỉ hiển thị nội dung khi không bị đóng
-        <div id="timeline-content" className="space-y-6">
-          {groups.length === 0 && loading && <Skeleton className="h-24" />}
-          {groups.length === 0 && !loading && <Empty />} {/* Sử dụng component Empty */}
-          <div className="space-y-6">
-            {groups.map(g => (
-              <div key={g.date}>
-                <div className="text-sm font-medium text-gray-600 mb-2 border-b border-gray-100 pb-1">{g.date}</div>
-                <ul className="space-y-3">
-                  {g.items.map((it, idx) => (
-                    <li key={idx} className="rounded-xl border border-gray-200 p-3 flex items-center justify-between bg-gray-50 shadow-xs">
-                      <div>
-                        <div className="text-sm font-medium text-gray-800">{it.title}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {new Date(it.ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-                          {" · "}{String(it.value)}{it.unit?` ${it.unit}`:""}
-                          {it.context?` · ${it.context}`:""}
-                        </div>
-                        {it.note && <div className="text-xs text-gray-500 mt-1">{it.note}</div>}
+      <div className="space-y-6">
+        {groups.length === 0 && loading && <Skeleton className="h-24" />}
+        {groups.length === 0 && !loading && <Empty />}
+        <div className="space-y-6">
+          {groups.map(g => (
+            <div key={g.date}>
+              <div className="text-sm font-medium text-gray-600 mb-2 border-b border-gray-100 pb-1">{g.date}</div>
+              <ul className="space-y-3">
+                {g.items.map((it, idx) => (
+                  <li key={idx} className="rounded-xl border border-gray-200 p-3 flex items-center justify-between bg-gray-50 shadow-xs">
+                    <div>
+                      <div className="text-sm font-medium text-gray-800">{it.title}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(it.ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                        {" · "}{String(it.value)}{it.unit?` ${it.unit}`:""}
+                        {it.context?` · ${it.context}`:""}
                       </div>
-                      <span className="text-xs px-2 py-1 rounded-full bg-primary-100 text-primary-700 font-medium">{it.type}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          {!done && (
-            <div className="mt-6 flex justify-center">
-              <button
-                onClick={() => loadMore(false)}
-                className="px-5 py-2 rounded-xl font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
-              >
-                {loading ? "Đang tải..." : "Tải thêm"}
-              </button>
+                      {it.note && <div className="text-xs text-gray-500 mt-1">{it.note}</div>}
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full bg-primary-100 text-primary-700 font-medium">{it.type}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          )}
+          ))}
         </div>
-      )}
+        {!done && (
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => loadMore(false)}
+              className="px-5 py-2 rounded-xl font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
+            >
+              {loading ? "Đang tải..." : "Tải thêm"}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

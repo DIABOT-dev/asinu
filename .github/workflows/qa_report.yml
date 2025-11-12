@@ -1,85 +1,11 @@
-name: QA Report (Camp)
+name: "[DEPRECATED] QA Report"
 
 on:
-  workflow_run:
-    workflows: ["Deploy Camp"]
-    types: [completed]
+  workflow_dispatch: {}
 
 jobs:
-  qa:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  notice:
     runs-on: ubuntu-latest
-
-    env:
-      BASE: https://camp.diabot.top
-      TIMEOUT: 10
-      RETRIES: 3
-
     steps:
-      - name: Warm up
-        run: |
-          echo "Waiting 15s for services to settle..."
-          sleep 15
-
-      - name: Probe endpoints & build report
-        id: probe
-        shell: bash
-        run: |
-          set -e
-          mkdir -p qa && cd qa
-          ts=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          endpoints=(
-            "/api/qa/selftest"
-            "/api/chart/7d"
-            "/api/profile"
-          )
-
-          # helper: curl with retry + timeout
-          curlcode () { 
-            curl -sS -m "$TIMEOUT" --retry "$RETRIES" --retry-all-errors -o /dev/null -w "%{http_code}" "$1";
-          }
-          curllat () { 
-            curl -sS -m "$TIMEOUT" --retry "$RETRIES" --retry-all-errors -o /dev/null -w "%{time_total}s" "$1";
-          }
-
-          echo "# 🧪 DIABOT – Camp QA Report" > report.md
-          echo "_${ts}_" >> report.md
-          echo >> report.md
-          echo "| Endpoint | Status | Code | Latency |" >> report.md
-          echo "|---------:|:------:|-----:|--------:|" >> report.md
-
-          self_ok=0
-          for p in "${endpoints[@]}"; do
-            url="${BASE}${p}"
-            code=$(curlcode "$url")
-            lat=$(curllat "$url")
-            ok="✅"
-            if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then ok="❌"; fi
-            printf "| \`%s\` | %s | %s | %s |\n" "$p" "$ok" "$code" "$lat" >> report.md
-            # Gate chỉ theo /api/qa/selftest
-            if [ "$p" = "/api/qa/selftest" ] && [ "$ok" = "✅" ]; then self_ok=1; fi
-          done
-
-          echo >> report.md
-          if [ "$self_ok" -eq 1 ]; then
-            echo "## ✅ Gate Passed (selftest OK)" >> report.md
-          else
-            echo "## ❌ Gate Failed (selftest not 2xx)" >> report.md
-          fi
-
-          echo "self_ok=$self_ok" >> "$GITHUB_OUTPUT"
-
-      - name: Upload report artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: camp-qa-report
-          path: qa/report.md
-
-      - name: Add report to job summary
-        run: cat qa/report.md >> $GITHUB_STEP_SUMMARY
-
-      - name: Gate on selftest only
-        if: ${{ steps.probe.outputs.self_ok != '1' }}
-        run: |
-          echo "Selftest failed. See QA Report above."
-          exit 1
+      - run: |
+          echo "This workflow is deprecated. Use 'Extended QA' instead."

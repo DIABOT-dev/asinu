@@ -106,9 +106,9 @@ Dockerfile configured for:
 ### Environment Variables
 
 **Required for production**:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
+- `BRIDGE_URL`, `BRIDGE_KEY`
+- `SESSION_COOKIE_NAME=asinu.sid`
 
 **Optional - Viettel S3**:
 - `STORAGE_PROVIDER=viettel`

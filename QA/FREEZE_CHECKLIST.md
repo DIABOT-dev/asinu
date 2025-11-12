@@ -6,7 +6,7 @@
 - [ ] A3 Disclaimer: `/about` + Onboarding có cảnh báo y tế
 - [ ] A4 Permission rationale: “late-ask” hiển thị đúng ngữ cảnh
 - [ ] A5 Empty states: Chart/Timeline không crash khi trống (hiện CTA)
-- [ ] A6 Apple Sign-in: nút UI xuất hiện, flow Supabase OAuth chạy
+- [ ] A6 Apple Sign-in: nút UI xuất hiện, flow OAuth backend chạy
 
 ## B. Core (mock hoạt động)
 - [ ] B1 Reminders thuốc: tạo/sửa/xóa, danh sách hiện đúng

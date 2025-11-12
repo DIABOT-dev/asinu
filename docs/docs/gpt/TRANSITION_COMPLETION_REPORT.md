@@ -9,7 +9,7 @@ GPT Codex has successfully taken over DIABOT development operations.
 ### System Status
 | Component | Status | Notes |
 |------------|---------|-------|
-| Bolt / Supabase | Removed | Fully decommissioned |
+| Bolt / Legacy BaaS | Removed | Fully decommissioned |
 | GitHub Repo | Active | `DIABOT-dev/git` |
 | Branches | Ready | gpt-dev → gpt-control → main |
 | DIA BRAIN | OK | /api/qa/selftest = 200 |

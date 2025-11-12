@@ -20,7 +20,7 @@
 
 ### Step 1: Apply Database Schema
 
-Open Supabase SQL Editor and execute sections from `SCHEMA_STANDARDIZATION.md`:
+Open a Postgres SQL session (psql or any client) and execute sections from `SCHEMA_STANDARDIZATION.md`:
 
 ```bash
 # Priority order:
@@ -128,7 +128,7 @@ Enable incrementally as features are implemented.
 
 ### Check Schema Applied
 ```sql
--- In Supabase SQL Editor
+-- Run in Postgres (psql / client)
 
 -- Verify new columns exist
 SELECT table_name, column_name, data_type

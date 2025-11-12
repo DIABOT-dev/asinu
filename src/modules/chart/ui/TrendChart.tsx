@@ -1,102 +1,163 @@
-import React from "react";
-import { ChartVM, Metric } from "../domain/types";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend, ResponsiveContainer,
-} from "recharts";
+import { LineChart, BarChart, DonutChart } from "@/components/charts";
+import { chartColors } from "@/components/charts/chart-colors";
+import type { ChartVM } from "../domain/types";
+import type { ChartData } from "chart.js";
+import { format, parseISO } from "date-fns";
+import { ChartCard } from "./components/ChartCard";
 
-type Props = { vm: ChartVM; focus: Metric | "All" };
+type Props = { vm: ChartVM };
 
-export default function TrendChart({ vm, focus }: Props) {
-  const data = vm.days.map(d => ({
-    date: d.date,
-    BG: d.bg_avg,
-    BP_SYS: d.bp_sys_avg,
-    BP_DIA: d.bp_dia_avg,
-    Weight: d.weight_kg,
-    Water: d.water_ml,
-    Insulin: d.insulin_units,
-    Meal: d.meals_count,
-  }));
+export default function TrendChart({ vm }: Props) {
+  const labels = vm.days.map((day) => {
+    try {
+      return format(parseISO(day.date), "dd/MM");
+    } catch {
+      return day.date;
+    }
+  });
 
-  const primaryColor = "var(--color-primary)";
-  const secondaryColor = "var(--color-primary-600)";
+  const bgData = buildLineData(labels, "Đường huyết", "#0ea5e9", vm.days.map((d) => d.bg_avg ?? null));
+  const weightData = buildLineData(labels, "Cân nặng", "#f97316", vm.days.map((d) => d.weight_kg ?? null));
+  const bpData = buildMultiLineData(labels, [
+    { label: "Huyết áp tâm thu", color: "#6366f1", values: vm.days.map((d) => d.bp_sys_avg ?? null) },
+    { label: "Huyết áp tâm trương", color: "#a855f7", values: vm.days.map((d) => d.bp_dia_avg ?? null) },
+  ]);
+  const waterData = buildBarData(labels, "Nước (ml)", "#0ea5e9", vm.days.map((d) => d.water_ml ?? 0));
+  const insulinData = buildBarData(labels, "Insulin (U)", "#6366f1", vm.days.map((d) => d.insulin_units ?? 0));
+  const mealData = buildBarData(labels, "Bữa ăn", "#14b8a6", vm.days.map((d) => d.meals_count ?? 0));
 
-  if (focus === "BG" || focus === "Weight") {
-    return (
-      <ChartFrame>
-        <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="date" stroke="var(--color-text-muted)" />
-          <YAxis stroke="var(--color-text-muted)" />
-          <Tooltip contentStyle={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)', maxWidth: '200px', wordBreak: 'break-word' }} />
-          <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '16px' }} />
-          <Line type="monotone" dataKey={focus} stroke={primaryColor} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-        </LineChart>
-      </ChartFrame>
-    );
-  }
+  const totals = {
+    water: sum(vm.days.map((d) => d.water_ml ?? 0)),
+    insulin: sum(vm.days.map((d) => d.insulin_units ?? 0)),
+    meals: sum(vm.days.map((d) => d.meals_count ?? 0)),
+  };
 
-  if (focus === "BP") {
-    return (
-      <ChartFrame>
-        <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="date" stroke="var(--color-text-muted)" />
-          <YAxis stroke="var(--color-text-muted)" />
-          <Tooltip contentStyle={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)', maxWidth: '200px', wordBreak: 'break-word' }} />
-          <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '16px' }} />
-          <Line type="monotone" dataKey="BP_SYS" stroke={primaryColor} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-          <Line type="monotone" dataKey="BP_DIA" stroke={secondaryColor} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-        </LineChart>
-      </ChartFrame>
-    );
-  }
+  const donutData: ChartData<"doughnut"> = {
+    labels: ["Nước (ml)", "Insulin (U)", "Bữa ăn"],
+    datasets: [
+      {
+        data: [totals.water, totals.insulin, totals.meals],
+        backgroundColor: chartColors.accentPalette.slice(0, 3),
+      },
+    ],
+  };
 
-  if (focus === "Water" || focus === "Insulin" || focus === "Meal") {
-    return (
-      <ChartFrame>
-        <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="date" stroke="var(--color-text-muted)" />
-          <YAxis stroke="var(--color-text-muted)" />
-          <Tooltip contentStyle={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)', maxWidth: '200px', wordBreak: 'break-word' }} />
-          <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '16px' }} />
-          <Bar dataKey={focus} fill={primaryColor} />
-        </BarChart>
-      </ChartFrame>
-    );
-  }
+  const sections = [
+    {
+      key: "bg",
+      title: "Xu hướng đường huyết",
+      subtitle: "mg/dL",
+      content: <LineChart data={bgData} height={280} />,
+      footer: "Trung bình 7 ngày gần nhất dựa trên log BG.",
+    },
+    {
+      key: "bp",
+      title: "Huyết áp gần đây",
+      subtitle: "mmHg",
+      content: <LineChart data={bpData} height={280} />,
+      footer: "Theo dõi cả hai chỉ số tâm thu/tâm trương.",
+    },
+    {
+      key: "weight",
+      title: "Cân nặng",
+      subtitle: "kg",
+      content: <LineChart data={weightData} height={280} />,
+      footer: "Dựa trên log cân nặng theo ngày.",
+    },
+    {
+      key: "water",
+      title: "Nước uống",
+      subtitle: "ml mỗi ngày",
+      content: <BarChart data={waterData} height={280} />,
+      footer: "So sánh theo ngày trong giai đoạn chọn.",
+    },
+    {
+      key: "insulin",
+      title: "Insulin",
+      subtitle: "Đơn vị",
+      content: <BarChart data={insulinData} height={280} />,
+      footer: "Tổng liều insulin mỗi ngày.",
+    },
+    {
+      key: "meal",
+      title: "Bữa ăn ghi nhận",
+      subtitle: "số lần",
+      content: <BarChart data={mealData} height={280} />,
+      footer: "Đếm số log bữa ăn từng ngày.",
+    },
+    {
+      key: "composition",
+      title: "Phân bổ log sức khỏe",
+      subtitle: "7 ngày gần nhất",
+      content: <DonutChart data={donutData} height={260} />,
+      footer: "Cho thấy tỷ trọng hành động bạn ghi lại.",
+    },
+  ];
 
-  // All → hiển thị BG + Weight (gọn, dễ đọc). Có thể mở rộng nếu muốn.
   return (
-    <ChartFrame>
-      <ComposedAll data={data} />
-    </ChartFrame>
-  );
-}
-
-function ChartFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border p-2 bg-white shadow-sm" style={{ borderColor: "var(--color-border)" }}>
-      <div style={{ width: "100%", height: 280 }}>
-        <ResponsiveContainer>{children as any}</ResponsiveContainer>
-      </div>
+    <div className="grid gap-6 lg:grid-cols-2">
+      {sections.map((section) => (
+        <ChartCard
+          key={section.key}
+          title={section.title}
+          subtitle={section.subtitle}
+          footer={section.footer}
+        >
+          {section.content}
+        </ChartCard>
+      ))}
     </div>
   );
 }
 
-function ComposedAll({ data }: { data: any[] }) {
-  const primaryColor = "var(--color-primary)";
-  const secondaryColor = "var(--color-primary-600)";
-  return (
-    <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-      <XAxis dataKey="date" stroke="var(--color-text-muted)" />
-      <YAxis stroke="var(--color-text-muted)" />
-      <Tooltip contentStyle={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }} />
-      <Legend wrapperStyle={{ paddingTop: '10px' }} />
-      <Line type="monotone" dataKey="BG" stroke={primaryColor} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-      <Line type="monotone" dataKey="Weight" stroke={secondaryColor} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-    </LineChart>
-  );
+function buildLineData(labels: string[], label: string, color: string, values: (number | null)[]): ChartData<"line"> {
+  return {
+    labels,
+    datasets: [
+      {
+        label,
+        data: values,
+        borderColor: color,
+        backgroundColor: `${color}20`,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        borderWidth: 3,
+      },
+    ],
+  };
+}
+
+function buildMultiLineData(labels: string[], configs: { label: string; color: string; values: (number | null)[] }[]): ChartData<"line"> {
+  return {
+    labels,
+    datasets: configs.map((cfg) => ({
+      label: cfg.label,
+      data: cfg.values,
+      borderColor: cfg.color,
+      backgroundColor: `${cfg.color}1a`,
+      fill: false,
+      tension: 0.4,
+      borderWidth: 3,
+      pointRadius: 0,
+    })),
+  };
+}
+
+function buildBarData(labels: string[], label: string, color: string, values: number[]): ChartData<"bar"> {
+  return {
+    labels,
+    datasets: [
+      {
+        label,
+        data: values,
+        backgroundColor: color,
+        borderRadius: 8,
+      },
+    ],
+  };
+}
+
+function sum(values: number[]) {
+  return values.reduce((acc, value) => acc + value, 0);
 }

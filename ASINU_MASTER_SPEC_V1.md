@@ -31,7 +31,7 @@ Cache/Queue: Redis (TTL cache, rate limit, background jobs) – planned.
 
 Analytics: ClickHouse – planned.
 
-Tuyệt đối không Supabase.
+Tuyệt đối không BaaS bên thứ ba.
 
 Nguyên tắc vàng: Asinu và Dia Brain tách rời hoàn toàn (hạ tầng + DB + storage). Giao tiếp chỉ qua Bridge (HTTPS + JWT), payload ẩn danh.
 

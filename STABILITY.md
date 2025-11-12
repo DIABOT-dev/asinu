@@ -109,6 +109,6 @@ Target: **100% stability score** before any major release.
 - Real-time features
 
 ### Environment Variables:
-- **Required:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- **Required:** `PGHOST`, `PGUSER`, `PGDATABASE`, `PGPASSWORD`
 - **Optional:** Feature flags, AI keys
 - **Development:** `AUTH_DEV_MODE=true`

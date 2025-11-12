@@ -14,7 +14,7 @@
 ## ⚠️ Outstanding / Follow-up
 1. **DB**: Run `migrations/110_mission_lite.sql` on each environment and verify seeds exist (`SELECT code FROM missions`).
 2. **Bridge**: Need valid `BRIDGE_URL` + `BRIDGE_KEY`. Currently emits are skipped (`skipped:true`).
-3. **Type-check debt**: `npm run type-check` still fails on legacy files (auth/register, Supabase repos, lucide icons, etc.). Not touched today.
+3. **Type-check debt**: `npm run type-check` still fails on legacy files (auth/register, deprecated BaaS repos, lucide icons, etc.). Not touched today.
 4. **Lint warnings**: existing console/unused vars remain (not part of this change).
 5. **QA checklist**: Mission Lite endpoints should be added to QA smoke when DB + feature flag enabled.
 

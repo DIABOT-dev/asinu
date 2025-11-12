@@ -1,20 +1,11 @@
-name: GPT Control CI
+name: "[DEPRECATED] GPT Control CI"
+
 on:
-  push:
-    branches: [ "gpt-control", "gpt-dev" ]      # ← thêm gpt-dev
-  pull_request:
-    branches: [ "gpt-control", "main" ]
+  workflow_dispatch: {}
+
 jobs:
-  ci-minimal:
+  notice:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Echo
-        run: echo "GPT Control CI is alive"
-      - name: Smoke check (prod read-only)
-        run: |
-          code=$(curl -sk -o /dev/null -w "%{http_code}" https://diabot.top/api/qa/selftest || true)
-          echo "HTTP $code"
-          if [ "$code" != "200" ]; then
-            echo "Smoke failed"; exit 1
-          fi
+      - run: |
+          echo "GPT-specific checks now run inside 'Core CI' via the 'gpt' label."

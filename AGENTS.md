@@ -21,7 +21,7 @@
 ## Testing Guidelines
 - Unit and integration specs use `.test.ts(x)` files near the subject (e.g., `__tests__/components/Button.test.tsx`); run via `npm run test`.
 - UI regressions and onboarding flows live in Playwright suites under `e2e/`; run with `npm run test:e2e`.
-- Keep fixtures in `__tests__/fixtures` or `tests/fixtures`, mocking Supabase and external calls.
+- Keep fixtures in `__tests__/fixtures` or `tests/fixtures`, mocking Postgres adapters and external calls.
 - Aim for meaningful coverage of happy and failure paths; update smoke scripts when endpoints or env requirements shift.
 
 ## Commit & Pull Request Guidelines

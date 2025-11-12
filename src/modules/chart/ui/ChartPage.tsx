@@ -11,18 +11,10 @@ import { Skeleton } from "./components/Skeleton";
 import { useEffect, useState } from 'react';
 import { getFeatureFlag } from '../../../../config/feature-flags';
 
-const metricOptions: { label: string; value: Metric }[] = [ // Đã bỏ "All" khỏi kiểu
-  { label: "Đường huyết", value: "BG" },
-  { label: "Huyết áp", value: "BP" },
-  { label: "Tiêm Insulin", value: "Insulin" },
-  { label: "Cân nặng", value: "Weight" },
-  { label: "Nước uống", value: "Water" },
-  { label: "Bữa ăn", value: "Meal" },
-];
+const timelineMetrics: Metric[] = ["BG", "BP", "Insulin", "Weight", "Water", "Meal"];
 
 export default function ChartPage() {
   const [range, setRange] = React.useState<RangeOption>("7d");
-  const [focus, setFocus] = React.useState<Metric>("BG"); // Đặt mặc định là "BG"
   const [vm, setVM] = React.useState<ChartVM | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -117,25 +109,9 @@ export default function ChartPage() {
           onChange={(v) => { setRange(v); track("chart_toggle_range", { range: v }); }}
           options={[{label:"7 ngày", value:"7d"}, {label:"30 ngày", value:"30d"}] as any}
         />
-        <div className="flex flex-col items-center gap-2 mt-3 sm:mt-0">
-          <h3 className="text-base font-semibold text-gray-800">Chọn bảng báo cáo</h3>
-          {/* Thay thế Segmented bằng lưới các nút tùy chỉnh */}
-          <div className="grid grid-cols-3 gap-2 w-full"> {/* Sử dụng grid cho 3 cột */}
-            {metricOptions.map((opt) => {
-              const active = opt.value === focus;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => setFocus(opt.value)}
-                  className={`flex items-center justify-center h-12 rounded-xl border text-sm font-medium whitespace-nowrap transition-all duration-200
-                    ${active ? "bg-primary text-white shadow-sm border-primary" : "bg-white text-gray-700 hover:bg-gray-50 border-gray-300"}`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <p className="text-sm text-gray-500 max-w-sm text-center sm:text-right">
+          Tất cả biểu đồ bên dưới luôn mở sẵn để bạn theo dõi đồng thời.
+        </p>
       </div>
 
       {loading && <Skeleton className="h-24 rounded-2xl" />}
@@ -143,9 +119,9 @@ export default function ChartPage() {
       {vm && <MetricCards kpi={vm.kpi} />}
 
       {loading && <Skeleton className="h-72 rounded-2xl" />}
-      {vm && <TrendChart vm={vm} focus={focus} />}
+      {vm && <TrendChart vm={vm} />}
 
-      {vm && <LogTimeline range={range} metrics={[focus]} />} {/* Truyền focus trực tiếp */}
+      {vm && <LogTimeline range={range} metrics={timelineMetrics} />} {/* Hiển thị toàn bộ nhật ký */}
 
       {/* Thêm nút hướng dẫn xem báo cáo */}
       <div className="flex justify-center mt-6">

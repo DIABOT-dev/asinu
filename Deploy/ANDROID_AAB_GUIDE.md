@@ -13,7 +13,7 @@
 
 ## Data Safety form (gợi ý nội dung)
 - Thu thập dữ liệu sức khỏe: BG/meal/water/weight/bp/insulin (do user nhập)
-- Lưu trữ: ảnh bữa ăn (Supabase Storage – public URL)
+- Lưu trữ: ảnh bữa ăn (Viettel Object Storage – presigned URL)
 - Chia sẻ: **không chia sẻ** cho bên thứ ba (nếu đúng thực tế)
 - Mục đích: health & fitness; app functionality
 - Xóa dữ liệu: có tính năng **Account Deletion** trong app

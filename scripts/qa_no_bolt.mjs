@@ -7,7 +7,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const srcDir = path.join(repoRoot, "src");
 
-const transitionalSupabaseAllowlist = new Set();
+const forbiddenTermsEnv = process.env.QA_FORBIDDEN_TERMS ?? "bolt";
+const forbiddenTerms = forbiddenTermsEnv
+  .split(",")
+  .map((term) => term.trim())
+  .filter(Boolean);
+const transitionalAllowlist = new Set(
+  (process.env.QA_FORBIDDEN_ALLOWLIST ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+);
 
 const violations = [];
 
@@ -28,21 +38,18 @@ async function inspectFile(filePath) {
   const content = await readFile(filePath, "utf8");
   const relativePath = path.relative(repoRoot, filePath).split(path.sep).join("/");
 
-  const hasBolt = /bolt/i.test(content);
-  if (hasBolt) {
-    violations.push({ file: relativePath, term: "bolt" });
-  }
-
-  const hasSupabase = /supabase/i.test(content);
-  if (hasSupabase && !transitionalSupabaseAllowlist.has(relativePath)) {
-    violations.push({ file: relativePath, term: "supabase" });
+  for (const term of forbiddenTerms) {
+    const regex = new RegExp(term, "i");
+    if (regex.test(content) && !transitionalAllowlist.has(relativePath)) {
+      violations.push({ file: relativePath, term });
+    }
   }
 }
 
 await walk(srcDir);
 
 if (violations.length > 0) {
-  console.error("\n🚫 No-Bolt QA gate failed. Remove legacy Bolt/Supabase references:");
+  console.error("\n🚫 No-Bolt QA gate failed. Remove legacy references:");
   for (const { file, term } of violations) {
     console.error(`  - ${file} → contains disallowed term: ${term}`);
   }
@@ -50,4 +57,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log("✅ No-Bolt QA gate passed — no unauthorized Bolt/Supabase references in src/**");
+console.log("✅ No-Bolt QA gate passed — no unauthorized forbidden terms in src/**");

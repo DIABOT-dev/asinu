@@ -1,63 +1,11 @@
-name: "Autocode: MVP pack"
+name: "[DEPRECATED] Autocode: MVP pack"
 
 on:
-  workflow_dispatch:
-    inputs:
-      target_branch:
-        description: 'Base branch to create PR against'
-        required: true
-        default: 'main'
-      version_bump:
-        description: 'Bump type (patch|minor|major)'
-        required: true
-        default: 'patch'
-
-permissions:
-  contents: write
-  pull-requests: write
+  workflow_dispatch: {}
 
 jobs:
-  scaffold:
+  notice:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Create feature branch
-        id: mkbranch
-        run: |
-          BR="autocode/mvp-$(date +%Y%m%d-%H%M%S)"
-          git checkout -b "$BR"
-          echo "BRANCH=$BR" >> $GITHUB_OUTPUT
-
-      # (1) Thêm API /api/version cho cả Pages & App Router
-      - name: Ensure folders
-        run: |
-          mkdir -p src/hooks src/components
-          mkdir -p pages/api app/api/version
-
-      - name: Add API /api/version (Pages)
-        run: |
-          cat > pages/api/version.ts <<'TS'
-          import type { NextApiRequest, NextApiResponse } from "next";
-          export default function handler(_req: NextApiRequest, res: NextApiResponse) {
-            const version = process.env.NEXT_PUBLIC_APP_VERSION || "dev";
-            const commit = process.env.NEXT_PUBLIC_GIT_COMMIT || "local";
-            const built_at = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString();
-            res.status(200).json({ version, commit, built_at });
-          }
-          TS
-
-      - name: Add API /api/version (App Router)
-        run: |
-          cat > app/api/version/route.ts <<'TS'
-          export async function GET() {
-            const version = process.env.NEXT_PUBLIC_APP_VERSION || "dev";
-            const commit = process.env.N
+      - run: |
+          echo "This scaffold workflow is archived. Run the scripts locally if needed."

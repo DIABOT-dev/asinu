@@ -294,7 +294,7 @@ npm run build
 
 ### Run ETL (manual)
 ```bash
-# Call Supabase function manually hoặc qua pg_cron khi upgrade Pro
+# Call stored procedure manually hoặc qua pg_cron khi upgrade Pro
 SELECT run_all_etl();
 ```
 
