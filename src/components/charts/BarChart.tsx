@@ -93,7 +93,7 @@ export function BarChart({ data = defaultBarData, height = 260, stacked = false,
   useEffect(() => {
     ensureChartSetup();
     if (!canvasRef.current) return;
-    const chart = new ChartJS(canvasRef.current, {
+    const chart = new ChartJS<'bar'>(canvasRef.current, {
       type: 'bar',
       data: cloneChartData(data),
       options: buildOptions(isDarkMode, stacked)

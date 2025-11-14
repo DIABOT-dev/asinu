@@ -1,5 +1,6 @@
 import { emitMissionDoneEvent, type MissionDoneEvent } from "@/lib/bridge";
 import { awardTreePoints } from "@/modules/tree/service";
+import { creditRewardPoints } from "@/modules/rewards/ledger";
 import { createDbMissionRepository, getDbPoolClient, type MissionRepository } from "./repository";
 import type { MissionCheckinResult, MissionStatus, MissionTodayPayload } from "./types";
 import { determineMissionStatus, getDateKey, isDuplicateCheckin, summarizeMissions } from "./utils";
@@ -116,6 +117,16 @@ export function createMissionService(deps: MissionServiceDeps = {}) {
         idempotencyKey: `mission:${missionId}:${key}`,
       }).catch((error) => {
         console.warn("[tree] award mission points failed", error);
+      });
+
+      creditRewardPoints({
+        userId,
+        amount: missionPoints,
+        reason: missionCode ? `mission:${missionCode}` : "mission",
+        metadata: { mission_id: missionId, mission_code: missionCode },
+        idempotencyKey: `mission:${missionId}:${key}`,
+      }).catch((error) => {
+        console.warn("[rewards] credit points failed", error);
       });
     }
 

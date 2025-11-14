@@ -33,7 +33,6 @@ export function useIsDarkMode() {
       prefersDark.addEventListener('change', onPrefersChange);
     } catch {
       // Safari < 14
-      // eslint-disable-next-line deprecation/deprecation
       prefersDark.addListener(onPrefersChange);
     }
 
@@ -42,7 +41,6 @@ export function useIsDarkMode() {
       try {
         prefersDark.removeEventListener('change', onPrefersChange);
       } catch {
-        // eslint-disable-next-line deprecation/deprecation
         prefersDark.removeListener(onPrefersChange);
       }
     };

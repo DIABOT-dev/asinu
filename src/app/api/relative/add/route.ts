@@ -8,11 +8,10 @@
  * When OFF: Returns 404
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { featureGate } from '@/lib/middleware/featureGate';
-import { getSession } from '@/infrastructure/auth/session';
-import { familyService } from '@/modules/family/service';
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { featureGate } from "@/lib/middleware/featureGate";
+import { getSession } from "@/infrastructure/auth/session";
+import { familyService } from "@/modules/family/service";
 
 export async function POST(req: NextRequest) {
   // Feature gate: return 404 if RELATIVE_ENABLED is OFF

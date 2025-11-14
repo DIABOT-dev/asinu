@@ -37,7 +37,7 @@ export function ensureChartSetup() {
   );
 
   Chart.defaults.font.family = 'var(--font-sans, "Inter", "SF Pro Display", system-ui, -apple-system)';
-  Chart.defaults.font.weight = '500';
+  Chart.defaults.font.weight = 500;
   Chart.defaults.plugins.tooltip.borderWidth = 1;
   Chart.defaults.plugins.tooltip.displayColors = false;
   Chart.defaults.plugins.tooltip.mode = 'nearest';

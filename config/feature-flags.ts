@@ -40,6 +40,7 @@ export type FlagKey =
   | 'SAFETY_RULES_ENABLED'    // boolean - Enhanced safety validation
   | 'FEATURE_MISSION'         // boolean - Mission Lite module
   | 'TREE_ENABLED'            // boolean - Life Tree module
+  | 'DONATION_ENABLED'        // boolean - Donate API
 
   // Advanced AI features
   | 'AI_GATEWAY_ENABLED'
@@ -90,7 +91,7 @@ export function getFeatureFlags(): FeatureFlags {
   const flags: FeatureFlags = {
     // Core features - client-side flags (require rebuild when changed)
     AI_AGENT_MODE: readEnvString('NEXT_PUBLIC_AI_AGENT', 'demo'),
-    REWARDS_ENABLED: readEnvBool('NEXT_PUBLIC_REWARDS'),
+    REWARDS_ENABLED: readEnvBool('REWARDS_ENABLED', false),
     CHARTS_ENABLED: true, // Always enabled (safe feature)
     BACKGROUND_SYNC: readEnvBool('NEXT_PUBLIC_BG_SYNC'),
     REALTIME_ENABLED: readEnvBool('NEXT_PUBLIC_REALTIME'),
@@ -114,6 +115,7 @@ export function getFeatureFlags(): FeatureFlags {
     SAFETY_RULES_ENABLED: readEnvBool('SAFETY_RULES_ENABLED', false),
     FEATURE_MISSION: readEnvBool('FEATURE_MISSION', false),
     TREE_ENABLED: readEnvBool('TREE_ENABLED', false),
+    DONATION_ENABLED: readEnvBool('DONATION_ENABLED', false),
 
     // AI specific flags - server-side
     AI_CACHE_ENABLED: readEnvBool('AI_CACHE_ENABLED', true), // Default enabled

@@ -11,6 +11,10 @@ const TodayMissions = dynamic(() => import("@/modules/mission/ui/TodayMissions")
   ssr: false,
 });
 
+const REWARDS_FEATURE_ENABLED =
+  typeof process.env.NEXT_PUBLIC_REWARDS === "string"
+    ? /^(1|true|yes|on)$/i.test(process.env.NEXT_PUBLIC_REWARDS)
+    : false;
 
 export default function Dashboard() {
   const [chatOpen, setChatOpen] = useState(false);
@@ -106,21 +110,18 @@ export default function Dashboard() {
       <p className="font-semibold">Nhận thưởng</p>
       <p className="text-sm text-muted">Tích điểm – Đổi quà</p>
     </div>
-    <button
-      onClick={() => {
-        const FEATURE_REWARDS_ENABLED = false; // flag bật/tắt
-        if (!FEATURE_REWARDS_ENABLED) {
-          alert("Tính năng này sẽ mở sau MVP. Vui lòng quay lại sau!");
-          return;
-        }
-        router.push("/rewards");
-      }}
-      className="h-[var(--h-input-sm)] px-10 rounded-lg border-2 border-primary 
-                 text-primary bg-white hover:bg-primary-50 transition 
-                 whitespace-nowrap shrink-0 min-w-[96px]"
-    >
-      Mở bảng
-    </button>
+    {REWARDS_FEATURE_ENABLED ? (
+      <button
+        onClick={goRewards}
+        className="h-[var(--h-input-sm)] px-10 rounded-lg border-2 border-primary 
+                   text-primary bg-white hover:bg-primary-50 transition 
+                   whitespace-nowrap shrink-0 min-w-[96px]"
+      >
+        Mở bảng
+      </button>
+    ) : (
+      <span className="text-xs text-muted">Sắp ra mắt</span>
+    )}
   </div>
 </Card>
 

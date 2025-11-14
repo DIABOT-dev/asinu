@@ -8,6 +8,7 @@ type Relative = {
   relation: string;
   role: string;
   created_at: string;
+  relative_user_id: string;
   profile: {
     user_id: string;
     display_name: string | null;
@@ -156,58 +157,56 @@ export default function RelativesPanel() {
         </ul>
       )}
 
-      {status !== "hidden" && (
-        <form onSubmit={handleAdd} className="mt-4 grid gap-3">
-          <div className="grid gap-1">
-            <label className="text-xs font-semibold uppercase text-gray-500">Mã người thân / Email</label>
-            <input
-              type="text"
-              required
-              value={form.relative_id}
-              onChange={(event) => setForm((prev) => ({ ...prev, relative_id: event.target.value }))}
-              placeholder="Nhập ID hoặc email tài khoản"
-              className="h-10 rounded-xl border px-3 text-sm"
-              disabled={submitting}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <select
-              className="h-10 rounded-xl border px-3 text-sm"
-              value={form.relation}
-              onChange={(event) => setForm((prev) => ({ ...prev, relation: event.target.value }))}
-              disabled={submitting}
-            >
-              {RELATIONS.map((relation) => (
-                <option key={relation.value} value={relation.value}>
-                  {relation.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-10 rounded-xl border px-3 text-sm"
-              value={form.role}
-              onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
-              disabled={submitting}
-            >
-              {ROLES.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className={cn(
-              "h-10 rounded-xl bg-gray-900 text-white text-sm font-semibold",
-              submitting && "opacity-60",
-            )}
+      <form onSubmit={handleAdd} className="mt-4 grid gap-3">
+        <div className="grid gap-1">
+          <label className="text-xs font-semibold uppercase text-gray-500">Mã người thân / Email</label>
+          <input
+            type="text"
+            required
+            value={form.relative_id}
+            onChange={(event) => setForm((prev) => ({ ...prev, relative_id: event.target.value }))}
+            placeholder="Nhập ID hoặc email tài khoản"
+            className="h-10 rounded-xl border px-3 text-sm"
+            disabled={submitting}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <select
+            className="h-10 rounded-xl border px-3 text-sm"
+            value={form.relation}
+            onChange={(event) => setForm((prev) => ({ ...prev, relation: event.target.value }))}
             disabled={submitting}
           >
-            Thêm người thân
-          </button>
-        </form>
-      )}
+            {RELATIONS.map((relation) => (
+              <option key={relation.value} value={relation.value}>
+                {relation.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-10 rounded-xl border px-3 text-sm"
+            value={form.role}
+            onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
+            disabled={submitting}
+          >
+            {ROLES.map((role) => (
+              <option key={role.value} value={role.value}>
+                {role.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          className={cn(
+            "h-10 rounded-xl bg-gray-900 text-white text-sm font-semibold",
+            submitting && "opacity-60",
+          )}
+          disabled={submitting}
+        >
+          Thêm người thân
+        </button>
+      </form>
 
       {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
     </div>

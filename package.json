@@ -28,6 +28,7 @@
     "backfill:meal:cache": "node scripts/etl/backfill_meal_cache.mjs",
     "auth:check": "tsx scripts/auth_smoke.ts",
     "meal:check": "tsx scripts/meal_smoke.ts",
+    "otp:cleanup": "tsx scripts/cleanup_otp_store.ts",
     "checkpoint": "npm run typecheck && npm run lint && npm run test && npm run build",
     "stability:check": "node scripts/stability-check.js",
     "stability:fix": "rimraf .next && npm run build:ci && npm run stability:check",

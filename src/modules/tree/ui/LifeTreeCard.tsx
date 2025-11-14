@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import treeScene from "@/config/tree_scene.json";
+import treeScene from "@config/tree_scene.json";
 
 type TreeStateResponse = {
   success: boolean;

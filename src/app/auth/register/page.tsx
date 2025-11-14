@@ -107,7 +107,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await apiFetch("/api/auth/register", {
+      await apiFetch("/api/auth/email/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

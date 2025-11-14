@@ -23,7 +23,7 @@ export async function DELETE(req: NextRequest) {
     { code: "SESSION_CLEARED" },
     { request: req, cacheControl: "no-store" },
   );
-  clearSession(res);
+  await clearSession(res, req);
   return res;
 }
 

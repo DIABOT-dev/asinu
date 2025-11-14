@@ -65,7 +65,7 @@ export function DonutChart({ data = defaultDonutData, height = 220, className, c
   useEffect(() => {
     ensureChartSetup();
     if (!canvasRef.current) return;
-    const chart = new ChartJS(canvasRef.current, {
+    const chart = new ChartJS<'doughnut'>(canvasRef.current, {
       type: 'doughnut',
       data: cloneChartData(data),
       options: buildOptions(isDarkMode, cutout)

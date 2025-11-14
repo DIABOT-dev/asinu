@@ -32,6 +32,9 @@
       ],
       "@styles/*": [
         "./src/interfaces/ui/styles/*"
+      ],
+      "@config/*": [
+        "./config/*"
       ]
     },
     "lib": [

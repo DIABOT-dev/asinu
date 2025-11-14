@@ -84,7 +84,7 @@ export function LineChart({ data = defaultLineData, height = 240, className }: P
   useEffect(() => {
     ensureChartSetup();
     if (!canvasRef.current) return;
-    const chart = new ChartJS(canvasRef.current, {
+    const chart = new ChartJS<'line'>(canvasRef.current, {
       type: 'line',
       data: cloneChartData(data),
       options: buildOptions(isDarkMode)

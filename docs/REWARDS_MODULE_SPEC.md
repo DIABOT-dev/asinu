@@ -1,7 +1,7 @@
 # Rewards & Ladder Module — Planning Spec (MVP v1)
 
-**Status:** Planning only (feature flag `REWARDS_ENABLED = false`)  
-**Scope:** Sprint 3 – build-ready documents so code can start instantly after MVP release.
+**Status:** Implemented behind flags (`REWARDS_ENABLED = false`, `DONATION_ENABLED = false` by default)  
+**Scope:** Sprint 3 – Rewards catalog + Donate APIs + UI, currently soaking behind QA freeze.
 
 ---
 
@@ -59,6 +59,34 @@ seeding_rules (
   active boolean,
   created_at timestamptz
 )
+
+vp_ledger (
+  id uuid pk,
+  user_id uuid fk→app_user,
+  delta int,
+  reason text,
+  metadata jsonb,
+  idempotency_key text unique,
+  created_at timestamptz
+)
+
+vp_balances (
+  user_id uuid pk,
+  balance int,
+  updated_at timestamptz
+)
+
+donation_log (
+  id uuid pk,
+  user_id uuid,
+  provider text,
+  amount_points int,
+  amount_vnd int,
+  campaign text,
+  status text,
+  metadata jsonb,
+  created_at timestamptz
+)
 ```
 
 RLS sẽ reuse `app_user` policies (user_id = current_setting).
@@ -101,4 +129,3 @@ Tất cả route trả 404 khi flag OFF (sử dụng `featureGate`).
   3. UI surfaces.
 
 Until then, user vẫn tích HEALTH_POINTS trong ledger, chờ ngày bật `REWARDS_ENABLED`.
-
