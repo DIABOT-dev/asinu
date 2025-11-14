@@ -35,3 +35,4 @@ Output artifacts live under `mobile-shell/android/app/build/outputs/`.
 - [ ] Splash/icon assets updated in `mobile-shell/android/app/src/main/res`.
 - [ ] QA smoke run on APK/AAB before uploading to Play Console internal track.
 - [ ] Document build number in `REPORT_*.md` or release notes.
+- [ ] Use `scripts/sign_mobile_aab.sh` (see `docs/MOBILE_DEPLOY_PLAYSTORE.md`) to sign bundles before upload.

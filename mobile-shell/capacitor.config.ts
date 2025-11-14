@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Asinu',
   webDir: 'dist',
   server: {
-    url: process.env.ASINU_WEB_URL || 'https://asinu.top',
+    url: process.env.ASINU_WEB_URL || 'https://app.asinu.top',
     cleartext: false
   }
 };
