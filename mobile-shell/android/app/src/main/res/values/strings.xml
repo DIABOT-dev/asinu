@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Asinu</string>
+    <string name="title_activity_main">Asinu</string>
+    <string name="package_name">com.diabot.asinu</string>
+    <string name="custom_url_scheme">com.diabot.asinu</string>
+</resources>

@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Asinu",
+    "slug": "asinu",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "owner": "diabot",
+    "android": {
+      "package": "com.diabot.asinu",
+      "versionCode": 1
+    },
+    "ios": {
+      "bundleIdentifier": "com.diabot.asinu",
+      "buildNumber": "0.1.0"
+    }
+  }
+}

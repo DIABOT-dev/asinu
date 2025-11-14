@@ -16,6 +16,7 @@
     "clean": "rimraf .next node_modules .turbo dist pnpm-lock.yaml package-lock.json yarn.lock",
     "reinstall": "npm ci || npm i --force",
     "smoke": "node ./scripts/smoke.mjs",
+    "smoke:backend": "bash scripts/smoke_backend.sh",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
@@ -40,6 +41,9 @@
     "docker:down": "docker compose down",
     "env:sync": "cp .env .env.local",
     "db:seed:demo": "tsx scripts/db_seed_demo.ts",
+    "build:android:release": "cd android && ./gradlew bundleRelease",
+    "mobile:android:sync": "cd mobile-shell && npm run cap:sync",
+    "mobile:android:open": "cd mobile-shell && npm run cap:open:android",
     "dev-local": "node node_modules/next/dist/bin/next dev",
     "start-local": "node node_modules/next/dist/bin/next start"
   },

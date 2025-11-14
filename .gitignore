@@ -28,6 +28,10 @@ public/raw/
 docs/archives/
 data/_raw/
 
+# Android signing (never commit secrets)
+android/keystore.properties
+android/app/asinu-release.keystore
+
 # Test outputs / reports
 reports/
 *.coverage
