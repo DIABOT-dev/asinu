@@ -68,6 +68,8 @@
   },
   "include": [
     "next-env.d.ts",
+    "src/**/*",
+    "pages/**/*",
     "types/**/*.d.ts",
     ".next/types/**/*.ts"
   ],

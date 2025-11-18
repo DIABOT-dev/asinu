@@ -5,6 +5,7 @@ const nextConfig = {
   output: 'standalone',
   transpilePackages: ['lucide-react'],
   staticPageGenerationTimeout: 120,
+  optimizeFonts: false,
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
   swcMinify: false,

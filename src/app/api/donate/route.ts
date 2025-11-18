@@ -5,7 +5,7 @@ import { featureGateAll } from "@/lib/middleware/featureGate";
 import { jsonError, jsonSuccess } from "@/lib/http/response";
 import { recordDonation } from "@/modules/rewards/service";
 import { RewardServiceError } from "@/modules/rewards/errors";
-import { emitBridgeEvent } from "@/lib/bridge";
+import { emitDonationEvent } from "@/lib/bridge";
 
 const BodySchema = z.object({
   provider: z.string().min(2).max(64),
@@ -43,12 +43,12 @@ export async function POST(req: NextRequest) {
       note: parsed.data.note,
     });
 
-    emitBridgeEvent("donate", {
-      user_id: userId,
+    emitDonationEvent({
+      userId,
       provider: donation.provider,
-      amount_points: donation.amount_points,
-      amount_vnd: donation.amount_vnd,
-      campaign: donation.campaign,
+      amountPoints: donation.amount_points,
+      amountVnd: donation.amount_vnd,
+      campaign: donation.campaign ?? null,
       ts: donation.created_at,
     }).catch((error) => {
       console.warn("[donate] bridge emit failed", error);

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import Button from '@/interfaces/ui/components/atoms/Button';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import Button from "@/interfaces/ui/components/atoms/Button";
+import { cn } from "@/lib/utils";
 import { apiFetch, ApiError } from "@/lib/http";
 
 interface MealSuggestion {
@@ -30,11 +30,7 @@ interface QuickMealEntryProps {
  * Fetches from GET /api/meal/suggest (cached 15 min)
  * 1-tap confirm to log meal
  */
-export default function QuickMealEntry({
-  mealType,
-  onSelect,
-  className
-}: QuickMealEntryProps) {
+export default function QuickMealEntry({ mealType, onSelect, className }: QuickMealEntryProps) {
   const [suggestions, setSuggestions] = useState<MealSuggestion[]>([]);
   const [copyYesterday, setCopyYesterday] = useState<MealSuggestion | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,7 +71,7 @@ export default function QuickMealEntry({
 
   if (loading) {
     return (
-      <div className={cn('quick-meal-entry', className)}>
+      <div className={cn("rounded-xl border border-gray-100 bg-white", className)}>
         <div className="text-center py-4 text-gray-500">
           Đang tải gợi ý...
         </div>
@@ -85,7 +81,7 @@ export default function QuickMealEntry({
 
   if (error) {
     return (
-      <div className={cn('quick-meal-entry', className)}>
+      <div className={cn("rounded-xl border border-gray-100 bg-white", className)}>
         <div className="text-center py-4 text-red-500">
           Không thể tải gợi ý. <button onClick={fetchSuggestions} className="underline">Thử lại</button>
         </div>
@@ -94,7 +90,7 @@ export default function QuickMealEntry({
   }
 
   return (
-    <div className={cn('quick-meal-entry space-y-3', className)}>
+    <div className={cn("space-y-3 rounded-xl border border-gray-100 bg-white p-4", className)}>
       <h3 className="text-sm font-semibold text-gray-700">Gợi ý nhanh</h3>
 
       <div className="grid gap-2">
@@ -102,7 +98,7 @@ export default function QuickMealEntry({
           <button
             key={suggestion.id}
             onClick={() => handleSelect(suggestion)}
-            className="suggestion-chip"
+            className="w-full rounded-lg border border-gray-200 p-3 text-left transition-colors hover:border-blue-400 hover:bg-blue-50"
           >
             <div className="flex justify-between items-center">
               <div className="text-left">
@@ -128,7 +124,7 @@ export default function QuickMealEntry({
         {copyYesterday && (
           <button
             onClick={() => handleSelect(copyYesterday)}
-            className="suggestion-chip border-dashed"
+            className="w-full rounded-lg border border-dashed border-gray-200 p-3 text-left transition-colors hover:border-blue-400 hover:bg-blue-50"
           >
             <div className="flex justify-between items-center">
               <div className="text-left">
@@ -150,8 +146,8 @@ export default function QuickMealEntry({
           variant="ghost"
           size="sm"
           onClick={() => handleSelect({
-            id: 'custom',
-            name: 'Tự nhập món ăn',
+            id: "custom",
+            name: "Tự nhập món ăn",
             kcal: 0,
             carb_g: 0,
             protein_g: 0,
@@ -162,15 +158,6 @@ export default function QuickMealEntry({
           + Tự nhập món ăn
         </Button>
       </div>
-
-      <style jsx>{`
-        .suggestion-chip {
-          @apply w-full p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left;
-        }
-        .suggestion-chip.border-dashed {
-          @apply border-dashed;
-        }
-      `}</style>
     </div>
   );
 }

@@ -124,7 +124,7 @@ function timeAgo(ts: Date): string {
 }
 
 function buildMealBrief(row: { title: string | null; meal_type: string | null; portion: string | null }): string {
-  const parts = [];
+  const parts: string[] = [];
   if (row.meal_type) parts.push(row.meal_type);
   if (row.title) parts.push(row.title);
   const base = parts.join(": ") || "Bữa gần nhất";

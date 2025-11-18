@@ -20,12 +20,54 @@ export type MissionDoneEvent = {
   ts: string;
 };
 
+export type RewardRedeemedEvent = {
+  userId: string;
+  itemId: string;
+  itemType?: string | null;
+  itemTitle?: string | null;
+  cost: number;
+  balance: number;
+  ts: string;
+};
+
+export type DonationEvent = {
+  userId: string;
+  provider: string;
+  amountPoints: number;
+  amountVnd: number;
+  campaign?: string | null;
+  ts: string;
+};
+
 export function emitMissionDoneEvent(event: MissionDoneEvent) {
   return emitBridgeEvent("mission_done", {
     user_id: event.userId,
     mission_id: event.missionId,
     mission_code: event.missionCode ?? null,
     points: event.points,
+    ts: event.ts,
+  });
+}
+
+export function emitRewardRedeemedEvent(event: RewardRedeemedEvent) {
+  return emitBridgeEvent("reward_redeem", {
+    user_id: event.userId,
+    item_id: event.itemId,
+    item_type: event.itemType ?? null,
+    item_title: event.itemTitle ?? null,
+    cost: event.cost,
+    balance: event.balance,
+    ts: event.ts,
+  });
+}
+
+export function emitDonationEvent(event: DonationEvent) {
+  return emitBridgeEvent("donate", {
+    user_id: event.userId,
+    provider: event.provider,
+    amount_points: event.amountPoints,
+    amount_vnd: event.amountVnd,
+    campaign: event.campaign ?? null,
     ts: event.ts,
   });
 }

@@ -1,5 +1,7 @@
 # ASINU — Clean Scaffold (Next.js 14.2 + Postgres + Docker)
 
+> GitHub repo: https://github.com/DIABOT-dev/asinu (remote `origin`). Use `git fetch origin main && git status` to sync before making changes.
+
 
 ## 🚀 Quick Start
 
@@ -25,7 +27,28 @@ pnpm typecheck
 
 # 6️⃣ Smoke test
 curl -i http://localhost:3000/api/qa/selftest   # expect 200
+
+# 7️⃣ Production build (when native SWC crashes)
+NEXT_FORCE_SWC_WASM=1 pnpm build   # forces the wasm binding via patches/next+14.2.7.patch
 ```
+
+## 🔥 Smoke Harness (`npm run smoke`)
+
+Run a full Auth → Mission → Rewards/Donate → Bridge → Healthz sweep with one command:
+
+```bash
+# Session cookie (asinu.sid) captured from staging login
+export ASINU_SMOKE_SESSION="eyJ...signed..."
+# Optional overrides
+export SMOKE_BASE_URL="https://staging.asinu.ai"
+export SMOKE_ALLOW_WRITES=1              # enable POST /missions/checkin, /rewards/redeem, /donate
+export SMOKE_REDEEM_ITEM_ID="..."        # pin a catalog item (else first item)
+export SMOKE_DONATE_POINTS=50            # optional points for donate test
+
+npm run smoke
+```
+
+Outputs follow the QA checklist A–F with PASS/SKIP/FAIL, and any write test is automatically skipped when `SMOKE_ALLOW_WRITES` is unset. Bring your own `asinu.sid`; otherwise the harness will exit with an explicit error before running the suite.
 
 ## 🧪 API Endpoints — Smoke & Examples
 

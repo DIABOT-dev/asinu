@@ -2,11 +2,8 @@
 "use client";
 
 import "@/styles/index.css";
-import { Inter } from "next/font/google";
 import BottomNav from "@/interfaces/ui/components/BottomNav";
 import { usePathname } from "next/navigation";
-
-const inter = Inter({ subsets: ["latin"] });
 
 // (Giữ nguyên metadata nếu bạn có ở file khác)
 
@@ -20,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="vi">
-      <body className={inter.className + " bg-bg text-text min-h-screen"}>
+      <body className="bg-bg font-sans text-text min-h-screen">
         {children}
         {!hideBottomNav && <BottomNav />} {/* Chỉ render khi không phải auth/setup */}
       </body>

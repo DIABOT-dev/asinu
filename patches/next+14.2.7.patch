@@ -1,0 +1,34 @@
+diff --git a/node_modules/next/dist/build/swc/index.js b/node_modules/next/dist/build/swc/index.js
+index 0799cd4..a5839fd 100644
+--- a/node_modules/next/dist/build/swc/index.js
++++ b/node_modules/next/dist/build/swc/index.js
+@@ -248,6 +248,16 @@ async function loadBindings(useWasmBinary = false) {
+         }
+         let attempts = [];
+         const disableWasmFallback = process.env.NEXT_DISABLE_SWC_WASM;
++        const forceWasmFallback = process.env.NEXT_FORCE_SWC_WASM === "1";
++        if (forceWasmFallback) {
++            lastNativeBindingsLoadErrorCode = "forced_wasm";
++            const wasmOnlyBindings = await tryLoadWasmWithFallback(attempts);
++            if (wasmOnlyBindings) {
++                return resolve(wasmOnlyBindings);
++            }
++            attempts.push("Forced wasm fallback failed to load");
++            return logLoadFailure(attempts, true);
++        }
+         const unsupportedPlatform = triples.some((triple)=>!!(triple == null ? void 0 : triple.raw) && knownDefaultWasmFallbackTriples.includes(triple.raw));
+         const isWebContainer = process.versions.webcontainer;
+         const shouldLoadWasmFallbackFirst = !disableWasmFallback && unsupportedPlatform && useWasmBinary || isWebContainer;
+@@ -752,6 +762,12 @@ async function loadWasm(importPath = "") {
+     throw attempts;
+ }
+ function loadNative(importPath) {
++    if (process.env.NEXT_FORCE_SWC_WASM === "1") {
++        if (wasmBindings) {
++            return wasmBindings;
++        }
++        throw new Error("NEXT_FORCE_SWC_WASM=1 requires wasm bindings to be loaded first");
++    }
+     if (nativeBindings) {
+         return nativeBindings;
+     }

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -10,7 +11,7 @@ export async function simpleGenerate(opts: {
 }) {
   const { model, system, prompt, maxTokens = 120 } = opts;
 
-  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+  const messages: ChatCompletionMessageParam[] = [
     ...(system ? [{ role: "system" as const, content: system }] : []),
     { role: "user" as const, content: prompt },
   ];

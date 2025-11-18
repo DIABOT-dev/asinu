@@ -1,4 +1,6 @@
-import { Readable } from "node:stream";
+import * as Stream from "stream";
+
+const { Readable } = Stream;
 
 const HEADER_PROVIDER = "x-dia-storage-provider";
 const HEADER_ENDPOINT = "x-dia-storage-endpoint";
@@ -6,6 +8,12 @@ const HEADER_PROXY = "x-dia-storage-proxy";
 
 const PROVIDER_NAME = "viettel";
 const PROXY_NAME = "dia-brain";
+
+type NodeReadableLike = NodeJS.ReadableStream & {
+  readonly readable?: boolean;
+  read?: (...args: any[]) => unknown;
+  pipe?: (...args: any[]) => unknown;
+};
 
 export type StorageBody =
   | Buffer
@@ -23,6 +31,14 @@ export interface ProxyRequestOptions {
   method: "PUT" | "GET" | "DELETE";
   body?: StorageBody;
   contentType?: string;
+}
+
+function isNodeReadableStream(body: StorageBody): body is NodeReadableLike {
+  if (!body || typeof body !== "object") {
+    return false;
+  }
+  const candidate = body as Partial<NodeReadableLike>;
+  return typeof candidate.read === "function" || typeof candidate.pipe === "function";
 }
 
 function normalizeBody(body?: StorageBody): BodyInit | undefined {
@@ -58,9 +74,11 @@ function normalizeBody(body?: StorageBody): BodyInit | undefined {
     return body;
   }
 
-  const maybeNodeStream = body as NodeJS.ReadableStream | undefined;
-  if (maybeNodeStream && typeof maybeNodeStream.read === "function") {
-    return Readable.toWeb(maybeNodeStream as Readable) as unknown as BodyInit;
+  if (isNodeReadableStream(body)) {
+    if (typeof Readable?.toWeb === "function") {
+      return Readable.toWeb(body as any) as unknown as BodyInit;
+    }
+    return body as unknown as BodyInit;
   }
 
   return body as BodyInit;

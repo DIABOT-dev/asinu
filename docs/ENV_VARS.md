@@ -18,6 +18,7 @@
 | `BRIDGE_URL` | Optional | – | Dia Brain Bridge endpoint; when set, mission events are POSTed here. |
 | `BRIDGE_KEY` | Optional | – | Bearer key for Dia Brain Bridge requests. |
 | `BRIDGE_HASH_SECRET` | Optional | – | Secret used to anonymize user ids before emitting bridge events (defaults to `AUTH_SECRET`). |
+| `NEXT_FORCE_SWC_WASM` | Optional | `false` | Set to `1` when running `npm run build:ci` on CPUs that crash with the native SWC binary; forces the wasm binding (see `patches/next+14.2.7.patch`). |
 | `GOOGLE_OAUTH_CLIENT_ID` | Optional | – | Google OAuth client id used by `/api/auth/google`. |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Optional | – | Google OAuth client secret used to exchange tokens. |
 | `GOOGLE_OAUTH_REDIRECT_URI` | Optional | Derived from request URL | Override callback URL for Google OAuth (defaults to `/api/auth/google`). |
@@ -26,3 +27,13 @@
 | `ZALO_OAUTH_REDIRECT_URI` | Optional | Derived from request URL | Override callback URL for Zalo OAuth (defaults to `/api/auth/zalo`). |
 | `TREE_ENABLED` | Optional | `false` | Enables the Life Tree ledger/API (`/api/tree/state`) and point-award helper. |
 | `DONATION_PORTAL_URL` | Optional | `https://asinu.ai/donate` | Base URL used to generate VNPay/MoMo donation deep links returned by `/api/donate`. |
+| `ASINU_SMOKE_SESSION` | Optional | – | Session cookie used by `npm run smoke`; falls back to `SMOKE_SESSION` or `SESSION_ID`. |
+| `SMOKE_BASE_URL` | Optional | `http://localhost:<port>` | Override the base URL the smoke harness hits (defaults to localhost). |
+| `SMOKE_PORT` | Optional | `3000` | Port used to build the default smoke base URL when `SMOKE_BASE_URL` is not set. |
+| `SMOKE_ALLOW_WRITES` | Optional | `0` | When `1`, smoke tests will POST to `/api/missions/checkin`, `/api/rewards/redeem`, `/api/donate`. |
+| `SMOKE_REDEEM_ITEM_ID` | Optional | – | Force the smoke harness to redeem a specific reward item (otherwise uses the first catalog entry). |
+| `SMOKE_DONATE_PROVIDER` | Optional | `smoke` | Provider string used for the donate smoke test. |
+| `SMOKE_DONATE_POINTS` | Optional | `0` | Reward points to donate during the smoke test (skipped unless `SMOKE_ALLOW_WRITES=1`). |
+| `SMOKE_DONATE_VND` | Optional | `10000` | VND amount to donate during the smoke test (skipped unless `SMOKE_ALLOW_WRITES=1`). |
+| `SMOKE_DONATE_CAMPAIGN` | Optional | – | Campaign label attached to the donate smoke call. |
+| `SMOKE_FETCH_TIMEOUT` | Optional | `15000` | Fetch timeout (ms) for each smoke HTTP request. |

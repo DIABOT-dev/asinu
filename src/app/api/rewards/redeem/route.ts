@@ -5,6 +5,7 @@ import { featureGateAll } from "@/lib/middleware/featureGate";
 import { jsonError, jsonSuccess } from "@/lib/http/response";
 import { redeemRewardItem } from "@/modules/rewards/service";
 import { RewardServiceError } from "@/modules/rewards/errors";
+import { emitRewardRedeemedEvent } from "@/lib/bridge";
 
 const BodySchema = z.object({
   item_id: z.string().uuid(),
@@ -46,6 +47,19 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await redeemRewardItem(userId, parsed.data.item_id);
+
+    emitRewardRedeemedEvent({
+      userId,
+      itemId: result.item.id,
+      itemType: result.item.item_type,
+      itemTitle: result.item.title,
+      cost: Number(result.item.cost),
+      balance: Number(result.balance ?? 0),
+      ts: result.created_at ?? new Date().toISOString(),
+    }).catch((error) => {
+      console.warn("[rewards/redeem] bridge emit failed", error);
+    });
+
     return jsonSuccess(result, { request: req, cacheControl: "no-store" });
   } catch (error: any) {
     if (error instanceof RewardServiceError) {

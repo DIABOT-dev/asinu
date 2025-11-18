@@ -175,21 +175,23 @@ export default function PersonaSwitch({ className }: PersonaSwitchProps) {
       </div>
 
       {/* Low Ask Mode */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+      <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
         <div>
           <div className="font-medium">Chế độ ít hỏi</div>
           <div className="text-sm text-gray-500 mt-1">
             Giảm số lần hỏi, ưu tiên hành động
           </div>
         </div>
-        <label className="toggle-switch">
+        <label className="relative inline-flex h-6 w-12 items-center">
           <input
             type="checkbox"
             checked={prefs.low_ask_mode}
             onChange={handleLowAskModeToggle}
             disabled={saving}
+            className="peer sr-only"
           />
-          <span className="slider" />
+          <span className="h-6 w-12 rounded-full bg-gray-300 transition-colors peer-checked:bg-blue-500 peer-disabled:opacity-50" />
+          <span className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-6" />
         </label>
       </div>
 
@@ -202,32 +204,6 @@ export default function PersonaSwitch({ className }: PersonaSwitchProps) {
           duration={3000}
         />
       )}
-
-      <style jsx>{`
-        .toggle-switch {
-          @apply relative inline-block w-16 min-h-12;
-        }
-
-        .toggle-switch input {
-          @apply opacity-0 w-0 h-0;
-        }
-
-        .slider {
-          @apply absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 rounded-full transition-all;
-        }
-
-        .slider:before {
-          @apply absolute content-[""] h-10 w-10 left-1 bottom-1 bg-white rounded-full transition-all;
-        }
-
-        input:checked + .slider {
-          @apply bg-blue-500;
-        }
-
-        input:checked + .slider:before {
-          transform: translateX(16px);
-        }
-      `}</style>
     </div>
   );
 }

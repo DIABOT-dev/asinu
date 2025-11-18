@@ -49,6 +49,15 @@ declare module 'next/dynamic' {
   export default dynamic
 }
 
+declare module 'next/document' {
+  export const Html: any
+  export const Head: any
+  export const Main: any
+  export const NextScript: any
+  const Document: any
+  export default Document
+}
+
 declare module 'next/server' {
   export const NextResponse: any
   export type NextResponse<T = any> = any
@@ -88,6 +97,15 @@ declare module 'react' {
   export function createContext<T>(defaultValue: T): Context<T>
   export function createElement(type: any, props?: any, ...children: any[]): any
   export const Fragment: any
+  export class Component<P = any, S = any> {
+    constructor(props: P, deprecatedLegacyContext?: any)
+    props: P & { children?: ReactNode }
+    state: S
+    context: any
+    setState(state: Partial<S>, callback?: () => void): void
+    forceUpdate(callback?: () => void): void
+    render(): any
+  }
   export interface HTMLAttributes<T> extends Record<string, any> {}
   export interface ButtonHTMLAttributes<T> extends HTMLAttributes<T> {}
   export interface InputHTMLAttributes<T> extends HTMLAttributes<T> {}
@@ -110,6 +128,15 @@ declare module 'react' {
 declare namespace React {
   type ReactNode = any
   type FC<P = any> = (props: P) => any
+  class Component<P = any, S = any> {
+    constructor(props: P, deprecatedLegacyContext?: any)
+    props: P & { children?: ReactNode }
+    state: S
+    context: any
+    setState(state: Partial<S>, callback?: () => void): void
+    forceUpdate(callback?: () => void): void
+    render(): any
+  }
   type FormEvent<T = any> = any
   interface ChangeEvent<T = any> extends FormEvent<T> {}
   interface MouseEvent<T = any> extends FormEvent<T> {}
@@ -165,30 +192,6 @@ declare module 'date-fns' {
   export const addDays: (...args: any[]) => Date
   export const subDays: (...args: any[]) => Date
   export const formatISO: (...args: any[]) => string
-}
-
-declare module 'lucide-react' {
-  export const Home: any
-  export const HeartPulse: any
-  export const User: any
-  export const Plus: any
-  export const Gift: any
-  export const BookOpen: any
-  export const Users: any
-  export const X: any
-  export const Settings: any
-  export const Activity: any
-  export const Bell: any
-  export const Brain: any
-  export const ShieldCheck: any
-  export const Circle: any
-  export const ChevronDown: any
-  export const ChevronUp: any
-  export const ChevronRight: any
-  export const Shield: any
-  export const Bot: any
-  export const BookMarked: any
-  export const Info: any
 }
 
 declare module 'recharts' {
