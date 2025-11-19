@@ -4,6 +4,7 @@
   },
   "build": {
     "production": {
+      "autoIncrement": true,
       "android": {
         "workflow": "managed",
         "channel": "main"
@@ -14,6 +15,7 @@
       }
     },
     "preview": {
+      "autoIncrement": false,
       "android": {
         "workflow": "managed",
         "channel": "preview"
