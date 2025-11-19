@@ -4,25 +4,27 @@
   },
   "build": {
     "production": {
-      "autoIncrement": true,
       "android": {
         "workflow": "managed",
-        "channel": "main"
+        "channel": "main",
+        "autoIncrement": true
       },
       "ios": {
         "workflow": "managed",
-        "channel": "main"
+        "channel": "main",
+        "autoIncrement": true
       }
     },
     "preview": {
-      "autoIncrement": false,
       "android": {
         "workflow": "managed",
-        "channel": "preview"
+        "channel": "preview",
+        "autoIncrement": false
       },
       "ios": {
         "workflow": "managed",
-        "channel": "preview"
+        "channel": "preview",
+        "autoIncrement": false
       }
     }
   },
