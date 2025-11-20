@@ -7,7 +7,7 @@
     "scheme": "asinutemplate",
     "userInterfaceStyle": "light",
     "jsEngine": "hermes",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "assetBundlePatterns": [
       "**/*"
     ],
