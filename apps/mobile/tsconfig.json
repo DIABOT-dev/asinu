@@ -4,12 +4,27 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/app/*": ["app/*"],
-      "@/features/*": ["src/features/*"],
-      "@/ui/*": ["src/ui/*"],
-      "@/lib/*": ["src/lib/*"]
+      "@/app/*": [
+        "app/*"
+      ],
+      "@/features/*": [
+        "src/features/*"
+      ],
+      "@/ui/*": [
+        "src/ui/*"
+      ],
+      "@/lib/*": [
+        "src/lib/*"
+      ]
     }
   },
-  "include": ["app", "src", "expo-env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "app",
+    "src",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

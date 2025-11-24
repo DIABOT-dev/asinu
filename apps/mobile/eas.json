@@ -1,22 +1,19 @@
 {
-  "cli": {
-    "version": ">=3.0.0"
-  },
   "build": {
-    "production": {
-      "android": {
-        "channel": "main"
-      },
-      "ios": {
-        "channel": "main"
-      }
-    },
     "preview": {
       "android": {
-        "channel": "preview"
-      },
-      "ios": {
-        "channel": "preview"
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "development": {
+      "developmentClient": true,
+      "android": {
+        "buildType": "apk"
       }
     }
   },
