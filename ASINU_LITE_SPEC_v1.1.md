@@ -1,4 +1,41 @@
+# ASINU LITE – SPEC v1.1 (FINAL ARCHITECTURE)
+#asinu-new
 
+## 0. Tư duy chiến lược: Backend ổn định – Mobile làm mới
+
+### Backend (`src/`) = NÃO – GIỮ NGUYÊN
+- Toàn bộ logic Auth, Bridge Dia Brain, Domain, Modules, Usecases, Repository, Database.
+- **Tuyệt đối không viết lại, không chỉnh sửa để chiều nhu cầu của Mobile.**
+- Nếu Mobile cần thêm API → chỉ mở lớp REST mỏng `/api/mobile/*` gọi vào usecase có sẵn.
+
+### Mobile (`apps/asinu-lite`) = MẮT + TAY MỚI – XÂY DỰNG TỪ 0
+- Không reuse `apps/mobile` cũ (coi như legacy).
+- Xây 1 app hoàn toàn mới dựa trên Expo Router + Template UI.
+- Từ dòng code đầu tiên phải mang kiến trúc Asinu, không follow kiến trúc mẫu mental-health rồi sửa.
+
+### Cách ly rủi ro & tốc độ
+- Backend và Mobile là 2 dự án tách biệt, chỉ giao tiếp qua HTTP.
+- Mobile nát cỡ nào cũng không ảnh hưởng Backend.
+- Đảm bảo Codex Cloud có thể code nhanh, ít rủi ro, dễ rollback.
+
+---
+
+## 1. Cấu trúc repo tổng thể
+
+```txt
+ROOT/
+│
+├── src/                          # 🧠 BACKEND (CORE, KEEP)
+│   ├── modules/                  # auth, mission, tree, bg, bp, insulin...
+│   ├── domain/
+│   ├── application/
+│   ├── infrastructure/
+│   └── ...                       # GIỮ NGUYÊN, KHÔNG ĐỤNG
+│
+├── apps/
+│   ├── mobile/                   # 🗑️ LEGACY (để tham khảo)
+│   └── asinu-lite/               # ✨ APP MOBILE MỚI
+│       ├── app/                  # Router + Screens
 │       ├── src/                  # UI Kit + Features + Logic Client
 │       ├── package.json
 │       └── ...
