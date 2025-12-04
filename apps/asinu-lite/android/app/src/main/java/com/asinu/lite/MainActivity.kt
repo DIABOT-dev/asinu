@@ -1,4 +1,4 @@
-package com.diabot.asinulite
+package com.asinu.lite
 
 import android.os.Build
 import android.os.Bundle

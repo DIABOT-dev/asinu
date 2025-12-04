@@ -11,7 +11,9 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "build:android": "cd android && ./gradlew bundleRelease"
+    "build:android": "cd android && ./gradlew bundleRelease",
+    "lint:assets": "node scripts/check-assets.js",
+    "prepare": "cd ../.. && husky install"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -46,6 +48,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "~19.1.10",
     "eslint": "^8.57.0",
+    "husky": "^9.1.6",
     "typescript": "^5.4.5"
   }
 }

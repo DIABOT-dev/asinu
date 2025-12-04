@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.diabot.asinulite'
+    namespace 'com.asinu.lite'
     defaultConfig {
-        applicationId 'com.diabot.asinulite'
+        applicationId 'com.asinu.lite'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

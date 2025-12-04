@@ -1,36 +1,52 @@
 {
   "expo": {
-    "name": "ASINU Lite",
+    "name": "Asinu",
     "slug": "asinu-lite",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "asinu-lite",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "jsEngine": "hermes",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "assetBundlePatterns": ["**/*"],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.diabot.asinulite"
+      "bundleIdentifier": "com.asinu.lite",
+      "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png"
     },
     "android": {
-      "package": "com.diabot.asinulite"
+      "package": "com.asinu.lite",
+      "icon": "./assets/android/mipmap",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android/adaptive-foreground.png",
+        "backgroundImage": "./assets/android/adaptive-background.png"
+      }
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactNativeNewArchitecture": false
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router"],
-    "experiments": {
-      "typedRoutes": true,
-      "reactNativeNewArchitecture": true
-    },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "bd2749a5-5dda-41fa-b306-648331738cde"
-      }
+      },
+      "appEnv": "development"
     }
   }
 }
