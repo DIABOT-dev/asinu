@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { colors, spacing } from '../styles';
+import { colors, spacing, typography } from '../styles';
 
 export type M1MetricCardProps = {
   title: string;
@@ -10,6 +10,7 @@ export type M1MetricCardProps = {
   delta?: number;
   trend?: 'up' | 'down' | 'flat';
   accentColor?: string;
+  accentGradient?: [string, string];
   icon?: ReactNode;
   footnote?: string;
   onPress?: () => void;
@@ -28,6 +29,7 @@ export const M1MetricCard = ({
   delta,
   trend = 'flat',
   accentColor = colors.primary,
+  accentGradient = [colors.secondary, colors.primary],
   icon,
   footnote,
   onPress
@@ -36,7 +38,7 @@ export const M1MetricCard = ({
 
   return (
     <Container style={[styles.card, { borderColor: accentColor }]} onPress={onPress}>
-      <LinearGradient colors={[accentColor, '#6f6bff']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.accent}>
+      <LinearGradient colors={accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.accent}>
         {icon || <Text style={styles.accentLabel}>◎</Text>}
       </LinearGradient>
       <Text style={styles.title}>{title}</Text>
@@ -73,11 +75,13 @@ const styles = StyleSheet.create({
   },
   accentLabel: {
     color: colors.surface,
-    fontWeight: '600'
+    fontWeight: '600',
+    fontSize: typography.size.md
   },
   title: {
-    fontSize: 14,
-    color: colors.textSecondary
+    fontSize: typography.size.md,
+    color: colors.textSecondary,
+    fontWeight: '700'
   },
   valueRow: {
     flexDirection: 'row',
@@ -85,20 +89,21 @@ const styles = StyleSheet.create({
     gap: spacing.xs
   },
   value: {
-    fontSize: 32,
+    fontSize: typography.size.xl,
     color: colors.textPrimary,
     fontWeight: '700'
   },
   unit: {
     color: colors.textSecondary,
-    marginBottom: spacing.xs
+    marginBottom: spacing.xs,
+    fontSize: typography.size.sm
   },
   delta: {
-    fontSize: 16,
+    fontSize: typography.size.md,
     fontWeight: '600'
   },
   helper: {
-    fontSize: 12,
+    fontSize: typography.size.sm,
     color: colors.textSecondary
   }
 });

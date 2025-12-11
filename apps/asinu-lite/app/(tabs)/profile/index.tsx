@@ -64,8 +64,8 @@ export default function ProfileScreen() {
         />
 
         <H1SectionHeader title="Tuy chon" />
-        <Button label="Mo cai dat" variant="secondary" onPress={() => router.push('/settings')} />
-        <Button label="Dang xuat" variant="primary" onPress={handleLogout} style={{ marginTop: spacing.md }} />
+        <Button label="Mo cai dat" variant="warning" onPress={() => router.push('/settings')} />
+        <Button label="Dang xuat" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.md }} />
 
         <H1SectionHeader title="Ho tro & phap ly" />
         <ListItem title="Dieu khoan su dung" onPress={() => openExternal(TERMS_URL)} />

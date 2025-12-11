@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing } from '../styles';
+import { colors, spacing, typography } from '../styles';
 import { featureFlags } from '../lib/featureFlags';
 
 export type T1ProgressRingProps = {
@@ -77,12 +77,12 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   percent: {
-    fontSize: 20,
+    fontSize: typography.size.lg,
     fontWeight: '700',
     color: colors.textPrimary
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.size.sm,
     color: colors.textSecondary,
     marginTop: spacing.xs
   }

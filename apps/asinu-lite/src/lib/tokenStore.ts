@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const TOKEN_KEY = 'asinu-lite:token';
+const TOKEN_KEY = 'ASINU_AUTH_TOKEN';
 let memoryToken: string | null = null;
 
 const isWeb = Platform.OS === 'web';

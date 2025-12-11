@@ -35,6 +35,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textSecondary,
     marginTop: spacing.xs,
-    fontFamily: 'System'
+    fontFamily: 'System',
+    fontSize: typography.size.md
   }
 });

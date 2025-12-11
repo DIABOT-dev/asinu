@@ -42,6 +42,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary
   },
   meta: {
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontSize: typography.size.sm
   }
 });

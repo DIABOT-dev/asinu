@@ -45,6 +45,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.textSecondary,
-    fontFamily: 'System'
+    fontFamily: 'System',
+    fontSize: typography.size.sm
   }
 });

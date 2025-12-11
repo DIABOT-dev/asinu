@@ -56,7 +56,15 @@ export default function HomeScreen() {
           name={profile?.name || 'Nguoi cham soc'}
           relationship={profile?.relationship}
           summary="Cung dong hanh voi ban moi ngay."
-          action={<Button label="Cai dat" variant="ghost" onPress={() => router.push('/settings')} />}
+          action={
+            <Button
+              label="Cai dat"
+              variant="ghost"
+              style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderColor: '#ffffff' }}
+              textStyle={{ color: '#ffffff', fontWeight: '600' }}
+              onPress={() => router.push('/settings')}
+            />
+          }
           supporters={['Gia dinh', 'Bac si gia dinh']}
         />
 
@@ -67,6 +75,8 @@ export default function HomeScreen() {
             unit="mg/dL"
             trend="flat"
             footnote="Ghi truoc bua sang"
+            accentColor={colors.secondary}
+            accentGradient={[colors.secondary, colors.primary]}
             onPress={() => router.push('/logs/glucose')}
           />
           <M1MetricCard
@@ -74,7 +84,8 @@ export default function HomeScreen() {
             value={quickMetrics.bloodPressure}
             unit="mmHg"
             trend="down"
-            accentColor={colors.secondary}
+            accentColor={colors.warning}
+            accentGradient={[colors.warning, colors.primary]}
             footnote="Theo doi sang nay"
             onPress={() => router.push('/logs/blood-pressure')}
           />
@@ -86,14 +97,18 @@ export default function HomeScreen() {
             <View key={mission.id} style={styles.missionCard}>
               <Text style={styles.missionTitle}>{mission.title}</Text>
               <Text style={styles.missionDesc}>{mission.description}</Text>
-              <Button label={mission.completed ? 'Da xong' : 'Hoan thanh'} onPress={() => router.push('/missions')} />
+              <Button
+                label={mission.completed ? 'Da hoan thanh' : 'Hoan thanh'}
+                variant={mission.completed ? 'warning' : 'primary'}
+                onPress={() => router.push('/missions')}
+              />
             </View>
           ))}
         </View>
 
         <H1SectionHeader title="Cay suc khoe" subtitle="Tien trinh tuan nay" />
         <View style={styles.treeRow}>
-          <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label="Diem" />
+          <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label="Diem" accentColor={colors.warning} />
           <View style={styles.treeStats}>
             <Text style={styles.treeStat}>Chuoi ngay tot: {treeSummary?.streakDays ?? 0}</Text>
             <Text style={styles.treeStat}>Nhiem vu/tuan: {treeSummary?.completedThisWeek ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
@@ -157,11 +172,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm
   },
   missionTitle: {
-    fontSize: typography.size.md,
+    fontSize: typography.size.lg,
     fontWeight: '700'
   },
   missionDesc: {
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontSize: typography.size.md
   },
   treeRow: {
     flexDirection: 'row',
@@ -185,9 +201,11 @@ const styles = StyleSheet.create({
   },
   logType: {
     textTransform: 'capitalize',
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontSize: typography.size.sm
   },
   logValue: {
-    fontWeight: '700'
+    fontWeight: '700',
+    fontSize: typography.size.md
   }
 });

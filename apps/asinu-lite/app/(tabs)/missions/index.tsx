@@ -40,7 +40,7 @@ export default function MissionsScreen() {
             </View>
             <Button
               label={mission.completed ? 'Da hoan thanh' : 'Danh dau hoan thanh'}
-              variant={mission.completed ? 'secondary' : 'primary'}
+              variant={mission.completed ? 'warning' : 'primary'}
               onPress={() => toggleComplete(mission.id)}
             />
           </View>
@@ -69,7 +69,8 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   description: {
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontSize: typography.size.md
   },
   metaRow: {
     flexDirection: 'row',
@@ -77,6 +78,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: colors.textSecondary,
-    fontWeight: '600'
+    fontWeight: '600',
+    fontSize: typography.size.sm
   }
 });

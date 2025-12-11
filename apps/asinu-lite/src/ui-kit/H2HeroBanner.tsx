@@ -13,7 +13,12 @@ type Props = {
 
 export const H2HeroBanner = ({ name, relationship, summary, action, supporters = [] }: Props) => {
   return (
-    <LinearGradient colors={[colors.primary, colors.secondary]} style={styles.container}>
+    <LinearGradient
+      colors={[colors.warning, colors.primary]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.container}
+    >
       <View style={styles.headerRow}>
         <Avatar name={name} containerStyle={styles.avatar} />
         <View style={{ flex: 1 }}>
@@ -58,7 +63,8 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: colors.surface,
-    opacity: 0.85
+    opacity: 0.85,
+    fontSize: typography.size.sm
   },
   summary: {
     color: colors.surface,
@@ -78,6 +84,7 @@ const styles = StyleSheet.create({
   },
   supportText: {
     color: colors.surface,
-    fontWeight: '700'
+    fontWeight: '700',
+    fontSize: typography.size.sm
   }
 });

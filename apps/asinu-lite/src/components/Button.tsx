@@ -1,7 +1,7 @@
-import { Pressable, Text, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { colors, spacing, radius, typography } from '../styles';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'warning' | 'ghost';
 
 export type ButtonProps = {
   label: string;
@@ -9,13 +9,19 @@ export type ButtonProps = {
   variant?: ButtonVariant;
   disabled?: boolean;
   style?: ViewStyle;
+  textStyle?: TextStyle;
 };
 
-export const Button = ({ label, onPress, variant = 'primary', disabled, style }: ButtonProps) => {
-  const palette = variant === 'secondary' ? colors.secondary : colors.primary;
+export const Button = ({ label, onPress, variant = 'primary', disabled, style, textStyle }: ButtonProps) => {
+  const palette =
+    variant === 'secondary'
+      ? colors.secondary
+      : variant === 'warning'
+        ? colors.warning
+        : colors.primary;
   const backgroundColor = variant === 'ghost' ? 'transparent' : palette;
   const textColor = variant === 'ghost' ? colors.textPrimary : colors.surface;
-  const borderColor = variant === 'ghost' ? colors.border : backgroundColor;
+  const borderColor = variant === 'ghost' ? colors.border : palette;
 
   return (
     <Pressable
@@ -31,7 +37,7 @@ export const Button = ({ label, onPress, variant = 'primary', disabled, style }:
         style
       ]}
     >
-      <Text style={[styles.label, { color: textColor }]}>{label}</Text>
+      <Text style={[styles.label, { color: textColor }, textStyle]}>{label}</Text>
     </Pressable>
   );
 };

@@ -56,7 +56,7 @@ export default function SettingsScreen() {
           style={{ marginTop: spacing.md }}
         />
 
-        <Button label="Đăng xuất" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
+        <Button label="Đăng xuất" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
       </ScrollView>
     </Screen>
   );

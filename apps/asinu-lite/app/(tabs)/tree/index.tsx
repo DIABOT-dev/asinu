@@ -37,7 +37,7 @@ export default function TreeScreen() {
         {status === 'success' && !summary ? <StateEmpty /> : null}
         <H1SectionHeader title="Cay suc khoe" subtitle="Theo doi tien trinh" />
         <View style={styles.row}>
-          <T1ProgressRing percentage={summary?.score ?? 0.6} label="Diem" />
+          <T1ProgressRing percentage={summary?.score ?? 0.6} label="Diem" accentColor={colors.warning} />
           <View style={styles.meta}>
             <Text style={styles.metaText}>Chuoi ngay tot: {summary?.streakDays ?? 0}</Text>
             <Text style={styles.metaText}>

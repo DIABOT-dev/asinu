@@ -49,6 +49,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   async login(payload) {
     set({ loading: true, error: undefined });
+    if (__DEV__) {
+      const fakeProfile = {
+        id: 'dev-user',
+        email: payload?.email ?? 'dev@demo.local',
+        name: 'Developer Mode User'
+      };
+
+      await tokenStore.setToken('dev-bypass');
+
+      set({
+        profile: fakeProfile,
+        token: 'dev-bypass',
+        loading: false,
+        error: undefined
+      });
+
+      try {
+        const { router } = require('expo-router');
+        router.replace('/(tabs)/home');
+      } catch (err) {
+        // Ignore navigation errors in DEV
+      }
+
+      return;
+    }
     if (featureFlags.devBypassAuth) {
       const fakeProfile = buildBypassProfile();
       await tokenStore.setToken('dev-bypass');
