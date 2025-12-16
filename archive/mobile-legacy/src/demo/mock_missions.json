@@ -1,7 +1,0 @@
-{
-  "missions": [
-    {"id": 1, "title": "Drink Water", "done": false},
-    {"id": 2, "title": "Take Medicine", "done": true},
-    {"id": 3, "title": "Walk 10 minutes", "done": false}
-  ]
-}

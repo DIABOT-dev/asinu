@@ -1,3 +1,0 @@
-NEXT_PUBLIC_API_URL (not set)
-AI_GATEWAY_URL (not set)
-No URLs configured to probe.

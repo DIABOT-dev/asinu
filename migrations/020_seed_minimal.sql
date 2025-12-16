@@ -1,2 +1,0 @@
--- Placeholder for minimal seed data.
--- Add seed statements after schema and RLS are finalized.

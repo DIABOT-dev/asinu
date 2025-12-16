@@ -1,83 +1,27 @@
 {
+  "extends": "@tsconfig/react-native/tsconfig.json",
   "compilerOptions": {
+    "strict": true,
     "baseUrl": ".",
-    "target": "ES2017",
-    "downlevelIteration": true,
     "paths": {
-      "@packages/ai/*": [
-        "packages/ai/src/*"
-      ],
-      "@packages/core/*": [
-        "packages/core/src/*"
-      ],
-      "@packages/infra/*": [
-        "packages/infra/src/*"
-      ],
       "@/*": [
-        "./src/*"
+        "src/*"
       ],
-      "@/packages/*": [
-        "packages/*/src"
-      ],
-      "@ui/*": [
-        "./src/interfaces/ui/*"
-      ],
-
-      "@api/*": [
-        "./src/interfaces/api/*"
-      ],
-
-      "@components/*": [
-        "./src/interfaces/ui/components/*"
-      ],
-      "@styles/*": [
-        "./src/interfaces/ui/styles/*"
-      ],
-      "@config/*": [
-        "./config/*"
+      "@/template/*": [
+        "src/template/*"
       ]
-    },
-    "lib": [
-      "DOM",
-      "ES2022"
-    ],
-    "types": [
-      "node"
-    ],
-    "typeRoots": [
-      "./types",
-      "./node_modules/@types"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": false,
-    "noEmit": true,
-    "incremental": true,
-    "module": "esnext",
-    "esModuleInterop": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "strictNullChecks": true
+    }
   },
   "include": [
-    "next-env.d.ts",
-    "src/**/*",
-    "pages/**/*",
-    "types/**/*.d.ts",
-    ".next/types/**/*.ts"
+    "app",
+    "src",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "tests",
-    "scripts",
-    "apps",
-    "packages"
+    "src/template/**/*",
+    "app/template/**/*",
+    "src/_archive/**/*"
   ]
 }

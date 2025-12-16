@@ -1,9 +1,0 @@
-npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
-
-/workspace/git/scripts/stability-check.js
-  14:5   warning  'issues' is assigned a value but never used  no-unused-vars
-  35:12  warning  'error' is defined but never used            no-unused-vars
-  96:14  warning  'error' is defined but never used            no-unused-vars
-
-✖ 3 problems (0 errors, 3 warnings)
-

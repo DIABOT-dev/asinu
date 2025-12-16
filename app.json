@@ -1,17 +1,48 @@
 {
   "expo": {
     "name": "Asinu",
-    "slug": "asinu",
-    "version": "0.1.0",
+    "slug": "asinu-lite",
+    "version": "1.0.0",
+    "platforms": ["ios", "android"],
     "orientation": "portrait",
-    "owner": "diabot",
-    "android": {
-      "package": "com.diabot.asinu",
-      "versionCode": 1
+    "scheme": "asinu-lite",
+    "userInterfaceStyle": "automatic",
+    "jsEngine": "hermes",
+    "newArchEnabled": false,
+    "assetBundlePatterns": ["**/*"],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
     },
     "ios": {
-      "bundleIdentifier": "com.diabot.asinu",
-      "buildNumber": "0.1.0"
+      "supportsTablet": true,
+      "bundleIdentifier": "com.asinu.lite",
+      "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png"
+    },
+    "android": {
+      "package": "com.asinu.lite",
+      "icon": "./assets/icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android/adaptive-foreground.png",
+        "backgroundImage": "./assets/android/adaptive-background.png"
+      }
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactNativeNewArchitecture": false
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bd2749a5-5dda-41fa-b306-648331738cde"
+      },
+      "appEnv": "development"
     }
   }
 }

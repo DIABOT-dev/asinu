@@ -1,7 +1,0 @@
-/* src/styles/index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* nạp design tokens */
-@import "./tokens.css";

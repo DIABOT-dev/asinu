@@ -1,7 +1,0 @@
-{
-  "rewards": [
-    {"id": 1, "title": "Free Coffee", "cost": 100},
-    {"id": 2, "title": "Discount Voucher", "cost": 200}
-  ],
-  "balance": 1234
-}

@@ -1,6 +1,11 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+export const formatTime = (date: Date) =>
+  date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export const formatDate = (date: Date) =>
+  date.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric'
+  });

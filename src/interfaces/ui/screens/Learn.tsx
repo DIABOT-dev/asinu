@@ -1,2 +1,0 @@
-import Card from '../components/Card'
-export default function Learn(){return <div className='px-4 pb-32'><Card><p className='font-semibold'>Đào tạo</p><p className='text-sm text-muted'>Đang cập nhật…</p></Card></div>}
