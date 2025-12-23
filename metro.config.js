@@ -1,13 +1,22 @@
-const { getDefaultConfig } = require('expo/metro-config');
+const { getDefaultConfig } = require("@expo/metro-config");
 
 const config = getDefaultConfig(__dirname);
 
-// Force Metro to prefer CJS entry points over ESM
-config.resolver.resolverMainFields = ['react-native', 'main', 'browser', 'module'];
+config.resolver.unstable_enablePackageExports = false;
+config.resolver.resolverMainFields = ["react-native", "main", "module"];
 
-// Support .cjs files
-if (!config.resolver.sourceExts.includes('cjs')) {
-  config.resolver.sourceExts.push('cjs');
+if (!config.resolver.sourceExts.includes("cjs")) {
+  config.resolver.sourceExts.push("cjs");
 }
+
+config.transformer = {
+  ...config.transformer,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: false,
+    },
+  }),
+};
 
 module.exports = config;

@@ -1,0 +1,389 @@
+Report 12 - Error Log
+
+1) Command: npm view expo@52.0.0 peerDependencies
+Output:
+command timed out after 14024 milliseconds
+
+2) Command: Get-Content .npmrc
+Output:
+Get-Content : Cannot find path 'F:\Projects\asinu-win\.npmrc' because it does not exist.
+At line:1 char:1
++ Get-Content .npmrc
++ ~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (F:\Projects\asinu-win\.npmrc:String) [Get-Content], ItemNotFoundException
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
+
+3) Command: Remove-Item -Recurse -Force .expo, dist, node_modules/.cache -ErrorAction SilentlyContinue
+Output:
+(no output; command returned non-zero exit code)
+
+4) Command: npm install
+Output (error tail from log C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T03_32_54_709Z-debug-0.log):
+2485 error   26 more (@react-native-async-storage/async-storage, ...)
+2485 error
+2485 error Conflicting peer dependency: @types/react@18.3.27
+2485 error node_modules/@types/react
+2485 error   peerOptional @types/react@"^18.2.6" from react-native@0.76.9
+2485 error   node_modules/react-native
+2485 error     react-native@"0.76.9" from the root project
+2485 error     peer react-native@"*" from @expo/vector-icons@15.0.3
+2485 error     node_modules/@expo/vector-icons
+2485 error       @expo/vector-icons@"^15.0.3" from the root project
+2485 error     26 more (@react-native-async-storage/async-storage, ...)
+2485 error
+2485 error Fix the upstream dependency conflict, or retry
+2485 error this command with --force or --legacy-peer-deps
+2485 error to accept an incorrect (and potentially broken) dependency resolution.
+2486 error
+2486 error
+2486 error For a full report see:
+2486 error C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T03_32_54_709Z-eresolve-report.txt
+2487 silly unfinished npm timer reify 1766374382947
+2488 silly unfinished npm timer reify:loadTrees 1766374382959
+2489 silly unfinished npm timer idealTree:buildDeps 1766374384604
+2490 silly unfinished npm timer idealTree:node_modules/react-native 1766374414116
+2491 verbose cwd F:\Projects\asinu-win
+2492 verbose os Windows_NT 10.0.19045
+2493 verbose node v20.18.0
+2494 verbose npm  v10.8.2
+2495 verbose exit 1
+2496 verbose code 1
+2497 error A complete log of this run can be found in: C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T03_32_54_709Z-debug-0.log
+
+5) Command: Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Output:
+command timed out after 10031 milliseconds
+
+6) Command: npm install
+Output (console error):
+npm error code ERESOLVE
+npm error ERESOLVE unable to resolve dependency tree
+npm error
+npm error While resolving: asinu-lite@0.1.0
+npm error Found: react@18.3.1
+npm error node_modules/react
+npm error   react@"18.3.1" from the root project
+npm error   peer react@"^18.0.0 || ^19.0.0" from react-native-web@0.21.2
+npm error   node_modules/react-native-web
+npm error     react-native-web@"^0.21.0" from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer react@"^19.2.3" from react-dom@19.2.3
+npm error node_modules/react-dom
+npm error   peer react-dom@"^18.0.0 || ^19.0.0" from react-native-web@0.21.2
+npm error   node_modules/react-native-web
+npm error     react-native-web@"^0.21.0" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T04_03_07_974Z-eresolve-report.txt
+npm error A complete log of this run can be found in: C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T04_03_07_974Z-debug-0.log
+
+7) Command: npm install
+Output (error tail from log C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T04_03_07_974Z-debug-0.log):
+167 error   react@"18.3.1" from the root project
+167 error   peer react@"^18.0.0 || ^19.0.0" from react-native-web@0.21.2
+167 error   node_modules/react-native-web
+167 error     react-native-web@"^0.21.0" from the root project
+167 error
+167 error Could not resolve dependency:
+167 error peer react@"^19.2.3" from react-dom@19.2.3
+167 error node_modules/react-dom
+167 error   peer react-dom@"^18.0.0 || ^19.0.0" from react-native-web@0.21.2
+167 error   node_modules/react-native-web
+167 error     react-native-web@"^0.21.0" from the root project
+167 error
+167 error Fix the upstream dependency conflict, or retry
+167 error this command with --force or --legacy-peer-deps
+167 error to accept an incorrect (and potentially broken) dependency resolution.
+168 error
+168 error
+168 error For a full report see:
+168 error C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T04_03_07_974Z-eresolve-report.txt
+169 silly unfinished npm timer reify 1766376189636
+170 silly unfinished npm timer reify:loadTrees 1766376189648
+171 silly unfinished npm timer idealTree:buildDeps 1766376189692
+172 silly unfinished npm timer idealTree:#root 1766376189694
+173 verbose cwd F:\Projects\asinu-win
+174 verbose os Windows_NT 10.0.19045
+175 verbose node v20.18.0
+176 verbose npm  v10.8.2
+177 verbose exit 1
+178 verbose code 1
+179 error A complete log of this run can be found in: C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T04_03_07_974Z-debug-0.log
+
+8) Command: Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Output:
+(no output; command returned non-zero exit code)
+
+9) Command: Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue
+Output:
+(no output; command returned non-zero exit code)
+
+10) Command: npm cache clean --force
+Output:
+npm warn using --force Recommended protections disabled.
+
+11) Command: npm list react react-native
+Output (console error):
+asinu-lite@0.1.0 F:\Projects\asinu-win
+├─┬ @expo/vector-icons@15.0.3
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ @react-native-async-storage/async-storage@2.2.0
+│ └── react-native@0.76.9 deduped
+├─┬ @react-navigation/drawer@7.7.10
+│ ├─┬ @react-navigation/elements@2.9.3
+│ │ ├── react-native@0.76.9 deduped
+│ │ └── react@18.3.1 deduped
+│ ├─┬ react-native-drawer-layout@4.2.1
+│ │ ├── react-native@0.76.9 deduped
+│ │ └── react@18.3.1 deduped
+│ ├── react-native@0.76.9 deduped
+│ ├── react@18.3.1 deduped
+│ └─┬ use-latest-callback@0.2.6
+│   └── react@18.3.1 deduped
+├─┬ @react-navigation/native@7.1.26
+│ ├─┬ @react-navigation/core@7.13.7
+│ │ └── react@18.3.1 deduped
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ @tanstack/react-query@5.90.12
+│ └── react@18.3.1 deduped
+├─┬ expo-constants@18.0.12
+│ └── react-native@0.76.9 deduped
+├─┬ expo-font@14.0.10
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ expo-linear-gradient@15.0.8
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ expo-linking@8.0.11
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ expo-router@6.0.21
+│ ├─┬ @expo/metro-runtime@6.1.2
+│ │ ├── react-native@0.76.9 deduped
+│ │ └── react@18.3.1 deduped
+│ ├─┬ @radix-ui/react-slot@1.2.0
+│ │ ├─┬ @radix-ui/react-compose-refs@1.1.2
+│ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ └── react@18.3.1 deduped
+│ ├─┬ @radix-ui/react-tabs@1.1.13
+│ │ ├─┬ @radix-ui/react-context@1.1.2
+│ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ ├─┬ @radix-ui/react-direction@1.1.1
+│ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ ├─┬ @radix-ui/react-id@1.1.1
+│ │ │ ├─┬ @radix-ui/react-use-layout-effect@1.1.1
+│ │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ ├─┬ @radix-ui/react-presence@1.1.5
+│ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ ├─┬ @radix-ui/react-primitive@2.1.3
+│ │ │ ├─┬ @radix-ui/react-slot@1.2.3
+│ │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ ├─┬ @radix-ui/react-roving-focus@1.1.11
+│ │ │ ├─┬ @radix-ui/react-collection@1.1.7
+│ │ │ │ ├─┬ @radix-ui/react-slot@1.2.3
+│ │ │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ │ ├─┬ @radix-ui/react-use-callback-ref@1.1.1
+│ │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ ├─┬ @radix-ui/react-use-controllable-state@1.2.2
+│ │ │ ├─┬ @radix-ui/react-use-effect-event@0.0.2
+│ │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ │ └── react@18.3.1 deduped
+│ ├─┬ @react-navigation/bottom-tabs@7.9.0
+│ │ ├── react-native@0.76.9 deduped
+│ │ └── react@18.3.1 deduped
+│ ├─┬ @react-navigation/native-stack@7.9.0
+│ │ ├── react-native@0.76.9 deduped
+│ │ └── react@18.3.1 deduped
+│ ├─┬ react-dom@19.2.3
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ react-native-is-edge-to-edge@1.2.1
+│ │ ├── react-native@0.76.9 deduped
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├── react-native@0.76.9 deduped
+│ ├── react@18.3.1 deduped
+│ └─┬ vaul@1.1.2
+│   ├─┬ @radix-ui/react-dialog@1.1.15
+│   │ ├─┬ @radix-ui/react-dismissable-layer@1.1.11
+│   │ │ ├─┬ @radix-ui/react-use-escape-keydown@1.1.1
+│   │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ ├─┬ @radix-ui/react-focus-guards@1.1.3
+│   │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ ├─┬ @radix-ui/react-focus-scope@1.1.7
+│   │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ ├─┬ @radix-ui/react-portal@1.1.9
+│   │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ ├─┬ @radix-ui/react-presence@1.1.5
+│   │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ ├─┬ @radix-ui/react-primitive@2.1.3
+│   │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ ├─┬ @radix-ui/react-slot@1.2.3
+│   │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ ├─┬ react-remove-scroll@2.7.2
+│   │ │ ├─┬ react-remove-scroll-bar@2.3.8
+│   │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ │ ├─┬ react-style-singleton@2.2.3
+│   │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ │ ├── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ │ ├─┬ use-callback-ref@1.3.3
+│   │ │ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ │ └─┬ use-sidecar@1.1.3
+│   │ │   └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+├─┬ expo-status-bar@3.0.9
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ expo@52.0.48
+│ ├─┬ expo-asset@11.0.5
+│ │ ├── react-native@0.76.9 deduped
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ expo-constants@17.0.8
+│ │ └── react-native@0.76.9 deduped
+│ ├─┬ expo-file-system@18.0.12
+│ │ └── react-native@0.76.9 deduped
+│ ├─┬ expo-font@13.0.4
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ expo-keep-awake@14.0.3
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ react-native-gesture-handler@2.28.0
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ react-native-reanimated@3.16.7
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ react-native-safe-area-context@5.6.2
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ react-native-screens@4.16.0
+│ ├─┬ react-freeze@1.0.4
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ react-native-svg@15.12.1
+│ ├── react-native@0.76.9 deduped
+│ └── react@18.3.1 deduped
+├─┬ react-native@0.76.9
+│ ├─┬ @react-native/virtualized-lists@0.76.9
+│ │ ├── react-native@0.76.9 deduped
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ └── react@18.3.1 deduped
+├── react@18.3.1
+├─┬ victory-native@36.9.2
+│ ├── react@18.3.1 deduped
+│ ├─┬ victory-area@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-axis@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-bar@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-box-plot@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-brush-container@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-brush-line@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-candlestick@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-chart@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-core@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-create-container@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-cursor-container@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-errorbar@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-group@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-histogram@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-legend@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-line@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-pie@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-polar-axis@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-scatter@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-selection-container@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-shared-events@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-stack@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-tooltip@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-voronoi-container@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-voronoi@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ ├─┬ victory-zoom-container@36.9.2
+│ │ └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│ └─┬ victory@36.9.2
+│   ├── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+│   └─┬ victory-canvas@36.9.2
+│     └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+└─┬ zustand@5.0.9
+  ├── react@18.3.1 deduped
+  └─┬ use-sync-external-store@1.6.0
+    └── react@18.3.1 deduped invalid: "^19.2.3" from node_modules/react-dom
+
+npm error code ELSPROBLEMS
+npm error invalid: react@18.3.1 F:\Projects\asinu-win\node_modules\react
+npm error A complete log of this run can be found in: C:\Users\Admin\AppData\Local\npm-cache\_logs\2025-12-22T04_20_05_046Z-debug-0.log
+
+12) Command: npm list react-dom
+Output:
+asinu-lite@0.1.0 F:\Projects\asinu-win
+└─┬ expo-router@6.0.21
+  ├─┬ @expo/metro-runtime@6.1.2
+  │ └── react-dom@19.2.3 deduped
+  ├─┬ @radix-ui/react-tabs@1.1.13
+  │ ├─┬ @radix-ui/react-presence@1.1.5
+  │ │ └── react-dom@19.2.3 deduped
+  │ ├─┬ @radix-ui/react-primitive@2.1.3
+  │ │ └── react-dom@19.2.3 deduped
+  │ ├─┬ @radix-ui/react-roving-focus@1.1.11
+  │ │ ├─┬ @radix-ui/react-collection@1.1.7
+  │ │ │ └── react-dom@19.2.3 deduped
+  │ │ └── react-dom@19.2.3 deduped
+  │ └── react-dom@19.2.3 deduped
+  ├── react-dom@19.2.3
+  └─┬ vaul@1.1.2
+    ├─┬ @radix-ui/react-dialog@1.1.15
+    │ ├─┬ @radix-ui/react-dismissable-layer@1.1.11
+    │ │ └── react-dom@19.2.3 deduped
+    │ ├─┬ @radix-ui/react-focus-scope@1.1.7
+    │ │ └── react-dom@19.2.3 deduped
+    │ ├─┬ @radix-ui/react-portal@1.1.9
+    │ │ └── react-dom@19.2.3 deduped
+    │ ├─┬ @radix-ui/react-presence@1.1.5
+    │ │ └── react-dom@19.2.3 deduped
+    │ ├─┬ @radix-ui/react-primitive@2.1.3
+    │ │ └── react-dom@19.2.3 deduped
+    │ └── react-dom@19.2.3 deduped
+    └── react-dom@19.2.3 deduped
+
+13) Command: npm list react-native-web
+Output:
+asinu-lite@0.1.0 F:\Projects\asinu-win
+└── (empty)

@@ -3,13 +3,17 @@
     "name": "Asinu",
     "slug": "asinu-lite",
     "version": "1.0.0",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "orientation": "portrait",
     "scheme": "asinu-lite",
     "userInterfaceStyle": "automatic",
-    "jsEngine": "hermes",
     "newArchEnabled": false,
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
@@ -29,10 +33,15 @@
         "backgroundImage": "./assets/android/adaptive-background.png"
       }
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen",
+      "expo-font",
+      "expo-secure-store",
+      "expo-asset"
+    ],
     "experiments": {
-      "typedRoutes": true,
-      "reactNativeNewArchitecture": false
+      "typedRoutes": true
     },
     "updates": {
       "fallbackToCacheTimeout": 0
