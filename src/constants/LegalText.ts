@@ -1,0 +1,92 @@
+export type LegalSection = {
+  title: string;
+  updated?: string;
+  sections: string[];
+};
+
+export const LEGAL_TEXT: Record<'terms' | 'privacy', LegalSection> = {
+  terms: {
+    title: 'Điều khoản sử dụng',
+    sections: [
+      '1. Acceptance / Chấp nhận',
+      'By using DIABOT, you agree to these Terms. / Bằng việc sử dụng DIABOT, bạn đồng ý với Điều khoản này.',
+      '2. Services / Dịch vụ',
+      'Free: log sức khỏe, biểu đồ, nhắc nhở.',
+      'Premium: gợi ý cá nhân hóa, phân tích nâng cao, voice chat (khi bật).',
+      'Thông tin hiển thị chỉ mang tính tham khảo, không thay thế tư vấn y tế.',
+      '3. User Obligations / Trách nhiệm Người dùng',
+      'Cung cấp thông tin chính xác; bảo mật tài khoản.',
+      'Không sử dụng app vào mục đích vi phạm pháp luật.',
+      '3a. Phone Number as Username / Sử dụng số điện thoại làm tên đăng nhập',
+      'EN: DIABOT may require users to register and log in with their phone number. Your phone number may serve as your primary username for account identification and login purposes.',
+      'VI: DIABOT có thể yêu cầu người dùng đăng ký và đăng nhập bằng số điện thoại. Số điện thoại của bạn có thể được sử dụng làm tên đăng nhập chính để nhận diện và truy cập tài khoản.',
+      '4. Provider Obligations / Trách nhiệm của DIABOT',
+      'Bảo mật dữ liệu theo Chính sách bảo mật.',
+      'Duy trì & cải thiện dịch vụ; có quyền tạm ngừng khi phát hiện vi phạm.',
+      '5. Intellectual Property / Sở hữu trí tuệ',
+      'Logo, thương hiệu, nội dung, mã nguồn thuộc DIABOT; không sao chép khai thác trái phép.',
+      '6. Medical Disclaimer / Miễn trừ y tế',
+      'DIABOT không chẩn đoán/điều trị/kê đơn; chỉ hỗ trợ quản lý lối sống. Hãy tham khảo bác sĩ khi cần.',
+      '7. Limitation of Liability / Giới hạn trách nhiệm',
+      'DIABOT không chịu trách nhiệm cho thiệt hại gián tiếp/hệ quả; tổng trách nhiệm không vượt quá phí bạn đã trả trong 12 tháng gần nhất.',
+      '8. Subscription & Payments / Thanh toán',
+      'Chỉ áp dụng khi Premium được kích hoạt. Dùng thử 7 ngày (khi triển khai). Sau đó 200.000đ/tháng hoặc 2.000.000đ/năm (tự gia hạn). Thanh toán qua Google Play/App Store; hoàn phí theo chính sách của họ.',
+      '9. Amendments / Sửa đổi',
+      'DIABOT có thể cập nhật Điều khoản; thông báo trong app/website. Tiếp tục sử dụng là chấp nhận phiên bản mới.',
+      '10. Governing Law & Disputes / Luật áp dụng & Tranh chấp',
+      'Luật Việt Nam; ưu tiên thương lượng, nếu không thành thì tòa án có thẩm quyền tại Hà Nội.',
+      '11. Contact / Liên hệ',
+      'support@diabot.top • +84 898 888 917'
+    ]
+  },
+  privacy: {
+    title: 'Chính sách bảo mật',
+    updated: 'Last updated: 02/10/2025',
+    sections: [
+      'I. Scope & Purpose / Phạm vi & Mục đích',
+      'EN: DIABOT collects and processes data to: (i) log health metrics (blood glucose, weight, blood pressure, meals, water, insulin), (ii) display charts/reports, (iii) send safe reminders, (iv) provide AI-based suggestions (when enabled). The MVP has no in-app payments; subscription clauses apply only when Premium is activated later.',
+      'VI: DIABOT thu thập & xử lý dữ liệu để: (i) ghi log sức khỏe (đường huyết, cân nặng, huyết áp, bữa ăn, nước, insulin), (ii) hiển thị biểu đồ/báo cáo, (iii) gửi nhắc nhở an toàn, (iv) cung cấp gợi ý AI (khi bật). Bản MVP chưa có thanh toán; điều khoản thanh toán chỉ áp dụng khi bật Premium sau này.',
+      'II. Data We Collect / Dữ liệu thu thập',
+      'Account: email/ID, tên hiển thị (nếu có).',
+      'User-provided Health Data: BG, BP, weight, water, meals (text/images nếu tải), insulin.',
+      'Device & App Events: phiên bản app, loại thiết bị, crash/perf logs.',
+      'Payments (future): trạng thái đăng ký qua Google/Apple; không lưu thẻ.',
+      'AI Inputs: nội dung bạn nhập; không dùng cho quảng cáo.',
+      'Phone Number / Số điện thoại: We may collect and store your phone number for account login, identification, and future OTP-based authentication.',
+      'VI: Chúng tôi có thể thu thập và lưu số điện thoại của bạn để đăng nhập tài khoản, xác minh danh tính, và có thể dùng cho cơ chế OTP trong tương lai.',
+      'No ad-tracking / Không theo dõi quảng cáo.',
+      'III. Legal Basis & Purposes / Cơ sở pháp lý & Mục đích',
+      'Contract/Performance: log, chart, reminders.',
+      'Legitimate Interests: bảo mật, chống lạm dụng, ổn định.',
+      'Consent: AI, push, (tương lai) HealthKit/Google Fit.',
+      'Legal Obligation: tuân thủ yêu cầu hợp pháp.',
+      'IV. Storage & Security / Lưu trữ & bảo mật',
+      'Supabase + Row Level Security (RLS).',
+      'TLS khi truyền; bảo vệ tại chỗ theo nhà cung cấp.',
+      'Backup ngắn hạn; dữ liệu xoá sẽ bị ghi đè theo chu kỳ.',
+      'Có thể xử lý xuyên biên giới với biện pháp bảo vệ phù hợp.',
+      'V. Data Sharing / Chia sẻ dữ liệu',
+      'Không bán dữ liệu. Chỉ chia sẻ với: sub-processors (Supabase, AI providers khi bật, Google/Apple khi bật billing), tuân thủ pháp luật, hoặc theo yêu cầu bạn (export/share).',
+      'VI. Your Rights / Quyền của bạn',
+      'Truy cập, chỉnh sửa, tải xuống (PDF/CSV).',
+      'Xoá tài khoản & dữ liệu (xem Mục VIII).',
+      'Rút lại đồng ý cho tính năng tùy chọn.',
+      'Qua Cài đặt hoặc email support@diabot.top.',
+      'VII. Retention / Thời hạn lưu',
+      'Tài khoản & dữ liệu sức khỏe: đến khi bạn xoá hoặc 24 tháng không hoạt động (sẽ thông báo trước khi dọn).',
+      'System logs: tối đa 12 tháng.',
+      'VIII. Account & Data Deletion / Xoá tài khoản & dữ liệu',
+      'Trong app: Settings → Account → Delete account (xóa vĩnh viễn, không khôi phục). Backup bị ghi đè theo lịch.',
+      'Qua email: từ email đăng ký nếu không truy cập được app.',
+      'Khi bật Premium sau này: xoá tài khoản ≠ hủy gia hạn; quản lý trong Google Play/App Store.',
+      'IX. Communications / Thông báo',
+      'Gửi thông báo dịch vụ; marketing là opt-in, có thể hủy bất cứ lúc nào.',
+      'X. Children’s Privacy / Trẻ em',
+      'Không dành cho trẻ dưới 13 tuổi.',
+      'XI. Changes / Thay đổi',
+      'Cập nhật sẽ hiển thị tại trang này; tiếp tục sử dụng là chấp nhận bản mới.',
+      'XII. Contact / Liên hệ',
+      'Diabot — 12 A, ngách 1/16, Ngõ 1 Thúy Lĩnh, Hà Nội, Việt Nam • Email: support@diabot.top • Phone: +84 898 888 917'
+    ]
+  }
+};

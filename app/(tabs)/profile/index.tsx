@@ -10,7 +10,7 @@ import { ListItem } from '../../../src/components/ListItem';
 import { Button } from '../../../src/components/Button';
 import { Screen } from '../../../src/components/Screen';
 import { colors, spacing } from '../../../src/styles';
-import { DEMO_ACCOUNT_EMAIL, DEMO_ACCOUNT_PASSWORD, openExternal, PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL } from '../../../src/lib/links';
+import { DEMO_ACCOUNT_EMAIL, DEMO_ACCOUNT_PASSWORD, openExternal, SUPPORT_EMAIL } from '../../../src/lib/links';
 
 export default function ProfileScreen() {
   const profile = useAuthStore((state) => state.profile);
@@ -20,6 +20,9 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
+  const openLegal = (type: 'terms' | 'privacy') => {
+    router.push({ pathname: '/legal/content', params: { type } });
+  };
 
   useEffect(() => {
     if (flags.status === 'idle') {
@@ -64,10 +67,10 @@ export default function ProfileScreen() {
         <Button label="Đăng xuất" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.md }} />
 
         <H1SectionHeader title="Hỗ trợ & pháp lý" />
-        <ListItem title="Điều khoản sử dụng" onPress={() => openExternal(TERMS_URL)} />
+        <ListItem title="Điều khoản sử dụng" onPress={() => openLegal('terms')} />
         <ListItem
           title="Chính sách quyền riêng tư"
-          onPress={() => openExternal(PRIVACY_URL)}
+          onPress={() => openLegal('privacy')}
           style={{ marginTop: spacing.md }}
         />
         <ListItem

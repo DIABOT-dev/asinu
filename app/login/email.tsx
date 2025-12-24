@@ -6,7 +6,7 @@ import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { colors, spacing, typography } from '../../src/styles';
-import { DEMO_ACCOUNT_EMAIL, DEMO_ACCOUNT_PASSWORD, openExternal, PRIVACY_URL, TERMS_URL } from '../../src/lib/links';
+import { DEMO_ACCOUNT_EMAIL, DEMO_ACCOUNT_PASSWORD } from '../../src/lib/links';
 
 export default function LoginEmailScreen() {
   const [email, setEmail] = useState(DEMO_ACCOUNT_EMAIL);
@@ -16,6 +16,9 @@ export default function LoginEmailScreen() {
   const error = useAuthStore((state) => state.error);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const openLegal = (type: 'terms' | 'privacy') => {
+    router.push({ pathname: '/legal/content', params: { type } });
+  };
 
   const handleLogin = async () => {
     try {
@@ -41,11 +44,11 @@ export default function LoginEmailScreen() {
       <View style={styles.legal}>
         <Text style={styles.helper}>Bằng việc tiếp tục, bạn đồng ý với</Text>
         <View style={styles.linkRow}>
-          <Pressable onPress={() => openExternal(TERMS_URL)}>
+          <Pressable onPress={() => openLegal('terms')}>
             <Text style={styles.link}>Điều khoản sử dụng</Text>
           </Pressable>
           <Text style={styles.separator}>·</Text>
-          <Pressable onPress={() => openExternal(PRIVACY_URL)}>
+          <Pressable onPress={() => openLegal('privacy')}>
             <Text style={styles.link}>Chính sách quyền riêng tư</Text>
           </Pressable>
         </View>

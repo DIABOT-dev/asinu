@@ -8,7 +8,7 @@ import { ListItem } from '../../src/components/ListItem';
 import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { colors, spacing, typography } from '../../src/styles';
-import { openExternal, PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL } from '../../src/lib/links';
+import { openExternal, SUPPORT_EMAIL } from '../../src/lib/links';
 
 export default function SettingsScreen() {
   const logout = useAuthStore((state) => state.logout);
@@ -17,6 +17,9 @@ export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
+  const openLegal = (type: 'terms' | 'privacy') => {
+    router.push({ pathname: '/legal/content', params: { type } });
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -43,10 +46,10 @@ export default function SettingsScreen() {
         </View>
 
         <H1SectionHeader title="Hỗ trợ & pháp lý" />
-        <ListItem title="Điều khoản sử dụng" onPress={() => openExternal(TERMS_URL)} />
+        <ListItem title="Điều khoản sử dụng" onPress={() => openLegal('terms')} />
         <ListItem
           title="Chính sách quyền riêng tư"
-          onPress={() => openExternal(PRIVACY_URL)}
+          onPress={() => openLegal('privacy')}
           style={{ marginTop: spacing.md }}
         />
         <ListItem

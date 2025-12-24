@@ -3,11 +3,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Button } from '../../src/components/Button';
 import { colors, spacing, typography } from '../../src/styles';
-import { openExternal, PRIVACY_URL, TERMS_URL } from '../../src/lib/links';
 
 export default function LoginMethodScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const openLegal = (type: 'terms' | 'privacy') => {
+    router.push({ pathname: '/legal/content', params: { type } });
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
@@ -22,11 +24,11 @@ export default function LoginMethodScreen() {
       <View style={styles.legal}>
         <Text style={styles.helper}>Bằng việc tiếp tục, bạn đồng ý với</Text>
         <View style={styles.linkRow}>
-          <Pressable onPress={() => openExternal(TERMS_URL)}>
+          <Pressable onPress={() => openLegal('terms')}>
             <Text style={styles.link}>Điều khoản</Text>
           </Pressable>
           <Text style={styles.separator}>·</Text>
-          <Pressable onPress={() => openExternal(PRIVACY_URL)}>
+          <Pressable onPress={() => openLegal('privacy')}>
             <Text style={styles.link}>Chính sách quyền riêng tư</Text>
           </Pressable>
         </View>

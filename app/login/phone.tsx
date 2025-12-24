@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
 import { colors, spacing, typography } from '../../src/styles';
-import { openExternal, PRIVACY_URL, TERMS_URL } from '../../src/lib/links';
 
 export default function LoginPhoneScreen() {
   const [phone, setPhone] = useState('');
@@ -13,6 +12,9 @@ export default function LoginPhoneScreen() {
   const [error, setError] = useState<string | undefined>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const openLegal = (type: 'terms' | 'privacy') => {
+    router.push({ pathname: '/legal/content', params: { type } });
+  };
 
   const handleSendOtp = async () => {
     if (!phone.trim()) {
@@ -54,11 +56,11 @@ export default function LoginPhoneScreen() {
       <View style={styles.legal}>
         <Text style={styles.helper}>Khi tiếp tục bạn đồng ý với</Text>
         <View style={styles.linkRow}>
-          <Pressable onPress={() => openExternal(TERMS_URL)}>
+          <Pressable onPress={() => openLegal('terms')}>
             <Text style={styles.link}>Điều khoản sử dụng</Text>
           </Pressable>
           <Text style={styles.separator}>·</Text>
-          <Pressable onPress={() => openExternal(PRIVACY_URL)}>
+          <Pressable onPress={() => openLegal('privacy')}>
             <Text style={styles.link}>Chính sách quyền riêng tư</Text>
           </Pressable>
         </View>

@@ -2,28 +2,32 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
 import { colors, spacing, typography } from '../../src/styles';
-import { openExternal, PRIVACY_URL, TERMS_URL } from '../../src/lib/links';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [isAgreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const openLegal = (type: 'terms' | 'privacy') => {
+    router.push({ pathname: '/legal/content', params: { type } });
+  };
 
   const handleSubmit = async () => {
     if (!name.trim() || !phone.trim()) {
       setError('Vui lòng nhập họ tên và số điện thoại');
       return;
     }
-    if (!acceptTerms) {
+    if (!isAgreed) {
       setError('Vui lòng đồng ý Điều khoản & Chính sách');
       return;
     }
@@ -50,21 +54,30 @@ export default function RegisterScreen() {
         <TextInput label="Số điện thoại" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+84..." />
         <TextInput label="Email (tùy chọn)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
         <TextInput label="Mật khẩu (tùy chọn)" value={password} onChangeText={setPassword} secureTextEntry />
-        <Pressable style={styles.checkboxRow} onPress={() => setAcceptTerms((v) => !v)}>
-          <View style={[styles.checkbox, acceptTerms && styles.checkboxChecked]} />
-          <Text style={styles.checkboxLabel}>Tôi đồng ý Điều khoản & Chính sách</Text>
-        </Pressable>
-        <View style={styles.linkRow}>
-          <Pressable onPress={() => openExternal(TERMS_URL)}>
-            <Text style={styles.link}>Xem Điều khoản</Text>
+        <View style={styles.checkboxRow}>
+          <Pressable style={styles.checkboxToggle} onPress={() => setAgreed(!isAgreed)}>
+            <Ionicons
+              name={isAgreed ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={isAgreed ? colors.primary : colors.textSecondary}
+            />
+            <Text style={styles.checkboxLabel}>Tôi đồng ý với </Text>
           </Pressable>
-          <Text style={styles.separator}>·</Text>
-          <Pressable onPress={() => openExternal(PRIVACY_URL)}>
-            <Text style={styles.link}>Xem Chính sách</Text>
+          <Pressable onPress={() => openLegal('terms')}>
+            <Text style={[styles.checkboxLabel, styles.linkItalic]}>Điều khoản sử dụng</Text>
+          </Pressable>
+          <Text style={styles.checkboxLabel}> & </Text>
+          <Pressable onPress={() => openLegal('privacy')}>
+            <Text style={[styles.checkboxLabel, styles.linkItalic]}>Chính sách riêng tư</Text>
           </Pressable>
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <Button label={loading ? 'Đang xử lý...' : 'Tiếp tục'} onPress={handleSubmit} disabled={loading} />
+        <Button
+          label={loading ? 'Đang xử lý...' : 'Đăng ký'}
+          onPress={handleSubmit}
+          disabled={!isAgreed || loading}
+          style={{ opacity: isAgreed ? 1 : 0.5 }}
+        />
         <Button label="Đã có tài khoản? Đăng nhập" variant="ghost" onPress={() => router.replace('/login')} disabled={loading} />
       </View>
     </View>
@@ -94,34 +107,21 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm
+    flexWrap: 'wrap',
+    gap: spacing.xs
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary
-  },
-  checkboxLabel: {
-    color: colors.textPrimary
-  },
-  linkRow: {
+  checkboxToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm
   },
-  link: {
-    color: colors.primary,
-    fontWeight: '700'
+  checkboxLabel: {
+    color: colors.textPrimary
   },
-  separator: {
-    color: colors.textSecondary
+  linkItalic: {
+    color: colors.primary,
+    fontStyle: 'italic',
+    fontWeight: '700'
   },
   errorText: {
     color: colors.danger
