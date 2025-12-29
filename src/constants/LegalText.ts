@@ -36,7 +36,7 @@ export const LEGAL_TEXT: Record<'terms' | 'privacy', LegalSection> = {
       '10. Governing Law & Disputes / Luật áp dụng & Tranh chấp',
       'Luật Việt Nam; ưu tiên thương lượng, nếu không thành thì tòa án có thẩm quyền tại Hà Nội.',
       '11. Contact / Liên hệ',
-      'support@diabot.top • +84 898 888 917'
+      'support@asinu.health • +84 898 888 917'
     ]
   },
   privacy: {
@@ -71,7 +71,7 @@ export const LEGAL_TEXT: Record<'terms' | 'privacy', LegalSection> = {
       'Truy cập, chỉnh sửa, tải xuống (PDF/CSV).',
       'Xoá tài khoản & dữ liệu (xem Mục VIII).',
       'Rút lại đồng ý cho tính năng tùy chọn.',
-      'Qua Cài đặt hoặc email support@diabot.top.',
+      'Qua Cài đặt hoặc email support@asinu.health.',
       'VII. Retention / Thời hạn lưu',
       'Tài khoản & dữ liệu sức khỏe: đến khi bạn xoá hoặc 24 tháng không hoạt động (sẽ thông báo trước khi dọn).',
       'System logs: tối đa 12 tháng.',
@@ -86,7 +86,7 @@ export const LEGAL_TEXT: Record<'terms' | 'privacy', LegalSection> = {
       'XI. Changes / Thay đổi',
       'Cập nhật sẽ hiển thị tại trang này; tiếp tục sử dụng là chấp nhận bản mới.',
       'XII. Contact / Liên hệ',
-      'Diabot — 12 A, ngách 1/16, Ngõ 1 Thúy Lĩnh, Hà Nội, Việt Nam • Email: support@diabot.top • Phone: +84 898 888 917'
+      'Diabot — 12 A, ngách 1/16, Ngõ 1 Thúy Lĩnh, Hà Nội, Việt Nam • Email: support@asinu.health • Phone: +84 898 888 917'
     ]
   }
 };

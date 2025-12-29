@@ -1,14 +1,11 @@
-# SYSTEM ARCHITECTURE (CORRECTED)
-1. Structure Status
-ROOT (./): Chua ca ma nguon Mobile (Expo) VA ma nguon Backend (Next.js) trong cau truc hon hop (Hybrid/Monorepo root).
+# SYSTEM ARCHITECTURE (FINAL MANUAL LOCK)
 
-Active Mobile Config: app.json tai Root.
+## 1. SOURCE OF TRUTH
+- **ROOT (`./`):** Code base thực tế.
+- **Mobile Screens:** `src/app/` (Đã xác nhận: nằm trong folder src).
+- **Config:** `app.json` tại Root.
 
-Legacy/Inactive: apps/asinu-lite (DO NOT TOUCH).
-
-2. Execution Context
-Run commands from: F:\Projects\asinu-win (ROOT).
-
-Backend Port: 3000.
-
-Mobile Port: 19000 / 8081.
+## 2. RUNTIME RULE (BẮT BUỘC)
+- **Port:** 19000 (Cố định).
+- **Host:** 127.0.0.1 (Để tránh lỗi WSL Network).
+- **Lệnh chạy chuẩn:** `npx expo start --clear --host 127.0.0.1 --port 19000`

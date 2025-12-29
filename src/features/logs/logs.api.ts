@@ -44,6 +44,15 @@ export type InsulinLogPayload = BaseLogPayload & {
   meal_id?: string;
 };
 
+type LogType = 'glucose' | 'blood-pressure' | 'medication' | 'weight' | 'water' | 'meal' | 'insulin';
+
+const createLog = <T extends BaseLogPayload>(type: LogType, payload: T) => {
+  return apiClient<LogEntry>('/api/mobile/logs', {
+    method: 'POST',
+    body: { type, ...payload }
+  });
+};
+
 export const logsApi = {
   fetchRecent(options?: { signal?: AbortSignal }) {
     return apiClient<LogEntry[]>('/api/mobile/logs', {
@@ -52,24 +61,24 @@ export const logsApi = {
     });
   },
   createGlucose(payload: GlucoseLogPayload) {
-    return apiClient<LogEntry>('/api/mobile/logs/glucose', { method: 'POST', body: payload });
+    return createLog('glucose', payload);
   },
   createBloodPressure(payload: BloodPressureLogPayload) {
-    return apiClient<LogEntry>('/api/mobile/logs/blood-pressure', { method: 'POST', body: payload });
+    return createLog('blood-pressure', payload);
   },
   createMedication(payload: MedicationLogPayload) {
-    return apiClient<LogEntry>('/api/mobile/logs/medication', { method: 'POST', body: payload });
+    return createLog('medication', payload);
   },
   createWeight(payload: WeightLogPayload) {
-    return apiClient<LogEntry>('/api/mobile/logs/weight', { method: 'POST', body: payload });
+    return createLog('weight', payload);
   },
   createWater(payload: WaterLogPayload) {
-    return apiClient<LogEntry>('/api/mobile/logs/water', { method: 'POST', body: payload });
+    return createLog('water', payload);
   },
   createMeal(payload: MealLogPayload) {
-    return apiClient<LogEntry>('/api/mobile/logs/meal', { method: 'POST', body: payload });
+    return createLog('meal', payload);
   },
   createInsulin(payload: InsulinLogPayload) {
-    return apiClient<LogEntry>('/api/mobile/logs/insulin', { method: 'POST', body: payload });
+    return createLog('insulin', payload);
   }
 };

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { colors, spacing, typography } from '../../src/styles';
+import { useAuthStore } from '../../src/features/auth/auth.store';
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 45;
@@ -16,6 +17,7 @@ export default function OtpScreen() {
   const [error, setError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+  const verifyOtp = useAuthStore((state) => state.verifyOtp);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -33,6 +35,7 @@ export default function OtpScreen() {
     setLoading(true);
     setError(undefined);
     try {
+      await verifyOtp({ phone: phone.trim(), code, flow: flow === 'signup' ? 'signup' : 'login' });
       if (flow === 'signup') {
         router.replace('/onboarding');
       } else {

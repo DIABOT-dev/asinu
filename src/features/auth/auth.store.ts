@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { authApi, LoginPayload } from './auth.api';
+import { authApi, LoginPayload, VerifyPayload } from './auth.api';
 import { buildBypassProfile } from './auth.dev-bypass';
 import { tokenStore } from '../../lib/tokenStore';
 import { featureFlags } from '../../lib/featureFlags';
@@ -20,6 +20,8 @@ type AuthState = {
   error?: string;
   bootstrap: () => Promise<void>;
   login: (payload: LoginPayload) => Promise<void>;
+  verifyOtp: (payload: VerifyPayload) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -37,6 +39,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await tokenStore.loadToken();
     const token = tokenStore.getToken();
     if (token) {
+      try {
+        const verified = await authApi.verify();
+        const nextToken = verified.token || token;
+        if (verified.token) {
+          await tokenStore.setToken(nextToken);
+        }
+        const profile = verified.profile || (await authApi.fetchProfile());
+        set({ profile, token: nextToken, loading: false });
+        return;
+      } catch (error) {
+        console.warn('Verify failed, falling back to profile fetch', error);
+      }
+
       try {
         const profile = await authApi.fetchProfile();
         set({ profile, token, loading: false });
@@ -91,6 +106,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ profile, token, loading: false });
     } catch (error) {
       console.log('[auth.store] login failed:', error);
+      set({ loading: false, error: (error as Error).message });
+      throw error;
+    }
+  },
+  async verifyOtp(payload) {
+    set({ loading: true, error: undefined });
+    if (featureFlags.devBypassAuth) {
+      const fakeProfile = buildBypassProfile();
+      await tokenStore.setToken('dev-bypass');
+      set({ profile: fakeProfile, token: 'dev-bypass', loading: false });
+      return;
+    }
+    try {
+      const response = await authApi.verify(payload);
+      const existingToken = tokenStore.getToken();
+      const nextToken = response.token || existingToken || null;
+      if (response.token) {
+        await tokenStore.setToken(response.token);
+      }
+      const profile = response.profile || (nextToken ? await authApi.fetchProfile() : null);
+      set({ profile, token: nextToken, loading: false });
+    } catch (error) {
+      console.log('[auth.store] verify failed:', error);
+      set({ loading: false, error: (error as Error).message });
+      throw error;
+    }
+  },
+  async deleteAccount() {
+    set({ loading: true, error: undefined });
+    try {
+      await authApi.deleteAccount();
+      await tokenStore.clearToken();
+      set({ profile: null, token: null, loading: false });
+    } catch (error) {
       set({ loading: false, error: (error as Error).message });
       throw error;
     }

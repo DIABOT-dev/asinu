@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
@@ -12,8 +12,10 @@ import { openExternal, SUPPORT_EMAIL } from '../../src/lib/links';
 
 export default function SettingsScreen() {
   const logout = useAuthStore((state) => state.logout);
+  const deleteAccount = useAuthStore((state) => state.deleteAccount);
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
@@ -24,6 +26,32 @@ export default function SettingsScreen() {
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
+  };
+
+  const confirmDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      router.replace('/login');
+    } catch (error) {
+      Alert.alert(
+        'Không thể xóa tài khoản',
+        'Vui lòng thử lại hoặc liên hệ hỗ trợ để được trợ giúp.'
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Xóa tài khoản?',
+      'Hành động này sẽ xóa vĩnh viễn dữ liệu và không thể hoàn tác.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Xóa', style: 'destructive', onPress: confirmDeleteAccount }
+      ]
+    );
   };
 
   return (
@@ -60,6 +88,14 @@ export default function SettingsScreen() {
         />
 
         <Button label="Đăng xuất" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
+        <Button
+          label={deleting ? 'Đang xóa tài khoản...' : 'Xóa tài khoản'}
+          variant="ghost"
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+          style={{ marginTop: spacing.md, borderColor: colors.danger }}
+          textStyle={{ color: colors.danger }}
+        />
       </ScrollView>
     </Screen>
   );

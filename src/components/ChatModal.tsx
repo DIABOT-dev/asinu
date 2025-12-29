@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
+import { chatApi } from '../features/chat/chat.api';
 import { colors, spacing, typography } from '../styles';
 
 type ChatModalProps = {
@@ -24,6 +25,7 @@ const initialMessages: ChatBubble[] = [
 export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatBubble[]>(initialMessages);
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     if (__DEV__) {
@@ -34,7 +36,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     }
   }, [messages]);
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     const now = Date.now();
     const userMessage: ChatBubble = {
       id: `user-${now}`,
@@ -42,15 +44,31 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
       text,
       timestamp: new Date(now).toISOString()
     };
-
-    const assistantReply: ChatBubble = {
-      id: `assistant-${now}`,
-      role: 'assistant',
-      text: 'Đã ghi nhận, tính năng chat đang được hoàn thiện.',
-      timestamp: new Date(now + 1000).toISOString()
-    };
-
-    setMessages((prev) => [...prev, userMessage, assistantReply]);
+    setMessages((prev) => [...prev, userMessage]);
+    setIsTyping(true);
+    try {
+      const history = [...messages, userMessage]
+        .slice(-6)
+        .map(({ role, text: entryText }) => ({ role, text: entryText }));
+      const { reply } = await chatApi.sendMessage({ message: text, history });
+      const assistantMessage: ChatBubble = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        text: reply || 'Xin lỗi, tôi chưa thể trả lời lúc này.',
+        timestamp: new Date().toISOString()
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      const assistantMessage: ChatBubble = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        text: 'Xin lỗi, hệ thống đang bận. Vui lòng thử lại sau.',
+        timestamp: new Date().toISOString()
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
@@ -66,7 +84,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
             </Pressable>
           </View>
           <View style={styles.chatBody}>
-            <AiChatLayout messages={messages} onSend={handleSend} />
+            <AiChatLayout messages={messages} isTyping={isTyping} onSend={handleSend} />
           </View>
         </View>
       </View>
