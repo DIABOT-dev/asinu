@@ -53,7 +53,7 @@ export default function ProfileScreen() {
           subtitle={flags.FEATURE_MOOD_TRACKER ? 'Đã bật' : 'Đang tắt'}
           onPress={() => fetchFlags()}
         />
-        {flags.FEATURE_AI_CHAT ? (
+        {flags.FEATURE_AI_CHAT && flags.ENABLE_ADVANCED_AI ? (
           <ListItem
             title="AI Chat"
             subtitle="Đang bật"

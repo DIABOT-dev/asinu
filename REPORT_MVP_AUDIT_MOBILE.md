@@ -40,7 +40,7 @@
 
 ### Delete Account (DONE)
 - UI + confirm modal: `app/settings/index.tsx:48` + `app/settings/index.tsx:92`
-  - cmd: `rg -n "Xóa tài kho?n" app/settings/index.tsx`
+  - cmd: `rg -n "Xï¿½a tï¿½i kho?n" app/settings/index.tsx`
 - API call: `src/features/auth/auth.api.ts:42` DELETE `/api/auth/me`
   - cmd: `rg -n "/api/auth/me" src/features/auth/auth.api.ts`
 
