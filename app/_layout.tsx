@@ -11,6 +11,7 @@ import '../src/lib/initErrorHandler';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SessionProvider } from '../src/providers/SessionProvider';
 import { colors, spacing, typography } from '../src/styles';
+import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
 
 type NavigationProp = NativeStackNavigationProp<ParamListBase>;
 type ScreenOptionsProps = { 
@@ -60,6 +61,7 @@ export default function RootLayout() {
                   options={legalScreenOptions}
                 />
               </Stack>
+              <AsinuBrainOverlayHost />
             </CarePulseProvider>
           </WellnessProvider>
         </SafeAreaProvider>
