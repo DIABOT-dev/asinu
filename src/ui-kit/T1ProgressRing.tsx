@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography } from '../styles';
+import { StyleSheet, Text, View } from 'react-native';
+import { useScaledTypography } from '../hooks/useScaledTypography';
 import { featureFlags } from '../lib/featureFlags';
+import { colors, spacing } from '../styles';
 
 export type T1ProgressRingProps = {
   percentage: number;
@@ -17,13 +18,14 @@ export const T1ProgressRing = ({
   strokeWidth = 10,
   accentColor = colors.secondary
 }: T1ProgressRingProps) => {
+  const scaledTypography = useScaledTypography();
   const disableCharts = featureFlags.disableCharts;
 
   if (disableCharts) {
     return (
       <View style={[styles.container, { width: size, height: size, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={styles.percent}>{Math.round(percentage * 100)}%</Text>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={[styles.percent, { fontSize: scaledTypography.size.lg }]}>{Math.round(percentage * 100)}%</Text>
+        <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>{label}</Text>
       </View>
     );
   }
@@ -60,8 +62,8 @@ export const T1ProgressRing = ({
         />
       </Svg>
       <View style={styles.labelWrapper}>
-        <Text style={styles.percent}>{Math.round(percentage * 100)}%</Text>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={[styles.percent, { fontSize: scaledTypography.size.lg }]}>{Math.round(percentage * 100)}%</Text>
+        <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>{label}</Text>
       </View>
     </View>
   );
@@ -77,12 +79,10 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   percent: {
-    fontSize: typography.size.lg,
     fontWeight: '700',
     color: colors.textPrimary
   },
   label: {
-    fontSize: typography.size.sm,
     color: colors.textSecondary,
     marginTop: spacing.xs
   }

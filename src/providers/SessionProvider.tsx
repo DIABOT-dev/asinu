@@ -1,5 +1,6 @@
 import { ReactNode, createContext, useContext, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../features/auth/auth.store';
+import { getExpoPushToken, requestNotificationPermissions } from '../lib/notifications';
 
 const SessionContext = createContext<{ ready: boolean }>({ ready: false });
 
@@ -20,6 +21,21 @@ export const SessionProvider = ({ children }: Props) => {
     if (hydrated) {
       console.log('[SessionProvider] Calling bootstrap()');
       bootstrap();
+      
+      // Request notification permissions and get push token
+      (async () => {
+        const hasPermission = await requestNotificationPermissions();
+        if (hasPermission) {
+          const token = await getExpoPushToken();
+          if (token) {
+            console.log('[SessionProvider] Expo Push Token:', token);
+            // TODO: Send token to backend to store in database
+            // await api.savePushToken(token);
+          }
+        } else {
+          console.log('[SessionProvider] Notification permissions denied');
+        }
+      })();
     }
   }, [bootstrap, hydrated]);
 

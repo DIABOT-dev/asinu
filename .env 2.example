@@ -1,0 +1,36 @@
+# Frontend Environment Variables Template
+# Copy this file to .env and fill in the values
+
+# API Configuration
+# For development: http://localhost:3000
+# For production: https://your-api-domain.com
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3000
+
+# Feature Flags
+EXPO_PUBLIC_USE_MOCK_DATA=false
+EXPO_PUBLIC_SHOW_MASCOT=true
+
+# Development Options
+# Set to '1' to bypass auth in development mode
+EXPO_PUBLIC_DEV_BYPASS_AUTH=0
+
+# UI Options
+EXPO_PUBLIC_DISABLE_CHARTS=0
+
+# OAuth Configuration
+# Set to 'true' to use mock OAuth for development without real OAuth setup
+EXPO_PUBLIC_USE_MOCK_OAUTH=true
+
+# Google OAuth Client IDs (get from Google Cloud Console)
+# https://console.cloud.google.com/apis/credentials
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
+
+# Apple Sign In (get from Apple Developer)
+# https://developer.apple.com/account/resources/identifiers/list/serviceId
+EXPO_PUBLIC_APPLE_CLIENT_ID=com.asinu.app
+
+# Zalo OAuth (get from Zalo Developer)
+# https://developers.zalo.me/
+EXPO_PUBLIC_ZALO_APP_ID=

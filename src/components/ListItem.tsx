@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, Pressable, ViewProps } from 'react-native';
-import { colors, spacing, typography } from '../styles';
+import { Pressable, StyleSheet, Text, View, ViewProps } from 'react-native';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 type Props = ViewProps & {
   title: string;
@@ -9,12 +10,13 @@ type Props = ViewProps & {
 };
 
 export const ListItem = ({ title, subtitle, onPress, right, style }: Props) => {
+  const scaledTypography = useScaledTypography();
   const Container = onPress ? Pressable : View;
   return (
     <Container style={[styles.container, style]} onPress={onPress}>
       <View style={styles.textContainer}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{title}</Text>
+        {subtitle ? <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>{subtitle}</Text> : null}
       </View>
       {right}
     </Container>
@@ -38,14 +40,12 @@ const styles = StyleSheet.create({
     flex: 1
   },
   title: {
-    fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary,
     fontFamily: 'System'
   },
   subtitle: {
     color: colors.textSecondary,
-    fontFamily: 'System',
-    fontSize: typography.size.sm
+    fontFamily: 'System'
   }
 });

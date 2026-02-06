@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { tokenStore } from '../../lib/tokenStore';
+import { useNotificationStore } from '../../stores/notification.store';
 import { authApi, LoginPayload, UpdateProfilePayload } from './auth.api';
 import { authService, SocialProvider } from './auth.service';
 
@@ -12,6 +13,27 @@ export type Profile = {
   phone?: string;
   relationship?: string;
   avatarUrl?: string;
+  // Health profile fields
+  dateOfBirth?: string | null;
+  age?: number | null;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  bloodType?: string | null;
+  chronicDiseases?: string[];
+  // Onboarding fields
+  ageRange?: string;
+  gender?: string;
+  goal?: string;
+  bodyType?: string;
+  // Care circle
+  careCircle?: Array<{
+    id: string;
+    guardianId: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    status: string;
+  }>;
 };
 
 type AuthState = {
@@ -224,6 +246,10 @@ export const useAuthStore = create<AuthState>()(
           console.warn('logout failed but continuing', error);
         }
         await tokenStore.clearToken();
+        
+        // Clear notification store
+        useNotificationStore.getState().clearAll();
+        
         set({ profile: null, token: null });
       }
     }),

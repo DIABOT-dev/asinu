@@ -16,6 +16,15 @@ export type RegisterPayload = {
 export type UpdateProfilePayload = {
   name?: string;
   phone?: string;
+  dateOfBirth?: string;
+  heightCm?: number;
+  weightKg?: number;
+  bloodType?: string;
+  chronicDiseases?: string[];
+  ageRange?: string;
+  gender?: string;
+  goal?: string;
+  bodyType?: string;
 };
 
 export type LoginResponse = {

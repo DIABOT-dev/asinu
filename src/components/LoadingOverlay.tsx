@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 interface LoadingOverlayProps {
   visible: boolean;
@@ -9,12 +10,13 @@ interface LoadingOverlayProps {
 }
 
 export function LoadingOverlay({ visible, message = 'Đang xử lý...' }: LoadingOverlayProps) {
+  const scaledTypography = useScaledTypography();
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.loadingCard}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>{message}</Text>
+          <Text style={[styles.loadingText, { fontSize: scaledTypography.size.md }]}>{message}</Text>
         </View>
       </View>
     </Modal>
@@ -34,6 +36,7 @@ export function SuccessOverlay({
   onComplete,
   duration = 1500 
 }: SuccessOverlayProps) {
+  const scaledTypography = useScaledTypography();
   useEffect(() => {
     if (visible && onComplete) {
       const timer = setTimeout(() => {
@@ -50,7 +53,7 @@ export function SuccessOverlay({
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={64} color="#FFFFFF" />
           </View>
-          <Text style={styles.successText}>{message}</Text>
+          <Text style={[styles.successText, { fontSize: scaledTypography.size.lg }]}>{message}</Text>
         </View>
       </View>
     </Modal>
@@ -73,7 +76,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   loadingText: {
-    fontSize: typography.size.md,
     color: colors.textPrimary,
     fontWeight: '600',
   },
@@ -94,7 +96,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   successText: {
-    fontSize: typography.size.lg,
     color: '#FFFFFF',
     fontWeight: '700',
     textAlign: 'center',

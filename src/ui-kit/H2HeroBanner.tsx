@@ -1,7 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
-import { colors, radius, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, radius, spacing } from '../styles';
 
 type Props = {
   name: string;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export const H2HeroBanner = ({ name, relationship, summary, action, supporters = [] }: Props) => {
+  const scaledTypography = useScaledTypography();
   return (
     <LinearGradient
       colors={[colors.primary + 'E0', colors.primary + 'F0']}
@@ -22,17 +24,17 @@ export const H2HeroBanner = ({ name, relationship, summary, action, supporters =
       <View style={styles.headerRow}>
         <Avatar name={name} containerStyle={styles.avatar} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{name}</Text>
-          {relationship ? <Text style={styles.meta}>{relationship}</Text> : null}
+          <Text style={[styles.name, { fontSize: scaledTypography.size.xl }]}>{name}</Text>
+          {relationship ? <Text style={[styles.meta, { fontSize: scaledTypography.size.sm }]}>{relationship}</Text> : null}
         </View>
         {action}
       </View>
-      {summary ? <Text style={styles.summary}>{summary}</Text> : null}
+      {summary ? <Text style={[styles.summary, { fontSize: scaledTypography.size.md }]}>{summary}</Text> : null}
       {supporters.length ? (
         <View style={styles.supporters}>
           {supporters.map((member) => (
             <View key={member} style={styles.supportTag}>
-              <Text style={styles.supportText}>{member}</Text>
+              <Text style={[styles.supportText, { fontSize: scaledTypography.size.sm }]}>{member}</Text>
             </View>
           ))}
         </View>
@@ -58,17 +60,14 @@ const styles = StyleSheet.create({
   },
   name: {
     color: colors.surface,
-    fontSize: typography.size.xl,
     fontWeight: '800'
   },
   meta: {
     color: colors.surface,
-    opacity: 0.85,
-    fontSize: typography.size.sm
+    opacity: 0.85
   },
   summary: {
     color: colors.surface,
-    fontSize: typography.size.md,
     lineHeight: 22
   },
   supporters: {
@@ -84,7 +83,6 @@ const styles = StyleSheet.create({
   },
   supportText: {
     color: colors.surface,
-    fontWeight: '700',
-    fontSize: typography.size.sm
+    fontWeight: '700'
   }
 });

@@ -1,5 +1,6 @@
-import { Image, Text, View, StyleSheet, ViewStyle, StyleProp, ImageStyle } from 'react-native';
-import { colors, spacing, typography } from '../styles';
+import { Image, ImageStyle, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors } from '../styles';
 
 type Props = {
   name: string;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }: Props) => {
+  const scaledTypography = useScaledTypography();
   const initials = name
     .split(' ')
     .map((part) => part.charAt(0))
@@ -33,7 +35,7 @@ export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }
         containerStyle
       ]}
     >
-      <Text style={styles.initials}>{initials}</Text>
+      <Text style={[styles.initials, { fontSize: scaledTypography.size.lg }]}>{initials}</Text>
     </View>
   );
 };
@@ -49,7 +51,6 @@ const styles = StyleSheet.create({
   initials: {
     color: colors.textPrimary,
     fontWeight: '700',
-    fontSize: typography.size.lg,
     fontFamily: 'System'
   }
 });

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 type ToastType = 'success' | 'error';
 type ToastPosition = 'top' | 'bottom' | 'center';
@@ -16,6 +17,7 @@ type ToastProps = {
 };
 
 export const Toast = ({ visible, message, type = 'success', duration = 2000, position = 'center', onHide }: ToastProps) => {
+  const scaledTypography = useScaledTypography();
   const [isHidden, setIsHidden] = useState(!visible);
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
@@ -105,7 +107,7 @@ export const Toast = ({ visible, message, type = 'success', duration = 2000, pos
         },
       ]}
     >
-      <Text style={styles.message}>{message}</Text>
+      <Text style={[styles.message, { fontSize: scaledTypography.size.lg }]}>{message}</Text>
     </Animated.View>
   );
 };
@@ -134,7 +136,6 @@ const styles = StyleSheet.create({
   },
   message: {
     color: '#FFFFFF',
-    fontSize: typography.size.lg,
     fontWeight: '700',
     textAlign: 'center',
     lineHeight: 24,

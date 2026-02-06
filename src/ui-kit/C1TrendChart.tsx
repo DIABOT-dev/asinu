@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { useScaledTypography } from '../hooks/useScaledTypography';
 import { featureFlags } from '../lib/featureFlags';
-import { colors, spacing, typography } from '../styles';
+import { colors, spacing } from '../styles';
 
 export type TrendPoint = {
   label: string;
@@ -20,12 +21,13 @@ const CHART_PADDING = { top: 40, bottom: 35, left: 45, right: 20 };
 
 export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200, title, unit }: C1TrendChartProps) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const scaledTypography = useScaledTypography();
   const disableCharts = featureFlags.disableCharts;
 
   if (disableCharts) {
     return (
       <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
-        <Text style={{ color: colors.textSecondary }}>Biểu đồ tạm ẩn trong chế độ demo</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>Biểu đồ tạm ẩn trong chế độ demo</Text>
       </View>
     );
   }
@@ -34,8 +36,8 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   if (!data || data.length === 0) {
     return (
       <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
-        <Text style={{ color: colors.textSecondary, fontSize: typography.size.md }}>Chưa có dữ liệu để hiển thị</Text>
-        <Text style={{ color: colors.textSecondary, fontSize: typography.size.sm, marginTop: spacing.xs }}>Ghi log để xem xu hướng</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>Chưa có dữ liệu để hiển thị</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.sm, marginTop: spacing.xs }}>Ghi log để xem xu hướng</Text>
       </View>
     );
   }
@@ -52,7 +54,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   if (values.length === 0) {
     return (
       <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
-        <Text style={{ color: colors.textSecondary, fontSize: typography.size.md }}>Dữ liệu không hợp lệ</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>Dữ liệu không hợp lệ</Text>
       </View>
     );
   }
@@ -122,7 +124,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   return (
     <View style={[styles.container, { height }]}>
       {title && (
-        <Text style={styles.chartTitle}>{title}{unit ? ` (${unit})` : ''}</Text>
+        <Text style={[styles.chartTitle, { fontSize: scaledTypography.size.sm }]}>{title}{unit ? ` (${unit})` : ''}</Text>
       )}
       <Svg width={screenWidth} height={height - (title ? 24 : 0)}>
         {/* Grid lines ngang */}
@@ -255,7 +257,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border
   },
   chartTitle: {
-    fontSize: typography.size.sm,
     fontWeight: '600',
     color: colors.textSecondary,
     paddingHorizontal: spacing.md,

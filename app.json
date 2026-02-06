@@ -41,7 +41,16 @@
       "expo-splash-screen",
       "expo-font",
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#08b8a2",
+          "sounds": [],
+          "mode": "production"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,15 +1,19 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography } from '../../styles';
+import { StyleSheet, Text, View } from 'react-native';
+import { useScaledTypography } from '../../hooks/useScaledTypography';
+import { colors, spacing } from '../../styles';
 
 type Props = {
   message?: string;
 };
 
-export const StateEmpty = ({ message = 'Chưa có dữ liệu' }: Props) => (
-  <View style={styles.container}>
-    <Text style={styles.title}>{message}</Text>
-  </View>
-);
+export const StateEmpty = ({ message = 'Chưa có dữ liệu' }: Props) => {
+  const scaledTypography = useScaledTypography();
+  return (
+    <View style={styles.container}>
+      <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{message}</Text>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -17,7 +21,6 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   title: {
-    fontSize: typography.size.md,
     color: colors.textSecondary
   }
 });

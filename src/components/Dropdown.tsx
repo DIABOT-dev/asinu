@@ -10,7 +10,8 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { colors, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 export type DropdownOption = {
   id: string;
@@ -43,6 +44,7 @@ export function Dropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<RNTextInput>(null);
+  const scaledTypography = useScaledTypography();
 
   useEffect(() => {
     if (isOpen && searchable) {
@@ -80,13 +82,14 @@ export function Dropdown({
       <View style={styles.optionContent}>
         <Text style={[
           styles.optionLabel,
+          { fontSize: scaledTypography.size.md },
           value?.id === item.id && styles.optionLabelSelected,
           item.disabled && styles.optionLabelDisabled
         ]}>
           {item.label}
         </Text>
         {item.subtitle && (
-          <Text style={[styles.optionSubtitle, item.disabled && styles.optionSubtitleDisabled]}>
+          <Text style={[styles.optionSubtitle, { fontSize: scaledTypography.size.sm }, item.disabled && styles.optionSubtitleDisabled]}>
             {item.subtitle}
           </Text>
         )}
@@ -99,7 +102,7 @@ export function Dropdown({
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>{label}</Text>}
       
       <TouchableOpacity
         style={[styles.trigger, error && styles.triggerError]}
@@ -108,6 +111,7 @@ export function Dropdown({
       >
         <Text style={[
           styles.triggerText,
+          { fontSize: scaledTypography.size.md },
           !value && styles.triggerTextPlaceholder
         ]}>
           {loading ? 'Đang tải...' : (value?.label || placeholder)}
@@ -119,7 +123,7 @@ export function Dropdown({
         />
       </TouchableOpacity>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { fontSize: scaledTypography.size.sm }]}>{error}</Text>}
 
       <Modal
         visible={isOpen}
@@ -138,7 +142,7 @@ export function Dropdown({
                 <Ionicons name="search" size={20} color={colors.textSecondary} />
                 <RNTextInput
                   ref={searchInputRef}
-                  style={styles.searchInput}
+                  style={[styles.searchInput, { fontSize: scaledTypography.size.md }]}
                   placeholder="Tìm kiếm..."
                   placeholderTextColor={colors.textSecondary}
                   value={searchQuery}
@@ -159,7 +163,7 @@ export function Dropdown({
               keyExtractor={(item) => item.id}
               style={styles.optionsList}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>
+                <Text style={[styles.emptyText, { fontSize: scaledTypography.size.md }]}>
                   {searchQuery ? 'Không tìm thấy kết quả' : 'Không có dữ liệu'}
                 </Text>
               }
@@ -176,7 +180,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   label: {
-    fontSize: typography.size.sm,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
@@ -197,7 +200,6 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
   triggerText: {
-    fontSize: typography.size.md,
     color: colors.textPrimary,
     flex: 1,
   },
@@ -205,7 +207,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   errorText: {
-    fontSize: typography.size.sm,
     color: colors.danger,
     marginTop: spacing.xs / 2,
   },
@@ -235,7 +236,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingVertical: spacing.sm,
-    fontSize: typography.size.md,
     color: colors.textPrimary,
   },
   optionsList: {
@@ -260,7 +260,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   optionLabel: {
-    fontSize: typography.size.md,
     color: colors.textPrimary,
     fontWeight: '500',
   },
@@ -272,7 +271,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   optionSubtitle: {
-    fontSize: typography.size.sm,
     color: colors.textSecondary,
     marginTop: spacing.xs / 2,
   },

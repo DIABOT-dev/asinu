@@ -1,5 +1,6 @@
 import { TextInput as RNTextInput, StyleSheet, Text, TextInputProps, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, radius, spacing } from '../styles';
 
 type Props = TextInputProps & {
   label?: string;
@@ -7,19 +8,21 @@ type Props = TextInputProps & {
 };
 
 export const TextInput = ({ label, error, style, ...rest }: Props) => {
+  const scaledTypography = useScaledTypography();
   return (
     <View style={styles.container}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>{label}</Text> : null}
       <RNTextInput
         style={[
           styles.input,
+          { fontSize: scaledTypography.size.md },
           error ? styles.inputError : styles.inputNormal,
           style
         ]}
         placeholderTextColor={colors.textSecondary}
         {...rest}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={[styles.error, { fontSize: scaledTypography.size.sm }]}>{error}</Text> : null}
     </View>
   );
 };
@@ -31,7 +34,6 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.textSecondary,
-    fontSize: typography.size.sm,
     fontWeight: '600'
   },
   input: {
@@ -40,8 +42,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     backgroundColor: colors.surface,
-    color: colors.textPrimary,
-    fontSize: typography.size.md
+    color: colors.textPrimary
   },
   inputError: {
     borderColor: colors.danger
@@ -50,7 +51,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border
   },
   error: {
-    color: colors.danger,
-    fontSize: typography.size.sm
+    color: colors.danger
   }
 });

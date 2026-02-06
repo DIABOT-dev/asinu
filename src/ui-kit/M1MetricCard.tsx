@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 export type M1MetricCardProps = {
   title: string;
@@ -35,6 +36,7 @@ export const M1MetricCard = ({
   footnote,
   onPress
 }: M1MetricCardProps) => {
+  const scaledTypography = useScaledTypography();
   const Container = onPress ? Pressable : View;
 
   return (
@@ -42,18 +44,18 @@ export const M1MetricCard = ({
       <LinearGradient colors={accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.accent}>
         {icon || <Ionicons name="pulse" size={20} color={colors.surface} />}
       </LinearGradient>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{title}</Text>
       <View style={styles.valueRow}>
-        <Text style={styles.value}>{value}</Text>
-        {unit ? <Text style={styles.unit}>{unit}</Text> : null}
+        <Text style={[styles.value, { fontSize: scaledTypography.size.xl }]}>{value}</Text>
+        {unit ? <Text style={[styles.unit, { fontSize: scaledTypography.size.sm }]}>{unit}</Text> : null}
       </View>
       {delta !== undefined ? (
-        <Text style={[styles.delta, { color: trend === 'down' ? colors.danger : colors.success }]}>
+        <Text style={[styles.delta, { color: trend === 'down' ? colors.danger : colors.success, fontSize: scaledTypography.size.md }]}>
           {delta > 0 ? '+' : ''}
           {delta}
         </Text>
       ) : null}
-      <Text style={styles.helper}>{footnote || trendCopy[trend]}</Text>
+      <Text style={[styles.helper, { fontSize: scaledTypography.size.sm }]}>{footnote || trendCopy[trend]}</Text>
     </Container>
   );
 };
@@ -77,11 +79,9 @@ const styles = StyleSheet.create({
   },
   accentLabel: {
     color: colors.surface,
-    fontWeight: '600',
-    fontSize: typography.size.md
+    fontWeight: '600'
   },
   title: {
-    fontSize: typography.size.md,
     color: colors.textSecondary,
     fontWeight: '700'
   },
@@ -91,21 +91,17 @@ const styles = StyleSheet.create({
     gap: spacing.xs
   },
   value: {
-    fontSize: typography.size.xl,
     color: colors.textPrimary,
     fontWeight: '700'
   },
   unit: {
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    fontSize: typography.size.sm
+    marginBottom: spacing.xs
   },
   delta: {
-    fontSize: typography.size.md,
     fontWeight: '600'
   },
   helper: {
-    fontSize: typography.size.sm,
     color: colors.textSecondary
   }
 });

@@ -1,12 +1,18 @@
 import { apiClient } from '../src/lib/apiClient';
 
 export type BrainQuestion = {
-  id: 'mood' | 'symptom_severity';
+  id: string; // Dynamic - có thể là 'mood', 'symptom_severity', 'q_1', 'q_2'...
   type: 'single_choice' | 'symptom_severity';
   text: string;
   options?: Array<{ value: string; label: string }>;
   symptoms?: Array<{ value: string; label: string }>;
   severity_options?: Array<{ value: string; label: string }>;
+};
+
+export type BrainQuestionFlow = {
+  step: number;
+  total: number;
+  mode?: 'dynamic' | 'legacy';
 };
 
 export type BrainOutcome = {
@@ -36,7 +42,11 @@ export type BrainNextResponse = {
   ok: boolean;
   session_id: string;
   should_ask?: boolean;
+  requires_logs?: boolean;
+  message?: string;
+  missing_log_types?: string[];
   question?: BrainQuestion;
+  question_flow?: BrainQuestionFlow;
   outcome?: BrainOutcome;
   decision?: BrainDecision;
   explainability?: BrainExplainability;
@@ -59,10 +69,11 @@ export const fetchBrainNext = async () => {
 
 export const sendBrainAnswer = async (payload: {
   session_id: string;
-  question_id: 'mood' | 'symptom_severity';
+  question_id: string;
   answer: {
     option_id: string | string[];
     value?: string;
+    label?: string;
     free_text?: string;
   };
 }) => {

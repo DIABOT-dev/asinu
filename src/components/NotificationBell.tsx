@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, typography } from '../styles';
 
 export type Notification = {
@@ -38,6 +39,7 @@ export function NotificationBell({
   loading = false
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const scaledTypography = useScaledTypography();
 
   const handleNotificationPress = (notification: Notification) => {
     if (!notification.read && onMarkAsRead) {
@@ -109,13 +111,13 @@ export function NotificationBell({
           />
         </View>
         <View style={styles.notificationContent}>
-          <Text style={[styles.notificationTitle, !item.read && styles.notificationTitleUnread]}>
+          <Text style={[styles.notificationTitle, !item.read && styles.notificationTitleUnread, { fontSize: scaledTypography.size.md }]}>
             {item.title}
           </Text>
-          <Text style={styles.notificationBody} numberOfLines={2}>
+          <Text style={[styles.notificationBody, { fontSize: scaledTypography.size.sm }]} numberOfLines={2}>
             {item.body}
           </Text>
-          <Text style={styles.notificationTime}>
+          <Text style={[styles.notificationTime, { fontSize: scaledTypography.size.xs }]}>
             {formatTimestamp(item.timestamp)}
           </Text>
         </View>
@@ -149,11 +151,11 @@ export function NotificationBell({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Thông báo</Text>
+              <Text style={[styles.headerTitle, { fontSize: scaledTypography.size.xl }]}>Thông báo</Text>
               <View style={styles.headerActions}>
                 {unreadCount > 0 && onMarkAllAsRead && (
                   <TouchableOpacity onPress={onMarkAllAsRead} style={styles.markAllButton}>
-                    <Text style={styles.markAllText}>Đánh dấu đã đọc</Text>
+                    <Text style={[styles.markAllText, { fontSize: scaledTypography.size.sm }]}>Đánh dấu đã đọc</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
@@ -173,7 +175,7 @@ export function NotificationBell({
                   size={64}
                   color={colors.textSecondary}
                 />
-                <Text style={styles.emptyText}>Chưa có thông báo</Text>
+                <Text style={[styles.emptyText, { fontSize: scaledTypography.size.md }]}>Chưa có thông báo</Text>
               </View>
             ) : (
               <FlatList

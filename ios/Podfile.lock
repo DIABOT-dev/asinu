@@ -2116,31 +2116,31 @@ PODS:
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
-  - "EXApplication (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-application/ios`)"
-  - "EXConstants (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-constants/ios`)"
-  - "EXJSONUtils (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-json-utils/ios`)"
-  - "EXManifests (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-manifests/ios`)"
-  - "EXNotifications (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-notifications/ios`)"
-  - "Expo (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo`)"
-  - "expo-dev-client (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-dev-client/ios`)"
-  - "expo-dev-launcher (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-dev-launcher`)"
-  - "expo-dev-menu (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-dev-menu`)"
-  - "expo-dev-menu-interface (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-dev-menu-interface/ios`)"
-  - "ExpoAppleAuthentication (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-apple-authentication/ios`)"
-  - "ExpoAsset (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-asset/ios`)"
-  - "ExpoCrypto (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-crypto/ios`)"
-  - "ExpoFileSystem (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-file-system/ios`)"
-  - "ExpoFont (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-font/ios`)"
-  - "ExpoHead (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-router/ios`)"
-  - "ExpoKeepAwake (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-keep-awake/ios`)"
-  - "ExpoLinearGradient (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-linear-gradient/ios`)"
-  - "ExpoLinking (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-linking/ios`)"
-  - "ExpoModulesCore (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-modules-core`)"
-  - "ExpoSecureStore (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-secure-store/ios`)"
-  - "ExpoSplashScreen (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-splash-screen/ios`)"
-  - "ExpoSystemUI (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-system-ui/ios`)"
-  - "ExpoWebBrowser (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-web-browser/ios`)"
-  - "EXUpdatesInterface (from `../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-updates-interface/ios`)"
+  - EXApplication (from `../node_modules/expo-application/ios`)
+  - EXConstants (from `../node_modules/expo-constants/ios`)
+  - EXJSONUtils (from `../node_modules/expo-json-utils/ios`)
+  - EXManifests (from `../node_modules/expo-manifests/ios`)
+  - EXNotifications (from `../node_modules/expo-notifications/ios`)
+  - Expo (from `../node_modules/expo`)
+  - expo-dev-client (from `../node_modules/expo-dev-client/ios`)
+  - expo-dev-launcher (from `../node_modules/expo-dev-launcher`)
+  - expo-dev-menu (from `../node_modules/expo-dev-menu`)
+  - expo-dev-menu-interface (from `../node_modules/expo-dev-menu-interface/ios`)
+  - ExpoAppleAuthentication (from `../node_modules/expo-apple-authentication/ios`)
+  - ExpoAsset (from `../node_modules/expo-asset/ios`)
+  - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
+  - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
+  - ExpoFont (from `../node_modules/expo-font/ios`)
+  - ExpoHead (from `../node_modules/expo-router/ios`)
+  - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
+  - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
+  - ExpoLinking (from `../node_modules/expo-linking/ios`)
+  - ExpoModulesCore (from `../node_modules/expo-modules-core`)
+  - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
+  - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
+  - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
+  - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
+  - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
   - fast_float (from `../node_modules/react-native/third-party-podspecs/fast_float.podspec`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
@@ -2222,55 +2222,55 @@ EXTERNAL SOURCES:
   DoubleConversion:
     :podspec: "../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-application/ios"
+    :path: "../node_modules/expo-application/ios"
   EXConstants:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-constants/ios"
+    :path: "../node_modules/expo-constants/ios"
   EXJSONUtils:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-json-utils/ios"
+    :path: "../node_modules/expo-json-utils/ios"
   EXManifests:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-manifests/ios"
+    :path: "../node_modules/expo-manifests/ios"
   EXNotifications:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-notifications/ios"
+    :path: "../node_modules/expo-notifications/ios"
   Expo:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo"
+    :path: "../node_modules/expo"
   expo-dev-client:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-dev-client/ios"
+    :path: "../node_modules/expo-dev-client/ios"
   expo-dev-launcher:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-dev-launcher"
+    :path: "../node_modules/expo-dev-launcher"
   expo-dev-menu:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-dev-menu"
+    :path: "../node_modules/expo-dev-menu"
   expo-dev-menu-interface:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-dev-menu-interface/ios"
+    :path: "../node_modules/expo-dev-menu-interface/ios"
   ExpoAppleAuthentication:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-apple-authentication/ios"
+    :path: "../node_modules/expo-apple-authentication/ios"
   ExpoAsset:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-asset/ios"
+    :path: "../node_modules/expo-asset/ios"
   ExpoCrypto:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-crypto/ios"
+    :path: "../node_modules/expo-crypto/ios"
   ExpoFileSystem:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-file-system/ios"
+    :path: "../node_modules/expo-file-system/ios"
   ExpoFont:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-font/ios"
+    :path: "../node_modules/expo-font/ios"
   ExpoHead:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-router/ios"
+    :path: "../node_modules/expo-router/ios"
   ExpoKeepAwake:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-keep-awake/ios"
+    :path: "../node_modules/expo-keep-awake/ios"
   ExpoLinearGradient:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-linear-gradient/ios"
+    :path: "../node_modules/expo-linear-gradient/ios"
   ExpoLinking:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-linking/ios"
+    :path: "../node_modules/expo-linking/ios"
   ExpoModulesCore:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-modules-core"
+    :path: "../node_modules/expo-modules-core"
   ExpoSecureStore:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-secure-store/ios"
+    :path: "../node_modules/expo-secure-store/ios"
   ExpoSplashScreen:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-splash-screen/ios"
+    :path: "../node_modules/expo-splash-screen/ios"
   ExpoSystemUI:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-system-ui/ios"
+    :path: "../node_modules/expo-system-ui/ios"
   ExpoWebBrowser:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-web-browser/ios"
+    :path: "../node_modules/expo-web-browser/ios"
   EXUpdatesInterface:
-    :path: "../../../dự án anh tùng fix app/p0100-asinu/node_modules/expo-updates-interface/ios"
+    :path: "../node_modules/expo-updates-interface/ios"
   fast_float:
     :podspec: "../node_modules/react-native/third-party-podspecs/fast_float.podspec"
   FBLazyVector:
@@ -2501,7 +2501,7 @@ SPEC CHECKSUMS:
   ReactCommon: 300d8d9c5cb1a6cd79a67cf5d8f91e4d477195f9
   RNCAsyncStorage: 66991bb6672ed988a8c56289a08bf4fc3a29d4b3
   RNGestureHandler: fffddeb8af59709c6d8de11b6461a6af63cad532
-  RNReanimated: b4ba0faa2bedf65eddc2bfe50c14a022c4ff2f72
+  RNReanimated: 2e5069649cbab2c946652d3b97589b2ae0526220
   RNScreens: 362f4c861dd155f898908d5035d97b07a3f1a9d1
   RNSVG: b889dc9c1948eeea0576a16cc405c91c37a12c19
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748

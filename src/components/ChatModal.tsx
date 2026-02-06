@@ -2,8 +2,9 @@
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatApi } from '../features/chat/chat.api';
+import { useScaledTypography } from '../hooks/useScaledTypography';
 import { navigation } from '../lib/navigation';
-import { colors, spacing, typography } from '../styles';
+import { colors, spacing } from '../styles';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
 
 type ChatModalProps = {
@@ -33,6 +34,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatBubble[]>(initialMessages);
   const [isTyping, setIsTyping] = useState(false);
+  const scaledTypography = useScaledTypography();
 
   useEffect(() => {
     if (__DEV__) {
@@ -87,9 +89,9 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.handle} />
           <View style={styles.titleRow}>
-            <Text style={styles.title}>Trò chuyện với Asinu</Text>
+            <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>Trò chuyện với Asinu</Text>
             <Pressable hitSlop={12} onPress={onClose}>
-              <Text style={styles.closeLabel}>Đóng</Text>
+              <Text style={[styles.closeLabel, { fontSize: scaledTypography.size.md }]}>Đóng</Text>
             </Pressable>
           </View>
           <View style={styles.chatBody}>
@@ -135,7 +137,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between'
   },
   title: {
-    fontSize: Math.max(typography.size.lg, 20),
     lineHeight: 28,
     fontWeight: '700',
     color: colors.textPrimary
@@ -143,7 +144,6 @@ const styles = StyleSheet.create({
   closeLabel: {
     color: colors.textSecondary,
     fontWeight: '600',
-    fontSize: Math.max(typography.size.md, 17),
     lineHeight: 24
   },
   chatBody: {

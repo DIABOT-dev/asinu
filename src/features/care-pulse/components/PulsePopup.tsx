@@ -1,7 +1,8 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { PulseWidget } from './PulseWidget';
+import { useScaledTypography } from '../../../hooks/useScaledTypography';
+import { colors, spacing } from '../../../styles';
 import { useCarePulseStore } from '../store/carePulse.store';
-import { colors, spacing, typography } from '../../../styles';
+import { PulseWidget } from './PulseWidget';
 
 type Props = {
   visible: boolean;
@@ -10,6 +11,7 @@ type Props = {
 
 export const PulsePopup = ({ visible, onClose }: Props) => {
   const recordPopupDismiss = useCarePulseStore((state) => state.recordPopupDismiss);
+  const scaledTypography = useScaledTypography();
 
   const handleDismiss = () => {
     recordPopupDismiss();
@@ -21,9 +23,9 @@ export const PulsePopup = ({ visible, onClose }: Props) => {
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Pressable onPress={handleDismiss} style={styles.closeButton}>
-            <Text style={styles.closeText}>Đóng</Text>
+            <Text style={[styles.closeText, { fontSize: scaledTypography.size.md }]}>Đóng</Text>
           </Pressable>
-          <Text style={styles.title}>Bạn đang cảm thấy thế nào?</Text>
+          <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>Bạn đang cảm thấy thế nào?</Text>
           <PulseWidget triggerSource="POPUP" onComplete={onClose} />
         </View>
       </View>
@@ -52,7 +54,6 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   title: {
-    fontSize: typography.size.lg,
     fontWeight: '700',
     color: colors.textPrimary
   }

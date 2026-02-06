@@ -1,20 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
-import { usePathname } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { colors, spacing, typography } from '../src/styles';
+import { router, usePathname } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useAuthStore } from '../src/features/auth/auth.store';
+import { useScaledTypography } from '../src/hooks/useScaledTypography';
+import { colors, spacing } from '../src/styles';
 import { BrainOutcome, BrainQuestion, fetchBrainNext, sendBrainAnswer } from './asinuBrain.api';
 import { AsinuEmergencyFAB } from './ui/AsinuEmergencyFAB';
 
 const riskTierLabel = (tier?: string) => {
-  if (tier === 'HIGH') return 'Can lien he nguoi than';
-  if (tier === 'MEDIUM') return 'Can theo doi';
-  return 'On dinh';
+  if (tier === 'HIGH') return 'Cần liên hệ người thân';
+  if (tier === 'MEDIUM') return 'Cần theo dõi';
+  return 'Ổn định';
 };
 
 export const AsinuBrainOverlayHost = () => {
   const pathname = usePathname();
-  const isHome = useMemo(() => pathname === '/' || pathname.includes('home'), [pathname]);
+  const profile = useAuthStore((state) => state.profile);
+  const isAuthenticated = !!profile; // Kiểm tra đã đăng nhập chưa
+  
+  // Chỉ hiển thị ở trang home đã đăng nhập, không phải login/register/onboarding
+  const isHome = useMemo(() => {
+    if (!isAuthenticated) return false; // KHÔNG hoạt động khi chưa đăng nhập
+    const excludedPaths = ['/login', '/register', '/onboarding', '/legal'];
+    const isExcluded = excludedPaths.some(path => pathname.startsWith(path));
+    return !isExcluded && (pathname === '/' || pathname.includes('home') || pathname.includes('(tabs)'));
+  }, [pathname, isAuthenticated]);
+  const scaledTypography = useScaledTypography();
 
   const [appState, setAppState] = useState(AppState.currentState);
   const [idleTick, setIdleTick] = useState(0);
@@ -22,12 +35,17 @@ export const AsinuBrainOverlayHost = () => {
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [question, setQuestion] = useState<BrainQuestion | null>(null);
+  const [questionFlow, setQuestionFlow] = useState<{ step: number; total: number; mode?: string } | null>(null);
   const [outcome, setOutcome] = useState<BrainOutcome | null>(null);
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null); // Thêm cho dynamic mode
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [selectedSeverity, setSelectedSeverity] = useState<string | null>(null);
+  const [nextDueAt, setNextDueAt] = useState<Date | null>(null);
+  const [lastDismissed, setLastDismissed] = useState<number>(0);
+  const [logsRequired, setLogsRequired] = useState<{ message: string; missingTypes: string[] } | null>(null);
 
   const isForeground = appState === 'active';
 
@@ -50,16 +68,33 @@ export const AsinuBrainOverlayHost = () => {
     setIdleTick((prev) => prev + 1);
   };
 
-  const handleResponse = (response: { ok: boolean; session_id?: string; question?: BrainQuestion; outcome?: BrainOutcome }) => {
+  const handleResponse = (response: { ok: boolean; session_id?: string; question?: BrainQuestion; question_flow?: { step: number; total: number }; outcome?: BrainOutcome; requires_logs?: boolean; message?: string; missing_log_types?: string[] }) => {
     if (!response?.ok) return;
 
     if (response.session_id) {
       setSessionId(response.session_id);
     }
 
+    if (response.question_flow) {
+      setQuestionFlow(response.question_flow);
+    }
+
+    // Nếu cần logs trước khi hỏi
+    if (response.requires_logs && response.message) {
+      setLogsRequired({
+        message: response.message,
+        missingTypes: response.missing_log_types || []
+      });
+      setQuestion(null);
+      setOutcome(null);
+      setVisible(true);
+      return;
+    }
+
     if (response.question) {
       setOutcome(null);
       setQuestion(response.question);
+      setLogsRequired(null);
       setVisible(true);
       return;
     }
@@ -67,6 +102,7 @@ export const AsinuBrainOverlayHost = () => {
     if (response.outcome) {
       setQuestion(null);
       setOutcome(response.outcome);
+      setLogsRequired(null);
       setVisible(true);
       return;
     }
@@ -74,12 +110,20 @@ export const AsinuBrainOverlayHost = () => {
     setVisible(false);
   };
 
+  const canQuery = useMemo(() => {
+    const now = Date.now();
+    const timeSinceDismiss = now - lastDismissed;
+    const canQ = timeSinceDismiss > 30 * 1000; // 30 giây sau khi dismiss mới query lại (testing)
+    console.log('[AsinuBrain] canQuery:', canQ, 'timeSinceDismiss:', Math.round(timeSinceDismiss/1000), 's');
+    return canQ;
+  }, [lastDismissed]);
+
   const nextQuery = useQuery({
     queryKey: ['asinu-brain-next'],
     queryFn: fetchBrainNext,
-    enabled: isForeground && isHome && idle && !visible,
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: isForeground && isHome && idle && !visible ? 2000 : false,
+    enabled: isForeground && isHome && idle && !visible && canQuery,
+    staleTime: 60 * 1000, // 1 phút stale
+    refetchInterval: isForeground && isHome && idle && !visible && canQuery ? 30000 : false, // Poll mỗi 30s để check
     refetchOnWindowFocus: false
   });
 
@@ -88,6 +132,26 @@ export const AsinuBrainOverlayHost = () => {
       handleResponse(nextQuery.data);
     }
   }, [nextQuery.data]);
+
+  // Dynamic question handler - cho câu hỏi AI sinh
+  const submitDynamicAnswer = async (value: string, label: string) => {
+    markInteraction();
+    if (!sessionId || !question) return;
+    setSelectedOption(value);
+    try {
+      setLoading(true);
+      const response = await sendBrainAnswer({
+        session_id: sessionId,
+        question_id: question.id,
+        answer: { option_id: value, value, label }
+      });
+      handleResponse(response);
+    } catch (error) {
+      console.warn('[AsinuBrainOverlayHost] dynamic answer failed', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const submitMood = async (value: string) => {
     markInteraction();
@@ -134,6 +198,7 @@ export const AsinuBrainOverlayHost = () => {
   };
 
   useEffect(() => {
+    setSelectedOption(null);
     setSelectedMood(null);
     setSelectedSymptoms([]);
     setSelectedSeverity(null);
@@ -141,49 +206,186 @@ export const AsinuBrainOverlayHost = () => {
 
   const isBusy = loading || nextQuery.isFetching;
 
+  const formatNextDue = (): string => {
+    if (!nextDueAt) return '';
+    const now = new Date();
+    const diffMs = nextDueAt.getTime() - now.getTime();
+    if (diffMs <= 0) return 'Ngay bây giờ';
+    
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `Sau ${hours} giờ ${minutes} phút`;
+    }
+    return `Sau ${minutes} phút`;
+  };
+
   return (
     <View pointerEvents="box-none" style={styles.host}>
-      {visible && (
-        <View pointerEvents="box-none" style={styles.overlay}>
-          <View pointerEvents="auto" style={styles.card}>
-            <View style={styles.header}>
-              <Text style={styles.title}>Asinu Active Brain</Text>
-              <Pressable onPress={() => setVisible(false)} style={styles.dismissButton}>
-                <Text style={styles.dismissText}>De sau</Text>
-              </Pressable>
-            </View>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setVisible(false)} />
+          <View style={styles.modalContent}>
+            <View style={styles.card}>
+              <View style={styles.header}>
+                <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>
+                  Asinu Active Brain
+                </Text>
+                <Pressable onPress={() => {
+                  setVisible(false);
+                  setLastDismissed(Date.now());
+                  markInteraction();
+                }} style={styles.dismissButton}>
+                  <Text style={[styles.dismissText, { fontSize: scaledTypography.size.sm }]}>
+                    Để sau
+                  </Text>
+                </Pressable>
+              </View>
 
-            {question?.id === 'mood' && (
-              <View style={styles.section}>
-                <Text style={styles.questionText}>{question.text}</Text>
-                <View style={styles.optionRow}>
-                  {question.options?.map((option) => (
-                    <Pressable
-                      key={option.value}
-                      onPress={() => submitMood(option.value)}
-                      style={[
-                        styles.optionButton,
-                        selectedMood === option.value && styles.optionButtonActive
-                      ]}
-                    >
-                      <Text
+              {nextDueAt && (
+                <View style={styles.frequencyInfo}>
+                  <Text style={[styles.frequencyLabel, { fontSize: scaledTypography.size.xs }]}>
+                    Tần xuất kiểm tra
+                  </Text>
+                  <Text style={[styles.frequencyText, { fontSize: scaledTypography.size.sm }]}>
+                    {formatNextDue()}
+                  </Text>
+                </View>
+              )}
+
+              {logsRequired && (
+                <View style={styles.section}>
+                  <View style={styles.sectionTitleRow}>
+                    <Ionicons name="document-text-outline" size={20} color={colors.textPrimary} />
+                    <Text style={[styles.questionText, { fontSize: scaledTypography.size.md, marginLeft: spacing.xs }]}>
+                      Cần cập nhật chỉ số sức khỏe
+                    </Text>
+                  </View>
+                  <Text style={[styles.outcomeText, { fontSize: scaledTypography.size.sm }]}>
+                    {logsRequired.message}
+                  </Text>
+                  <View style={styles.logButtonsContainer}>
+                    {logsRequired.missingTypes.includes('glucose') && (
+                      <Pressable
+                        onPress={() => {
+                          setVisible(false);
+                          markInteraction();
+                          router.push('/logs/glucose');
+                        }}
+                        style={styles.logButton}
+                      >
+                        <View style={styles.logButtonContent}>
+                          <Ionicons name="analytics-outline" size={18} color="#ffffff" />
+                          <Text style={[styles.logButtonText, { fontSize: scaledTypography.size.sm }]}>
+                            Ghi đường huyết
+                          </Text>
+                        </View>
+                      </Pressable>
+                    )}
+                    {logsRequired.missingTypes.includes('blood_pressure') && (
+                      <Pressable
+                        onPress={() => {
+                          setVisible(false);
+                          markInteraction();
+                          router.push('/logs/blood-pressure');
+                        }}
+                        style={styles.logButton}
+                      >
+                        <View style={styles.logButtonContent}>
+                          <Ionicons name="heart-outline" size={18} color="#ffffff" />
+                          <Text style={[styles.logButtonText, { fontSize: scaledTypography.size.sm }]}>
+                            Ghi huyết áp
+                          </Text>
+                        </View>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Dynamic AI Questions - dùng cho tất cả câu hỏi động */}
+              {question && questionFlow?.mode === 'dynamic' && (
+                <View style={styles.section}>
+                  <Text style={[styles.questionText, { fontSize: scaledTypography.size.md }]}>
+                    {question.text}
+                  </Text>
+                  
+                  <View style={styles.optionColumn}>
+                    {question.options?.map((option) => (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => submitDynamicAnswer(option.value, option.label)}
+                        disabled={loading}
                         style={[
-                          styles.optionText,
-                          selectedMood === option.value && styles.optionTextActive
+                          styles.dynamicOptionButton,
+                          selectedOption === option.value && styles.dynamicOptionButtonActive
                         ]}
                       >
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <Text
+                          style={[
+                            styles.dynamicOptionText,
+                            { fontSize: scaledTypography.size.sm },
+                            selectedOption === option.value && styles.dynamicOptionTextActive
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
 
-            {question?.id === 'symptom_severity' && (
+              {/* Legacy: Mood Question (chỉ dùng khi không phải dynamic mode) */}
+              {question?.id === 'mood' && questionFlow?.mode !== 'dynamic' && (
+                <View style={styles.section}>
+                  <Text style={[styles.questionText, { fontSize: scaledTypography.size.md }]}>
+                    {question.text}
+                  </Text>
+                  <Text style={[styles.questionHint, { fontSize: scaledTypography.size.xs }]}>
+                    Câu hỏi này giúp đánh giá tình trạng hiện tại của bạn
+                  </Text>
+                  <View style={styles.optionRow}>
+                    {question.options?.map((option) => (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => submitMood(option.value)}
+                        style={[
+                          styles.optionButton,
+                          selectedMood === option.value && styles.optionButtonActive
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.optionText,
+                            { fontSize: scaledTypography.size.sm },
+                            selectedMood === option.value && styles.optionTextActive
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+            {/* Legacy: Symptom Question (chỉ dùng khi không phải dynamic mode) */}
+            {question?.id === 'symptom_severity' && questionFlow?.mode !== 'dynamic' && (
               <View style={styles.section}>
-                <Text style={styles.questionText}>{question.text}</Text>
-                <Text style={styles.label}>Trieu chung</Text>
+                <Text style={[styles.questionText, { fontSize: scaledTypography.size.md }]}>
+                  {question.text}
+                </Text>
+                <Text style={[styles.questionHint, { fontSize: scaledTypography.size.xs }]}>
+                  Câu hỏi này giúp đánh giá mức độ nghiêm trọng của triệu chứng
+                </Text>
+                <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>Triệu chứng</Text>
                 <View style={styles.optionRow}>
                   {question.symptoms?.map((symptom) => (
                     <Pressable
@@ -197,6 +399,7 @@ export const AsinuBrainOverlayHost = () => {
                       <Text
                         style={[
                           styles.optionText,
+                          { fontSize: scaledTypography.size.sm },
                           selectedSymptoms.includes(symptom.value) && styles.optionTextActive
                         ]}
                       >
@@ -206,7 +409,7 @@ export const AsinuBrainOverlayHost = () => {
                   ))}
                 </View>
 
-                <Text style={styles.label}>Muc do</Text>
+                <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>Mức độ</Text>
                 <View style={styles.optionRow}>
                   {question.severity_options?.map((severity) => (
                     <Pressable
@@ -220,6 +423,7 @@ export const AsinuBrainOverlayHost = () => {
                       <Text
                         style={[
                           styles.optionText,
+                          { fontSize: scaledTypography.size.sm },
                           selectedSeverity === severity.value && styles.optionTextActive
                         ]}
                       >
@@ -238,25 +442,38 @@ export const AsinuBrainOverlayHost = () => {
                       styles.primaryButtonDisabled
                   ]}
                 >
-                  <Text style={styles.primaryButtonText}>Gui</Text>
+                  <Text style={[styles.primaryButtonText, { fontSize: scaledTypography.size.sm }]}>
+                    Gửi
+                  </Text>
                 </Pressable>
               </View>
             )}
 
             {outcome && (
               <View style={styles.section}>
-                <Text style={styles.questionText}>{riskTierLabel(outcome.risk_tier)}</Text>
-                <Text style={styles.outcomeText}>{outcome.outcome_text || 'Cam on bac da chia se.'}</Text>
+                <Text style={[styles.questionText, { fontSize: scaledTypography.size.md }]}>
+                  {riskTierLabel(outcome.risk_tier)}
+                </Text>
+                <Text style={[styles.outcomeText, { fontSize: scaledTypography.size.sm }]}>
+                  {outcome.outcome_text || 'Cảm ơn bác đã chia sẻ.'}
+                </Text>
                 {outcome.recommended_action ? (
-                  <Text style={styles.recommendText}>{outcome.recommended_action}</Text>
+                  <Text style={[styles.recommendText, { fontSize: scaledTypography.size.sm }]}>
+                    {outcome.recommended_action}
+                  </Text>
                 ) : null}
               </View>
             )}
 
-            {isBusy && <Text style={styles.loadingText}>Dang xu ly...</Text>}
+            {isBusy && (
+              <Text style={[styles.loadingText, { fontSize: scaledTypography.size.xs }]}>
+                Đang xử lý...
+              </Text>
+            )}
+            </View>
           </View>
         </View>
-      )}
+      </Modal>
 
       <AsinuEmergencyFAB onInteraction={markInteraction} />
     </View>
@@ -272,104 +489,190 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 50
   },
-  overlay: {
+  modalBackdrop: {
     flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Tối hơn để nổi bật modal
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: spacing.lg
   },
+  modalContent: {
+    width: '100%',
+    maxWidth: 500, // Tăng từ 400 → 500 để dễ đọc hơn
+    alignItems: 'center'
+  },
   card: {
-    width: 320,
-    maxWidth: '100%',
+    width: '100%',
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.lg,
+    borderRadius: 24, // Tăng từ 20 → 24 để mượt hơn
+    padding: spacing.xl,
     gap: spacing.md,
-    shadowColor: colors.textPrimary,
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6
+    shadowColor: '#000',
+    shadowOpacity: 0.35, // Tăng từ 0.25 để nổi bật hơn
+    shadowRadius: 20, // Tăng từ 16 để shadow rõ hơn
+    shadowOffset: { width: 0, height: 10 }, // Tăng từ 8 → 10
+    elevation: 16, // Tăng từ 12 → 16 cho Android
+    borderWidth: 2, // Thêm viền để nổi bật
+    borderColor: colors.primary
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginBottom: spacing.sm
   },
   title: {
-    fontSize: typography.size.md,
     fontWeight: '700',
     color: colors.textPrimary
   },
   dismissButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.background
   },
   dismissText: {
+    color: colors.textPrimary,
+    fontWeight: '600'
+  },
+  progressBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+    marginLeft: spacing.sm
+  },
+  progressText: {
+    color: '#ffffff',
+    fontWeight: '700'
+  },
+  frequencyInfo: {
+    backgroundColor: colors.surfaceMuted,
+    padding: spacing.md,
+    borderRadius: 12,
+    marginBottom: spacing.sm
+  },
+  frequencyLabel: {
     color: colors.textSecondary,
-    fontSize: typography.size.sm
+    marginBottom: spacing.xs
+  },
+  frequencyText: {
+    color: colors.primary,
+    fontWeight: '600'
+  },
+  logButtonsContainer: {
+    gap: spacing.sm,
+    marginTop: spacing.sm
+  },
+  logButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    alignItems: 'center'
+  },
+  logButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs
+  },
+  logButtonText: {
+    color: '#ffffff',
+    fontWeight: '600'
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   section: {
     gap: spacing.sm
   },
   questionText: {
-    fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary
   },
+  questionHint: {
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: spacing.xs
+  },
   label: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    marginTop: spacing.xs
   },
   optionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm
   },
+  optionColumn: {
+    flexDirection: 'column',
+    gap: spacing.sm
+  },
   optionButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.border,
     backgroundColor: colors.background
   },
   optionButtonActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.surfaceMuted
+    backgroundColor: colors.primary
+  },
+  dynamicOptionButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.background
+  },
+  dynamicOptionButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary
+  },
+  dynamicOptionText: {
+    color: colors.textPrimary,
+    textAlign: 'center'
+  },
+  dynamicOptionTextActive: {
+    color: '#ffffff',
+    fontWeight: '700'
   },
   optionText: {
-    fontSize: typography.size.sm,
     color: colors.textPrimary
   },
   optionTextActive: {
-    color: colors.primary,
-    fontWeight: '600'
+    color: '#ffffff',
+    fontWeight: '700'
   },
   primaryButton: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
     alignItems: 'center'
   },
   primaryButtonDisabled: {
-    opacity: 0.6
+    opacity: 0.5
   },
   primaryButtonText: {
-    color: colors.surface,
+    color: '#ffffff',
     fontWeight: '700'
   },
   outcomeText: {
-    color: colors.textPrimary,
-    fontSize: typography.size.sm
+    color: colors.textPrimary
   },
   recommendText: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    fontStyle: 'italic'
   },
   loadingText: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary
+    color: colors.textSecondary,
+    textAlign: 'center'
   }
 });

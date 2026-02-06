@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 export type SelectOption = {
   label: string;
@@ -26,23 +27,24 @@ export const SelectInput = ({
   error 
 }: SelectInputProps) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const scaledTypography = useScaledTypography();
   
   const selectedOption = options.find(opt => opt.value === value);
   const displayText = selectedOption?.label || placeholder;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>{label}</Text>
       <TouchableOpacity 
         style={[styles.select, error ? styles.selectError : null]}
         onPress={() => setModalVisible(true)}
       >
-        <Text style={[styles.selectText, !selectedOption && styles.placeholder]}>
+        <Text style={[styles.selectText, { fontSize: scaledTypography.size.md }, !selectedOption && styles.placeholder]}>
           {displayText}
         </Text>
         <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={[styles.error, { fontSize: scaledTypography.size.sm }]}>{error}</Text> : null}
 
       <Modal
         visible={modalVisible}
@@ -57,7 +59,7 @@ export const SelectInput = ({
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{label}</Text>
+              <Text style={[styles.modalTitle, { fontSize: scaledTypography.size.lg }]}>{label}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
@@ -78,6 +80,7 @@ export const SelectInput = ({
                 >
                   <Text style={[
                     styles.optionText,
+                    { fontSize: scaledTypography.size.md },
                     item.value === value && styles.optionTextSelected
                   ]}>
                     {item.label}
@@ -100,7 +103,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   label: {
-    fontSize: typography.size.sm,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
@@ -121,7 +123,6 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
   selectText: {
-    fontSize: typography.size.md,
     color: colors.textPrimary,
     flex: 1,
   },
@@ -129,7 +130,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   error: {
-    fontSize: typography.size.sm,
     color: colors.danger,
     marginTop: spacing.xs,
   },
@@ -155,7 +155,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: typography.size.lg,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -172,7 +171,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#e8f5e9',
   },
   optionText: {
-    fontSize: typography.size.md,
     color: colors.textPrimary,
   },
   optionTextSelected: {

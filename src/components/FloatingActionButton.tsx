@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
-import { colors, radius, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, radius, spacing } from '../styles';
 
 type Props = {
   label: string;
@@ -8,9 +9,10 @@ type Props = {
 };
 
 export const FloatingActionButton = ({ label, onPress, style }: Props) => {
+  const scaledTypography = useScaledTypography();
   return (
     <Pressable style={[styles.fab, style]} onPress={onPress}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { fontSize: scaledTypography.size.md }]}>{label}</Text>
     </Pressable>
   );
 };
@@ -32,7 +34,6 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.surface,
-    fontSize: typography.size.md,
     fontWeight: '700',
     fontFamily: 'System'
   }

@@ -1,5 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 const AsinuSticker = require('../../assets/asinu_chat_sticker.png');
 
@@ -8,11 +9,12 @@ type AsinuChatStickerProps = {
 };
 
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
+  const scaledTypography = useScaledTypography();
   return (
     <Pressable style={styles.wrapper} onPress={onPress} accessibilityRole="button">
       <Image source={AsinuSticker} style={styles.sticker} resizeMode="contain" />
       <View style={styles.bubble} pointerEvents="none">
-        <Text style={styles.bubbleText}>Hãy nói chuyện với Asinu nhé!</Text>
+        <Text style={[styles.bubbleText, { fontSize: scaledTypography.size.md }]}>Hãy nói chuyện với Asinu nhé!</Text>
         <View style={styles.tail} />
       </View>
     </Pressable>
@@ -57,7 +59,6 @@ const styles = StyleSheet.create({
     elevation: 8
   },
   bubbleText: {
-    fontSize: Math.max(18, typography.size.md),
     fontWeight: '700',
     color: colors.textPrimary,
     lineHeight: 24

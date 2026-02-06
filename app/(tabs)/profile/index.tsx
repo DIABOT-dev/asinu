@@ -1,9 +1,10 @@
-﻿import { useFocusEffect } from '@react-navigation/native';
+﻿import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from '../../../src/components/Button';
 import { Screen } from '../../../src/components/Screen';
 import { Toast } from '../../../src/components/Toast';
 import { authApi } from '../../../src/features/auth/auth.api';
@@ -11,7 +12,6 @@ import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useMissionsStore } from '../../../src/features/missions/missions.store';
 import { colors, spacing, typography } from '../../../src/styles';
-import { H1SectionHeader } from '../../../src/ui-kit/H1SectionHeader';
 
 export default function ProfileScreen() {
   const profile = useAuthStore((state) => state.profile);
@@ -29,10 +29,18 @@ export default function ProfileScreen() {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editAge, setEditAge] = useState('');
+  const [editGender, setEditGender] = useState<'Nam' | 'Nữ' | ''>('');
+  const [editHeight, setEditHeight] = useState('');
+  const [editWeight, setEditWeight] = useState('');
+  const [editBloodType, setEditBloodType] = useState('');
+  const [editChronicDiseases, setEditChronicDiseases] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  
+  // Removed dropdown - use direct input instead
 
   // Fetch data on mount
   useFocusEffect(
@@ -42,7 +50,7 @@ export default function ProfileScreen() {
       fetchMissions(controller.signal);
       return () => controller.abort();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []) // Empty deps - only run once on mount
+    }, [])
   );
 
   const handleRefresh = useCallback(() => {
@@ -50,23 +58,7 @@ export default function ProfileScreen() {
     fetchLogs(controller.signal);
     fetchMissions(controller.signal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - fetchLogs and fetchMissions are stable in Zustand
-
-  const handleAcceptInvitation = async (invitationId: string) => {
-    try {
-      // This handler is no longer needed
-    } catch (error) {
-      // Error handling
-    }
-  };
-
-  const handleRejectInvitation = async (invitationId: string) => {
-    try {
-      // This handler is no longer needed
-    } catch (error) {
-      // Error handling
-    }
-  };
+  }, []);
 
   // Compute health overview from real data
   const healthOverview = useMemo(() => {
@@ -86,7 +78,15 @@ export default function ProfileScreen() {
       ? `${activeMissions.length} nhiệm vụ đang thực hiện`
       : 'Không có nhiệm vụ';
     
-    return { glucoseText, bpText, todayTasksText };
+    // Check glucose level status
+    const glucoseValue = latestGlucose?.value;
+    let glucoseStatus: 'normal' | 'warning' | 'danger' = 'normal';
+    if (glucoseValue) {
+      if (glucoseValue > 180 || glucoseValue < 70) glucoseStatus = 'danger';
+      else if (glucoseValue > 140 || glucoseValue < 80) glucoseStatus = 'warning';
+    }
+    
+    return { glucoseText, bpText, todayTasksText, glucoseStatus };
   }, [logs, missions]);
 
   const name = profile?.name?.trim() ?? '';
@@ -102,7 +102,17 @@ export default function ProfileScreen() {
   const handleEditProfile = () => {
     setEditName(name);
     setEditPhone(phone);
+    setEditAge(profile?.age ? String(Math.round(profile.age)) : '');
+    setEditGender((profile?.gender as 'Nam' | 'Nữ' | '') || '');
+    setEditHeight(profile?.heightCm ? String(Math.round(profile.heightCm)) : '');
+    setEditWeight(profile?.weightKg ? String(Math.round(profile.weightKg)) : '');
+    setEditBloodType(profile?.bloodType || '');
+    setEditChronicDiseases(profile?.chronicDiseases?.join(', ') || '');
     setEditModalVisible(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModalVisible(false);
   };
 
   const handleSaveProfile = async () => {
@@ -112,23 +122,65 @@ export default function ProfileScreen() {
       setToastVisible(true);
       return;
     }
+
+    if (editHeight && (isNaN(parseFloat(editHeight)) || parseFloat(editHeight) <= 0)) {
+      setToastMessage('Chiều cao phải là số dương');
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
+
+    if (editWeight && (isNaN(parseFloat(editWeight)) || parseFloat(editWeight) <= 0)) {
+      setToastMessage('Cân nặng phải là số dương');
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
+
+    if (editAge && (isNaN(Number(editAge)) || Number(editAge) <= 0 || Number(editAge) > 150)) {
+      setToastMessage('Tuổi phải là số dương và nhỏ hơn 150');
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
+
+    const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    if (editBloodType && !validBloodTypes.includes(editBloodType)) {
+      setToastMessage('Nhóm máu không hợp lệ');
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
     
     setIsSaving(true);
     try {
-      console.log('[profile.screen] Calling updateProfile API directly with:', { name: editName.trim(), phone: editPhone.trim() });
-      
-      // Call API directly instead of through store
-      const updatedProfile = await authApi.updateProfile({ 
-        name: editName.trim(), 
-        phone: editPhone.trim() 
-      });
-      
-      console.log('[profile.screen] API response:', updatedProfile);
-      
-      // Manually update the auth store with the returned profile
+      let dateOfBirth = null;
+      if (editAge && !isNaN(Number(editAge))) {
+        const currentYear = new Date().getFullYear();
+        const birthYear = currentYear - Number(editAge);
+        dateOfBirth = `${birthYear}-01-01`;
+      }
+
+      const updateData: any = {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+      };
+
+      if (dateOfBirth) updateData.dateOfBirth = dateOfBirth;
+      if (editGender) updateData.gender = editGender;
+      if (editHeight) updateData.heightCm = parseFloat(editHeight);
+      if (editWeight) updateData.weightKg = parseFloat(editWeight);
+      if (editBloodType) updateData.bloodType = editBloodType;
+      if (editChronicDiseases.trim()) {
+        // Split by comma and trim each disease
+        updateData.chronicDiseases = editChronicDiseases
+          .split(',').map(d => d.trim()).filter(d => d.length > 0);
+      }
+
+      const updatedProfile = await authApi.updateProfile(updateData);
       useAuthStore.setState({ profile: updatedProfile });
       
-      setEditModalVisible(false);
+      handleCloseEditModal();
       setToastMessage('Cập nhật hồ sơ thành công');
       setToastType('success');
       setToastVisible(true);
@@ -142,7 +194,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const { glucoseText, bpText, todayTasksText } = healthOverview;
+  const { glucoseText, bpText, todayTasksText, glucoseStatus } = healthOverview;
 
   return (
     <Screen>
@@ -154,6 +206,7 @@ export default function ProfileScreen() {
       />
       <ScrollView 
         contentContainerStyle={[styles.container, { paddingTop: padTop }]}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={false}
@@ -163,41 +216,242 @@ export default function ProfileScreen() {
           />
         }
       >
-        <H1SectionHeader title="Tài khoản" />
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{identityTitle}</Text>
+        {/* Profile Header Card */}
+        <LinearGradient
+          colors={['#08b8a2', '#0ea18f']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.profileHeaderCard}
+        >
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={40} color={colors.primary} />
+            </View>
+            <View style={styles.statusBadge}>
+              <Ionicons name="checkmark-circle" size={20} color="#4ade80" />
+            </View>
+          </View>
+          <Text style={styles.profileName}>{identityTitle}</Text>
+          <Text style={styles.profileStatus}>{statusText}</Text>
+        </LinearGradient>
+
+        {/* User Info Card */}
+        <View style={styles.sectionHeader}>
+          <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
+          <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+        </View>
+        <View style={styles.infoCard}>
           {hasProfile ? (
             <>
-              <Text style={styles.cardRow}>Họ tên: {name || 'Chưa cập nhật'}</Text>
-              <Text style={[styles.cardRow, { marginTop: spacing.sm }]}>Số điện thoại: {phone || 'Chưa cập nhật'}</Text>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconContainer}>
+                  <Ionicons name="person-outline" size={18} color={colors.primary} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Họ tên</Text>
+                  <Text style={styles.infoValue}>{name || 'Chưa cập nhật'}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.infoDivider} />
+              
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconContainer}>
+                  <Ionicons name="call-outline" size={18} color={colors.secondary} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Số điện thoại</Text>
+                  <Text style={styles.infoValue}>{phone || 'Chưa cập nhật'}</Text>
+                </View>
+              </View>
+              
+              {profile?.gender ? (
+                <>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconContainer}>
+                      <Ionicons name={profile.gender === 'Nam' ? 'male' : 'female'} size={18} color={profile.gender === 'Nam' ? '#3b82f6' : '#ec4899'} />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Giới tính</Text>
+                      <Text style={styles.infoValue}>{profile.gender}</Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+              
+              {profile?.age ? (
+                <>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconContainer}>
+                      <FontAwesome5 name="birthday-cake" size={16} color="#f59e0b" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Tuổi</Text>
+                      <Text style={styles.infoValue}>{Math.round(profile.age)} tuổi</Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+              
+              {profile?.heightCm ? (
+                <>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconContainer}>
+                      <MaterialCommunityIcons name="human-male-height" size={20} color="#8b5cf6" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Chiều cao</Text>
+                      <Text style={styles.infoValue}>{Math.round(profile.heightCm)} cm</Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+              
+              {profile?.weightKg ? (
+                <>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconContainer}>
+                      <MaterialCommunityIcons name="scale-bathroom" size={18} color="#06b6d4" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Cân nặng</Text>
+                      <Text style={styles.infoValue}>{Math.round(profile.weightKg)} kg</Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+              
+              {profile?.bloodType ? (
+                <>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconContainer}>
+                      <FontAwesome5 name="tint" size={16} color="#ef4444" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Nhóm máu</Text>
+                      <Text style={styles.infoValue}>{profile.bloodType}</Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+              
+              {profile?.chronicDiseases && profile.chronicDiseases.length > 0 ? (
+                <>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoIconContainer}>
+                      <MaterialCommunityIcons name="medical-bag" size={18} color="#f97316" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Bệnh nền</Text>
+                      <Text style={styles.infoValue}>{profile.chronicDiseases.join(', ')}</Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
             </>
           ) : phone ? (
-            <Text style={styles.cardRow}>Số điện thoại: {phone}</Text>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconContainer}>
+                <Ionicons name="call-outline" size={18} color={colors.secondary} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Số điện thoại</Text>
+                <Text style={styles.infoValue}>{phone}</Text>
+              </View>
+            </View>
           ) : null}
-          <Text style={[styles.cardStatus, !hasProfile && styles.cardStatusMuted]}>{statusText}</Text>
         </View>
-        
-        <Button 
-          label="Vòng kết nối" 
-          variant="secondary" 
-          onPress={() => router.push('/care-circle')} 
-          style={styles.optionButton}
-        />
-        
-        <H1SectionHeader title="Tùy chọn" />
-        <Button label="Mở cài đặt" variant="warning" onPress={() => router.push('/settings')} />
-        <Button
-          label="Chỉnh sửa hồ sơ"
-          variant="secondary"
-          onPress={handleEditProfile}
-          style={{ marginTop: spacing.md }}
-        />
 
-        <H1SectionHeader title="Tổng quan sức khỏe" />
-        <View style={styles.card}>
-          <Text style={styles.cardRow}>Đường huyết gần nhất: {glucoseText}</Text>
-          <Text style={[styles.cardRow, { marginTop: spacing.sm }]}>Huyết áp gần nhất: {bpText}</Text>
-          <Text style={[styles.cardRow, { marginTop: spacing.sm }]}>Nhiệm vụ hôm nay: {todayTasksText}</Text>
+        {/* Quick Actions */}
+        <View style={styles.sectionHeader}>
+          <Ionicons name="flash-outline" size={22} color={colors.warning} />
+          <Text style={styles.sectionTitle}>Hành động nhanh</Text>
+        </View>
+        <View style={styles.quickActionsGrid}>
+          <Pressable style={styles.actionCard} onPress={() => router.push('/care-circle')}>
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="people" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>Vòng kết nối</Text>
+          </Pressable>
+          
+          <Pressable style={styles.actionCard} onPress={() => router.push('/settings')}>
+            <LinearGradient
+              colors={['#f59e0b', '#d97706']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="settings" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>Cài đặt</Text>
+          </Pressable>
+          
+          <Pressable style={styles.actionCard} onPress={handleEditProfile}>
+            <LinearGradient
+              colors={['#6366f1', '#4f46e5']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="create" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>Sửa hồ sơ</Text>
+          </Pressable>
+          
+          <Pressable style={styles.actionCard} onPress={() => router.push('/logs')}>
+            <LinearGradient
+              colors={['#ec4899', '#db2777']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="journal" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>Ghi log</Text>
+          </Pressable>
+        </View>
+
+        {/* Health Overview */}
+        <View style={styles.sectionHeader}>
+          <Ionicons name="heart-circle-outline" size={22} color="#ef4444" />
+          <Text style={styles.sectionTitle}>Tổng quan sức khỏe</Text>
+        </View>
+        <View style={styles.healthCardsGrid}>
+          <View style={[styles.healthCard, styles.healthCardGlucose]}>
+            <View style={styles.healthCardHeader}>
+              <MaterialCommunityIcons name="water" size={20} color="#3b82f6" />
+              <Text style={styles.healthCardTitle}>Đường huyết</Text>
+            </View>
+            <Text style={[styles.healthCardValue, glucoseStatus === 'warning' && styles.healthValueWarning, glucoseStatus === 'danger' && styles.healthValueDanger]}>{glucoseText}</Text>
+            {glucoseStatus !== 'normal' && (
+              <View style={styles.healthAlert}>
+                <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? '#ef4444' : '#f59e0b'} />
+                <Text style={[styles.healthAlertText, { color: glucoseStatus === 'danger' ? '#ef4444' : '#f59e0b' }]}>
+                  {glucoseStatus === 'danger' ? 'Cần chú ý!' : 'Hơi cao'}
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={[styles.healthCard, styles.healthCardBP]}>
+            <View style={styles.healthCardHeader}>
+              <MaterialCommunityIcons name="heart-pulse" size={20} color="#ef4444" />
+              <Text style={styles.healthCardTitle}>Huyết áp</Text>
+            </View>
+            <Text style={styles.healthCardValue}>{bpText}</Text>
+          </View>
+          
+          <View style={[styles.healthCard, styles.healthCardMissions]}>
+            <View style={styles.healthCardHeader}>
+              <Ionicons name="checkbox-outline" size={20} color="#10b981" />
+              <Text style={styles.healthCardTitle}>Nhiệm vụ</Text>
+            </View>
+            <Text style={styles.healthCardValue}>{todayTasksText}</Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -206,48 +460,184 @@ export default function ProfileScreen() {
         visible={isEditModalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setEditModalVisible(false)}
+        onRequestClose={handleCloseEditModal}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Chỉnh sửa hồ sơ</Text>
+            <View style={styles.modalHeader}>
+              <Ionicons name="person-circle" size={32} color={colors.primary} />
+              <Text style={styles.modalTitle}>Chỉnh sửa hồ sơ</Text>
+            </View>
             
-            <Text style={styles.inputLabel}>Họ tên</Text>
-            <TextInput
-              style={styles.input}
-              value={editName}
-              onChangeText={setEditName}
-              placeholder="Nhập họ tên"
-              placeholderTextColor={colors.textSecondary}
-            />
-            
-            <Text style={styles.inputLabel}>Số điện thoại</Text>
-            <TextInput
-              style={styles.input}
-              value={editPhone}
-              onChangeText={setEditPhone}
-              placeholder="Nhập số điện thoại"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="phone-pad"
-            />
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true}
+            >
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
+                  <Text style={styles.inputLabel}>Họ tên</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Nhập họ tên"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
+                  <Text style={styles.inputLabel}>Số điện thoại</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="Nhập số điện thoại"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="phone-pad"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <FontAwesome5 name="birthday-cake" size={14} color={colors.textSecondary} />
+                  <Text style={styles.inputLabel}>Tuổi</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={editAge}
+                  onChangeText={setEditAge}
+                  placeholder="Nhập tuổi"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <Ionicons name="male-female" size={16} color={colors.textSecondary} />
+                  <Text style={styles.inputLabel}>Giới tính</Text>
+                </View>
+                <View style={styles.genderButtonsRow}>
+                  <Pressable
+                    style={[styles.genderButton, editGender === 'Nam' && styles.genderButtonActive]}
+                    onPress={() => setEditGender('Nam')}
+                  >
+                    <Ionicons 
+                      name="male" 
+                      size={20} 
+                      color={editGender === 'Nam' ? '#fff' : '#3b82f6'} 
+                    />
+                    <Text style={[styles.genderButtonText, editGender === 'Nam' && styles.genderButtonTextActive]}>Nam</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.genderButton, editGender === 'Nữ' && styles.genderButtonActive]}
+                    onPress={() => setEditGender('Nữ')}
+                  >
+                    <Ionicons 
+                      name="female" 
+                      size={20} 
+                      color={editGender === 'Nữ' ? '#fff' : '#ec4899'} 
+                    />
+                    <Text style={[styles.genderButtonText, editGender === 'Nữ' && styles.genderButtonTextActive]}>Nữ</Text>
+                  </Pressable>
+                </View>
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <MaterialCommunityIcons name="human-male-height" size={16} color={colors.textSecondary} />
+                  <Text style={styles.inputLabel}>Chiều cao (cm)</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={editHeight}
+                  onChangeText={setEditHeight}
+                  placeholder="Nhập chiều cao"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <MaterialCommunityIcons name="scale-bathroom" size={16} color={colors.textSecondary} />
+                  <Text style={styles.inputLabel}>Cân nặng (kg)</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={editWeight}
+                  onChangeText={setEditWeight}
+                  placeholder="Nhập cân nặng"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <FontAwesome5 name="tint" size={14} color={colors.textSecondary} />
+                  <Text style={styles.inputLabel}>Nhóm máu</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={editBloodType}
+                  onChangeText={setEditBloodType}
+                  placeholder="VD: A+, O-, AB+"
+                  placeholderTextColor={colors.textSecondary}
+                  autoCapitalize="characters"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <MaterialCommunityIcons name="medical-bag" size={16} color={colors.textSecondary} />
+                  <Text style={styles.inputLabel}>Bệnh nền</Text>
+                </View>
+                <TextInput
+                  style={[styles.input, styles.textAreaInput]}
+                  value={editChronicDiseases}
+                  onChangeText={setEditChronicDiseases}
+                  placeholder="VD: Tiểu đường, Cao huyết áp, Tim mạch (cách nhau bằng dấu phẩy)"
+                  placeholderTextColor={colors.textSecondary}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
+            </ScrollView>
             
             <View style={styles.modalButtons}>
-              <Button
-                label="Hủy"
-                variant="ghost"
-                onPress={() => setEditModalVisible(false)}
-                style={{ flex: 1, marginRight: spacing.sm }}
-              />
-              <Button
-                label={isSaving ? 'Đang lưu...' : 'Lưu'}
-                variant="primary"
+              <Pressable style={styles.cancelButton} onPress={handleCloseEditModal}>
+                <Text style={styles.cancelButtonText}>Hủy</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
                 onPress={handleSaveProfile}
                 disabled={isSaving}
-                style={{ flex: 1 }}
-              />
+              >
+                <LinearGradient
+                  colors={isSaving ? ['#9ca3af', '#9ca3af'] : ['#08b8a2', '#0ea18f']}
+                  style={styles.saveButtonGradient}
+                >
+                  {isSaving ? (
+                    <Text style={styles.saveButtonText}>Đang lưu...</Text>
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={18} color="#fff" />
+                      <Text style={styles.saveButtonText}>Lưu</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </Pressable>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -258,39 +648,206 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.xl,
-    gap: spacing.md,
+    padding: spacing.lg,
+    gap: spacing.lg,
     backgroundColor: colors.background
   },
-  card: {
+  // Profile Header
+  profileHeaderCard: {
+    borderRadius: 24,
+    padding: spacing.xl,
+    alignItems: 'center',
+    shadowColor: '#08b8a2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: spacing.md
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4
+  },
+  statusBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 2
+  },
+  profileName: {
+    fontSize: typography.size.xl,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: spacing.xs
+  },
+  profileStatus: {
+    fontSize: typography.size.sm,
+    color: 'rgba(255,255,255,0.9)'
+  },
+  // Section Header
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm
+  },
+  sectionTitle: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: colors.textPrimary
+  },
+  // Info Card
+  infoCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm
+  },
+  infoIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  infoContent: {
+    flex: 1
+  },
+  infoLabel: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginBottom: 2
+  },
+  infoValue: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: colors.textPrimary
+  },
+  infoDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.xs
+  },
+  // Quick Actions
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md
+  },
+  actionCard: {
+    flexBasis: '47%',
     backgroundColor: colors.surface,
     borderRadius: 16,
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2
   },
-  cardTitle: {
+  actionIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  actionLabel: {
+    fontSize: typography.size.sm,
+    fontWeight: '600',
+    color: colors.textPrimary
+  },
+  // Health Cards
+  healthCardsGrid: {
+    gap: spacing.md
+  },
+  healthCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2
+  },
+  healthCardGlucose: {
+    borderColor: '#dbeafe',
+    backgroundColor: '#f0f9ff'
+  },
+  healthCardBP: {
+    borderColor: '#fce7f3',
+    backgroundColor: '#fdf2f8'
+  },
+  healthCardMissions: {
+    borderColor: '#d1fae5',
+    backgroundColor: '#ecfdf5'
+  },
+  healthCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm
+  },
+  healthCardTitle: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    fontWeight: '500'
+  },
+  healthCardValue: {
     fontSize: typography.size.lg,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm
+    color: colors.textPrimary
   },
-  cardRow: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary
+  healthValueWarning: {
+    color: '#f59e0b'
   },
-  cardStatus: {
-    marginTop: spacing.sm,
-    fontSize: typography.size.sm,
-    color: colors.success,
+  healthValueDanger: {
+    color: '#ef4444'
+  },
+  healthAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm
+  },
+  healthAlertText: {
+    fontSize: typography.size.xs,
     fontWeight: '600'
   },
-  cardStatusMuted: {
-    color: colors.textSecondary
-  },
-  optionButton: {
-    marginBottom: spacing.sm
-  },
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -300,34 +857,113 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
+    maxHeight: '85%',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 24,
     padding: spacing.xl
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.lg
   },
   modalTitle: {
     fontSize: typography.size.xl,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
-    textAlign: 'center'
+    color: colors.textPrimary
+  },
+  inputGroup: {
+    marginBottom: spacing.md
+  },
+  inputLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs
   },
   inputLabel: {
     fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs
+    color: colors.textSecondary
+  },
+  genderButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.md
+  },
+  genderButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface
+  },
+  genderButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary
+  },
+  genderButtonText: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: colors.textPrimary
+  },
+  genderButtonTextActive: {
+    color: '#fff'
   },
   input: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: spacing.md,
     fontSize: typography.size.md,
     color: colors.textPrimary,
-    backgroundColor: colors.background,
-    marginBottom: spacing.md
+    backgroundColor: colors.background
   },
   modalButtons: {
     flexDirection: 'row',
-    marginTop: spacing.md
-  }
+    gap: spacing.md,
+    marginTop: spacing.lg
+  },
+  cancelButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center'
+  },
+  cancelButtonText: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: colors.textSecondary
+  },
+  saveButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden'
+  },
+  saveButtonDisabled: {
+    opacity: 0.7
+  },
+  saveButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    padding: spacing.md
+  },
+  saveButtonText: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: '#fff'
+  },
+  textAreaInput: {
+    minHeight: 80,
+    paddingTop: spacing.md
+  },
 });

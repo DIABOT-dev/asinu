@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { Card } from '../components/Card';
-import { colors, spacing, typography } from '../styles';
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 type Props = {
   name: string;
@@ -11,15 +12,16 @@ type Props = {
 };
 
 export const F1ProfileSummary = ({ name, email, phone, caretakerFor }: Props) => {
+  const scaledTypography = useScaledTypography();
   return (
     <Card>
       <View style={styles.row}>
         <Avatar name={name} />
         <View style={styles.info}>
-          <Text style={styles.name}>{name}</Text>
-          {email ? <Text style={styles.meta}>{email}</Text> : null}
-          {phone ? <Text style={styles.meta}>{phone}</Text> : null}
-          {caretakerFor ? <Text style={styles.meta}>Chăm sóc: {caretakerFor}</Text> : null}
+          <Text style={[styles.name, { fontSize: scaledTypography.size.lg }]}>{name}</Text>
+          {email ? <Text style={[styles.meta, { fontSize: scaledTypography.size.sm }]}>{email}</Text> : null}
+          {phone ? <Text style={[styles.meta, { fontSize: scaledTypography.size.sm }]}>{phone}</Text> : null}
+          {caretakerFor ? <Text style={[styles.meta, { fontSize: scaledTypography.size.sm }]}>Chăm sóc: {caretakerFor}</Text> : null}
         </View>
       </View>
     </Card>
@@ -37,12 +39,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs
   },
   name: {
-    fontSize: typography.size.lg,
     fontWeight: '700',
     color: colors.textPrimary
   },
   meta: {
-    color: colors.textSecondary,
-    fontSize: typography.size.sm
+    color: colors.textSecondary
   }
 });

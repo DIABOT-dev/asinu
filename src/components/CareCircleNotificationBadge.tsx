@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuthStore } from '../features/auth/auth.store';
 import { useCareCircle } from '../features/care-circle';
-import { colors, spacing, typography } from '../styles'; 
+import { useScaledTypography } from '../hooks/useScaledTypography';
+import { colors, spacing } from '../styles';
 
 export function CareCircleNotificationBadge() {
   const router = useRouter();
   const profile = useAuthStore((state) => state.profile);
   const { invitations, fetchInvitations } = useCareCircle();
   const [pendingCount, setPendingCount] = useState(0);
+  const scaledTypography = useScaledTypography();
 
   useEffect(() => {
     fetchInvitations();
@@ -35,11 +37,11 @@ export function CareCircleNotificationBadge() {
     >
       <View style={styles.content}>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>{pendingCount}</Text>
+          <Text style={[styles.badgeText, { fontSize: scaledTypography.size.md }]}>{pendingCount}</Text>
         </View>
         <View style={styles.textContainer}>
-          <Text style={styles.title}>Lời mời kết nối</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>Lời mời kết nối</Text>
+          <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
             Bạn có {pendingCount} lời mời đang chờ
           </Text>
         </View>
@@ -72,20 +74,17 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: colors.surface,
-    fontSize: typography.size.md,
     fontWeight: '700'
   },
   textContainer: {
     flex: 1
   },
   title: {
-    fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.xs / 2
   },
   subtitle: {
-    fontSize: typography.size.sm,
     color: colors.textSecondary
   }
 });

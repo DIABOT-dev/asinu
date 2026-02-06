@@ -1,7 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
@@ -9,7 +10,6 @@ import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useCareCircle } from '../../src/features/care-circle';
 import { colors, spacing, typography } from '../../src/styles';
-import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function CareCircleScreen() {
   const router = useRouter();
@@ -69,6 +69,67 @@ export default function CareCircleScreen() {
     { id: 'nguoi-giup-viec', label: 'Người giúp việc', subtitle: 'Hỗ trợ sinh hoạt' },
     { id: 'tu-van-tam-ly', label: 'Tư vấn tâm lý', subtitle: 'Chăm sóc sức khỏe tinh thần' },
   ];
+
+  // Hàm đảo ngược mối quan hệ: nếu người khác gọi mình là "Bố" thì mình gọi họ là "Con"
+  const reverseRelationship = (relationshipType: string | undefined): string => {
+    if (!relationshipType) return '';
+    
+    const reverseMap: Record<string, string> = {
+      // Cha mẹ <-> Con cái
+      'bo': 'Con',
+      'Bố': 'Con',
+      'me': 'Con',
+      'Mẹ': 'Con',
+      'con-trai': 'Bố/Mẹ',
+      'Con trai': 'Bố/Mẹ',
+      'con-gai': 'Bố/Mẹ',
+      'Con gái': 'Bố/Mẹ',
+      
+      // Vợ chồng (đối xứng)
+      'vo': 'Chồng',
+      'Vợ': 'Chồng',
+      'chong': 'Vợ',
+      'Chồng': 'Vợ',
+      
+      // Anh chị em
+      'anh-trai': 'Em',
+      'Anh trai': 'Em',
+      'chi-gai': 'Em',
+      'Chị gái': 'Em',
+      'em-trai': 'Anh/Chị',
+      'Em trai': 'Anh/Chị',
+      'em-gai': 'Anh/Chị',
+      'Em gái': 'Anh/Chị',
+      
+      // Ông bà <-> Cháu
+      'ong-noi': 'Cháu',
+      'Ông nội': 'Cháu',
+      'ba-noi': 'Cháu',
+      'Bà nội': 'Cháu',
+      'ong-ngoai': 'Cháu',
+      'Ông ngoại': 'Cháu',
+      'ba-ngoai': 'Cháu',
+      'Bà ngoại': 'Cháu',
+      
+      // Bạn bè, người yêu (đối xứng)
+      'ban-than': 'Bạn thân',
+      'Bạn thân': 'Bạn thân',
+      'nguoi-yeu': 'Người yêu',
+      'Người yêu': 'Người yêu',
+    };
+    
+    return reverseMap[relationshipType] || relationshipType;
+  };
+
+  // Lấy label hiển thị của relationship
+  const getRelationshipLabel = (relationshipType: string | undefined): string => {
+    if (!relationshipType) return '';
+    
+    const option = relationshipOptions.find(
+      opt => opt.id === relationshipType || opt.label === relationshipType
+    );
+    return option?.label || relationshipType;
+  };
 
   useEffect(() => {
     fetchInvitations();
@@ -170,41 +231,99 @@ export default function CareCircleScreen() {
     <Screen>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl }}
+        contentContainerStyle={{ 
+          paddingTop: insets.top,
+          paddingBottom: spacing.xl,
+        }}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <View style={styles.header}>
-          <H1SectionHeader title="Vòng kết nối" />
-          <Text style={styles.subtitle}>Quản lý người thân và người chăm sóc</Text>
+        {/* Hero Header - Full Width */}
+        <LinearGradient
+          colors={['#10b981', '#059669']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBanner}
+        >
+          <View style={styles.heroIconBg}>
+            <MaterialCommunityIcons name="account-group" size={36} color="#fff" />
+          </View>
+          <Text style={styles.heroTitle}>Vòng kết nối</Text>
+          <Text style={styles.heroSubtitle}>Quản lý người thân và người chăm sóc</Text>
+        </LinearGradient>
+        
+        {/* Stats Row - With Horizontal Padding */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <View style={[styles.statIconBg, { backgroundColor: '#d1fae5' }]}>
+                <Ionicons name="people" size={18} color="#10b981" />
+              </View>
+              <Text style={styles.statValue}>{connections.length}</Text>
+              <Text style={styles.statLabel}>Kết nối</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={[styles.statIconBg, { backgroundColor: '#fef3c7' }]}>
+                <Ionicons name="mail" size={18} color="#f59e0b" />
+              </View>
+              <Text style={styles.statValue}>{receivedInvitations.length}</Text>
+              <Text style={styles.statLabel}>Đã nhận</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={[styles.statIconBg, { backgroundColor: '#dbeafe' }]}>
+                <Ionicons name="send" size={18} color="#3b82f6" />
+              </View>
+              <Text style={styles.statValue}>{sentInvitations.length}</Text>
+              <Text style={styles.statLabel}>Đã gửi</Text>
+            </View>
+          </View>
         </View>
 
+        {/* Invite Button */}
         <View style={styles.section}>
-          <Button
-            label="+ Mời người mới"
-            onPress={() => router.push('/care-circle/invite')}
-            style={styles.inviteButton}
-          />
+          <Pressable style={styles.inviteButton} onPress={() => router.push('/care-circle/invite')}>
+            <LinearGradient
+              colors={[colors.primary, '#0ea18f']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.inviteButtonGradient}
+            >
+              <Ionicons name="person-add" size={20} color="#fff" />
+              <Text style={styles.inviteButtonText}>Mời người mới</Text>
+            </LinearGradient>
+          </Pressable>
         </View>
 
         {/* Received Invitations */}
         {receivedInvitations.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lời mời đã nhận ({receivedInvitations.length})</Text>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconBg, { backgroundColor: '#fef3c7' }]}>
+                <Ionicons name="mail-unread" size={16} color="#f59e0b" />
+              </View>
+              <Text style={styles.sectionTitle}>Lời mời đã nhận ({receivedInvitations.length})</Text>
+            </View>
             {receivedInvitations.map((invitation) => (
               <View key={invitation.id} style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={styles.avatar}>
+                  <LinearGradient
+                    colors={['#f59e0b', '#d97706']}
+                    style={styles.avatar}
+                  >
                     <Text style={styles.avatarText}>
                       {invitation.requester_name?.[0]?.toUpperCase() || '?'}
                     </Text>
-                  </View>
+                  </LinearGradient>
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardName}>
                       {invitation.requester_name || `User ${invitation.requester_id}`}
                     </Text>
-                    <Text style={styles.cardRelation}>
-                      {invitation.relationship_type || invitation.role || 'Kết nối'}
-                    </Text>
+                    <View style={styles.cardBadge}>
+                      <Ionicons name="link" size={12} color={colors.primary} />
+                      <Text style={styles.cardRelation}>
+                        {invitation.relationship_type || invitation.role || 'Kết nối'}
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
@@ -215,9 +334,12 @@ export default function CareCircleScreen() {
                     disabled={actionLoading === invitation.id}
                   >
                     {actionLoading === invitation.id ? (
-                      <ActivityIndicator size="small" color={colors.surface} />
+                      <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={styles.acceptButtonText}>Chấp nhận</Text>
+                      <>
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                        <Text style={styles.acceptButtonText}>Chấp nhận</Text>
+                      </>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -225,6 +347,7 @@ export default function CareCircleScreen() {
                     onPress={() => handleReject(invitation.id)}
                     disabled={actionLoading === invitation.id}
                   >
+                    <Ionicons name="close" size={16} color={colors.textSecondary} />
                     <Text style={styles.rejectButtonText}>Từ chối</Text>
                   </TouchableOpacity>
                 </View>
@@ -236,20 +359,31 @@ export default function CareCircleScreen() {
         {/* Sent Invitations */}
         {sentInvitations.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lời mời đã gửi ({sentInvitations.length})</Text>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconBg, { backgroundColor: '#dbeafe' }]}>
+                <Ionicons name="send" size={16} color="#3b82f6" />
+              </View>
+              <Text style={styles.sectionTitle}>Lời mời đã gửi ({sentInvitations.length})</Text>
+            </View>
             {sentInvitations.map((invitation) => (
-              <View key={invitation.id} style={styles.card}>
+              <View key={invitation.id} style={[styles.card, styles.cardPending]}>
                 <View style={styles.cardHeader}>
-                  <View style={styles.avatar}>
+                  <LinearGradient
+                    colors={['#3b82f6', '#2563eb']}
+                    style={styles.avatar}
+                  >
                     <Text style={styles.avatarText}>
                       {invitation.addressee_name?.[0]?.toUpperCase() || '?'}
                     </Text>
-                  </View>
+                  </LinearGradient>
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardName}>
                       {invitation.addressee_name || `User ${invitation.addressee_id}`}
                     </Text>
-                    <Text style={styles.cardStatus}>Đang chờ phản hồi...</Text>
+                    <View style={styles.pendingBadge}>
+                      <Ionicons name="time" size={12} color="#f59e0b" />
+                      <Text style={styles.cardStatus}>Đang chờ phản hồi</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -259,13 +393,21 @@ export default function CareCircleScreen() {
 
         {/* Active Connections */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Kết nối đang hoạt động ({connections.length})
-          </Text>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionIconBg, { backgroundColor: '#d1fae5' }]}>
+              <Ionicons name="people" size={16} color="#10b981" />
+            </View>
+            <Text style={styles.sectionTitle}>
+              Kết nối đang hoạt động ({connections.length})
+            </Text>
+          </View>
           {loading && connections.length === 0 ? (
             <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
           ) : connections.length === 0 ? (
             <View style={styles.emptyState}>
+              <View style={styles.emptyIconBg}>
+                <MaterialCommunityIcons name="account-group-outline" size={48} color={colors.textSecondary} />
+              </View>
               <Text style={styles.emptyText}>Chưa có kết nối nào</Text>
               <Text style={styles.emptySubtext}>Mời người thân hoặc người chăm sóc để bắt đầu</Text>
             </View>
@@ -276,56 +418,77 @@ export default function CareCircleScreen() {
               const otherUserFullName = isRequester ? connection.addressee_full_name : connection.requester_full_name;
               const otherUserEmail = isRequester ? connection.addressee_email : connection.requester_email;
               const otherUserPhone = isRequester ? connection.addressee_phone : connection.requester_phone;
+              
+              // Xác định mối quan hệ hiển thị:
+              // - Nếu mình là requester: hiển thị relationship_type như đã đặt
+              // - Nếu mình là addressee: đảo ngược relationship_type
+              const displayRelationship = isRequester 
+                ? getRelationshipLabel(connection.relationship_type)
+                : reverseRelationship(connection.relationship_type);
 
               return (
                 <View key={connection.id} style={styles.card}>
                   <View style={styles.cardHeader}>
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={styles.avatar}>
+                      <LinearGradient
+                        colors={['#10b981', '#059669']}
+                        style={styles.avatar}
+                      >
                         <Text style={styles.avatarText}>
                           {otherUserFullName?.[0]?.toUpperCase() || '?'}
                         </Text>
-                      </View>
+                      </LinearGradient>
                       <View style={styles.cardInfo}>
                         <Text style={styles.cardName}>
                           {otherUserFullName || `User ${otherUserId}`}
                         </Text>
                         {otherUserEmail && (
-                          <Text style={styles.cardContact} numberOfLines={1}>
-                            {otherUserEmail}
-                          </Text>
+                          <View style={styles.contactRow}>
+                            <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
+                            <Text style={styles.cardContact} numberOfLines={1}>
+                              {otherUserEmail}
+                            </Text>
+                          </View>
                         )}
                         {otherUserPhone && (
-                          <Text style={styles.cardContact} numberOfLines={1}>
-                            {otherUserPhone}
-                          </Text>
+                          <View style={styles.contactRow}>
+                            <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
+                            <Text style={styles.cardContact} numberOfLines={1}>
+                              {otherUserPhone}
+                            </Text>
+                          </View>
                         )}
-                        {(connection.relationship_type || connection.role) && (
-                          <Text style={styles.cardRelation}>
-                            {connection.relationship_type || connection.role}
-                          </Text>
+                        {(displayRelationship || connection.role) && (
+                          <View style={styles.cardBadge}>
+                            <Ionicons name="heart" size={12} color={colors.primary} />
+                            <Text style={styles.cardRelation}>
+                              {displayRelationship || connection.role}
+                            </Text>
+                          </View>
                         )}
                       </View>
                     </View>
 
-                    <TouchableOpacity
-                      onPress={() => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` })}
-                      style={{ padding: spacing.sm }}
-                    >
-                      <Ionicons name="pencil" size={18} color={colors.primary} />
-                    </TouchableOpacity>
+                    <View style={styles.cardActionsSmall}>
+                      <TouchableOpacity
+                        onPress={() => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` })}
+                        style={styles.iconBtn}
+                      >
+                        <Ionicons name="pencil" size={18} color={colors.primary} />
+                      </TouchableOpacity>
 
-                    <TouchableOpacity
-                      onPress={() => handleDeleteConnection(connection.id, otherUserFullName || 'người này')}
-                      disabled={actionLoading === connection.id}
-                      style={{ padding: spacing.sm }}
-                    >
-                      {actionLoading === connection.id ? (
-                        <ActivityIndicator size="small" color={colors.danger} />
-                      ) : (
-                        <Ionicons name="trash" size={18} color={colors.danger} />
-                      )}
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteConnection(connection.id, otherUserFullName || 'người này')}
+                        disabled={actionLoading === connection.id}
+                        style={styles.iconBtn}
+                      >
+                        {actionLoading === connection.id ? (
+                          <ActivityIndicator size="small" color={colors.danger} />
+                        ) : (
+                          <Ionicons name="trash" size={18} color={colors.danger} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               );
@@ -345,7 +508,16 @@ export default function CareCircleScreen() {
               style={{ flex: 1 }}
               contentContainerStyle={styles.modalContent}
             >
-              <H1SectionHeader title={`Chỉnh sửa: ${editConnection?.name}`} />
+              <View style={styles.modalHeader}>
+                <LinearGradient
+                  colors={['#6366f1', '#8b5cf6']}
+                  style={styles.modalIconBg}
+                >
+                  <Ionicons name="person" size={24} color="#fff" />
+                </LinearGradient>
+                <Text style={styles.modalTitle}>Chỉnh sửa kết nối</Text>
+                <Text style={styles.modalSubtitle}>{editConnection?.name}</Text>
+              </View>
               
               <View style={styles.currentInfoBox}>
                 <Text style={styles.currentInfoTitle}>Thông tin hiện tại:</Text>
@@ -406,47 +578,132 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background
   },
-  header: {
+  heroBanner: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
-  subtitle: {
-    fontSize: typography.size.sm,
+  statsContainer: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  heroIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    fontSize: typography.size.md,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  statLabel: {
+    fontSize: typography.size.xs,
     color: colors.textSecondary,
-    marginTop: spacing.xs
   },
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  sectionIconBg: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sectionTitle: {
     fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: spacing.md
   },
   inviteButton: {
-    backgroundColor: colors.primary
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  inviteButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: 14,
+  },
+  inviteButtonText: {
+    color: '#fff',
+    fontSize: typography.size.md,
+    fontWeight: '600',
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderRadius: 14,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: colors.border
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+  },
+  cardPending: {
+    borderColor: '#fef3c7',
+    backgroundColor: '#fffbeb',
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md
@@ -454,7 +711,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: typography.size.lg,
     fontWeight: '700',
-    color: colors.surface
+    color: '#fff'
   },
   cardInfo: {
     flex: 1
@@ -463,47 +720,82 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: spacing.xs / 2
+    marginBottom: 2,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
   },
   cardContact: {
     fontSize: typography.size.xs,
     color: colors.textSecondary,
-    marginBottom: spacing.xs / 2
+  },
+  cardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: '#f0fdfa',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
   cardRelation: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs / 2
+    fontSize: typography.size.xs,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
   cardStatus: {
-    fontSize: typography.size.sm,
-    color: colors.warning,
-    fontStyle: 'italic'
+    fontSize: typography.size.xs,
+    color: '#f59e0b',
+    fontWeight: '500',
+  },
+  cardActionsSmall: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardActions: {
     flexDirection: 'row',
-    gap: spacing.sm
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   actionButton: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
     minHeight: 40
   },
   acceptButton: {
     backgroundColor: colors.primary
   },
   acceptButtonText: {
-    color: colors.surface,
+    color: '#fff',
     fontSize: typography.size.sm,
     fontWeight: '600'
   },
   rejectButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.border
+    backgroundColor: '#f3f4f6',
   },
   rejectButtonText: {
     color: colors.textSecondary,
@@ -512,11 +804,19 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: spacing.xl
+    paddingVertical: spacing.xl,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+  },
+  emptyIconBg: {
+    marginBottom: spacing.md,
   },
   emptyText: {
     fontSize: typography.size.md,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
+    fontWeight: '600',
     marginBottom: spacing.xs
   },
   emptySubtext: {
@@ -526,25 +826,31 @@ const styles = StyleSheet.create({
   loader: {
     marginVertical: spacing.xl
   },
-  inputLabel: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    marginTop: spacing.md
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: spacing.md,
-    fontSize: typography.size.md,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface
-  },
   modalContent: {
     padding: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: typography.size.md,
+    color: colors.textSecondary,
   },
   modalSection: {
     marginBottom: spacing.lg
@@ -555,22 +861,22 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg
   },
   currentInfoBox: {
-    backgroundColor: colors.primary + '15',
-    borderRadius: 8,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
     padding: spacing.md,
     marginBottom: spacing.lg,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary
+    borderWidth: 1.5,
+    borderColor: '#bae6fd',
   },
   currentInfoTitle: {
     fontSize: typography.size.sm,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#0369a1',
     marginBottom: spacing.xs
   },
   currentInfoText: {
     fontSize: typography.size.sm,
-    color: colors.textSecondary,
+    color: '#0c4a6e',
     marginTop: spacing.xs / 2
   }
 });

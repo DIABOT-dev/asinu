@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../../styles';
+import { useScaledTypography } from '../../hooks/useScaledTypography';
+import { colors, spacing } from '../../styles';
 import { Button } from '../Button';
 
 type Props = {
@@ -7,13 +8,16 @@ type Props = {
   onRetry?: () => void;
 };
 
-export const StateError = ({ message = 'Có lỗi xảy ra', onRetry }: Props) => (
-  <View style={styles.container}>
-    <Text style={styles.title}>Không tải được dữ liệu</Text>
-    <Text style={styles.subtitle}>{message}</Text>
-    {onRetry ? <Button label="Thử lại" onPress={onRetry} style={styles.retryButton} /> : null}
-  </View>
-);
+export const StateError = ({ message = 'Có lỗi xảy ra', onRetry }: Props) => {
+  const scaledTypography = useScaledTypography();
+  return (
+    <View style={styles.container}>
+      <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>Không tải được dữ liệu</Text>
+      <Text style={[styles.subtitle, { fontSize: scaledTypography.size.md }]}>{message}</Text>
+      {onRetry ? <Button label="Thử lại" onPress={onRetry} style={styles.retryButton} /> : null}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -22,7 +26,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm
   },
   title: {
-    fontSize: typography.size.lg,
     fontWeight: '700',
     color: colors.textPrimary
   },
