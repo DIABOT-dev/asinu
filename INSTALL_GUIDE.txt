@@ -1,0 +1,372 @@
+Asinu - Hướng Dẫn Cài Đặt & Build Android / iOS
+Cập nhật: 06/02/2026
+Expo SDK: 52 | React Native: 0.76.9 | New Architecture: enabled (iOS)
+
+Mục Lục
+Yêu Cầu Hệ Thống
+Cài Đặt Công Cụ
+Setup Project Lần Đầu
+Build Android
+Build iOS
+Build Với EAS (Cloud)
+Lỗi Thường Gặp & Cách Sửa
+Lưu Ý Quan Trọng
+1. Yêu Cầu Hệ Thống
+Chung (cả Android & iOS)
+Công cụ	Phiên bản tối thiểu	Kiểm tra
+Node.js	18.x trở lên (khuyến nghị 20 LTS)	node -v
+npm	10.x (đi kèm project)	npm -v
+Git	2.x	git --version
+Expo CLI	Đi kèm npx expo	npx expo --version
+EAS CLI	≥ 13.0.0	npx eas-cli --version
+Watchman (macOS)	Latest	brew install watchman
+Android
+Công cụ	Phiên bản	Ghi chú
+Java JDK	17 (bắt buộc)	java -version
+Android Studio	Latest stable	Cần cho SDK Manager
+Android SDK	API 35 (compileSdk)	Qua SDK Manager
+Android Build Tools	35.0.0	Qua SDK Manager
+Android NDK	26.1.10909125	Qua SDK Manager
+Gradle	8.10.2 (tự quản lý)	Không cần cài riêng
+Kotlin	1.9.25	Tự động qua Gradle
+iOS (chỉ macOS)
+Công cụ	Phiên bản	Ghi chú
+macOS	Ventura 13+	Bắt buộc cho Xcode mới
+Xcode	15+ (khuyến nghị 16)	xcode-select --install
+CocoaPods	Latest	sudo gem install cocoapods
+iOS Deployment Target	15.1	Cấu hình trong Podfile
+Ruby	2.7+ (đi kèm macOS)	Cho CocoaPods
+2. Cài Đặt Công Cụ
+2.1. Node.js & npm
+# Dùng nvm (khuyến nghị)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+nvm install 20
+nvm use 20
+
+# Hoặc tải từ https://nodejs.org
+2.2. Android Studio & SDK
+Tải Android Studio từ https://developer.android.com/studio
+Mở Android Studio → Settings → SDK Manager
+Cài đặt các component:
+✅ Android SDK Platform 35
+✅ Android SDK Build-Tools 35.0.0
+✅ NDK (Side by side) - version 26.1.10909125
+✅ Android SDK Command-line Tools
+✅ Android Emulator
+✅ Android SDK Platform-Tools
+✅ CMake (nếu cần native modules)
+Cấu hình biến môi trường — thêm vào ~/.zshrc hoặc ~/.bash_profile:
+export ANDROID_HOME=$HOME/Library/Android/sdk
+export PATH=$PATH:$ANDROID_HOME/emulator
+export PATH=$PATH:$ANDROID_HOME/platform-tools
+export PATH=$PATH:$ANDROID_HOME/tools
+export PATH=$PATH:$ANDROID_HOME/tools/bin
+
+# QUAN TRỌNG: Java 17 cho React Native 0.76+
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+# Apply
+source ~/.zshrc
+Kiểm tra:
+echo $ANDROID_HOME    # Phải ra path đến SDK
+java -version         # Phải là 17.x
+adb devices           # Phải chạy được
+2.3. Xcode (iOS)
+# 1. Tải Xcode từ App Store hoặc https://developer.apple.com/xcode/
+
+# 2. Cài Command Line Tools
+xcode-select --install
+
+# 3. Chấp nhận license
+sudo xcodebuild -license accept
+
+# 4. Cài CocoaPods
+sudo gem install cocoapods
+# Hoặc qua Homebrew:
+brew install cocoapods
+
+# 5. Kiểm tra
+xcodebuild -version
+pod --version
+2.4. EAS CLI (cho cloud builds)
+npm install -g eas-cli
+eas login
+# Đăng nhập tài khoản Expo
+3. Setup Project Lần Đầu
+3.1. Clone & Install
+cd /path/to/project
+cd asinu
+
+# Cài dependencies
+npm install
+
+# Copy env file
+cp .env.example .env
+# → Sửa .env theo môi trường của bạn
+3.2. Cấu hình .env
+Các biến quan trọng cần set:
+
+# API backend
+EXPO_PUBLIC_API_BASE_URL=https://asinu.top
+
+# OAuth (nếu cần test đăng nhập thật)
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=...
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=...
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...
+
+# Development mode
+EXPO_PUBLIC_USE_MOCK_OAUTH=true   # true nếu chưa setup OAuth
+EXPO_PUBLIC_DEV_BYPASS_AUTH=0
+3.3. Prebuild Native Projects
+# Sinh lại thư mục android/ và ios/ từ app.json
+npx expo prebuild
+
+# Nếu muốn prebuild sạch (xóa cũ, tạo mới)
+npx expo prebuild --clean
+⚠️ LƯU Ý: Nếu đã có thư mục android/ và ios/ sẵn trong repo, KHÔNG chạy prebuild --clean trừ khi bạn biết mình đang làm gì. Nó sẽ xóa toàn bộ native code tùy chỉnh.
+
+3.4. Install iOS Pods
+cd ios
+pod install
+cd ..
+
+# Nếu lỗi, thử:
+cd ios
+pod deintegrate
+pod install --repo-update
+cd ..
+4. Build Android
+4.1. Chạy Debug trên Emulator/Device
+# Cách 1: Qua Expo
+npx expo run:android
+
+# Cách 2: Qua npm script
+npm run android
+
+# Cách 3: Trực tiếp Gradle
+cd android
+./gradlew assembleDebug
+4.2. Build Release APK
+# Script có sẵn
+npm run build:android
+
+# Hoặc trực tiếp
+cd android
+./gradlew assembleRelease
+
+# APK output tại:
+# android/app/build/outputs/apk/release/app-release.apk
+4.3. Build Release AAB (cho Google Play)
+cd android
+./gradlew bundleRelease
+
+# AAB output tại:
+# android/app/build/outputs/bundle/release/app-release.aab
+4.4. Cấu hình Signing (Release)
+Tạo file android/app/signing.properties hoặc set trong android/gradle.properties:
+
+# Tạo keystore trước:
+# keytool -genkeypair -v -storetype PKCS12 -keystore asinu-release.keystore -alias asinu -keyalg RSA -keysize 2048 -validity 10000
+
+MYAPP_UPLOAD_STORE_FILE=asinu-release.keystore
+MYAPP_UPLOAD_KEY_ALIAS=asinu
+MYAPP_UPLOAD_STORE_PASSWORD=***
+MYAPP_UPLOAD_KEY_PASSWORD=***
+🔴 QUAN TRỌNG: KHÔNG BAO GIỜ commit keystore và password lên Git!
+
+5. Build iOS
+5.1. Chạy Debug trên Simulator
+# Cách 1: Qua Expo
+npx expo run:ios
+
+# Cách 2: Qua npm script  
+npm run ios
+
+# Chọn simulator cụ thể
+npx expo run:ios --device "iPhone 16 Pro"
+5.2. Chạy trên Device thật
+Kết nối iPhone qua USB
+Mở Xcode → mở ios/Asinu.xcworkspace (KHÔNG mở .xcodeproj)
+Chọn Team trong Signing & Capabilities
+Chọn device thật làm target
+Build & Run (⌘+R)
+Hoặc qua CLI:
+
+npx expo run:ios --device
+# Chọn device từ danh sách
+5.3. Build IPA (Release)
+# Qua Xcode:
+# 1. Mở ios/Asinu.xcworkspace
+# 2. Product → Scheme → Edit Scheme → Set Release
+# 3. Product → Archive
+# 4. Organizer → Distribute App
+
+# Hoặc qua xcodebuild:
+cd ios
+xcodebuild -workspace Asinu.xcworkspace \
+  -scheme Asinu \
+  -sdk iphoneos \
+  -configuration Release \
+  archive -archivePath build/Asinu.xcarchive
+5.4. Provisioning & Signing (iOS)
+Loại	Dùng khi	Cần gì
+Development	Debug trên device	Apple ID miễn phí / Dev Account
+Ad Hoc	Test nội bộ (< 100 devices)	Apple Developer Account ($99/năm)
+App Store	Phát hành lên App Store	Apple Developer Account + App Store Connect
+Cách setup:
+
+Đăng ký Apple Developer Program tại https://developer.apple.com
+Tạo App ID: com.asinu.lite
+Tạo Provisioning Profile phù hợp
+Trong Xcode: Signing & Capabilities → chọn Team → Automatic Signing
+6. Build Với EAS (Cloud)
+Project đã cấu hình EAS. Các profile có sẵn:
+
+Profile	Mục đích	Output
+development	Dev client + debug	APK (Android)
+development-simulator	iOS Simulator	Simulator build
+simulator-standalone	iOS Simulator (no dev client)	Simulator build
+preview	Test nội bộ	Internal distribution
+production	Release	APK (Android)
+Lệnh build:
+# Android - Development
+eas build --platform android --profile development
+
+# iOS - Simulator
+eas build --platform ios --profile development-simulator
+
+# iOS - Standalone simulator (không cần dev server)
+eas build --platform ios --profile simulator-standalone
+
+# Production
+eas build --platform android --profile production
+eas build --platform ios --profile production
+
+# Build cả 2 platform
+eas build --platform all --profile production
+EAS Project ID
+bd2749a5-5dda-41fa-b306-648331738cde
+7. Lỗi Thường Gặp & Cách Sửa
+🔴 Android
+Lỗi	Nguyên nhân	Cách sửa
+SDK location not found	Chưa set ANDROID_HOME	Thêm vào ~/.zshrc (xem mục 2.2)
+Could not determine java version	Sai JDK	Cài JDK 17, set JAVA_HOME
+Execution failed for task ':app:mergeDebugNativeLibs'	NDK thiếu	Cài NDK 26.1.10909125 qua SDK Manager
+Build failed with an exception - Gradle	Cache hỏng	cd android && ./gradlew clean
+Unable to load script	Metro chưa chạy	Chạy npx expo start trước
+java.lang.OutOfMemoryError	RAM Gradle thiếu	Đã set -Xmx2048m trong gradle.properties
+Duplicate class	Dependency conflict	cd android && ./gradlew clean rồi rebuild
+INSTALL_FAILED_UPDATE_INCOMPATIBLE	Signature mismatch	Gỡ app cũ trên device rồi cài lại
+Reset Android build hoàn toàn:
+
+cd android
+./gradlew clean
+rm -rf .gradle
+rm -rf app/build
+cd ..
+npm install
+npx expo run:android
+🔴 iOS
+Lỗi	Nguyên nhân	Cách sửa
+No bundle URL present	Metro chưa chạy	Chạy npx expo start trước
+Pod install failed	Cache Pods hỏng	Xem “Reset iOS” bên dưới
+Signing requires a development team	Chưa chọn Team	Mở Xcode → Signing → chọn Team
+The sandbox is not in sync	Pods outdated	cd ios && pod install
+Framework not found hermes	Hermes config sai	Kiểm tra Podfile.properties.json
+Build input file cannot be found	File reference hỏng	Clean build folder (⌘+Shift+K)
+Multiple commands produce	Duplicate resources	Clean + pod deintegrate + pod install
+Undefined symbol (linking)	Missing pod	pod install --repo-update
+Reset iOS build hoàn toàn:
+
+cd ios
+pod deintegrate
+rm -rf Pods
+rm -rf build
+rm Podfile.lock
+pod install --repo-update
+cd ..
+
+# Xóa thêm Xcode cache
+rm -rf ~/Library/Developer/Xcode/DerivedData/Asinu-*
+🔴 Chung
+Lỗi	Cách sửa
+node_modules hỏng	rm -rf node_modules && npm install
+Metro cache cũ	npx expo start --clear
+Expo prebuild lỗi	npx expo prebuild --clean ⚠️
+.git/index.lock	rm .git/index.lock
+Patch-package lỗi	npx patch-package (sau npm install)
+8. Lưu Ý Quan Trọng
+⚡ Performance
+Hermes đang được bật cho iOS (Podfile.properties.json: hermes), Android config là jsc trong gradle.properties → kiểm tra lại nếu muốn đồng nhất
+New Architecture đang enabled trên iOS, disabled trên Android (newArchEnabled=false trong gradle.properties) → Có thể gây khác biệt behavior giữa 2 platform
+Gradle JVM đã set Xmx2048m — nếu máy yếu có thể bị chậm, máy mạnh tăng lên 4096m
+🔒 Bảo Mật
+KHÔNG commit file .env lên Git (đã có trong .gitignore)
+KHÔNG commit keystore / signing certificates
+KHÔNG để OAuth Client Secret trong code frontend
+Dùng expo-secure-store cho sensitive data (đã cài)
+Google OAuth URL Scheme đã cấu hình trong app.json → giữ nguyên
+📦 Dependencies Đặc Biệt
+Project sử dụng patch-package cho 3 packages:
+
+expo-application+7.0.8
+expo-crypto+15.0.8
+expo-web-browser+15.0.10
+→ Sau mỗi lần npm install, patches tự động apply. Nếu upgrade các package này, phải tạo lại patch hoặc kiểm tra compatibility.
+
+🏗️ Cấu Hình Đáng Chú Ý
+Config	Giá trị	File
+Bundle Identifier (iOS)	com.asinu.lite	app.json
+Package Name (Android)	com.asinu.lite	app.json
+Min SDK Android	24 (Android 7.0)	build.gradle
+Target SDK Android	34 (Android 14)	build.gradle
+Compile SDK Android	35 (Android 15)	build.gradle
+iOS Deployment Target	15.1	Podfile
+Hermes (iOS)	✅ Enabled	Podfile.properties.json
+Hermes (Android)	✅ Enabled (gradle.properties)	gradle.properties
+New Arch (iOS)	✅ Enabled	Podfile.properties.json
+New Arch (Android)	❌ Disabled	gradle.properties
+🧹 Lệnh Dọn Dẹp Tổng Hợp (Nuclear Clean)
+Khi mọi thứ đều hỏng, chạy toàn bộ:
+
+# 1. Xóa node_modules
+rm -rf node_modules
+rm -rf package-lock.json
+
+# 2. Xóa Android build
+rm -rf android/.gradle
+rm -rf android/app/build
+
+# 3. Xóa iOS build
+rm -rf ios/Pods
+rm -rf ios/Podfile.lock
+rm -rf ios/build
+rm -rf ~/Library/Developer/Xcode/DerivedData/Asinu-*
+
+# 4. Xóa Metro & Expo cache
+rm -rf .expo
+rm -rf /tmp/metro-*
+rm -rf /tmp/haste-map-*
+
+# 5. Cài lại từ đầu
+npm install
+cd ios && pod install && cd ..
+
+# 6. Chạy
+npx expo start --clear
+📱 Test Devices
+Android Emulator: Dùng API 34+ để test, tạo qua Android Studio → AVD Manager
+iOS Simulator: Dùng iPhone 15/16 Pro, cài qua Xcode → Settings → Platforms
+Device thật (Android): Bật Developer Options → USB Debugging
+Device thật (iOS): Cần Apple Developer Account (miễn phí chỉ được 7 ngày)
+Checklist Trước Khi Build
+node -v → 18+ ✅
+java -version → 17 ✅
+$ANDROID_HOME đã set ✅
+Android SDK 35 đã cài ✅
+NDK 26.1.10909125 đã cài ✅
+Xcode + Command Line Tools ✅
+CocoaPods đã cài ✅
+.env đã copy và cấu hình ✅
+npm install thành công ✅
+pod install thành công (iOS) ✅
+Backend đang chạy tại localhost:3000 ✅
