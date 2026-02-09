@@ -86,7 +86,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.asinu"
+    namespace "com.asinu.lite"
     defaultConfig {
         applicationId 'com.asinu.lite'
         minSdkVersion rootProject.ext.minSdkVersion
