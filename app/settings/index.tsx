@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import DeleteAccountModal from '../../src/components/DeleteAccountModal';
 import { Screen } from '../../src/components/Screen';
 import { authApi } from '../../src/features/auth/auth.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
@@ -31,6 +32,7 @@ export default function SettingsScreen() {
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
@@ -122,6 +124,34 @@ export default function SettingsScreen() {
     router.replace('/login');
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      const result = await authApi.deleteAccount();
+      if (result.ok) {
+        // Xóa tất cả dữ liệu local
+        await AsyncStorage.multiRemove([
+          STORAGE_KEY_NOTIFICATIONS,
+          STORAGE_KEY_REMINDERS,
+          '@app/font_size_scale'
+        ]);
+        // Đăng xuất và điều hướng về login
+        await logout();
+        setShowDeleteModal(false);
+        router.replace('/login');
+        
+        // Hiển thị thông báo sau khi đã chuyển trang
+        setTimeout(() => {
+          Alert.alert('Thành công', 'Tài khoản của bạn đã được xóa');
+        }, 500);
+      } else {
+        Alert.alert('Lỗi', 'Không thể xóa tài khoản. Vui lòng thử lại');
+      }
+    } catch (error) {
+      console.error('[settings] Delete account error:', error);
+      Alert.alert('Lỗi', 'Đã xảy ra lỗi khi xóa tài khoản');
+    }
+  };
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={[styles.container, { paddingTop: padTop }]}>
@@ -193,10 +223,27 @@ export default function SettingsScreen() {
         </View>
 
         <Button label="Đăng xuất" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
+        
+        <Pressable 
+          style={styles.deleteAccountButton}
+          onPress={() => setShowDeleteModal(true)}
+        >
+          <MaterialCommunityIcons name="delete-forever" size={20} color="#ffffff" />
+          <Text style={[styles.deleteAccountText, { fontSize: scaledTypography.size.sm }]}>
+            Xóa tài khoản vĩnh viễn
+          </Text>
+        </Pressable>
+
         <Text style={[styles.versionText, { fontSize: scaledTypography.size.xs }]}>
           v.1 (Bản thử nghiệm)
         </Text>
       </ScrollView>
+
+      <DeleteAccountModal
+        visible={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteAccount}
+      />
     </Screen>
   );
 }
@@ -273,5 +320,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.textSecondary,
     width: '100%'
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.danger,
+    borderWidth: 0
+  },
+  deleteAccountText: {
+    color: '#ffffff',
+    fontWeight: '600'
   }
 });

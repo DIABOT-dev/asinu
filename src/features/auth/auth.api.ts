@@ -80,6 +80,6 @@ export const authApi = {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/auth/logout', { method: 'POST' });
   },
   deleteAccount() {
-    return apiClient<{ ok: boolean; message: string }>('/api/auth/me', { method: 'DELETE' });
+    return apiClient<{ ok: boolean; message: string }>('/api/mobile/profile', { method: 'DELETE' });
   }
 };
