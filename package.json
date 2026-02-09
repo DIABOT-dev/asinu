@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "build:android": "cd android && ./gradlew bundleRelease",
-    "lint:assets": "node scripts/check-assets.js"
+    "lint:assets": "node scripts/check-assets.js",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "~14.0.4",
