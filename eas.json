@@ -56,7 +56,7 @@
       "autoIncrement": true,
       "node": "20.18.1",
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "prod",
