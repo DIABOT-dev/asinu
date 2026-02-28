@@ -2,6 +2,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
@@ -14,6 +15,8 @@ import { colors, spacing, typography } from '../../../src/styles';
 
 export default function MissionsScreen() {
   const { missions, status, isStale, errorState, fetchMissions } = useMissionActions();
+  const { t } = useTranslation('missions');
+  const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
 
@@ -42,7 +45,7 @@ export default function MissionsScreen() {
       {isStale || errorState === 'remote-failed' ? <OfflineBanner /> : null}
       {status === 'loading' && missions.length === 0 ? <StateLoading /> : null}
       {errorState === 'no-data' && missions.length === 0 ? (
-        <StateError onRetry={() => fetchMissions()} message="Không tải dữ liệu được" />
+        <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
       ) : null}
       <ScrollView
         contentContainerStyle={[styles.container, { paddingTop: padTop }]}
@@ -68,8 +71,8 @@ export default function MissionsScreen() {
           <View style={styles.headerIconContainer}>
             <MaterialCommunityIcons name="flag-checkered" size={32} color="#fff" />
           </View>
-          <Text style={styles.headerTitle}>Nhiệm vụ hàng ngày</Text>
-          <Text style={styles.headerSubtitle}>Làm mới mỗi ngày lúc 00:00</Text>
+          <Text style={styles.headerTitle}>{t('dailyMissions')}</Text>
+          <Text style={styles.headerSubtitle}>{t('refreshDaily')}</Text>
         </LinearGradient>
 
         {/* Stats Row */}
@@ -77,12 +80,12 @@ export default function MissionsScreen() {
           <View style={[styles.statCard, styles.statCardActive]}>
             <Ionicons name="time-outline" size={20} color="#f59e0b" />
             <Text style={styles.statValue}>{missions.filter(m => m.status !== 'completed').length}</Text>
-            <Text style={styles.statLabel}>Đang thực hiện</Text>
+            <Text style={styles.statLabel}>{t('inProgress')}</Text>
           </View>
           <View style={[styles.statCard, styles.statCardCompleted]}>
             <Ionicons name="checkmark-circle" size={20} color="#10b981" />
             <Text style={styles.statValue}>{missions.filter(m => m.status === 'completed').length}</Text>
-            <Text style={styles.statLabel}>Hoàn thành</Text>
+            <Text style={styles.statLabel}>{t('completed')}</Text>
           </View>
         </View>
         
@@ -92,26 +95,26 @@ export default function MissionsScreen() {
             <View style={styles.infoIconBg}>
               <Ionicons name="information-circle" size={18} color="#fff" />
             </View>
-            <Text style={styles.infoTitle}>Cách hoạt động</Text>
+            <Text style={styles.infoTitle}>{t('howItWorks')}</Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="refresh-circle" size={16} color={colors.primary} />
-            <Text style={styles.infoText}>Nhiệm vụ reset tiến trình mỗi ngày</Text>
+            <Text style={styles.infoText}>{t('resetDaily')}</Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="leaf" size={16} color="#10b981" />
-            <Text style={styles.infoText}>Khi hoàn thành, điểm được cộng vào "Cây sức khỏe"</Text>
+            <Text style={styles.infoText}>{t('pointsToTree')}</Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="book" size={16} color="#8b5cf6" />
-            <Text style={styles.infoText}>Lịch sử hoàn thành được lưu để theo dõi</Text>
+            <Text style={styles.infoText}>{t('historyTracked')}</Text>
           </View>
         </View>
 
         {/* Section Title */}
         <View style={styles.sectionHeader}>
           <Ionicons name="list" size={20} color={colors.textPrimary} />
-          <Text style={styles.sectionTitle}>Danh sách nhiệm vụ</Text>
+          <Text style={styles.sectionTitle}>{t('missionList')}</Text>
         </View>
 
         {missions.map((mission, index) => {
@@ -155,7 +158,7 @@ export default function MissionsScreen() {
                       color={isCompleted ? '#10b981' : '#f59e0b'} 
                     />
                     <Text style={[styles.statusText, isCompleted ? styles.statusTextCompleted : styles.statusTextActive]}>
-                      {isCompleted ? 'Đã hoàn thành' : 'Đang thực hiện'}
+                      {isCompleted ? t('statusCompleted') : t('statusInProgress')}
                     </Text>
                   </View>
                 </View>
@@ -165,7 +168,7 @@ export default function MissionsScreen() {
         })}
         {status === 'loading' && missions.length > 0 && (
           <View style={styles.loadingMore}>
-            <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+            <Text style={styles.loadingText}>{t('loadingData')}</Text>
           </View>
         )}
       </ScrollView>

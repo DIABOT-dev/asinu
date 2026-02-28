@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
@@ -9,12 +10,13 @@ type AsinuChatStickerProps = {
 };
 
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
+  const { t } = useTranslation('chat');
   const scaledTypography = useScaledTypography();
   return (
     <Pressable style={styles.wrapper} onPress={onPress} accessibilityRole="button">
       <Image source={AsinuSticker} style={styles.sticker} resizeMode="contain" />
       <View style={styles.bubble} pointerEvents="none">
-        <Text style={[styles.bubbleText, { fontSize: scaledTypography.size.md }]}>Hãy nói chuyện với Asinu nhé!</Text>
+        <Text style={[styles.bubbleText, { fontSize: scaledTypography.size.md }]}>{t('stickerText')}</Text>
         <View style={styles.tail} />
       </View>
     </Pressable>

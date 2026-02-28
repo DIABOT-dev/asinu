@@ -1,0 +1,12 @@
+{
+  "welcome": "Hi, I'm Asinu Chat. How can I help you?",
+  "errorReply": "Sorry, I can't answer right now.",
+  "systemBusy": "Sorry, the system is busy. Please try again later.",
+  "title": "Chat with Asinu",
+  "typing": "Asinu is typing...",
+  "placeholder": "Enter message",
+  "mascotGreeting": "Hi, I'm Asinu!",
+  "stickerText": "Chat with Asinu!",
+  "initialGreeting": "Hi, I'm Asinu. How can I help you?",
+  "sampleUserMessage": "I want to track my health daily."
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
@@ -19,6 +20,7 @@ export type AiChatLayoutProps = {
 };
 
 export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping = false, onSend }: AiChatLayoutProps) => {
+  const { t } = useTranslation(['chat', 'common']);
   const [draft, setDraft] = useState('');
   const scaledTypography = useScaledTypography();
 
@@ -44,18 +46,18 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
             </View>
           </View>
         )}
-        ListFooterComponent={isTyping ? <Text style={[styles.typing, { fontSize: scaledTypography.size.sm }]}>Asinu đang soạn tin...</Text> : null}
+        ListFooterComponent={isTyping ? <Text style={[styles.typing, { fontSize: scaledTypography.size.sm }]}>{t('chat:typing')}</Text> : null}
       />
       <View style={styles.composer}>
         <TextInput
           style={[styles.input, { fontSize: scaledTypography.size.md }]}
-          placeholder="Nhập tin nhắn"
+          placeholder={t('chat:placeholder')}
           placeholderTextColor={colors.textSecondary}
           value={draft}
           onChangeText={setDraft}
         />
         <Pressable style={styles.sendButton} onPress={handleSend}>
-          <Text style={[styles.sendLabel, { fontSize: scaledTypography.size.md }]}>Gửi</Text>
+          <Text style={[styles.sendLabel, { fontSize: scaledTypography.size.md }]}>{t('common:send')}</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>

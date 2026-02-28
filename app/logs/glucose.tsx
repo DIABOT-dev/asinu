@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
@@ -16,16 +17,8 @@ import { spacing } from '../../src/styles';
 import { colors } from '../../src/styles/theme';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
-// Enum options cho glucose context
-const GLUCOSE_CONTEXT_OPTIONS = [
-  { label: 'Khi đói (sáng)', value: 'fasting' },
-  { label: 'Trước ăn', value: 'pre_meal' },
-  { label: 'Sau ăn (2h)', value: 'post_meal' },
-  { label: 'Trước ngủ', value: 'before_sleep' },
-  { label: 'Ngẫu nhiên', value: 'random' },
-];
-
 export default function GlucoseLogScreen() {
+  const { t } = useTranslation('logs');
   const router = useRouter();
   const [value, setValue] = useState('');
   const [context, setContext] = useState('pre_meal');
@@ -37,6 +30,14 @@ export default function GlucoseLogScreen() {
   const profile = useAuthStore((state) => state.profile);
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
+
+  const GLUCOSE_CONTEXT_OPTIONS = useMemo(() => [
+    { label: t('ctxFasting'), value: 'fasting' },
+    { label: t('ctxPreMeal'), value: 'pre_meal' },
+    { label: t('ctxPostMeal'), value: 'post_meal' },
+    { label: t('ctxBeforeSleep'), value: 'before_sleep' },
+    { label: t('ctxRandom'), value: 'random' },
+  ], [t]);
 
   // Fetch latest log to pre-fill form
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function GlucoseLogScreen() {
   const handleSubmit = async () => {
     // Validate
     if (!value || isNaN(parseFloat(value))) {
-      setErrors({ value: 'Vui lòng nhập giá trị hợp lệ' });
+      setErrors({ value: t('enterValidValue') });
       return;
     }
     setErrors({});
@@ -90,8 +91,8 @@ export default function GlucoseLogScreen() {
       setIsSaving(false);
       // Show success message
       Alert.alert(
-        'Thành công!',
-        'Ghi nhật ký thành công!',
+        t('successTitle'),
+        t('logSuccess'),
         [
           {
             text: 'OK'
@@ -100,7 +101,7 @@ export default function GlucoseLogScreen() {
       );
     } catch (error) {
       setIsSaving(false);
-      Alert.alert('Lưu thất bại', 'Vui lòng thử lại!');
+      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -108,7 +109,7 @@ export default function GlucoseLogScreen() {
     () => ({
       headerShown: true,
       presentation: 'modal' as const,
-      title: 'Ghi chỉ số',
+      title: t('logMetrics'),
       headerStyle: styles.header,
       headerTitleStyle: styles.headerTitle,
       headerLeft: () => (
@@ -117,7 +118,7 @@ export default function GlucoseLogScreen() {
         </TouchableOpacity>
       ),
     }),
-    [handleBack]
+    [handleBack, t]
   );
 
   const keyboardAvoidingStyle = useMemo(() => ({ flex: 1 }), []);
@@ -130,7 +131,7 @@ export default function GlucoseLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message="Đang ghi nhật ký..." />
+        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={keyboardAvoidingStyle}
@@ -145,17 +146,17 @@ export default function GlucoseLogScreen() {
               contentContainerStyle={scrollContentStyle}
               keyboardShouldPersistTaps="handled"
             >
-              <H1SectionHeader title="Đường huyết" subtitle="Ghi nhanh" />
-              <TextInput label="Giá trị (mg/dL)" keyboardType="numeric" value={value} onChangeText={setValue} error={errors.value} />
-              <SelectInput 
-                label="Thời điểm đo" 
-                value={context} 
+              <H1SectionHeader title={t('glucose')} subtitle={t('quickLog')} />
+              <TextInput label={t('glucoseValue')} keyboardType="numeric" value={value} onChangeText={setValue} error={errors.value} />
+              <SelectInput
+                label={t('glucoseContextLabel')}
+                value={context}
                 options={GLUCOSE_CONTEXT_OPTIONS}
                 onSelect={setContext}
-                placeholder="Chọn thời điểm"
+                placeholder={t('selectTime')}
               />
-              <TextInput label="Ghi chú" value={notes} onChangeText={setNotes} multiline />
-              <Button label="Lưu" onPress={handleSubmit} disabled={isSaving} />
+              <TextInput label={t('notes')} value={notes} onChangeText={setNotes} multiline />
+              <Button label={t('save')} onPress={handleSubmit} disabled={isSaving} />
             </ScrollView>
           )}
         </KeyboardAvoidingView>

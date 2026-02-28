@@ -57,15 +57,20 @@ export type InsulinLogPayload = BaseLogPayload & {
   injection_site?: string;
 };
 
-// Map Vietnamese tags to backend context
-const tagToContext: Record<string, string> = {
-  'Trước ăn': 'pre_meal',
-  'Sau ăn': 'post_meal',
-  'Đói': 'fasting',
-  'Trước ngủ': 'before_sleep',
-  'Ngẫu nhiên': 'random',
-  'Buổi sáng': 'fasting',
-  'Buổi tối': 'before_sleep'
+// Map UI tag keys to backend context (using i18n keys from logs namespace)
+import i18n from '../../i18n';
+
+const getTagToContext = (): Record<string, string> => {
+  const t = (key: string) => i18n.t(key, { ns: 'logs' });
+  return {
+    [t('ctxPreMeal')]: 'pre_meal',
+    [t('ctxPostMeal')]: 'post_meal',
+    [t('ctxFasting')]: 'fasting',
+    [t('ctxBeforeSleep')]: 'before_sleep',
+    [t('ctxRandom')]: 'random',
+    [t('bpMorning')]: 'fasting',
+    [t('bpEvening')]: 'before_sleep'
+  };
 };
 
 type LogsResponse = {
@@ -82,7 +87,7 @@ type CreateLogResponse = {
 // Transform frontend payload to backend format
 const transformToBackendPayload = (logType: string, frontendPayload: BaseLogPayload & Record<string, any>) => {
   const now = new Date().toISOString();
-  const context = frontendPayload.tags?.[0] ? tagToContext[frontendPayload.tags[0]] : undefined;
+  const context = frontendPayload.tags?.[0] ? getTagToContext()[frontendPayload.tags[0]] : undefined;
   
   let data: Record<string, any> = {};
   

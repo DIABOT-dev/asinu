@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
 import { colors, spacing } from '../../../styles';
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export const PulsePopup = ({ visible, onClose }: Props) => {
+  const { t } = useTranslation('home');
   const recordPopupDismiss = useCarePulseStore((state) => state.recordPopupDismiss);
   const scaledTypography = useScaledTypography();
 
@@ -23,9 +25,9 @@ export const PulsePopup = ({ visible, onClose }: Props) => {
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Pressable onPress={handleDismiss} style={styles.closeButton}>
-            <Text style={[styles.closeText, { fontSize: scaledTypography.size.md }]}>Đóng</Text>
+            <Text style={[styles.closeText, { fontSize: scaledTypography.size.md }]}>{t('common:close')}</Text>
           </Pressable>
-          <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>Bạn đang cảm thấy thế nào?</Text>
+          <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>{t('pulseQuestion')}</Text>
           <PulseWidget triggerSource="POPUP" onComplete={onClose} />
         </View>
       </View>

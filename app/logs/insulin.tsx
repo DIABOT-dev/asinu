@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
@@ -15,34 +16,8 @@ import { spacing } from '../../src/styles';
 import { colors } from '../../src/styles/theme';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
-// Enum options cho insulin timing
-const INSULIN_TIMING_OPTIONS = [
-  { label: 'Trước ăn', value: 'pre_meal' },
-  { label: 'Sau ăn', value: 'post_meal' },
-  { label: 'Trước ngủ', value: 'bedtime' },
-  { label: 'Điều chỉnh', value: 'correction' },
-];
-
-// Options cho loại insulin
-const INSULIN_TYPE_OPTIONS = [
-  { label: 'NovoRapid (Nhanh)', value: 'NovoRapid' },
-  { label: 'Humalog (Nhanh)', value: 'Humalog' },
-  { label: 'Apidra (Nhanh)', value: 'Apidra' },
-  { label: 'Lantus (Chậm)', value: 'Lantus' },
-  { label: 'Levemir (Chậm)', value: 'Levemir' },
-  { label: 'Tresiba (Siêu chậm)', value: 'Tresiba' },
-  { label: 'Khác', value: 'other' },
-];
-
-// Options cho vị trí tiêm
-const INJECTION_SITE_OPTIONS = [
-  { label: 'Bụng', value: 'abdomen' },
-  { label: 'Đùi', value: 'thigh' },
-  { label: 'Cánh tay', value: 'arm' },
-  { label: 'Mông', value: 'buttock' },
-];
-
 export default function InsulinLogScreen() {
+  const { t } = useTranslation('logs');
   const router = useRouter();
   const [insulinType, setInsulinType] = useState('');
   const [dose, setDose] = useState('');
@@ -55,6 +30,30 @@ export default function InsulinLogScreen() {
   const createInsulin = useLogsStore((state) => state.createInsulin);
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
+
+  const INSULIN_TIMING_OPTIONS = useMemo(() => [
+    { label: t('timingPreMeal'), value: 'pre_meal' },
+    { label: t('timingPostMeal'), value: 'post_meal' },
+    { label: t('timingBedtime'), value: 'bedtime' },
+    { label: t('timingCorrection'), value: 'correction' },
+  ], [t]);
+
+  const INSULIN_TYPE_OPTIONS = useMemo(() => [
+    { label: t('insulinNovoRapid'), value: 'NovoRapid' },
+    { label: t('insulinHumalog'), value: 'Humalog' },
+    { label: t('insulinApidra'), value: 'Apidra' },
+    { label: t('insulinLantus'), value: 'Lantus' },
+    { label: t('insulinLevemir'), value: 'Levemir' },
+    { label: t('insulinTresiba'), value: 'Tresiba' },
+    { label: t('insulinOther'), value: 'other' },
+  ], [t]);
+
+  const INJECTION_SITE_OPTIONS = useMemo(() => [
+    { label: t('siteAbdomen'), value: 'abdomen' },
+    { label: t('siteThigh'), value: 'thigh' },
+    { label: t('siteArm'), value: 'arm' },
+    { label: t('siteButtock'), value: 'buttock' },
+  ], [t]);
 
   // Fetch latest log to pre-fill form
   useEffect(() => {
@@ -95,8 +94,8 @@ export default function InsulinLogScreen() {
       setIsSaving(false);
       // Show success message
       Alert.alert(
-        'Thành công!',
-        'Ghi nhật ký thành công!',
+        t('successTitle'),
+        t('logSuccess'),
         [
           {
             text: 'OK'
@@ -105,7 +104,7 @@ export default function InsulinLogScreen() {
       );
     } catch (error) {
       setIsSaving(false);
-      Alert.alert('Lưu thất bại', 'Vui lòng thử lại!');
+      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -113,7 +112,7 @@ export default function InsulinLogScreen() {
     () => ({
       headerShown: true,
       presentation: 'modal' as const,
-      title: 'Ghi chỉ số',
+      title: t('logMetrics'),
       headerStyle: styles.header,
       headerTitleStyle: styles.headerTitle,
       headerLeft: () => (
@@ -122,7 +121,7 @@ export default function InsulinLogScreen() {
         </TouchableOpacity>
       ),
     }),
-    [handleBack]
+    [handleBack, t]
   );
 
   const scrollContentStyle = useMemo(
@@ -134,7 +133,7 @@ export default function InsulinLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message="Đang ghi nhật ký..." />
+        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -146,32 +145,32 @@ export default function InsulinLogScreen() {
             </View>
           ) : (
             <ScrollView contentContainerStyle={scrollContentStyle} keyboardShouldPersistTaps="handled">
-              <H1SectionHeader title="Insulin" subtitle="Ghi nhanh" />
-              <SelectInput 
-                label="Loại insulin" 
-                value={insulinType} 
+              <H1SectionHeader title={t('insulin')} subtitle={t('quickLog')} />
+              <SelectInput
+                label={t('insulinType')}
+                value={insulinType}
                 options={INSULIN_TYPE_OPTIONS}
                 onSelect={setInsulinType}
-                placeholder="Chọn loại insulin"
+                placeholder={t('selectInsulinType')}
               />
-              <TextInput label="Liều lượng (đơn vị)" keyboardType="numeric" value={dose} onChangeText={setDose} error={errors.dose_units} />
-              <SelectInput 
-                label="Thời điểm" 
-                value={timing} 
+              <TextInput label={t('insulinDose')} keyboardType="numeric" value={dose} onChangeText={setDose} error={errors.dose_units} />
+              <SelectInput
+                label={t('insulinTiming')}
+                value={timing}
                 options={INSULIN_TIMING_OPTIONS}
                 onSelect={setTiming}
-                placeholder="Chọn thời điểm"
+                placeholder={t('selectTime')}
               />
-              <SelectInput 
-                label="Vị trí tiêm" 
-                value={injectionSite} 
+              <SelectInput
+                label={t('injectionSite')}
+                value={injectionSite}
                 options={INJECTION_SITE_OPTIONS}
                 onSelect={setInjectionSite}
-                placeholder="Chọn vị trí tiêm"
+                placeholder={t('selectInjectionSite')}
               />
-              <TextInput label="Ghi chú" value={notes} onChangeText={setNotes} multiline />
+              <TextInput label={t('notes')} value={notes} onChangeText={setNotes} multiline />
               {errors.dose_units ? <Text style={styles.error}>{errors.dose_units}</Text> : null}
-              <Button label="Lưu" onPress={handleSubmit} disabled={isSaving} />
+              <Button label={t('save')} onPress={handleSubmit} disabled={isSaving} />
             </ScrollView>
           )}
         </KeyboardAvoidingView>

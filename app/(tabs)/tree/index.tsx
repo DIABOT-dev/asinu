@@ -3,8 +3,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import i18n from '../../../src/i18n';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { Screen } from '../../../src/components/Screen';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
@@ -17,6 +19,8 @@ import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
 import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
 
 export default function TreeScreen() {
+  const { t } = useTranslation('tree');
+  const { t: tc } = useTranslation('common');
   const summary = useTreeStore((state) => state.summary);
   const history = useTreeStore((state) => state.history);
   const fetchTree = useTreeStore((state) => state.fetchTree);
@@ -37,7 +41,7 @@ export default function TreeScreen() {
     if (Number.isNaN(date.getTime())) {
       return '';
     }
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString(i18n.language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
   const latestLogByType = (type: string) =>
@@ -51,12 +55,12 @@ export default function TreeScreen() {
   const metrics = [
     {
       key: 'glucose',
-      title: 'Đường huyết',
+      title: t('glucose'),
       value: typeof glucoseLog?.value === 'number' ? `${glucoseLog.value}` : '--',
       unit: 'mg/dL',
       meta: glucoseLog?.recordedAt
-        ? `Gần nhất: ${formatTime(glucoseLog.recordedAt)}`
-        : 'Chưa có dữ liệu',
+        ? t('latest', { time: formatTime(glucoseLog.recordedAt) })
+        : t('noDataYet'),
       trend: undefined,
       icon: 'water' as const,
       iconColor: '#3b82f6',
@@ -65,13 +69,13 @@ export default function TreeScreen() {
     },
     {
       key: 'blood-pressure',
-      title: 'Huyết áp',
+      title: t('bloodPressure'),
       value:
         typeof bpLog?.systolic === 'number' && typeof bpLog?.diastolic === 'number'
           ? `${bpLog.systolic}/${bpLog.diastolic}`
           : '--',
       unit: 'mmHg',
-      meta: bpLog?.recordedAt ? `Gần nhất: ${formatTime(bpLog.recordedAt)}` : 'Chưa có dữ liệu',
+      meta: bpLog?.recordedAt ? t('latest', { time: formatTime(bpLog.recordedAt) }) : t('noDataYet'),
       trend: undefined,
       icon: 'heart-pulse' as const,
       iconColor: '#ef4444',
@@ -80,10 +84,10 @@ export default function TreeScreen() {
     },
     {
       key: 'weight',
-      title: 'Cân nặng',
+      title: t('weight'),
       value: typeof weightLog?.weight_kg === 'number' ? `${weightLog.weight_kg}` : '--',
       unit: 'kg',
-      meta: weightLog?.recordedAt ? `Gần nhất: ${formatTime(weightLog.recordedAt)}` : 'Chưa có dữ liệu',
+      meta: weightLog?.recordedAt ? t('latest', { time: formatTime(weightLog.recordedAt) }) : t('noDataYet'),
       trend: undefined,
       icon: 'scale-bathroom' as const,
       iconColor: '#8b5cf6',
@@ -92,10 +96,10 @@ export default function TreeScreen() {
     },
     {
       key: 'water',
-      title: 'Nước uống',
+      title: t('waterIntake'),
       value: typeof waterLog?.volume_ml === 'number' ? `${waterLog.volume_ml}` : '--',
       unit: 'ml',
-      meta: waterLog?.volume_ml ? 'Hôm nay' : 'Chưa có dữ liệu',
+      meta: waterLog?.volume_ml ? t('todayLabel') : t('noDataYet'),
       trend: undefined,
       icon: 'cup-water' as const,
       iconColor: '#06b6d4',
@@ -130,7 +134,7 @@ export default function TreeScreen() {
     <Screen>
       {isStale || errorState === 'remote-failed' ? <OfflineBanner /> : null}
       {status === 'loading' && !summary ? <StateLoading /> : null}
-      {errorState === 'no-data' && !summary ? <StateError onRetry={() => fetchTree()} message="Không tải dữ liệu được" /> : null}
+      {errorState === 'no-data' && !summary ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
       <ScrollView 
         contentContainerStyle={[styles.container, { paddingTop: padTop }]}
         showsVerticalScrollIndicator={false}
@@ -155,8 +159,8 @@ export default function TreeScreen() {
           <View style={styles.headerIconContainer}>
             <FontAwesome5 name="tree" size={28} color="#fff" />
           </View>
-          <Text style={styles.headerTitle}>Cây sức khỏe</Text>
-          <Text style={styles.headerSubtitle}>Tổng hợp từ dữ liệu bạn ghi log</Text>
+          <Text style={styles.headerTitle}>{t('healthTree')}</Text>
+          <Text style={styles.headerSubtitle}>{t('summaryFromLogs')}</Text>
         </LinearGradient>
         
         {/* Giải thích cách tính điểm */}
@@ -165,28 +169,28 @@ export default function TreeScreen() {
             <View style={styles.infoIconBg}>
               <Ionicons name="bar-chart" size={16} color="#fff" />
             </View>
-            <Text style={styles.infoTitle}>Cách tính điểm</Text>
+            <Text style={styles.infoTitle}>{t('scoringMethod')}</Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="journal" size={14} color={colors.primary} />
-            <Text style={styles.infoText}>50% từ số lần ghi log (tối đa 14 lần/tuần)</Text>
+            <Text style={styles.infoText}>{t('logScore')}</Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="checkbox" size={14} color="#10b981" />
-            <Text style={styles.infoText}>50% từ nhiệm vụ hoàn thành</Text>
+            <Text style={styles.infoText}>{t('missionScore')}</Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="calendar" size={14} color="#8b5cf6" />
-            <Text style={styles.infoText}>Dữ liệu tính theo 7 ngày gần nhất</Text>
+            <Text style={styles.infoText}>{t('last7DaysData')}</Text>
           </View>
         </View>
 
         {/* Score Section */}
         <View style={styles.scoreSection}>
           <View style={styles.scoreCard}>
-            <T1ProgressRing percentage={summary?.score ?? 0.6} label="Điểm" accentColor={colors.warning} />
+            <T1ProgressRing percentage={summary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
             <Text style={styles.scoreCaption}>
-              {Math.round((summary?.score ?? 0) * 100)}% - {(summary?.score ?? 0) >= 0.7 ? 'Tốt' : (summary?.score ?? 0) >= 0.4 ? 'Trung bình' : 'Cần cố gắng'}
+              {Math.round((summary?.score ?? 0) * 100)}% - {(summary?.score ?? 0) >= 0.7 ? t('good') : (summary?.score ?? 0) >= 0.4 ? t('average') : t('needsImprovement')}
             </Text>
           </View>
           <View style={styles.streakCard}>
@@ -196,7 +200,7 @@ export default function TreeScreen() {
               </View>
               <View style={styles.streakContent}>
                 <Text style={styles.streakValue}>{summary?.streakDays ?? 0}</Text>
-                <Text style={styles.streakLabel}>ngày liên tiếp</Text>
+                <Text style={styles.streakLabel}>{t('consecutiveDays')}</Text>
               </View>
             </View>
             <View style={styles.streakDivider} />
@@ -206,7 +210,7 @@ export default function TreeScreen() {
               </View>
               <View style={styles.streakContent}>
                 <Text style={styles.streakValue}>{summary?.completedThisWeek ?? 0}/{summary?.totalMissions ?? 8}</Text>
-                <Text style={styles.streakLabel}>hôm nay</Text>
+                <Text style={styles.streakLabel}>{t('today')}</Text>
               </View>
             </View>
           </View>
@@ -215,7 +219,7 @@ export default function TreeScreen() {
         {/* Section Header */}
         <View style={styles.sectionHeader}>
           <Ionicons name="stats-chart" size={20} color={colors.textPrimary} />
-          <Text style={styles.sectionTitle}>Chỉ số sức khỏe</Text>
+          <Text style={styles.sectionTitle}>{t('healthMetrics')}</Text>
         </View>
 
         <View style={styles.metricGrid}>
@@ -237,7 +241,7 @@ export default function TreeScreen() {
           <View style={styles.emptyCard}>
             <Ionicons name="information-circle" size={24} color={colors.textSecondary} />
             <Text style={styles.emptyText}>
-              Bạn chưa có dữ liệu. Hãy ghi log hôm nay để thấy tiến trình.
+              {t('noDataPrompt')}
             </Text>
           </View>
         ) : null}
@@ -250,7 +254,7 @@ export default function TreeScreen() {
             style={styles.quickLogGradient}
           >
             <Ionicons name="add-circle" size={22} color="#fff" />
-            <Text style={styles.quickLogText}>Ghi nhanh</Text>
+            <Text style={styles.quickLogText}>{tc('quickLog')}</Text>
           </LinearGradient>
         </Pressable>
         
@@ -259,16 +263,16 @@ export default function TreeScreen() {
           <View style={styles.chartHeader}>
             <View style={styles.chartTitleRow}>
               <Ionicons name="trending-up" size={20} color={colors.primary} />
-              <Text style={styles.chartLabel}>Biểu đồ hoạt động 7 ngày</Text>
+              <Text style={styles.chartLabel}>{t('activityChart7Days')}</Text>
             </View>
-            <Text style={styles.chartExplain}>Mỗi lần ghi log = 25 điểm • Tối đa 100 điểm/ngày</Text>
+            <Text style={styles.chartExplain}>{t('chartExplain')}</Text>
           </View>
           {showChart ? (
-            <C1TrendChart data={chartData} title="Điểm hoạt động" unit="điểm" />
+            <C1TrendChart data={chartData} title={t('activityScore')} unit={t('scoreUnit')} />
           ) : (
             <View style={styles.placeholderCard}>
               <Ionicons name="analytics" size={32} color={colors.textSecondary} />
-              <Text style={styles.placeholderText}>Chưa có dữ liệu biểu đồ</Text>
+              <Text style={styles.placeholderText}>{t('noChartData')}</Text>
             </View>
           )}
         </View>

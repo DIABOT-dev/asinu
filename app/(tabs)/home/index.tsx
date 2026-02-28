@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
@@ -21,6 +22,8 @@ import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
 import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
 
 export default function HomeScreen() {
+  const { t } = useTranslation('home');
+  const { t: tc } = useTranslation('common');
   const [isChatOpen, setChatOpen] = useState(false);
   const router = useRouter();
   const {
@@ -94,8 +97,8 @@ export default function HomeScreen() {
       </View>
 
       {loading ? <StateLoading /> : null}
-      {noDataError ? <StateError onRetry={refreshAll} message="Không tải dữ liệu được" /> : null}
-      {!hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message="Chưa có dữ liệu" /> : null}
+      {noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
+      {!hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
       <ScrollView
         contentContainerStyle={[styles.container, { paddingTop: padTop }]}
         showsVerticalScrollIndicator={false}
@@ -116,9 +119,9 @@ export default function HomeScreen() {
           style={styles.heroBanner}
         >
           <View style={styles.heroContent}>
-            <Text style={styles.heroGreeting}>Xin chào,</Text>
-            <Text style={styles.heroName}>{profile?.name || 'Người chăm sóc'}</Text>
-            <Text style={styles.heroSummary}>Cùng đồng hành với bạn mỗi ngày</Text>
+            <Text style={styles.heroGreeting}>{t('greeting')}</Text>
+            <Text style={styles.heroName}>{profile?.name || t('defaultName')}</Text>
+            <Text style={styles.heroSummary}>{t('heroSummary')}</Text>
           </View>
           <Pressable style={styles.heroSettingsBtn} onPress={() => router.push('/settings')}>
             <Ionicons name="settings-outline" size={22} color="#fff" />
@@ -131,7 +134,7 @@ export default function HomeScreen() {
             <View style={styles.metricIconBg}>
               <MaterialCommunityIcons name="water" size={22} color="#3b82f6" />
             </View>
-            <Text style={styles.metricTitle}>Đường huyết</Text>
+            <Text style={styles.metricTitle}>{t('glucose')}</Text>
             <Text style={styles.metricValue}>{quickMetrics.glucose ?? '--'}</Text>
             <Text style={styles.metricUnit}>mg/dL</Text>
           </Pressable>
@@ -139,7 +142,7 @@ export default function HomeScreen() {
             <View style={[styles.metricIconBg, { backgroundColor: '#fef2f2' }]}>
               <MaterialCommunityIcons name="heart-pulse" size={22} color="#ef4444" />
             </View>
-            <Text style={styles.metricTitle}>Huyết áp</Text>
+            <Text style={styles.metricTitle}>{t('bloodPressure')}</Text>
             <Text style={styles.metricValue}>{quickMetrics.bloodPressure ?? '--'}</Text>
             <Text style={styles.metricUnit}>mmHg</Text>
           </Pressable>
@@ -152,8 +155,8 @@ export default function HomeScreen() {
             <Ionicons name="flag" size={18} color="#fff" />
           </View>
           <View>
-            <Text style={styles.sectionTitle}>Nhiệm vụ hôm nay</Text>
-            <Text style={styles.sectionSubtitle}>Làm mới mỗi ngày lúc 00:00</Text>
+            <Text style={styles.sectionTitle}>{t('todayMissions')}</Text>
+            <Text style={styles.sectionSubtitle}>{t('missionsRefreshDaily')}</Text>
           </View>
         </View>
         <View style={styles.cardList}>
@@ -191,7 +194,7 @@ export default function HomeScreen() {
                 onPress={() => router.push('/missions')}
               >
                 <Text style={[styles.missionBtnText, isCompleted && styles.missionBtnTextCompleted]}>
-                  {isCompleted ? 'Đã hoàn thành' : 'Xem chi tiết'}
+                  {isCompleted ? t('completed') : tc('viewDetails')}
                 </Text>
               </Pressable>
             </View>
@@ -205,21 +208,21 @@ export default function HomeScreen() {
             <Ionicons name="leaf" size={18} color="#fff" />
           </View>
           <View>
-            <Text style={styles.sectionTitle}>Cây sức khỏe</Text>
-            <Text style={styles.sectionSubtitle}>50% log + 50% nhiệm vụ • Tính theo 7 ngày</Text>
+            <Text style={styles.sectionTitle}>{t('healthTree')}</Text>
+            <Text style={styles.sectionSubtitle}>{t('treeFormula')}</Text>
           </View>
         </View>
         <View style={styles.treeCard}>
           <View style={styles.treeRow}>
-            <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label="Điểm" accentColor={colors.warning} />
+            <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
             <View style={styles.treeStats}>
               <View style={styles.treeStatItem}>
                 <View style={[styles.treeStatIcon, { backgroundColor: '#fef3c7' }]}>
                   <Ionicons name="flame" size={16} color="#f59e0b" />
                 </View>
                 <View>
-                  <Text style={styles.treeStatValue}>{treeSummary?.streakDays ?? 0} ngày</Text>
-                  <Text style={styles.treeStatLabel}>Chuỗi liên tiếp</Text>
+                  <Text style={styles.treeStatValue}>{treeSummary?.streakDays ?? 0} {t('days')}</Text>
+                  <Text style={styles.treeStatLabel}>{t('streak')}</Text>
                 </View>
               </View>
               <View style={styles.treeStatItem}>
@@ -228,13 +231,13 @@ export default function HomeScreen() {
                 </View>
                 <View>
                   <Text style={styles.treeStatValue}>{treeSummary?.completedThisWeek ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
-                  <Text style={styles.treeStatLabel}>Tuần này</Text>
+                  <Text style={styles.treeStatLabel}>{t('thisWeek')}</Text>
                 </View>
               </View>
             </View>
           </View>
           <Pressable style={styles.treeBtn} onPress={() => router.push('/tree')}>
-            <Text style={styles.treeBtnText}>Xem chi tiết</Text>
+            <Text style={styles.treeBtnText}>{tc('viewDetails')}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </Pressable>
         </View>
@@ -245,13 +248,13 @@ export default function HomeScreen() {
             <Ionicons name="trending-up" size={18} color="#fff" />
           </View>
           <View>
-            <Text style={styles.sectionTitle}>Xu hướng đường huyết</Text>
-            <Text style={styles.sectionSubtitle}>7 ngày gần nhất</Text>
+            <Text style={styles.sectionTitle}>{t('glucoseTrend')}</Text>
+            <Text style={styles.sectionSubtitle}>{t('last7Days')}</Text>
           </View>
         </View>
         <C1TrendChart
           data={glucoseTrendData.length > 0 ? glucoseTrendData : treeHistory}
-          title="Đường huyết"
+          title={t('glucose')}
           unit="mg/dL"
         />
 
@@ -261,7 +264,7 @@ export default function HomeScreen() {
             <Ionicons name="journal" size={18} color="#fff" />
           </View>
           <View>
-            <Text style={styles.sectionTitle}>Nhật ký gần đây</Text>
+            <Text style={styles.sectionTitle}>{t('recentLogs')}</Text>
           </View>
         </View>
         <View style={styles.logsCard}>
@@ -279,20 +282,20 @@ export default function HomeScreen() {
               <View style={styles.logContent}>
                 <Text style={styles.logType}>{log.type}</Text>
                 <Text style={styles.logValue}>
-                  {log.type === 'glucose' && (log.value ? `${log.value} mg/dL` : 'Chưa có dữ liệu')}
-                  {log.type === 'blood-pressure' && (log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} mmHg` : 'Chưa có dữ liệu')}
-                  {log.type === 'weight' && (log.weight_kg ? `${log.weight_kg} kg` : 'Chưa có dữ liệu')}
-                  {log.type === 'water' && (log.volume_ml ? `${log.volume_ml} ml` : 'Chưa có dữ liệu')}
-                  {log.type === 'medication' && (log.medication || 'Chưa có dữ liệu')}
-                  {log.type === 'meal' && (log.title || 'Chưa có dữ liệu')}
-                  {log.type === 'insulin' && (log.insulin_type ? `${log.dose_units} U` : 'Chưa có dữ liệu')}
+                  {log.type === 'glucose' && (log.value ? `${log.value} mg/dL` : tc('noData'))}
+                  {log.type === 'blood-pressure' && (log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} mmHg` : tc('noData'))}
+                  {log.type === 'weight' && (log.weight_kg ? `${log.weight_kg} kg` : tc('noData'))}
+                  {log.type === 'water' && (log.volume_ml ? `${log.volume_ml} ml` : tc('noData'))}
+                  {log.type === 'medication' && (log.medication || tc('noData'))}
+                  {log.type === 'meal' && (log.title || tc('noData'))}
+                  {log.type === 'insulin' && (log.insulin_type ? `${log.dose_units} U` : tc('noData'))}
                 </Text>
               </View>
             </View>
           ))}
         </View>
       </ScrollView>
-      <FloatingActionButton label="Ghi nhanh" onPress={() => router.push('/logs')} />
+      <FloatingActionButton label={tc('quickLog')} onPress={() => router.push('/logs')} />
       <ChatModal visible={isChatOpen} onClose={() => setChatOpen(false)} />
     </Screen>
   );

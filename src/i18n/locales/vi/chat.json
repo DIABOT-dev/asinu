@@ -1,0 +1,12 @@
+{
+  "welcome": "Xin chào, tôi là Asinu Chat. Bạn cần hỗ trợ gì?",
+  "errorReply": "Xin lỗi, tôi chưa thể trả lời lúc này.",
+  "systemBusy": "Xin lỗi, hệ thống đang bận. Vui lòng thử lại sau.",
+  "title": "Trò chuyện với Asinu",
+  "typing": "Asinu đang soạn tin...",
+  "placeholder": "Nhập tin nhắn",
+  "mascotGreeting": "Chào bạn, tôi là Asinu!",
+  "stickerText": "Hãy nói chuyện với Asinu nhé!",
+  "initialGreeting": "Xin chào, Asinu nè. Bạn cần hỗ trợ gì?",
+  "sampleUserMessage": "Tôi muốn theo dõi sức khỏe hằng ngày."
+}

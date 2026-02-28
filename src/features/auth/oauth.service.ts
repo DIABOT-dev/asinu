@@ -6,6 +6,9 @@
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
+import i18n from '../../i18n';
+
+const t = (key: string) => i18n.t(key, { ns: 'auth' });
 
 // Required for OAuth to work properly
 WebBrowser.maybeCompleteAuthSession();
@@ -78,7 +81,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
         idToken: 'mock-google-id-token',
         profile: {
           email: `dev-${Date.now()}@gmail.com`,
-          name: 'Người dùng thử (Google)',
+          name: t('devUserGoogle'),
           sub: `google_dev_${Date.now()}`
         }
       };
@@ -86,7 +89,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
 
     const clientId = getGoogleClientId();
     if (!clientId) {
-      throw new Error('Chưa cấu hình Google Client ID');
+      throw new Error(t('googleClientIdMissing'));
     }
 
     const redirectUri = makeRedirectUri({
@@ -116,7 +119,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       const idToken = params.get('id_token');
 
       if (!accessToken) {
-        throw new Error('Không nhận được access token');
+        throw new Error(t('noAccessToken'));
       }
 
       // Fetch user profile
@@ -142,12 +145,12 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       return { type: 'cancel' };
     }
 
-    return { type: 'error', error: 'Xác thực thất bại' };
+    return { type: 'error', error: t('authFailed') };
   } catch (error) {
     console.error('[oauth] Google authentication error:', error);
     return {
       type: 'error',
-      error: error instanceof Error ? error.message : 'Lỗi không xác định'
+      error: error instanceof Error ? error.message : t('unknownError')
     };
   }
 }
@@ -161,7 +164,7 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
     if (Platform.OS !== 'ios') {
       return {
         type: 'error',
-        error: 'Đăng nhập Apple chỉ hỗ trợ trên iOS'
+        error: t('appleOnlyIOS')
       };
     }
 
@@ -174,7 +177,7 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
         idToken: 'mock-apple-id-token',
         profile: {
           email: `dev-${Date.now()}@privaterelay.appleid.com`,
-          name: 'Người dùng thử (Apple)',
+          name: t('devUserApple'),
           sub: `apple_dev_${Date.now()}`
         }
       };
@@ -210,7 +213,7 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
     console.error('[oauth] Apple authentication error:', error);
     return {
       type: 'error',
-      error: error.message || 'Xác thực Apple thất bại'
+      error: error.message || t('appleAuthFailed')
     };
   }
 }

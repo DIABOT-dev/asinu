@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
@@ -18,11 +19,11 @@ export type M1MetricCardProps = {
   onPress?: () => void;
 };
 
-const trendCopy = {
-  up: 'Cao hơn bình thường',
-  down: 'Thấp hơn bình thường',
-  flat: 'Ổn định'
-};
+const trendKeys = {
+  up: 'higherThanNormal',
+  down: 'lowerThanNormal',
+  flat: 'stable'
+} as const;
 
 export const M1MetricCard = ({
   title,
@@ -36,6 +37,7 @@ export const M1MetricCard = ({
   footnote,
   onPress
 }: M1MetricCardProps) => {
+  const { t } = useTranslation('tree');
   const scaledTypography = useScaledTypography();
   const Container = onPress ? Pressable : View;
 
@@ -55,7 +57,7 @@ export const M1MetricCard = ({
           {delta}
         </Text>
       ) : null}
-      <Text style={[styles.helper, { fontSize: scaledTypography.size.sm }]}>{footnote || trendCopy[trend]}</Text>
+      <Text style={[styles.helper, { fontSize: scaledTypography.size.sm }]}>{footnote || t(trendKeys[trend])}</Text>
     </Container>
   );
 };

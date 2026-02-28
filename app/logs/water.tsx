@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
@@ -15,6 +16,7 @@ import { colors } from '../../src/styles/theme';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function WaterLogScreen() {
+  const { t } = useTranslation('logs');
   const router = useRouter();
   const [volume, setVolume] = useState('');
   const [notes, setNotes] = useState('');
@@ -58,8 +60,8 @@ export default function WaterLogScreen() {
       setIsSaving(false);
       // Show success message
       Alert.alert(
-        'Thành công!',
-        'Ghi nhật ký thành công!',
+        t('successTitle'),
+        t('logSuccess'),
         [
           {
             text: 'OK'
@@ -68,7 +70,7 @@ export default function WaterLogScreen() {
       );
     } catch (error) {
       setIsSaving(false);
-      Alert.alert('Lưu thất bại', 'Vui lòng thử lại!');
+      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -76,7 +78,7 @@ export default function WaterLogScreen() {
     () => ({
       headerShown: true,
       presentation: 'modal' as const,
-      title: 'Ghi chỉ số',
+      title: t('logMetrics'),
       headerStyle: styles.header,
       headerTitleStyle: styles.headerTitle,
       headerLeft: () => (
@@ -85,7 +87,7 @@ export default function WaterLogScreen() {
         </TouchableOpacity>
       ),
     }),
-    [handleBack]
+    [handleBack, t]
   );
 
   const scrollContentStyle = useMemo(
@@ -97,7 +99,7 @@ export default function WaterLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message="Đang ghi nhật ký..." />
+        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -109,11 +111,11 @@ export default function WaterLogScreen() {
             </View>
           ) : (
             <ScrollView contentContainerStyle={scrollContentStyle} keyboardShouldPersistTaps="handled">
-              <H1SectionHeader title="Nước uống" subtitle="Ghi nhanh" />
-              <TextInput label="Thể tích (ml)" keyboardType="numeric" value={volume} onChangeText={setVolume} error={errors.volume} />
-              <TextInput label="Ghi chú" value={notes} onChangeText={setNotes} multiline />
+              <H1SectionHeader title={t('water')} subtitle={t('quickLog')} />
+              <TextInput label={t('volumeMl')} keyboardType="numeric" value={volume} onChangeText={setVolume} error={errors.volume} />
+              <TextInput label={t('notes')} value={notes} onChangeText={setNotes} multiline />
               {errors.volume ? <Text style={styles.error}>{errors.volume}</Text> : null}
-              <Button label="Lưu" onPress={handleSubmit} disabled={isSaving} />
+              <Button label={t('save')} onPress={handleSubmit} disabled={isSaving} />
             </ScrollView>
           )}
         </KeyboardAvoidingView>

@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { Image, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../src/styles';
 
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
@@ -9,6 +10,7 @@ const missionIcon = require('../../src/assets/tab-icons/mission.png');
 const profileIcon = require('../../src/assets/tab-icons/profile.png');
 
 export default function TabsLayout() {
+  const { t } = useTranslation('common');
   const screenOptions = useMemo(
     () => ({
       headerShown: false,
@@ -69,32 +71,32 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home/index"
         options={{
-          title: 'Trang chủ',
-          tabBarLabel: 'Trang chủ',
+          title: t('tabHome'),
+          tabBarLabel: t('tabHome'),
           tabBarIcon: renderHomeIcon
         }}
       />
       <Tabs.Screen
         name="missions/index"
         options={{
-          title: 'Nhiệm vụ',
-          tabBarLabel: 'Nhiệm vụ',
+          title: t('tabMissions'),
+          tabBarLabel: t('tabMissions'),
           tabBarIcon: renderMissionIcon
         }}
       />
       <Tabs.Screen
         name="tree/index"
         options={{
-          title: 'Tổng quan',
-          tabBarLabel: 'Tổng quan',
+          title: t('tabOverview'),
+          tabBarLabel: t('tabOverview'),
           tabBarIcon: renderTreeIcon
         }}
       />
       <Tabs.Screen
         name="profile/index"
         options={{
-          title: 'Cá nhân',
-          tabBarLabel: 'Cá nhân',
+          title: t('tabProfile'),
+          tabBarLabel: t('tabProfile'),
           tabBarIcon: renderProfileIcon
         }}
       />

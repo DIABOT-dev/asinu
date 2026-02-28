@@ -10,11 +10,14 @@ import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useCareCircle } from '../../src/features/care-circle';
 import { colors, spacing, typography } from '../../src/styles';
+import { useTranslation } from 'react-i18next';
 
 export default function CareCircleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const profile = useAuthStore((state) => state.profile);
+  const { t } = useTranslation('careCircle');
+  const { t: tc } = useTranslation('common');
   
   const {
     invitations,
@@ -38,36 +41,36 @@ export default function CareCircleScreen() {
 
   // Relationship options
   const relationshipOptions: DropdownOption[] = [
-    { id: 'vo', label: 'Vợ', subtitle: 'Người phối ngẫu' },
-    { id: 'chong', label: 'Chồng', subtitle: 'Người phối ngẫu' },
-    { id: 'con-trai', label: 'Con trai', subtitle: 'Con ruột' },
-    { id: 'con-gai', label: 'Con gái', subtitle: 'Con ruột' },
-    { id: 'me', label: 'Mẹ', subtitle: 'Cha mẹ' },
-    { id: 'bo', label: 'Bố', subtitle: 'Cha mẹ' },
-    { id: 'anh-trai', label: 'Anh trai', subtitle: 'Anh chị em ruột' },
-    { id: 'chi-gai', label: 'Chị gái', subtitle: 'Anh chị em ruột' },
-    { id: 'em-trai', label: 'Em trai', subtitle: 'Anh chị em ruột' },
-    { id: 'em-gai', label: 'Em gái', subtitle: 'Anh chị em ruột' },
-    { id: 'ong-noi', label: 'Ông nội', subtitle: 'Ông bà nội' },
-    { id: 'ba-noi', label: 'Bà nội', subtitle: 'Ông bà nội' },
-    { id: 'ong-ngoai', label: 'Ông ngoại', subtitle: 'Ông bà ngoại' },
-    { id: 'ba-ngoai', label: 'Bà ngoại', subtitle: 'Ông bà ngoại' },
-    { id: 'ban-than', label: 'Bạn thân', subtitle: 'Bạn bè thân thiết' },
-    { id: 'nguoi-yeu', label: 'Người yêu', subtitle: 'Bạn đời' },
+    { id: 'vo', label: t('relWife'), subtitle: t('relSpouse') },
+    { id: 'chong', label: t('relHusband'), subtitle: t('relSpouse') },
+    { id: 'con-trai', label: t('relSon'), subtitle: t('relChild') },
+    { id: 'con-gai', label: t('relDaughter'), subtitle: t('relChild') },
+    { id: 'me', label: t('relMother'), subtitle: t('relParent') },
+    { id: 'bo', label: t('relFather'), subtitle: t('relParent') },
+    { id: 'anh-trai', label: t('relOlderBrother'), subtitle: t('relSibling') },
+    { id: 'chi-gai', label: t('relOlderSister'), subtitle: t('relSibling') },
+    { id: 'em-trai', label: t('relYoungerBrother'), subtitle: t('relSibling') },
+    { id: 'em-gai', label: t('relYoungerSister'), subtitle: t('relSibling') },
+    { id: 'ong-noi', label: t('relGrandfatherPaternal'), subtitle: t('relGrandparentPaternal') },
+    { id: 'ba-noi', label: t('relGrandmotherPaternal'), subtitle: t('relGrandparentPaternal') },
+    { id: 'ong-ngoai', label: t('relGrandfatherMaternal'), subtitle: t('relGrandparentMaternal') },
+    { id: 'ba-ngoai', label: t('relGrandmotherMaternal'), subtitle: t('relGrandparentMaternal') },
+    { id: 'ban-than', label: t('relBestFriend'), subtitle: t('relCloseFriend') },
+    { id: 'nguoi-yeu', label: t('relPartner'), subtitle: t('relSoulmate') },
   ];
 
   // Role options
   const roleOptions: DropdownOption[] = [
-    { id: 'nguoi-cham-soc', label: 'Người chăm sóc chính', subtitle: 'Chăm sóc hàng ngày' },
-    { id: 'bac-si', label: 'Bác sĩ gia đình', subtitle: 'Chuyên gia y tế' },
-    { id: 'y-ta', label: 'Y tá', subtitle: 'Hỗ trợ y tế' },
-    { id: 'duoc-si', label: 'Dược sĩ', subtitle: 'Quản lý thuốc' },
-    { id: 'chuyen-gia-dinh-duong', label: 'Chuyên gia dinh dưỡng', subtitle: 'Tư vấn chế độ ăn' },
-    { id: 'huan-luyen-vien', label: 'Huấn luyện viên', subtitle: 'Tập luyện & vận động' },
-    { id: 'nguoi-ho-tro', label: 'Người hỗ trợ', subtitle: 'Hỗ trợ thêm' },
-    { id: 'than-nhan', label: 'Thân nhân', subtitle: 'Người thân trong gia đình' },
-    { id: 'nguoi-giup-viec', label: 'Người giúp việc', subtitle: 'Hỗ trợ sinh hoạt' },
-    { id: 'tu-van-tam-ly', label: 'Tư vấn tâm lý', subtitle: 'Chăm sóc sức khỏe tinh thần' },
+    { id: 'nguoi-cham-soc', label: t('rolePrimaryCaregiver'), subtitle: t('roleCaregiverDesc') },
+    { id: 'bac-si', label: t('roleFamilyDoctor'), subtitle: t('roleDoctorDesc') },
+    { id: 'y-ta', label: t('roleNurse'), subtitle: t('roleNurseDesc') },
+    { id: 'duoc-si', label: t('rolePharmacist'), subtitle: t('rolePharmacistDesc') },
+    { id: 'chuyen-gia-dinh-duong', label: t('roleNutritionist'), subtitle: t('roleNutritionistDesc') },
+    { id: 'huan-luyen-vien', label: t('roleTrainer'), subtitle: t('roleTrainerDesc') },
+    { id: 'nguoi-ho-tro', label: t('roleHelper'), subtitle: t('roleHelperDesc') },
+    { id: 'than-nhan', label: t('roleRelative'), subtitle: t('roleRelativeDesc') },
+    { id: 'nguoi-giup-viec', label: t('roleHousekeeper'), subtitle: t('roleHousekeeperDesc') },
+    { id: 'tu-van-tam-ly', label: t('roleCounselor'), subtitle: t('roleCounselorDesc') },
   ];
 
   // Hàm đảo ngược mối quan hệ: nếu người khác gọi mình là "Bố" thì mình gọi họ là "Con"
@@ -76,46 +79,46 @@ export default function CareCircleScreen() {
     
     const reverseMap: Record<string, string> = {
       // Cha mẹ <-> Con cái
-      'bo': 'Con',
-      'Bố': 'Con',
-      'me': 'Con',
-      'Mẹ': 'Con',
-      'con-trai': 'Bố/Mẹ',
-      'Con trai': 'Bố/Mẹ',
-      'con-gai': 'Bố/Mẹ',
-      'Con gái': 'Bố/Mẹ',
-      
+      'bo': t('reverseChild'),
+      'Bố': t('reverseChild'),
+      'me': t('reverseChild'),
+      'Mẹ': t('reverseChild'),
+      'con-trai': t('reverseParent'),
+      'Con trai': t('reverseParent'),
+      'con-gai': t('reverseParent'),
+      'Con gái': t('reverseParent'),
+
       // Vợ chồng (đối xứng)
-      'vo': 'Chồng',
-      'Vợ': 'Chồng',
-      'chong': 'Vợ',
-      'Chồng': 'Vợ',
-      
+      'vo': t('relHusband'),
+      'Vợ': t('relHusband'),
+      'chong': t('relWife'),
+      'Chồng': t('relWife'),
+
       // Anh chị em
-      'anh-trai': 'Em',
-      'Anh trai': 'Em',
-      'chi-gai': 'Em',
-      'Chị gái': 'Em',
-      'em-trai': 'Anh/Chị',
-      'Em trai': 'Anh/Chị',
-      'em-gai': 'Anh/Chị',
-      'Em gái': 'Anh/Chị',
-      
+      'anh-trai': t('reverseYoungerSibling'),
+      'Anh trai': t('reverseYoungerSibling'),
+      'chi-gai': t('reverseYoungerSibling'),
+      'Chị gái': t('reverseYoungerSibling'),
+      'em-trai': t('reverseOlderSibling'),
+      'Em trai': t('reverseOlderSibling'),
+      'em-gai': t('reverseOlderSibling'),
+      'Em gái': t('reverseOlderSibling'),
+
       // Ông bà <-> Cháu
-      'ong-noi': 'Cháu',
-      'Ông nội': 'Cháu',
-      'ba-noi': 'Cháu',
-      'Bà nội': 'Cháu',
-      'ong-ngoai': 'Cháu',
-      'Ông ngoại': 'Cháu',
-      'ba-ngoai': 'Cháu',
-      'Bà ngoại': 'Cháu',
-      
+      'ong-noi': t('reverseGrandchild'),
+      'Ông nội': t('reverseGrandchild'),
+      'ba-noi': t('reverseGrandchild'),
+      'Bà nội': t('reverseGrandchild'),
+      'ong-ngoai': t('reverseGrandchild'),
+      'Ông ngoại': t('reverseGrandchild'),
+      'ba-ngoai': t('reverseGrandchild'),
+      'Bà ngoại': t('reverseGrandchild'),
+
       // Bạn bè, người yêu (đối xứng)
-      'ban-than': 'Bạn thân',
-      'Bạn thân': 'Bạn thân',
-      'nguoi-yeu': 'Người yêu',
-      'Người yêu': 'Người yêu',
+      'ban-than': t('relBestFriend'),
+      'Bạn thân': t('relBestFriend'),
+      'nguoi-yeu': t('relPartner'),
+      'Người yêu': t('relPartner'),
     };
     
     return reverseMap[relationshipType] || relationshipType;
@@ -140,9 +143,9 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(id);
       await acceptInvitation(id);
-      Alert.alert('Thành công', 'Đã chấp nhận lời mời');
+      Alert.alert(tc('success'), t('acceptSuccess'));
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể chấp nhận lời mời');
+      Alert.alert(tc('error'), t('acceptError'));
     } finally {
       setActionLoading(null);
     }
@@ -152,9 +155,9 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(id);
       await rejectInvitation(id);
-      Alert.alert('Đã từ chối', 'Lời mời đã bị từ chối');
+      Alert.alert(tc('success'), t('rejectSuccess'));
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể từ chối lời mời');
+      Alert.alert(tc('error'), t('rejectError'));
     } finally {
       setActionLoading(null);
     }
@@ -162,20 +165,20 @@ export default function CareCircleScreen() {
 
   const handleDeleteConnection = async (id: string, name: string) => {
     Alert.alert(
-      'Xác nhận xóa',
-      `Bạn có chắc muốn xóa kết nối với ${name}?`,
+      t('confirmDelete'),
+      t('confirmDeleteMsg', { name }),
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: tc('cancel'), style: 'cancel' },
         {
-          text: 'Xóa',
+          text: tc('delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               setActionLoading(id);
               await deleteConnection(id);
-              Alert.alert('Đã xóa', 'Kết nối đã được xóa');
+              Alert.alert(t('deleted'), t('deletedMsg'));
             } catch (error) {
-              Alert.alert('Lỗi', 'Không thể xóa kết nối');
+              Alert.alert(tc('error'), t('deleteError'));
             } finally {
               setActionLoading(null);
             }
@@ -211,10 +214,10 @@ export default function CareCircleScreen() {
       });
       
       setEditModalVisible(false);
-      Alert.alert('Thông báo', 'Chỉnh sửa thông tin thành công');
+      Alert.alert(tc('success'), t('editSuccess'));
     } catch (error) {
       console.error('Failed to update connection:', error);
-      Alert.alert('Lỗi', 'Không thể cập nhật thông tin. Vui lòng thử lại.');
+      Alert.alert(tc('error'), t('editError'));
     } finally {
       setActionLoading(null);
     }
@@ -248,8 +251,8 @@ export default function CareCircleScreen() {
           <View style={styles.heroIconBg}>
             <MaterialCommunityIcons name="account-group" size={36} color="#fff" />
           </View>
-          <Text style={styles.heroTitle}>Vòng kết nối</Text>
-          <Text style={styles.heroSubtitle}>Quản lý người thân và người chăm sóc</Text>
+          <Text style={styles.heroTitle}>{t('title')}</Text>
+          <Text style={styles.heroSubtitle}>{t('subtitle')}</Text>
         </LinearGradient>
         
         {/* Stats Row - With Horizontal Padding */}
@@ -260,21 +263,21 @@ export default function CareCircleScreen() {
                 <Ionicons name="people" size={18} color="#10b981" />
               </View>
               <Text style={styles.statValue}>{connections.length}</Text>
-              <Text style={styles.statLabel}>Kết nối</Text>
+              <Text style={styles.statLabel}>{t('connections')}</Text>
             </View>
             <View style={styles.statCard}>
               <View style={[styles.statIconBg, { backgroundColor: '#fef3c7' }]}>
                 <Ionicons name="mail" size={18} color="#f59e0b" />
               </View>
               <Text style={styles.statValue}>{receivedInvitations.length}</Text>
-              <Text style={styles.statLabel}>Đã nhận</Text>
+              <Text style={styles.statLabel}>{t('received')}</Text>
             </View>
             <View style={styles.statCard}>
               <View style={[styles.statIconBg, { backgroundColor: '#dbeafe' }]}>
                 <Ionicons name="send" size={18} color="#3b82f6" />
               </View>
               <Text style={styles.statValue}>{sentInvitations.length}</Text>
-              <Text style={styles.statLabel}>Đã gửi</Text>
+              <Text style={styles.statLabel}>{t('sent')}</Text>
             </View>
           </View>
         </View>
@@ -289,7 +292,7 @@ export default function CareCircleScreen() {
               style={styles.inviteButtonGradient}
             >
               <Ionicons name="person-add" size={20} color="#fff" />
-              <Text style={styles.inviteButtonText}>Mời người mới</Text>
+              <Text style={styles.inviteButtonText}>{t('inviteNew')}</Text>
             </LinearGradient>
           </Pressable>
         </View>
@@ -301,7 +304,7 @@ export default function CareCircleScreen() {
               <View style={[styles.sectionIconBg, { backgroundColor: '#fef3c7' }]}>
                 <Ionicons name="mail-unread" size={16} color="#f59e0b" />
               </View>
-              <Text style={styles.sectionTitle}>Lời mời đã nhận ({receivedInvitations.length})</Text>
+              <Text style={styles.sectionTitle}>{t('receivedInvitations', { count: receivedInvitations.length })}</Text>
             </View>
             {receivedInvitations.map((invitation) => (
               <View key={invitation.id} style={styles.card}>
@@ -321,7 +324,7 @@ export default function CareCircleScreen() {
                     <View style={styles.cardBadge}>
                       <Ionicons name="link" size={12} color={colors.primary} />
                       <Text style={styles.cardRelation}>
-                        {invitation.relationship_type || invitation.role || 'Kết nối'}
+                        {invitation.relationship_type || invitation.role || t('connection')}
                       </Text>
                     </View>
                   </View>
@@ -338,7 +341,7 @@ export default function CareCircleScreen() {
                     ) : (
                       <>
                         <Ionicons name="checkmark" size={16} color="#fff" />
-                        <Text style={styles.acceptButtonText}>Chấp nhận</Text>
+                        <Text style={styles.acceptButtonText}>{t('accept')}</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -348,7 +351,7 @@ export default function CareCircleScreen() {
                     disabled={actionLoading === invitation.id}
                   >
                     <Ionicons name="close" size={16} color={colors.textSecondary} />
-                    <Text style={styles.rejectButtonText}>Từ chối</Text>
+                    <Text style={styles.rejectButtonText}>{t('reject')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -363,7 +366,7 @@ export default function CareCircleScreen() {
               <View style={[styles.sectionIconBg, { backgroundColor: '#dbeafe' }]}>
                 <Ionicons name="send" size={16} color="#3b82f6" />
               </View>
-              <Text style={styles.sectionTitle}>Lời mời đã gửi ({sentInvitations.length})</Text>
+              <Text style={styles.sectionTitle}>{t('sentInvitations', { count: sentInvitations.length })}</Text>
             </View>
             {sentInvitations.map((invitation) => (
               <View key={invitation.id} style={[styles.card, styles.cardPending]}>
@@ -382,7 +385,7 @@ export default function CareCircleScreen() {
                     </Text>
                     <View style={styles.pendingBadge}>
                       <Ionicons name="time" size={12} color="#f59e0b" />
-                      <Text style={styles.cardStatus}>Đang chờ phản hồi</Text>
+                      <Text style={styles.cardStatus}>{t('waitingResponse')}</Text>
                     </View>
                   </View>
                 </View>
@@ -398,7 +401,7 @@ export default function CareCircleScreen() {
               <Ionicons name="people" size={16} color="#10b981" />
             </View>
             <Text style={styles.sectionTitle}>
-              Kết nối đang hoạt động ({connections.length})
+              {t('activeConnections', { count: connections.length })}
             </Text>
           </View>
           {loading && connections.length === 0 ? (
@@ -408,8 +411,8 @@ export default function CareCircleScreen() {
               <View style={styles.emptyIconBg}>
                 <MaterialCommunityIcons name="account-group-outline" size={48} color={colors.textSecondary} />
               </View>
-              <Text style={styles.emptyText}>Chưa có kết nối nào</Text>
-              <Text style={styles.emptySubtext}>Mời người thân hoặc người chăm sóc để bắt đầu</Text>
+              <Text style={styles.emptyText}>{t('noConnections')}</Text>
+              <Text style={styles.emptySubtext}>{t('noConnectionsHint')}</Text>
             </View>
           ) : (
             connections.map((connection) => {
@@ -478,7 +481,7 @@ export default function CareCircleScreen() {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => handleDeleteConnection(connection.id, otherUserFullName || 'người này')}
+                        onPress={() => handleDeleteConnection(connection.id, otherUserFullName || t('thisPerson'))}
                         disabled={actionLoading === connection.id}
                         style={styles.iconBtn}
                       >
@@ -515,24 +518,24 @@ export default function CareCircleScreen() {
                 >
                   <Ionicons name="person" size={24} color="#fff" />
                 </LinearGradient>
-                <Text style={styles.modalTitle}>Chỉnh sửa kết nối</Text>
+                <Text style={styles.modalTitle}>{t('editConnection')}</Text>
                 <Text style={styles.modalSubtitle}>{editConnection?.name}</Text>
               </View>
               
               <View style={styles.currentInfoBox}>
-                <Text style={styles.currentInfoTitle}>Thông tin hiện tại:</Text>
+                <Text style={styles.currentInfoTitle}>{t('currentInfo')}</Text>
                 <Text style={styles.currentInfoText}>
-                  Mối quan hệ: {editRelationType?.label || 'Chưa có'}
+                  {t('relationship')}: {editRelationType?.label || t('notSet')}
                 </Text>
                 <Text style={styles.currentInfoText}>
-                  Vai trò: {editRole?.label || 'Chưa có'}
+                  {t('role')}: {editRole?.label || t('notSet')}
                 </Text>
               </View>
               
               <View style={styles.modalSection}>
                 <Dropdown
-                  label="Mối quan hệ"
-                  placeholder="Chọn mối quan hệ..."
+                  label={t('relationship')}
+                  placeholder={t('relationshipPlaceholder')}
                   options={relationshipOptions}
                   value={editRelationType}
                   onChange={setEditRelationType}
@@ -542,8 +545,8 @@ export default function CareCircleScreen() {
               
               <View style={styles.modalSection}>
                 <Dropdown
-                  label="Vai trò"
-                  placeholder="Chọn vai trò..."
+                  label={t('role')}
+                  placeholder={t('rolePlaceholder')}
                   options={roleOptions}
                   value={editRole}
                   onChange={setEditRole}
@@ -553,13 +556,13 @@ export default function CareCircleScreen() {
               
               <View style={styles.buttonGroup}>
                 <Button
-                  label="Hủy"
+                  label={tc('cancel')}
                   variant="ghost"
                   onPress={() => setEditModalVisible(false)}
                   style={{ flex: 1 }}
                 />
                 <Button
-                  label="Lưu"
+                  label={tc('save')}
                   variant="primary"
                   onPress={handleSaveEdit}
                   style={{ flex: 1 }}

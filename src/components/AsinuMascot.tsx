@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const MASCOT_URL = 'https://github.com/DIABOT-dev/resource/blob/main/asinu-mascot.png?raw=true';
@@ -10,6 +11,7 @@ type AsinuMascotProps = {
 };
 
 export default function AsinuMascot({ onPress, size = 140 }: AsinuMascotProps) {
+  const { t } = useTranslation('chat');
   const [imageError, setImageError] = useState(false);
 
   const handlePress = () => {
@@ -32,7 +34,7 @@ export default function AsinuMascot({ onPress, size = 140 }: AsinuMascotProps) {
           />
         )}
         <View style={styles.bubble}>
-          <Text style={styles.bubbleText}>Chào bạn, tôi là Asinu!</Text>
+          <Text style={styles.bubbleText}>{t('mascotGreeting')}</Text>
         </View>
       </TouchableOpacity>
     </View>

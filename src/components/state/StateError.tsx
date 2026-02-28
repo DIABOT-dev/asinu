@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../../hooks/useScaledTypography';
 import { colors, spacing } from '../../styles';
@@ -8,13 +9,14 @@ type Props = {
   onRetry?: () => void;
 };
 
-export const StateError = ({ message = 'Có lỗi xảy ra', onRetry }: Props) => {
+export const StateError = ({ message, onRetry }: Props) => {
   const scaledTypography = useScaledTypography();
+  const { t } = useTranslation('common');
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>Không tải được dữ liệu</Text>
-      <Text style={[styles.subtitle, { fontSize: scaledTypography.size.md }]}>{message}</Text>
-      {onRetry ? <Button label="Thử lại" onPress={onRetry} style={styles.retryButton} /> : null}
+      <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>{t('cannotLoadData')}</Text>
+      <Text style={[styles.subtitle, { fontSize: scaledTypography.size.md }]}>{message ?? t('errorOccurred')}</Text>
+      {onRetry ? <Button label={t('retry')} onPress={onRetry} style={styles.retryButton} /> : null}
     </View>
   );
 };

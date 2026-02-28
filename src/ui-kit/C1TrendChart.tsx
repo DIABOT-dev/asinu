@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { featureFlags } from '../lib/featureFlags';
@@ -20,6 +21,7 @@ export type C1TrendChartProps = {
 const CHART_PADDING = { top: 40, bottom: 35, left: 45, right: 20 };
 
 export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200, title, unit }: C1TrendChartProps) => {
+  const { t } = useTranslation('tree');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const scaledTypography = useScaledTypography();
   const disableCharts = featureFlags.disableCharts;
@@ -27,7 +29,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   if (disableCharts) {
     return (
       <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
-        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>Biểu đồ tạm ẩn trong chế độ demo</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>{t('chartHiddenDemo')}</Text>
       </View>
     );
   }
@@ -36,8 +38,8 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   if (!data || data.length === 0) {
     return (
       <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
-        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>Chưa có dữ liệu để hiển thị</Text>
-        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.sm, marginTop: spacing.xs }}>Ghi log để xem xu hướng</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>{t('noDataToShow')}</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.sm, marginTop: spacing.xs }}>{t('logToSeeTrend')}</Text>
       </View>
     );
   }
@@ -54,7 +56,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   if (values.length === 0) {
     return (
       <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
-        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>Dữ liệu không hợp lệ</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>{t('invalidData')}</Text>
       </View>
     );
   }

@@ -1,3 +1,4 @@
+import i18n from '../../i18n';
 import { apiClient } from '../../lib/apiClient';
 import { Profile } from './auth.store';
 import { authenticateWithProvider, OAuthProvider } from './oauth.service';
@@ -37,7 +38,7 @@ export const authService = {
         token: response.token,
         profile: {
           id: response.user.id,
-          name: response.user.email?.split('@')[0] || 'Người dùng',
+          name: response.user.email?.split('@')[0] || i18n.t('defaultUser', { ns: 'auth' }),
           email: response.user.email,
           phone: payload.phone
         }
@@ -53,11 +54,11 @@ export const authService = {
       const oauthResult = await authenticateWithProvider(payload.provider as OAuthProvider);
       
       if (oauthResult.type === 'cancel') {
-        throw new Error('Đăng nhập bị hủy bởi người dùng');
+        throw new Error(i18n.t('loginCancelled', { ns: 'auth' }));
       }
       
       if (oauthResult.type === 'error') {
-        throw new Error(oauthResult.error || 'Xác thực thất bại');
+        throw new Error(oauthResult.error || i18n.t('authFailed', { ns: 'auth' }));
       }
       
       // Step 2: Send OAuth result to backend for verification and user creation

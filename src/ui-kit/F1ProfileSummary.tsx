@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { Card } from '../components/Card';
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export const F1ProfileSummary = ({ name, email, phone, caretakerFor }: Props) => {
+  const { t } = useTranslation('profile');
   const scaledTypography = useScaledTypography();
   return (
     <Card>
@@ -21,7 +23,7 @@ export const F1ProfileSummary = ({ name, email, phone, caretakerFor }: Props) =>
           <Text style={[styles.name, { fontSize: scaledTypography.size.lg }]}>{name}</Text>
           {email ? <Text style={[styles.meta, { fontSize: scaledTypography.size.sm }]}>{email}</Text> : null}
           {phone ? <Text style={[styles.meta, { fontSize: scaledTypography.size.sm }]}>{phone}</Text> : null}
-          {caretakerFor ? <Text style={[styles.meta, { fontSize: scaledTypography.size.sm }]}>Chăm sóc: {caretakerFor}</Text> : null}
+          {caretakerFor ? <Text style={[styles.meta, { fontSize: scaledTypography.size.sm }]}>{t('careFor', { name: caretakerFor })}</Text> : null}
         </View>
       </View>
     </Card>

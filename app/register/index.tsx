@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
@@ -26,6 +27,8 @@ export default function RegisterScreen() {
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation('auth');
+  const { t: tc } = useTranslation('common');
 
   const openLegal = (type: 'terms' | 'privacy') => {
     router.push({ pathname: '/legal/content', params: { type } });
@@ -57,9 +60,9 @@ export default function RegisterScreen() {
   const getPasswordStrengthText = () => {
     if (!password) return '';
     const { strength } = getPasswordStrength(password);
-    if (strength === 'weak') return 'Yếu';
-    if (strength === 'medium') return 'Trung bình';
-    return 'Mạnh';
+    if (strength === 'weak') return t('strengthWeak');
+    if (strength === 'medium') return t('strengthMedium');
+    return t('strengthStrong');
   };
 
   const handleSubmit = async () => {
@@ -73,12 +76,12 @@ export default function RegisterScreen() {
     setPasswordError(passwordErr || undefined);
     
     if (emailErr || phoneErr || passwordErr) {
-      setError('Vui lòng kiểm tra lại thông tin');
+      setError(t('checkInfo'));
       return;
     }
     
     if (!isAgreed) {
-      setError('Vui lòng đồng ý Điều khoản & Chính sách');
+      setError(t('agreeRequired'));
       return;
     }
     
@@ -91,13 +94,13 @@ export default function RegisterScreen() {
         password: password.trim(),
         full_name: name.trim() || undefined
       });
-      setToastMessage('Đăng ký thành công! Vui lòng đăng nhập.');
+      setToastMessage(t('registerSuccess'));
       setToastType('success');
       setShowToast(true);
       setTimeout(() => router.replace('/login'), 1500);
     } catch (err: any) {
-      setError(err.message || 'Đăng ký thất bại');
-      setToastMessage(err.message || 'Đăng ký thất bại');
+      setError(err.message || t('registerFailed'));
+      setToastMessage(err.message || t('registerFailed'));
       setToastType('error');
       setShowToast(true);
     } finally {
@@ -115,13 +118,13 @@ export default function RegisterScreen() {
         onHide={() => setShowToast(false)}
       />
       
-      <Text style={styles.title}>Tạo tài khoản</Text>
-      <Text style={styles.subtitle}>Nhập thông tin cơ bản để bắt đầu</Text>
+      <Text style={styles.title}>{t('createAccount')}</Text>
+      <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
       
       <View style={styles.form}>
         <View>
           <TextInput 
-            label="Email *" 
+            label={t('emailLabel')}
             value={email} 
             onChangeText={(text) => {
               setEmail(text);
@@ -137,7 +140,7 @@ export default function RegisterScreen() {
         
         <View>
           <TextInput 
-            label="Số điện thoại *" 
+            label={t('phoneLabel')}
             value={phone} 
             onChangeText={(text) => {
               setPhone(text);
@@ -147,13 +150,13 @@ export default function RegisterScreen() {
             keyboardType="phone-pad" 
             placeholder="0912345678" 
           />
-          <Text style={styles.fieldHelp}>Bắt đầu bằng số 0 (hoặc +84)</Text>
+          <Text style={styles.fieldHelp}>{t('phoneHelp')}</Text>
           {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
         </View>
         
         <View>
           <TextInput 
-            label="Mật khẩu *" 
+            label={t('passwordLabel')}
             value={password} 
             onChangeText={(text) => {
               setPassword(text);
@@ -161,21 +164,21 @@ export default function RegisterScreen() {
             }}
             onBlur={handlePasswordBlur}
             secureTextEntry 
-            placeholder="Ít nhất 8 ký tự"
+            placeholder={t('minChars')}
           />
           {passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
           {password && !passwordError && (
             <Text style={[styles.strengthText, { color: getPasswordStrengthColor() }]}>
-              Độ mạnh: {getPasswordStrengthText()}
+              {t('strengthLabel')} {getPasswordStrengthText()}
             </Text>
           )}
         </View>
         
         <TextInput 
-          label="Họ tên (tùy chọn)" 
+          label={t('nameLabel')}
           value={name} 
           onChangeText={setName} 
-          placeholder="Nguyễn Văn A" 
+          placeholder={t('namePlaceholder')} 
         />
         
         <View style={styles.checkboxRow}>
@@ -185,21 +188,21 @@ export default function RegisterScreen() {
               size={22}
               color={isAgreed ? colors.primary : colors.textSecondary}
             />
-            <Text style={styles.checkboxLabel}>Tôi đồng ý với </Text>
+            <Text style={styles.checkboxLabel}>{t('agreeCheckbox')}</Text>
           </Pressable>
           <Pressable onPress={() => openLegal('terms')}>
-            <Text style={[styles.checkboxLabel, styles.linkItalic]}>Điều khoản sử dụng</Text>
+            <Text style={[styles.checkboxLabel, styles.linkItalic]}>{t('termsOfUse')}</Text>
           </Pressable>
           <Text style={styles.checkboxLabel}> & </Text>
           <Pressable onPress={() => openLegal('privacy')}>
-            <Text style={[styles.checkboxLabel, styles.linkItalic]}>Chính sách riêng tư</Text>
+            <Text style={[styles.checkboxLabel, styles.linkItalic]}>{t('privacyPolicyShort')}</Text>
           </Pressable>
         </View>
         
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         
         <Button
-          label={loading ? 'Đang xử lý...' : 'Đăng ký'}
+          label={loading ? tc('processing') : t('register')}
           onPress={handleSubmit}
           disabled={!isAgreed || loading}
           style={{ opacity: isAgreed ? 1 : 0.5 }}
@@ -207,9 +210,9 @@ export default function RegisterScreen() {
         
         {/* Link to Login */}
         <View style={styles.loginLinkContainer}>
-          <Text style={styles.loginLinkText}>Đã có tài khoản? </Text>
+          <Text style={styles.loginLinkText}>{t('hasAccount')}</Text>
           <Pressable onPress={() => router.replace('/login')}>
-            <Text style={styles.loginLinkButton}>Đăng nhập</Text>
+            <Text style={styles.loginLinkButton}>{t('login')}</Text>
           </Pressable>
         </View>
       </View>

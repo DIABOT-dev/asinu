@@ -1,12 +1,12 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { LEGAL_TEXT } from '../../src/constants/LegalText';
+import { getLegalText } from '../../src/constants/LegalText';
 import { colors, spacing, typography } from '../../src/styles';
 
 export default function LegalContentScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();
   const contentKey = type === 'privacy' ? 'privacy' : 'terms';
-  const content = LEGAL_TEXT[contentKey];
+  const content = getLegalText()[contentKey];
 
   return (
     <>

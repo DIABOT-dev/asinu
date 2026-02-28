@@ -3,6 +3,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../src/components/Button';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
 import { Screen } from '../../src/components/Screen';
@@ -17,17 +18,17 @@ import { spacing } from '../../src/styles';
 import { colors } from '../../src/styles/theme';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
-// Options cho thời điểm đo huyết áp
-const BP_CONTEXT_OPTIONS = [
-  { label: 'Buổi sáng', value: 'morning' },
-  { label: 'Buổi tối', value: 'evening' },
-  { label: 'Sau tập thể dục', value: 'after_exercise' },
-  { label: 'Sau nghỉ ngơi', value: 'after_rest' },
-  { label: 'Khác', value: 'other' },
-];
-
 export default function BloodPressureLogScreen() {
+  const { t } = useTranslation('logs');
   const router = useRouter();
+
+  const BP_CONTEXT_OPTIONS = [
+    { label: t('bpMorning'), value: 'morning' },
+    { label: t('bpEvening'), value: 'evening' },
+    { label: t('bpAfterExercise'), value: 'after_exercise' },
+    { label: t('bpAfterRest'), value: 'after_rest' },
+    { label: t('bpOther'), value: 'other' },
+  ];
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [pulse, setPulse] = useState('');
@@ -94,8 +95,8 @@ export default function BloodPressureLogScreen() {
       setIsSaving(false);
       // Show success message
       Alert.alert(
-        'Thành công!',
-        'Ghi nhật ký thành công!',
+        t('successTitle'),
+        t('logSuccess'),
         [
           {
             text: 'OK'
@@ -104,7 +105,7 @@ export default function BloodPressureLogScreen() {
       );
     } catch (error) {
       setIsSaving(false);
-      Alert.alert('Lưu thất bại', 'Vui lòng thử lại!');
+      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -112,7 +113,7 @@ export default function BloodPressureLogScreen() {
     () => ({
       headerShown: true,
       presentation: 'modal' as const,
-      title: 'Ghi chỉ số',
+      title: t('logMetrics'),
       headerStyle: styles.header,
       headerTitleStyle: styles.headerTitle,
       headerLeft: () => (
@@ -133,7 +134,7 @@ export default function BloodPressureLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message="Đang ghi nhật ký..." />
+        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -145,20 +146,20 @@ export default function BloodPressureLogScreen() {
             </View>
           ) : (
             <ScrollView contentContainerStyle={scrollContentStyle} keyboardShouldPersistTaps="handled">
-              <H1SectionHeader title="Huyết áp" subtitle="Ghi nhanh" />
-              <TextInput label="Tâm thu (mmHg)" keyboardType="numeric" value={systolic} onChangeText={setSystolic} error={errors.bp} />
-              <TextInput label="Tâm trương (mmHg)" keyboardType="numeric" value={diastolic} onChangeText={setDiastolic} error={errors.bp} />
-              <TextInput label="Nhịp tim (bpm)" keyboardType="numeric" value={pulse} onChangeText={setPulse} placeholder="Tùy chọn" />
-              <SelectInput 
-                label="Thời điểm đo" 
-                value={context} 
+              <H1SectionHeader title={t('bloodPressure')} subtitle={t('quickLog')} />
+              <TextInput label={t('systolic')} keyboardType="numeric" value={systolic} onChangeText={setSystolic} error={errors.bp} />
+              <TextInput label={t('diastolic')} keyboardType="numeric" value={diastolic} onChangeText={setDiastolic} error={errors.bp} />
+              <TextInput label={t('pulse')} keyboardType="numeric" value={pulse} onChangeText={setPulse} placeholder={t('optional')} />
+              <SelectInput
+                label={t('bpContextLabel')}
+                value={context}
                 options={BP_CONTEXT_OPTIONS}
                 onSelect={setContext}
-                placeholder="Chọn thời điểm"
+                placeholder={t('selectTime')}
               />
-              <TextInput label="Ghi chú" value={notes} onChangeText={setNotes} multiline />
+              <TextInput label={t('notes')} value={notes} onChangeText={setNotes} multiline />
               {errors.bp ? <Text style={styles.error}>{errors.bp}</Text> : null}
-              <Button label="Lưu" onPress={handleSubmit} disabled={isSaving} />
+              <Button label={t('save')} onPress={handleSubmit} disabled={isSaving} />
             </ScrollView>
           )}
         </KeyboardAvoidingView>

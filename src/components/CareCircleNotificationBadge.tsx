@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuthStore } from '../features/auth/auth.store';
 import { useCareCircle } from '../features/care-circle';
@@ -12,6 +13,7 @@ export function CareCircleNotificationBadge() {
   const { invitations, fetchInvitations } = useCareCircle();
   const [pendingCount, setPendingCount] = useState(0);
   const scaledTypography = useScaledTypography();
+  const { t } = useTranslation('common');
 
   useEffect(() => {
     fetchInvitations();
@@ -40,9 +42,9 @@ export function CareCircleNotificationBadge() {
           <Text style={[styles.badgeText, { fontSize: scaledTypography.size.md }]}>{pendingCount}</Text>
         </View>
         <View style={styles.textContainer}>
-          <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>Lời mời kết nối</Text>
+          <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{t('connectionInvitation')}</Text>
           <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
-            Bạn có {pendingCount} lời mời đang chờ
+            {t('pendingInvitations', { count: pendingCount })}
           </Text>
         </View>
       </View>

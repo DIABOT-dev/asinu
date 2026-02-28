@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
 
@@ -9,14 +10,16 @@ interface LoadingOverlayProps {
   message?: string;
 }
 
-export function LoadingOverlay({ visible, message = 'Đang xử lý...' }: LoadingOverlayProps) {
+export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
+  const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const displayMessage = message ?? t('processing');
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.loadingCard}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { fontSize: scaledTypography.size.md }]}>{message}</Text>
+          <Text style={[styles.loadingText, { fontSize: scaledTypography.size.md }]}>{displayMessage}</Text>
         </View>
       </View>
     </Modal>
@@ -30,13 +33,15 @@ interface SuccessOverlayProps {
   duration?: number;
 }
 
-export function SuccessOverlay({ 
-  visible, 
-  message = 'Lưu thành công!', 
+export function SuccessOverlay({
+  visible,
+  message,
   onComplete,
-  duration = 1500 
+  duration = 1500
 }: SuccessOverlayProps) {
+  const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const displayMessage = message ?? t('savedSuccessfully');
   useEffect(() => {
     if (visible && onComplete) {
       const timer = setTimeout(() => {
@@ -53,7 +58,7 @@ export function SuccessOverlay({
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={64} color="#FFFFFF" />
           </View>
-          <Text style={[styles.successText, { fontSize: scaledTypography.size.lg }]}>{message}</Text>
+          <Text style={[styles.successText, { fontSize: scaledTypography.size.lg }]}>{displayMessage}</Text>
         </View>
       </View>
     </Modal>

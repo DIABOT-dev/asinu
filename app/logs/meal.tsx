@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
@@ -14,16 +15,8 @@ import { spacing } from '../../src/styles';
 import { colors } from '../../src/styles/theme';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
-// Options cho loại bữa ăn
-const MEAL_TYPE_OPTIONS = [
-  { label: 'Bữa sáng', value: 'breakfast' },
-  { label: 'Bữa trưa', value: 'lunch' },
-  { label: 'Bữa tối', value: 'dinner' },
-  { label: 'Ăn vặt', value: 'snack' },
-  { label: 'Ăn khuya', value: 'midnight' },
-];
-
 export default function MealLogScreen() {
+  const { t } = useTranslation('logs');
   const router = useRouter();
   const [mealType, setMealType] = useState('breakfast');
   const [kcal, setKcal] = useState('');
@@ -38,6 +31,14 @@ export default function MealLogScreen() {
   const createMeal = useLogsStore((state) => state.createMeal);
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
+
+  const MEAL_TYPE_OPTIONS = useMemo(() => [
+    { label: t('mealBreakfast'), value: 'breakfast' },
+    { label: t('mealLunch'), value: 'lunch' },
+    { label: t('mealDinner'), value: 'dinner' },
+    { label: t('mealSnack'), value: 'snack' },
+    { label: t('mealMidnight'), value: 'midnight' },
+  ], [t]);
 
   // Fetch latest log to pre-fill form
   useEffect(() => {
@@ -63,19 +64,19 @@ export default function MealLogScreen() {
   const handleBack = useCallback(() => router.back(), [router]);
 
   // Get display label for meal type
-  const getMealLabel = (value: string) => {
+  const getMealLabel = useCallback((value: string) => {
     const option = MEAL_TYPE_OPTIONS.find(opt => opt.value === value);
     return option?.label || value;
-  };
+  }, [MEAL_TYPE_OPTIONS]);
 
   const handleSubmit = async () => {
     // Validate
     if (!mealType) {
-      setErrors({ title: 'Vui lòng chọn loại bữa ăn' });
+      setErrors({ title: t('selectMealError') });
       return;
     }
     setErrors({});
-    
+
     // Create payload matching MealLogPayload type
     const payload = {
       title: getMealLabel(mealType),
@@ -92,8 +93,8 @@ export default function MealLogScreen() {
       setIsSaving(false);
       // Show success message
       Alert.alert(
-        'Thành công!',
-        'Ghi nhật ký thành công!',
+        t('successTitle'),
+        t('logSuccess'),
         [
           {
             text: 'OK'
@@ -102,7 +103,7 @@ export default function MealLogScreen() {
       );
     } catch (error) {
       setIsSaving(false);
-      Alert.alert('Lưu thất bại', 'Vui lòng thử lại!');
+      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -110,7 +111,7 @@ export default function MealLogScreen() {
     () => ({
       headerShown: true,
       presentation: 'modal' as const,
-      title: 'Ghi chỉ số',
+      title: t('logMetrics'),
       headerStyle: styles.header,
       headerTitleStyle: styles.headerTitle,
       headerLeft: () => (
@@ -119,7 +120,7 @@ export default function MealLogScreen() {
         </TouchableOpacity>
       ),
     }),
-    [handleBack]
+    [handleBack, t]
   );
 
   const scrollContentStyle = useMemo(
@@ -131,7 +132,7 @@ export default function MealLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message="Đang ghi nhật ký..." />
+        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -143,22 +144,22 @@ export default function MealLogScreen() {
             </View>
           ) : (
             <ScrollView contentContainerStyle={scrollContentStyle} keyboardShouldPersistTaps="handled">
-              <H1SectionHeader title="Bữa ăn" subtitle="Ghi nhanh" />
-              <SelectInput 
-                label="Loại bữa" 
-                value={mealType} 
+              <H1SectionHeader title={t('meal')} subtitle={t('quickLog')} />
+              <SelectInput
+                label={t('mealType')}
+                value={mealType}
                 options={MEAL_TYPE_OPTIONS}
                 onSelect={setMealType}
-                placeholder="Chọn loại bữa ăn"
+                placeholder={t('selectMealType')}
               />
-              <TextInput label="Năng lượng (kcal)" keyboardType="numeric" value={kcal} onChangeText={setKcal} placeholder="Tùy chọn" error={errors.kcal} />
-              <TextInput label="Tinh bột (g)" keyboardType="numeric" value={carbsG} onChangeText={setCarbsG} placeholder="Tùy chọn" />
-              <TextInput label="Đạm (g)" keyboardType="numeric" value={proteinG} onChangeText={setProteinG} placeholder="Tùy chọn" />
-              <TextInput label="Chất béo (g)" keyboardType="numeric" value={fatG} onChangeText={setFatG} placeholder="Tùy chọn" />
-              <TextInput label="Ghi chú" value={notes} onChangeText={setNotes} multiline />
+              <TextInput label={t('kcal')} keyboardType="numeric" value={kcal} onChangeText={setKcal} placeholder={t('optional')} error={errors.kcal} />
+              <TextInput label={t('carbs')} keyboardType="numeric" value={carbsG} onChangeText={setCarbsG} placeholder={t('optional')} />
+              <TextInput label={t('protein')} keyboardType="numeric" value={proteinG} onChangeText={setProteinG} placeholder={t('optional')} />
+              <TextInput label={t('fat')} keyboardType="numeric" value={fatG} onChangeText={setFatG} placeholder={t('optional')} />
+              <TextInput label={t('notes')} value={notes} onChangeText={setNotes} multiline />
               {errors.title ? <Text style={styles.error}>{errors.title}</Text> : null}
               {errors.kcal ? <Text style={styles.error}>{errors.kcal}</Text> : null}
-              <Button label="Lưu" onPress={handleSubmit} disabled={isSaving} />
+              <Button label={t('save')} onPress={handleSubmit} disabled={isSaving} />
             </ScrollView>
           )}
         </KeyboardAvoidingView>

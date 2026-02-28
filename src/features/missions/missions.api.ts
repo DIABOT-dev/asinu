@@ -1,4 +1,5 @@
-﻿import { apiClient } from '../../lib/apiClient';
+﻿import i18n from '../../i18n';
+import { apiClient } from '../../lib/apiClient';
 import { MissionRecord } from './missions.store';
 
 type MissionsResponse = {
@@ -13,7 +14,7 @@ export const missionsApi = {
       signal: options?.signal
     });
     if (!response.ok) {
-      throw new Error('Không thể tải nhiệm vụ');
+      throw new Error(i18n.t('missions:cannotLoadMissions'));
     }
     return response.missions || [];
   }

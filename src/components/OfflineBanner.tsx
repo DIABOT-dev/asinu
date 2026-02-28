@@ -1,12 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
 
-export const OfflineBanner = ({ message = 'Đang dùng dữ liệu cũ (offline/lỗi mạng).' }: { message?: string }) => {
+export const OfflineBanner = ({ message }: { message?: string }) => {
+  const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const displayMessage = message ?? t('offlineBanner');
   return (
     <View style={styles.container}>
-      <Text style={[styles.text, { fontSize: scaledTypography.size.md }]}>{message}</Text>
+      <Text style={[styles.text, { fontSize: scaledTypography.size.md }]}>{displayMessage}</Text>
     </View>
   );
 };

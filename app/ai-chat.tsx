@@ -1,27 +1,24 @@
 ﻿import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
 import { chatApi } from '../src/features/chat/chat.api';
-import { colors } from '../src/styles';
 import { navigation } from '../src/lib/navigation';
-
-const initialMessages: ChatBubble[] = [
-  {
-    id: '1',
-    role: 'assistant',
-    text: 'Xin chào, Asinu nè. Bạn cần hỗ trợ gì?',
-    timestamp: new Date().toISOString()
-  },
-  { id: '2', role: 'user', text: 'Tôi muốn theo dõi sức khỏe hằng ngày.', timestamp: new Date().toISOString() }
-];
-
-const isUnauthorized = (error: unknown) => {
-  if (!error) return false;
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes('401') || message.toLowerCase().includes('missing token');
-};
+import { colors } from '../src/styles';
 
 export default function AiChatScreen() {
+  const { t } = useTranslation('chat');
+
+  const initialMessages: ChatBubble[] = useMemo(() => [
+    {
+      id: '1',
+      role: 'assistant',
+      text: t('initialGreeting'),
+      timestamp: new Date().toISOString()
+    },
+    { id: '2', role: 'user', text: t('sampleUserMessage'), timestamp: new Date().toISOString() }
+  ], [t]);
+
   const [messages, setMessages] = useState<ChatBubble[]>(initialMessages);
   const [isTyping, setIsTyping] = useState(false);
   const avatars = useMemo(
@@ -31,6 +28,12 @@ export default function AiChatScreen() {
     }),
     []
   );
+
+  const isUnauthorized = (error: unknown) => {
+    if (!error) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('401') || message.toLowerCase().includes('missing token');
+  };
 
   const handleSend = async (text: string) => {
     const userMessage: ChatBubble = {
@@ -43,7 +46,7 @@ export default function AiChatScreen() {
     setIsTyping(true);
     try {
       const { reply } = await chatApi.sendMessage({ message: text, context: { lang: 'vi' } });
-      const assistantText = reply || 'Xin lỗi, tôi chưa thể trả lời lúc này.';
+      const assistantText = reply || t('errorReply');
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
@@ -60,7 +63,7 @@ export default function AiChatScreen() {
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        text: 'Xin lỗi, hệ thống đang bận. Vui lòng thử lại sau.',
+        text: t('systemBusy'),
         timestamp: new Date().toISOString()
       };
       setMessages((prev) => [...prev, assistantMessage]);

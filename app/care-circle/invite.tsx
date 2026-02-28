@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
@@ -20,6 +21,8 @@ type SearchUser = {
 export default function InviteScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation('careCircle');
+  const { t: tc } = useTranslation('common');
   const { createInvitation, loading, invitations, connections, fetchInvitations, fetchConnections } = useCareCircle();
 
   const [allUsers, setAllUsers] = useState<SearchUser[]>([]);
@@ -35,36 +38,36 @@ export default function InviteScreen() {
 
   // Relationship options
   const relationshipOptions: DropdownOption[] = [
-    { id: 'vo', label: 'Vợ', subtitle: 'Người phối ngẫu' },
-    { id: 'chong', label: 'Chồng', subtitle: 'Người phối ngẫu' },
-    { id: 'con-trai', label: 'Con trai', subtitle: 'Con ruột' },
-    { id: 'con-gai', label: 'Con gái', subtitle: 'Con ruột' },
-    { id: 'me', label: 'Mẹ', subtitle: 'Cha mẹ' },
-    { id: 'bo', label: 'Bố', subtitle: 'Cha mẹ' },
-    { id: 'anh-trai', label: 'Anh trai', subtitle: 'Anh chị em ruột' },
-    { id: 'chi-gai', label: 'Chị gái', subtitle: 'Anh chị em ruột' },
-    { id: 'em-trai', label: 'Em trai', subtitle: 'Anh chị em ruột' },
-    { id: 'em-gai', label: 'Em gái', subtitle: 'Anh chị em ruột' },
-    { id: 'ong-noi', label: 'Ông nội', subtitle: 'Ông bà nội' },
-    { id: 'ba-noi', label: 'Bà nội', subtitle: 'Ông bà nội' },
-    { id: 'ong-ngoai', label: 'Ông ngoại', subtitle: 'Ông bà ngoại' },
-    { id: 'ba-ngoai', label: 'Bà ngoại', subtitle: 'Ông bà ngoại' },
-    { id: 'ban-than', label: 'Bạn thân', subtitle: 'Bạn bè thân thiết' },
-    { id: 'nguoi-yeu', label: 'Người yêu', subtitle: 'Bạn đời' },
+    { id: 'vo', label: t('relWife'), subtitle: t('relSpouse') },
+    { id: 'chong', label: t('relHusband'), subtitle: t('relSpouse') },
+    { id: 'con-trai', label: t('relSon'), subtitle: t('relChild') },
+    { id: 'con-gai', label: t('relDaughter'), subtitle: t('relChild') },
+    { id: 'me', label: t('relMother'), subtitle: t('relParent') },
+    { id: 'bo', label: t('relFather'), subtitle: t('relParent') },
+    { id: 'anh-trai', label: t('relOlderBrother'), subtitle: t('relSibling') },
+    { id: 'chi-gai', label: t('relOlderSister'), subtitle: t('relSibling') },
+    { id: 'em-trai', label: t('relYoungerBrother'), subtitle: t('relSibling') },
+    { id: 'em-gai', label: t('relYoungerSister'), subtitle: t('relSibling') },
+    { id: 'ong-noi', label: t('relGrandfatherPaternal'), subtitle: t('relGrandparentPaternal') },
+    { id: 'ba-noi', label: t('relGrandmotherPaternal'), subtitle: t('relGrandparentPaternal') },
+    { id: 'ong-ngoai', label: t('relGrandfatherMaternal'), subtitle: t('relGrandparentMaternal') },
+    { id: 'ba-ngoai', label: t('relGrandmotherMaternal'), subtitle: t('relGrandparentMaternal') },
+    { id: 'ban-than', label: t('relBestFriend'), subtitle: t('relCloseFriend') },
+    { id: 'nguoi-yeu', label: t('relPartner'), subtitle: t('relSoulmate') },
   ];
 
   // Role options
   const roleOptions: DropdownOption[] = [
-    { id: 'nguoi-cham-soc', label: 'Người chăm sóc chính', subtitle: 'Chăm sóc hàng ngày' },
-    { id: 'bac-si', label: 'Bác sĩ gia đình', subtitle: 'Chuyên gia y tế' },
-    { id: 'y-ta', label: 'Y tá', subtitle: 'Hỗ trợ y tế' },
-    { id: 'duoc-si', label: 'Dược sĩ', subtitle: 'Quản lý thuốc' },
-    { id: 'chuyen-gia-dinh-duong', label: 'Chuyên gia dinh dưỡng', subtitle: 'Tư vấn chế độ ăn' },
-    { id: 'huan-luyen-vien', label: 'Huấn luyện viên', subtitle: 'Tập luyện & vận động' },
-    { id: 'nguoi-ho-tro', label: 'Người hỗ trợ', subtitle: 'Hỗ trợ thêm' },
-    { id: 'than-nhan', label: 'Thân nhân', subtitle: 'Người thân trong gia đình' },
-    { id: 'nguoi-giup-viec', label: 'Người giúp việc', subtitle: 'Hỗ trợ sinh hoạt' },
-    { id: 'tu-van-tam-ly', label: 'Tư vấn tâm lý', subtitle: 'Chăm sóc sức khỏe tinh thần' },
+    { id: 'nguoi-cham-soc', label: t('rolePrimaryCaregiver'), subtitle: t('roleCaregiverDesc') },
+    { id: 'bac-si', label: t('roleFamilyDoctor'), subtitle: t('roleDoctorDesc') },
+    { id: 'y-ta', label: t('roleNurse'), subtitle: t('roleNurseDesc') },
+    { id: 'duoc-si', label: t('rolePharmacist'), subtitle: t('rolePharmacistDesc') },
+    { id: 'chuyen-gia-dinh-duong', label: t('roleNutritionist'), subtitle: t('roleNutritionistDesc') },
+    { id: 'huan-luyen-vien', label: t('roleTrainer'), subtitle: t('roleTrainerDesc') },
+    { id: 'nguoi-ho-tro', label: t('roleHelper'), subtitle: t('roleHelperDesc') },
+    { id: 'than-nhan', label: t('roleRelative'), subtitle: t('roleRelativeDesc') },
+    { id: 'nguoi-giup-viec', label: t('roleHousekeeper'), subtitle: t('roleHousekeeperDesc') },
+    { id: 'tu-van-tam-ly', label: t('roleCounselor'), subtitle: t('roleCounselorDesc') },
   ];
 
   const [showToast, setShowToast] = useState(false);
@@ -82,7 +85,7 @@ export default function InviteScreen() {
       setAllUsers(users || []);
     } catch (error) {
       console.error('Load users error:', error);
-      setToastMessage('Không thể tải danh sách người dùng');
+      setToastMessage(t('cannotLoadUsers'));
       setToastType('error');
       setShowToast(true);
     } finally {
@@ -99,10 +102,10 @@ export default function InviteScreen() {
 
   const userOptions: DropdownOption[] = allUsers.map(user => {
     // Check if user already has a connection (sent or received invitation, or existing connection)
-    const hasInvitation = invitations?.some(inv => 
+    const hasInvitation = invitations?.some(inv =>
       inv.requester_id === user.id || inv.addressee_id === user.id
     );
-    const hasConnection = connections?.some(conn => 
+    const hasConnection = connections?.some(conn =>
       conn.requester_id === user.id || conn.addressee_id === user.id
     );
     const isDisabled = hasInvitation || hasConnection;
@@ -119,7 +122,7 @@ export default function InviteScreen() {
     console.log('[invite] handleSend called');
     if (!selectedUser) {
       console.log('[invite] No user selected');
-      setToastMessage('Vui lòng chọn người nhận');
+      setToastMessage(t('pleaseSelectRecipient'));
       setToastType('error');
       setShowToast(true);
       return;
@@ -140,13 +143,13 @@ export default function InviteScreen() {
         permissions
       });
       console.log('[invite] Invitation sent successfully');
-      setToastMessage('Lời mời đã được gửi thành công!');
+      setToastMessage(t('inviteSentSuccess'));
       setToastType('success');
       setShowToast(true);
       setTimeout(() => router.back(), 1500);
     } catch (error: any) {
       console.log('[invite] Error sending invitation:', error);
-      setToastMessage(error.message || 'Không thể gửi lời mời');
+      setToastMessage(error.message || t('cannotSendInvite'));
       setToastType('error');
       setShowToast(true);
     }
@@ -154,12 +157,12 @@ export default function InviteScreen() {
 
   return (
     <Screen>
-      <Toast 
-        visible={showToast} 
-        message={toastMessage} 
-        type={toastType} 
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
         position="center"
-        onHide={() => setShowToast(false)} 
+        onHide={() => setShowToast(false)}
       />
       <ScrollView
         style={styles.container}
@@ -167,14 +170,14 @@ export default function InviteScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <H1SectionHeader title="Mời kết nối" />
-          <Text style={styles.subtitle}>Tìm và thêm người thân hoặc người chăm sóc vào vòng kết nối</Text>
+          <H1SectionHeader title={t('inviteTitle')} />
+          <Text style={styles.subtitle}>{t('inviteSubtitle')}</Text>
         </View>
 
         <View style={styles.section}>
           <Dropdown
-            label="Chọn người dùng *"
-            placeholder={usersLoading ? 'Đang tải...' : (allUsers.length === 0 ? 'Chưa có người dùng nào' : 'Chọn người nhận lời mời...')}
+            label={t('selectUser')}
+            placeholder={usersLoading ? t('loadingUsers') : (allUsers.length === 0 ? t('noUsersAvailable') : t('selectRecipient'))}
             options={userOptions}
             value={selectedUser}
             onChange={setSelectedUser}
@@ -182,14 +185,14 @@ export default function InviteScreen() {
             loading={usersLoading}
           />
           {!usersLoading && allUsers.length === 0 && (
-            <Text style={styles.errorText}>Không có người dùng nào để mời. Vui lòng liên hệ quản trị viên.</Text>
+            <Text style={styles.errorText}>{t('noUsersToInvite')}</Text>
           )}
         </View>
 
         <View style={styles.section}>
           <Dropdown
-            label="Mối quan hệ"
-            placeholder="Chọn mối quan hệ..."
+            label={t('relationship')}
+            placeholder={t('selectRelationship')}
             options={relationshipOptions}
             value={selectedRelationship}
             onChange={setSelectedRelationship}
@@ -199,8 +202,8 @@ export default function InviteScreen() {
 
         <View style={styles.section}>
           <Dropdown
-            label="Vai trò"
-            placeholder="Chọn vai trò..."
+            label={t('role')}
+            placeholder={t('selectRole')}
             options={roleOptions}
             value={selectedRole}
             onChange={setSelectedRole}
@@ -209,12 +212,12 @@ export default function InviteScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quyền truy cập</Text>
-          
+          <Text style={styles.sectionTitle}>{t('permissions')}</Text>
+
           <View style={styles.permissionRow}>
             <View style={styles.permissionInfo}>
-              <Text style={styles.permissionTitle}>Xem nhật ký sức khỏe</Text>
-              <Text style={styles.permissionDesc}>Cho phép xem các chỉ số và nhật ký</Text>
+              <Text style={styles.permissionTitle}>{t('permViewLogs')}</Text>
+              <Text style={styles.permissionDesc}>{t('permViewLogsDesc')}</Text>
             </View>
             <Switch
               value={permissions.can_view_logs}
@@ -228,8 +231,8 @@ export default function InviteScreen() {
 
           <View style={styles.permissionRow}>
             <View style={styles.permissionInfo}>
-              <Text style={styles.permissionTitle}>Nhận cảnh báo</Text>
-              <Text style={styles.permissionDesc}>Nhận thông báo khi có vấn đề sức khỏe</Text>
+              <Text style={styles.permissionTitle}>{t('permReceiveAlerts')}</Text>
+              <Text style={styles.permissionDesc}>{t('permReceiveAlertsDesc')}</Text>
             </View>
             <Switch
               value={permissions.can_receive_alerts}
@@ -243,8 +246,8 @@ export default function InviteScreen() {
 
           <View style={styles.permissionRow}>
             <View style={styles.permissionInfo}>
-              <Text style={styles.permissionTitle}>Xác nhận cảnh báo</Text>
-              <Text style={styles.permissionDesc}>Có thể xác nhận và xử lý cảnh báo</Text>
+              <Text style={styles.permissionTitle}>{t('permAckEscalation')}</Text>
+              <Text style={styles.permissionDesc}>{t('permAckEscalationDesc')}</Text>
             </View>
             <Switch
               value={permissions.can_ack_escalation}
@@ -258,13 +261,13 @@ export default function InviteScreen() {
         </View>
 
         <View style={styles.section}>
-          <Button 
-            label={loading ? 'Đang gửi...' : 'Gửi lời mời'}
-            onPress={handleSend} 
+          <Button
+            label={loading ? t('sending') : t('sendInvite')}
+            onPress={handleSend}
             disabled={loading || !selectedUser}
           />
           <Button
-            label="Hủy"
+            label={tc('cancel')}
             variant="secondary"
             onPress={() => router.back()}
             style={styles.cancelButton}

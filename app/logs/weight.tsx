@@ -3,6 +3,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../src/components/Button';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
 import { Screen } from '../../src/components/Screen';
@@ -15,6 +16,7 @@ import { colors } from '../../src/styles/theme';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function WeightLogScreen() {
+  const { t } = useTranslation('logs');
   const router = useRouter();
   const [weight, setWeight] = useState('');
   const [bodyfat, setBodyfat] = useState('');
@@ -70,8 +72,8 @@ export default function WeightLogScreen() {
       setIsSaving(false);
       // Show success message
       Alert.alert(
-        'Thành công!',
-        'Ghi nhật ký thành công!',
+        t('successTitle'),
+        t('logSuccess'),
         [
           {
             text: 'OK'
@@ -80,7 +82,7 @@ export default function WeightLogScreen() {
       );
     } catch (error) {
       setIsSaving(false);
-      Alert.alert('Lưu thất bại', 'Vui lòng thử lại!');
+      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -88,7 +90,7 @@ export default function WeightLogScreen() {
     () => ({
       headerShown: true,
       presentation: 'modal' as const,
-      title: 'Ghi chỉ số',
+      title: t('logMetrics'),
       headerStyle: styles.header,
       headerTitleStyle: styles.headerTitle,
       headerLeft: () => (
@@ -109,7 +111,7 @@ export default function WeightLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message="Đang ghi nhật ký..." />
+        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -121,35 +123,35 @@ export default function WeightLogScreen() {
             </View>
           ) : (
             <ScrollView contentContainerStyle={scrollContentStyle} keyboardShouldPersistTaps="handled">
-              <H1SectionHeader title="Cân nặng" subtitle="Ghi nhanh" />
-              <TextInput label="Cân nặng (kg)" keyboardType="numeric" value={weight} onChangeText={setWeight} error={errors.weight} />
+              <H1SectionHeader title={t('weight')} subtitle={t('quickLog')} />
+              <TextInput label={t('weightKg')} keyboardType="numeric" value={weight} onChangeText={setWeight} error={errors.weight} />
               <TextInput
-                label="Mỡ cơ thể (%)"
+                label={t('bodyFatPct')}
                 keyboardType="numeric"
                 value={bodyfat}
                 onChangeText={setBodyfat}
-                placeholder="Tùy chọn"
+                placeholder={t('optional')}
                 error={errors.bodyfat}
               />
               <TextInput
-                label="Cơ bắp (%)"
+                label={t('musclePct')}
                 keyboardType="numeric"
                 value={musclePct}
                 onChangeText={setMusclePct}
-                placeholder="Tùy chọn"
+                placeholder={t('optional')}
               />
               <TextInput
-                label="Chiều cao (cm)"
+                label={t('heightCm')}
                 keyboardType="numeric"
                 value={heightCm}
                 onChangeText={setHeightCm}
-                placeholder="Để tính BMI (không gửi)"
+                placeholder={t('heightHint')}
               />
-              {bmi ? <Text style={styles.helper}>BMI ước tính: {bmi}</Text> : null}
-              <TextInput label="Ghi chú" value={notes} onChangeText={setNotes} multiline />
+              {bmi ? <Text style={styles.helper}>{t('bmiEstimate', { value: bmi })}</Text> : null}
+              <TextInput label={t('notes')} value={notes} onChangeText={setNotes} multiline />
               {errors.weight ? <Text style={styles.error}>{errors.weight}</Text> : null}
               {errors.bodyfat ? <Text style={styles.error}>{errors.bodyfat}</Text> : null}
-              <Button label="Lưu" onPress={handleSubmit} disabled={isSaving} />
+              <Button label={t('save')} onPress={handleSubmit} disabled={isSaving} />
             </ScrollView>
           )}
         </KeyboardAvoidingView>

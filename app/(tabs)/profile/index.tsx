@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../../src/components/Screen';
@@ -14,6 +15,8 @@ import { useMissionsStore } from '../../../src/features/missions/missions.store'
 import { colors, spacing, typography } from '../../../src/styles';
 
 export default function ProfileScreen() {
+  const { t } = useTranslation('profile');
+  const { t: tc } = useTranslation('common');
   const profile = useAuthStore((state) => state.profile);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -65,18 +68,18 @@ export default function ProfileScreen() {
     const latestGlucose = logs.find((log) => log.type === 'glucose');
     const latestBP = logs.find((log) => log.type === 'blood-pressure');
     
-    const glucoseText = latestGlucose?.value 
-      ? `${latestGlucose.value} mg/dL` 
-      : 'Chưa có dữ liệu';
+    const glucoseText = latestGlucose?.value
+      ? `${latestGlucose.value} mg/dL`
+      : tc('noData');
     
     const bpText = latestBP?.systolic && latestBP?.diastolic
       ? `${latestBP.systolic}/${latestBP.diastolic} mmHg`
-      : 'Chưa có dữ liệu';
+      : tc('noData');
     
     const activeMissions = missions.filter((m) => m.status === 'active');
     const todayTasksText = activeMissions.length > 0
-      ? `${activeMissions.length} nhiệm vụ đang thực hiện`
-      : 'Không có nhiệm vụ';
+      ? t('activeMissions', { count: activeMissions.length })
+      : t('noMissions');
     
     // Check glucose level status
     const glucoseValue = latestGlucose?.value;
@@ -93,11 +96,11 @@ export default function ProfileScreen() {
   const phone = profile?.phone?.trim() ?? '';
   const hasProfile = Boolean(profile);
   const identityTitle = hasProfile
-    ? name || 'Chưa cập nhật'
+    ? name || tc('notUpdated')
     : phone
-      ? 'Khách hàng mới'
-      : 'Chưa đăng nhập';
-  const statusText = hasProfile ? 'Đang hoạt động' : 'Chưa đăng nhập';
+      ? t('newCustomer')
+      : t('notLoggedIn');
+  const statusText = hasProfile ? t('active') : t('notLoggedIn');
 
   const handleEditProfile = () => {
     setEditName(name);
@@ -117,28 +120,28 @@ export default function ProfileScreen() {
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) {
-      setToastMessage('Vui lòng nhập họ tên');
+      setToastMessage(t('nameRequired'));
       setToastType('error');
       setToastVisible(true);
       return;
     }
 
     if (editHeight && (isNaN(parseFloat(editHeight)) || parseFloat(editHeight) <= 0)) {
-      setToastMessage('Chiều cao phải là số dương');
+      setToastMessage(t('heightPositive'));
       setToastType('error');
       setToastVisible(true);
       return;
     }
 
     if (editWeight && (isNaN(parseFloat(editWeight)) || parseFloat(editWeight) <= 0)) {
-      setToastMessage('Cân nặng phải là số dương');
+      setToastMessage(t('weightPositive'));
       setToastType('error');
       setToastVisible(true);
       return;
     }
 
     if (editAge && (isNaN(Number(editAge)) || Number(editAge) <= 0 || Number(editAge) > 150)) {
-      setToastMessage('Tuổi phải là số dương và nhỏ hơn 150');
+      setToastMessage(t('ageValid'));
       setToastType('error');
       setToastVisible(true);
       return;
@@ -146,7 +149,7 @@ export default function ProfileScreen() {
 
     const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
     if (editBloodType && !validBloodTypes.includes(editBloodType)) {
-      setToastMessage('Nhóm máu không hợp lệ');
+      setToastMessage(t('bloodTypeInvalid'));
       setToastType('error');
       setToastVisible(true);
       return;
@@ -181,12 +184,12 @@ export default function ProfileScreen() {
       useAuthStore.setState({ profile: updatedProfile });
       
       handleCloseEditModal();
-      setToastMessage('Cập nhật hồ sơ thành công');
+      setToastMessage(t('profileUpdated'));
       setToastType('success');
       setToastVisible(true);
     } catch (error) {
       console.error('[profile.screen] updateProfile error:', error);
-      setToastMessage('Lỗi khi cập nhật hồ sơ');
+      setToastMessage(t('profileUpdateError'));
       setToastType('error');
       setToastVisible(true);
     } finally {
@@ -238,7 +241,7 @@ export default function ProfileScreen() {
         {/* User Info Card */}
         <View style={styles.sectionHeader}>
           <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
-          <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+          <Text style={styles.sectionTitle}>{t('personalInfo')}</Text>
         </View>
         <View style={styles.infoCard}>
           {hasProfile ? (
@@ -248,8 +251,8 @@ export default function ProfileScreen() {
                   <Ionicons name="person-outline" size={18} color={colors.primary} />
                 </View>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Họ tên</Text>
-                  <Text style={styles.infoValue}>{name || 'Chưa cập nhật'}</Text>
+                  <Text style={styles.infoLabel}>{t('fullName')}</Text>
+                  <Text style={styles.infoValue}>{name || tc('notUpdated')}</Text>
                 </View>
               </View>
               
@@ -260,8 +263,8 @@ export default function ProfileScreen() {
                   <Ionicons name="call-outline" size={18} color={colors.secondary} />
                 </View>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Số điện thoại</Text>
-                  <Text style={styles.infoValue}>{phone || 'Chưa cập nhật'}</Text>
+                  <Text style={styles.infoLabel}>{t('phone')}</Text>
+                  <Text style={styles.infoValue}>{phone || tc('notUpdated')}</Text>
                 </View>
               </View>
               
@@ -273,7 +276,7 @@ export default function ProfileScreen() {
                       <Ionicons name={profile.gender === 'Nam' ? 'male' : 'female'} size={18} color={profile.gender === 'Nam' ? '#3b82f6' : '#ec4899'} />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Giới tính</Text>
+                      <Text style={styles.infoLabel}>{t('gender')}</Text>
                       <Text style={styles.infoValue}>{profile.gender}</Text>
                     </View>
                   </View>
@@ -288,8 +291,8 @@ export default function ProfileScreen() {
                       <FontAwesome5 name="birthday-cake" size={16} color="#f59e0b" />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Tuổi</Text>
-                      <Text style={styles.infoValue}>{Math.round(profile.age)} tuổi</Text>
+                      <Text style={styles.infoLabel}>{t('age')}</Text>
+                      <Text style={styles.infoValue}>{Math.round(profile.age)} {t('ageUnit')}</Text>
                     </View>
                   </View>
                 </>
@@ -303,7 +306,7 @@ export default function ProfileScreen() {
                       <MaterialCommunityIcons name="human-male-height" size={20} color="#8b5cf6" />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Chiều cao</Text>
+                      <Text style={styles.infoLabel}>{t('height')}</Text>
                       <Text style={styles.infoValue}>{Math.round(profile.heightCm)} cm</Text>
                     </View>
                   </View>
@@ -318,7 +321,7 @@ export default function ProfileScreen() {
                       <MaterialCommunityIcons name="scale-bathroom" size={18} color="#06b6d4" />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Cân nặng</Text>
+                      <Text style={styles.infoLabel}>{t('weight')}</Text>
                       <Text style={styles.infoValue}>{Math.round(profile.weightKg)} kg</Text>
                     </View>
                   </View>
@@ -333,7 +336,7 @@ export default function ProfileScreen() {
                       <FontAwesome5 name="tint" size={16} color="#ef4444" />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Nhóm máu</Text>
+                      <Text style={styles.infoLabel}>{t('bloodType')}</Text>
                       <Text style={styles.infoValue}>{profile.bloodType}</Text>
                     </View>
                   </View>
@@ -348,7 +351,7 @@ export default function ProfileScreen() {
                       <MaterialCommunityIcons name="medical-bag" size={18} color="#f97316" />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Bệnh nền</Text>
+                      <Text style={styles.infoLabel}>{t('chronicDiseases')}</Text>
                       <Text style={styles.infoValue}>{profile.chronicDiseases.join(', ')}</Text>
                     </View>
                   </View>
@@ -361,7 +364,7 @@ export default function ProfileScreen() {
                 <Ionicons name="call-outline" size={18} color={colors.secondary} />
               </View>
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Số điện thoại</Text>
+                <Text style={styles.infoLabel}>{t('phone')}</Text>
                 <Text style={styles.infoValue}>{phone}</Text>
               </View>
             </View>
@@ -371,7 +374,7 @@ export default function ProfileScreen() {
         {/* Quick Actions */}
         <View style={styles.sectionHeader}>
           <Ionicons name="flash-outline" size={22} color={colors.warning} />
-          <Text style={styles.sectionTitle}>Hành động nhanh</Text>
+          <Text style={styles.sectionTitle}>{t('quickActions')}</Text>
         </View>
         <View style={styles.quickActionsGrid}>
           <Pressable style={styles.actionCard} onPress={() => router.push('/care-circle')}>
@@ -381,7 +384,7 @@ export default function ProfileScreen() {
             >
               <Ionicons name="people" size={24} color="#fff" />
             </LinearGradient>
-            <Text style={styles.actionLabel}>Vòng kết nối</Text>
+            <Text style={styles.actionLabel}>{t('careCircle')}</Text>
           </Pressable>
           
           <Pressable style={styles.actionCard} onPress={() => router.push('/settings')}>
@@ -391,7 +394,7 @@ export default function ProfileScreen() {
             >
               <Ionicons name="settings" size={24} color="#fff" />
             </LinearGradient>
-            <Text style={styles.actionLabel}>Cài đặt</Text>
+            <Text style={styles.actionLabel}>{t('settings')}</Text>
           </Pressable>
           
           <Pressable style={styles.actionCard} onPress={handleEditProfile}>
@@ -401,7 +404,7 @@ export default function ProfileScreen() {
             >
               <Ionicons name="create" size={24} color="#fff" />
             </LinearGradient>
-            <Text style={styles.actionLabel}>Sửa hồ sơ</Text>
+            <Text style={styles.actionLabel}>{t('editProfile')}</Text>
           </Pressable>
           
           <Pressable style={styles.actionCard} onPress={() => router.push('/logs')}>
@@ -411,27 +414,27 @@ export default function ProfileScreen() {
             >
               <Ionicons name="journal" size={24} color="#fff" />
             </LinearGradient>
-            <Text style={styles.actionLabel}>Ghi log</Text>
+            <Text style={styles.actionLabel}>{t('logEntry')}</Text>
           </Pressable>
         </View>
 
         {/* Health Overview */}
         <View style={styles.sectionHeader}>
           <Ionicons name="heart-circle-outline" size={22} color="#ef4444" />
-          <Text style={styles.sectionTitle}>Tổng quan sức khỏe</Text>
+          <Text style={styles.sectionTitle}>{t('healthOverview')}</Text>
         </View>
         <View style={styles.healthCardsGrid}>
           <View style={[styles.healthCard, styles.healthCardGlucose]}>
             <View style={styles.healthCardHeader}>
               <MaterialCommunityIcons name="water" size={20} color="#3b82f6" />
-              <Text style={styles.healthCardTitle}>Đường huyết</Text>
+              <Text style={styles.healthCardTitle}>{t('glucose')}</Text>
             </View>
             <Text style={[styles.healthCardValue, glucoseStatus === 'warning' && styles.healthValueWarning, glucoseStatus === 'danger' && styles.healthValueDanger]}>{glucoseText}</Text>
             {glucoseStatus !== 'normal' && (
               <View style={styles.healthAlert}>
                 <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? '#ef4444' : '#f59e0b'} />
                 <Text style={[styles.healthAlertText, { color: glucoseStatus === 'danger' ? '#ef4444' : '#f59e0b' }]}>
-                  {glucoseStatus === 'danger' ? 'Cần chú ý!' : 'Hơi cao'}
+                  {glucoseStatus === 'danger' ? t('needsAttention') : t('slightlyHigh')}
                 </Text>
               </View>
             )}
@@ -440,7 +443,7 @@ export default function ProfileScreen() {
           <View style={[styles.healthCard, styles.healthCardBP]}>
             <View style={styles.healthCardHeader}>
               <MaterialCommunityIcons name="heart-pulse" size={20} color="#ef4444" />
-              <Text style={styles.healthCardTitle}>Huyết áp</Text>
+              <Text style={styles.healthCardTitle}>{t('bloodPressure')}</Text>
             </View>
             <Text style={styles.healthCardValue}>{bpText}</Text>
           </View>
@@ -448,7 +451,7 @@ export default function ProfileScreen() {
           <View style={[styles.healthCard, styles.healthCardMissions]}>
             <View style={styles.healthCardHeader}>
               <Ionicons name="checkbox-outline" size={20} color="#10b981" />
-              <Text style={styles.healthCardTitle}>Nhiệm vụ</Text>
+              <Text style={styles.healthCardTitle}>{t('missions')}</Text>
             </View>
             <Text style={styles.healthCardValue}>{todayTasksText}</Text>
           </View>
@@ -469,7 +472,7 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Ionicons name="person-circle" size={32} color={colors.primary} />
-              <Text style={styles.modalTitle}>Chỉnh sửa hồ sơ</Text>
+              <Text style={styles.modalTitle}>{t('editProfileTitle')}</Text>
             </View>
             
             <ScrollView 
@@ -480,13 +483,13 @@ export default function ProfileScreen() {
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
                   <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.inputLabel}>Họ tên</Text>
+                  <Text style={styles.inputLabel}>{t('fullName')}</Text>
                 </View>
                 <TextInput
                   style={styles.input}
                   value={editName}
                   onChangeText={setEditName}
-                  placeholder="Nhập họ tên"
+                  placeholder={t('enterName')}
                   placeholderTextColor={colors.textSecondary}
                 />
               </View>
@@ -494,13 +497,13 @@ export default function ProfileScreen() {
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
                   <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.inputLabel}>Số điện thoại</Text>
+                  <Text style={styles.inputLabel}>{t('phone')}</Text>
                 </View>
                 <TextInput
                   style={styles.input}
                   value={editPhone}
                   onChangeText={setEditPhone}
-                  placeholder="Nhập số điện thoại"
+                  placeholder={t('enterPhone')}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="phone-pad"
                 />
@@ -509,13 +512,13 @@ export default function ProfileScreen() {
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
                   <FontAwesome5 name="birthday-cake" size={14} color={colors.textSecondary} />
-                  <Text style={styles.inputLabel}>Tuổi</Text>
+                  <Text style={styles.inputLabel}>{t('age')}</Text>
                 </View>
                 <TextInput
                   style={styles.input}
                   value={editAge}
                   onChangeText={setEditAge}
-                  placeholder="Nhập tuổi"
+                  placeholder={t('enterAge')}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="number-pad"
                 />
@@ -524,7 +527,7 @@ export default function ProfileScreen() {
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
                   <Ionicons name="male-female" size={16} color={colors.textSecondary} />
-                  <Text style={styles.inputLabel}>Giới tính</Text>
+                  <Text style={styles.inputLabel}>{t('gender')}</Text>
                 </View>
                 <View style={styles.genderButtonsRow}>
                   <Pressable
@@ -536,7 +539,7 @@ export default function ProfileScreen() {
                       size={20} 
                       color={editGender === 'Nam' ? '#fff' : '#3b82f6'} 
                     />
-                    <Text style={[styles.genderButtonText, editGender === 'Nam' && styles.genderButtonTextActive]}>Nam</Text>
+                    <Text style={[styles.genderButtonText, editGender === 'Nam' && styles.genderButtonTextActive]}>{tc('male')}</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.genderButton, editGender === 'Nữ' && styles.genderButtonActive]}
@@ -547,7 +550,7 @@ export default function ProfileScreen() {
                       size={20} 
                       color={editGender === 'Nữ' ? '#fff' : '#ec4899'} 
                     />
-                    <Text style={[styles.genderButtonText, editGender === 'Nữ' && styles.genderButtonTextActive]}>Nữ</Text>
+                    <Text style={[styles.genderButtonText, editGender === 'Nữ' && styles.genderButtonTextActive]}>{tc('female')}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -555,13 +558,13 @@ export default function ProfileScreen() {
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
                   <MaterialCommunityIcons name="human-male-height" size={16} color={colors.textSecondary} />
-                  <Text style={styles.inputLabel}>Chiều cao (cm)</Text>
+                  <Text style={styles.inputLabel}>{t('heightCm')}</Text>
                 </View>
                 <TextInput
                   style={styles.input}
                   value={editHeight}
                   onChangeText={setEditHeight}
-                  placeholder="Nhập chiều cao"
+                  placeholder={t('enterHeight')}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="number-pad"
                 />
@@ -570,13 +573,13 @@ export default function ProfileScreen() {
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
                   <MaterialCommunityIcons name="scale-bathroom" size={16} color={colors.textSecondary} />
-                  <Text style={styles.inputLabel}>Cân nặng (kg)</Text>
+                  <Text style={styles.inputLabel}>{t('weightKg')}</Text>
                 </View>
                 <TextInput
                   style={styles.input}
                   value={editWeight}
                   onChangeText={setEditWeight}
-                  placeholder="Nhập cân nặng"
+                  placeholder={t('enterWeight')}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="number-pad"
                 />
@@ -585,13 +588,13 @@ export default function ProfileScreen() {
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
                   <FontAwesome5 name="tint" size={14} color={colors.textSecondary} />
-                  <Text style={styles.inputLabel}>Nhóm máu</Text>
+                  <Text style={styles.inputLabel}>{t('bloodType')}</Text>
                 </View>
                 <TextInput
                   style={styles.input}
                   value={editBloodType}
                   onChangeText={setEditBloodType}
-                  placeholder="VD: A+, O-, AB+"
+                  placeholder={t('bloodTypeExample')}
                   placeholderTextColor={colors.textSecondary}
                   autoCapitalize="characters"
                 />
@@ -600,13 +603,13 @@ export default function ProfileScreen() {
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
                   <MaterialCommunityIcons name="medical-bag" size={16} color={colors.textSecondary} />
-                  <Text style={styles.inputLabel}>Bệnh nền</Text>
+                  <Text style={styles.inputLabel}>{t('chronicDiseases')}</Text>
                 </View>
                 <TextInput
                   style={[styles.input, styles.textAreaInput]}
                   value={editChronicDiseases}
                   onChangeText={setEditChronicDiseases}
-                  placeholder="VD: Tiểu đường, Cao huyết áp, Tim mạch (cách nhau bằng dấu phẩy)"
+                  placeholder={t('chronicDiseasesExample')}
                   placeholderTextColor={colors.textSecondary}
                   multiline
                   numberOfLines={3}
@@ -617,7 +620,7 @@ export default function ProfileScreen() {
             
             <View style={styles.modalButtons}>
               <Pressable style={styles.cancelButton} onPress={handleCloseEditModal}>
-                <Text style={styles.cancelButtonText}>Hủy</Text>
+                <Text style={styles.cancelButtonText}>{tc('cancel')}</Text>
               </Pressable>
               <Pressable 
                 style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
@@ -629,11 +632,11 @@ export default function ProfileScreen() {
                   style={styles.saveButtonGradient}
                 >
                   {isSaving ? (
-                    <Text style={styles.saveButtonText}>Đang lưu...</Text>
+                    <Text style={styles.saveButtonText}>{tc('saving')}</Text>
                   ) : (
                     <>
                       <Ionicons name="checkmark" size={18} color="#fff" />
-                      <Text style={styles.saveButtonText}>Lưu</Text>
+                      <Text style={styles.saveButtonText}>{tc('save')}</Text>
                     </>
                   )}
                 </LinearGradient>

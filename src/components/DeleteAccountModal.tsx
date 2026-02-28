@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Modal,
@@ -18,12 +19,14 @@ type DeleteAccountModalProps = {
   onConfirm: () => Promise<void>;
 };
 
-const CONFIRMATION_WORD = 'XÓA';
-
 export default function DeleteAccountModal({ visible, onClose, onConfirm }: DeleteAccountModalProps) {
   const [inputValue, setInputValue] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const scaledTypography = useScaledTypography();
+  const { t } = useTranslation('settings');
+  const { t: tc } = useTranslation('common');
+
+  const CONFIRMATION_WORD = t('deleteConfirmWord');
 
   const handleConfirm = async () => {
     if (inputValue.trim().toUpperCase() !== CONFIRMATION_WORD) {
@@ -76,39 +79,39 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
 
           {/* Tiêu đề */}
           <Text style={[styles.title, { fontSize: scaledTypography.size.xl }]}>
-            Xóa tài khoản?
+            {t('deleteAccountConfirm')}
           </Text>
 
           {/* Nội dung cảnh báo */}
           <Text style={[styles.warningText, { fontSize: scaledTypography.size.md }]}>
-            Hành động này không thể hoàn tác!
+            {t('deleteAccountWarning')}
           </Text>
           
           <View style={styles.warningBox}>
             <Text style={[styles.warningItem, { fontSize: scaledTypography.size.sm }]}>
-              • Tất cả dữ liệu của bạn sẽ bị xóa vĩnh viễn
+              • {t('deleteWarning1')}
             </Text>
             <Text style={[styles.warningItem, { fontSize: scaledTypography.size.sm }]}>
-              • Lịch sử log sức khỏe sẽ mất
+              • {t('deleteWarning2')}
             </Text>
             <Text style={[styles.warningItem, { fontSize: scaledTypography.size.sm }]}>
-              • Nhiệm vụ và thành tích sẽ bị xóa
+              • {t('deleteWarning3')}
             </Text>
             <Text style={[styles.warningItem, { fontSize: scaledTypography.size.sm }]}>
-              • Không thể khôi phục sau khi xóa
+              • {t('deleteWarning4')}
             </Text>
           </View>
 
           {/* Input xác nhận */}
           <View style={styles.confirmSection}>
             <Text style={[styles.confirmLabel, { fontSize: scaledTypography.size.sm }]}>
-              Để xác nhận, vui lòng nhập từ <Text style={styles.confirmWord}>"{CONFIRMATION_WORD}"</Text>:
+              {t('deleteConfirmPrompt', { word: CONFIRMATION_WORD })}
             </Text>
             <TextInput
               style={[styles.input, { fontSize: scaledTypography.size.md }]}
               value={inputValue}
               onChangeText={setInputValue}
-              placeholder={`Nhập "${CONFIRMATION_WORD}"`}
+              placeholder={t('deleteConfirmPlaceholder', { word: CONFIRMATION_WORD })}
               autoCapitalize="characters"
               editable={!isDeleting}
             />
@@ -122,7 +125,7 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
               disabled={isDeleting}
             >
               <Text style={[styles.buttonText, { fontSize: scaledTypography.size.md }]}>
-                Hủy
+                {tc('cancel')}
               </Text>
             </Pressable>
 
@@ -139,7 +142,7 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={[styles.buttonText, styles.deleteButtonText, { fontSize: scaledTypography.size.md }]}>
-                  Xóa tài khoản
+                  {t('deleteAccount')}
                 </Text>
               )}
             </Pressable>

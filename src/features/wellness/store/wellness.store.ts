@@ -6,6 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import i18n from '../../../i18n';
 import { tokenStore } from '../../../lib/tokenStore';
 import {
     acknowledgeAlert,
@@ -304,7 +305,7 @@ export const useWellnessStore = create<WellnessStore>()(
       requestHelp: async (message) => {
         const token = tokenStore.getToken();
         if (!token) {
-          return { success: false, alertsSent: 0, message: 'Chưa đăng nhập' };
+          return { success: false, alertsSent: 0, message: i18n.t('notLoggedIn') };
         }
 
         try {
@@ -318,10 +319,10 @@ export const useWellnessStore = create<WellnessStore>()(
               message: response.message
             };
           }
-          return { success: false, alertsSent: 0, message: 'Không thể gửi yêu cầu' };
+          return { success: false, alertsSent: 0, message: i18n.t('cannotSendRequest') };
         } catch (error) {
           console.warn('[Wellness] Failed to send help request:', error);
-          return { success: false, alertsSent: 0, message: 'Lỗi kết nối' };
+          return { success: false, alertsSent: 0, message: i18n.t('connectionError') };
         }
       },
 

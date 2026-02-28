@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import { env } from './env';
 import { logError, logWarn } from './logger';
 import { tokenStore } from './tokenStore';
@@ -135,5 +136,5 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
     }
   }
 
-  throw lastError ?? new Error('Lỗi mạng không xác định');
+  throw lastError ?? new Error(i18n.t('networkErrorUnknown'));
 }

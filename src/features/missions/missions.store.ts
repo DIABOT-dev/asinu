@@ -1,4 +1,5 @@
 ﻿import { create } from 'zustand';
+import i18n from '../../i18n';
 import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
@@ -37,47 +38,48 @@ type MissionsState = {
   fetchMissions: (signal?: AbortSignal) => Promise<void>;
 };
 
-const missionMeta: Record<string, { title: string; description?: string }> = {
+const getMissionMeta = (): Record<string, { title: string; description?: string }> => ({
   DAILY_CHECKIN: {
-    title: 'Điểm danh hàng ngày',
-    description: 'Mở app và kiểm tra sức khỏe hàng ngày'
+    title: i18n.t('missions:dailyCheckIn'),
+    description: i18n.t('missions:dailyCheckInDesc')
   },
   log_glucose: {
-    title: 'Đo đường huyết',
-    description: 'Đo và ghi lại chỉ số đường huyết 2 lần/ngày'
+    title: i18n.t('missions:measureGlucose'),
+    description: i18n.t('missions:measureGlucoseDesc')
   },
   log_bp: {
-    title: 'Đo huyết áp',
-    description: 'Theo dõi huyết áp định kỳ 2 lần/ngày'
+    title: i18n.t('missions:measureBP'),
+    description: i18n.t('missions:measureBPDesc')
   },
   log_weight: {
-    title: 'Cân nặng',
-    description: 'Cân nặng và ghi lại 1 lần/ngày'
+    title: i18n.t('missions:weightMission'),
+    description: i18n.t('missions:weightMissionDesc')
   },
   log_water: {
-    title: 'Uống nước',
-    description: 'Uống đủ nước, mục tiêu 4 ly/ngày'
+    title: i18n.t('missions:waterIntake'),
+    description: i18n.t('missions:waterIntakeDesc')
   },
   log_meal: {
-    title: 'Ghi chép bữa ăn',
-    description: 'Ghi chép bữa ăn, mục tiêu 3 bữa/ngày'
+    title: i18n.t('missions:logMeal'),
+    description: i18n.t('missions:logMealDesc')
   },
   log_insulin: {
-    title: 'Ghi chép Insulin',
-    description: 'Ghi chép liều insulin đã tiêm'
+    title: i18n.t('missions:logInsulin'),
+    description: i18n.t('missions:logInsulinDesc')
   },
   log_medication: {
-    title: 'Ghi chép thuốc',
-    description: 'Ghi chép thuốc đã uống'
+    title: i18n.t('missions:logMedication'),
+    description: i18n.t('missions:logMedicationDesc')
   },
   connect_caregiver: {
-    title: 'Kết nối người thân',
-    description: 'Mời người thân vào Vòng kết nối'
+    title: i18n.t('missions:connectFamily'),
+    description: i18n.t('missions:connectFamilyDesc')
   }
-};
+});
 
 const mapMission = (mission: MissionRecord): Mission => {
   // Use backend-provided title/description, or fallback to local meta
+  const missionMeta = getMissionMeta();
   const meta = missionMeta[mission.mission_key] || { title: mission.mission_key };
   return {
     id: mission.id || mission.mission_key,  // Use backend id if available
@@ -91,58 +93,61 @@ const mapMission = (mission: MissionRecord): Mission => {
   };
 };
 
-const fallbackMissions: Mission[] = [
-  {
-    id: 'log_glucose',
-    missionKey: 'log_glucose',
-    title: 'Đo đường huyết',
-    description: 'Đo và ghi lại chỉ số đường huyết 2 lần/ngày',
-    status: 'active',
-    progress: 0,
-    goal: 2,
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 'log_bp',
-    missionKey: 'log_bp',
-    title: 'Đo huyết áp',
-    description: 'Theo dõi huyết áp định kỳ 2 lần/ngày',
-    status: 'active',
-    progress: 0,
-    goal: 2,
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 'log_water',
-    missionKey: 'log_water',
-    title: 'Uống nước',
-    description: 'Uống đủ nước, mục tiêu 4 ly/ngày',
-    status: 'active',
-    progress: 0,
-    goal: 4,
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 'log_meal',
-    missionKey: 'log_meal',
-    title: 'Ghi chép bữa ăn',
-    description: 'Ghi chép bữa ăn, mục tiêu 3 bữa/ngày',
-    status: 'active',
-    progress: 0,
-    goal: 3,
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 'daily_checkin',
-    missionKey: 'daily_checkin',
-    title: 'Điểm danh hàng ngày',
-    description: 'Mở app và kiểm tra sức khỏe hàng ngày',
-    status: 'active',
-    progress: 0,
-    goal: 1,
-    updatedAt: new Date().toISOString()
-  }
-];
+const getFallbackMissions = (): Mission[] => {
+  const meta = getMissionMeta();
+  return [
+    {
+      id: 'log_glucose',
+      missionKey: 'log_glucose',
+      title: meta.log_glucose.title,
+      description: meta.log_glucose.description,
+      status: 'active',
+      progress: 0,
+      goal: 2,
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'log_bp',
+      missionKey: 'log_bp',
+      title: meta.log_bp.title,
+      description: meta.log_bp.description,
+      status: 'active',
+      progress: 0,
+      goal: 2,
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'log_water',
+      missionKey: 'log_water',
+      title: meta.log_water.title,
+      description: meta.log_water.description,
+      status: 'active',
+      progress: 0,
+      goal: 4,
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'log_meal',
+      missionKey: 'log_meal',
+      title: meta.log_meal.title,
+      description: meta.log_meal.description,
+      status: 'active',
+      progress: 0,
+      goal: 3,
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'daily_checkin',
+      missionKey: 'daily_checkin',
+      title: meta.DAILY_CHECKIN.title,
+      description: meta.DAILY_CHECKIN.description,
+      status: 'active',
+      progress: 0,
+      goal: 1,
+      updatedAt: new Date().toISOString()
+    }
+  ];
+};
 
 export const useMissionsStore = create<MissionsState>((set) => ({
   missions: [],
@@ -151,7 +156,7 @@ export const useMissionsStore = create<MissionsState>((set) => ({
   errorState: 'none',
   async fetchMissions(signal) {
     if (featureFlags.devBypassAuth) {
-      set({ missions: fallbackMissions, status: 'success', isStale: false, errorState: 'none' });
+      set({ missions: getFallbackMissions(), status: 'success', isStale: false, errorState: 'none' });
       return;
     }
     let usedCache = false;

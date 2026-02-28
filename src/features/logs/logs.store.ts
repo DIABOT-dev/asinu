@@ -1,18 +1,19 @@
 import { create } from 'zustand';
+import i18n from '../../i18n';
 import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
 import { logError } from '../../lib/logger';
 import { logActivity } from '../wellness/api/wellness.api';
 import {
-  BloodPressureLogPayload,
-  GlucoseLogPayload,
-  InsulinLogPayload,
-  logsApi,
-  MealLogPayload,
-  MedicationLogPayload,
-  WaterLogPayload,
-  WeightLogPayload
+    BloodPressureLogPayload,
+    GlucoseLogPayload,
+    InsulinLogPayload,
+    logsApi,
+    MealLogPayload,
+    MedicationLogPayload,
+    WaterLogPayload,
+    WeightLogPayload
 } from './logs.api';
 
 export type LogEntry = {
@@ -79,7 +80,7 @@ const fallbackRecent: LogEntry[] = [
     id: 'log-1',
     type: 'glucose',
     value: 125,
-    tags: ['Trước ăn'],
+    tags: [i18n.t('ctxPreMeal', { ns: 'logs' })],
     recordedAt: new Date().toISOString()
   },
   {
@@ -87,7 +88,7 @@ const fallbackRecent: LogEntry[] = [
     type: 'blood-pressure',
     systolic: 125,
     diastolic: 78,
-    tags: ['Buổi sáng'],
+    tags: [i18n.t('bpMorning', { ns: 'logs' })],
     recordedAt: new Date().toISOString()
   },
   {

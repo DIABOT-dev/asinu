@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import DeleteAccountModal from '../../src/components/DeleteAccountModal';
@@ -12,20 +13,24 @@ import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { getExpoPushToken, requestNotificationPermissions } from '../../src/lib/notifications';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
+import { AppLanguage, useLanguageStore } from '../../src/stores/language.store';
 import { colors, spacing } from '../../src/styles';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
-const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; label: string; iconSize: number }> = [
-  { value: 'small', label: 'Nhỏ', iconSize: 16 },
-  { value: 'normal', label: 'Bình thường', iconSize: 20 },
-  { value: 'large', label: 'Lớn', iconSize: 24 },
-  { value: 'xlarge', label: 'Rất lớn', iconSize: 28 }
+const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
+  { value: 'small', iconSize: 16 },
+  { value: 'normal', iconSize: 20 },
+  { value: 'large', iconSize: 24 },
+  { value: 'xlarge', iconSize: 28 }
 ];
 
 const STORAGE_KEY_NOTIFICATIONS = '@app/notifications_enabled';
 const STORAGE_KEY_REMINDERS = '@app/reminders_enabled';
 
 export default function SettingsScreen() {
+  const { t } = useTranslation('settings');
+  const { t: tc } = useTranslation('common');
+  const { language, setLanguage } = useLanguageStore();
   const logout = useAuthStore((state) => state.logout);
   const { scale, setScale } = useFontSizeStore();
   const scaledTypography = useScaledTypography();
@@ -65,12 +70,12 @@ export default function SettingsScreen() {
       
       if (!hasPermission) {
         Alert.alert(
-          'Cần quyền thông báo',
-          'Vui lòng cho phép thông báo trong Cài đặt của thiết bị để nhận nhắc nhở.',
+          t('notificationPermRequired'),
+          t('notificationPermDesc'),
           [
-            { text: 'Để sau', style: 'cancel' },
-            { 
-              text: 'Mở Cài đặt', 
+            { text: t('later'), style: 'cancel' },
+            {
+              text: t('openSettings'),
               onPress: () => {
                 // On iOS, this will open Settings app
                 // On Android, user needs to manually go to settings
@@ -107,8 +112,8 @@ export default function SettingsScreen() {
   const handleRemindersToggle = async (value: boolean) => {
     if (value && !notifications) {
       Alert.alert(
-        'Bật thông báo trước',
-        'Bạn cần bật "Thông báo" trước khi bật "Nhắc nhiệm vụ".',
+        t('enableNotificationsFirst'),
+        t('enableNotificationsFirstDesc'),
         [{ text: 'OK' }]
       );
       return;
@@ -122,6 +127,16 @@ export default function SettingsScreen() {
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
+  };
+
+  const getFontSizeLabel = (value: FontSizeScale): string => {
+    const labels: Record<FontSizeScale, string> = {
+      small: t('fontSmall'),
+      normal: t('fontNormal'),
+      large: t('fontLarge'),
+      xlarge: t('fontXLarge'),
+    };
+    return labels[value];
   };
 
   const handleDeleteAccount = async () => {
@@ -141,26 +156,26 @@ export default function SettingsScreen() {
         
         // Hiển thị thông báo sau khi đã chuyển trang
         setTimeout(() => {
-          Alert.alert('Thành công', 'Tài khoản của bạn đã được xóa');
+          Alert.alert(tc('success'), t('accountDeleted'));
         }, 500);
       } else {
-        Alert.alert('Lỗi', 'Không thể xóa tài khoản. Vui lòng thử lại');
+        Alert.alert(tc('error'), t('deleteError'));
       }
     } catch (error) {
       console.error('[settings] Delete account error:', error);
-      Alert.alert('Lỗi', 'Đã xảy ra lỗi khi xóa tài khoản');
+      Alert.alert(tc('error'), t('deleteErrorGeneric'));
     }
   };
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={[styles.container, { paddingTop: padTop }]}>
-        <H1SectionHeader title="Cài đặt" />
+        <H1SectionHeader title={t('title')} />
         
         {/* Font Size Setting */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { fontSize: scaledTypography.size.md }]}>
-            Cỡ chữ ứng dụng
+            {t('fontSize')}
           </Text>
           <View style={styles.fontSizeOptions}>
             {FONT_SIZE_OPTIONS.map((option) => (
@@ -185,21 +200,50 @@ export default function SettingsScreen() {
                     scale === option.value && styles.fontSizeButtonTextActive
                   ]}
                 >
-                  {option.label}
+                  {getFontSizeLabel(option.value)}
                 </Text>
               </Pressable>
             ))}
           </View>
           <Text style={[styles.fontSizePreview, { fontSize: scaledTypography.size.md }]}>
-            Đây là ví dụ về kích thước chữ hiện tại
+            {t('fontPreview')}
           </Text>
+        </View>
+
+        {/* Language Setting */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { fontSize: scaledTypography.size.md }]}>
+            {t('language')}
+          </Text>
+          <View style={styles.fontSizeOptions}>
+            {(['vi', 'en'] as AppLanguage[]).map((lang) => (
+              <Pressable
+                key={lang}
+                onPress={() => setLanguage(lang)}
+                style={[
+                  styles.fontSizeButton,
+                  language === lang && styles.fontSizeButtonActive
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.fontSizeButtonText,
+                    { fontSize: scaledTypography.size.sm },
+                    language === lang && styles.fontSizeButtonTextActive
+                  ]}
+                >
+                  {lang === 'vi' ? t('languageVi') : t('languageEn')}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>Thông báo</Text>
+            <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{t('notifications')}</Text>
             <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
-              Nhận nhắc nhở log và cập nhật sức khỏe
+              {t('notificationsDesc')}
             </Text>
           </View>
           <Switch 
@@ -210,9 +254,9 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>Nhắc nhiệm vụ</Text>
+            <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{t('taskReminders')}</Text>
             <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
-              Nhận push khi gần hết ngày
+              {t('taskRemindersDesc')}
             </Text>
           </View>
           <Switch 
@@ -222,7 +266,7 @@ export default function SettingsScreen() {
           />
         </View>
 
-        <Button label="Đăng xuất" variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
+        <Button label={t('logout')} variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
         
         <Pressable 
           style={styles.deleteAccountButton}
@@ -230,12 +274,12 @@ export default function SettingsScreen() {
         >
           <MaterialCommunityIcons name="delete-forever" size={20} color="#ffffff" />
           <Text style={[styles.deleteAccountText, { fontSize: scaledTypography.size.sm }]}>
-            Xóa tài khoản vĩnh viễn
+            {t('deleteAccountForever')}
           </Text>
         </Pressable>
 
         <Text style={[styles.versionText, { fontSize: scaledTypography.size.xs }]}>
-          v.1 (Bản thử nghiệm)
+          {t('version')}
         </Text>
       </ScrollView>
 

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
@@ -15,6 +16,7 @@ import { colors } from '../../src/styles/theme';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function MedicationLogScreen() {
+  const { t } = useTranslation('logs');
   const router = useRouter();
   const [medication, setMedication] = useState('');
   const [dose, setDose] = useState('');
@@ -63,8 +65,8 @@ export default function MedicationLogScreen() {
       setIsSaving(false);
       // Show success message
       Alert.alert(
-        'Thành công!',
-        'Ghi nhật ký thành công!',
+        t('successTitle'),
+        t('logSuccess'),
         [
           {
             text: 'OK'
@@ -73,7 +75,7 @@ export default function MedicationLogScreen() {
       );
     } catch (error) {
       setIsSaving(false);
-      Alert.alert('Lưu thất bại', 'Vui lòng thử lại!');
+      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -81,7 +83,7 @@ export default function MedicationLogScreen() {
     () => ({
       headerShown: true,
       presentation: 'modal' as const,
-      title: 'Ghi chỉ số',
+      title: t('logMetrics'),
       headerStyle: styles.header,
       headerTitleStyle: styles.headerTitle,
       headerLeft: () => (
@@ -90,7 +92,7 @@ export default function MedicationLogScreen() {
         </TouchableOpacity>
       )
     }),
-    [handleBack]
+    [handleBack, t]
   );
 
   const scrollContentStyle = useMemo(
@@ -102,7 +104,7 @@ export default function MedicationLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message="Đang ghi nhật ký..." />
+        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -114,14 +116,14 @@ export default function MedicationLogScreen() {
             </View>
           ) : (
             <ScrollView contentContainerStyle={scrollContentStyle} keyboardShouldPersistTaps="handled">
-              <H1SectionHeader title="Thuốc" subtitle="Ghi nhanh" />
-              <TextInput label="Tên thuốc" value={medication} onChangeText={setMedication} error={errors.medication} placeholder="VD: Metformin" />
-              <TextInput label="Liều lượng" value={dose} onChangeText={setDose} error={errors.dose} placeholder="VD: 500mg x 2" />
-              <TextInput label="Tần suất" value={frequencyText} onChangeText={setFrequencyText} placeholder="VD: 2 lần/ngày" />
-              <TextInput label="Ghi chú" value={notes} onChangeText={setNotes} multiline />
+              <H1SectionHeader title={t('medication')} subtitle={t('quickLog')} />
+              <TextInput label={t('medicationName')} value={medication} onChangeText={setMedication} error={errors.medication} placeholder={t('medNamePlaceholder')} />
+              <TextInput label={t('medicationDose')} value={dose} onChangeText={setDose} error={errors.dose} placeholder={t('dosePlaceholder')} />
+              <TextInput label={t('frequency')} value={frequencyText} onChangeText={setFrequencyText} placeholder={t('freqPlaceholder')} />
+              <TextInput label={t('notes')} value={notes} onChangeText={setNotes} multiline />
               {errors.medication ? <Text style={styles.error}>{errors.medication}</Text> : null}
               {errors.dose ? <Text style={styles.error}>{errors.dose}</Text> : null}
-              <Button label="Lưu" onPress={handleSubmit} disabled={isSaving} />
+              <Button label={t('save')} onPress={handleSubmit} disabled={isSaving} />
             </ScrollView>
           )}
         </KeyboardAvoidingView>

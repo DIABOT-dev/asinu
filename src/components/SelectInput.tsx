@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
@@ -18,19 +19,21 @@ export type SelectInputProps = {
   error?: string;
 };
 
-export const SelectInput = ({ 
-  label, 
-  value, 
-  options, 
-  onSelect, 
-  placeholder = 'Chọn một tùy chọn',
-  error 
+export const SelectInput = ({
+  label,
+  value,
+  options,
+  onSelect,
+  placeholder,
+  error
 }: SelectInputProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const scaledTypography = useScaledTypography();
+  const { t } = useTranslation('common');
+  const resolvedPlaceholder = placeholder ?? t('selectOption');
   
   const selectedOption = options.find(opt => opt.value === value);
-  const displayText = selectedOption?.label || placeholder;
+  const displayText = selectedOption?.label || resolvedPlaceholder;
 
   return (
     <View style={styles.container}>

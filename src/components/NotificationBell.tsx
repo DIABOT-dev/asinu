@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     FlatList,
@@ -40,6 +41,8 @@ export function NotificationBell({
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const scaledTypography = useScaledTypography();
+  const { t } = useTranslation('common');
+  const { t: tLogs } = useTranslation('logs');
 
   const handleNotificationPress = (notification: Notification) => {
     if (!notification.read && onMarkAsRead) {
@@ -58,10 +61,10 @@ export function NotificationBell({
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Vừa xong';
-    if (diffMins < 60) return `${diffMins} phút trước`;
-    if (diffHours < 24) return `${diffHours} giờ trước`;
-    if (diffDays < 7) return `${diffDays} ngày trước`;
+    if (diffMins < 1) return t('justNow');
+    if (diffMins < 60) return t('minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('hoursAgo', { count: diffHours });
+    if (diffDays < 7) return t('daysAgo', { count: diffDays });
     
     return date.toLocaleDateString('vi-VN', {
       day: '2-digit',
@@ -151,11 +154,11 @@ export function NotificationBell({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.header}>
-              <Text style={[styles.headerTitle, { fontSize: scaledTypography.size.xl }]}>Thông báo</Text>
+              <Text style={[styles.headerTitle, { fontSize: scaledTypography.size.xl }]}>{tLogs('notifications')}</Text>
               <View style={styles.headerActions}>
                 {unreadCount > 0 && onMarkAllAsRead && (
                   <TouchableOpacity onPress={onMarkAllAsRead} style={styles.markAllButton}>
-                    <Text style={[styles.markAllText, { fontSize: scaledTypography.size.sm }]}>Đánh dấu đã đọc</Text>
+                    <Text style={[styles.markAllText, { fontSize: scaledTypography.size.sm }]}>{tLogs('markAsRead')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
@@ -175,7 +178,7 @@ export function NotificationBell({
                   size={64}
                   color={colors.textSecondary}
                 />
-                <Text style={[styles.emptyText, { fontSize: scaledTypography.size.md }]}>Chưa có thông báo</Text>
+                <Text style={[styles.emptyText, { fontSize: scaledTypography.size.md }]}>{tLogs('noNotifications')}</Text>
               </View>
             ) : (
               <FlatList

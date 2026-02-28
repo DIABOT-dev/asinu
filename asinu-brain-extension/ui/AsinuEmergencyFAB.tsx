@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Animated, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, typography } from '../../src/styles';
 import { postBrainEmergency } from '../asinuBrain.api';
@@ -13,6 +14,7 @@ type Props = {
 const FAB_POSITION_KEY = '@asinu_fab_position';
 
 export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
+  const { t } = useTranslation('home');
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState<EmergencyType | null>(null);
   const [positionLoaded, setPositionLoaded] = useState(false);
@@ -127,30 +129,30 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
       <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
         <Pressable style={styles.backdrop} onPress={close}>
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Cần hỗ trợ ngay?</Text>
+            <Text style={styles.sheetTitle}>{t('emergencyTitle')}</Text>
             <Pressable
               onPress={() => sendEmergency('SUDDEN_TIRED')}
               disabled={!!loading}
               style={[styles.actionButton, loading === 'SUDDEN_TIRED' && styles.actionButtonDisabled]}
             >
-              <Text style={styles.actionText}>Mệt đột ngột</Text>
+              <Text style={styles.actionText}>{t('emergencySuddenTired')}</Text>
             </Pressable>
             <Pressable
               onPress={() => sendEmergency('VERY_UNWELL')}
               disabled={!!loading}
               style={[styles.actionButton, loading === 'VERY_UNWELL' && styles.actionButtonDisabled]}
             >
-              <Text style={styles.actionText}>Rất không ổn</Text>
+              <Text style={styles.actionText}>{t('emergencyVeryUnwell')}</Text>
             </Pressable>
             <Pressable
               onPress={() => sendEmergency('ALERT_CAREGIVER')}
               disabled={!!loading}
               style={[styles.actionButton, loading === 'ALERT_CAREGIVER' && styles.actionButtonDisabled]}
             >
-              <Text style={styles.actionText}>Báo người thân</Text>
+              <Text style={styles.actionText}>{t('emergencyAlertCaregiver')}</Text>
             </Pressable>
             <Pressable onPress={close} style={styles.cancelButton}>
-              <Text style={styles.cancelText}>Đóng</Text>
+              <Text style={styles.cancelText}>{t('common:close')}</Text>
             </Pressable>
           </View>
         </Pressable>

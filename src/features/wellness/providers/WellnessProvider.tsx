@@ -8,6 +8,7 @@
 
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { AppState } from 'react-native';
+import i18n from '../../../i18n';
 import { useSession } from '../../../providers/SessionProvider';
 import { useWellnessStore } from '../store/wellness.store';
 
@@ -98,7 +99,7 @@ export const WellnessProvider = ({ children }: Props) => {
 
   const requestHelp = useCallback(async (message?: string) => {
     if (!sessionReady) {
-      return { success: false, alertsSent: 0, message: 'Chưa đăng nhập' };
+      return { success: false, alertsSent: 0, message: i18n.t('notLoggedIn') };
     }
     return requestHelpStore(message);
   }, [sessionReady, requestHelpStore]);

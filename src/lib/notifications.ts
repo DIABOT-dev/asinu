@@ -5,6 +5,7 @@
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import i18n from '../i18n';
 import { useNotificationStore } from '../stores/notification.store';
 
 // Configure notification handler
@@ -125,7 +126,7 @@ export function addNotificationReceivedListener(
     // Add to notification store
     const { addNotification } = useNotificationStore.getState();
     addNotification({
-      title: notification.request.content.title || 'Thông báo',
+      title: notification.request.content.title || i18n.t('notification'),
       body: notification.request.content.body || '',
       data: notification.request.content.data,
     });

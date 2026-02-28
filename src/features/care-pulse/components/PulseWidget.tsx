@@ -1,28 +1,25 @@
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
 import { colors, spacing } from '../../../styles';
 import { useCarePulseStore } from '../store/carePulse.store';
 import { PulseStatus, TriggerSource } from '../types';
 
-type PulseOption = {
-  label: string;
-  status: PulseStatus;
-};
-
 type Props = {
   triggerSource?: TriggerSource;
   onComplete?: () => void;
 };
 
-const OPTIONS: PulseOption[] = [
-  { label: 'Ổn / Bình thường', status: 'NORMAL' },
-  { label: 'Hơi mệt', status: 'TIRED' },
-  { label: 'Không ổn', status: 'EMERGENCY' }
-];
-
 export const PulseWidget = ({ triggerSource = 'HOME_WIDGET', onComplete }: Props) => {
+  const { t } = useTranslation('home');
   const checkIn = useCarePulseStore((state) => state.checkIn);
   const scaledTypography = useScaledTypography();
+
+  const OPTIONS: { label: string; status: PulseStatus }[] = [
+    { label: t('pulseNormal'), status: 'NORMAL' },
+    { label: t('pulseTired'), status: 'TIRED' },
+    { label: t('pulseEmergency'), status: 'EMERGENCY' }
+  ];
 
   const handlePress = async (status: PulseStatus) => {
     await checkIn(status, undefined, triggerSource);

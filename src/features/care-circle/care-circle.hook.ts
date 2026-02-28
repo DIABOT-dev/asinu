@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react';
+import i18n from '../../i18n';
 import { careCircleApi, CareCircleConnection, CareCircleInvitation, CreateInvitationPayload } from './care-circle.api';
+
+const t = (key: string) => i18n.t(key, { ns: 'careCircle' });
 
 export function useCareCircle() {
   const [invitations, setInvitations] = useState<CareCircleInvitation[]>([]);
@@ -24,7 +27,7 @@ export function useCareCircle() {
       setInvitations(allInvitations);
     } catch (err: any) {
       console.error('[care-circle] fetchInvitations error:', err);
-      setError(err.message || 'Không thể tải lời mời');
+      setError(err.message || t('cannotLoadInvitations'));
     } finally {
       setLoading(false);
     }
@@ -38,7 +41,7 @@ export function useCareCircle() {
       setConnections(data);
     } catch (err: any) {
       console.error('[care-circle] fetchConnections error:', err);
-      setError(err.message || 'Không thể tải kết nối');
+      setError(err.message || t('cannotLoadConnections'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +58,7 @@ export function useCareCircle() {
       return invitation;
     } catch (err: any) {
       console.error('[care-circle] createInvitation error:', err);
-      setError(err.message || 'Không thể tạo lời mời');
+      setError(err.message || t('cannotCreateInvitation'));
       throw err;
     } finally {
       setLoading(false);
@@ -73,7 +76,7 @@ export function useCareCircle() {
       return connection;
     } catch (err: any) {
       console.error('[care-circle] acceptInvitation error:', err);
-      setError(err.message || 'Không thể chấp nhận lời mời');
+      setError(err.message || t('cannotAcceptInvitation'));
       throw err;
     } finally {
       setLoading(false);
@@ -89,7 +92,7 @@ export function useCareCircle() {
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
     } catch (err: any) {
       console.error('[care-circle] rejectInvitation error:', err);
-      setError(err.message || 'Không thể từ chối lời mời');
+      setError(err.message || t('cannotRejectInvitation'));
       throw err;
     } finally {
       setLoading(false);
@@ -105,7 +108,7 @@ export function useCareCircle() {
       setConnections((prev) => prev.filter((conn) => conn.id !== connectionId));
     } catch (err: any) {
       console.error('[care-circle] deleteConnection error:', err);
-      setError(err.message || 'Không thể xóa kết nối');
+      setError(err.message || t('cannotDeleteConnection'));
       throw err;
     } finally {
       setLoading(false);
@@ -122,7 +125,7 @@ export function useCareCircle() {
       return updatedConnection;
     } catch (err: any) {
       console.error('[care-circle] updateConnection error:', err);
-      setError(err.message || 'Không thể cập nhật kết nối');
+      setError(err.message || t('cannotUpdateConnection'));
       throw err;
     } finally {
       setLoading(false);

@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatApi } from '../features/chat/chat.api';
@@ -15,15 +16,6 @@ type ChatModalProps = {
 const H = Dimensions.get('window').height;
 const SHEET_H = Math.round(H * 0.66);
 
-const initialMessages: ChatBubble[] = [
-  {
-    id: 'welcome',
-    role: 'assistant',
-    text: 'Xin chào, tôi là Asinu Chat. Bạn cần hỗ trợ gì?',
-    timestamp: new Date().toISOString()
-  }
-];
-
 const isUnauthorized = (error: unknown) => {
   if (!error) return false;
   const message = error instanceof Error ? error.message : String(error);
@@ -32,7 +24,15 @@ const isUnauthorized = (error: unknown) => {
 
 export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const insets = useSafeAreaInsets();
-  const [messages, setMessages] = useState<ChatBubble[]>(initialMessages);
+  const { t } = useTranslation(['chat', 'common']);
+  const [messages, setMessages] = useState<ChatBubble[]>(() => [
+    {
+      id: 'welcome',
+      role: 'assistant',
+      text: t('chat:welcome'),
+      timestamp: new Date().toISOString()
+    }
+  ]);
   const [isTyping, setIsTyping] = useState(false);
   const scaledTypography = useScaledTypography();
 
@@ -60,7 +60,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        text: reply || 'Xin lỗi, tôi chưa thể trả lời lúc này.',
+        text: reply || t('chat:errorReply'),
         timestamp: new Date().toISOString()
       };
       setMessages((prev) => [...prev, assistantMessage]);
@@ -73,7 +73,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        text: 'Xin lỗi, hệ thống đang bận. Vui lòng thử lại sau.',
+        text: t('chat:systemBusy'),
         timestamp: new Date().toISOString()
       };
       setMessages((prev) => [...prev, assistantMessage]);
@@ -89,9 +89,9 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.handle} />
           <View style={styles.titleRow}>
-            <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>Trò chuyện với Asinu</Text>
+            <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>{t('chat:title')}</Text>
             <Pressable hitSlop={12} onPress={onClose}>
-              <Text style={[styles.closeLabel, { fontSize: scaledTypography.size.md }]}>Đóng</Text>
+              <Text style={[styles.closeLabel, { fontSize: scaledTypography.size.md }]}>{t('common:close')}</Text>
             </Pressable>
           </View>
           <View style={styles.chatBody}>

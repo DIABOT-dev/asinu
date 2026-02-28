@@ -1,4 +1,7 @@
+import i18n from '../../i18n';
 import { env } from '../../lib/env';
+
+const t = (key: string, opts?: Record<string, unknown>) => i18n.t(key, { ns: 'logs', ...opts });
 
 export const toMgdl = (mmol: number) => parseFloat((mmol * 18).toFixed(1));
 export const toMmol = (mgdl: number) => parseFloat((mgdl / 18).toFixed(1));
@@ -21,8 +24,8 @@ class LogsService {
         if (glucoseValue > 250 || glucoseValue < 70) {
           await this.sendHealthAlert(userId, {
             type: 'glucose_critical',
-            title: `Cảnh báo đường huyết nguy hiểm`,
-            message: `Đường huyết: ${glucoseValue} mg/dL ${glucoseValue > 250 ? '(quá cao)' : '(quá thấp)'}`,
+            title: t('alertGlucoseCritical'),
+            message: t('alertGlucoseMsg', { value: glucoseValue, level: glucoseValue > 250 ? t('levelTooHigh') : t('levelTooLow') }),
             severity: 'critical',
             alertType: 'glucose_critical',
             icon: 'alert-circle',
@@ -34,8 +37,8 @@ class LogsService {
         else if (glucoseValue > 180 || glucoseValue < 90) {
           await this.sendHealthAlert(userId, {
             type: 'glucose_warning', 
-            title: 'Cảnh báo đường huyết',
-            message: `Đường huyết: ${glucoseValue} mg/dL ${glucoseValue > 180 ? '(cao)' : '(thấp)'}`,
+            title: t('alertGlucoseWarning'),
+            message: t('alertGlucoseMsg', { value: glucoseValue, level: glucoseValue > 180 ? t('levelHigh') : t('levelLow') }),
             severity: 'warning',
             alertType: 'glucose_warning',
             icon: 'warning',
@@ -54,8 +57,8 @@ class LogsService {
         if (systolic >= 180 || diastolic >= 110) {
           await this.sendHealthAlert(userId, {
             type: 'blood_pressure_critical',
-            title: 'Cảnh báo huyết áp nguy hiểm',
-            message: `Huyết áp: ${systolic}/${diastolic} mmHg (quá cao)`,
+            title: t('alertBpCritical'),
+            message: t('alertBpMsg', { sys: systolic, dia: diastolic, level: t('levelTooHigh') }),
             severity: 'critical',
             alertType: 'blood_pressure_critical',
             icon: 'alert-circle',
@@ -68,8 +71,8 @@ class LogsService {
         else if (systolic >= 140 || diastolic >= 90) {
           await this.sendHealthAlert(userId, {
             type: 'blood_pressure_warning',
-            title: 'Cảnh báo huyết áp',
-            message: `Huyết áp: ${systolic}/${diastolic} mmHg (cao)`,
+            title: t('alertBpWarning'),
+            message: t('alertBpMsg', { sys: systolic, dia: diastolic, level: t('levelHigh') }),
             severity: 'warning', 
             alertType: 'blood_pressure_warning',
             icon: 'warning',
@@ -122,7 +125,7 @@ class LogsService {
       });
       
       if (!response.ok) {
-        throw new Error('Không thể gửi cảnh báo cho care-circle');
+        throw new Error(t('cannotSendCareCircleAlert'));
       }
     } catch (error) {
       console.error('Lỗi gửi cảnh báo cho care-circle:', error);
@@ -143,7 +146,7 @@ class LogsService {
       });
       
       if (!response.ok) {
-        throw new Error('Không thể tạo notification');
+        throw new Error(t('cannotCreateNotification'));
       }
     } catch (error) {
       console.error('Lỗi tạo notification:', error);

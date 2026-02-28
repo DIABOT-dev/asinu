@@ -4,9 +4,11 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CarePulseProvider } from '../src/features/care-pulse';
 import { WellnessProvider } from '../src/features/wellness';
+import '../src/i18n';
 import '../src/lib/initErrorHandler';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SessionProvider } from '../src/providers/SessionProvider';
@@ -20,6 +22,8 @@ type ScreenOptionsProps = {
 };
 
 export default function RootLayout() {
+  const { t } = useTranslation('auth');
+
   const screenOptions = useMemo(
     () => ({
       headerShown: false,
@@ -32,7 +36,7 @@ export default function RootLayout() {
     ({ navigation }: ScreenOptionsProps) => ({
       presentation: 'modal' as const,
       headerShown: true,
-      title: 'Điều khoản',
+      title: t('legalTitle'),
       headerTitleStyle: styles.headerTitle,
       headerStyle: styles.header,
       headerShadowVisible: false,
@@ -41,11 +45,11 @@ export default function RootLayout() {
           onPress={() => navigation.goBack()}
           style={styles.headerLeft}
         >
-          <Text style={styles.headerLeftText}>Đóng</Text>
+          <Text style={styles.headerLeftText}>{t('legalClose')}</Text>
         </Pressable>
       )
     }),
-    []
+    [t]
   );
 
   return (

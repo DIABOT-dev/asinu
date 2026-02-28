@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
@@ -21,6 +22,8 @@ export default function LoginEmailScreen() {
   const error = useAuthStore((state) => state.error);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation('auth');
+  const { t: tc } = useTranslation('common');
   
   const openLegal = (type: 'terms' | 'privacy') => {
     router.push({ pathname: '/legal/content', params: { type } });
@@ -28,7 +31,7 @@ export default function LoginEmailScreen() {
 
   const handleIdentifierBlur = () => {
     if (!identifier.trim()) {
-      setIdentifierError('Vui lòng nhập email hoặc số điện thoại');
+      setIdentifierError(t('emailOrPhoneRequired'));
     } else {
       setIdentifierError(undefined);
     }
@@ -66,8 +69,8 @@ export default function LoginEmailScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
-      <Text style={styles.title}>Đăng nhập</Text>
-      <Text style={styles.subtitle}>Nhập email hoặc số điện thoại và mật khẩu</Text>
+      <Text style={styles.title}>{t('login')}</Text>
+      <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
 
       <View style={styles.form}>
         <View style={styles.inputGroup}>
@@ -78,7 +81,7 @@ export default function LoginEmailScreen() {
               setIdentifierError(undefined);
             }}
             onBlur={handleIdentifierBlur}
-            placeholder="Email hoặc số điện thoại"
+            placeholder={t('emailOrPhone')}
             keyboardType="default"
             autoCapitalize="none"
             style={styles.inputRounded}
@@ -90,7 +93,7 @@ export default function LoginEmailScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Mật khẩu"
+            placeholder={t('password')}
             secureTextEntry={!showPassword}
             style={[styles.inputRounded, styles.passwordInput]}
             placeholderTextColor="#9AA0A6"
@@ -108,23 +111,19 @@ export default function LoginEmailScreen() {
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <Button
-          label={loginButtonLoading ? 'Đang xử lý...' : 'Đăng nhập'}
+          label={loginButtonLoading ? tc('processing') : t('login')}
           onPress={handleLogin}
           disabled={isSubmitting || !identifier.trim() || !password.trim()}
           style={styles.primaryButton}
         />
         <View style={styles.divider}>
-          <Text style={styles.dividerText}>Hoặc tiếp tục với</Text>
+          <Text style={styles.dividerText}>{t('orContinueWith')}</Text>
         </View>
         <View style={styles.socialGroup}>
           {(['google', 'apple'] as const).map((provider) => {
             const isButtonLoading = isSubmitting && pendingAction === provider;
             const label =
-              provider === 'google'
-                ? 'Tiếp tục với Google'
-                : provider === 'apple'
-                  ? 'Tiếp tục với Apple'
-                  : 'Tiếp tục với Zalo';
+              provider === 'google' ? t('continueWithGoogle') : t('continueWithApple');
 
             return (
               <Pressable
@@ -137,7 +136,7 @@ export default function LoginEmailScreen() {
                   isSubmitting && styles.socialButtonDisabled
                 ]}
               >
-                <Text style={styles.socialButtonText}>{isButtonLoading ? 'Đang xử lý...' : label}</Text>
+                <Text style={styles.socialButtonText}>{isButtonLoading ? tc('processing') : label}</Text>
               </Pressable>
             );
           })}
@@ -145,22 +144,22 @@ export default function LoginEmailScreen() {
       </View>
 
       <View style={styles.legal}>
-        <Text style={styles.helper}>Bằng việc tiếp tục, bạn đồng ý với</Text>
+        <Text style={styles.helper}>{t('agreeTerms')}</Text>
         <View style={styles.linkRow}>
           <Pressable onPress={() => openLegal('terms')}>
-            <Text style={styles.link}>Điều khoản sử dụng</Text>
+            <Text style={styles.link}>{t('termsOfUse')}</Text>
           </Pressable>
           <Text style={styles.separator}>·</Text>
           <Pressable onPress={() => openLegal('privacy')}>
-            <Text style={styles.link}>Chính sách quyền riêng tư</Text>
+            <Text style={styles.link}>{t('privacyPolicy')}</Text>
           </Pressable>
         </View>
       </View>
 
       <View style={styles.registerPrompt}>
-        <Text style={styles.registerText}>Chưa có tài khoản? </Text>
+        <Text style={styles.registerText}>{t('noAccount')}</Text>
         <Pressable onPress={() => router.push('/register')}>
-          <Text style={styles.registerLink}>Đăng ký</Text>
+          <Text style={styles.registerLink}>{t('register')}</Text>
         </Pressable>
       </View>
     </View>

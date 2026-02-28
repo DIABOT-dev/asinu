@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListItem } from '../../src/components/ListItem';
@@ -14,6 +15,7 @@ import { colors } from '../../src/styles/theme';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function LogsIndexScreen() {
+  const { t } = useTranslation('logs');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
@@ -41,7 +43,7 @@ export default function LogsIndexScreen() {
         options={{
           headerShown: true, // Bắt buộc hiện Header
           presentation: 'modal', // Hiệu ứng trượt lên
-          title: 'Ghi chỉ số', // (Hoặc giữ nguyên title cũ nếu có)
+          title: t('logMetrics'),
           headerStyle: { backgroundColor: colors.background },
           headerTitleStyle: { color: colors.textPrimary },
           headerLeft: () => (
@@ -55,7 +57,7 @@ export default function LogsIndexScreen() {
       <Screen>
         {isStale || errorState === 'remote-failed' ? <OfflineBanner /> : null}
         {status === 'loading' ? <StateLoading /> : null}
-        {errorState === 'no-data' ? <StateError onRetry={() => fetchLogs()} message="Không tải dữ liệu được" /> : null}
+        {errorState === 'no-data' ? <StateError onRetry={() => fetchLogs()} message={t('cannotLoadData')} /> : null}
         <ScrollView 
           contentContainerStyle={[styles.container, { paddingTop: padTop }]}
           refreshControl={
@@ -67,14 +69,14 @@ export default function LogsIndexScreen() {
             />
           }
         >
-          <H1SectionHeader title="Ghi nhật ký" subtitle="Chọn loại ghi" />
-          <ListItem title="Đường huyết" onPress={() => router.push('/logs/glucose')} />
-          <ListItem title="Huyết áp" onPress={() => router.push('/logs/blood-pressure')} style={{ marginTop: spacing.md }} />
-          <ListItem title="Thuốc/Insulin" onPress={() => router.push('/logs/medication')} style={{ marginTop: spacing.md }} />
-          <ListItem title="Insulin" onPress={() => router.push('/logs/insulin')} style={{ marginTop: spacing.md }} />
-          <ListItem title="Bữa ăn" onPress={() => router.push('/logs/meal')} style={{ marginTop: spacing.md }} />
-          <ListItem title="Nước uống" onPress={() => router.push('/logs/water')} style={{ marginTop: spacing.md }} />
-          <ListItem title="Cân nặng" onPress={() => router.push('/logs/weight')} style={{ marginTop: spacing.md }} />
+          <H1SectionHeader title={t('logTitle')} subtitle={t('logSubtitle')} />
+          <ListItem title={t('glucose')} onPress={() => router.push('/logs/glucose')} />
+          <ListItem title={t('bloodPressure')} onPress={() => router.push('/logs/blood-pressure')} style={{ marginTop: spacing.md }} />
+          <ListItem title={t('medicationInsulin')} onPress={() => router.push('/logs/medication')} style={{ marginTop: spacing.md }} />
+          <ListItem title={t('insulin')} onPress={() => router.push('/logs/insulin')} style={{ marginTop: spacing.md }} />
+          <ListItem title={t('meal')} onPress={() => router.push('/logs/meal')} style={{ marginTop: spacing.md }} />
+          <ListItem title={t('water')} onPress={() => router.push('/logs/water')} style={{ marginTop: spacing.md }} />
+          <ListItem title={t('weight')} onPress={() => router.push('/logs/weight')} style={{ marginTop: spacing.md }} />
         </ScrollView>
       </Screen>
     </>

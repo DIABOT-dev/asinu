@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
 
@@ -33,7 +34,7 @@ interface DropdownProps {
 
 export function Dropdown({
   label,
-  placeholder = 'Chọn...',
+  placeholder,
   options,
   value,
   onChange,
@@ -41,10 +42,12 @@ export function Dropdown({
   loading = false,
   error
 }: DropdownProps) {
+  const { t } = useTranslation('common');
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<RNTextInput>(null);
   const scaledTypography = useScaledTypography();
+  const displayPlaceholder = placeholder ?? t('select');
 
   useEffect(() => {
     if (isOpen && searchable) {
@@ -114,7 +117,7 @@ export function Dropdown({
           { fontSize: scaledTypography.size.md },
           !value && styles.triggerTextPlaceholder
         ]}>
-          {loading ? 'Đang tải...' : (value?.label || placeholder)}
+          {loading ? t('loading') : (value?.label || displayPlaceholder)}
         </Text>
         <Ionicons 
           name={isOpen ? 'chevron-up' : 'chevron-down'} 
@@ -143,7 +146,7 @@ export function Dropdown({
                 <RNTextInput
                   ref={searchInputRef}
                   style={[styles.searchInput, { fontSize: scaledTypography.size.md }]}
-                  placeholder="Tìm kiếm..."
+                  placeholder={t('search')}
                   placeholderTextColor={colors.textSecondary}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -164,7 +167,7 @@ export function Dropdown({
               style={styles.optionsList}
               ListEmptyComponent={
                 <Text style={[styles.emptyText, { fontSize: scaledTypography.size.md }]}>
-                  {searchQuery ? 'Không tìm thấy kết quả' : 'Không có dữ liệu'}
+                  {searchQuery ? t('noResults') : t('noDataAvailable')}
                 </Text>
               }
             />

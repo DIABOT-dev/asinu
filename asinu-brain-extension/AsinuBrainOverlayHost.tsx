@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router, usePathname } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { useScaledTypography } from '../src/hooks/useScaledTypography';
@@ -9,13 +10,14 @@ import { colors, spacing } from '../src/styles';
 import { BrainOutcome, BrainQuestion, fetchBrainNext, sendBrainAnswer } from './asinuBrain.api';
 import { AsinuEmergencyFAB } from './ui/AsinuEmergencyFAB';
 
-const riskTierLabel = (tier?: string) => {
-  if (tier === 'HIGH') return 'Cần liên hệ người thân';
-  if (tier === 'MEDIUM') return 'Cần theo dõi';
-  return 'Ổn định';
+const riskTierLabel = (tier: string | undefined, t: (key: string) => string) => {
+  if (tier === 'HIGH') return t('brainRiskHigh');
+  if (tier === 'MEDIUM') return t('brainRiskMedium');
+  return t('brainRiskStable');
 };
 
 export const AsinuBrainOverlayHost = () => {
+  const { t } = useTranslation('home');
   const pathname = usePathname();
   const profile = useAuthStore((state) => state.profile);
   const isAuthenticated = !!profile; // Kiểm tra đã đăng nhập chưa
@@ -121,9 +123,9 @@ export const AsinuBrainOverlayHost = () => {
   const nextQuery = useQuery({
     queryKey: ['asinu-brain-next'],
     queryFn: fetchBrainNext,
-    enabled: isForeground && isHome && idle && !visible && canQuery,
-    staleTime: 60 * 1000, // 1 phút stale
-    refetchInterval: isForeground && isHome && idle && !visible && canQuery ? 30000 : false, // Poll mỗi 30s để check
+    enabled: false, // TẮT TẠM THỜI - đặt lại thành: isForeground && isHome && idle && !visible && canQuery
+    staleTime: 60 * 1000,
+    refetchInterval: false, // TẮT TẠM THỜI - đặt lại thành: isForeground && isHome && idle && !visible && canQuery ? 30000 : false
     refetchOnWindowFocus: false
   });
 
@@ -210,15 +212,15 @@ export const AsinuBrainOverlayHost = () => {
     if (!nextDueAt) return '';
     const now = new Date();
     const diffMs = nextDueAt.getTime() - now.getTime();
-    if (diffMs <= 0) return 'Ngay bây giờ';
+    if (diffMs <= 0) return t('brainRightNow');
     
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     
     if (hours > 0) {
-      return `Sau ${hours} giờ ${minutes} phút`;
+      return t('brainAfterHoursMinutes', { hours, minutes });
     }
-    return `Sau ${minutes} phút`;
+    return t('brainAfterMinutes', { minutes });
   };
 
   return (
@@ -235,7 +237,7 @@ export const AsinuBrainOverlayHost = () => {
             <View style={styles.card}>
               <View style={styles.header}>
                 <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>
-                  Asinu Active Brain
+                  {t('brainTitle')}
                 </Text>
                 <Pressable onPress={() => {
                   setVisible(false);
@@ -243,7 +245,7 @@ export const AsinuBrainOverlayHost = () => {
                   markInteraction();
                 }} style={styles.dismissButton}>
                   <Text style={[styles.dismissText, { fontSize: scaledTypography.size.sm }]}>
-                    Để sau
+                    {t('brainDismiss')}
                   </Text>
                 </Pressable>
               </View>
@@ -251,7 +253,7 @@ export const AsinuBrainOverlayHost = () => {
               {nextDueAt && (
                 <View style={styles.frequencyInfo}>
                   <Text style={[styles.frequencyLabel, { fontSize: scaledTypography.size.xs }]}>
-                    Tần xuất kiểm tra
+                    {t('brainCheckFrequency')}
                   </Text>
                   <Text style={[styles.frequencyText, { fontSize: scaledTypography.size.sm }]}>
                     {formatNextDue()}
@@ -264,7 +266,7 @@ export const AsinuBrainOverlayHost = () => {
                   <View style={styles.sectionTitleRow}>
                     <Ionicons name="document-text-outline" size={20} color={colors.textPrimary} />
                     <Text style={[styles.questionText, { fontSize: scaledTypography.size.md, marginLeft: spacing.xs }]}>
-                      Cần cập nhật chỉ số sức khỏe
+                      {t('brainNeedHealthUpdate')}
                     </Text>
                   </View>
                   <Text style={[styles.outcomeText, { fontSize: scaledTypography.size.sm }]}>
@@ -283,7 +285,7 @@ export const AsinuBrainOverlayHost = () => {
                         <View style={styles.logButtonContent}>
                           <Ionicons name="analytics-outline" size={18} color="#ffffff" />
                           <Text style={[styles.logButtonText, { fontSize: scaledTypography.size.sm }]}>
-                            Ghi đường huyết
+                            {t('brainLogGlucose')}
                           </Text>
                         </View>
                       </Pressable>
@@ -300,7 +302,7 @@ export const AsinuBrainOverlayHost = () => {
                         <View style={styles.logButtonContent}>
                           <Ionicons name="heart-outline" size={18} color="#ffffff" />
                           <Text style={[styles.logButtonText, { fontSize: scaledTypography.size.sm }]}>
-                            Ghi huyết áp
+                            {t('brainLogBp')}
                           </Text>
                         </View>
                       </Pressable>
@@ -349,7 +351,7 @@ export const AsinuBrainOverlayHost = () => {
                     {question.text}
                   </Text>
                   <Text style={[styles.questionHint, { fontSize: scaledTypography.size.xs }]}>
-                    Câu hỏi này giúp đánh giá tình trạng hiện tại của bạn
+                    {t('brainMoodHint')}
                   </Text>
                   <View style={styles.optionRow}>
                     {question.options?.map((option) => (
@@ -383,9 +385,9 @@ export const AsinuBrainOverlayHost = () => {
                   {question.text}
                 </Text>
                 <Text style={[styles.questionHint, { fontSize: scaledTypography.size.xs }]}>
-                  Câu hỏi này giúp đánh giá mức độ nghiêm trọng của triệu chứng
+                  {t('brainSymptomHint')}
                 </Text>
-                <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>Triệu chứng</Text>
+                <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>{t('brainSymptomLabel')}</Text>
                 <View style={styles.optionRow}>
                   {question.symptoms?.map((symptom) => (
                     <Pressable
@@ -409,7 +411,7 @@ export const AsinuBrainOverlayHost = () => {
                   ))}
                 </View>
 
-                <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>Mức độ</Text>
+                <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>{t('brainSeverityLabel')}</Text>
                 <View style={styles.optionRow}>
                   {question.severity_options?.map((severity) => (
                     <Pressable
@@ -443,7 +445,7 @@ export const AsinuBrainOverlayHost = () => {
                   ]}
                 >
                   <Text style={[styles.primaryButtonText, { fontSize: scaledTypography.size.sm }]}>
-                    Gửi
+                    {t('brainSubmit')}
                   </Text>
                 </Pressable>
               </View>
@@ -452,10 +454,10 @@ export const AsinuBrainOverlayHost = () => {
             {outcome && (
               <View style={styles.section}>
                 <Text style={[styles.questionText, { fontSize: scaledTypography.size.md }]}>
-                  {riskTierLabel(outcome.risk_tier)}
+                  {riskTierLabel(outcome.risk_tier, t)}
                 </Text>
                 <Text style={[styles.outcomeText, { fontSize: scaledTypography.size.sm }]}>
-                  {outcome.outcome_text || 'Cảm ơn bác đã chia sẻ.'}
+                  {outcome.outcome_text || t('brainOutcomeFallback')}
                 </Text>
                 {outcome.recommended_action ? (
                   <Text style={[styles.recommendText, { fontSize: scaledTypography.size.sm }]}>
@@ -467,7 +469,7 @@ export const AsinuBrainOverlayHost = () => {
 
             {isBusy && (
               <Text style={[styles.loadingText, { fontSize: scaledTypography.size.xs }]}>
-                Đang xử lý...
+                {t('common:processing')}
               </Text>
             )}
             </View>
