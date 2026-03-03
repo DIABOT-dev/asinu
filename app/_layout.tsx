@@ -3,9 +3,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
+import { ScaledText as Text } from '../src/components/ScaledText';
 import { CarePulseProvider } from '../src/features/care-pulse';
 import { WellnessProvider } from '../src/features/wellness';
 import '../src/i18n';
@@ -13,7 +15,6 @@ import '../src/lib/initErrorHandler';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SessionProvider } from '../src/providers/SessionProvider';
 import { colors, spacing, typography } from '../src/styles';
-import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
 
 type NavigationProp = NativeStackNavigationProp<ParamListBase>;
 type ScreenOptionsProps = { 

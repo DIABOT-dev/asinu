@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import i18n from '../../i18n';
 import { CACHE_KEYS } from '../../lib/cacheKeys';
 import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
@@ -35,15 +36,18 @@ const fallbackSummary: TreeSummary = {
   totalMissions: 12
 };
 
-const fallbackHistory: TreeHistoryPoint[] = [
-  { label: 'T2', value: 62 },
-  { label: 'T3', value: 68 },
-  { label: 'T4', value: 70 },
-  { label: 'T5', value: 66 },
-  { label: 'T6', value: 74 },
-  { label: 'T7', value: 72 },
-  { label: 'CN', value: 75 }
-];
+const getFallbackHistory = (): TreeHistoryPoint[] => {
+  const t = (key: string) => i18n.t(key, { ns: 'tree' });
+  return [
+    { label: t('dayMon'), value: 62 },
+    { label: t('dayTue'), value: 68 },
+    { label: t('dayWed'), value: 70 },
+    { label: t('dayThu'), value: 66 },
+    { label: t('dayFri'), value: 74 },
+    { label: t('daySat'), value: 72 },
+    { label: t('daySun'), value: 75 }
+  ];
+};
 
 export const useTreeStore = create<TreeState>((set) => ({
   summary: null,
@@ -53,7 +57,7 @@ export const useTreeStore = create<TreeState>((set) => ({
   errorState: 'none',
   async fetchTree(signal) {
     if (featureFlags.devBypassAuth) {
-      set({ summary: fallbackSummary, history: fallbackHistory, status: 'success', isStale: false, errorState: 'none' });
+      set({ summary: fallbackSummary, history: getFallbackHistory(), status: 'success', isStale: false, errorState: 'none' });
       return;
     }
 
@@ -83,7 +87,7 @@ export const useTreeStore = create<TreeState>((set) => ({
       if (usedCache) {
         set({ status: 'success', isStale: true, errorState: 'remote-failed' });
       } else {
-        set({ summary: fallbackSummary, history: fallbackHistory, status: 'error', isStale: false, errorState: 'no-data' });
+        set({ summary: fallbackSummary, history: getFallbackHistory(), status: 'error', isStale: false, errorState: 'no-data' });
       }
       logError(error, { store: 'tree', action: 'fetchTree', usedCache });
     }

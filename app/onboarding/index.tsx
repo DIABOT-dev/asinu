@@ -1,14 +1,16 @@
-﻿import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+﻿import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppLanguage, useLanguageStore } from '../../src/stores/language.store';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 import { TextInput } from '../../src/components/TextInput';
-import { apiClient } from '../../src/lib/apiClient';
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { colors, radius, spacing, typography } from '../../src/styles';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { apiClient } from '../../src/lib/apiClient';
+import { useLanguageStore } from '../../src/stores/language.store';
+import { colors, radius, spacing } from '../../src/styles';
 
 type AnswerState = {
   age: string;
@@ -43,6 +45,8 @@ export default function OnboardingScreen() {
   const { t } = useTranslation('onboarding');
   const { t: tc } = useTranslation('common');
   const { language, setLanguage } = useLanguageStore();
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
   const steps: Step[] = useMemo(() => [
     { key: 'age', title: t('m1Title'), options: ['30-39', '40-49', '50-59', '60+'], type: 'single' },
@@ -139,6 +143,7 @@ export default function OnboardingScreen() {
   });
 
   const profile = useAuthStore((state) => state.profile);
+  const bootstrap = useAuthStore((state) => state.bootstrap);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -223,6 +228,7 @@ export default function OnboardingScreen() {
     setSubmitting(true);
     try {
       await apiClient('/api/mobile/onboarding', { method: 'POST', body: payload });
+      await bootstrap();
       router.replace('/(tabs)/home');
     } catch (error) {
       Alert.alert(t('cannotSendData'), t('pleaseTryAgain'));
@@ -323,7 +329,8 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background
@@ -437,3 +444,4 @@ const styles = StyleSheet.create({
     color: '#fff'
   }
 });
+}

@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
@@ -17,6 +18,7 @@ import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function WaterLogScreen() {
   const { t } = useTranslation('logs');
+  const { t: tc } = useTranslation('common');
   const router = useRouter();
   const [volume, setVolume] = useState('');
   const [notes, setNotes] = useState('');
@@ -64,7 +66,7 @@ export default function WaterLogScreen() {
         t('logSuccess'),
         [
           {
-            text: 'OK'
+            text: tc('ok')
           }
         ]
       );

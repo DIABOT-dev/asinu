@@ -4,15 +4,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { Toast } from '../../../src/components/Toast';
 import { authApi } from '../../../src/features/auth/auth.api';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useMissionsStore } from '../../../src/features/missions/missions.store';
-import { colors, spacing, typography } from '../../../src/styles';
+import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import { ApiError } from '../../../src/lib/apiClient';
+import { colors, spacing } from '../../../src/styles';
 
 export default function ProfileScreen() {
   const { t } = useTranslation('profile');
@@ -20,6 +23,8 @@ export default function ProfileScreen() {
   const profile = useAuthStore((state) => state.profile);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const padTop = insets.top + spacing.lg;
 
   // Fetch real data from stores
@@ -38,6 +43,7 @@ export default function ProfileScreen() {
   const [editWeight, setEditWeight] = useState('');
   const [editBloodType, setEditBloodType] = useState('');
   const [editChronicDiseases, setEditChronicDiseases] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -103,6 +109,7 @@ export default function ProfileScreen() {
   const statusText = hasProfile ? t('active') : t('notLoggedIn');
 
   const handleEditProfile = () => {
+    setPhoneError('');
     setEditName(name);
     setEditPhone(phone);
     setEditAge(profile?.age ? String(Math.round(profile.age)) : '');
@@ -189,9 +196,13 @@ export default function ProfileScreen() {
       setToastVisible(true);
     } catch (error) {
       console.error('[profile.screen] updateProfile error:', error);
-      setToastMessage(t('profileUpdateError'));
-      setToastType('error');
-      setToastVisible(true);
+      if (error instanceof ApiError && error.statusCode === 409) {
+        setPhoneError(t('phoneAlreadyUsed'));
+      } else {
+        setToastMessage((error as Error).message || t('profileUpdateError'));
+        setToastType('error');
+        setToastVisible(true);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -277,7 +288,7 @@ export default function ProfileScreen() {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('gender')}</Text>
-                      <Text style={styles.infoValue}>{profile.gender}</Text>
+                      <Text style={styles.infoValue}>{profile.gender === 'Nam' ? tc('male') : tc('female')}</Text>
                     </View>
                   </View>
                 </>
@@ -307,7 +318,7 @@ export default function ProfileScreen() {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('height')}</Text>
-                      <Text style={styles.infoValue}>{Math.round(profile.heightCm)} cm</Text>
+                      <Text style={styles.infoValue}>{t('heightValue', { value: Math.round(profile.heightCm) })}</Text>
                     </View>
                   </View>
                 </>
@@ -322,7 +333,7 @@ export default function ProfileScreen() {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('weight')}</Text>
-                      <Text style={styles.infoValue}>{Math.round(profile.weightKg)} kg</Text>
+                      <Text style={styles.infoValue}>{t('weightValue', { value: Math.round(profile.weightKg) })}</Text>
                     </View>
                   </View>
                 </>
@@ -500,13 +511,14 @@ export default function ProfileScreen() {
                   <Text style={styles.inputLabel}>{t('phone')}</Text>
                 </View>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, phoneError ? styles.inputError : null]}
                   value={editPhone}
-                  onChangeText={setEditPhone}
+                  onChangeText={(text) => { setEditPhone(text); setPhoneError(''); }}
                   placeholder={t('enterPhone')}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="phone-pad"
                 />
+                {phoneError ? <Text style={styles.fieldError}>{phoneError}</Text> : null}
               </View>
               
               <View style={styles.inputGroup}>
@@ -649,7 +661,8 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     padding: spacing.lg,
     gap: spacing.lg,
@@ -927,6 +940,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     backgroundColor: colors.background
   },
+  inputError: {
+    borderColor: colors.danger
+  },
+  fieldError: {
+    fontSize: typography.size.sm,
+    color: colors.danger,
+    marginTop: spacing.xs
+  },
   modalButtons: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -970,3 +991,4 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md
   },
 });
+}

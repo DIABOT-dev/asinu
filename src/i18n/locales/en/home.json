@@ -45,5 +45,13 @@
   "emergencyTitle": "Need help now?",
   "emergencySuddenTired": "Sudden fatigue",
   "emergencyVeryUnwell": "Very unwell",
-  "emergencyAlertCaregiver": "Alert caregiver"
+  "emergencyAlertCaregiver": "Alert caregiver",
+
+  "logTypeGlucose": "Blood Glucose",
+  "logTypeBloodPressure": "Blood Pressure",
+  "logTypeWeight": "Weight",
+  "logTypeWater": "Water",
+  "logTypeMedication": "Medication",
+  "logTypeMeal": "Meal",
+  "logTypeInsulin": "Insulin"
 }

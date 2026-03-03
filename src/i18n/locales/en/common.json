@@ -44,5 +44,12 @@
   "networkErrorUnknown": "Unknown network error",
   "notLoggedIn": "Not logged in",
   "cannotSendRequest": "Cannot send request",
-  "connectionError": "Connection error"
+  "connectionError": "Connection error",
+  "ok": "OK",
+  "unitMgdl": "mg/dL",
+  "unitMmhg": "mmHg",
+  "unitKg": "kg",
+  "unitMl": "ml",
+  "unitCm": "cm",
+  "unitInsulin": "U"
 }

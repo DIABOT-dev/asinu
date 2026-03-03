@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 import { TextInput } from '../../src/components/TextInput';
 import { SocialProvider } from '../../src/features/auth/auth.service';
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { colors, radius, spacing, typography } from '../../src/styles';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { colors, radius, spacing } from '../../src/styles';
 
 export default function LoginEmailScreen() {
   const [identifier, setIdentifier] = useState(''); // Email or phone
@@ -24,6 +26,8 @@ export default function LoginEmailScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('auth');
   const { t: tc } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   
   const openLegal = (type: 'terms' | 'privacy') => {
     router.push({ pathname: '/legal/content', params: { type } });
@@ -166,7 +170,8 @@ export default function LoginEmailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.xl,
@@ -328,3 +333,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary
   }
 });
+}

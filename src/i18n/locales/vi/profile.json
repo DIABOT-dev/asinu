@@ -40,7 +40,10 @@
   "bloodTypeInvalid": "Nhóm máu không hợp lệ",
   "profileUpdated": "Cập nhật hồ sơ thành công",
   "profileUpdateError": "Lỗi khi cập nhật hồ sơ",
+  "phoneAlreadyUsed": "Số điện thoại đã được sử dụng",
   "glucose": "Đường huyết",
   "bloodPressure": "Huyết áp",
-  "careFor": "Chăm sóc: {{name}}"
+  "careFor": "Chăm sóc: {{name}}",
+  "heightValue": "{{value}} cm",
+  "weightValue": "{{value}} kg"
 }

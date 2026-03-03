@@ -19,6 +19,7 @@ import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 export default function GlucoseLogScreen() {
   const { t } = useTranslation('logs');
+  const { t: tc } = useTranslation('common');
   const router = useRouter();
   const [value, setValue] = useState('');
   const [context, setContext] = useState('pre_meal');
@@ -95,7 +96,7 @@ export default function GlucoseLogScreen() {
         t('logSuccess'),
         [
           {
-            text: 'OK'
+            text: tc('ok')
           }
         ]
       );

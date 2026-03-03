@@ -21,6 +21,7 @@ export type Profile = {
   bloodType?: string | null;
   chronicDiseases?: string[];
   // Onboarding fields
+  onboardingCompleted?: boolean;
   ageRange?: string;
   gender?: string;
   goal?: string;

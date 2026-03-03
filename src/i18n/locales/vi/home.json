@@ -45,5 +45,13 @@
   "emergencyTitle": "Cần hỗ trợ ngay?",
   "emergencySuddenTired": "Mệt đột ngột",
   "emergencyVeryUnwell": "Rất không ổn",
-  "emergencyAlertCaregiver": "Báo người thân"
+  "emergencyAlertCaregiver": "Báo người thân",
+
+  "logTypeGlucose": "Đường huyết",
+  "logTypeBloodPressure": "Huyết áp",
+  "logTypeWeight": "Cân nặng",
+  "logTypeWater": "Nước",
+  "logTypeMedication": "Thuốc",
+  "logTypeMeal": "Bữa ăn",
+  "logTypeInsulin": "Insulin"
 }

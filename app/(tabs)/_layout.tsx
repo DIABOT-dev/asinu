@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { Image, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Image, StyleSheet } from 'react-native';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors } from '../../src/styles';
 
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
@@ -11,15 +12,16 @@ const profileIcon = require('../../src/assets/tab-icons/profile.png');
 
 export default function TabsLayout() {
   const { t } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
   const screenOptions = useMemo(
     () => ({
       headerShown: false,
       tabBarActiveTintColor: colors.primary,
       tabBarHideOnKeyboard: true,
-      tabBarLabelStyle: styles.tabBarLabel,
+      tabBarLabelStyle: [styles.tabBarLabel, { fontSize: scaledTypography.size.xs }],
       tabBarStyle: styles.tabBar
     }),
-    []
+    [scaledTypography]
   );
 
   const renderHomeIcon = useCallback(
@@ -106,7 +108,6 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBarLabel: {
-    fontSize: 12,
     marginTop: 2
   },
   tabBar: {

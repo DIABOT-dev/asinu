@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 import { colors, spacing, typography } from '../../src/styles';
 import { postBrainEmergency } from '../asinuBrain.api';
 

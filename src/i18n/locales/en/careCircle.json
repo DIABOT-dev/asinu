@@ -110,5 +110,13 @@
   "cannotAcceptInvitation": "Cannot accept invitation",
   "cannotRejectInvitation": "Cannot decline invitation",
   "cannotDeleteConnection": "Cannot delete connection",
-  "cannotUpdateConnection": "Cannot update connection"
+  "cannotUpdateConnection": "Cannot update connection",
+  "searchByPhone": "Find user by phone number",
+  "enterPhoneNumber": "Enter phone number (e.g. 0901234567)",
+  "search": "Search",
+  "selectThisUser": "Select this person",
+  "phoneQueryTooShort": "Please enter at least 3 digits",
+  "noUserFoundByPhone": "No user found with this phone number",
+  "alreadyConnected": "You already have a connection or invitation with this person",
+  "cannotInviteSelf": "You cannot connect with yourself"
 }

@@ -19,4 +19,7 @@ config.transformer = {
   }),
 };
 
+// Text scaling được xử lý bởi Babel plugin (plugins/babel-plugin-scale-text.js)
+// Không cần custom resolver ở đây nữa.
+
 module.exports = config;

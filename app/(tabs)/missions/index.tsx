@@ -1,23 +1,27 @@
 ﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
+import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
 import { StateLoading } from '../../../src/components/state/StateLoading';
 import { useMissionActions } from '../../../src/features/missions/useMissionActions';
-import { colors, spacing, typography } from '../../../src/styles';
+import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import { colors, spacing } from '../../../src/styles';
 
 export default function MissionsScreen() {
   const { missions, status, isStale, errorState, fetchMissions } = useMissionActions();
   const { t } = useTranslation('missions');
   const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const padTop = insets.top + spacing.lg;
 
   useEffect(() => {
@@ -176,7 +180,8 @@ export default function MissionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     padding: spacing.lg,
     gap: spacing.md
@@ -409,3 +414,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary
   }
 });
+}

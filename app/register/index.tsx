@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 import { TextInput } from '../../src/components/TextInput';
 import { Toast } from '../../src/components/Toast';
 import { authApi } from '../../src/features/auth/auth.api';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { getPasswordStrength, validateEmail, validatePassword, validatePhone } from '../../src/lib/validation';
-import { colors, spacing, typography } from '../../src/styles';
+import { colors, spacing } from '../../src/styles';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -29,6 +31,8 @@ export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('auth');
   const { t: tc } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
   const openLegal = (type: 'terms' | 'privacy') => {
     router.push({ pathname: '/legal/content', params: { type } });
@@ -133,7 +137,7 @@ export default function RegisterScreen() {
             onBlur={handleEmailBlur}
             autoCapitalize="none" 
             keyboardType="email-address" 
-            placeholder="example@email.com"
+            placeholder={t('emailPlaceholder')}
           />
           {emailError && <Text style={styles.fieldError}>{emailError}</Text>}
         </View>
@@ -148,7 +152,7 @@ export default function RegisterScreen() {
             }}
             onBlur={handlePhoneBlur}
             keyboardType="phone-pad" 
-            placeholder="0912345678" 
+            placeholder={t('phonePlaceholder')} 
           />
           <Text style={styles.fieldHelp}>{t('phoneHelp')}</Text>
           {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
@@ -193,7 +197,7 @@ export default function RegisterScreen() {
           <Pressable onPress={() => openLegal('terms')}>
             <Text style={[styles.checkboxLabel, styles.linkItalic]}>{t('termsOfUse')}</Text>
           </Pressable>
-          <Text style={styles.checkboxLabel}> & </Text>
+          <Text style={styles.checkboxLabel}>{t('and')}</Text>
           <Pressable onPress={() => openLegal('privacy')}>
             <Text style={[styles.checkboxLabel, styles.linkItalic]}>{t('privacyPolicyShort')}</Text>
           </Pressable>
@@ -220,7 +224,8 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.xl,
@@ -293,3 +298,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   }
 });
+}

@@ -1,14 +1,17 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { Toast } from '../../src/components/Toast';
+import { useAuthStore } from '../../src/features/auth/auth.store';
 import { careCircleApi, useCareCircle } from '../../src/features/care-circle';
-import { colors, spacing, typography } from '../../src/styles';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { colors, spacing } from '../../src/styles';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 type SearchUser = {
@@ -23,11 +26,16 @@ export default function InviteScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const profile = useAuthStore(state => state.profile);
   const { createInvitation, loading, invitations, connections, fetchInvitations, fetchConnections } = useCareCircle();
 
-  const [allUsers, setAllUsers] = useState<SearchUser[]>([]);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [selectedUser, setSelectedUser] = useState<DropdownOption | null>(null);
+  const [phoneQuery, setPhoneQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchedUser, setSearchedUser] = useState<SearchUser | null>(null);
+  const [searchError, setSearchError] = useState('');
+  const [selectedUser, setSelectedUser] = useState<SearchUser | null>(null);
   const [selectedRelationship, setSelectedRelationship] = useState<DropdownOption | null>(null);
   const [selectedRole, setSelectedRole] = useState<DropdownOption | null>(null);
   const [permissions, setPermissions] = useState({
@@ -74,66 +82,65 @@ export default function InviteScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
-  const loadUsers = async () => {
-    setUsersLoading(true);
+  const handleSearchByPhone = async () => {
+    const phone = phoneQuery.trim();
+    if (phone.length < 3) {
+      setSearchError(t('phoneQueryTooShort'));
+      setSearchedUser(null);
+      setSelectedUser(null);
+      return;
+    }
+    setSearchError('');
+    setSearchLoading(true);
+    setSearchedUser(null);
+    setSelectedUser(null);
     try {
-      const users = await careCircleApi.searchUsers('');
-      console.log('Loaded users:', users);
+      const users = await careCircleApi.searchUsers(phone);
       if (!users || users.length === 0) {
-        console.warn('No users returned from API');
+        setSearchError(t('noUserFoundByPhone'));
+      } else {
+        setSearchedUser(users[0]);
       }
-      setAllUsers(users || []);
     } catch (error) {
-      console.error('Load users error:', error);
-      setToastMessage(t('cannotLoadUsers'));
-      setToastType('error');
-      setShowToast(true);
+      setSearchError(t('cannotLoadUsers'));
     } finally {
-      setUsersLoading(false);
+      setSearchLoading(false);
     }
   };
 
-  // Load all users on mount
+  const handleSelectSearchedUser = () => {
+    if (!searchedUser) return;
+    if (searchedUser.id === profile?.id) {
+      setSearchError(t('cannotInviteSelf'));
+      return;
+    }
+    const hasInvitation = invitations?.some(
+      inv => String(inv.requester_id) === searchedUser.id || String(inv.addressee_id) === searchedUser.id
+    );
+    const hasConnection = connections?.some(
+      conn => String(conn.requester_id) === searchedUser.id || String(conn.addressee_id) === searchedUser.id
+    );
+    if (hasInvitation || hasConnection) {
+      setSearchError(t('alreadyConnected'));
+      return;
+    }
+    setSelectedUser(searchedUser);
+    setSearchError('');
+  };
+
   useEffect(() => {
     fetchInvitations();
     fetchConnections();
-    loadUsers();
   }, []);
-
-  const userOptions: DropdownOption[] = allUsers.map(user => {
-    // Check if user already has a connection (sent or received invitation, or existing connection)
-    const hasInvitation = invitations?.some(inv =>
-      inv.requester_id === user.id || inv.addressee_id === user.id
-    );
-    const hasConnection = connections?.some(conn =>
-      conn.requester_id === user.id || conn.addressee_id === user.id
-    );
-    const isDisabled = hasInvitation || hasConnection;
-
-    return {
-      id: user.id,
-      label: user.name,
-      subtitle: user.email || user.phone || undefined,
-      disabled: isDisabled
-    };
-  });
 
   const handleSend = async () => {
     console.log('[invite] handleSend called');
     if (!selectedUser) {
-      console.log('[invite] No user selected');
       setToastMessage(t('pleaseSelectRecipient'));
       setToastType('error');
       setShowToast(true);
       return;
     }
-
-    console.log('[invite] Sending invitation with payload:', {
-      addressee_id: selectedUser.id,
-      relationship_type: selectedRelationship?.label,
-      role: selectedRole?.label,
-      permissions
-    });
 
     try {
       await createInvitation({
@@ -174,19 +181,66 @@ export default function InviteScreen() {
           <Text style={styles.subtitle}>{t('inviteSubtitle')}</Text>
         </View>
 
+        {/* Phone number search section */}
         <View style={styles.section}>
-          <Dropdown
-            label={t('selectUser')}
-            placeholder={usersLoading ? t('loadingUsers') : (allUsers.length === 0 ? t('noUsersAvailable') : t('selectRecipient'))}
-            options={userOptions}
-            value={selectedUser}
-            onChange={setSelectedUser}
-            searchable
-            loading={usersLoading}
-          />
-          {!usersLoading && allUsers.length === 0 && (
-            <Text style={styles.errorText}>{t('noUsersToInvite')}</Text>
+          <Text style={styles.label}>{t('searchByPhone')}</Text>
+          <View style={styles.phoneSearchRow}>
+            <TextInput
+              style={styles.phoneInput}
+              value={phoneQuery}
+              onChangeText={text => {
+                setPhoneQuery(text);
+                setSearchedUser(null);
+                setSelectedUser(null);
+                setSearchError('');
+              }}
+              placeholder={t('enterPhoneNumber')}
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="phone-pad"
+              returnKeyType="search"
+              onSubmitEditing={handleSearchByPhone}
+            />
+            <TouchableOpacity
+              style={[styles.searchBtn, searchLoading && { opacity: 0.6 }]}
+              onPress={handleSearchByPhone}
+              disabled={searchLoading}
+            >
+              {searchLoading
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.searchBtnText}>{t('search')}</Text>
+              }
+            </TouchableOpacity>
+          </View>
+
+          {/* Search result */}
+          {searchedUser && !selectedUser && (
+            <TouchableOpacity style={styles.foundUserCard} onPress={handleSelectSearchedUser}>
+              <View style={styles.foundUserInfo}>
+                <Text style={styles.foundUserName}>{searchedUser.name}</Text>
+                {searchedUser.phone && (
+                  <Text style={styles.foundUserPhone}>{searchedUser.phone}</Text>
+                )}
+              </View>
+              <Text style={styles.selectBtn}>{t('selectThisUser')}</Text>
+            </TouchableOpacity>
           )}
+
+          {/* Selected user */}
+          {selectedUser && (
+            <View style={[styles.foundUserCard, styles.selectedUserCard]}>
+              <View style={styles.foundUserInfo}>
+                <Text style={styles.foundUserName}>{selectedUser.name}</Text>
+                {selectedUser.phone && (
+                  <Text style={styles.foundUserPhone}>{selectedUser.phone}</Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => { setSelectedUser(null); setSearchedUser(null); }}>
+                <Text style={styles.clearBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {searchError ? <Text style={styles.errorText}>{searchError}</Text> : null}
         </View>
 
         <View style={styles.section}>
@@ -278,7 +332,8 @@ export default function InviteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background
@@ -341,5 +396,74 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     marginTop: spacing.sm
-  }
+  },
+  phoneSearchRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  phoneInput: {
+    flex: 1,
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    fontSize: typography.size.md,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
+  },
+  searchBtn: {
+    height: 48,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: typography.size.md,
+  },
+  foundUserCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  selectedUserCard: {
+    borderColor: colors.primary,
+    backgroundColor: '#f0fdfa',
+  },
+  foundUserInfo: {
+    flex: 1,
+  },
+  foundUserName: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  foundUserPhone: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  selectBtn: {
+    fontSize: typography.size.sm,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: spacing.sm,
+  },
+  clearBtn: {
+    fontSize: 18,
+    color: colors.textSecondary,
+    paddingLeft: spacing.sm,
+  },
 });
+}

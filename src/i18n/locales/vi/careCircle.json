@@ -110,5 +110,13 @@
   "cannotAcceptInvitation": "Không thể chấp nhận lời mời",
   "cannotRejectInvitation": "Không thể từ chối lời mời",
   "cannotDeleteConnection": "Không thể xóa kết nối",
-  "cannotUpdateConnection": "Không thể cập nhật kết nối"
+  "cannotUpdateConnection": "Không thể cập nhật kết nối",
+  "searchByPhone": "Tìm người dùng theo số điện thoại",
+  "enterPhoneNumber": "Nhập số điện thoại (vd: 0901234567)",
+  "search": "Tìm",
+  "selectThisUser": "Chọn người này",
+  "phoneQueryTooShort": "Vui lòng nhập ít nhất 3 số",
+  "noUserFoundByPhone": "Không tìm thấy người dùng với số điện thoại này",
+  "alreadyConnected": "Bạn đã có kết nối hoặc lời mời với người này",
+  "cannotInviteSelf": "Bạn không thể kết nối với chính mình"
 }

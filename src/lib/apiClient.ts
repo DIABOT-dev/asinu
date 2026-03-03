@@ -3,6 +3,14 @@ import { env } from './env';
 import { logError, logWarn } from './logger';
 import { tokenStore } from './tokenStore';
 
+export class ApiError extends Error {
+  statusCode: number;
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
 type RetryOptions = {
   attempts?: number;
   initialDelayMs?: number;
@@ -104,7 +112,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
           status: response.status,
           details: errorData.details 
         });
-        throw new Error(errorData.error || errorText || `Request failed: ${response.status}`);
+        throw new ApiError(errorData.error || errorText || `Request failed: ${response.status}`, response.status);
       }
 
       if (response.status === 204) {

@@ -2,19 +2,21 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import i18n from '../../../src/i18n';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
+import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
 import { StateLoading } from '../../../src/components/state/StateLoading';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useTreeStore } from '../../../src/features/tree/tree.store';
-import { colors, spacing, typography } from '../../../src/styles';
+import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import i18n from '../../../src/i18n';
+import { colors, spacing } from '../../../src/styles';
 import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
 import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
 
@@ -31,6 +33,8 @@ export default function TreeScreen() {
   const fetchLogs = useLogsStore((state) => state.fetchRecent);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const padTop = insets.top + spacing.lg;
 
   const formatTime = (iso?: string) => {
@@ -57,7 +61,7 @@ export default function TreeScreen() {
       key: 'glucose',
       title: t('glucose'),
       value: typeof glucoseLog?.value === 'number' ? `${glucoseLog.value}` : '--',
-      unit: 'mg/dL',
+      unit: tc('unitMgdl'),
       meta: glucoseLog?.recordedAt
         ? t('latest', { time: formatTime(glucoseLog.recordedAt) })
         : t('noDataYet'),
@@ -74,7 +78,7 @@ export default function TreeScreen() {
         typeof bpLog?.systolic === 'number' && typeof bpLog?.diastolic === 'number'
           ? `${bpLog.systolic}/${bpLog.diastolic}`
           : '--',
-      unit: 'mmHg',
+      unit: tc('unitMmhg'),
       meta: bpLog?.recordedAt ? t('latest', { time: formatTime(bpLog.recordedAt) }) : t('noDataYet'),
       trend: undefined,
       icon: 'heart-pulse' as const,
@@ -86,7 +90,7 @@ export default function TreeScreen() {
       key: 'weight',
       title: t('weight'),
       value: typeof weightLog?.weight_kg === 'number' ? `${weightLog.weight_kg}` : '--',
-      unit: 'kg',
+      unit: tc('unitKg'),
       meta: weightLog?.recordedAt ? t('latest', { time: formatTime(weightLog.recordedAt) }) : t('noDataYet'),
       trend: undefined,
       icon: 'scale-bathroom' as const,
@@ -98,7 +102,7 @@ export default function TreeScreen() {
       key: 'water',
       title: t('waterIntake'),
       value: typeof waterLog?.volume_ml === 'number' ? `${waterLog.volume_ml}` : '--',
-      unit: 'ml',
+      unit: tc('unitMl'),
       meta: waterLog?.volume_ml ? t('todayLabel') : t('noDataYet'),
       trend: undefined,
       icon: 'cup-water' as const,
@@ -281,7 +285,8 @@ export default function TreeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     padding: spacing.lg,
     gap: spacing.lg
@@ -543,3 +548,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary
   }
 });
+}

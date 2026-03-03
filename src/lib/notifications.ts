@@ -8,16 +8,28 @@ import { Platform } from 'react-native';
 import i18n from '../i18n';
 import { useNotificationStore } from '../stores/notification.store';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+/**
+ * Initialize the notification handler. Must be called explicitly (e.g. inside
+ * a useEffect or app bootstrap) — NOT at module level — so that the native
+ * module is only accessed after the runtime is ready. On runtimes that don't
+ * support expo-notifications (e.g. Expo Go without the native module) the call
+ * is silently skipped to prevent an Invariant Violation crash.
+ */
+export function setupNotificationHandler(): void {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (e) {
+    console.warn('[notifications] setNotificationHandler failed (Expo Go?):', e);
+  }
+}
 
 export interface NotificationData {
   type: 'care_circle_invitation' | 'care_circle_accepted' | 'alert' | 'message';

@@ -1,16 +1,18 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useCareCircle } from '../../src/features/care-circle';
-import { colors, spacing, typography } from '../../src/styles';
-import { useTranslation } from 'react-i18next';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { colors, spacing } from '../../src/styles';
 
 export default function CareCircleScreen() {
   const router = useRouter();
@@ -18,6 +20,8 @@ export default function CareCircleScreen() {
   const profile = useAuthStore((state) => state.profile);
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   
   const {
     invitations,
@@ -576,7 +580,8 @@ export default function CareCircleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background
@@ -605,7 +610,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   heroTitle: {
-    fontSize: 22,
+    fontSize: typography.size.lg,
     fontWeight: '700',
     color: '#fff',
     marginBottom: 4,
@@ -883,3 +888,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs / 2
   }
 });
+}

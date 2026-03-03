@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
-import { ActivityIndicator, View, Text, StyleSheet, InteractionManager } from 'react-native';
-import { useRouter, useRootNavigationState } from 'expo-router';
-import { useAuthStore } from '../src/features/auth/auth.store';
-import { colors, spacing, typography } from '../src/styles';
+import { useRootNavigationState, useRouter } from 'expo-router';
+import { useEffect, useMemo } from 'react';
+import { ActivityIndicator, InteractionManager, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScaledText as Text } from '../src/components/ScaledText';
+import { useAuthStore } from '../src/features/auth/auth.store';
+import { useScaledTypography } from '../src/hooks/useScaledTypography';
+import { colors, spacing } from '../src/styles';
 
 export default function Index() {
   const router = useRouter();
@@ -13,6 +15,8 @@ export default function Index() {
   const bootstrap = useAuthStore((state) => state.bootstrap);
   const isNavReady = Boolean(navigationState?.key);
   const insets = useSafeAreaInsets();
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
   useEffect(() => {
     bootstrap();
@@ -22,7 +26,11 @@ export default function Index() {
     if (!isNavReady || loading) return;
     const task = InteractionManager.runAfterInteractions(() => {
       if (profile) {
-        router.replace('/(tabs)/home');
+        if (!profile.onboardingCompleted) {
+          router.replace('/onboarding');
+        } else {
+          router.replace('/(tabs)/home');
+        }
       } else {
         router.replace('/login');
       }
@@ -38,7 +46,8 @@ export default function Index() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -52,3 +61,4 @@ const styles = StyleSheet.create({
     color: colors.textPrimary
   }
 });
+}

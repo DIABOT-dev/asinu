@@ -40,7 +40,10 @@
   "bloodTypeInvalid": "Invalid blood type",
   "profileUpdated": "Profile updated successfully",
   "profileUpdateError": "Error updating profile",
+  "phoneAlreadyUsed": "Phone number already in use",
   "glucose": "Blood Glucose",
   "bloodPressure": "Blood Pressure",
-  "careFor": "Caring for: {{name}}"
+  "careFor": "Caring for: {{name}}",
+  "heightValue": "{{value}} cm",
+  "weightValue": "{{value}} kg"
 }

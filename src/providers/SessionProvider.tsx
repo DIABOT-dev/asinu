@@ -1,6 +1,6 @@
 import { ReactNode, createContext, useContext, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../features/auth/auth.store';
-import { getExpoPushToken, requestNotificationPermissions } from '../lib/notifications';
+import { getExpoPushToken, requestNotificationPermissions, setupNotificationHandler } from '../lib/notifications';
 
 const SessionContext = createContext<{ ready: boolean }>({ ready: false });
 
@@ -22,6 +22,9 @@ export const SessionProvider = ({ children }: Props) => {
       console.log('[SessionProvider] Calling bootstrap()');
       bootstrap();
       
+      // Set up notification handler before requesting permissions
+      setupNotificationHandler();
+
       // Request notification permissions and get push token
       (async () => {
         const hasPermission = await requestNotificationPermissions();

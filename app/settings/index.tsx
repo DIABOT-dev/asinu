@@ -2,11 +2,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import DeleteAccountModal from '../../src/components/DeleteAccountModal';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { authApi } from '../../src/features/auth/auth.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
@@ -33,13 +34,13 @@ export default function SettingsScreen() {
   const { language, setLanguage } = useLanguageStore();
   const logout = useAuthStore((state) => state.logout);
   const { scale, setScale } = useFontSizeStore();
-  const scaledTypography = useScaledTypography();
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scaledTypography = useScaledTypography();
   const padTop = insets.top + spacing.lg;
 
   // Load saved preferences on mount
@@ -114,7 +115,7 @@ export default function SettingsScreen() {
       Alert.alert(
         t('enableNotificationsFirst'),
         t('enableNotificationsFirstDesc'),
-        [{ text: 'OK' }]
+        [{ text: tc('ok') }]
       );
       return;
     }

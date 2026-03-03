@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useScaledFontSize } from '../hooks/useScaledTypography';
 
 const MASCOT_URL = 'https://github.com/DIABOT-dev/resource/blob/main/asinu-mascot.png?raw=true';
 
@@ -13,6 +14,10 @@ type AsinuMascotProps = {
 export default function AsinuMascot({ onPress, size = 140 }: AsinuMascotProps) {
   const { t } = useTranslation('chat');
   const [imageError, setImageError] = useState(false);
+  const scaledFontSize = useScaledFontSize(16);
+  const dynamicStyles = useMemo(() => ({
+    bubbleText: { fontSize: scaledFontSize }
+  }), [scaledFontSize]);
 
   const handlePress = () => {
     onPress?.();
@@ -34,7 +39,7 @@ export default function AsinuMascot({ onPress, size = 140 }: AsinuMascotProps) {
           />
         )}
         <View style={styles.bubble}>
-          <Text style={styles.bubbleText}>{t('mascotGreeting')}</Text>
+          <Text style={[styles.bubbleText, dynamicStyles.bubbleText]}>{t('mascotGreeting')}</Text>
         </View>
       </TouchableOpacity>
     </View>

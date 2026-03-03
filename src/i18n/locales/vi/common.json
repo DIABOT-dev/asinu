@@ -44,5 +44,12 @@
   "networkErrorUnknown": "Lỗi mạng không xác định",
   "notLoggedIn": "Chưa đăng nhập",
   "cannotSendRequest": "Không thể gửi yêu cầu",
-  "connectionError": "Lỗi kết nối"
+  "connectionError": "Lỗi kết nối",
+  "ok": "OK",
+  "unitMgdl": "mg/dL",
+  "unitMmhg": "mmHg",
+  "unitKg": "kg",
+  "unitMl": "ml",
+  "unitCm": "cm",
+  "unitInsulin": "U"
 }

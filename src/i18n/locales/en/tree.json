@@ -31,5 +31,12 @@
   "chartHiddenDemo": "Chart hidden in demo mode",
   "noDataToShow": "No data to display",
   "logToSeeTrend": "Log data to see trends",
-  "invalidData": "Invalid data"
+  "invalidData": "Invalid data",
+  "daySun": "Sun",
+  "dayMon": "Mon",
+  "dayTue": "Tue",
+  "dayWed": "Wed",
+  "dayThu": "Thu",
+  "dayFri": "Fri",
+  "daySat": "Sat"
 }

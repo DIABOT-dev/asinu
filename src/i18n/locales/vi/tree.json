@@ -31,5 +31,12 @@
   "chartHiddenDemo": "Biểu đồ tạm ẩn trong chế độ demo",
   "noDataToShow": "Chưa có dữ liệu để hiển thị",
   "logToSeeTrend": "Ghi log để xem xu hướng",
-  "invalidData": "Dữ liệu không hợp lệ"
+  "invalidData": "Dữ liệu không hợp lệ",
+  "daySun": "CN",
+  "dayMon": "T2",
+  "dayTue": "T3",
+  "dayWed": "T4",
+  "dayThu": "T5",
+  "dayFri": "T6",
+  "daySat": "T7"
 }
