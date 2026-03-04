@@ -26,7 +26,10 @@
       "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png",
       "urlSchemes": [
         "com.googleusercontent.apps.416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21"
-      ]
+      ],
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Asinu cần microphone để nhận lệnh giọng nói"
+      }
     },
     "android": {
       "package": "com.asinu.lite",
@@ -34,7 +37,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/android/adaptive-foreground.png",
         "backgroundImage": "./assets/android/adaptive-background.png"
-      }
+      },
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "plugins": [
       "expo-router",

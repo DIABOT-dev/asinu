@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Audio } from 'expo-av';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { useLanguageStore } from '../stores/language.store';
 import { colors, spacing } from '../styles';
 
 export type ChatBubble = {
@@ -22,7 +26,41 @@ export type AiChatLayoutProps = {
 export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping = false, onSend }: AiChatLayoutProps) => {
   const { t } = useTranslation(['chat', 'common']);
   const [draft, setDraft] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
   const scaledTypography = useScaledTypography();
+  const { language } = useLanguageStore();
+
+  const handleMicPress = async () => {
+    if (isRecording) {
+      setIsRecording(false);
+      await recordingRef.current?.stopAndUnloadAsync();
+      const uri = recordingRef.current?.getURI();
+      recordingRef.current = null;
+      if (!uri) return;
+
+      setIsTranscribing(true);
+      try {
+        const text = await chatApi.transcribeAudio(uri, language);
+        if (text) setDraft(prev => prev ? `${prev} ${text}` : text);
+      } catch (e) {
+        console.error('[voice] transcribe failed:', e);
+      } finally {
+        setIsTranscribing(false);
+      }
+    } else {
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) return;
+
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const rec = new Audio.Recording();
+      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await rec.startAsync();
+      recordingRef.current = rec;
+      setIsRecording(true);
+    }
+  };
 
   const handleSend = () => {
     if (!draft.trim()) return;
@@ -49,6 +87,20 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
         ListFooterComponent={isTyping ? <Text style={[styles.typing, { fontSize: scaledTypography.size.sm }]}>{t('chat:typing')}</Text> : null}
       />
       <View style={styles.composer}>
+        <Pressable
+          onPress={handleMicPress}
+          style={[styles.micButton, isRecording && styles.micButtonActive]}
+          disabled={isTranscribing}
+        >
+          {isTranscribing
+            ? <ActivityIndicator size="small" color={colors.primary} />
+            : <MaterialCommunityIcons
+                name={isRecording ? 'stop-circle' : 'microphone'}
+                size={26}
+                color={isRecording ? '#fff' : colors.primary}
+              />
+          }
+        </Pressable>
         <TextInput
           style={[styles.input, { fontSize: scaledTypography.size.md }]}
           placeholder={t('chat:placeholder')}
@@ -141,5 +193,16 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontWeight: '600',
     lineHeight: 24
+  },
+  micButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micButtonActive: {
+    backgroundColor: colors.danger,
   }
 });

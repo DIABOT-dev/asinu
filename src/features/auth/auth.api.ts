@@ -25,6 +25,7 @@ export type UpdateProfilePayload = {
   gender?: string;
   goal?: string;
   bodyType?: string;
+  language?: string;
 };
 
 export type LoginResponse = {

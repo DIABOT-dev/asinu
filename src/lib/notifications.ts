@@ -32,7 +32,7 @@ export function setupNotificationHandler(): void {
 }
 
 export interface NotificationData {
-  type: 'care_circle_invitation' | 'care_circle_accepted' | 'alert' | 'message';
+  type: 'care_circle_invitation' | 'care_circle_accepted' | 'alert' | 'message' | 'engagement';
   invitationId?: string;
   senderId?: string;
   senderName?: string;
@@ -58,13 +58,19 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       return false;
     }
 
-    // For Android, set notification channel
+    // For Android, set notification channels
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('care-circle', {
         name: 'Care Circle',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF6B6B',
+      });
+      await Notifications.setNotificationChannelAsync('engagement', {
+        name: 'Nhắc nhở sức khoẻ',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250],
+        lightColor: '#4CAF50',
       });
     }
 

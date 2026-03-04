@@ -10,9 +10,10 @@ import DeleteAccountModal from '../../src/components/DeleteAccountModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { authApi } from '../../src/features/auth/auth.api';
+import { apiClient } from '../../src/lib/apiClient';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { getExpoPushToken, requestNotificationPermissions } from '../../src/lib/notifications';
+import { getExpoPushToken, requestNotificationPermissions, scheduleLocalNotification } from '../../src/lib/notifications';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { AppLanguage, useLanguageStore } from '../../src/stores/language.store';
 import { colors, spacing } from '../../src/styles';
@@ -266,6 +267,27 @@ export default function SettingsScreen() {
             disabled={isLoading || !notifications}
           />
         </View>
+
+        {__DEV__ && (
+          <Button
+            label="🔔 Test thông báo AI"
+            variant="secondary"
+            onPress={async () => {
+              try {
+                const res = await apiClient<{ ok: boolean; title: string; body: string }>(
+                  '/api/notifications/engagement/preview'
+                );
+                if (res.ok && res.body) {
+                  await scheduleLocalNotification(res.title, res.body);
+                }
+              } catch (e) {
+                // fallback nếu server không chạy
+                await scheduleLocalNotification('Asinu', 'Vào app kiểm tra sức khoẻ nhé! 💙');
+              }
+            }}
+            style={{ marginTop: spacing.xl }}
+          />
+        )}
 
         <Button label={t('logout')} variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
         

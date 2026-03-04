@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { tokenStore } from '../../lib/tokenStore';
 import { useNotificationStore } from '../../stores/notification.store';
+import { AppLanguage, useLanguageStore } from '../../stores/language.store';
 import { authApi, LoginPayload, UpdateProfilePayload } from './auth.api';
 import { authService, SocialProvider } from './auth.service';
 
@@ -35,6 +36,7 @@ export type Profile = {
     email?: string;
     status: string;
   }>;
+  languagePreference?: string;
 };
 
 type AuthState = {
@@ -87,6 +89,9 @@ export const useAuthStore = create<AuthState>()(
             console.log('[auth.store] Token found, fetching fresh profile...');
             const profile = await authApi.fetchProfile();
             console.log('[auth.store] Fresh profile fetched:', profile);
+            if (profile?.languagePreference) {
+              useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
+            }
             set({ profile, loading: false, hydrated: true });
           } catch (err) {
             console.warn('[auth.store] Failed to fetch profile on bootstrap:', err);
@@ -121,6 +126,9 @@ export const useAuthStore = create<AuthState>()(
             console.log('[auth.store] Fetching full profile from API...');
             profile = await authApi.fetchProfile();
             console.log('[auth.store] Fetched profile:', profile);
+            if (profile?.languagePreference) {
+              useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
+            }
           } catch (err) {
             console.warn('[auth.store] Failed to fetch full profile:', err);
             // Fallback: build minimal profile from login response
@@ -157,6 +165,9 @@ export const useAuthStore = create<AuthState>()(
             console.log('[auth.store] Phone login - fetching fresh profile from API...');
             profile = await authApi.fetchProfile();
             console.log('[auth.store] Phone login - Fresh profile fetched:', profile);
+            if (profile?.languagePreference) {
+              useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
+            }
           } catch (err) {
             console.warn('[auth.store] Phone login - Failed to fetch profile:', err);
             // Fallback to response profile if available
@@ -190,6 +201,9 @@ export const useAuthStore = create<AuthState>()(
             console.log('[auth.store] Social login - fetching fresh profile from API...');
             profile = await authApi.fetchProfile();
             console.log('[auth.store] Social login - Fresh profile fetched:', profile);
+            if (profile?.languagePreference) {
+              useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
+            }
           } catch (err) {
             console.warn('[auth.store] Social login - Failed to fetch profile:', err);
             // Fallback to response profile if available

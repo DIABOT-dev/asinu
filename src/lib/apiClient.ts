@@ -66,6 +66,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
   const method: HttpMethod = options.method || 'GET';
   const headers = {
     'Content-Type': 'application/json',
+    'Accept-Language': i18n.language || 'vi',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {})
   };
