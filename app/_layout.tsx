@@ -43,7 +43,7 @@ export default function RootLayout() {
       headerShadowVisible: false,
       headerLeft: () => (
         <Pressable
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('index')}
           style={styles.headerLeft}
         >
           <Text style={styles.headerLeftText}>{t('legalClose')}</Text>

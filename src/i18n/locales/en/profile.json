@@ -45,5 +45,6 @@
   "bloodPressure": "Blood Pressure",
   "careFor": "Caring for: {{name}}",
   "heightValue": "{{value}} cm",
-  "weightValue": "{{value}} kg"
+  "weightValue": "{{value}} kg",
+  "wallet": "Wallet"
 }

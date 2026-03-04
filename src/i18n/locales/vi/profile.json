@@ -45,5 +45,6 @@
   "bloodPressure": "Huyết áp",
   "careFor": "Chăm sóc: {{name}}",
   "heightValue": "{{value}} cm",
-  "weightValue": "{{value}} kg"
+  "weightValue": "{{value}} kg",
+  "wallet": "Ví tiền"
 }

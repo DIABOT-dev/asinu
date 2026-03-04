@@ -427,6 +427,16 @@ export default function ProfileScreen() {
             </LinearGradient>
             <Text style={styles.actionLabel}>{t('logEntry')}</Text>
           </Pressable>
+
+          <Pressable style={styles.actionCard} onPress={() => router.push('/wallet')}>
+            <LinearGradient
+              colors={['#8b5cf6', '#7c3aed']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="wallet" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>{t('wallet')}</Text>
+          </Pressable>
         </View>
 
         {/* Health Overview */}
