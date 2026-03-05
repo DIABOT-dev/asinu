@@ -33,9 +33,9 @@ export type OAuthResult = {
  */
 const GOOGLE_CONFIG = {
   clientId: {
-    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21.apps.googleusercontent.com',
-    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '416338225523-vs42boe39psg5k927thrhuq8doobb29h.apps.googleusercontent.com',
-    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '416338225523-e095rh2637h6fto5ia0gvnn8faeq96fd.apps.googleusercontent.com'
+    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '726570048913-oq7rk69ronarv55lucd7it29t8ti0c32.apps.googleusercontent.com',
+    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '726570048913-0oj1afglacg0h4p77toi6kvr6buh46j8.apps.googleusercontent.com',
+    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '726570048913-atltseun4619ge72ba6itpiqc6hbjnr0.apps.googleusercontent.com'
   },
   scopes: ['openid', 'profile', 'email'],
   authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -93,7 +93,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
     }
 
     const redirectUri = makeRedirectUri({
-      scheme: 'asinu',
+      scheme: 'asinu-lite',
       path: 'auth/google'
     });
 

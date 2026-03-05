@@ -2,9 +2,9 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
@@ -14,8 +14,10 @@ import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useMissionsStore } from '../../../src/features/missions/missions.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
-import { ApiError } from '../../../src/lib/apiClient';
+import { ApiError, apiClient } from '../../../src/lib/apiClient';
 import { colors, spacing } from '../../../src/styles';
+
+type SubStatus = { tier: 'free' | 'premium'; isPremium: boolean; expiresAt: string | null };
 
 export default function ProfileScreen() {
   const { t } = useTranslation('profile');
@@ -48,8 +50,16 @@ export default function ProfileScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
-  
+  const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
+
   // Removed dropdown - use direct input instead
+
+  // Fetch subscription status
+  useEffect(() => {
+    apiClient<SubStatus>('/api/subscriptions/status')
+      .then(setSubStatus)
+      .catch(() => {});
+  }, []);
 
   // Fetch data on mount
   useFocusEffect(
@@ -247,6 +257,17 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.profileName}>{identityTitle}</Text>
           <Text style={styles.profileStatus}>{statusText}</Text>
+          {subStatus && (
+            <TouchableOpacity
+              style={[styles.planChip, subStatus.isPremium ? styles.planChipPremium : styles.planChipFree]}
+              onPress={() => router.push('/subscription')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.planChipText, subStatus.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
+                {subStatus.isPremium ? '👑 Premium' : 'Free'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </LinearGradient>
 
         {/* User Info Card */}
@@ -436,6 +457,16 @@ export default function ProfileScreen() {
               <Ionicons name="wallet" size={24} color="#fff" />
             </LinearGradient>
             <Text style={styles.actionLabel}>{t('wallet')}</Text>
+          </Pressable>
+
+          <Pressable style={styles.actionCard} onPress={() => router.push('/subscription')}>
+            <LinearGradient
+              colors={['#f59e0b', '#d97706']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="star" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>Gói cước</Text>
           </Pressable>
         </View>
 
@@ -723,6 +754,30 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   profileStatus: {
     fontSize: typography.size.sm,
     color: 'rgba(255,255,255,0.9)'
+  },
+  planChip: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  planChipFree: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  planChipPremium: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  planChipText: {
+    fontSize: typography.size.xs,
+    fontWeight: '700',
+  },
+  planChipTextFree: {
+    color: 'rgba(255,255,255,0.95)',
+  },
+  planChipTextPremium: {
+    color: '#d97706',
   },
   // Section Header
   sectionHeader: {

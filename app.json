@@ -25,7 +25,7 @@
       "bundleIdentifier": "com.asinu.lite",
       "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png",
       "urlSchemes": [
-        "com.googleusercontent.apps.416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21"
+        "com.googleusercontent.apps.726570048913-oq7rk69ronarv55lucd7it29t8ti0c32"
       ],
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Asinu cần microphone để nhận lệnh giọng nói"
