@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Audio } from 'expo-av';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useLanguageStore } from '../stores/language.store';
@@ -20,10 +20,12 @@ export type AiChatLayoutProps = {
   assistantAvatar?: string;
   userAvatar?: string;
   isTyping?: boolean;
+  isPremium?: boolean;
   onSend?: (message: string) => void;
+  onUpgradePress?: () => void;
 };
 
-export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping = false, onSend }: AiChatLayoutProps) => {
+export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping = false, isPremium = false, onSend, onUpgradePress }: AiChatLayoutProps) => {
   const { t } = useTranslation(['chat', 'common']);
   const [draft, setDraft] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -69,7 +71,7 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={styles.container}>
       <FlatList
         contentContainerStyle={styles.list}
         data={messages}
@@ -88,17 +90,28 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
       />
       <View style={styles.composer}>
         <Pressable
-          onPress={handleMicPress}
-          style={[styles.micButton, isRecording && styles.micButtonActive]}
+          onPress={isPremium ? handleMicPress : () => {
+            Alert.alert(
+              'Tính năng Premium',
+              'Voice Chat chỉ dành cho gói Premium. Nâng cấp ngay để sử dụng?',
+              [
+                { text: 'Để sau', style: 'cancel' },
+                { text: 'Nâng cấp', onPress: () => onUpgradePress?.() },
+              ]
+            );
+          }}
+          style={[styles.micButton, isRecording && styles.micButtonActive, !isPremium && styles.micButtonLocked]}
           disabled={isTranscribing}
         >
           {isTranscribing
             ? <ActivityIndicator size="small" color={colors.primary} />
-            : <MaterialCommunityIcons
-                name={isRecording ? 'stop-circle' : 'microphone'}
-                size={26}
-                color={isRecording ? '#fff' : colors.primary}
-              />
+            : isPremium
+              ? <MaterialCommunityIcons
+                  name={isRecording ? 'stop-circle' : 'microphone'}
+                  size={26}
+                  color={isRecording ? '#fff' : colors.primary}
+                />
+              : <Ionicons name="lock-closed" size={20} color={colors.textSecondary} />
           }
         </Pressable>
         <TextInput
@@ -112,7 +125,7 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
           <Text style={[styles.sendLabel, { fontSize: scaledTypography.size.md }]}>{t('common:send')}</Text>
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
@@ -204,5 +217,8 @@ const styles = StyleSheet.create({
   },
   micButtonActive: {
     backgroundColor: colors.danger,
+  },
+  micButtonLocked: {
+    backgroundColor: colors.border,
   }
 });

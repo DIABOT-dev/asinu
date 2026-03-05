@@ -1,13 +1,23 @@
-﻿import { useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
 import { chatApi } from '../src/features/chat/chat.api';
+import { apiClient } from '../src/lib/apiClient';
 import { navigation } from '../src/lib/navigation';
 import { colors } from '../src/styles';
 
 export default function AiChatScreen() {
   const { t } = useTranslation('chat');
+  const router = useRouter();
+  const [isPremium, setIsPremium] = useState(false);
+
+  useEffect(() => {
+    apiClient<{ isPremium: boolean }>('/api/subscriptions/status')
+      .then((res) => setIsPremium(res.isPremium))
+      .catch(() => {});
+  }, []);
 
   const initialMessages: ChatBubble[] = useMemo(() => [
     {
@@ -79,7 +89,9 @@ export default function AiChatScreen() {
         assistantAvatar={avatars.assistant}
         userAvatar={avatars.user}
         isTyping={isTyping}
+        isPremium={isPremium}
         onSend={handleSend}
+        onUpgradePress={() => router.push('/subscription')}
       />
     </SafeAreaView>
   );

@@ -1,8 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Image } from 'react-native';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+
+const zaloLogo = require('../../src/assets/zalo.png');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -124,10 +127,25 @@ export default function LoginEmailScreen() {
           <Text style={styles.dividerText}>{t('orContinueWith')}</Text>
         </View>
         <View style={styles.socialGroup}>
-          {(['google', 'apple'] as const).map((provider) => {
+          {(Platform.OS === 'ios'
+              ? (['google', 'zalo', 'apple'] as SocialProvider[])
+              : (['google', 'zalo'] as SocialProvider[])
+            ).map((provider) => {
             const isButtonLoading = isSubmitting && pendingAction === provider;
             const label =
-              provider === 'google' ? t('continueWithGoogle') : t('continueWithApple');
+              provider === 'google' ? t('continueWithGoogle') :
+              provider === 'zalo' ? t('continueWithZalo') :
+              t('continueWithApple');
+
+            const renderIcon = () => {
+              if (provider === 'google') {
+                return <FontAwesome5 name="google" size={18} color="#EA4335" brand />;
+              }
+              if (provider === 'apple') {
+                return <FontAwesome5 name="apple" size={20} color="#000" brand />;
+              }
+              return <Image source={zaloLogo} style={styles.zaloIcon} resizeMode="contain" />;
+            };
 
             return (
               <Pressable
@@ -140,6 +158,7 @@ export default function LoginEmailScreen() {
                   isSubmitting && styles.socialButtonDisabled
                 ]}
               >
+                {isButtonLoading ? null : renderIcon()}
                 <Text style={styles.socialButtonText}>{isButtonLoading ? tc('processing') : label}</Text>
               </Pressable>
             );
@@ -279,7 +298,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: 'center'
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  zaloIcon: {
+    width: 22,
+    height: 22,
   },
   socialButtonPressed: {
     opacity: 0.85,

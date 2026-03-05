@@ -263,8 +263,13 @@ export default function ProfileScreen() {
               onPress={() => router.push('/subscription')}
               activeOpacity={0.8}
             >
+              <MaterialCommunityIcons
+                name={subStatus.isPremium ? 'crown' : 'account-outline'}
+                size={13}
+                color={subStatus.isPremium ? '#d97706' : 'rgba(255,255,255,0.9)'}
+              />
               <Text style={[styles.planChipText, subStatus.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
-                {subStatus.isPremium ? '👑 Premium' : 'Free'}
+                {subStatus.isPremium ? 'Premium' : 'Free'}
               </Text>
             </TouchableOpacity>
           )}
@@ -466,7 +471,7 @@ export default function ProfileScreen() {
             >
               <Ionicons name="star" size={24} color="#fff" />
             </LinearGradient>
-            <Text style={styles.actionLabel}>Gói cước</Text>
+            <Text style={styles.actionLabel}>{t('subscription')}</Text>
           </Pressable>
         </View>
 
@@ -760,6 +765,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
     borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   planChipFree: {
     backgroundColor: 'rgba(255,255,255,0.25)',

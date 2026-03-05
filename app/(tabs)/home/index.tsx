@@ -75,30 +75,30 @@ export default function HomeScreen() {
     <Screen>
       {anyStale ? <OfflineBanner /> : null}
       
-      {/* Notification Bell in top right */}
-      <View style={[styles.notificationContainer, { top: insets.top + spacing.sm }]}>
-        <NotificationBell
-          notifications={notifications}
-          unreadCount={unreadCount}
-          onMarkAsRead={markAsRead}
-          onMarkAllAsRead={markAllAsRead}
-          onNotificationPress={(notification) => {
-            // Handle notification press - navigate based on type
-            if (notification.data?.type === 'care_circle_invitation') {
-              router.push('/care-circle');
-            } else if (notification.data?.type === 'health_alert') {
-              // Navigate to logs or care circle based on alert
-              if (notification.data?.alertType?.includes('glucose')) {
-                router.push('/logs/glucose');
-              } else if (notification.data?.alertType?.includes('blood_pressure')) {
-                router.push('/logs/blood-pressure');
-              } else {
+      {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
+      {profile && (
+        <View style={[styles.notificationContainer, { top: insets.top + spacing.sm }]}>
+          <NotificationBell
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onMarkAsRead={markAsRead}
+            onMarkAllAsRead={markAllAsRead}
+            onNotificationPress={(notification) => {
+              if (notification.data?.type === 'care_circle_invitation') {
                 router.push('/care-circle');
+              } else if (notification.data?.type === 'health_alert') {
+                if (notification.data?.alertType?.includes('glucose')) {
+                  router.push('/logs/glucose');
+                } else if (notification.data?.alertType?.includes('blood_pressure')) {
+                  router.push('/logs/blood-pressure');
+                } else {
+                  router.push('/care-circle');
+                }
               }
-            }
-          }}
-        />
-      </View>
+            }}
+          />
+        </View>
+      )}
 
       {loading ? <StateLoading /> : null}
       {noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}

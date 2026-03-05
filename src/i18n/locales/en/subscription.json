@@ -5,20 +5,20 @@
   "premium": "Premium",
   "expiresAt": "Expires: {{date}}",
   "upgradeNow": "Upgrade Now",
-  "price": "199,000₫ / month",
   "priceNote": "Payment via bank transfer",
   "featuresTitle": "Features",
+  "planSelector": "Select subscription period",
+  "perMonth": "/mo",
+  "saveOff": "Save {{pct}}%",
   "features": {
     "freeTitle": "Free Plan",
     "premiumTitle": "Premium Plan",
-    "logs30": "30 logs / month",
-    "logsUnlimited": "Unlimited logs",
     "history7d": "7-day history",
-    "historyFull": "Full history",
+    "history365d": "365-day history",
     "connections3": "Up to 3 connections",
-    "connectionsUnlimited": "Unlimited connections",
+    "connections50": "Up to 50 connections",
     "voiceNo": "No AI Voice Chat",
-    "voiceYes": "AI Voice Chat"
+    "voice5k": "5,000 voice/month"
   },
   "paymentQR": "Scan QR to pay",
   "transferNote": "Transfer note:",
@@ -35,5 +35,8 @@
   "validUntil": "Valid until {{date}}",
   "alreadyPremium": "You are already a Premium member",
   "cancelQR": "Cancel QR",
-  "generateQR": "Generate Payment QR"
+  "generateQR": "Generate Payment QR",
+  "voiceUsage": "Voice: {{used}}/{{limit}} this month",
+  "currentlyUsing": "Currently using",
+  "qrExpired": "QR has expired"
 }

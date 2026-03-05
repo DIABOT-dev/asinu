@@ -478,7 +478,7 @@ export const AsinuBrainOverlayHost = () => {
         </View>
       </Modal>
 
-      <AsinuEmergencyFAB onInteraction={markInteraction} />
+      {isAuthenticated && <AsinuEmergencyFAB onInteraction={markInteraction} />}
     </View>
   );
 };

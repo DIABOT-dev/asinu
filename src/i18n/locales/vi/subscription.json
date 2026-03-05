@@ -5,20 +5,20 @@
   "premium": "Premium",
   "expiresAt": "Hết hạn: {{date}}",
   "upgradeNow": "Nâng cấp ngay",
-  "price": "199,000đ / tháng",
   "priceNote": "Thanh toán qua chuyển khoản ngân hàng",
   "featuresTitle": "Tính năng",
+  "planSelector": "Chọn thời hạn đăng ký",
+  "perMonth": "/tháng",
+  "saveOff": "Tiết kiệm {{pct}}%",
   "features": {
     "freeTitle": "Gói Miễn phí",
     "premiumTitle": "Gói Premium",
-    "logs30": "30 nhật ký / tháng",
-    "logsUnlimited": "Không giới hạn nhật ký",
     "history7d": "Lịch sử 7 ngày",
-    "historyFull": "Toàn bộ lịch sử",
+    "history365d": "Lịch sử 365 ngày",
     "connections3": "Tối đa 3 kết nối",
-    "connectionsUnlimited": "Không giới hạn kết nối",
+    "connections50": "Tối đa 50 kết nối",
     "voiceNo": "Không có Voice Chat AI",
-    "voiceYes": "Voice Chat với AI"
+    "voice5k": "5,000 voice/tháng"
   },
   "paymentQR": "Quét QR để thanh toán",
   "transferNote": "Nội dung chuyển khoản:",
@@ -35,5 +35,8 @@
   "validUntil": "Có hiệu lực đến {{date}}",
   "alreadyPremium": "Bạn đang là thành viên Premium",
   "cancelQR": "Huỷ QR",
-  "generateQR": "Tạo mã QR thanh toán"
+  "generateQR": "Tạo mã QR thanh toán",
+  "voiceUsage": "Voice: {{used}}/{{limit}} lượt tháng này",
+  "currentlyUsing": "Đang dùng",
+  "qrExpired": "QR đã hết hạn"
 }

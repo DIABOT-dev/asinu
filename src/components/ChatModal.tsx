@@ -1,9 +1,10 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { apiClient } from '../lib/apiClient';
 import { navigation } from '../lib/navigation';
 import { colors, spacing } from '../styles';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
@@ -34,7 +35,18 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     }
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const scaledTypography = useScaledTypography();
+  const hasFetchedPremium = useRef(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (hasFetchedPremium.current) return;
+    hasFetchedPremium.current = true;
+    apiClient<{ isPremium?: boolean }>('/api/subscriptions/status')
+      .then((data) => { if (data?.isPremium) setIsPremium(true); })
+      .catch(() => {/* stay false */});
+  }, [visible]);
 
   useEffect(() => {
     if (__DEV__) {
@@ -84,7 +96,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.handle} />
@@ -95,10 +107,16 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
             </Pressable>
           </View>
           <View style={styles.chatBody}>
-            <AiChatLayout messages={messages} isTyping={isTyping} onSend={handleSend} />
+            <AiChatLayout
+              messages={messages}
+              isTyping={isTyping}
+              isPremium={isPremium}
+              onSend={handleSend}
+              onUpgradePress={() => { onClose(); navigation.navigate('/subscription' as any); }}
+            />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -111,7 +129,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '100%',
-    height: SHEET_H,
+    flex: 1,
+    maxHeight: SHEET_H,
     backgroundColor: colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

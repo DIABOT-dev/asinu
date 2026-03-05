@@ -3,7 +3,7 @@
  * Handles real OAuth authentication flows for Google, Apple, and Zalo
  */
 
-import { makeRedirectUri } from 'expo-auth-session';
+import { AuthRequest, DiscoveryDocument, ResponseType, exchangeCodeAsync, makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import i18n from '../../i18n';
@@ -13,12 +13,15 @@ const t = (key: string) => i18n.t(key, { ns: 'auth' });
 // Required for OAuth to work properly
 WebBrowser.maybeCompleteAuthSession();
 
-export type OAuthProvider = 'google' | 'apple';
+export type OAuthProvider = 'google' | 'apple' | 'zalo';
 
 export type OAuthResult = {
   type: 'success' | 'cancel' | 'error';
   token?: string;
   idToken?: string;
+  code?: string;
+  codeVerifier?: string;
+  directToken?: string; // JWT from backend callback (Zalo server-side flow)
   profile?: {
     email?: string;
     name?: string;
@@ -33,9 +36,9 @@ export type OAuthResult = {
  */
 const GOOGLE_CONFIG = {
   clientId: {
-    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '726570048913-oq7rk69ronarv55lucd7it29t8ti0c32.apps.googleusercontent.com',
-    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '726570048913-0oj1afglacg0h4p77toi6kvr6buh46j8.apps.googleusercontent.com',
-    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '726570048913-atltseun4619ge72ba6itpiqc6hbjnr0.apps.googleusercontent.com'
+    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21.apps.googleusercontent.com',
+    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
+    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || ''
   },
   scopes: ['openid', 'profile', 'email'],
   authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -67,14 +70,18 @@ function getGoogleClientId(): string {
   return GOOGLE_CONFIG.clientId.web;
 }
 
+const GOOGLE_DISCOVERY: DiscoveryDocument = {
+  authorizationEndpoint: GOOGLE_CONFIG.authorizationEndpoint,
+  tokenEndpoint: GOOGLE_CONFIG.tokenEndpoint,
+  revocationEndpoint: GOOGLE_CONFIG.revocationEndpoint,
+};
+
 /**
- * Authenticate with Google
+ * Authenticate with Google (Authorization Code + PKCE)
  */
 export async function authenticateWithGoogle(): Promise<OAuthResult> {
   try {
-    // Check if running in development mode with mock
     if (__DEV__ && process.env.EXPO_PUBLIC_USE_MOCK_OAUTH === 'true') {
-      console.log('[oauth] Using mock Google authentication');
       return {
         type: 'success',
         token: 'mock-google-token',
@@ -88,64 +95,69 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
     }
 
     const clientId = getGoogleClientId();
-    if (!clientId) {
-      throw new Error(t('googleClientIdMissing'));
-    }
+    if (!clientId) throw new Error(t('googleClientIdMissing'));
 
     const redirectUri = makeRedirectUri({
-      scheme: 'asinu-lite',
-      path: 'auth/google'
+      native: 'com.googleusercontent.apps.416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21:/oauth2redirect/google'
     });
 
-    const state = `google_${Date.now()}`;
+    const request = new AuthRequest({
+      clientId,
+      scopes: GOOGLE_CONFIG.scopes,
+      redirectUri,
+      usePKCE: true,
+      responseType: ResponseType.Code,
+    });
 
-    // Build authorization URL
-    const authUrlString = `${GOOGLE_CONFIG.authorizationEndpoint}?${new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: 'token',
-      scope: GOOGLE_CONFIG.scopes.join(' '),
-      state
-    }).toString()}`;
+    // Force generate PKCE code verifier BEFORE promptAsync
+    await request.makeAuthUrlAsync(GOOGLE_DISCOVERY);
+    const codeVerifier = request.codeVerifier;
 
-    // Open browser for OAuth
-    const result = await WebBrowser.openAuthSessionAsync(authUrlString, redirectUri);
+    const result = await request.promptAsync(GOOGLE_DISCOVERY);
 
-    if (result.type === 'success' && result.url) {
-      // Parse token from redirect URL
-      const url = new URL(result.url);
-      const params = new URLSearchParams(url.hash.substring(1));
-      const accessToken = params.get('access_token');
-      const idToken = params.get('id_token');
-
-      if (!accessToken) {
-        throw new Error(t('noAccessToken'));
-      }
-
-      // Fetch user profile
-      const profileResponse = await fetch(GOOGLE_CONFIG.userInfoEndpoint, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      const profile = await profileResponse.json();
-
-      return {
-        type: 'success',
-        token: accessToken,
-        idToken: idToken || undefined,
-        profile: {
-          email: profile.email,
-          name: profile.name,
-          picture: profile.picture,
-          sub: profile.id
-        }
-      };
-    }
-
-    if (result.type === 'cancel') {
+    if (result.type === 'cancel' || result.type === 'dismiss') {
       return { type: 'cancel' };
     }
 
-    return { type: 'error', error: t('authFailed') };
+    if (result.type !== 'success') {
+      return { type: 'error', error: t('authFailed') };
+    }
+
+    if (!codeVerifier) {
+      return { type: 'error', error: 'PKCE code verifier missing' };
+    }
+
+    // Exchange authorization code for tokens
+    const tokenResponse = await exchangeCodeAsync(
+      {
+        clientId,
+        redirectUri,
+        code: result.params.code,
+        extraParams: { code_verifier: codeVerifier },
+      },
+      GOOGLE_DISCOVERY
+    );
+
+    const accessToken = tokenResponse.accessToken;
+    const idToken = tokenResponse.idToken;
+
+    // Fetch user profile
+    const profileResponse = await fetch(GOOGLE_CONFIG.userInfoEndpoint, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const profile = await profileResponse.json();
+
+    return {
+      type: 'success',
+      token: accessToken,
+      idToken: idToken || undefined,
+      profile: {
+        email: profile.email,
+        name: profile.name,
+        picture: profile.picture,
+        sub: profile.id || profile.sub
+      }
+    };
   } catch (error) {
     console.error('[oauth] Google authentication error:', error);
     return {
@@ -219,6 +231,70 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
 }
 
 /**
+ * Generate PKCE code verifier (random string)
+ */
+function generateCodeVerifier(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let result = '';
+  for (let i = 0; i < 64; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+/**
+ * Authenticate with Zalo (server-side callback flow)
+ * Backend receives code from Zalo, exchanges token, redirects back to app with JWT
+ */
+export async function authenticateWithZalo(): Promise<OAuthResult> {
+  try {
+    const appId = process.env.EXPO_PUBLIC_ZALO_APP_ID;
+    if (!appId) return { type: 'error', error: 'Zalo App ID chưa được cấu hình' };
+
+    const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+    if (!apiBase) return { type: 'error', error: 'API base URL chưa được cấu hình' };
+
+    // Backend HTTPS endpoint — Zalo redirects here with ?code=
+    const redirectUri = `${apiBase}/api/auth/zalo/callback`;
+
+    const statePayload = btoa(JSON.stringify({ n: Date.now() }));
+
+    const authUrl = `https://oauth.zaloapp.com/v4/permission?${new URLSearchParams({
+      app_id: appId,
+      redirect_uri: redirectUri,
+      state: statePayload
+    }).toString()}`;
+
+    // Watch for backend redirecting back to the app deep link
+    const appCallbackUri = 'asinu-lite://auth/zalo/callback';
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUri);
+
+    if (result.type === 'cancel' || result.type === 'dismiss') {
+      return { type: 'cancel' };
+    }
+
+    if (result.type !== 'success' || !result.url) {
+      return { type: 'error', error: t('authFailed') };
+    }
+
+    const url = new URL(result.url);
+    const error = url.searchParams.get('error');
+    if (error) return { type: 'error', error: `Zalo login failed: ${error}` };
+
+    const directToken = url.searchParams.get('token');
+    if (!directToken) return { type: 'error', error: t('noAccessToken') };
+
+    return { type: 'success', directToken };
+  } catch (error) {
+    console.error('[oauth] Zalo authentication error:', error);
+    return {
+      type: 'error',
+      error: error instanceof Error ? error.message : t('unknownError')
+    };
+  }
+}
+
+/**
  * Main OAuth authentication function
  */
 export async function authenticateWithProvider(provider: OAuthProvider): Promise<OAuthResult> {
@@ -229,6 +305,8 @@ export async function authenticateWithProvider(provider: OAuthProvider): Promise
       return authenticateWithGoogle();
     case 'apple':
       return authenticateWithApple();
+    case 'zalo':
+      return authenticateWithZalo();
     default:
       return {
         type: 'error',
