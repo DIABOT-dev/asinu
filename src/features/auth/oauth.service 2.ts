@@ -71,7 +71,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
   try {
     // Check if running in development mode with mock
     if (__DEV__ && process.env.EXPO_PUBLIC_USE_MOCK_OAUTH === 'true') {
-      console.log('[oauth] Using mock Google authentication');
+
       return {
         type: 'success',
         token: 'mock-google-token',
@@ -144,7 +144,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
 
     return { type: 'error', error: 'Xác thực thất bại' };
   } catch (error) {
-    console.error('[oauth] Google authentication error:', error);
+
     return {
       type: 'error',
       error: error instanceof Error ? error.message : 'Lỗi không xác định'
@@ -167,7 +167,7 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
 
     // Check if running in development mode with mock
     if (__DEV__ && process.env.EXPO_PUBLIC_USE_MOCK_OAUTH === 'true') {
-      console.log('[oauth] Using mock Apple authentication');
+
       return {
         type: 'success',
         token: 'mock-apple-token',
@@ -207,7 +207,6 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
       return { type: 'cancel' };
     }
 
-    console.error('[oauth] Apple authentication error:', error);
     return {
       type: 'error',
       error: error.message || 'Xác thực Apple thất bại'
@@ -219,7 +218,6 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
  * Main OAuth authentication function
  */
 export async function authenticateWithProvider(provider: OAuthProvider): Promise<OAuthResult> {
-  console.log(`[oauth] Starting authentication with ${provider}`);
 
   switch (provider) {
     case 'google':

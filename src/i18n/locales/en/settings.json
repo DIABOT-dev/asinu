@@ -34,5 +34,7 @@
   "deleteErrorGeneric": "An error occurred while deleting account",
   "language": "Language",
   "languageVi": "Tiếng Việt",
-  "languageEn": "English"
+  "languageEn": "English",
+  "testNotification": "Test AI Notification",
+  "testNotificationBody": "Come check your health in the app!"
 }

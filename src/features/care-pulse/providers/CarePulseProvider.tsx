@@ -62,7 +62,7 @@ export const CarePulseProvider = ({ children }: Props) => {
     
     const token = tokenStore.getToken();
     if (!token) {
-      console.log('[CarePulse] Skipping scheduler - no auth token');
+
       return;
     }
     

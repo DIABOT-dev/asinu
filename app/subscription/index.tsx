@@ -50,10 +50,10 @@ type SubRecord = {
 
 // ── Plans ─────────────────────────────────────────────────────────
 const PLANS = [
-  { months: 1,  label: '1 tháng',  price: 199000,   discount: 0  },
-  { months: 3,  label: '3 tháng',  price: 567000,   discount: 5  },
-  { months: 6,  label: '6 tháng',  price: 1075000,  discount: 10 },
-  { months: 12, label: '12 tháng', price: 1910000,  discount: 20 },
+  { months: 1,  price: 199000,   discount: 0  },
+  { months: 3,  price: 567000,   discount: 5  },
+  { months: 6,  price: 1075000,  discount: 10 },
+  { months: 12, price: 1910000,  discount: 20 },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -313,7 +313,7 @@ export default function SubscriptionScreen() {
                       </View>
                     )}
                     <Text style={[styles.planOptionLabel, selected && styles.planOptionLabelSelected]}>
-                      {plan.label}
+                      {t('planMonth', { months: plan.months })}
                     </Text>
                     <Text style={[styles.planOptionPrice, selected && styles.planOptionPriceSelected]}>
                       {formatVND(plan.price)}đ
@@ -379,7 +379,7 @@ export default function SubscriptionScreen() {
                   <Text style={styles.noteValue}>{qr.description}</Text>
                 </View>
                 <View style={styles.noteBox}>
-                  <Text style={styles.noteLabel}>Số tiền ({PLANS.find(p => p.months === qr.plan_months)?.label}):</Text>
+                  <Text style={styles.noteLabel}>{t('amountLabel', { plan: t('planMonth', { months: qr.plan_months }) })}</Text>
                   <Text style={[styles.noteValue, { color: '#d97706' }]}>{formatVND(qr.amount)}đ</Text>
                 </View>
                 <View style={styles.pollingRow}>
@@ -408,7 +408,7 @@ export default function SubscriptionScreen() {
                       size={20} color={statusColor(sub.status)}
                     />
                     <View style={styles.historyInfo}>
-                      <Text style={styles.historyAmount}>{formatVND(sub.amount)}đ · {sub.plan_months} tháng</Text>
+                      <Text style={styles.historyAmount}>{formatVND(sub.amount)}đ · {t('planMonth', { months: sub.plan_months })}</Text>
                       <Text style={styles.historyDate}>
                         {new Date(sub.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </Text>

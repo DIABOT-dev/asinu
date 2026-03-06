@@ -5,7 +5,7 @@ const isProdRuntime = process.env.NODE_ENV === 'production';
 const devBypassAuth = isProdRuntime ? false : devBypassAuthRaw;
 
 if (isProdRuntime && devBypassAuthRaw) {
-  console.warn('[env] EXPO_PUBLIC_DEV_BYPASS_AUTH is disabled in production.');
+
 }
 
 export const env = {

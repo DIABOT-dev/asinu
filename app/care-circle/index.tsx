@@ -220,7 +220,7 @@ export default function CareCircleScreen() {
       setEditModalVisible(false);
       Alert.alert(tc('success'), t('editSuccess'));
     } catch (error) {
-      console.error('Failed to update connection:', error);
+
       Alert.alert(tc('error'), t('editError'));
     } finally {
       setActionLoading(null);

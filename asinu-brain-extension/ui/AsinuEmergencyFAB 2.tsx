@@ -62,7 +62,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
       setLoading(type);
       await postBrainEmergency({ type });
     } catch (error) {
-      console.warn('[AsinuEmergencyFAB] emergency failed', error);
+
     } finally {
       setLoading(null);
       setVisible(false);

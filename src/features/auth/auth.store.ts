@@ -65,18 +65,16 @@ export const useAuthStore = create<AuthState>()(
       setHydrated: (value: boolean) => set({ hydrated: value }),
 
       async bootstrap() {
-        console.log('[auth.store] ========== BOOTSTRAP CALLED ==========');
+
         set({ loading: true, error: undefined });
-        console.log('[auth.store] bootstrap started');
 
         try {
           // Try to restore token from secure storage
           const savedToken = await tokenStore.loadToken();
-          console.log('[auth.store] Restored token:', savedToken ? 'YES' : 'NO');
 
           if (!savedToken) {
             // No token found, user is logged out
-            console.log('[auth.store] No token, user is logged out');
+
             set({ loading: false, profile: null, token: null, hydrated: true });
             return;
           }
@@ -86,33 +84,32 @@ export const useAuthStore = create<AuthState>()(
 
           // Fetch fresh profile from API
           try {
-            console.log('[auth.store] Token found, fetching fresh profile...');
+
             const profile = await authApi.fetchProfile();
-            console.log('[auth.store] Fresh profile fetched:', profile);
+
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
             set({ profile, loading: false, hydrated: true });
           } catch (err) {
-            console.warn('[auth.store] Failed to fetch profile on bootstrap:', err);
+
             // If profile fetch fails but we have token, keep the token but clear profile
             set({ profile: null, loading: false, hydrated: true });
           }
         } catch (error) {
-          console.error('[auth.store] bootstrap error:', error);
+
           set({ loading: false, error: (error as Error).message, hydrated: true });
         }
       },
 
       async login(payload) {
         set({ loading: true, error: undefined });
-        console.log('[auth.store] login called - PRODUCTION MODE (no dev bypass)');
 
         // Always use real API - no dev mode, no bypass
-        console.log('[auth.store] login payload:', payload);
+
         try {
           const response = await authApi.login(payload);
-          console.log('[auth.store] login response:', response);
+
           const token = response.token || null;
 
           if (token) {
@@ -123,14 +120,14 @@ export const useAuthStore = create<AuthState>()(
           // Don't rely on login response for profile data
           let profile: Profile | null = null;
           try {
-            console.log('[auth.store] Fetching full profile from API...');
+
             profile = await authApi.fetchProfile();
-            console.log('[auth.store] Fetched profile:', profile);
+
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
           } catch (err) {
-            console.warn('[auth.store] Failed to fetch full profile:', err);
+
             // Fallback: build minimal profile from login response
             if (response.user) {
               profile = {
@@ -141,10 +138,9 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          console.log('[auth.store] Final profile before set:', profile);
           set({ profile, token, loading: false });
         } catch (error) {
-          console.log('[auth.store] login failed:', error);
+
           set({ loading: false, error: (error as Error).message });
           throw error;
         }
@@ -162,21 +158,21 @@ export const useAuthStore = create<AuthState>()(
           // Always fetch full profile from API, don't rely on response data
           let profile: Profile | null = null;
           try {
-            console.log('[auth.store] Phone login - fetching fresh profile from API...');
+
             profile = await authApi.fetchProfile();
-            console.log('[auth.store] Phone login - Fresh profile fetched:', profile);
+
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
           } catch (err) {
-            console.warn('[auth.store] Phone login - Failed to fetch profile:', err);
+
             // Fallback to response profile if available
             profile = response.profile || null;
           }
 
           set({ profile, token, loading: false });
         } catch (error) {
-          console.log('[auth.store] phone login failed:', error);
+
           set({ loading: false, error: (error as Error).message });
           throw error;
         }
@@ -198,21 +194,21 @@ export const useAuthStore = create<AuthState>()(
           // Always fetch full profile from API, don't rely on response data
           let profile: Profile | null = null;
           try {
-            console.log('[auth.store] Social login - fetching fresh profile from API...');
+
             profile = await authApi.fetchProfile();
-            console.log('[auth.store] Social login - Fresh profile fetched:', profile);
+
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
           } catch (err) {
-            console.warn('[auth.store] Social login - Failed to fetch profile:', err);
+
             // Fallback to response profile if available
             profile = response.profile || null;
           }
 
           set({ profile, token, loading: false });
         } catch (error) {
-          console.log('[auth.store] social login failed:', error);
+
           set({ loading: false, error: (error as Error).message });
           throw error;
         }
@@ -258,7 +254,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           await authApi.logout();
         } catch (error) {
-          console.warn('logout failed but continuing', error);
+
         }
         await tokenStore.clearToken();
         
@@ -277,7 +273,7 @@ export const useAuthStore = create<AuthState>()(
         token: state.token
       }),
       onRehydrateStorage: () => (state) => {
-        console.log('[auth.store] onRehydrateStorage called - state:', state);
+
         if (state) {
           state.setHydrated(true);
         }

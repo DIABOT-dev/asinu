@@ -13,7 +13,7 @@ const t = (key: string) => i18n.t(key, { ns: 'auth' });
 // Required for OAuth to work properly
 WebBrowser.maybeCompleteAuthSession();
 
-export type OAuthProvider = 'google' | 'apple' | 'zalo';
+export type OAuthProvider = 'google' | 'apple' | 'zalo' | 'facebook';
 
 export type OAuthResult = {
   type: 'success' | 'cancel' | 'error';
@@ -159,7 +159,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       }
     };
   } catch (error) {
-    console.error('[oauth] Google authentication error:', error);
+
     return {
       type: 'error',
       error: error instanceof Error ? error.message : t('unknownError')
@@ -182,7 +182,7 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
 
     // Check if running in development mode with mock
     if (__DEV__ && process.env.EXPO_PUBLIC_USE_MOCK_OAUTH === 'true') {
-      console.log('[oauth] Using mock Apple authentication');
+
       return {
         type: 'success',
         token: 'mock-apple-token',
@@ -222,7 +222,6 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
       return { type: 'cancel' };
     }
 
-    console.error('[oauth] Apple authentication error:', error);
     return {
       type: 'error',
       error: error.message || t('appleAuthFailed')
@@ -286,7 +285,54 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
 
     return { type: 'success', directToken };
   } catch (error) {
-    console.error('[oauth] Zalo authentication error:', error);
+
+    return {
+      type: 'error',
+      error: error instanceof Error ? error.message : t('unknownError')
+    };
+  }
+}
+
+/**
+ * Authenticate with Facebook (server-side callback flow — same pattern as Zalo)
+ */
+export async function authenticateWithFacebook(): Promise<OAuthResult> {
+  try {
+    const appId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
+    if (!appId) return { type: 'error', error: 'Facebook App ID chưa được cấu hình' };
+
+    const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+    if (!apiBase) return { type: 'error', error: 'API base URL chưa được cấu hình' };
+
+    const redirectUri = `${apiBase}/api/auth/facebook/callback`;
+    const appCallbackUri = 'asinu-lite://auth/facebook/callback';
+
+    const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?${new URLSearchParams({
+      client_id: appId,
+      redirect_uri: redirectUri,
+      scope: 'email,public_profile',
+      response_type: 'code',
+    }).toString()}`;
+
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUri);
+
+    if (result.type === 'cancel' || result.type === 'dismiss') {
+      return { type: 'cancel' };
+    }
+
+    if (result.type !== 'success' || !result.url) {
+      return { type: 'error', error: t('authFailed') };
+    }
+
+    const url = new URL(result.url);
+    const error = url.searchParams.get('error');
+    if (error) return { type: 'error', error: `Facebook login failed: ${error}` };
+
+    const directToken = url.searchParams.get('token');
+    if (!directToken) return { type: 'error', error: t('noAccessToken') };
+
+    return { type: 'success', directToken };
+  } catch (error) {
     return {
       type: 'error',
       error: error instanceof Error ? error.message : t('unknownError')
@@ -298,7 +344,6 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
  * Main OAuth authentication function
  */
 export async function authenticateWithProvider(provider: OAuthProvider): Promise<OAuthResult> {
-  console.log(`[oauth] Starting authentication with ${provider}`);
 
   switch (provider) {
     case 'google':
@@ -307,6 +352,8 @@ export async function authenticateWithProvider(provider: OAuthProvider): Promise
       return authenticateWithApple();
     case 'zalo':
       return authenticateWithZalo();
+    case 'facebook':
+      return authenticateWithFacebook();
     default:
       return {
         type: 'error',

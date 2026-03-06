@@ -205,7 +205,7 @@ export default function ProfileScreen() {
       setToastType('success');
       setToastVisible(true);
     } catch (error) {
-      console.error('[profile.screen] updateProfile error:', error);
+
       if (error instanceof ApiError && error.statusCode === 409) {
         setPhoneError(t('phoneAlreadyUsed'));
       } else {

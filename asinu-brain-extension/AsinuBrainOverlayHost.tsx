@@ -117,7 +117,7 @@ export const AsinuBrainOverlayHost = () => {
     const now = Date.now();
     const timeSinceDismiss = now - lastDismissed;
     const canQ = timeSinceDismiss > 30 * 1000; // 30 giây sau khi dismiss mới query lại (testing)
-    console.log('[AsinuBrain] canQuery:', canQ, 'timeSinceDismiss:', Math.round(timeSinceDismiss/1000), 's');
+
     return canQ;
   }, [lastDismissed]);
 
@@ -150,7 +150,7 @@ export const AsinuBrainOverlayHost = () => {
       });
       handleResponse(response);
     } catch (error) {
-      console.warn('[AsinuBrainOverlayHost] dynamic answer failed', error);
+
     } finally {
       setLoading(false);
     }
@@ -169,7 +169,7 @@ export const AsinuBrainOverlayHost = () => {
       });
       handleResponse(response);
     } catch (error) {
-      console.warn('[AsinuBrainOverlayHost] answer failed', error);
+
     } finally {
       setLoading(false);
     }
@@ -194,7 +194,7 @@ export const AsinuBrainOverlayHost = () => {
       });
       handleResponse(response);
     } catch (error) {
-      console.warn('[AsinuBrainOverlayHost] symptom answer failed', error);
+
     } finally {
       setLoading(false);
     }

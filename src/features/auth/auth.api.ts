@@ -60,11 +60,11 @@ export const authApi = {
     });
   },
   fetchProfile() {
-    console.log('[authApi] fetchProfile - calling /api/mobile/profile');
+
     return apiClient<ProfileResponse>('/api/mobile/profile').then(res => {
-      console.log('[authApi] fetchProfile response:', res);
-      console.log('[authApi] fetchProfile profile object:', res.profile);
-      console.log('[authApi] fetchProfile profile.name:', res.profile?.name);
+
+
+
       return res.profile;
     });
   },

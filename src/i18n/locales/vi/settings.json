@@ -34,5 +34,7 @@
   "deleteErrorGeneric": "Đã xảy ra lỗi khi xóa tài khoản",
   "language": "Ngôn ngữ",
   "languageVi": "Tiếng Việt",
-  "languageEn": "English"
+  "languageEn": "English",
+  "testNotification": "Test thông báo AI",
+  "testNotificationBody": "Vào app kiểm tra sức khoẻ nhé!"
 }

@@ -63,12 +63,12 @@ export type CreateInvitationPayload = {
 export const careCircleApi = {
   // Create invitation
   async createInvitation(payload: CreateInvitationPayload) {
-    console.log('[careCircleApi] createInvitation called with payload:', payload);
+
     const response = await apiClient<{ ok: boolean; invitation: CareCircleInvitation }>(
       '/api/care-circle/invitations',
       { method: 'POST', body: payload }
     );
-    console.log('[careCircleApi] createInvitation response:', response);
+
     return response.invitation;
   },
 

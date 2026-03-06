@@ -35,7 +35,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
           pan.setValue({ x, y });
         }
       } catch (error) {
-        console.warn('[AsinuEmergencyFAB] Failed to load position', error);
+
       } finally {
         setPositionLoaded(true);
       }
@@ -48,7 +48,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
     try {
       await AsyncStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ x, y }));
     } catch (error) {
-      console.warn('[AsinuEmergencyFAB] Failed to save position', error);
+
     }
   };
 
@@ -103,7 +103,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
       setLoading(type);
       await postBrainEmergency({ type });
     } catch (error) {
-      console.warn('[AsinuEmergencyFAB] emergency failed', error);
+
     } finally {
       setLoading(null);
       setVisible(false);

@@ -45,7 +45,7 @@ export const useCarePulseStore = create<CarePulseStore>()(
       syncState: async () => {
         const token = tokenStore.getToken();
         if (!token) {
-          console.warn('CarePulse: No auth token available, skipping state sync');
+
           return;
         }
         
@@ -55,13 +55,13 @@ export const useCarePulseStore = create<CarePulseStore>()(
             set({ engineState: response.state });
           }
         } catch (error) {
-          console.warn('CarePulse: Failed to sync state:', error);
+
         }
       },
       sendAppOpened: async () => {
         const token = tokenStore.getToken();
         if (!token) {
-          console.warn('CarePulse: No auth token available, skipping app opened event');
+
           return;
         }
         
@@ -75,13 +75,13 @@ export const useCarePulseStore = create<CarePulseStore>()(
             set({ engineState: response.state });
           }
         } catch (error) {
-          console.warn('CarePulse: Failed to send app opened event:', error);
+
         }
       },
       recordPopupShown: async () => {
         const token = tokenStore.getToken();
         if (!token) {
-          console.warn('CarePulse: No auth token available, skipping popup shown event');
+
           return;
         }
         
@@ -97,13 +97,13 @@ export const useCarePulseStore = create<CarePulseStore>()(
             set({ engineState: response.state });
           }
         } catch (error) {
-          console.warn('CarePulse: Failed to record popup shown:', error);
+
         }
       },
       recordPopupDismiss: async () => {
         const token = tokenStore.getToken();
         if (!token) {
-          console.warn('CarePulse: No auth token available, skipping popup dismiss event');
+
           set({ popupSessionId: null });
           return;
         }
@@ -121,13 +121,13 @@ export const useCarePulseStore = create<CarePulseStore>()(
           }
         } catch (error) {
           set({ popupSessionId: null });
-          console.warn('CarePulse: Failed to record popup dismiss:', error);
+
         }
       },
       checkIn: async (status, _subStatus, triggerSource) => {
         const token = tokenStore.getToken();
         if (!token) {
-          console.warn('CarePulse: No auth token available, skipping check-in');
+
           set({ popupSessionId: null });
           return;
         }
@@ -146,7 +146,7 @@ export const useCarePulseStore = create<CarePulseStore>()(
           }
         } catch (error) {
           set({ popupSessionId: null });
-          console.warn('CarePulse: Failed to check in:', error);
+
         }
       }
     }),

@@ -22,7 +22,7 @@ export const localCache = {
       const envelope: CacheEnvelope<T> = { version, value };
       await AsyncStorage.setItem(key, JSON.stringify(envelope));
     } catch (error) {
-      console.warn('[localCache] setCached failed', error);
+
     }
   }
 };

@@ -169,9 +169,9 @@ export const useMissionsStore = create<MissionsState>((set) => ({
     }
     try {
       const missionRecords = await missionsApi.fetchMissions({ signal });
-      console.log('[missions] Raw backend response:', missionRecords);
+
       const missions = missionRecords.map(mapMission);
-      console.log('[missions] Mapped missions:', missions);
+
       set({ missions, status: 'success', isStale: false, errorState: 'none' });
       await localCache.setCached(CACHE_KEYS.MISSIONS, '1', missions);
     } catch (error) {

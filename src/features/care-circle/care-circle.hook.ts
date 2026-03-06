@@ -20,13 +20,13 @@ export function useCareCircle() {
         careCircleApi.getInvitations('received'),
         careCircleApi.getInvitations('sent')
       ]);
-      console.log('[care-circle] Fetched received invitations:', received);
-      console.log('[care-circle] Fetched sent invitations:', sent);
+
+
       // Combine and deduplicate by id
       const allInvitations = [...received, ...sent.filter(s => !received.find(r => r.id === s.id))];
       setInvitations(allInvitations);
     } catch (err: any) {
-      console.error('[care-circle] fetchInvitations error:', err);
+
       setError(err.message || t('cannotLoadInvitations'));
     } finally {
       setLoading(false);
@@ -40,7 +40,7 @@ export function useCareCircle() {
       const data = await careCircleApi.getConnections();
       setConnections(data);
     } catch (err: any) {
-      console.error('[care-circle] fetchConnections error:', err);
+
       setError(err.message || t('cannotLoadConnections'));
     } finally {
       setLoading(false);
@@ -49,15 +49,15 @@ export function useCareCircle() {
 
   const createInvitation = useCallback(async (payload: CreateInvitationPayload) => {
     try {
-      console.log('[care-circle] createInvitation - calling API with payload:', payload);
+
       setLoading(true);
       setError(null);
       const invitation = await careCircleApi.createInvitation(payload);
-      console.log('[care-circle] createInvitation - success, received:', invitation);
+
       setInvitations((prev) => [invitation, ...prev]);
       return invitation;
     } catch (err: any) {
-      console.error('[care-circle] createInvitation error:', err);
+
       setError(err.message || t('cannotCreateInvitation'));
       throw err;
     } finally {
@@ -75,7 +75,7 @@ export function useCareCircle() {
       setConnections((prev) => [connection, ...prev]);
       return connection;
     } catch (err: any) {
-      console.error('[care-circle] acceptInvitation error:', err);
+
       setError(err.message || t('cannotAcceptInvitation'));
       throw err;
     } finally {
@@ -91,7 +91,7 @@ export function useCareCircle() {
       // Remove from invitations
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
     } catch (err: any) {
-      console.error('[care-circle] rejectInvitation error:', err);
+
       setError(err.message || t('cannotRejectInvitation'));
       throw err;
     } finally {
@@ -107,7 +107,7 @@ export function useCareCircle() {
       // Remove from connections
       setConnections((prev) => prev.filter((conn) => conn.id !== connectionId));
     } catch (err: any) {
-      console.error('[care-circle] deleteConnection error:', err);
+
       setError(err.message || t('cannotDeleteConnection'));
       throw err;
     } finally {
@@ -124,7 +124,7 @@ export function useCareCircle() {
       setConnections((prev) => prev.map((conn) => conn.id === connectionId ? updatedConnection : conn));
       return updatedConnection;
     } catch (err: any) {
-      console.error('[care-circle] updateConnection error:', err);
+
       setError(err.message || t('cannotUpdateConnection'));
       throw err;
     } finally {

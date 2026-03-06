@@ -76,7 +76,7 @@ export const WellnessProvider = ({ children }: Props) => {
     try {
       await recordAppOpen();
     } catch (e) {
-      console.warn('[WellnessProvider] Failed to record app open:', e);
+
     }
 
     try {

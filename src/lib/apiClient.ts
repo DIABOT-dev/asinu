@@ -23,6 +23,7 @@ type RequestOptions = Omit<RequestInit, 'body'> & {
   method?: HttpMethod;
   body?: any;
   retry?: RetryOptions;
+  timeoutMs?: number;
 };
 
 const DEFAULT_TIMEOUT_MS = 12000;
@@ -70,8 +71,6 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {})
   };
-  
-  console.log('[apiClient]', { url, method, hasToken: !!token, token: token ? `${token.substring(0, 20)}...` : 'NO_TOKEN', bodyKeys: options.body ? Object.keys(options.body) : 'NO_BODY' });
 
   const attempts = options.retry?.attempts ?? 1;
   const initialDelay = options.retry?.initialDelayMs ?? 400;
@@ -90,7 +89,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
           headers,
           body: options.body ? JSON.stringify(options.body) : undefined
         },
-        DEFAULT_TIMEOUT_MS
+        options.timeoutMs ?? DEFAULT_TIMEOUT_MS
       );
 
       if (!response.ok) {

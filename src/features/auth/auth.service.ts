@@ -3,7 +3,7 @@ import { apiClient } from '../../lib/apiClient';
 import { Profile } from './auth.store';
 import { authenticateWithProvider, OAuthProvider } from './oauth.service';
 
-export type SocialProvider = 'google' | 'apple' | 'zalo';
+export type SocialProvider = 'google' | 'apple' | 'zalo' | 'facebook';
 
 export type PhoneAuthPayload = {
   phone: string;
@@ -50,7 +50,7 @@ export const authService = {
   async submitSocialAuth(payload: SocialAuthPayload): Promise<ZeroOtpResponse> {
     try {
       // Step 1: Perform real OAuth authentication to get token and profile
-      console.log(`[auth.service] Starting ${payload.provider} OAuth flow`);
+
       const oauthResult = await authenticateWithProvider(payload.provider as OAuthProvider);
       
       if (oauthResult.type === 'cancel') {
@@ -61,8 +61,8 @@ export const authService = {
         throw new Error(oauthResult.error || i18n.t('authFailed', { ns: 'auth' }));
       }
       
-      // Zalo server-side flow: backend already handled everything, token is the JWT
-      if (payload.provider === 'zalo' && oauthResult.directToken) {
+      // Zalo/Facebook server-side flow: backend already handled everything, token is the JWT
+      if ((payload.provider === 'zalo' || payload.provider === 'facebook') && oauthResult.directToken) {
         const meResponse = await apiClient<{ok: boolean, user: {id: string, email?: string, full_name?: string, avatar_url?: string}}>(
           '/api/auth/me',
           { headers: { Authorization: `Bearer ${oauthResult.directToken}` } }
@@ -107,7 +107,7 @@ export const authService = {
         }
       };
     } catch (error) {
-      console.log(`[auth.service] ${payload.provider} auth failed:`, error);
+
       throw error;
     }
   }

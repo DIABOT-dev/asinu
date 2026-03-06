@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { apiClient } from '../lib/apiClient';
+import { router } from 'expo-router';
 import { navigation } from '../lib/navigation';
 import { colors, spacing } from '../styles';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
@@ -52,7 +53,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     if (__DEV__) {
       const unaccented = messages.find((m) => /Chao ban|Nhap tin nhan|Gui/i.test(m.text));
       if (unaccented) {
-        console.warn('UI copy is missing Vietnamese diacritics; avoid stripping accents for display.', unaccented.text);
+
       }
     }
   }, [messages]);
@@ -112,7 +113,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
               isTyping={isTyping}
               isPremium={isPremium}
               onSend={handleSend}
-              onUpgradePress={() => { onClose(); navigation.navigate('/subscription' as any); }}
+              onUpgradePress={() => { onClose(); router.push('/subscription'); }}
             />
           </View>
         </View>

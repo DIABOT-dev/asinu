@@ -134,7 +134,7 @@ export default function InviteScreen() {
   }, []);
 
   const handleSend = async () => {
-    console.log('[invite] handleSend called');
+
     if (!selectedUser) {
       setToastMessage(t('pleaseSelectRecipient'));
       setToastType('error');
@@ -149,13 +149,13 @@ export default function InviteScreen() {
         role: selectedRole?.label || undefined,
         permissions
       });
-      console.log('[invite] Invitation sent successfully');
+
       setToastMessage(t('inviteSentSuccess'));
       setToastType('success');
       setShowToast(true);
       setTimeout(() => router.back(), 1500);
     } catch (error: any) {
-      console.log('[invite] Error sending invitation:', error);
+
       setToastMessage(error.message || t('cannotSendInvite'));
       setToastType('error');
       setShowToast(true);

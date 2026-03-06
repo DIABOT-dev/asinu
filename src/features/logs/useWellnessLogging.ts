@@ -19,7 +19,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('HEALTH_MEASUREMENT', { type: 'glucose', value });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log glucose:', e);
+
     }
   }, [recordActivity]);
 
@@ -30,7 +30,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('HEALTH_MEASUREMENT', { type: 'blood_pressure', systolic, diastolic });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log blood pressure:', e);
+
     }
   }, [recordActivity]);
 
@@ -41,7 +41,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('HEALTH_MEASUREMENT', { type: 'weight', value });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log weight:', e);
+
     }
   }, [recordActivity]);
 
@@ -52,7 +52,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('HEALTH_MEASUREMENT', { type: 'water', volume_ml: volumeMl });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log water:', e);
+
     }
   }, [recordActivity]);
 
@@ -63,7 +63,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('HEALTH_MEASUREMENT', { type: 'medication', med_name: medName });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log medication:', e);
+
     }
   }, [recordActivity]);
 
@@ -74,7 +74,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('HEALTH_MEASUREMENT', { type: 'insulin', dose_units: doseUnits, insulin_type: insulinType });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log insulin:', e);
+
     }
   }, [recordActivity]);
 
@@ -85,7 +85,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('HEALTH_MEASUREMENT', { type: 'meal', calories });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log meal:', e);
+
     }
   }, [recordActivity]);
 
@@ -96,7 +96,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('QUESTION_ANSWERED', { question_id: questionId });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log question answered:', e);
+
     }
   }, [recordActivity]);
 
@@ -107,7 +107,7 @@ export function useWellnessLogging() {
     try {
       await recordActivity('QUESTION_SKIPPED', { question_id: questionId });
     } catch (e) {
-      console.warn('[WellnessLogging] Failed to log question skipped:', e);
+
     }
   }, [recordActivity]);
 

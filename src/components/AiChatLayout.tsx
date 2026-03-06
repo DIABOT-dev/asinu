@@ -47,7 +47,7 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
         const text = await chatApi.transcribeAudio(uri, language);
         if (text) setDraft(prev => prev ? `${prev} ${text}` : text);
       } catch (e) {
-        console.error('[voice] transcribe failed:', e);
+
       } finally {
         setIsTranscribing(false);
       }

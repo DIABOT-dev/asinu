@@ -42,7 +42,7 @@ export const useFlagsStore = create<FlagState>((set) => ({
       const flags = await flagsApi.fetchFlags();
       set({ ...flags, ...hardDisabledFlags, status: 'success' });
     } catch (error) {
-      console.warn('Using default feature flags', error);
+
       set({ ...defaultFlags, status: 'error' });
     }
   }

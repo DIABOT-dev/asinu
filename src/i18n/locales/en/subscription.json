@@ -38,5 +38,6 @@
   "generateQR": "Generate Payment QR",
   "voiceUsage": "Voice: {{used}}/{{limit}} this month",
   "currentlyUsing": "Currently using",
-  "qrExpired": "QR has expired"
+  "qrExpired": "QR has expired",
+  "amountLabel": "Amount ({{plan}}):"
 }

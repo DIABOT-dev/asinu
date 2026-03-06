@@ -27,7 +27,7 @@ export function setupNotificationHandler(): void {
       }),
     });
   } catch (e) {
-    console.warn('[notifications] setNotificationHandler failed (Expo Go?):', e);
+
   }
 }
 
@@ -54,7 +54,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     }
     
     if (finalStatus !== 'granted') {
-      console.warn('Notification permission not granted');
+
       return false;
     }
 
@@ -76,7 +76,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('Error requesting notification permissions:', error);
+
     return false;
   }
 }
@@ -88,24 +88,23 @@ export async function getExpoPushToken(): Promise<string | null> {
   try {
     // Check if running on a physical device
     if (!Constants.isDevice) {
-      console.warn('Push notifications only work on physical devices');
+
       return null;
     }
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (!projectId) {
-      console.warn('No project ID found in app config');
+
       return null;
     }
 
     const token = await Notifications.getExpoPushTokenAsync({
       projectId,
     });
-    
-    console.log('Expo push token:', token.data);
+
     return token.data;
   } catch (error) {
-    console.error('Error getting Expo push token:', error);
+
     return null;
   }
 }
@@ -130,7 +129,7 @@ export async function scheduleLocalNotification(
       trigger: null, // Show immediately
     });
   } catch (error) {
-    console.error('Error scheduling local notification:', error);
+
   }
 }
 
@@ -172,7 +171,7 @@ export async function getBadgeCount(): Promise<number> {
   try {
     return await Notifications.getBadgeCountAsync();
   } catch (error) {
-    console.error('Error getting badge count:', error);
+
     return 0;
   }
 }
@@ -184,7 +183,7 @@ export async function setBadgeCount(count: number): Promise<void> {
   try {
     await Notifications.setBadgeCountAsync(count);
   } catch (error) {
-    console.error('Error setting badge count:', error);
+
   }
 }
 
@@ -195,6 +194,6 @@ export async function clearAllNotifications(): Promise<void> {
   try {
     await Notifications.dismissAllNotificationsAsync();
   } catch (error) {
-    console.error('Error clearing notifications:', error);
+
   }
 }

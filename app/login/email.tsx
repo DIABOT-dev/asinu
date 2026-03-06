@@ -26,6 +26,15 @@ export default function LoginEmailScreen() {
   const loading = useAuthStore((state) => state.loading);
   const error = useAuthStore((state) => state.error);
   const router = useRouter();
+
+  const navigateAfterLogin = () => {
+    const profile = useAuthStore.getState().profile;
+    if (profile && !profile.onboardingCompleted) {
+      router.replace('/onboarding');
+    } else {
+      router.replace('/(tabs)/home');
+    }
+  };
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('auth');
   const { t: tc } = useTranslation('common');
@@ -50,9 +59,9 @@ export default function LoginEmailScreen() {
     setPendingAction('login');
     try {
       await login({ identifier: identifier.trim(), password: password.trim() });
-      router.replace('/(tabs)/home');
+      navigateAfterLogin();
     } catch (err) {
-      console.error(err);
+
     } finally {
       setPendingAction(null);
     }
@@ -63,9 +72,9 @@ export default function LoginEmailScreen() {
     setPendingAction(provider);
     try {
       await loginWithSocial(provider);
-      router.replace('/(tabs)/home');
+      navigateAfterLogin();
     } catch (err) {
-      console.error(err);
+
     } finally {
       setPendingAction(null);
     }
@@ -128,18 +137,22 @@ export default function LoginEmailScreen() {
         </View>
         <View style={styles.socialGroup}>
           {(Platform.OS === 'ios'
-              ? (['google', 'zalo', 'apple'] as SocialProvider[])
-              : (['google', 'zalo'] as SocialProvider[])
+              ? (['google', 'facebook', 'zalo', 'apple'] as SocialProvider[])
+              : (['google', 'facebook', 'zalo'] as SocialProvider[])
             ).map((provider) => {
             const isButtonLoading = isSubmitting && pendingAction === provider;
             const label =
-              provider === 'google' ? t('continueWithGoogle') :
-              provider === 'zalo' ? t('continueWithZalo') :
+              provider === 'google'   ? t('continueWithGoogle') :
+              provider === 'facebook' ? t('continueWithFacebook') :
+              provider === 'zalo'     ? t('continueWithZalo') :
               t('continueWithApple');
 
             const renderIcon = () => {
               if (provider === 'google') {
                 return <FontAwesome5 name="google" size={18} color="#EA4335" brand />;
+              }
+              if (provider === 'facebook') {
+                return <FontAwesome5 name="facebook" size={20} color="#1877F2" brand />;
               }
               if (provider === 'apple') {
                 return <FontAwesome5 name="apple" size={20} color="#000" brand />;

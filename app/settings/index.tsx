@@ -59,7 +59,7 @@ export default function SettingsScreen() {
       if (notifPref !== null) setNotifications(notifPref === 'true');
       if (reminderPref !== null) setReminders(reminderPref === 'true');
     } catch (error) {
-      console.error('[settings] Failed to load preferences:', error);
+
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +81,7 @@ export default function SettingsScreen() {
               onPress: () => {
                 // On iOS, this will open Settings app
                 // On Android, user needs to manually go to settings
-                console.log('[settings] User needs to enable notifications in device settings');
+
               }
             }
           ]
@@ -92,23 +92,23 @@ export default function SettingsScreen() {
       // Get push token and send to backend
       const token = await getExpoPushToken();
       if (token) {
-        console.log('[settings] Got push token:', token);
+
         try {
           const response = await authApi.updatePushToken(token);
           if (response.ok) {
-            console.log('[settings] Push token sent to backend successfully');
+
           } else {
-            console.error('[settings] Failed to send push token to backend');
+
           }
         } catch (error) {
-          console.error('[settings] Error sending push token:', error);
+
         }
       }
     }
     
     setNotifications(value);
     await AsyncStorage.setItem(STORAGE_KEY_NOTIFICATIONS, String(value));
-    console.log('[settings] Notifications preference saved:', value);
+
   };
 
   const handleRemindersToggle = async (value: boolean) => {
@@ -123,7 +123,7 @@ export default function SettingsScreen() {
     
     setReminders(value);
     await AsyncStorage.setItem(STORAGE_KEY_REMINDERS, String(value));
-    console.log('[settings] Reminders preference saved:', value);
+
   };
 
   const handleLogout = async () => {
@@ -164,7 +164,7 @@ export default function SettingsScreen() {
         Alert.alert(tc('error'), t('deleteError'));
       }
     } catch (error) {
-      console.error('[settings] Delete account error:', error);
+
       Alert.alert(tc('error'), t('deleteErrorGeneric'));
     }
   };
@@ -270,7 +270,7 @@ export default function SettingsScreen() {
 
         {__DEV__ && (
           <Button
-            label="🔔 Test thông báo AI"
+            label={t('testNotification')}
             variant="secondary"
             onPress={async () => {
               try {
@@ -282,7 +282,7 @@ export default function SettingsScreen() {
                 }
               } catch (e) {
                 // fallback nếu server không chạy
-                await scheduleLocalNotification('Asinu', 'Vào app kiểm tra sức khoẻ nhé! 💙');
+                await scheduleLocalNotification('Asinu', t('testNotificationBody'));
               }
             }}
             style={{ marginTop: spacing.xl }}

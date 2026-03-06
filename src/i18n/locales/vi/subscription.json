@@ -38,5 +38,6 @@
   "generateQR": "Tạo mã QR thanh toán",
   "voiceUsage": "Voice: {{used}}/{{limit}} lượt tháng này",
   "currentlyUsing": "Đang dùng",
-  "qrExpired": "QR đã hết hạn"
+  "qrExpired": "QR đã hết hạn",
+  "amountLabel": "Số tiền ({{plan}}):"
 }

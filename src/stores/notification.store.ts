@@ -51,7 +51,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         set({ error: response.error || 'Failed to fetch', loading: false });
       }
     } catch (error) {
-      console.error('[notification.store] fetchFromBackend error:', error);
+
       set({ error: 'Network error', loading: false });
     }
   },

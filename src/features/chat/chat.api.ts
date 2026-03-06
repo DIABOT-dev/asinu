@@ -20,7 +20,8 @@ export const chatApi = {
   async sendMessage(payload: Omit<ChatRequest, 'client_ts'>) {
     const response = await apiClient<ChatResponse>('/api/mobile/chat', {
       method: 'POST',
-      body: { ...payload, client_ts: Date.now() }
+      body: { ...payload, client_ts: Date.now() },
+      timeoutMs: 35000,
     });
     return { response, reply: response.reply };
   },

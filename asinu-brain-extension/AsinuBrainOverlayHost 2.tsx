@@ -102,7 +102,7 @@ export const AsinuBrainOverlayHost = () => {
       });
       handleResponse(response);
     } catch (error) {
-      console.warn('[AsinuBrainOverlayHost] answer failed', error);
+
     } finally {
       setLoading(false);
     }
@@ -127,7 +127,7 @@ export const AsinuBrainOverlayHost = () => {
       });
       handleResponse(response);
     } catch (error) {
-      console.warn('[AsinuBrainOverlayHost] symptom answer failed', error);
+
     } finally {
       setLoading(false);
     }

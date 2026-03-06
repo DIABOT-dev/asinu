@@ -17,10 +17,10 @@ export const SessionProvider = ({ children }: Props) => {
   const hydrated = useAuthStore((state) => state.hydrated);
 
   useEffect(() => {
-    console.log('[SessionProvider] useEffect triggered - hydrated:', hydrated, 'loading:', loading);
+
     // Only bootstrap after store is hydrated
     if (hydrated) {
-      console.log('[SessionProvider] Calling bootstrap()');
+
       bootstrap();
       
       // Set up notification handler before requesting permissions
@@ -32,13 +32,11 @@ export const SessionProvider = ({ children }: Props) => {
         if (hasPermission) {
           const token = await getExpoPushToken();
           if (token) {
-            console.log('[SessionProvider] Expo Push Token:', token);
-            authApi.updatePushToken(token).catch((err) =>
-              console.warn('[SessionProvider] Failed to save push token:', err)
-            );
+
+            authApi.updatePushToken(token).catch(() => {});
           }
         } else {
-          console.log('[SessionProvider] Notification permissions denied');
+
         }
       })();
     }

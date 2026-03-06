@@ -83,7 +83,7 @@ class LogsService {
         }
       }
     } catch (error) {
-      console.error('Lỗi kiểm tra sức khỏe real-time:', error);
+
     }
   }
   
@@ -107,7 +107,7 @@ class LogsService {
         await this.notifyCareCircle(userId, alertData);
       }
     } catch (error) {
-      console.error('Lỗi gửi cảnh báo sức khỏe:', error);
+
     }
   }
   
@@ -128,7 +128,7 @@ class LogsService {
         throw new Error(t('cannotSendCareCircleAlert'));
       }
     } catch (error) {
-      console.error('Lỗi gửi cảnh báo cho care-circle:', error);
+
     }
   }
   
@@ -149,7 +149,7 @@ class LogsService {
         throw new Error(t('cannotCreateNotification'));
       }
     } catch (error) {
-      console.error('Lỗi tạo notification:', error);
+
     }
   }
 }

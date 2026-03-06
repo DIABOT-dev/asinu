@@ -38,7 +38,7 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
       await onConfirm();
       setInputValue('');
     } catch (error) {
-      console.error('[DeleteAccountModal] Error:', error);
+
     } finally {
       setIsDeleting(false);
     }

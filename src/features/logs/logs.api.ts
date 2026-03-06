@@ -164,15 +164,14 @@ const transformToBackendPayload = (logType: string, frontendPayload: BaseLogPayl
 
 // Transform backend response to frontend format
 const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
-  console.log('[logs.api] Transforming', backendLogs.length, 'logs from backend');
+
   if (backendLogs.length > 0) {
-    console.log('[logs.api] First raw backend log:', JSON.stringify(backendLogs[0], null, 2));
+
   }
   
   return backendLogs.map((log, idx) => {
     const detail = log.detail || {};
-    console.log(`[logs.api] Transform log ${idx} type=${log.log_type} detail=`, detail);
-    
+
     const baseEntry: LogEntry = {
       id: log.id,
       type: log.log_type === 'bp' ? 'blood-pressure' : log.log_type,

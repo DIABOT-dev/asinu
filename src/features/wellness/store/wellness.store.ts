@@ -122,7 +122,7 @@ export const useWellnessStore = create<WellnessStore>()(
       syncState: async () => {
         const token = tokenStore.getToken();
         if (!token) {
-          console.warn('[Wellness] No auth token, skipping sync');
+
           return;
         }
 
@@ -136,7 +136,7 @@ export const useWellnessStore = create<WellnessStore>()(
             });
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to sync state:', error);
+
         } finally {
           set({ isLoading: false });
         }
@@ -153,7 +153,7 @@ export const useWellnessStore = create<WellnessStore>()(
             set({ history: response.history });
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to fetch history:', error);
+
         }
       },
 
@@ -168,7 +168,7 @@ export const useWellnessStore = create<WellnessStore>()(
             set({ summaries: response.summaries });
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to fetch summaries:', error);
+
         }
       },
 
@@ -183,7 +183,7 @@ export const useWellnessStore = create<WellnessStore>()(
             set({ alerts: response.alerts });
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to fetch alerts:', error);
+
         }
       },
 
@@ -198,7 +198,7 @@ export const useWellnessStore = create<WellnessStore>()(
             set({ caregiverAlerts: response.alerts });
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to fetch caregiver alerts:', error);
+
         }
       },
 
@@ -217,7 +217,7 @@ export const useWellnessStore = create<WellnessStore>()(
             });
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to check prompt:', error);
+
         }
       },
 
@@ -225,7 +225,7 @@ export const useWellnessStore = create<WellnessStore>()(
       recordAppOpen: async () => {
         const token = tokenStore.getToken();
         if (!token) {
-          console.warn('[Wellness] No auth token, skipping app open');
+
           return;
         }
 
@@ -246,7 +246,7 @@ export const useWellnessStore = create<WellnessStore>()(
             }
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to record app open:', error);
+
         }
       },
 
@@ -273,7 +273,7 @@ export const useWellnessStore = create<WellnessStore>()(
             }
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to record mood check:', error);
+
         }
       },
 
@@ -297,7 +297,7 @@ export const useWellnessStore = create<WellnessStore>()(
             }
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to record activity:', error);
+
         }
       },
 
@@ -321,7 +321,7 @@ export const useWellnessStore = create<WellnessStore>()(
           }
           return { success: false, alertsSent: 0, message: i18n.t('cannotSendRequest') };
         } catch (error) {
-          console.warn('[Wellness] Failed to send help request:', error);
+
           return { success: false, alertsSent: 0, message: i18n.t('connectionError') };
         }
       },
@@ -344,7 +344,7 @@ export const useWellnessStore = create<WellnessStore>()(
             });
           }
         } catch (error) {
-          console.warn('[Wellness] Failed to acknowledge alert:', error);
+
         }
       },
 
