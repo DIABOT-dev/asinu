@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   },
   fontSizeButtonActive: {
     backgroundColor: colors.primary,
-    borderColor: colors.secondary
+    borderColor: colors.primaryDark
   },
   fontSizeButtonText: {
     fontWeight: '600',

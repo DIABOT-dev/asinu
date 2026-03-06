@@ -19,7 +19,7 @@ export const Button = ({ label, onPress, variant = 'primary', disabled, style, t
   const variantStyles = useMemo(() => {
     const palette =
       variant === 'secondary'
-        ? colors.secondary
+        ? colors.primaryDark
         : variant === 'warning'
           ? colors.warning
           : colors.primary;

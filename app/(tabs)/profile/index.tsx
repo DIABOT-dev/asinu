@@ -266,7 +266,7 @@ export default function ProfileScreen() {
               <MaterialCommunityIcons
                 name={subStatus.isPremium ? 'crown' : 'account-outline'}
                 size={13}
-                color={subStatus.isPremium ? '#d97706' : 'rgba(255,255,255,0.9)'}
+                color={subStatus.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.9)'}
               />
               <Text style={[styles.planChipText, subStatus.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
                 {subStatus.isPremium ? 'Premium' : 'Free'}
@@ -297,7 +297,7 @@ export default function ProfileScreen() {
               
               <View style={styles.infoRow}>
                 <View style={styles.infoIconContainer}>
-                  <Ionicons name="call-outline" size={18} color={colors.secondary} />
+                  <Ionicons name="call-outline" size={18} color={colors.primaryDark} />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>{t('phone')}</Text>
@@ -325,7 +325,7 @@ export default function ProfileScreen() {
                   <View style={styles.infoDivider} />
                   <View style={styles.infoRow}>
                     <View style={styles.infoIconContainer}>
-                      <FontAwesome5 name="birthday-cake" size={16} color="#f59e0b" />
+                      <FontAwesome5 name="birthday-cake" size={16} color={colors.premium} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('age')}</Text>
@@ -398,7 +398,7 @@ export default function ProfileScreen() {
           ) : phone ? (
             <View style={styles.infoRow}>
               <View style={styles.infoIconContainer}>
-                <Ionicons name="call-outline" size={18} color={colors.secondary} />
+                <Ionicons name="call-outline" size={18} color={colors.primaryDark} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>{t('phone')}</Text>
@@ -416,7 +416,7 @@ export default function ProfileScreen() {
         <View style={styles.quickActionsGrid}>
           <Pressable style={styles.actionCard} onPress={() => router.push('/care-circle')}>
             <LinearGradient
-              colors={['#10b981', '#059669']}
+              colors={[colors.emerald, colors.emeraldDark]}
               style={styles.actionIconBg}
             >
               <Ionicons name="people" size={24} color="#fff" />
@@ -426,7 +426,7 @@ export default function ProfileScreen() {
           
           <Pressable style={styles.actionCard} onPress={() => router.push('/settings')}>
             <LinearGradient
-              colors={['#f59e0b', '#d97706']}
+              colors={[colors.premium, colors.premiumDark]}
               style={styles.actionIconBg}
             >
               <Ionicons name="settings" size={24} color="#fff" />
@@ -466,7 +466,7 @@ export default function ProfileScreen() {
 
           <Pressable style={styles.actionCard} onPress={() => router.push('/subscription')}>
             <LinearGradient
-              colors={['#f59e0b', '#d97706']}
+              colors={[colors.premium, colors.premiumDark]}
               style={styles.actionIconBg}
             >
               <Ionicons name="star" size={24} color="#fff" />
@@ -489,8 +489,8 @@ export default function ProfileScreen() {
             <Text style={[styles.healthCardValue, glucoseStatus === 'warning' && styles.healthValueWarning, glucoseStatus === 'danger' && styles.healthValueDanger]}>{glucoseText}</Text>
             {glucoseStatus !== 'normal' && (
               <View style={styles.healthAlert}>
-                <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? '#ef4444' : '#f59e0b'} />
-                <Text style={[styles.healthAlertText, { color: glucoseStatus === 'danger' ? '#ef4444' : '#f59e0b' }]}>
+                <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? '#ef4444' : colors.premium} />
+                <Text style={[styles.healthAlertText, { color: glucoseStatus === 'danger' ? '#ef4444' : colors.premium }]}>
                   {glucoseStatus === 'danger' ? t('needsAttention') : t('slightlyHigh')}
                 </Text>
               </View>
@@ -507,7 +507,7 @@ export default function ProfileScreen() {
           
           <View style={[styles.healthCard, styles.healthCardMissions]}>
             <View style={styles.healthCardHeader}>
-              <Ionicons name="checkbox-outline" size={20} color="#10b981" />
+              <Ionicons name="checkbox-outline" size={20} color={colors.emerald} />
               <Text style={styles.healthCardTitle}>{t('missions')}</Text>
             </View>
             <Text style={styles.healthCardValue}>{todayTasksText}</Text>
@@ -773,9 +773,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   planChipPremium: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.premiumLight,
     borderWidth: 1,
-    borderColor: '#f59e0b',
+    borderColor: colors.premium,
   },
   planChipText: {
     fontSize: typography.size.xs,
@@ -785,7 +785,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: 'rgba(255,255,255,0.95)',
   },
   planChipTextPremium: {
-    color: '#d97706',
+    color: colors.premiumDark,
   },
   // Section Header
   sectionHeader: {
@@ -901,7 +901,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: '#fdf2f8'
   },
   healthCardMissions: {
-    borderColor: '#d1fae5',
+    borderColor: colors.emeraldLight,
     backgroundColor: '#ecfdf5'
   },
   healthCardHeader: {
@@ -921,7 +921,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textPrimary
   },
   healthValueWarning: {
-    color: '#f59e0b'
+    color: colors.premium
   },
   healthValueDanger: {
     color: '#ef4444'
@@ -939,7 +939,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl

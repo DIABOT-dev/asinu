@@ -82,12 +82,12 @@ export default function MissionsScreen() {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, styles.statCardActive]}>
-            <Ionicons name="time-outline" size={20} color="#f59e0b" />
+            <Ionicons name="time-outline" size={20} color={colors.premium} />
             <Text style={styles.statValue}>{missions.filter(m => m.status !== 'completed').length}</Text>
             <Text style={styles.statLabel}>{t('inProgress')}</Text>
           </View>
           <View style={[styles.statCard, styles.statCardCompleted]}>
-            <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+            <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
             <Text style={styles.statValue}>{missions.filter(m => m.status === 'completed').length}</Text>
             <Text style={styles.statLabel}>{t('completed')}</Text>
           </View>
@@ -106,7 +106,7 @@ export default function MissionsScreen() {
             <Text style={styles.infoText}>{t('resetDaily')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Ionicons name="leaf" size={16} color="#10b981" />
+            <Ionicons name="leaf" size={16} color={colors.emerald} />
             <Text style={styles.infoText}>{t('pointsToTree')}</Text>
           </View>
           <View style={styles.infoItem}>
@@ -144,7 +144,7 @@ export default function MissionsScreen() {
                 <View style={styles.progressRow}>
                   <View style={styles.progressTrack}>
                     <LinearGradient
-                      colors={isCompleted ? ['#10b981', '#059669'] : [colors.primary, colors.secondary]}
+                      colors={isCompleted ? [colors.emerald, colors.emeraldDark] : [colors.primary, colors.primaryDark]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.progressFill, { width: `${Math.min(progressRatio * 100, 100)}%` }]}
@@ -159,7 +159,7 @@ export default function MissionsScreen() {
                     <Ionicons 
                       name={isCompleted ? 'checkmark-circle' : 'time'} 
                       size={14} 
-                      color={isCompleted ? '#10b981' : '#f59e0b'} 
+                      color={isCompleted ? colors.emerald : colors.premium} 
                     />
                     <Text style={[styles.statusText, isCompleted ? styles.statusTextCompleted : styles.statusTextActive]}>
                       {isCompleted ? t('statusCompleted') : t('statusInProgress')}
@@ -313,7 +313,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   cardCompleted: {
     borderColor: '#a7f3d0',
-    backgroundColor: '#f0fdf4'
+    backgroundColor: colors.emeraldLight
   },
   cardHeader: {
     flexDirection: 'row',
@@ -329,7 +329,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center'
   },
   missionNumberBadgeCompleted: {
-    backgroundColor: '#10b981'
+    backgroundColor: colors.emerald
   },
   missionNumber: {
     fontSize: typography.size.md,
@@ -346,7 +346,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textPrimary
   },
   titleCompleted: {
-    color: '#059669'
+    color: colors.emeraldDark
   },
   description: {
     color: colors.textSecondary,
@@ -390,10 +390,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 8
   },
   statusBadgeActive: {
-    backgroundColor: '#fef3c7'
+    backgroundColor: colors.premiumLight
   },
   statusBadgeCompleted: {
-    backgroundColor: '#d1fae5'
+    backgroundColor: colors.emeraldLight
   },
   statusText: {
     fontSize: typography.size.xs,

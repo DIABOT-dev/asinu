@@ -185,7 +185,7 @@ export default function HomeScreen() {
               <View style={styles.missionProgressRow}>
                 <View style={styles.missionProgressTrack}>
                   <LinearGradient
-                    colors={isCompleted ? ['#10b981', '#059669'] : [colors.primary, colors.secondary]}
+                    colors={isCompleted ? [colors.emerald, colors.emeraldDark] : [colors.primary, colors.primaryDark]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={[styles.missionProgressFill, { width: `${Math.min(ratio * 100, 100)}%` }]}
@@ -208,7 +208,7 @@ export default function HomeScreen() {
 
         {/* Tree Section */}
         <View style={styles.sectionHeaderRow}>
-          <View style={[styles.sectionIconBg, { backgroundColor: '#10b981' }]}>
+          <View style={[styles.sectionIconBg, { backgroundColor: colors.emerald }]}>
             <Ionicons name="leaf" size={18} color="#fff" />
           </View>
           <View>
@@ -221,8 +221,8 @@ export default function HomeScreen() {
             <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
             <View style={styles.treeStats}>
               <View style={styles.treeStatItem}>
-                <View style={[styles.treeStatIcon, { backgroundColor: '#fef3c7' }]}>
-                  <Ionicons name="flame" size={16} color="#f59e0b" />
+                <View style={[styles.treeStatIcon, { backgroundColor: colors.premiumLight }]}>
+                  <Ionicons name="flame" size={16} color={colors.premium} />
                 </View>
                 <View>
                   <Text style={styles.treeStatValue}>{treeSummary?.streakDays ?? 0} {t('days')}</Text>
@@ -230,8 +230,8 @@ export default function HomeScreen() {
                 </View>
               </View>
               <View style={styles.treeStatItem}>
-                <View style={[styles.treeStatIcon, { backgroundColor: '#d1fae5' }]}>
-                  <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <View style={[styles.treeStatIcon, { backgroundColor: colors.emeraldLight }]}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.emerald} />
                 </View>
                 <View>
                   <Text style={styles.treeStatValue}>{treeSummary?.completedThisWeek ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
@@ -279,8 +279,8 @@ export default function HomeScreen() {
                 {log.type === 'blood-pressure' && <MaterialCommunityIcons name="heart-pulse" size={18} color="#ef4444" />}
                 {log.type === 'weight' && <MaterialCommunityIcons name="scale-bathroom" size={18} color="#8b5cf6" />}
                 {log.type === 'water' && <MaterialCommunityIcons name="cup-water" size={18} color="#06b6d4" />}
-                {log.type === 'medication' && <MaterialCommunityIcons name="pill" size={18} color="#10b981" />}
-                {log.type === 'meal' && <MaterialCommunityIcons name="food" size={18} color="#f59e0b" />}
+                {log.type === 'medication' && <MaterialCommunityIcons name="pill" size={18} color={colors.emerald} />}
+                {log.type === 'meal' && <MaterialCommunityIcons name="food" size={18} color={colors.premium} />}
                 {log.type === 'insulin' && <MaterialCommunityIcons name="needle" size={18} color="#6366f1" />}
               </View>
               <View style={styles.logContent}>
@@ -422,8 +422,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.sm
   },
   missionCardCompleted: {
-    borderColor: '#10b981',
-    backgroundColor: '#f0fdf4',
+    borderColor: colors.emerald,
+    backgroundColor: colors.emeraldLight,
   },
   missionHeader: {
     flexDirection: 'row',
@@ -439,7 +439,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     justifyContent: 'center',
   },
   missionBadgeCompleted: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.emerald,
   },
   missionBadgeText: {
     color: '#fff',
@@ -490,7 +490,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
   },
   missionBtnCompleted: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: colors.emeraldLight,
   },
   missionBtnText: {
     color: '#fff',
@@ -498,7 +498,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.md,
   },
   missionBtnTextCompleted: {
-    color: '#059669',
+    color: colors.emeraldDark,
   },
   treeCard: {
     backgroundColor: '#fff',

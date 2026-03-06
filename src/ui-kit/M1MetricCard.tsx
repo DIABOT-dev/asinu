@@ -32,7 +32,7 @@ export const M1MetricCard = ({
   delta,
   trend = 'flat',
   accentColor = colors.primary,
-  accentGradient = [colors.secondary, colors.primary],
+  accentGradient = [colors.primaryDark, colors.primary],
   icon,
   footnote,
   onPress

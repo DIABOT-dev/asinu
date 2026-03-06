@@ -155,7 +155,7 @@ export default function TreeScreen() {
         
         {/* Header Card */}
         <LinearGradient
-          colors={['#10b981', '#059669']}
+          colors={[colors.emerald, colors.emeraldDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerCard}
@@ -180,7 +180,7 @@ export default function TreeScreen() {
             <Text style={styles.infoText}>{t('logScore')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Ionicons name="checkbox" size={14} color="#10b981" />
+            <Ionicons name="checkbox" size={14} color={colors.emerald} />
             <Text style={styles.infoText}>{t('missionScore')}</Text>
           </View>
           <View style={styles.infoItem}>
@@ -199,8 +199,8 @@ export default function TreeScreen() {
           </View>
           <View style={styles.streakCard}>
             <View style={styles.streakItem}>
-              <View style={[styles.streakIconBg, { backgroundColor: '#fef3c7' }]}>
-                <Ionicons name="flame" size={20} color="#f59e0b" />
+              <View style={[styles.streakIconBg, { backgroundColor: colors.premiumLight }]}>
+                <Ionicons name="flame" size={20} color={colors.premium} />
               </View>
               <View style={styles.streakContent}>
                 <Text style={styles.streakValue}>{summary?.streakDays ?? 0}</Text>
@@ -209,8 +209,8 @@ export default function TreeScreen() {
             </View>
             <View style={styles.streakDivider} />
             <View style={styles.streakItem}>
-              <View style={[styles.streakIconBg, { backgroundColor: '#d1fae5' }]}>
-                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              <View style={[styles.streakIconBg, { backgroundColor: colors.emeraldLight }]}>
+                <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
               </View>
               <View style={styles.streakContent}>
                 <Text style={styles.streakValue}>{summary?.completedThisWeek ?? 0}/{summary?.totalMissions ?? 8}</Text>
@@ -252,7 +252,7 @@ export default function TreeScreen() {
         
         <Pressable style={styles.quickLogButton} onPress={() => router.push('/logs')}>
           <LinearGradient
-            colors={[colors.primary, colors.secondary]}
+            colors={[colors.primary, colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.quickLogGradient}
@@ -296,7 +296,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 20,
     padding: spacing.xl,
     alignItems: 'center',
-    shadowColor: '#10b981',
+    shadowColor: colors.emerald,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -340,7 +340,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.primaryDark,
     justifyContent: 'center',
     alignItems: 'center'
   },

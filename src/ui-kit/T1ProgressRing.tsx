@@ -16,7 +16,7 @@ export const T1ProgressRing = ({
   label,
   size = 120,
   strokeWidth = 10,
-  accentColor = colors.secondary
+  accentColor = colors.primaryDark
 }: T1ProgressRingProps) => {
   const scaledTypography = useScaledTypography();
   const disableCharts = featureFlags.disableCharts;

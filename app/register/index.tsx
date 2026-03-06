@@ -57,7 +57,7 @@ export default function RegisterScreen() {
     if (!password) return colors.textSecondary;
     const { strength } = getPasswordStrength(password);
     if (strength === 'weak') return '#ef4444';
-    if (strength === 'medium') return '#f59e0b';
+    if (strength === 'medium') return colors.premium;
     return '#22c55e';
   };
 

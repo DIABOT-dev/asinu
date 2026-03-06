@@ -247,7 +247,7 @@ export default function CareCircleScreen() {
       >
         {/* Hero Header - Full Width */}
         <LinearGradient
-          colors={['#10b981', '#059669']}
+          colors={[colors.emerald, colors.emeraldDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
@@ -263,15 +263,15 @@ export default function CareCircleScreen() {
         <View style={styles.statsContainer}>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: '#d1fae5' }]}>
-                <Ionicons name="people" size={18} color="#10b981" />
+              <View style={[styles.statIconBg, { backgroundColor: colors.emeraldLight }]}>
+                <Ionicons name="people" size={18} color={colors.emerald} />
               </View>
               <Text style={styles.statValue}>{connections.length}</Text>
               <Text style={styles.statLabel}>{t('connections')}</Text>
             </View>
             <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: '#fef3c7' }]}>
-                <Ionicons name="mail" size={18} color="#f59e0b" />
+              <View style={[styles.statIconBg, { backgroundColor: colors.premiumLight }]}>
+                <Ionicons name="mail" size={18} color={colors.premium} />
               </View>
               <Text style={styles.statValue}>{receivedInvitations.length}</Text>
               <Text style={styles.statLabel}>{t('received')}</Text>
@@ -305,8 +305,8 @@ export default function CareCircleScreen() {
         {receivedInvitations.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconBg, { backgroundColor: '#fef3c7' }]}>
-                <Ionicons name="mail-unread" size={16} color="#f59e0b" />
+              <View style={[styles.sectionIconBg, { backgroundColor: colors.premiumLight }]}>
+                <Ionicons name="mail-unread" size={16} color={colors.premium} />
               </View>
               <Text style={styles.sectionTitle}>{t('receivedInvitations', { count: receivedInvitations.length })}</Text>
             </View>
@@ -314,7 +314,7 @@ export default function CareCircleScreen() {
               <View key={invitation.id} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <LinearGradient
-                    colors={['#f59e0b', '#d97706']}
+                    colors={[colors.premium, colors.premiumDark]}
                     style={styles.avatar}
                   >
                     <Text style={styles.avatarText}>
@@ -388,7 +388,7 @@ export default function CareCircleScreen() {
                       {invitation.addressee_name || `User ${invitation.addressee_id}`}
                     </Text>
                     <View style={styles.pendingBadge}>
-                      <Ionicons name="time" size={12} color="#f59e0b" />
+                      <Ionicons name="time" size={12} color={colors.premium} />
                       <Text style={styles.cardStatus}>{t('waitingResponse')}</Text>
                     </View>
                   </View>
@@ -401,8 +401,8 @@ export default function CareCircleScreen() {
         {/* Active Connections */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIconBg, { backgroundColor: '#d1fae5' }]}>
-              <Ionicons name="people" size={16} color="#10b981" />
+            <View style={[styles.sectionIconBg, { backgroundColor: colors.emeraldLight }]}>
+              <Ionicons name="people" size={16} color={colors.emerald} />
             </View>
             <Text style={styles.sectionTitle}>
               {t('activeConnections', { count: connections.length })}
@@ -438,7 +438,7 @@ export default function CareCircleScreen() {
                   <View style={styles.cardHeader}>
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                       <LinearGradient
-                        colors={['#10b981', '#059669']}
+                        colors={[colors.emerald, colors.emeraldDark]}
                         style={styles.avatar}
                       >
                         <Text style={styles.avatarText}>
@@ -701,7 +701,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderColor: '#e5e7eb',
   },
   cardPending: {
-    borderColor: '#fef3c7',
+    borderColor: colors.premiumLight,
     backgroundColor: '#fffbeb',
   },
   cardHeader: {
@@ -764,7 +764,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   cardStatus: {
     fontSize: typography.size.xs,
-    color: '#f59e0b',
+    color: colors.premium,
     fontWeight: '500',
   },
   cardActionsSmall: {

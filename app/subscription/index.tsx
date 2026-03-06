@@ -16,7 +16,7 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { apiClient } from '../../src/lib/apiClient';
-import { colors, radius, spacing } from '../../src/styles';
+import { colors, radius, spacing, typography } from '../../src/styles';
 
 // ── Types ──────────────────────────────────────────────────────────
 type SubscriptionStatus = {
@@ -89,7 +89,7 @@ const featureRowStyle = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   iconWrap: { width: 20, alignItems: 'center' },
   text: { fontSize: 13, color: colors.textSecondary, flex: 1 },
-  premiumText: { color: '#d97706', fontWeight: '600' },
+  premiumText: { color: colors.premiumDark, fontWeight: '600' },
   dimText: { opacity: 0.5 },
 });
 
@@ -197,9 +197,9 @@ export default function SubscriptionScreen() {
     { icon: <Ionicons name="mic-off-outline" size={16} color={colors.textSecondary} />, text: t('features.voiceNo'), dim: true },
   ];
   const premiumFeatures = [
-    { icon: <Ionicons name="checkmark-circle" size={16} color="#d97706" />, text: t('features.history365d') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color="#d97706" />, text: t('features.connections50') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color="#d97706" />, text: t('features.voice5k') },
+    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.history365d') },
+    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.connections50') },
+    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.voice5k') },
   ];
 
   const activePlan = PLANS.find(p => p.months === selectedPlan) ?? PLANS[0];
@@ -209,7 +209,7 @@ export default function SubscriptionScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* ── Header ── */}
-        <LinearGradient colors={['#f59e0b', '#d97706']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <LinearGradient colors={[colors.premium, colors.premiumDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={22} color="#fff" />
           </Pressable>
@@ -224,7 +224,7 @@ export default function SubscriptionScreen() {
             <View style={styles.planRow}>
               <View style={[styles.planBadge, status?.isPremium ? styles.premiumBadge : styles.freeBadge]}>
                 {status?.isPremium
-                  ? <MaterialCommunityIcons name="crown" size={14} color="#d97706" />
+                  ? <MaterialCommunityIcons name="crown" size={14} color={colors.premiumDark} />
                   : <Ionicons name="person-outline" size={14} color={colors.textSecondary} />}
                 <Text style={[styles.planBadgeText, status?.isPremium ? styles.premiumBadgeText : styles.freeBadgeText]}>
                   {status?.isPremium ? t('premium') : t('free')}
@@ -239,7 +239,7 @@ export default function SubscriptionScreen() {
           {status?.isPremium && (
             <View style={styles.voiceBar}>
               <View style={styles.voiceBarHeader}>
-                <MaterialCommunityIcons name="microphone" size={13} color="#d97706" />
+                <MaterialCommunityIcons name="microphone" size={13} color={colors.premiumDark} />
                 <Text style={styles.voiceBarLabel}>
                   {t('voiceUsage', { used: status.voiceUsedThisMonth, limit: status.voiceMonthlyLimit })}
                 </Text>
@@ -274,7 +274,7 @@ export default function SubscriptionScreen() {
 
           {/* Premium card */}
           <View style={[styles.planCard, styles.premiumPlanCard]}>
-            <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.premiumCardHeader}>
+            <LinearGradient colors={[colors.premium, colors.premiumDark]} style={styles.premiumCardHeader}>
               <MaterialCommunityIcons name="crown" size={28} color="#fff" />
               <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
               <Text style={styles.premiumPlanPrice}>199K</Text>
@@ -287,7 +287,7 @@ export default function SubscriptionScreen() {
             </View>
             {status?.isPremium && (
               <View style={[styles.planCTABtn, styles.premiumActiveBadge]}>
-                <Ionicons name="checkmark-circle" size={16} color="#d97706" />
+                <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />
                 <Text style={styles.premiumBadgeText}>{t('currentlyUsing')}</Text>
               </View>
             )}
@@ -329,7 +329,7 @@ export default function SubscriptionScreen() {
             {/* Upgrade button */}
             <Pressable style={styles.premiumCTABtn} onPress={handleCreateQR} disabled={creatingQR || !!qr}>
               <LinearGradient
-                colors={['#f59e0b', '#d97706']}
+                colors={[colors.premium, colors.premiumDark]}
                 start={{ x: 0, y: 1 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.premiumCTAGradient}
@@ -380,7 +380,7 @@ export default function SubscriptionScreen() {
                 </View>
                 <View style={styles.noteBox}>
                   <Text style={styles.noteLabel}>{t('amountLabel', { plan: t('planMonth', { months: qr.plan_months }) })}</Text>
-                  <Text style={[styles.noteValue, { color: '#d97706' }]}>{formatVND(qr.amount)}đ</Text>
+                  <Text style={[styles.noteValue, { color: colors.premiumDark }]}>{formatVND(qr.amount)}đ</Text>
                 </View>
                 <View style={styles.pollingRow}>
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -458,10 +458,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.xl,
     },
     freeBadge: { backgroundColor: '#e5e7eb' },
-    premiumBadge: { backgroundColor: '#fef3c7', borderWidth: 1, borderColor: '#f59e0b' },
+    premiumBadge: { backgroundColor: colors.premiumLight, borderWidth: 1, borderColor: colors.premium },
     planBadgeText: { fontSize: typography.size.sm, fontWeight: '700' },
     freeBadgeText: { color: colors.textSecondary },
-    premiumBadgeText: { color: '#d97706' },
+    premiumBadgeText: { color: colors.premiumDark },
     expiresText: { fontSize: typography.size.xs, color: colors.textSecondary },
 
     // Voice usage bar
@@ -469,7 +469,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     voiceBarHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
     voiceBarLabel: { fontSize: typography.size.xs, color: colors.textSecondary },
     voiceBarTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
-    voiceBarFill: { height: '100%', backgroundColor: '#f59e0b', borderRadius: 3 },
+    voiceBarFill: { height: '100%', backgroundColor: colors.premium, borderRadius: 3 },
 
     // Two-column layout
     plansRow: {
@@ -487,7 +487,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       backgroundColor: colors.surface,
     },
     freePlanCard: { borderWidth: 1.5, borderColor: colors.border },
-    premiumPlanCard: { borderWidth: 1.5, borderColor: '#f59e0b' },
+    premiumPlanCard: { borderWidth: 1.5, borderColor: colors.premium },
     planCardHeader: {
       alignItems: 'center',
       paddingVertical: spacing.lg,
@@ -520,7 +520,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     freeCTAText: { fontSize: typography.size.xs, fontWeight: '700', color: colors.textSecondary },
     premiumActiveBadge: {
       flexDirection: 'row', gap: 4, justifyContent: 'center',
-      backgroundColor: '#fef3c7',
+      backgroundColor: colors.premiumLight,
     },
 
     // Plan selector grid
@@ -542,24 +542,24 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       overflow: 'hidden',
     },
     planOptionSelected: {
-      borderColor: '#f59e0b',
+      borderColor: colors.premium,
       backgroundColor: '#fffbeb',
     },
     discountBadge: {
       position: 'absolute',
       top: 0,
       right: 0,
-      backgroundColor: '#f59e0b',
+      backgroundColor: colors.premium,
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderBottomLeftRadius: radius.sm,
     },
-    discountText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+    discountText: { fontSize: typography.size.xxs, fontWeight: '800', color: '#fff' },
     planOptionLabel: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
-    planOptionLabelSelected: { color: '#d97706' },
+    planOptionLabelSelected: { color: colors.premiumDark },
     planOptionPrice: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
-    planOptionPriceSelected: { color: '#d97706' },
-    planOptionPerMonth: { fontSize: 10, color: colors.textSecondary, marginTop: 2 },
+    planOptionPriceSelected: { color: colors.premiumDark },
+    planOptionPerMonth: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2 },
     planOptionPerMonthSelected: { color: '#a16207' },
 
     premiumCTABtn: { borderRadius: radius.lg, overflow: 'hidden' },
@@ -580,7 +580,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     cancelBtnText: { color: colors.danger, fontSize: typography.size.xs, fontWeight: '600' },
     expiredBox: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
     expiredText: { color: colors.danger, fontSize: typography.size.sm, fontWeight: '600' },
-    retryBtn: { backgroundColor: '#f59e0b', paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.md },
+    retryBtn: { backgroundColor: colors.premium, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.md },
     retryBtnText: { color: '#fff', fontSize: typography.size.xs, fontWeight: '700' },
     successBox: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
     successTitle: { color: colors.success, fontSize: typography.size.md, fontWeight: '700' },
@@ -593,7 +593,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     historyInfo: { flex: 1 },
     historyAmount: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
     historyDate: { fontSize: typography.size.xs, color: colors.textSecondary },
-    historyValidity: { fontSize: typography.size.xs, color: '#d97706', fontWeight: '600' },
+    historyValidity: { fontSize: typography.size.xs, color: colors.premiumDark, fontWeight: '600' },
     historyBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.sm },
     historyBadgeText: { fontSize: typography.size.xs, fontWeight: '600' },
   });

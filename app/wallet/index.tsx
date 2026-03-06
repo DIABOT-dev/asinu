@@ -211,7 +211,7 @@ export default function WalletScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
-        <LinearGradient colors={[colors.primary, colors.secondary]} style={styles.header}>
+        <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.header}>
           <View style={styles.headerRow}>
             <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')} hitSlop={8}>
               <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -265,7 +265,7 @@ export default function WalletScreen() {
             onPress={handleGenerateQR}
             disabled={creatingQR}
           >
-            <LinearGradient colors={[colors.primary, colors.secondary]} style={styles.generateBtnInner}>
+            <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.generateBtnInner}>
               {creatingQR ? (
                 <ActivityIndicator color="#fff" />
               ) : (

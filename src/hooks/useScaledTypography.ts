@@ -12,6 +12,7 @@ export const useScaledTypography = () => {
     () => ({
       ...baseTypography,
       size: {
+        xxs: Math.round(baseTypography.size.xxs * multiplier),
         xs: Math.round(baseTypography.size.xs * multiplier),
         sm: Math.round(baseTypography.size.sm * multiplier),
         md: Math.round(baseTypography.size.md * multiplier),
