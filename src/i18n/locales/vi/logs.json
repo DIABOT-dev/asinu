@@ -30,6 +30,13 @@
   "medicationInsulin": "Thuốc/Insulin",
 
   "glucoseValue": "Giá trị (mg/dL)",
+  "glucoseRange": "Vùng chỉ số",
+  "notesPlaceholder": "Cảm giác, hoạt động trước đó...",
+  "glucoseStatus_normal": "Bình thường",
+  "glucoseStatus_hypo": "Hạ đường huyết",
+  "glucoseStatus_prediabetes": "Tiền đái tháo đường",
+  "glucoseStatus_elevated": "Hơi cao",
+  "glucoseStatus_high": "Cao",
   "glucoseContextLabel": "Thời điểm đo",
   "ctxFasting": "Khi đói (sáng)",
   "ctxPreMeal": "Trước ăn",
@@ -121,5 +128,25 @@
   "levelHigh": "cao",
   "levelLow": "thấp",
   "cannotSendCareCircleAlert": "Không thể gửi cảnh báo cho care-circle",
-  "cannotCreateNotification": "Không thể tạo notification"
+  "cannotCreateNotification": "Không thể tạo notification",
+
+  "savedTitle": "Đã lưu!",
+  "savedMessage": "Ghi nhận thành công",
+  "quickAdd": "Thêm nhanh",
+
+  "glucoseRangeLow": "Thấp",
+  "glucoseRangeNormal": "Bình thường",
+  "glucoseRangeHigh": "Cao",
+
+  "bmiUnderweight": "Thiếu cân",
+  "bmiNormal": "Bình thường",
+  "bmiOverweight": "Thừa cân",
+  "bmiObese": "Béo phì",
+  "errWeightInvalid": "Nhập cân nặng hợp lệ",
+
+  "freqOnceDay": "Ngày 1 lần",
+  "freqTwiceDay": "Ngày 2 lần",
+  "freqThreeDay": "Ngày 3 lần",
+  "freqAfterMeal": "Sau ăn",
+  "freqBeforeSleep": "Trước ngủ"
 }

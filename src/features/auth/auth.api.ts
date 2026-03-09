@@ -59,14 +59,13 @@ export const authApi = {
       body: {}
     });
   },
+  fetchBasicProfile() {
+    // Dùng khi bootstrap — 1 query nhẹ, không load care circle / health data
+    return apiClient<ProfileResponse>('/api/mobile/profile/basic').then(res => res.profile);
+  },
   fetchProfile() {
-
-    return apiClient<ProfileResponse>('/api/mobile/profile').then(res => {
-
-
-
-      return res.profile;
-    });
+    // Dùng khi user mở màn Profile — load đầy đủ
+    return apiClient<ProfileResponse>('/api/mobile/profile').then(res => res.profile);
   },
   updateProfile(payload: UpdateProfilePayload) {
     return apiClient<ProfileResponse>('/api/mobile/profile', { method: 'PUT', body: payload }).then(res => res.profile);

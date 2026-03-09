@@ -1,5 +1,6 @@
 ﻿import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { useAuthStore } from '../../auth/auth.store';
 import { tokenStore } from '../../../lib/tokenStore';
 import { useSession } from '../../../providers/SessionProvider';
 import { PulsePopup } from '../components/PulsePopup';
@@ -35,6 +36,8 @@ export const CarePulseProvider = ({ children }: Props) => {
   const recordPopupShown = useCarePulseStore((state) => state.recordPopupShown);
   const sendAppOpened = useCarePulseStore((state) => state.sendAppOpened);
   const syncState = useCarePulseStore((state) => state.syncState);
+  const profile = useAuthStore((state) => state.profile);
+  const isAuthenticated = !!profile;
   const [popupVisible, setPopupVisible] = useState(false);
   const engineStateRef = useRef(engineState);
   const popupVisibleRef = useRef(popupVisible);
@@ -56,9 +59,15 @@ export const CarePulseProvider = ({ children }: Props) => {
     setPopupVisible(true);
   }, [recordPopupShown]);
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setPopupVisible(false);
+    }
+  }, [isAuthenticated]);
+
   const runScheduler = useCallback(async () => {
     // Don't run scheduler if not ready or no token available
-    if (!hydrated || !sessionReady) return;
+    if (!hydrated || !sessionReady || !isAuthenticated) return;
     
     const token = tokenStore.getToken();
     if (!token) {
@@ -84,7 +93,7 @@ export const CarePulseProvider = ({ children }: Props) => {
     if (shouldShow && !popupVisibleRef.current) {
       openPulsePopup();
     }
-  }, [hydrated, sessionReady, openPulsePopup, sendAppOpened, syncState]);
+  }, [hydrated, sessionReady, isAuthenticated, openPulsePopup, sendAppOpened, syncState]);
 
   useEffect(() => {
     runScheduler();

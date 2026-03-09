@@ -8,5 +8,8 @@
   "mascotGreeting": "Chào bạn, tôi là Asinu!",
   "stickerText": "Hãy nói chuyện với Asinu nhé!",
   "initialGreeting": "Xin chào, Asinu nè. Bạn cần hỗ trợ gì?",
-  "sampleUserMessage": "Tôi muốn theo dõi sức khỏe hằng ngày."
+  "sampleUserMessage": "Tôi muốn theo dõi sức khỏe hằng ngày.",
+  "errorMic": "Lỗi mic",
+  "errorMicPermission": "Không thể truy cập microphone. Vui lòng cấp quyền trong Cài đặt.",
+  "errorMicRecord": "Không thể ghi âm. Vui lòng thử lại."
 }

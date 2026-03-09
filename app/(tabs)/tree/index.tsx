@@ -140,7 +140,7 @@ export default function TreeScreen() {
       {status === 'loading' && !summary ? <StateLoading /> : null}
       {errorState === 'no-data' && !summary ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
       <ScrollView 
-        contentContainerStyle={[styles.container, { paddingTop: padTop }]}
+        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

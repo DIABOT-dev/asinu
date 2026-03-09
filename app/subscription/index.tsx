@@ -11,6 +11,18 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+  ZoomIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
@@ -93,6 +105,62 @@ const featureRowStyle = StyleSheet.create({
   dimText: { opacity: 0.5 },
 });
 
+// ── Animated Plan Option ──────────────────────────────────────────────
+function PlanOption({
+  plan, selected, onSelect,
+}: { plan: typeof PLANS[0]; selected: boolean; onSelect: () => void }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const handlePress = () => {
+    scale.value = withSequence(withSpring(0.93), withSpring(1, { damping: 10 }));
+    onSelect();
+  };
+
+  return (
+    <Animated.View style={[animStyle, { width: '47%' }]}>
+      <Pressable
+        style={[planOptionStyle.option, selected && planOptionStyle.selected]}
+        onPress={handlePress}
+      >
+        {plan.discount > 0 && (
+          <View style={planOptionStyle.discountBadge}>
+            <Text style={planOptionStyle.discountText}>-{plan.discount}%</Text>
+          </View>
+        )}
+        <Text style={[planOptionStyle.label, selected && planOptionStyle.labelSelected]}>
+          {plan.months === 1 ? '1 tháng' : plan.months === 3 ? '3 tháng' : plan.months === 6 ? '6 tháng' : '12 tháng'}
+        </Text>
+        <Text style={[planOptionStyle.price, selected && planOptionStyle.priceSelected]}>
+          {formatVND(plan.price)}đ
+        </Text>
+        <Text style={[planOptionStyle.perMonth, selected && planOptionStyle.perMonthSelected]}>
+          ~{formatVND(pricePerMonth(plan))}đ/tháng
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+const planOptionStyle = StyleSheet.create({
+  option: {
+    borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted, padding: spacing.md, alignItems: 'center',
+    position: 'relative', overflow: 'hidden',
+  },
+  selected: { borderColor: colors.premium, backgroundColor: '#fffbeb' },
+  discountBadge: {
+    position: 'absolute', top: 0, right: 0, backgroundColor: colors.premium,
+    paddingHorizontal: 6, paddingVertical: 2, borderBottomLeftRadius: radius.sm,
+  },
+  discountText: { fontSize: typography.size.xxs, fontWeight: '800', color: '#fff' },
+  label: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
+  labelSelected: { color: colors.premiumDark },
+  price: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
+  priceSelected: { color: colors.premiumDark },
+  perMonth: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2 },
+  perMonthSelected: { color: '#a16207' },
+});
+
 // ── Status badge color ────────────────────────────────────────────────
 function statusColor(s: SubRecord['status']) {
   if (s === 'completed') return colors.success;
@@ -110,7 +178,7 @@ export default function SubscriptionScreen() {
 
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
-  const [selectedPlan, setSelectedPlan] = useState(1); // months
+  const [selectedPlan, setSelectedPlan] = useState(1);
   const [qr, setQr] = useState<QRData | null>(null);
   const [creatingQR, setCreatingQR] = useState(false);
   const [history, setHistory] = useState<SubRecord[]>([]);
@@ -124,6 +192,44 @@ export default function SubscriptionScreen() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
   }, []);
+
+  // ── Crown bounce animation ──
+  const crownY = useSharedValue(0);
+  const crownScale = useSharedValue(1);
+  useEffect(() => {
+    crownY.value = withRepeat(
+      withSequence(
+        withTiming(-8, { duration: 600 }),
+        withTiming(0, { duration: 600 }),
+      ),
+      -1, true
+    );
+    crownScale.value = withRepeat(
+      withSequence(
+        withTiming(1.12, { duration: 600 }),
+        withTiming(1, { duration: 600 }),
+      ),
+      -1, true
+    );
+  }, []);
+  const crownAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: crownY.value }, { scale: crownScale.value }],
+  }));
+
+  // ── CTA pulse animation ──
+  const ctaGlow = useSharedValue(1);
+  useEffect(() => {
+    ctaGlow.value = withDelay(800, withRepeat(
+      withSequence(
+        withTiming(1.03, { duration: 900 }),
+        withTiming(1, { duration: 900 }),
+      ),
+      -1, true
+    ));
+  }, []);
+  const ctaAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ctaGlow.value }],
+  }));
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -209,16 +315,24 @@ export default function SubscriptionScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* ── Header ── */}
-        <LinearGradient colors={[colors.premium, colors.premiumDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={22} color="#fff" />
-          </Pressable>
-          <Text style={styles.headerTitle}>{t('title')}</Text>
-          <MaterialCommunityIcons name="crown" size={40} color="#fff" style={styles.crownIcon} />
-        </LinearGradient>
+        <Animated.View entering={FadeInDown.duration(500).springify()}>
+          <LinearGradient
+            colors={[colors.premium, colors.premiumDark]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
+            <Pressable style={styles.backBtn} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={22} color="#fff" />
+            </Pressable>
+            <Text style={styles.headerTitle}>{t('title')}</Text>
+            <Animated.View style={crownAnimStyle}>
+              <MaterialCommunityIcons name="crown" size={44} color="#fff" style={styles.crownIcon} />
+            </Animated.View>
+          </LinearGradient>
+        </Animated.View>
 
         {/* ── Current plan ── */}
-        <View style={styles.card}>
+        <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} style={styles.card}>
           <Text style={styles.cardTitle}>{t('currentPlan')}</Text>
           {loadingStatus ? <ActivityIndicator color={colors.primary} /> : (
             <View style={styles.planRow}>
@@ -235,7 +349,6 @@ export default function SubscriptionScreen() {
                 : null}
             </View>
           )}
-          {/* Voice usage bar for premium users */}
           {status?.isPremium && (
             <View style={styles.voiceBar}>
               <View style={styles.voiceBarHeader}>
@@ -245,119 +358,107 @@ export default function SubscriptionScreen() {
                 </Text>
               </View>
               <View style={styles.voiceBarTrack}>
-                <View style={[styles.voiceBarFill, { width: `${Math.min(100, (status.voiceUsedThisMonth / status.voiceMonthlyLimit) * 100)}%` as any }]} />
+                <Animated.View
+                  entering={FadeInUp.delay(400).duration(600)}
+                  style={[styles.voiceBarFill, { width: `${Math.min(100, (status.voiceUsedThisMonth / status.voiceMonthlyLimit) * 100)}%` as any }]}
+                />
               </View>
             </View>
           )}
-        </View>
+        </Animated.View>
 
         {/* ── Two-column feature comparison ── */}
         <View style={styles.plansRow}>
-
-          {/* Free card */}
-          <View style={[styles.planCard, styles.freePlanCard]}>
-            <View style={styles.planCardHeader}>
-              <Ionicons name="person-circle-outline" size={28} color={colors.textSecondary} />
-              <Text style={styles.freePlanTitle}>{t('free')}</Text>
-              <Text style={styles.freePlanPrice}>0đ</Text>
-              <Text style={styles.planPriceUnit}>{t('perMonth')}</Text>
-            </View>
-            <View style={styles.planCardBody}>
-              {freeFeatures.map((f, i) => (
-                <FeatureRow key={i} icon={f.icon} text={f.text} dim={f.dim} />
-              ))}
-            </View>
-            <View style={[styles.planCTABtn, styles.freeCTABtn]}>
-              <Text style={styles.freeCTAText}>{status?.isPremium ? t('free') : t('currentlyUsing')}</Text>
-            </View>
-          </View>
-
-          {/* Premium card */}
-          <View style={[styles.planCard, styles.premiumPlanCard]}>
-            <LinearGradient colors={[colors.premium, colors.premiumDark]} style={styles.premiumCardHeader}>
-              <MaterialCommunityIcons name="crown" size={28} color="#fff" />
-              <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
-              <Text style={styles.premiumPlanPrice}>199K</Text>
-              <Text style={styles.premiumPlanPriceUnit}>{t('perMonth')}</Text>
-            </LinearGradient>
-            <View style={styles.planCardBody}>
-              {premiumFeatures.map((f, i) => (
-                <FeatureRow key={i} icon={f.icon} text={f.text} premium />
-              ))}
-            </View>
-            {status?.isPremium && (
-              <View style={[styles.planCTABtn, styles.premiumActiveBadge]}>
-                <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />
-                <Text style={styles.premiumBadgeText}>{t('currentlyUsing')}</Text>
+          <Animated.View entering={FadeInDown.delay(200).duration(400).springify()} style={{ flex: 1 }}>
+            <View style={[styles.planCard, styles.freePlanCard]}>
+              <View style={styles.planCardHeader}>
+                <Ionicons name="person-circle-outline" size={28} color={colors.textSecondary} />
+                <Text style={styles.freePlanTitle}>{t('free')}</Text>
+                <Text style={styles.freePlanPrice}>0đ</Text>
+                <Text style={styles.planPriceUnit}>{t('perMonth')}</Text>
               </View>
-            )}
-          </View>
+              <View style={styles.planCardBody}>
+                {freeFeatures.map((f, i) => (
+                  <FeatureRow key={i} icon={f.icon} text={f.text} dim={f.dim} />
+                ))}
+              </View>
+              <View style={[styles.planCTABtn, styles.freeCTABtn]}>
+                <Text style={styles.freeCTAText}>{status?.isPremium ? t('free') : t('currentlyUsing')}</Text>
+              </View>
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(300).duration(400).springify()} style={{ flex: 1 }}>
+            <View style={[styles.planCard, styles.premiumPlanCard]}>
+              <LinearGradient colors={[colors.premium, colors.premiumDark]} style={styles.premiumCardHeader}>
+                <MaterialCommunityIcons name="crown" size={28} color="#fff" />
+                <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
+                <Text style={styles.premiumPlanPrice}>199K</Text>
+                <Text style={styles.premiumPlanPriceUnit}>{t('perMonth')}</Text>
+              </LinearGradient>
+              <View style={styles.planCardBody}>
+                {premiumFeatures.map((f, i) => (
+                  <FeatureRow key={i} icon={f.icon} text={f.text} premium />
+                ))}
+              </View>
+              {status?.isPremium && (
+                <View style={[styles.planCTABtn, styles.premiumActiveBadge]}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />
+                  <Text style={styles.premiumBadgeText}>{t('currentlyUsing')}</Text>
+                </View>
+              )}
+            </View>
+          </Animated.View>
         </View>
 
-        {/* ── Plan selector (non-premium only) ── */}
+        {/* ── Plan selector ── */}
         {!status?.isPremium && (
-          <View style={styles.card}>
+          <Animated.View entering={FadeInDown.delay(400).duration(400).springify()} style={styles.card}>
             <Text style={styles.cardTitle}>{t('planSelector')}</Text>
             <View style={styles.planGrid}>
-              {PLANS.map((plan) => {
-                const selected = plan.months === selectedPlan;
-                return (
-                  <Pressable
-                    key={plan.months}
-                    style={[styles.planOption, selected && styles.planOptionSelected]}
-                    onPress={() => { setSelectedPlan(plan.months); setQr(null); setPollStatus('idle'); clearTimers(); }}
-                  >
-                    {plan.discount > 0 && (
-                      <View style={styles.discountBadge}>
-                        <Text style={styles.discountText}>-{plan.discount}%</Text>
-                      </View>
-                    )}
-                    <Text style={[styles.planOptionLabel, selected && styles.planOptionLabelSelected]}>
-                      {t('planMonth', { months: plan.months })}
-                    </Text>
-                    <Text style={[styles.planOptionPrice, selected && styles.planOptionPriceSelected]}>
-                      {formatVND(plan.price)}đ
-                    </Text>
-                    <Text style={[styles.planOptionPerMonth, selected && styles.planOptionPerMonthSelected]}>
-                      ~{formatVND(pricePerMonth(plan))}đ{t('perMonth')}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {PLANS.map((plan) => (
+                <PlanOption
+                  key={plan.months}
+                  plan={plan}
+                  selected={plan.months === selectedPlan}
+                  onSelect={() => { setSelectedPlan(plan.months); setQr(null); setPollStatus('idle'); clearTimers(); }}
+                />
+              ))}
             </View>
 
-            {/* Upgrade button */}
-            <Pressable style={styles.premiumCTABtn} onPress={handleCreateQR} disabled={creatingQR || !!qr}>
-              <LinearGradient
-                colors={[colors.premium, colors.premiumDark]}
-                start={{ x: 0, y: 1 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.premiumCTAGradient}
-              >
-                {creatingQR
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : (
-                    <View style={styles.ctaRow}>
-                      <MaterialCommunityIcons name="crown" size={18} color="#fff" />
-                      <Text style={styles.premiumCTAText}>
-                        {t('upgradeNow')} · {formatVND(activePlan.price)}đ
-                      </Text>
-                    </View>
-                  )}
-              </LinearGradient>
-            </Pressable>
-          </View>
+            {/* CTA button with pulse */}
+            <Animated.View style={ctaAnimStyle}>
+              <Pressable style={styles.premiumCTABtn} onPress={handleCreateQR} disabled={creatingQR || !!qr}>
+                <LinearGradient
+                  colors={[colors.premium, colors.premiumDark]}
+                  start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
+                  style={styles.premiumCTAGradient}
+                >
+                  {creatingQR
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : (
+                      <View style={styles.ctaRow}>
+                        <MaterialCommunityIcons name="crown" size={18} color="#fff" />
+                        <Text style={styles.premiumCTAText}>
+                          {t('upgradeNow')} · {formatVND(activePlan.price)}đ
+                        </Text>
+                      </View>
+                    )}
+                </LinearGradient>
+              </Pressable>
+            </Animated.View>
+          </Animated.View>
         )}
 
         {/* ── QR Payment section ── */}
         {qr && !status?.isPremium && (
-          <View style={styles.card}>
+          <Animated.View entering={FadeInDown.duration(400).springify()} style={styles.card}>
             {pollStatus === 'success' ? (
-              <View style={styles.successBox}>
-                <Ionicons name="checkmark-circle" size={56} color={colors.success} />
+              <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.successBox}>
+                <Ionicons name="checkmark-circle" size={64} color={colors.success} />
                 <Text style={styles.successTitle}>{t('activationSuccess')}</Text>
                 <Text style={styles.successDesc}>{t('activationSuccessDesc')}</Text>
-              </View>
+              </Animated.View>
             ) : isQrExpired ? (
               <View style={styles.expiredBox}>
                 <Ionicons name="time-outline" size={40} color={colors.danger} />
@@ -369,7 +470,9 @@ export default function SubscriptionScreen() {
             ) : (
               <>
                 <Text style={styles.cardTitle}>{t('paymentQR')}</Text>
-                <Image source={{ uri: qr.qr_url }} style={styles.qrImage} resizeMode="contain" />
+                <Animated.View entering={ZoomIn.delay(100).duration(400)}>
+                  <Image source={{ uri: qr.qr_url }} style={styles.qrImage} resizeMode="contain" />
+                </Animated.View>
                 <View style={styles.countdownRow}>
                   <Ionicons name="time-outline" size={14} color={colors.warning} />
                   <Text style={styles.countdownText}>{t('countdown', { time: formatCountdown(countdown) })}</Text>
@@ -391,17 +494,21 @@ export default function SubscriptionScreen() {
                 </Pressable>
               </>
             )}
-          </View>
+          </Animated.View>
         )}
 
         {/* ── History ── */}
-        <View style={styles.card}>
+        <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} style={styles.card}>
           <Text style={styles.cardTitle}>{t('historyTitle')}</Text>
           {loadingHistory ? <ActivityIndicator color={colors.primary} /> :
             history.length === 0
               ? <Text style={styles.emptyText}>{t('noHistory')}</Text>
-              : history.map(sub => (
-                <View key={sub.id} style={styles.historyRow}>
+              : history.map((sub, i) => (
+                <Animated.View
+                  key={sub.id}
+                  entering={FadeInDown.delay(i * 60).duration(300)}
+                  style={styles.historyRow}
+                >
                   <View style={styles.historyLeft}>
                     <Ionicons
                       name={sub.status === 'completed' ? 'checkmark-circle' : sub.status === 'failed' ? 'close-circle' : 'time'}
@@ -420,10 +527,11 @@ export default function SubscriptionScreen() {
                   <View style={[styles.historyBadge, { backgroundColor: statusColor(sub.status) + '20' }]}>
                     <Text style={[styles.historyBadgeText, { color: statusColor(sub.status) }]}>{statusLabel(sub.status)}</Text>
                   </View>
-                </View>
+                </Animated.View>
               ))
           }
-        </View>
+        </Animated.View>
+
       </ScrollView>
     </Screen>
   );
@@ -464,24 +572,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     premiumBadgeText: { color: colors.premiumDark },
     expiresText: { fontSize: typography.size.xs, color: colors.textSecondary },
 
-    // Voice usage bar
     voiceBar: { marginTop: spacing.md },
     voiceBarHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
     voiceBarLabel: { fontSize: typography.size.xs, color: colors.textSecondary },
     voiceBarTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
     voiceBarFill: { height: '100%', backgroundColor: colors.premium, borderRadius: 3 },
 
-    // Two-column layout
     plansRow: {
-      flexDirection: 'row',
-      gap: spacing.md,
-      marginHorizontal: spacing.lg,
-      marginTop: spacing.lg,
+      flexDirection: 'row', gap: spacing.md,
+      marginHorizontal: spacing.lg, marginTop: spacing.lg,
     },
     planCard: {
-      flex: 1,
-      borderRadius: radius.lg,
-      overflow: 'hidden',
+      flex: 1, borderRadius: radius.lg, overflow: 'hidden',
       shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8,
       shadowOffset: { width: 0, height: 3 }, elevation: 3,
       backgroundColor: colors.surface,
@@ -489,32 +591,23 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     freePlanCard: { borderWidth: 1.5, borderColor: colors.border },
     premiumPlanCard: { borderWidth: 1.5, borderColor: colors.premium },
     planCardHeader: {
-      alignItems: 'center',
-      paddingVertical: spacing.lg,
-      paddingHorizontal: spacing.sm,
-      backgroundColor: colors.surface,
-      gap: 4,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.sm,
+      backgroundColor: colors.surface, gap: 4,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
     },
     freePlanTitle: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
     freePlanPrice: { fontSize: typography.size.xl, fontWeight: '800', color: colors.textSecondary },
     planPriceUnit: { fontSize: typography.size.xs, color: colors.textSecondary },
     premiumCardHeader: {
-      alignItems: 'center',
-      paddingVertical: spacing.lg,
-      paddingHorizontal: spacing.sm,
-      gap: 4,
+      alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.sm, gap: 4,
     },
     premiumPlanTitle: { fontSize: typography.size.md, fontWeight: '800', color: '#fff' },
     premiumPlanPrice: { fontSize: typography.size.xl, fontWeight: '800', color: '#fff' },
     premiumPlanPriceUnit: { fontSize: typography.size.xs, color: 'rgba(255,255,255,0.85)' },
     planCardBody: { padding: spacing.md, gap: 2, flex: 1 },
     planCTABtn: {
-      margin: spacing.md, marginTop: 0,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.lg,
-      alignItems: 'center',
+      margin: spacing.md, marginTop: 0, paddingVertical: spacing.sm,
+      borderRadius: radius.lg, alignItems: 'center',
     },
     freeCTABtn: { borderWidth: 1.5, borderColor: colors.border, backgroundColor: 'transparent' },
     freeCTAText: { fontSize: typography.size.xs, fontWeight: '700', color: colors.textSecondary },
@@ -523,51 +616,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       backgroundColor: colors.premiumLight,
     },
 
-    // Plan selector grid
-    planGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-      marginBottom: spacing.lg,
-    },
-    planOption: {
-      width: '47%',
-      borderRadius: radius.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceMuted,
-      padding: spacing.md,
-      alignItems: 'center',
-      position: 'relative',
-      overflow: 'hidden',
-    },
-    planOptionSelected: {
-      borderColor: colors.premium,
-      backgroundColor: '#fffbeb',
-    },
-    discountBadge: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      backgroundColor: colors.premium,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderBottomLeftRadius: radius.sm,
-    },
-    discountText: { fontSize: typography.size.xxs, fontWeight: '800', color: '#fff' },
-    planOptionLabel: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
-    planOptionLabelSelected: { color: colors.premiumDark },
-    planOptionPrice: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
-    planOptionPriceSelected: { color: colors.premiumDark },
-    planOptionPerMonth: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2 },
-    planOptionPerMonthSelected: { color: '#a16207' },
+    planGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
 
     premiumCTABtn: { borderRadius: radius.lg, overflow: 'hidden' },
     premiumCTAGradient: { paddingVertical: spacing.md, alignItems: 'center' },
     ctaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     premiumCTAText: { fontSize: typography.size.sm, fontWeight: '800', color: '#fff' },
 
-    // QR
     qrImage: { width: '100%', height: 220, marginBottom: spacing.md },
     countdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: spacing.md },
     countdownText: { color: colors.warning, fontSize: typography.size.xs, fontWeight: '600' },
@@ -586,7 +641,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     successTitle: { color: colors.success, fontSize: typography.size.md, fontWeight: '700' },
     successDesc: { color: colors.textSecondary, fontSize: typography.size.sm, textAlign: 'center' },
 
-    // History
     emptyText: { color: colors.textSecondary, fontSize: typography.size.xs, textAlign: 'center', paddingVertical: spacing.lg },
     historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
     historyLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },

@@ -35,6 +35,36 @@ export const colors = {
   overlay: 'rgba(0,0,0,0.45)',
 };
 
+// ── Brand accent colors (for UI gradients, non-health) ─
+export const brandColors = {
+  indigo: '#6366f1',
+  indigoDark: '#4f46e5',
+  violet: '#8b5cf6',
+  violetDark: '#7c3aed',
+  pink: '#ec4899',
+  pinkDark: '#db2777',
+  cyan: '#06b6d4',
+  orange: '#f97316',
+};
+
+// ── Health metric category colors ──────────────────────
+export const categoryColors = {
+  glucose: '#3b82f6',
+  glucoseBg: '#eff6ff',
+  bloodPressure: '#ef4444',
+  bloodPressureBg: '#fef2f2',
+  weight: '#8b5cf6',
+  weightBg: '#f5f3ff',
+  water: '#06b6d4',
+  waterBg: '#ecfeff',
+  insulin: '#6366f1',
+  insulinBg: '#eef2ff',
+  meal: '#f59e0b',
+  mealBg: '#fffbeb',
+  medication: '#10b981',
+  medicationBg: '#ecfdf5',
+};
+
 export const spacing = {
   xs: 4,
   sm: 8,

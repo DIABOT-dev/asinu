@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -22,6 +22,19 @@ export default function CareCircleScreen() {
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+
+  const screenOptions = useMemo(() => ({
+    headerShown: true,
+    title: t('title'),
+    headerStyle: { backgroundColor: colors.background },
+    headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
+    headerShadowVisible: false,
+    headerLeft: () => (
+      <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, marginLeft: 0 }}>
+        <Ionicons name="arrow-back" size={26} color={colors.primary} />
+      </TouchableOpacity>
+    ),
+  }), [router, t]);
   
   const {
     invitations,
@@ -235,11 +248,13 @@ export default function CareCircleScreen() {
   );
 
   return (
-    <Screen>
+    <>
+      <Stack.Screen options={screenOptions} />
+      <Screen>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ 
-          paddingTop: insets.top,
+        contentContainerStyle={{
+          paddingTop: spacing.sm,
           paddingBottom: spacing.xl,
         }}
         showsVerticalScrollIndicator={false}
@@ -577,6 +592,7 @@ export default function CareCircleScreen() {
         </Modal>
       </ScrollView>
     </Screen>
+    </>
   );
 }
 

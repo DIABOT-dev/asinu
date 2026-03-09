@@ -30,6 +30,13 @@
   "medicationInsulin": "Medication/Insulin",
 
   "glucoseValue": "Value (mg/dL)",
+  "glucoseRange": "Reading range",
+  "notesPlaceholder": "How you felt, prior activity...",
+  "glucoseStatus_normal": "Normal",
+  "glucoseStatus_hypo": "Hypoglycemia",
+  "glucoseStatus_prediabetes": "Pre-diabetes",
+  "glucoseStatus_elevated": "Slightly high",
+  "glucoseStatus_high": "High",
   "glucoseContextLabel": "Measurement time",
   "ctxFasting": "Fasting (morning)",
   "ctxPreMeal": "Before meal",
@@ -121,5 +128,25 @@
   "levelHigh": "high",
   "levelLow": "low",
   "cannotSendCareCircleAlert": "Cannot send care-circle alert",
-  "cannotCreateNotification": "Cannot create notification"
+  "cannotCreateNotification": "Cannot create notification",
+
+  "savedTitle": "Saved!",
+  "savedMessage": "Recorded successfully",
+  "quickAdd": "Quick add",
+
+  "glucoseRangeLow": "Low",
+  "glucoseRangeNormal": "Normal",
+  "glucoseRangeHigh": "High",
+
+  "bmiUnderweight": "Underweight",
+  "bmiNormal": "Normal",
+  "bmiOverweight": "Overweight",
+  "bmiObese": "Obese",
+  "errWeightInvalid": "Enter valid weight",
+
+  "freqOnceDay": "Once a day",
+  "freqTwiceDay": "Twice a day",
+  "freqThreeDay": "Three times a day",
+  "freqAfterMeal": "After meal",
+  "freqBeforeSleep": "Before sleep"
 }

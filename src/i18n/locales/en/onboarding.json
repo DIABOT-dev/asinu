@@ -11,5 +11,6 @@
   "errorNetwork": "Network error. Please try again.",
   "missingInfo": "Missing information",
   "pleaseLoginAgain": "Please log in again.",
-  "pleaseTryAgain": "Please try again."
+  "pleaseTryAgain": "Please try again.",
+  "skip": "Skip"
 }

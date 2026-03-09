@@ -2,6 +2,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo } from 'react';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +14,7 @@ import { StateError } from '../../../src/components/state/StateError';
 import { StateLoading } from '../../../src/components/state/StateLoading';
 import { useMissionActions } from '../../../src/features/missions/useMissionActions';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
-import { colors, spacing } from '../../../src/styles';
+import { brandColors, colors, spacing } from '../../../src/styles';
 
 export default function MissionsScreen() {
   const { missions, status, isStale, errorState, fetchMissions } = useMissionActions();
@@ -52,7 +53,7 @@ export default function MissionsScreen() {
         <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
       ) : null}
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: padTop }]}
+        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
@@ -66,8 +67,9 @@ export default function MissionsScreen() {
         {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
         
         {/* Header Section */}
+        <Animated.View entering={FadeInDown.delay(0).duration(500).springify()}>
         <LinearGradient
-          colors={['#6366f1', '#8b5cf6']}
+          colors={[brandColors.indigo, brandColors.violet]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerCard}
@@ -78,8 +80,10 @@ export default function MissionsScreen() {
           <Text style={styles.headerTitle}>{t('dailyMissions')}</Text>
           <Text style={styles.headerSubtitle}>{t('refreshDaily')}</Text>
         </LinearGradient>
+        </Animated.View>
 
         {/* Stats Row */}
+        <Animated.View entering={ZoomIn.delay(150).duration(400).springify()}>
         <View style={styles.statsRow}>
           <View style={[styles.statCard, styles.statCardActive]}>
             <Ionicons name="time-outline" size={20} color={colors.premium} />
@@ -92,7 +96,8 @@ export default function MissionsScreen() {
             <Text style={styles.statLabel}>{t('completed')}</Text>
           </View>
         </View>
-        
+        </Animated.View>
+
         {/* Thông tin hướng dẫn */}
         <View style={styles.infoCard}>
           <View style={styles.infoTitleRow}>
@@ -110,7 +115,7 @@ export default function MissionsScreen() {
             <Text style={styles.infoText}>{t('pointsToTree')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Ionicons name="book" size={16} color="#8b5cf6" />
+            <Ionicons name="book" size={16} color={brandColors.violet} />
             <Text style={styles.infoText}>{t('historyTracked')}</Text>
           </View>
         </View>
@@ -125,7 +130,8 @@ export default function MissionsScreen() {
           const progressRatio = mission.goal > 0 ? mission.progress / mission.goal : 0;
           const isCompleted = mission.status === 'completed';
           return (
-            <View key={mission.id} style={[styles.card, isCompleted && styles.cardCompleted]}>
+            <Animated.View key={mission.id} entering={FadeInDown.delay(300 + index * 80).duration(400).springify()}>
+            <View style={[styles.card, isCompleted && styles.cardCompleted]}>
               <View style={styles.cardHeader}>
                 <View style={[styles.missionNumberBadge, isCompleted && styles.missionNumberBadgeCompleted]}>
                   {isCompleted ? (
@@ -168,6 +174,7 @@ export default function MissionsScreen() {
                 </View>
               </View>
             </View>
+            </Animated.View>
           );
         })}
         {status === 'loading' && missions.length > 0 && (
@@ -191,7 +198,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 20,
     padding: spacing.xl,
     alignItems: 'center',
-    shadowColor: '#6366f1',
+    shadowColor: brandColors.indigo,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -230,12 +237,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderWidth: 2
   },
   statCardActive: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fde68a'
+    backgroundColor: colors.premiumLight,
+    borderColor: colors.premium + '60',
   },
   statCardCompleted: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0'
+    backgroundColor: colors.emeraldLight,
+    borderColor: colors.emerald + '60',
   },
   statValue: {
     fontSize: typography.size.xl,
@@ -312,8 +319,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     elevation: 2
   },
   cardCompleted: {
-    borderColor: '#a7f3d0',
-    backgroundColor: colors.emeraldLight
+    borderColor: colors.emerald + '60',
+    backgroundColor: colors.emeraldLight,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -400,10 +407,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600'
   },
   statusTextActive: {
-    color: '#b45309'
+    color: colors.premiumDark
   },
   statusTextCompleted: {
-    color: '#047857'
+    color: colors.emeraldDark
   },
   loadingMore: {
     padding: spacing.lg,

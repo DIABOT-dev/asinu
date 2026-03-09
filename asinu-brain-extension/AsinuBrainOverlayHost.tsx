@@ -131,10 +131,14 @@ export const AsinuBrainOverlayHost = () => {
   });
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setVisible(false);
+      return;
+    }
     if (nextQuery.data) {
       handleResponse(nextQuery.data);
     }
-  }, [nextQuery.data]);
+  }, [nextQuery.data, isAuthenticated]);
 
   // Dynamic question handler - cho câu hỏi AI sinh
   const submitDynamicAnswer = async (value: string, label: string) => {

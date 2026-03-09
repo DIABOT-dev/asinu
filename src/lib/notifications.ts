@@ -58,19 +58,21 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       return false;
     }
 
-    // For Android, set notification channels
+    // For Android, set notification channels with custom sound
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('care-circle', {
         name: 'Care Circle',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF6B6B',
+        sound: 'asinu_notify.wav',
       });
       await Notifications.setNotificationChannelAsync('engagement', {
         name: 'Nhắc nhở sức khoẻ',
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250],
-        lightColor: '#4CAF50',
+        lightColor: '#08b8a2',
+        sound: 'asinu_notify.wav',
       });
     }
 
@@ -112,6 +114,15 @@ export async function getExpoPushToken(): Promise<string | null> {
 /**
  * Schedule a local notification (useful for testing or offline scenarios)
  */
+export async function checkNotificationPermission(): Promise<boolean> {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === 'granted';
+  } catch {
+    return false;
+  }
+}
+
 export async function scheduleLocalNotification(
   title: string,
   body: string,
@@ -123,10 +134,10 @@ export async function scheduleLocalNotification(
         title,
         body,
         data: data || {},
-        sound: true,
+        sound: 'asinu_notify.wav',
         priority: Notifications.AndroidNotificationPriority.HIGH,
       },
-      trigger: null, // Show immediately
+      trigger: null,
     });
   } catch (error) {
 

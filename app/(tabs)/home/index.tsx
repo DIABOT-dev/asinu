@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import ChatModal from '../../../src/components/ChatModal';
@@ -19,7 +20,7 @@ import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useNotificationStore } from '../../../src/stores/notification.store';
-import { colors, spacing } from '../../../src/styles';
+import { brandColors, categoryColors, colors, spacing } from '../../../src/styles';
 import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
 import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
 
@@ -104,7 +105,7 @@ export default function HomeScreen() {
       {noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
       {!hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: padTop }]}
+        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -116,8 +117,9 @@ export default function HomeScreen() {
         }
       >
         {/* Hero Banner */}
+        <Animated.View entering={FadeInDown.delay(0).duration(500).springify()}>
         <LinearGradient
-          colors={['#08b8a2', '#0ea18f']}
+          colors={[colors.primary, colors.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
@@ -131,29 +133,35 @@ export default function HomeScreen() {
             <Ionicons name="settings-outline" size={22} color="#fff" />
           </Pressable>
         </LinearGradient>
+        </Animated.View>
 
         {/* Metrics Row */}
+        <Animated.View entering={FadeInDown.delay(120).duration(450).springify()}>
         <View style={styles.metricsRow}>
           <Pressable style={[styles.metricCard, styles.metricCardGlucose]} onPress={() => router.push('/logs/glucose')}>
             <View style={styles.metricIconBg}>
-              <MaterialCommunityIcons name="water" size={22} color="#3b82f6" />
+              <MaterialCommunityIcons name="water" size={22} color={categoryColors.glucose} />
             </View>
             <Text style={styles.metricTitle}>{t('glucose')}</Text>
             <Text style={styles.metricValue}>{quickMetrics.glucose ?? '--'}</Text>
             <Text style={styles.metricUnit}>{tc('unitMgdl')}</Text>
           </Pressable>
           <Pressable style={[styles.metricCard, styles.metricCardBP]} onPress={() => router.push('/logs/blood-pressure')}>
-            <View style={[styles.metricIconBg, { backgroundColor: '#fef2f2' }]}>
-              <MaterialCommunityIcons name="heart-pulse" size={22} color="#ef4444" />
+            <View style={[styles.metricIconBg, { backgroundColor: categoryColors.bloodPressureBg }]}>
+              <MaterialCommunityIcons name="heart-pulse" size={22} color={categoryColors.bloodPressure} />
             </View>
             <Text style={styles.metricTitle}>{t('bloodPressure')}</Text>
             <Text style={styles.metricValue}>{quickMetrics.bloodPressure ?? '--'}</Text>
             <Text style={styles.metricUnit}>{tc('unitMmhg')}</Text>
           </Pressable>
         </View>
+        </Animated.View>
+        <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
         <AsinuChatSticker onPress={() => setChatOpen(true)} />
+        </Animated.View>
 
         {/* Section Header */}
+        <Animated.View entering={FadeInDown.delay(280).duration(400).springify()}>
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionIconBg}>
             <Ionicons name="flag" size={18} color="#fff" />
@@ -205,8 +213,10 @@ export default function HomeScreen() {
           );
         })}
         </View>
+        </Animated.View>
 
         {/* Tree Section */}
+        <Animated.View entering={FadeInDown.delay(360).duration(400).springify()}>
         <View style={styles.sectionHeaderRow}>
           <View style={[styles.sectionIconBg, { backgroundColor: colors.emerald }]}>
             <Ionicons name="leaf" size={18} color="#fff" />
@@ -245,10 +255,12 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </Pressable>
         </View>
+        </Animated.View>
 
         {/* Chart Section */}
+        <Animated.View entering={FadeInDown.delay(440).duration(400).springify()}>
         <View style={styles.sectionHeaderRow}>
-          <View style={[styles.sectionIconBg, { backgroundColor: '#6366f1' }]}>
+          <View style={[styles.sectionIconBg, { backgroundColor: brandColors.indigo }]}>
             <Ionicons name="trending-up" size={18} color="#fff" />
           </View>
           <View>
@@ -261,10 +273,12 @@ export default function HomeScreen() {
           title={t('glucose')}
           unit={tc('unitMgdl')}
         />
+        </Animated.View>
 
         {/* Recent Logs */}
+        <Animated.View entering={FadeInDown.delay(520).duration(400).springify()}>
         <View style={styles.sectionHeaderRow}>
-          <View style={[styles.sectionIconBg, { backgroundColor: '#ec4899' }]}>
+          <View style={[styles.sectionIconBg, { backgroundColor: brandColors.pink }]}>
             <Ionicons name="journal" size={18} color="#fff" />
           </View>
           <View>
@@ -275,13 +289,13 @@ export default function HomeScreen() {
           {logs.slice(0, 3).map((log: LogEntry, index) => (
             <View key={log.id} style={[styles.logItem, index < 2 && styles.logItemBorder]}>
               <View style={styles.logIconBg}>
-                {log.type === 'glucose' && <MaterialCommunityIcons name="water" size={18} color="#3b82f6" />}
-                {log.type === 'blood-pressure' && <MaterialCommunityIcons name="heart-pulse" size={18} color="#ef4444" />}
-                {log.type === 'weight' && <MaterialCommunityIcons name="scale-bathroom" size={18} color="#8b5cf6" />}
-                {log.type === 'water' && <MaterialCommunityIcons name="cup-water" size={18} color="#06b6d4" />}
-                {log.type === 'medication' && <MaterialCommunityIcons name="pill" size={18} color={colors.emerald} />}
-                {log.type === 'meal' && <MaterialCommunityIcons name="food" size={18} color={colors.premium} />}
-                {log.type === 'insulin' && <MaterialCommunityIcons name="needle" size={18} color="#6366f1" />}
+                {log.type === 'glucose' && <MaterialCommunityIcons name="water" size={18} color={categoryColors.glucose} />}
+                {log.type === 'blood-pressure' && <MaterialCommunityIcons name="heart-pulse" size={18} color={categoryColors.bloodPressure} />}
+                {log.type === 'weight' && <MaterialCommunityIcons name="scale-bathroom" size={18} color={categoryColors.weight} />}
+                {log.type === 'water' && <MaterialCommunityIcons name="cup-water" size={18} color={categoryColors.water} />}
+                {log.type === 'medication' && <MaterialCommunityIcons name="pill" size={18} color={categoryColors.medication} />}
+                {log.type === 'meal' && <MaterialCommunityIcons name="food" size={18} color={categoryColors.meal} />}
+                {log.type === 'insulin' && <MaterialCommunityIcons name="needle" size={18} color={categoryColors.insulin} />}
               </View>
               <View style={styles.logContent}>
                 <Text style={styles.logType}>{t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}</Text>
@@ -298,6 +312,7 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
+        </Animated.View>
       </ScrollView>
       <FloatingActionButton label={tc('quickLog')} onPress={() => router.push('/logs')} />
       <ChatModal visible={isChatOpen} onClose={() => setChatOpen(false)} />
@@ -358,17 +373,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCardGlucose: {
     borderWidth: 3,
-    borderColor: '#3b82f6',
+    borderColor: categoryColors.glucose,
   },
   metricCardBP: {
     borderWidth: 3,
-    borderColor: '#ef4444',
+    borderColor: categoryColors.bloodPressure,
   },
   metricIconBg: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#eff6ff',
+    backgroundColor: categoryColors.glucoseBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -418,7 +433,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
     gap: spacing.sm
   },
   missionCardCompleted: {
@@ -470,7 +485,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   missionProgressTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.border,
     borderRadius: 999,
     overflow: 'hidden'
   },
@@ -505,7 +520,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1.5,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   treeRow: {
     flexDirection: 'row',
@@ -544,7 +559,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: 4,
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: '#f0fdfa',
+    backgroundColor: colors.primaryLight,
     borderRadius: 10,
   },
   treeBtnText: {
@@ -557,7 +572,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1.5,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   logItem: {
     flexDirection: 'row',
@@ -567,13 +582,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   logItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: colors.border,
   },
   logIconBg: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -12,12 +12,14 @@ import { authApi } from '../../src/features/auth/auth.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { getPasswordStrength, validateEmail, validatePassword, validatePhone } from '../../src/lib/validation';
 import { colors, spacing } from '../../src/styles';
+import { LanguageToggle } from '../../src/components/LanguageToggle';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isAgreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [emailError, setEmailError] = useState<string | undefined>();
@@ -33,6 +35,20 @@ export default function RegisterScreen() {
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+
+  const screenOptions = useMemo(() => ({
+    headerShown: true,
+    title: t('createAccount'),
+    headerStyle: { backgroundColor: colors.background },
+    headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
+    headerShadowVisible: false,
+    headerLeft: () => (
+      <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, marginLeft: 0 }}>
+        <Ionicons name="arrow-back" size={26} color={colors.primary} />
+      </TouchableOpacity>
+    ),
+    headerRight: () => <LanguageToggle />,
+  }), [router, t]);
 
   const openLegal = (type: 'terms' | 'privacy') => {
     router.push({ pathname: '/legal/content', params: { type } });
@@ -113,62 +129,85 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
-      <Toast 
+    <>
+      <Stack.Screen options={screenOptions} />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.container, { paddingTop: spacing.lg, paddingBottom: insets.bottom + spacing.xl }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+      <Toast
         visible={showToast}
         message={toastMessage}
         type={toastType}
         position="center"
         onHide={() => setShowToast(false)}
       />
-      
+
       <Text style={styles.title}>{t('createAccount')}</Text>
       <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
-      
+
       <View style={styles.form}>
         <View>
-          <TextInput 
+          <TextInput
             label={t('emailLabel')}
-            value={email} 
+            value={email}
             onChangeText={(text) => {
               setEmail(text);
               setEmailError(undefined);
             }}
             onBlur={handleEmailBlur}
-            autoCapitalize="none" 
-            keyboardType="email-address" 
+            autoCapitalize="none"
+            keyboardType="email-address"
             placeholder={t('emailPlaceholder')}
+            leftIcon={<Ionicons name="mail-outline" size={18} color={colors.textSecondary} />}
           />
           {emailError && <Text style={styles.fieldError}>{emailError}</Text>}
         </View>
-        
+
         <View>
-          <TextInput 
+          <TextInput
             label={t('phoneLabel')}
-            value={phone} 
+            value={phone}
             onChangeText={(text) => {
               setPhone(text);
               setPhoneError(undefined);
             }}
             onBlur={handlePhoneBlur}
-            keyboardType="phone-pad" 
-            placeholder={t('phonePlaceholder')} 
+            keyboardType="phone-pad"
+            placeholder={t('phonePlaceholder')}
+            leftIcon={<Ionicons name="call-outline" size={18} color={colors.textSecondary} />}
           />
           <Text style={styles.fieldHelp}>{t('phoneHelp')}</Text>
           {phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
         </View>
-        
+
         <View>
-          <TextInput 
+          <TextInput
             label={t('passwordLabel')}
-            value={password} 
+            value={password}
             onChangeText={(text) => {
               setPassword(text);
               setPasswordError(undefined);
             }}
             onBlur={handlePasswordBlur}
-            secureTextEntry 
+            secureTextEntry={!showPassword}
             placeholder={t('minChars')}
+            leftIcon={<Ionicons name="lock-closed-outline" size={18} color={colors.textSecondary} />}
+            rightElement={
+              <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+                <Ionicons
+                  name={showPassword ? 'eye' : 'eye-off'}
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            }
           />
           {passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
           {password && !passwordError && (
@@ -177,12 +216,13 @@ export default function RegisterScreen() {
             </Text>
           )}
         </View>
-        
-        <TextInput 
+
+        <TextInput
           label={t('nameLabel')}
-          value={name} 
-          onChangeText={setName} 
-          placeholder={t('namePlaceholder')} 
+          value={name}
+          onChangeText={setName}
+          placeholder={t('namePlaceholder')}
+          leftIcon={<Ionicons name="person-outline" size={18} color={colors.textSecondary} />}
         />
         
         <View style={styles.checkboxRow}>
@@ -220,19 +260,25 @@ export default function RegisterScreen() {
           </Pressable>
         </View>
       </View>
-    </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
+    </>
   );
 }
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
-  container: {
+  keyboardView: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  container: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
     gap: spacing.lg,
-    justifyContent: 'center',
-    backgroundColor: colors.background
   },
   title: {
     fontSize: typography.size.xl,

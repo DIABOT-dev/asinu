@@ -91,11 +91,6 @@ export default function OnboardingScreen() {
         body: { messages: msgs, language },
       });
 
-      if (!res.ok) {
-        Alert.alert(t('errorTitle'), t('errorAI'));
-        return;
-      }
-
       if (res.done) {
         await saveProfile(res.profile);
         return;
@@ -184,6 +179,20 @@ export default function OnboardingScreen() {
       { role: 'user',      content: answer },
     ];
 
+    setHistory(prev => [...prev, { messages, question: currentQuestion }]);
+    await fetchNext(newMessages);
+  }
+
+  // ── Handle skip ───────────────────────────────────────────────────
+
+  async function handleSkip() {
+    if (!currentQuestion || fetching || saving) return;
+    const skipText = language === 'vi' ? 'Bỏ qua' : 'Skip';
+    const newMessages: ConversationMessage[] = [
+      ...messages,
+      { role: 'assistant', content: currentQuestion.question },
+      { role: 'user',      content: skipText },
+    ];
     setHistory(prev => [...prev, { messages, question: currentQuestion }]);
     await fetchNext(newMessages);
   }
@@ -346,6 +355,12 @@ export default function OnboardingScreen() {
           variant="ghost"
           onPress={handleBack}
           disabled={fetching || saving || history.length === 0}
+        />
+        <Button
+          label={t('skip')}
+          variant="ghost"
+          onPress={handleSkip}
+          disabled={fetching || saving || !currentQuestion}
         />
         <Button
           label={tc('continue')}

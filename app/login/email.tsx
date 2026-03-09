@@ -14,6 +14,7 @@ import { SocialProvider } from '../../src/features/auth/auth.service';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
+import { LanguageToggle } from '../../src/components/LanguageToggle';
 
 export default function LoginEmailScreen() {
   const [identifier, setIdentifier] = useState(''); // Email or phone
@@ -85,6 +86,9 @@ export default function LoginEmailScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
+      <View style={[styles.langToggleRow, { top: insets.top + spacing.sm }]}>
+        <LanguageToggle />
+      </View>
       <Text style={styles.title}>{t('login')}</Text>
       <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
 
@@ -101,30 +105,27 @@ export default function LoginEmailScreen() {
             keyboardType="default"
             autoCapitalize="none"
             style={styles.inputRounded}
-            placeholderTextColor="#9AA0A6"
+            leftIcon={<Ionicons name="mail-outline" size={18} color={colors.textSecondary} />}
           />
           {identifierError && <Text style={styles.fieldError}>{identifierError}</Text>}
         </View>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder={t('password')}
-            secureTextEntry={!showPassword}
-            style={[styles.inputRounded, styles.passwordInput]}
-            placeholderTextColor="#9AA0A6"
-          />
-          <Pressable
-            onPress={() => setShowPassword(!showPassword)}
-            style={styles.passwordToggle}
-          >
-            <Ionicons
-              name={showPassword ? 'eye' : 'eye-off'}
-              size={20}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-        </View>
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder={t('password')}
+          secureTextEntry={!showPassword}
+          style={styles.inputRounded}
+          leftIcon={<Ionicons name="lock-closed-outline" size={18} color={colors.textSecondary} />}
+          rightElement={
+            <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+              <Ionicons
+                name={showPassword ? 'eye' : 'eye-off'}
+                size={20}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+          }
+        />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <Button
           label={loginButtonLoading ? tc('processing') : t('login')}
@@ -149,7 +150,7 @@ export default function LoginEmailScreen() {
 
             const renderIcon = () => {
               if (provider === 'google') {
-                return <FontAwesome5 name="google" size={18} color="#EA4335" brand />;
+                return <FontAwesome5 name="google" size={20} color="#EA4335" brand />;
               }
               if (provider === 'facebook') {
                 return <FontAwesome5 name="facebook" size={20} color="#1877F2" brand />;
@@ -171,7 +172,11 @@ export default function LoginEmailScreen() {
                   isSubmitting && styles.socialButtonDisabled
                 ]}
               >
-                {isButtonLoading ? null : renderIcon()}
+                {!isButtonLoading && (
+                  <View style={styles.socialIconWrapper}>
+                    {renderIcon()}
+                  </View>
+                )}
                 <Text style={styles.socialButtonText}>{isButtonLoading ? tc('processing') : label}</Text>
               </Pressable>
             );
@@ -212,14 +217,20 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     justifyContent: 'center',
     backgroundColor: colors.background
   },
+  langToggleRow: {
+    position: 'absolute',
+    right: spacing.xl,
+    zIndex: 10,
+  },
   title: {
     fontSize: typography.size.xl,
     fontWeight: '800',
-    color: colors.textPrimary
+    color: colors.textPrimary,
+    textAlign: 'center',
   },
   subtitle: {
     color: colors.textSecondary,
-    textAlign: 'left',
+    textAlign: 'center',
     fontWeight: '400',
     marginBottom: spacing.lg
   },
@@ -254,28 +265,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   inputRounded: {
     borderRadius: radius.xxl,
     height: 52,
-    fontSize: typography.size.md
   },
   inputGroup: {
     gap: spacing.sm
-  },
-  passwordContainer: {
-    position: 'relative',
-    width: '100%'
-  },
-  passwordInput: {
-    paddingRight: spacing.xl + spacing.lg
-  },
-  passwordToggle: {
-    position: 'absolute',
-    right: spacing.lg,
-    top: 0,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  passwordIcon: {
-    fontSize: 20
   },
   fieldError: {
     color: colors.danger,
@@ -311,14 +303,19 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: 'center',
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
   },
   zaloIcon: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
+  },
+  socialIconWrapper: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   socialButtonPressed: {
     opacity: 0.85,
@@ -330,7 +327,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   socialButtonText: {
     fontSize: typography.size.md,
     fontWeight: '600',
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
   legal: {
     gap: spacing.xs,

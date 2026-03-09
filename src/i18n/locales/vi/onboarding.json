@@ -11,5 +11,6 @@
   "errorNetwork": "Lỗi mạng. Vui lòng thử lại.",
   "missingInfo": "Thiếu thông tin",
   "pleaseLoginAgain": "Vui lòng đăng nhập lại.",
-  "pleaseTryAgain": "Vui lòng thử lại."
+  "pleaseTryAgain": "Vui lòng thử lại.",
+  "skip": "Bỏ qua"
 }

@@ -1,9 +1,9 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import DeleteAccountModal from '../../src/components/DeleteAccountModal';
@@ -11,6 +11,11 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { authApi } from '../../src/features/auth/auth.api';
 import { apiClient } from '../../src/lib/apiClient';
+import {
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  type NotificationPreferences,
+} from '../../src/features/notifications/notifications.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { getExpoPushToken, requestNotificationPermissions, scheduleLocalNotification } from '../../src/lib/notifications';
@@ -39,14 +44,29 @@ export default function SettingsScreen() {
   const [reminders, setReminders] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [schedulePrefs, setSchedulePrefs] = useState<NotificationPreferences | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const padTop = insets.top + spacing.lg;
 
+  const screenOptions = useMemo(() => ({
+    headerShown: true,
+    title: t('title'),
+    headerStyle: { backgroundColor: colors.background },
+    headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
+    headerShadowVisible: false,
+    headerLeft: () => (
+      <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, marginLeft: 0 }}>
+        <Ionicons name="arrow-back" size={26} color={colors.primary} />
+      </TouchableOpacity>
+    ),
+  }), [router, t]);
+
   // Load saved preferences on mount
   useEffect(() => {
     loadPreferences();
+    loadSchedulePrefs();
   }, []);
 
   const loadPreferences = async () => {
@@ -63,6 +83,30 @@ export default function SettingsScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadSchedulePrefs = async () => {
+    try {
+      const prefs = await getNotificationPreferences();
+      if (prefs.ok) setSchedulePrefs(prefs);
+    } catch {}
+  };
+
+  const handleScheduleChange = async (
+    field: 'morning_hour' | 'evening_hour' | 'water_hour',
+    value: number | null
+  ) => {
+    if (!schedulePrefs) return;
+    const updated = { ...schedulePrefs, [field]: value };
+    setSchedulePrefs(updated as NotificationPreferences); // optimistic
+    try {
+      const result = await updateNotificationPreferences({
+        morning_hour: updated.morning_hour,
+        evening_hour: updated.evening_hour,
+        water_hour:   updated.water_hour,
+      });
+      if (result.ok) setSchedulePrefs(result);
+    } catch {}
   };
 
   const handleNotificationsToggle = async (value: boolean) => {
@@ -170,8 +214,10 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: padTop }]}>
+    <>
+      <Stack.Screen options={screenOptions} />
+      <Screen>
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: spacing.sm }]}>
         <H1SectionHeader title={t('title')} />
         
         {/* Font Size Setting */}
@@ -268,6 +314,68 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {/* Notification Schedule */}
+        {schedulePrefs && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { fontSize: scaledTypography.size.md }]}>
+              {t('scheduleTitle')}
+            </Text>
+            <Text style={[styles.scheduleHint, { fontSize: scaledTypography.size.sm }]}>
+              {t('scheduleHint')}
+            </Text>
+
+            {(
+              [
+                { label: t('scheduleMorning'), field: 'morning_hour' as const, options: [6,7,8,9,10],   def: 8  },
+                { label: t('scheduleEvening'), field: 'evening_hour' as const, options: [18,19,20,21,22], def: 21 },
+                { label: t('scheduleWater'),   field: 'water_hour'   as const, options: [11,12,13,14,15], def: 14 },
+              ] as const
+            ).map(({ label, field, options, def }) => {
+              const userVal    = schedulePrefs[field] as number | null;
+              const inferred   = schedulePrefs[`inferred_${field}` as keyof NotificationPreferences] as number | null;
+              const effective  = schedulePrefs[`effective_${field}` as keyof NotificationPreferences] as number;
+              const autoLabel  = inferred
+                ? t('scheduleAutoHint',    { hour: String(inferred).padStart(2,'0') })
+                : t('scheduleDefaultHint', { hour: String(def).padStart(2,'0') });
+
+              return (
+                <View key={field} style={styles.scheduleRow}>
+                  <Text style={[styles.scheduleLabel, { fontSize: scaledTypography.size.sm }]}>
+                    {label}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.scheduleChips}
+                  >
+                    {/* Auto chip */}
+                    <Pressable
+                      onPress={() => handleScheduleChange(field, null)}
+                      style={[styles.chip, userVal === null && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, { fontSize: scaledTypography.size.xs }, userVal === null && styles.chipTextActive]}>
+                        {userVal === null ? `${t('scheduleAuto')} · ${autoLabel}` : t('scheduleAuto')}
+                      </Text>
+                    </Pressable>
+                    {/* Hour chips */}
+                    {options.map(h => (
+                      <Pressable
+                        key={h}
+                        onPress={() => handleScheduleChange(field, h)}
+                        style={[styles.chip, userVal === h && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, { fontSize: scaledTypography.size.xs }, userVal === h && styles.chipTextActive]}>
+                          {String(h).padStart(2,'0')}:00
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {__DEV__ && (
           <Button
             label={t('testNotification')}
@@ -312,6 +420,7 @@ export default function SettingsScreen() {
         onConfirm={handleDeleteAccount}
       />
     </Screen>
+    </>
   );
 }
 
@@ -387,6 +496,41 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.textSecondary,
     width: '100%'
+  },
+  scheduleHint: {
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  scheduleRow: {
+    gap: spacing.xs,
+  },
+  scheduleLabel: {
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  scheduleChips: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  chip: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+  },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: '#fff',
   },
   deleteAccountButton: {
     flexDirection: 'row',

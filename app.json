@@ -38,7 +38,19 @@
         "foregroundImage": "./assets/android/adaptive-foreground.png",
         "backgroundImage": "./assets/android/adaptive-background.png"
       },
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": ["android.permission.RECORD_AUDIO"],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "com.googleusercontent.apps.726570048913-0oj1afglacg0h4p77toi6kvr6buh46j8"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "plugins": [
       "expo-router",
@@ -51,7 +63,7 @@
         {
           "icon": "./assets/icon.png",
           "color": "#08b8a2",
-          "sounds": [],
+          "sounds": ["./assets/sounds/asinu_notify.wav"],
           "mode": "production"
         }
       ],

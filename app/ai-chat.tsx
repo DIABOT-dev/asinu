@@ -1,7 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SafeAreaView, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
 import { chatApi } from '../src/features/chat/chat.api';
 import { apiClient } from '../src/lib/apiClient';
@@ -82,8 +83,23 @@ export default function AiChatScreen() {
     }
   };
 
+  const screenOptions = useMemo(() => ({
+    headerShown: true,
+    title: t('title') || 'Asinu AI',
+    headerStyle: { backgroundColor: colors.background },
+    headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
+    headerShadowVisible: false,
+    headerLeft: () => (
+      <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, marginLeft: 0 }}>
+        <Ionicons name="arrow-back" size={26} color={colors.primary} />
+      </TouchableOpacity>
+    ),
+  }), [router, t]);
+
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+      <Stack.Screen options={screenOptions} />
+      <SafeAreaView style={styles.container}>
       <AiChatLayout
         messages={messages}
         assistantAvatar={avatars.assistant}
@@ -93,7 +109,8 @@ export default function AiChatScreen() {
         onSend={handleSend}
         onUpgradePress={() => router.push('/subscription')}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
 

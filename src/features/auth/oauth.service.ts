@@ -94,11 +94,41 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       };
     }
 
+    // Android: server-side flow qua backend (Android OAuth client không hỗ trợ browser redirect)
+    if (Platform.OS === 'android') {
+      const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+      if (!apiBase) throw new Error('API base URL chưa được cấu hình');
+
+      const initiateUrl = `${apiBase}/api/auth/google/initiate`;
+      const appCallbackUri = 'asinu-lite://auth/google/callback';
+
+      const result = await WebBrowser.openAuthSessionAsync(initiateUrl, appCallbackUri);
+
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        return { type: 'cancel' };
+      }
+
+      if (result.type !== 'success' || !result.url) {
+        return { type: 'error', error: t('authFailed') };
+      }
+
+      const url = new URL(result.url);
+      const error = url.searchParams.get('error');
+      if (error) return { type: 'error', error: `Google login failed: ${error}` };
+
+      const directToken = url.searchParams.get('token');
+      if (!directToken) return { type: 'error', error: t('noAccessToken') };
+
+      return { type: 'success', directToken };
+    }
+
+    // iOS: client-side flow với iOS OAuth client
     const clientId = getGoogleClientId();
     if (!clientId) throw new Error(t('googleClientIdMissing'));
 
+    const reverseClientId = clientId.replace('.apps.googleusercontent.com', '');
     const redirectUri = makeRedirectUri({
-      native: 'com.googleusercontent.apps.416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21:/oauth2redirect/google'
+      native: `com.googleusercontent.apps.${reverseClientId}:/oauth2redirect/google`
     });
 
     const request = new AuthRequest({
@@ -109,7 +139,6 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       responseType: ResponseType.Code,
     });
 
-    // Force generate PKCE code verifier BEFORE promptAsync
     await request.makeAuthUrlAsync(GOOGLE_DISCOVERY);
     const codeVerifier = request.codeVerifier;
 
@@ -127,7 +156,6 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       return { type: 'error', error: 'PKCE code verifier missing' };
     }
 
-    // Exchange authorization code for tokens
     const tokenResponse = await exchangeCodeAsync(
       {
         clientId,
@@ -141,7 +169,6 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
     const accessToken = tokenResponse.accessToken;
     const idToken = tokenResponse.idToken;
 
-    // Fetch user profile
     const profileResponse = await fetch(GOOGLE_CONFIG.userInfoEndpoint, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });

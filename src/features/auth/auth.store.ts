@@ -82,17 +82,14 @@ export const useAuthStore = create<AuthState>()(
           // Token exists, restore it
           set({ token: savedToken });
 
-          // Fetch fresh profile from API
+          // Fetch lightweight profile for bootstrap (1 query, no care circle / health data)
           try {
-
-            const profile = await authApi.fetchProfile();
-
+            const profile = await authApi.fetchBasicProfile();
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
             set({ profile, loading: false, hydrated: true });
           } catch (err) {
-
             // If profile fetch fails but we have token, keep the token but clear profile
             set({ profile: null, loading: false, hydrated: true });
           }
@@ -116,18 +113,14 @@ export const useAuthStore = create<AuthState>()(
             await tokenStore.setToken(token);
           }
 
-          // Always fetch full profile from /api/mobile/profile endpoint
-          // Don't rely on login response for profile data
+          // Fetch lightweight profile after login — full profile loaded lazily on Profile screen
           let profile: Profile | null = null;
           try {
-
-            profile = await authApi.fetchProfile();
-
+            profile = await authApi.fetchBasicProfile();
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
           } catch (err) {
-
             // Fallback: build minimal profile from login response
             if (response.user) {
               profile = {
@@ -155,18 +148,13 @@ export const useAuthStore = create<AuthState>()(
             await tokenStore.setToken(token);
           }
 
-          // Always fetch full profile from API, don't rely on response data
           let profile: Profile | null = null;
           try {
-
-            profile = await authApi.fetchProfile();
-
+            profile = await authApi.fetchBasicProfile();
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
           } catch (err) {
-
-            // Fallback to response profile if available
             profile = response.profile || null;
           }
 
@@ -191,18 +179,13 @@ export const useAuthStore = create<AuthState>()(
             await tokenStore.setToken(token);
           }
 
-          // Always fetch full profile from API, don't rely on response data
           let profile: Profile | null = null;
           try {
-
-            profile = await authApi.fetchProfile();
-
+            profile = await authApi.fetchBasicProfile();
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
           } catch (err) {
-
-            // Fallback to response profile if available
             profile = response.profile || null;
           }
 

@@ -1,8 +1,9 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet, Text } from 'react-native';
+import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScaledTypography } from '../hooks/useScaledTypography';
-import { colors, spacing } from '../styles';
+import { colors, radius, spacing } from '../styles';
 
 type ToastType = 'success' | 'error';
 type ToastPosition = 'top' | 'bottom' | 'center';
@@ -16,43 +17,47 @@ type ToastProps = {
   onHide?: () => void;
 };
 
-export const Toast = ({ visible, message, type = 'success', duration = 2000, position = 'center', onHide }: ToastProps) => {
+const ICON: Record<ToastType, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
+  success: 'check-circle',
+  error: 'alert-circle',
+};
+
+const ACCENT: Record<ToastType, string> = {
+  success: colors.primary,
+  error: colors.danger,
+};
+
+export const Toast = ({
+  visible,
+  message,
+  type = 'success',
+  duration = 2000,
+  position = 'bottom',
+  onHide,
+}: ToastProps) => {
   const scaledTypography = useScaledTypography();
   const [isHidden, setIsHidden] = useState(!visible);
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.8)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible) {
       setIsHidden(false);
       opacity.setValue(0);
-      scale.setValue(0.8);
-      
+      translateY.setValue(position === 'top' ? -20 : 20);
+
       Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scale, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
+        Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, friction: 9, tension: 60, useNativeDriver: true }),
       ]).start();
 
       const timer = setTimeout(() => {
         Animated.parallel([
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scale, {
-            toValue: 0.8,
-            duration: 300,
+          Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+          Animated.timing(translateY, {
+            toValue: position === 'top' ? -16 : 16,
+            duration: 220,
             useNativeDriver: true,
           }),
         ]).start(() => {
@@ -62,52 +67,40 @@ export const Toast = ({ visible, message, type = 'success', duration = 2000, pos
       }, duration);
 
       return () => clearTimeout(timer);
-    } else if (!visible) {
+    } else {
       setIsHidden(true);
     }
   }, [visible, duration, onHide]);
 
-  if (isHidden) {
-    return null;
-  }
+  if (isHidden) return null;
 
   const getPositionStyle = () => {
-    const screenHeight = Dimensions.get('window').height;
-    
     if (position === 'center') {
-      return {
-        top: screenHeight / 2 - 50,
-        left: spacing.lg,
-        right: spacing.lg,
-      };
-    } else if (position === 'bottom') {
-      return {
-        bottom: insets.bottom + spacing.xl,
-        left: spacing.lg,
-        right: spacing.lg,
-      };
-    } else {
-      return {
-        top: insets.top + spacing.xl,
-        left: spacing.lg,
-        right: spacing.lg,
-      };
+      const screenHeight = Dimensions.get('window').height;
+      return { top: screenHeight / 2 - 36, left: spacing.lg, right: spacing.lg };
     }
+    if (position === 'bottom') {
+      return { bottom: insets.bottom + spacing.xl, left: spacing.lg, right: spacing.lg };
+    }
+    return { top: insets.top + spacing.lg, left: spacing.lg, right: spacing.lg };
   };
+
+  const accent = ACCENT[type];
 
   return (
     <Animated.View
       style={[
         styles.container,
-        type === 'error' ? styles.errorContainer : styles.successContainer,
         getPositionStyle(),
-        {
-          opacity,
-          transform: [{ scale }],
-        },
+        { opacity, transform: [{ translateY }] },
       ]}
     >
-      <Text style={[styles.message, { fontSize: scaledTypography.size.lg }]}>{message}</Text>
+      <View style={[styles.iconWrap, { backgroundColor: accent + '28' }]}>
+        <MaterialCommunityIcons name={ICON[type]} size={20} color={accent} />
+      </View>
+      <Text style={[styles.message, { fontSize: scaledTypography.size.sm }]} numberOfLines={2}>
+        {message}
+      </Text>
     </Animated.View>
   );
 };
@@ -115,29 +108,32 @@ export const Toast = ({ visible, message, type = 'success', duration = 2000, pos
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    borderRadius: 16,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: radius.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 14,
     zIndex: 9999,
-    minHeight: 60,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  successContainer: {
-    backgroundColor: colors.success,
-  },
-  errorContainer: {
-    backgroundColor: colors.danger,
+    flexShrink: 0,
   },
   message: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    textAlign: 'center',
-    lineHeight: 24,
+    flex: 1,
+    color: '#fff',
+    fontWeight: '600',
+    lineHeight: 20,
   },
 });

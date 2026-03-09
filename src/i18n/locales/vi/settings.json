@@ -36,5 +36,14 @@
   "languageVi": "Tiếng Việt",
   "languageEn": "English",
   "testNotification": "Test thông báo AI",
-  "testNotificationBody": "Vào app kiểm tra sức khoẻ nhé!"
+  "testNotificationBody": "Vào app kiểm tra sức khoẻ nhé!",
+  "scheduleTitle": "Giờ nhắc nhở",
+  "scheduleHint": "Asinu sẽ tự học từ thói quen của bạn. Bạn cũng có thể tự đặt giờ.",
+  "scheduleMorning": "Buổi sáng",
+  "scheduleEvening": "Buổi tối",
+  "scheduleWater": "Uống nước",
+  "scheduleAuto": "Tự động",
+  "scheduleAutoHint": "{{hour}}:00 (học từ thói quen)",
+  "scheduleDefaultHint": "{{hour}}:00 (mặc định)",
+  "scheduleSaved": "Đã lưu giờ nhắc"
 }

@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +16,7 @@ import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useMissionsStore } from '../../../src/features/missions/missions.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { ApiError, apiClient } from '../../../src/lib/apiClient';
-import { colors, spacing } from '../../../src/styles';
+import { brandColors, categoryColors, colors, spacing } from '../../../src/styles';
 
 type SubStatus = { tier: 'free' | 'premium'; isPremium: boolean; expiresAt: string | null };
 
@@ -229,7 +230,7 @@ export default function ProfileScreen() {
         onHide={() => setToastVisible(false)}
       />
       <ScrollView 
-        contentContainerStyle={[styles.container, { paddingTop: padTop }]}
+        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -241,8 +242,9 @@ export default function ProfileScreen() {
         }
       >
         {/* Profile Header Card */}
+        <Animated.View entering={FadeInDown.delay(0).duration(500).springify()}>
         <LinearGradient
-          colors={['#08b8a2', '#0ea18f']}
+          colors={[colors.primary, colors.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.profileHeaderCard}
@@ -274,8 +276,10 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
         </LinearGradient>
+        </Animated.View>
 
         {/* User Info Card */}
+        <Animated.View entering={FadeInDown.delay(120).duration(400).springify()}>
         <View style={styles.sectionHeader}>
           <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
           <Text style={styles.sectionTitle}>{t('personalInfo')}</Text>
@@ -310,7 +314,7 @@ export default function ProfileScreen() {
                   <View style={styles.infoDivider} />
                   <View style={styles.infoRow}>
                     <View style={styles.infoIconContainer}>
-                      <Ionicons name={profile.gender === 'Nam' ? 'male' : 'female'} size={18} color={profile.gender === 'Nam' ? '#3b82f6' : '#ec4899'} />
+                      <Ionicons name={profile.gender === 'Nam' ? 'male' : 'female'} size={18} color={profile.gender === 'Nam' ? categoryColors.glucose : brandColors.pink} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('gender')}</Text>
@@ -340,7 +344,7 @@ export default function ProfileScreen() {
                   <View style={styles.infoDivider} />
                   <View style={styles.infoRow}>
                     <View style={styles.infoIconContainer}>
-                      <MaterialCommunityIcons name="human-male-height" size={20} color="#8b5cf6" />
+                      <MaterialCommunityIcons name="human-male-height" size={20} color={brandColors.violet} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('height')}</Text>
@@ -355,7 +359,7 @@ export default function ProfileScreen() {
                   <View style={styles.infoDivider} />
                   <View style={styles.infoRow}>
                     <View style={styles.infoIconContainer}>
-                      <MaterialCommunityIcons name="scale-bathroom" size={18} color="#06b6d4" />
+                      <MaterialCommunityIcons name="scale-bathroom" size={18} color={brandColors.cyan} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('weight')}</Text>
@@ -370,7 +374,7 @@ export default function ProfileScreen() {
                   <View style={styles.infoDivider} />
                   <View style={styles.infoRow}>
                     <View style={styles.infoIconContainer}>
-                      <FontAwesome5 name="tint" size={16} color="#ef4444" />
+                      <FontAwesome5 name="tint" size={16} color={colors.danger} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('bloodType')}</Text>
@@ -385,7 +389,7 @@ export default function ProfileScreen() {
                   <View style={styles.infoDivider} />
                   <View style={styles.infoRow}>
                     <View style={styles.infoIconContainer}>
-                      <MaterialCommunityIcons name="medical-bag" size={18} color="#f97316" />
+                      <MaterialCommunityIcons name="medical-bag" size={18} color={brandColors.orange} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoLabel}>{t('chronicDiseases')}</Text>
@@ -407,8 +411,10 @@ export default function ProfileScreen() {
             </View>
           ) : null}
         </View>
+        </Animated.View>
 
         {/* Quick Actions */}
+        <Animated.View entering={FadeInDown.delay(220).duration(400).springify()}>
         <View style={styles.sectionHeader}>
           <Ionicons name="flash-outline" size={22} color={colors.warning} />
           <Text style={styles.sectionTitle}>{t('quickActions')}</Text>
@@ -436,17 +442,17 @@ export default function ProfileScreen() {
           
           <Pressable style={styles.actionCard} onPress={handleEditProfile}>
             <LinearGradient
-              colors={['#6366f1', '#4f46e5']}
+              colors={[brandColors.indigo, brandColors.indigoDark]}
               style={styles.actionIconBg}
             >
               <Ionicons name="create" size={24} color="#fff" />
             </LinearGradient>
             <Text style={styles.actionLabel}>{t('editProfile')}</Text>
           </Pressable>
-          
+
           <Pressable style={styles.actionCard} onPress={() => router.push('/logs')}>
             <LinearGradient
-              colors={['#ec4899', '#db2777']}
+              colors={[brandColors.pink, brandColors.pinkDark]}
               style={styles.actionIconBg}
             >
               <Ionicons name="journal" size={24} color="#fff" />
@@ -456,7 +462,7 @@ export default function ProfileScreen() {
 
           <Pressable style={styles.actionCard} onPress={() => router.push('/wallet')}>
             <LinearGradient
-              colors={['#8b5cf6', '#7c3aed']}
+              colors={[brandColors.violet, brandColors.violetDark]}
               style={styles.actionIconBg}
             >
               <Ionicons name="wallet" size={24} color="#fff" />
@@ -474,23 +480,25 @@ export default function ProfileScreen() {
             <Text style={styles.actionLabel}>{t('subscription')}</Text>
           </Pressable>
         </View>
+        </Animated.View>
 
         {/* Health Overview */}
+        <Animated.View entering={FadeInDown.delay(320).duration(400).springify()}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="heart-circle-outline" size={22} color="#ef4444" />
+          <Ionicons name="heart-circle-outline" size={22} color={colors.danger} />
           <Text style={styles.sectionTitle}>{t('healthOverview')}</Text>
         </View>
         <View style={styles.healthCardsGrid}>
           <View style={[styles.healthCard, styles.healthCardGlucose]}>
             <View style={styles.healthCardHeader}>
-              <MaterialCommunityIcons name="water" size={20} color="#3b82f6" />
+              <MaterialCommunityIcons name="water" size={20} color={categoryColors.glucose} />
               <Text style={styles.healthCardTitle}>{t('glucose')}</Text>
             </View>
             <Text style={[styles.healthCardValue, glucoseStatus === 'warning' && styles.healthValueWarning, glucoseStatus === 'danger' && styles.healthValueDanger]}>{glucoseText}</Text>
             {glucoseStatus !== 'normal' && (
               <View style={styles.healthAlert}>
-                <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? '#ef4444' : colors.premium} />
-                <Text style={[styles.healthAlertText, { color: glucoseStatus === 'danger' ? '#ef4444' : colors.premium }]}>
+                <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? colors.danger : colors.premium} />
+                <Text style={[styles.healthAlertText, { color: glucoseStatus === 'danger' ? colors.danger : colors.premium }]}>
                   {glucoseStatus === 'danger' ? t('needsAttention') : t('slightlyHigh')}
                 </Text>
               </View>
@@ -499,7 +507,7 @@ export default function ProfileScreen() {
           
           <View style={[styles.healthCard, styles.healthCardBP]}>
             <View style={styles.healthCardHeader}>
-              <MaterialCommunityIcons name="heart-pulse" size={20} color="#ef4444" />
+              <MaterialCommunityIcons name="heart-pulse" size={20} color={categoryColors.bloodPressure} />
               <Text style={styles.healthCardTitle}>{t('bloodPressure')}</Text>
             </View>
             <Text style={styles.healthCardValue}>{bpText}</Text>
@@ -513,6 +521,7 @@ export default function ProfileScreen() {
             <Text style={styles.healthCardValue}>{todayTasksText}</Text>
           </View>
         </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -595,7 +604,7 @@ export default function ProfileScreen() {
                     <Ionicons 
                       name="male" 
                       size={20} 
-                      color={editGender === 'Nam' ? '#fff' : '#3b82f6'} 
+                      color={editGender === 'Nam' ? '#fff' : categoryColors.glucose}
                     />
                     <Text style={[styles.genderButtonText, editGender === 'Nam' && styles.genderButtonTextActive]}>{tc('male')}</Text>
                   </Pressable>
@@ -606,7 +615,7 @@ export default function ProfileScreen() {
                     <Ionicons 
                       name="female" 
                       size={20} 
-                      color={editGender === 'Nữ' ? '#fff' : '#ec4899'} 
+                      color={editGender === 'Nữ' ? '#fff' : brandColors.pink} 
                     />
                     <Text style={[styles.genderButtonText, editGender === 'Nữ' && styles.genderButtonTextActive]}>{tc('female')}</Text>
                   </Pressable>
@@ -686,7 +695,7 @@ export default function ProfileScreen() {
                 disabled={isSaving}
               >
                 <LinearGradient
-                  colors={isSaving ? ['#9ca3af', '#9ca3af'] : ['#08b8a2', '#0ea18f']}
+                  colors={isSaving ? ['#9ca3af', '#9ca3af'] : [colors.primary, colors.primaryDark]}
                   style={styles.saveButtonGradient}
                 >
                   {isSaving ? (
@@ -719,7 +728,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 24,
     padding: spacing.xl,
     alignItems: 'center',
-    shadowColor: '#08b8a2',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -893,16 +902,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     elevation: 2
   },
   healthCardGlucose: {
-    borderColor: '#dbeafe',
-    backgroundColor: '#f0f9ff'
+    borderColor: categoryColors.glucose + '40',
+    backgroundColor: categoryColors.glucoseBg,
   },
   healthCardBP: {
-    borderColor: '#fce7f3',
-    backgroundColor: '#fdf2f8'
+    borderColor: categoryColors.bloodPressure + '30',
+    backgroundColor: categoryColors.bloodPressureBg,
   },
   healthCardMissions: {
-    borderColor: colors.emeraldLight,
-    backgroundColor: '#ecfdf5'
+    borderColor: colors.emerald + '40',
+    backgroundColor: colors.emeraldLight,
   },
   healthCardHeader: {
     flexDirection: 'row',
@@ -924,7 +933,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.premium
   },
   healthValueDanger: {
-    color: '#ef4444'
+    color: colors.danger
   },
   healthAlert: {
     flexDirection: 'row',

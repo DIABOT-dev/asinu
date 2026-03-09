@@ -39,7 +39,7 @@ type MissionsState = {
 };
 
 const getMissionMeta = (): Record<string, { title: string; description?: string }> => ({
-  DAILY_CHECKIN: {
+  daily_checkin: {
     title: i18n.t('missions:dailyCheckIn'),
     description: i18n.t('missions:dailyCheckInDesc')
   },
@@ -78,14 +78,14 @@ const getMissionMeta = (): Record<string, { title: string; description?: string 
 });
 
 const mapMission = (mission: MissionRecord): Mission => {
-  // Use backend-provided title/description, or fallback to local meta
+  // Always prefer local i18n (follows user's language), backend title only as last fallback
   const missionMeta = getMissionMeta();
   const meta = missionMeta[mission.mission_key] || { title: mission.mission_key };
   return {
-    id: mission.id || mission.mission_key,  // Use backend id if available
+    id: mission.id || mission.mission_key,
     missionKey: mission.mission_key,
-    title: mission.title || meta.title,     // Prefer backend title
-    description: mission.description || meta.description,
+    title: meta.title || mission.title,
+    description: meta.description || mission.description,
     status: mission.status,
     progress: mission.progress,
     goal: mission.goal,
@@ -139,8 +139,8 @@ const getFallbackMissions = (): Mission[] => {
     {
       id: 'daily_checkin',
       missionKey: 'daily_checkin',
-      title: meta.DAILY_CHECKIN.title,
-      description: meta.DAILY_CHECKIN.description,
+      title: meta.daily_checkin.title,
+      description: meta.daily_checkin.description,
       status: 'active',
       progress: 0,
       goal: 1,
@@ -160,9 +160,10 @@ export const useMissionsStore = create<MissionsState>((set) => ({
       return;
     }
     let usedCache = false;
-    const cached = await localCache.getCached<Mission[]>(CACHE_KEYS.MISSIONS, '1');
-    if (cached) {
-      set({ missions: cached, status: 'success', isStale: true, errorState: 'none' });
+    const cachedRecords = await localCache.getCached<MissionRecord[]>(CACHE_KEYS.MISSIONS, '1');
+    if (cachedRecords) {
+      // Re-map with current language on every read (don't use cached title strings)
+      set({ missions: cachedRecords.map(mapMission), status: 'success', isStale: true, errorState: 'none' });
       usedCache = true;
     } else {
       set({ status: 'loading', errorState: 'none', isStale: false });
@@ -173,7 +174,8 @@ export const useMissionsStore = create<MissionsState>((set) => ({
       const missions = missionRecords.map(mapMission);
 
       set({ missions, status: 'success', isStale: false, errorState: 'none' });
-      await localCache.setCached(CACHE_KEYS.MISSIONS, '1', missions);
+      // Cache raw records (not mapped) so re-mapping always uses current language
+      await localCache.setCached(CACHE_KEYS.MISSIONS, '1', missionRecords);
     } catch (error) {
       // Ignore AbortError - it's expected when component unmounts
       if (error instanceof Error && error.name === 'AbortError') {

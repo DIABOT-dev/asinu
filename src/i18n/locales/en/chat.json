@@ -8,5 +8,8 @@
   "mascotGreeting": "Hi, I'm Asinu!",
   "stickerText": "Chat with Asinu!",
   "initialGreeting": "Hi, I'm Asinu. How can I help you?",
-  "sampleUserMessage": "I want to track my health daily."
+  "sampleUserMessage": "I want to track my health daily.",
+  "errorMic": "Mic error",
+  "errorMicPermission": "Cannot access microphone. Please grant permission in Settings.",
+  "errorMicRecord": "Cannot record audio. Please try again."
 }

@@ -36,5 +36,14 @@
   "languageVi": "Tiếng Việt",
   "languageEn": "English",
   "testNotification": "Test AI Notification",
-  "testNotificationBody": "Come check your health in the app!"
+  "testNotificationBody": "Come check your health in the app!",
+  "scheduleTitle": "Reminder Schedule",
+  "scheduleHint": "Asinu learns from your habits automatically. You can also set times manually.",
+  "scheduleMorning": "Morning",
+  "scheduleEvening": "Evening",
+  "scheduleWater": "Water",
+  "scheduleAuto": "Auto",
+  "scheduleAutoHint": "{{hour}}:00 (learned from habits)",
+  "scheduleDefaultHint": "{{hour}}:00 (default)",
+  "scheduleSaved": "Reminder schedule saved"
 }

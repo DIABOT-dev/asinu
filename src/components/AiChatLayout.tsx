@@ -1,8 +1,8 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Audio } from 'expo-av';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useLanguageStore } from '../stores/language.store';
@@ -30,37 +30,62 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
   const [draft, setDraft] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const recordingRef = useRef<any>(null);
+  const recordingStartRef = useRef<number>(0);
+  const maxMeteringRef = useRef<number>(-160);
   const scaledTypography = useScaledTypography();
   const { language } = useLanguageStore();
 
   const handleMicPress = async () => {
+    if (!isPremium) {
+      onUpgradePress?.();
+      return;
+    }
     if (isRecording) {
       setIsRecording(false);
-      await recordingRef.current?.stopAndUnloadAsync();
-      const uri = recordingRef.current?.getURI();
-      recordingRef.current = null;
-      if (!uri) return;
-
-      setIsTranscribing(true);
       try {
-        const text = await chatApi.transcribeAudio(uri, language);
-        if (text) setDraft(prev => prev ? `${prev} ${text}` : text);
-      } catch (e) {
-
-      } finally {
-        setIsTranscribing(false);
+        await recordingRef.current?.stopAndUnloadAsync();
+        const uri = recordingRef.current?.getURI();
+        recordingRef.current = null;
+        if (!uri) return;
+        if (Date.now() - recordingStartRef.current < 1500) return;
+        if (maxMeteringRef.current < -40) return;
+        setIsTranscribing(true);
+        try {
+          const text = await chatApi.transcribeAudio(uri, language);
+          if (text) setDraft(prev => prev ? `${prev} ${text}` : text);
+        } catch {
+        } finally {
+          setIsTranscribing(false);
+        }
+      } catch (e: any) {
+        Alert.alert(t('chat:errorMic'), e?.message ?? String(e));
       }
     } else {
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) return;
-
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await rec.startAsync();
-      recordingRef.current = rec;
-      setIsRecording(true);
+      try {
+        if (recordingRef.current) {
+          try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+          recordingRef.current = null;
+        }
+        const { granted } = await Audio.requestPermissionsAsync();
+        if (!granted) return;
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+        maxMeteringRef.current = -160;
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY,
+          (status) => {
+            if (status.metering != null && status.metering > maxMeteringRef.current) {
+              maxMeteringRef.current = status.metering;
+            }
+          },
+          100
+        );
+        recordingRef.current = recording;
+        recordingStartRef.current = Date.now();
+        setIsRecording(true);
+      } catch (e: any) {
+        Alert.alert(t('chat:errorMic'), e?.message ?? String(e));
+      }
     }
   };
 
@@ -90,28 +115,19 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
       />
       <View style={styles.composer}>
         <Pressable
-          onPress={isPremium ? handleMicPress : () => {
-            Alert.alert(
-              'Tính năng Premium',
-              'Voice Chat chỉ dành cho gói Premium. Nâng cấp ngay để sử dụng?',
-              [
-                { text: 'Để sau', style: 'cancel' },
-                { text: 'Nâng cấp', onPress: () => onUpgradePress?.() },
-              ]
-            );
-          }}
+          onPress={handleMicPress}
           style={[styles.micButton, isRecording && styles.micButtonActive, !isPremium && styles.micButtonLocked]}
           disabled={isTranscribing}
         >
           {isTranscribing
             ? <ActivityIndicator size="small" color={colors.primary} />
-            : isPremium
-              ? <MaterialCommunityIcons
-                  name={isRecording ? 'stop-circle' : 'microphone'}
-                  size={26}
-                  color={isRecording ? '#fff' : colors.primary}
-                />
-              : <Ionicons name="lock-closed" size={20} color={colors.textSecondary} />
+            : !isPremium
+            ? <Ionicons name="lock-closed" size={20} color={colors.textSecondary} />
+            : <MaterialCommunityIcons
+                name={isRecording ? 'stop-circle' : 'microphone'}
+                size={26}
+                color={isRecording ? '#fff' : colors.primary}
+              />
           }
         </Pressable>
         <TextInput
@@ -219,6 +235,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.danger,
   },
   micButtonLocked: {
-    backgroundColor: colors.border,
-  }
+    backgroundColor: colors.surfaceMuted,
+    opacity: 0.75,
+  },
 });

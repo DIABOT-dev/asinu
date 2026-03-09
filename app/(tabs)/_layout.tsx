@@ -28,7 +28,7 @@ export default function TabsLayout() {
     ({ focused }: { focused: boolean }) => (
       <Image
         source={homeIcon}
-        style={[styles.icon, { opacity: focused ? 1 : 0.5 }]}
+        style={[styles.icon, { opacity: focused ? 1 : 0.45, tintColor: focused ? colors.primary : undefined }]}
         resizeMode="contain"
       />
     ),
@@ -39,7 +39,7 @@ export default function TabsLayout() {
     ({ focused }: { focused: boolean }) => (
       <Image
         source={missionIcon}
-        style={[styles.icon, { opacity: focused ? 1 : 0.5 }]}
+        style={[styles.icon, { opacity: focused ? 1 : 0.45, tintColor: focused ? colors.primary : undefined }]}
         resizeMode="contain"
       />
     ),
@@ -50,7 +50,7 @@ export default function TabsLayout() {
     ({ focused }: { focused: boolean }) => (
       <Image
         source={healthcheckIcon}
-        style={[styles.icon, { opacity: focused ? 1 : 0.5 }]}
+        style={[styles.icon, { opacity: focused ? 1 : 0.45, tintColor: focused ? colors.primary : undefined }]}
         resizeMode="contain"
       />
     ),
@@ -61,7 +61,7 @@ export default function TabsLayout() {
     ({ focused }: { focused: boolean }) => (
       <Image
         source={profileIcon}
-        style={[styles.icon, { opacity: focused ? 1 : 0.5 }]}
+        style={[styles.icon, { opacity: focused ? 1 : 0.45, tintColor: focused ? colors.primary : undefined }]}
         resizeMode="contain"
       />
     ),
