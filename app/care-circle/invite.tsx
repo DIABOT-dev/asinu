@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -235,7 +236,7 @@ export default function InviteScreen() {
                 )}
               </View>
               <TouchableOpacity onPress={() => { setSelectedUser(null); setSearchedUser(null); }}>
-                <Text style={styles.clearBtn}>✕</Text>
+                <Ionicons name="close-circle-outline" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           )}
@@ -459,11 +460,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
     color: colors.primary,
     marginLeft: spacing.sm,
-  },
-  clearBtn: {
-    fontSize: 18,
-    color: colors.textSecondary,
-    paddingLeft: spacing.sm,
   },
 });
 }

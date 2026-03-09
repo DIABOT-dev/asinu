@@ -11,6 +11,8 @@ import {
   requestNotificationPermissions,
   setupNotificationHandler,
 } from '../lib/notifications';
+import * as Location from 'expo-location';
+import { CaregiverAlertModal } from '../components/CaregiverAlertModal';
 import { colors, radius, spacing } from '../styles';
 
 // ─── Notification Gate Screen ────────────────────────────────────────────────
@@ -77,6 +79,8 @@ export const SessionProvider = ({ children }: Props) => {
           authApi.updatePushToken(token).catch(() => {});
         }
       }
+      // Request location permission (for emergency button)
+      await Location.requestForegroundPermissionsAsync().catch(() => {});
     })();
   }, [bootstrap, hydrated]);
 
@@ -104,7 +108,15 @@ export const SessionProvider = ({ children }: Props) => {
     );
   }
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  const profile = useAuthStore((state) => state.profile);
+
+  return (
+    <SessionContext.Provider value={value}>
+      {children}
+      {/* Hiện modal xác nhận alert cho người thân (chỉ khi đã đăng nhập) */}
+      {profile && <CaregiverAlertModal />}
+    </SessionContext.Provider>
+  );
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

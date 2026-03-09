@@ -1,9 +1,10 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
+import { MedicalDisclaimerModal, containsMedicalKeywords } from '../src/components/MedicalDisclaimerModal';
 import { chatApi } from '../src/features/chat/chat.api';
 import { apiClient } from '../src/lib/apiClient';
 import { navigation } from '../src/lib/navigation';
@@ -32,6 +33,10 @@ export default function AiChatScreen() {
 
   const [messages, setMessages] = useState<ChatBubble[]>(initialMessages);
   const [isTyping, setIsTyping] = useState(false);
+
+  const [showMedicalDisclaimer, setShowMedicalDisclaimer] = useState(false);
+  const medicalDisclaimerShown = useRef(false);
+
   const avatars = useMemo(
     () => ({
       assistant: 'https://placekitten.com/200/200',
@@ -65,6 +70,12 @@ export default function AiChatScreen() {
         timestamp: new Date().toISOString()
       };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      if (!medicalDisclaimerShown.current &&
+          (containsMedicalKeywords(text) || containsMedicalKeywords(assistantText))) {
+        medicalDisclaimerShown.current = true;
+        setShowMedicalDisclaimer(true);
+      }
     } catch (error) {
       if (isUnauthorized(error)) {
         navigation.goToLogin();
@@ -100,16 +111,21 @@ export default function AiChatScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <SafeAreaView style={styles.container}>
-      <AiChatLayout
-        messages={messages}
-        assistantAvatar={avatars.assistant}
-        userAvatar={avatars.user}
-        isTyping={isTyping}
-        isPremium={isPremium}
-        onSend={handleSend}
-        onUpgradePress={() => router.push('/subscription')}
-      />
+        <AiChatLayout
+          messages={messages}
+          assistantAvatar={avatars.assistant}
+          userAvatar={avatars.user}
+          isTyping={isTyping}
+          isPremium={isPremium}
+          onSend={handleSend}
+          onUpgradePress={() => router.push('/subscription')}
+        />
       </SafeAreaView>
+
+      <MedicalDisclaimerModal
+        visible={showMedicalDisclaimer}
+        onClose={() => setShowMedicalDisclaimer(false)}
+      />
     </>
   );
 }
@@ -117,6 +133,6 @@ export default function AiChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background
-  }
+    backgroundColor: colors.background,
+  },
 });

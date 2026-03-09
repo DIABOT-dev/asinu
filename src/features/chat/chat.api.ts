@@ -16,7 +16,19 @@ export type ChatResponse = {
   created_at: string;
 };
 
+export type ChatHistoryMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+};
+
 export const chatApi = {
+  async fetchHistory(): Promise<ChatHistoryMessage[]> {
+    const response = await apiClient<{ ok: boolean; messages: ChatHistoryMessage[] }>('/api/mobile/chat/history');
+    return response.messages ?? [];
+  },
+
   async sendMessage(payload: Omit<ChatRequest, 'client_ts'>) {
     const response = await apiClient<ChatResponse>('/api/mobile/chat', {
       method: 'POST',

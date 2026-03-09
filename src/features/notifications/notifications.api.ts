@@ -74,6 +74,7 @@ export interface NotificationPreferences {
   effective_morning_hour: number;
   effective_evening_hour: number;
   effective_water_hour:   number;
+  reminders_enabled: boolean;
   error?: string;
 }
 
@@ -82,9 +83,10 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
 }
 
 export async function updateNotificationPreferences(prefs: {
-  morning_hour: number | null;
-  evening_hour: number | null;
-  water_hour:   number | null;
+  morning_hour?: number | null;
+  evening_hour?: number | null;
+  water_hour?:   number | null;
+  reminders_enabled?: boolean;
 }): Promise<NotificationPreferences> {
   return apiClient<NotificationPreferences>('/api/notifications/preferences', {
     method: 'PUT',

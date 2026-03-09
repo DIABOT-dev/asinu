@@ -58,21 +58,51 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       return false;
     }
 
-    // For Android, set notification channels with custom sound
+    // For Android, set notification channels — each with its own sound
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('care-circle', {
-        name: 'Care Circle',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF6B6B',
-        sound: 'asinu_notify.wav',
-      });
-      await Notifications.setNotificationChannelAsync('engagement', {
+      // Nhắc nhở hàng ngày: log sáng/tối, uống nước, thuốc
+      await Notifications.setNotificationChannelAsync('reminder', {
         name: 'Nhắc nhở sức khoẻ',
         importance: Notifications.AndroidImportance.DEFAULT,
-        vibrationPattern: [0, 250],
+        vibrationPattern: [0, 200],
         lightColor: '#08b8a2',
-        sound: 'asinu_notify.wav',
+        sound: 'asinu_reminder.wav',
+      });
+
+      // Cảnh báo sức khoẻ: chỉ số bất thường, leo thang
+      await Notifications.setNotificationChannelAsync('alert', {
+        name: 'Cảnh báo sức khoẻ',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 300, 150, 300],
+        lightColor: '#FF6B6B',
+        sound: 'asinu_alert.wav',
+      });
+
+      // Vòng kết nối: mời / chấp nhận kết nối
+      await Notifications.setNotificationChannelAsync('care-circle', {
+        name: 'Vòng kết nối',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 100, 250],
+        lightColor: '#6B8FFF',
+        sound: 'asinu_care.wav',
+      });
+
+      // Daily health check-in
+      await Notifications.setNotificationChannelAsync('checkin', {
+        name: 'Check-in sức khoẻ',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 300, 100, 300],
+        lightColor: '#08b8a2',
+        sound: 'asinu_reminder.wav',
+      });
+
+      // Milestone / weekly recap
+      await Notifications.setNotificationChannelAsync('milestone', {
+        name: 'Thành tích',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 100, 50, 100, 50, 200],
+        lightColor: '#FFD700',
+        sound: 'asinu_milestone.wav',
       });
     }
 

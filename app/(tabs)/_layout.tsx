@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors } from '../../src/styles';
 
@@ -13,15 +14,22 @@ const profileIcon = require('../../src/assets/tab-icons/profile.png');
 export default function TabsLayout() {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const { bottom } = useSafeAreaInsets();
+
   const screenOptions = useMemo(
     () => ({
       headerShown: false,
       tabBarActiveTintColor: colors.primary,
       tabBarHideOnKeyboard: true,
       tabBarLabelStyle: [styles.tabBarLabel, { fontSize: scaledTypography.size.xs }],
-      tabBarStyle: styles.tabBar
+      tabBarStyle: {
+        ...styles.tabBar,
+        height: 60 + bottom,
+        paddingBottom: bottom > 0 ? bottom : 10,
+        paddingTop: 14,
+      },
     }),
-    [scaledTypography]
+    [scaledTypography, bottom]
   );
 
   const renderHomeIcon = useCallback(
@@ -112,20 +120,19 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 12,
-    height: 72,
-    paddingTop: 12,
-    paddingBottom: 12,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 14,
     backgroundColor: colors.surface,
     borderTopWidth: 0,
-    borderRadius: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     elevation: 10,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 }
+    shadowOffset: { width: 0, height: -4 },
   },
   icon: {
     width: 50,

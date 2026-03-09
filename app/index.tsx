@@ -1,8 +1,9 @@
 import { useRootNavigationState, useRouter } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, InteractionManager, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../src/components/ScaledText';
+import { DataConsentModal, hasDataConsent } from '../src/components/DataConsentModal';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { colors, spacing } from '../src/styles';
@@ -18,12 +19,19 @@ export default function Index() {
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
+  const [consentReady, setConsentReady] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
+
   useEffect(() => {
     bootstrap();
+    hasDataConsent().then((consented) => {
+      if (!consented) setShowConsent(true);
+      setConsentReady(true);
+    });
   }, [bootstrap]);
 
   useEffect(() => {
-    if (!isNavReady || loading) return;
+    if (!isNavReady || loading || !consentReady || showConsent) return;
     const task = InteractionManager.runAfterInteractions(() => {
       if (profile) {
         if (!profile.onboardingCompleted) {
@@ -36,29 +44,34 @@ export default function Index() {
       }
     });
     return () => task.cancel();
-  }, [isNavReady, loading, profile, router]);
+  }, [isNavReady, loading, profile, router, consentReady, showConsent]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Text style={styles.title}>ASINU Lite</Text>
       <ActivityIndicator size="large" color={colors.primary} />
+
+      <DataConsentModal
+        visible={showConsent}
+        onAgree={() => setShowConsent(false)}
+      />
     </View>
   );
 }
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    gap: spacing.md
-  },
-  title: {
-    fontSize: typography.size.xl,
-    fontWeight: '800',
-    color: colors.textPrimary
-  }
-});
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+      gap: spacing.md,
+    },
+    title: {
+      fontSize: typography.size.xl,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+  });
 }

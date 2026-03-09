@@ -1,24 +1,77 @@
-import { useTranslation } from 'react-i18next';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useScaledTypography } from '../hooks/useScaledTypography';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Image, Pressable, StyleSheet, View } from 'react-native';
+import { ScaledText as Text } from './ScaledText';
 import { colors, spacing } from '../styles';
 
 const AsinuSticker = require('../../assets/asinu_chat_sticker.png');
+
+const MESSAGES = [
+  'Hỏi mình gì đi!',
+  'Hôm nay bạn khoẻ không?',
+  'Mình luôn ở đây nhé!',
+  'Nói chuyện với mình nào~',
+  'Có gì lo cứ kể mình nghe!',
+];
 
 type AsinuChatStickerProps = {
   onPress?: () => void;
 };
 
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
-  const { t } = useTranslation('chat');
-  const scaledTypography = useScaledTypography();
+  // Float animation
+  const floatY = useRef(new Animated.Value(0)).current;
+  // Bubble fade
+  const bubbleOpacity = useRef(new Animated.Value(1)).current;
+  const bubbleScale  = useRef(new Animated.Value(1)).current;
+  // Current message index
+  const [msgIndex, setMsgIndex] = useState(0);
+
+  // Float: bob up 6px and back, loop every 2.4s
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatY, { toValue: -7, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(floatY, { toValue:  0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
+
+  // Text cycle: every 3.5s, fade out → change text → fade + scale in
+  useEffect(() => {
+    const cycle = setInterval(() => {
+      Animated.parallel([
+        Animated.timing(bubbleOpacity, { toValue: 0, duration: 280, useNativeDriver: true }),
+        Animated.timing(bubbleScale,   { toValue: 0.85, duration: 280, useNativeDriver: true }),
+      ]).start(() => {
+        setMsgIndex(i => (i + 1) % MESSAGES.length);
+        Animated.parallel([
+          Animated.timing(bubbleOpacity, { toValue: 1, duration: 320, useNativeDriver: true }),
+          Animated.spring(bubbleScale,   { toValue: 1, useNativeDriver: true }),
+        ]).start();
+      });
+    }, 3500);
+    return () => clearInterval(cycle);
+  }, []);
+
   return (
     <Pressable style={styles.wrapper} onPress={onPress} accessibilityRole="button">
-      <Image source={AsinuSticker} style={styles.sticker} resizeMode="contain" />
-      <View style={styles.bubble} pointerEvents="none">
-        <Text style={[styles.bubbleText, { fontSize: scaledTypography.size.md }]}>{t('stickerText')}</Text>
+      {/* Floating image */}
+      <Animated.Image
+        source={AsinuSticker}
+        style={[styles.sticker, { transform: [{ translateY: floatY }] }]}
+        resizeMode="contain"
+      />
+
+      {/* Speech bubble */}
+      <Animated.View
+        style={[styles.bubble, { opacity: bubbleOpacity, transform: [{ scale: bubbleScale }] }]}
+        pointerEvents="none"
+      >
+        <Text style={styles.bubbleText}>{MESSAGES[msgIndex]}</Text>
         <View style={styles.tail} />
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -29,20 +82,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.sm,
-    paddingTop: (spacing.xl && spacing.lg) ? spacing.xl + spacing.lg : 56,
-    paddingBottom: 12, // chừa paddingBottom: 12,chỗ cho bubble + mascot to
+    paddingTop: 56,
+    paddingBottom: 12,
     position: 'relative',
     overflow: 'visible',
   },
   sticker: {
     width: 200,
-    height: 200, // match source asset size to avoid upscaling blur
-    aspectRatio: 1,
-    shadowColor: '#000000ff',
+    height: 200,
+    shadowColor: '#000',
     shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 8
+    elevation: 8,
   },
   bubble: {
     position: 'absolute',
@@ -54,16 +106,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    shadowColor: '#000000ff',
+    shadowColor: '#000',
     shadowOpacity: 0.16,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 8
+    elevation: 8,
   },
   bubbleText: {
     fontWeight: '700',
+    fontSize: 14,
     color: colors.textPrimary,
-    lineHeight: 24
+    lineHeight: 22,
   },
   tail: {
     position: 'absolute',
@@ -77,6 +130,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 4
-  }
+    elevation: 4,
+  },
 });

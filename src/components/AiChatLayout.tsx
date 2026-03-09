@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { chatApi } from '../features/chat/chat.api';
@@ -35,6 +35,16 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
   const maxMeteringRef = useRef<number>(-160);
   const scaledTypography = useScaledTypography();
   const { language } = useLanguageStore();
+  const flatListRef = useRef<FlatList>(null);
+
+  // Auto-scroll to bottom when messages or typing indicator change
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const timer = setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [messages, isTyping]);
 
   const handleMicPress = async () => {
     if (!isPremium) {
@@ -98,9 +108,11 @@ export const AiChatLayout = ({ messages, assistantAvatar, userAvatar, isTyping =
   return (
     <View style={styles.container}>
       <FlatList
+        ref={flatListRef}
         contentContainerStyle={styles.list}
         data={messages}
         keyExtractor={(item) => item.id}
+        onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item }) => (
           <View style={[styles.messageRow, item.role === 'user' ? styles.messageRowReverse : null]}>
             {item.role === 'assistant' && assistantAvatar ? <Image source={{ uri: assistantAvatar }} style={styles.avatar} /> : null}

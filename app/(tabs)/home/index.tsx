@@ -7,6 +7,8 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
+import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
+import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import ChatModal from '../../../src/components/ChatModal';
 import { FloatingActionButton } from '../../../src/components/FloatingActionButton';
 import { NotificationBell } from '../../../src/components/NotificationBell';
@@ -23,6 +25,9 @@ import { useNotificationStore } from '../../../src/stores/notification.store';
 import { brandColors, categoryColors, colors, spacing } from '../../../src/styles';
 import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
 import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
+
+// Module-level flag: auto-show fires once per app session, not on every tab switch
+let checkinAutoShown = false;
 
 export default function HomeScreen() {
   const { t } = useTranslation('home');
@@ -55,11 +60,26 @@ export default function HomeScreen() {
   // Fetch notifications on mount and periodically - only when logged in
   useEffect(() => {
     if (!profile) return; // Don't fetch if not logged in
-    
+
     fetchFromBackend();
     const interval = setInterval(fetchFromBackend, 30000); // Refresh every 30s
     return () => clearInterval(interval);
   }, [fetchFromBackend, profile]);
+
+  // Auto-show check-in screen if not yet checked in today
+  useEffect(() => {
+    if (!profile || checkinAutoShown) return;
+    checkinAutoShown = true;
+
+    checkinApi.getToday()
+      .then(res => {
+        if (!res.session) {
+          setTimeout(() => router.push('/checkin'), 600);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
 
   const handleRefresh = useCallback(() => {
     refreshAll();
@@ -157,6 +177,10 @@ export default function HomeScreen() {
         </View>
         </Animated.View>
         <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
+        <DailyCheckinCard />
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(250).duration(400).springify()}>
         <AsinuChatSticker onPress={() => setChatOpen(true)} />
         </Animated.View>
 

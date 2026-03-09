@@ -32,7 +32,7 @@ export const Toast = ({
   message,
   type = 'success',
   duration = 2000,
-  position = 'bottom',
+  position = 'top',
   onHide,
 }: ToastProps) => {
   const scaledTypography = useScaledTypography();
@@ -75,14 +75,15 @@ export const Toast = ({
   if (isHidden) return null;
 
   const getPositionStyle = () => {
+    const screenHeight = Dimensions.get('window').height;
     if (position === 'center') {
-      const screenHeight = Dimensions.get('window').height;
       return { top: screenHeight / 2 - 36, left: spacing.lg, right: spacing.lg };
     }
     if (position === 'bottom') {
       return { bottom: insets.bottom + spacing.xl, left: spacing.lg, right: spacing.lg };
     }
-    return { top: insets.top + spacing.lg, left: spacing.lg, right: spacing.lg };
+    // top: positioned at 1/4 of screen (between top edge and center)
+    return { top: screenHeight * 0.25 - 36, left: spacing.lg, right: spacing.lg };
   };
 
   const accent = ACCENT[type];
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    backgroundColor: colors.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,

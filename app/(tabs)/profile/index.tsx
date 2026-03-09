@@ -192,11 +192,10 @@ export default function ProfileScreen() {
       if (editHeight) updateData.heightCm = parseFloat(editHeight);
       if (editWeight) updateData.weightKg = parseFloat(editWeight);
       if (editBloodType) updateData.bloodType = editBloodType;
-      if (editChronicDiseases.trim()) {
-        // Split by comma and trim each disease
-        updateData.chronicDiseases = editChronicDiseases
-          .split(',').map(d => d.trim()).filter(d => d.length > 0);
-      }
+      // Always send chronicDiseases (even empty array) so clearing works
+      updateData.chronicDiseases = editChronicDiseases.trim()
+        ? editChronicDiseases.split(',').map((d: string) => d.trim()).filter((d: string) => d.length > 0)
+        : [];
 
       const updatedProfile = await authApi.updateProfile(updateData);
       useAuthStore.setState({ profile: updatedProfile });

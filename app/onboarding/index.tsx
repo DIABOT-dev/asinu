@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -19,41 +19,110 @@ import { apiClient } from '../../src/lib/apiClient';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
 
-// ─── Types ──────────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────
 
-type AIQuestion = {
-  done: false;
-  question: string;
-  type: 'single' | 'multi' | 'text';
-  options?: string[];
-  allow_other?: boolean;
-  field?: string;
-};
+const DISEASE_OPTIONS = [
+  'Tiểu đường',
+  'Tiền tiểu đường',
+  'Cao huyết áp',
+  'Bệnh tim',
+  'Mỡ máu',
+  'Tiền đình',
+  'Đau dạ dày',
+  'Gout',
+  'Không có',
+];
 
-type AIDone = {
-  done: true;
-  profile: Record<string, unknown>;
-};
+const MEDICATION_OPTIONS = ['Có', 'Không', 'Chỉ TPCN'];
+const CHECKUP_OPTIONS = ['Mỗi ngày', 'Vài lần/tuần', 'Thỉnh thoảng', 'Gần như không'];
+const EXERCISE_OPTIONS = ['Ít vận động', '30 phút', '1 giờ', 'Trên 1 giờ'];
+const SLEEP_OPTIONS = ['Đủ 7-8 giờ', '6-7 giờ', 'Ít hơn 5 giờ'];
+const MEALS_OPTIONS = ['2 bữa', '3 bữa', '4 bữa trở lên'];
+const DROWSY_OPTIONS = ['Không', 'Thỉnh thoảng', 'Thường xuyên'];
+const DINNER_OPTIONS = ['Trước 18 giờ', '18-20 giờ', 'Sau 20 giờ'];
+const SWEET_OPTIONS = ['Hiếm khi', 'Thỉnh thoảng', 'Thường xuyên'];
+const GOAL_OPTIONS = [
+  'Hiểu rõ tình trạng sức khoẻ',
+  'Nhắc nhở đo chỉ số mỗi ngày',
+  'Theo dõi bệnh mãn tính',
+  'Lời khuyên dinh dưỡng & lối sống',
+];
 
-type AIResponse = AIQuestion | AIDone;
+const TOTAL_STEPS = 5;
+const CURRENT_YEAR = new Date().getFullYear();
 
-type ConversationMessage = {
-  role: 'user' | 'assistant';
-  content: string;
-};
+// ─── Chip component ──────────────────────────────────────────────────
 
-type HistoryEntry = {
-  messages: ConversationMessage[];
-  question: AIQuestion;
-};
+interface ChipProps {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  fullWidth?: boolean;
+}
 
-// ─── Helpers ────────────────────────────────────────────────────────
+function Chip({ label, active, onPress, fullWidth }: ChipProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      android_ripple={{ color: colors.primary + '22' }}
+      style={({ pressed }) => [
+        chipStyles.chip,
+        active && chipStyles.chipActive,
+        pressed && chipStyles.chipPressed,
+        fullWidth && chipStyles.chipFullWidth,
+      ]}
+    >
+      <Text style={[chipStyles.chipText, active && chipStyles.chipTextActive]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
+const chipStyles = StyleSheet.create({
+  chip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignSelf: 'flex-start',
+  },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipPressed: {
+    opacity: 0.8,
+  },
+  chipFullWidth: {
+    alignSelf: 'stretch',
+  },
+  chipText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  chipTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+});
 
-// ─── Component ──────────────────────────────────────────────────────
+// ─── Section label ───────────────────────────────────────────────────
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 }}>
+      {label}
+    </Text>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
-  const { t } = useTranslation('onboarding');
   const { t: tc } = useTranslation('common');
   const { language, setLanguage } = useLanguageStore();
   const scaledTypography = useScaledTypography();
@@ -62,195 +131,166 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bootstrap = useAuthStore((s) => s.bootstrap);
-  const scrollRef = useRef<ScrollView>(null);
 
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState<AIQuestion | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [otherText, setOtherText] = useState('');
-  const [freeText, setFreeText] = useState('');
-  const [fetching, setFetching] = useState(true);   // loading next question from AI
-  const [saving, setSaving] = useState(false);       // saving final profile
+  const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
 
-  // Dùng ref để track language trước đó — tránh fire khi mount lần đầu
-  const prevLangRef = useRef(language);
+  // ── Step 1 state ─────────────────────────────────────────────────
+  const [birthYear, setBirthYear] = useState('');
+  const [gender, setGender] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [phone, setPhone] = useState('');
 
-  const questionCount = history.length + 1;
+  // ── Step 2 state ─────────────────────────────────────────────────
+  const [diseases, setDiseases] = useState<string[]>([]);
+  const [otherDisease, setOtherDisease] = useState('');
+  const [medication, setMedication] = useState('');
 
-  // ── Fetch next question ──────────────────────────────────────────
+  // ── Step 3 state ─────────────────────────────────────────────────
+  const [checkupFreq, setCheckupFreq] = useState('');
+  const [exerciseFreq, setExerciseFreq] = useState('');
+  const [sleepHours, setSleepHours] = useState('');
 
-  async function fetchNext(msgs: ConversationMessage[]) {
-    setFetching(true);
-    setSelected([]);
-    setOtherText('');
-    setFreeText('');
-    try {
-      const res = await apiClient<AIResponse>('/api/mobile/onboarding/next', {
-        method: 'POST',
-        body: { messages: msgs, language },
-      });
+  // ── Step 4 state ─────────────────────────────────────────────────
+  const [mealsPerDay, setMealsPerDay] = useState('');
+  const [postMealDrowsy, setPostMealDrowsy] = useState('');
+  const [dinnerTime, setDinnerTime] = useState('');
+  const [sweetIntake, setSweetIntake] = useState('');
 
-      if (res.done) {
-        await saveProfile(res.profile);
-        return;
-      }
+  // ── Step 5 state ─────────────────────────────────────────────────
+  const [goals, setGoals] = useState<string[]>([]);
 
-      setCurrentQuestion(res as AIQuestion);
-      setMessages(msgs);
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    } catch {
-      Alert.alert(t('errorTitle'), t('errorNetwork'));
-    } finally {
-      setFetching(false);
-    }
+  // ── Validation ───────────────────────────────────────────────────
+
+  const birthYearNum = parseInt(birthYear, 10);
+  const birthYearValid =
+    birthYear.length >= 4 &&
+    !isNaN(birthYearNum) &&
+    birthYearNum >= 1920 &&
+    birthYearNum <= CURRENT_YEAR - 10;
+  const birthYearError =
+    birthYear.length > 0 && !birthYearValid
+      ? `Năm sinh phải từ 1920 đến ${CURRENT_YEAR - 10}`
+      : '';
+
+  const heightNum = parseFloat(height);
+  const heightValid = height.length > 0 && !isNaN(heightNum) && heightNum >= 50 && heightNum <= 250;
+  const heightError = height.length > 0 && !heightValid ? 'Chiều cao phải từ 50–250 cm' : '';
+
+  const weightNum = parseFloat(weight);
+  const weightValid = weight.length > 0 && !isNaN(weightNum) && weightNum >= 10 && weightNum <= 300;
+  const weightError = weight.length > 0 && !weightValid ? 'Cân nặng phải từ 10–300 kg' : '';
+
+  const phoneValid = /^0\d{9}$/.test(phone.trim());
+  const phoneError = phone.length > 0 && !phoneValid ? 'Số điện thoại phải đúng định dạng 0xxxxxxxxx' : '';
+
+  const step1Valid = birthYearValid && gender !== '' && heightValid && weightValid && phoneValid;
+  const step2Valid = diseases.length > 0 && medication !== '';
+  const step3Valid = checkupFreq !== '' && exerciseFreq !== '' && sleepHours !== '';
+  const step4Valid =
+    mealsPerDay !== '' && postMealDrowsy !== '' && dinnerTime !== '' && sweetIntake !== '';
+  const step5Valid = goals.length > 0;
+
+  const canGoNext = (): boolean => {
+    if (step === 1) return step1Valid;
+    if (step === 2) return step2Valid;
+    if (step === 3) return step3Valid;
+    if (step === 4) return step4Valid;
+    if (step === 5) return step5Valid;
+    return false;
+  };
+
+  // ── Disease toggle ────────────────────────────────────────────────
+
+  function toggleDisease(value: string) {
+    setDiseases(prev => {
+      if (prev.includes(value)) return prev.filter(v => v !== value);
+      if (value === 'Không có') return ['Không có'];
+      return [...prev.filter(v => v !== 'Không có'), value];
+    });
   }
 
-  useEffect(() => {
-    fetchNext([]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  function toggleGoal(value: string) {
+    setGoals(prev =>
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+    );
+  }
 
-  // Khi user đổi ngôn ngữ → re-fetch câu hỏi hiện tại trong ngôn ngữ mới
-  // messages giữ nguyên (history các câu đã trả lời không mất)
-  useEffect(() => {
-    if (prevLangRef.current === language) return;
-    prevLangRef.current = language;
-    if (!fetching && !saving) {
-      fetchNext(messages);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
+  // ── Navigation ────────────────────────────────────────────────────
 
-  // ── Save final profile ───────────────────────────────────────────
+  function handleNext() {
+    if (step < TOTAL_STEPS) setStep(s => s + 1);
+  }
 
-  async function saveProfile(profile: Record<string, unknown>) {
+  function handleBack() {
+    if (step > 1) setStep(s => s - 1);
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────
+
+  async function handleSubmit() {
+    if (!step5Valid) return;
     setSaving(true);
     try {
-      await apiClient('/api/mobile/onboarding/complete', {
+      const medicalConditions = diseases
+        .filter(d => d !== 'Không có')
+        .concat(
+          otherDisease
+            ? otherDisease
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean)
+            : []
+        );
+
+      await apiClient('/api/mobile/onboarding/complete-v2', {
         method: 'POST',
-        body: { profile },
+        body: {
+          birth_year: parseInt(birthYear, 10),
+          gender,
+          height_cm: parseFloat(height),
+          weight_kg: parseFloat(weight),
+          phone: phone.trim(),
+          medical_conditions: medicalConditions,
+          daily_medication: medication,
+          checkup_freq: checkupFreq,
+          exercise_freq: exerciseFreq,
+          sleep_hours: sleepHours,
+          meals_per_day: mealsPerDay,
+          post_meal_drowsy: postMealDrowsy,
+          dinner_time: dinnerTime,
+          sweet_intake: sweetIntake,
+          user_goal: goals,
+        },
       });
+
       await bootstrap();
       router.replace('/(tabs)/home');
     } catch {
-      Alert.alert(t('errorTitle'), t('pleaseTryAgain'));
+      Alert.alert('Lỗi', 'Không thể lưu thông tin. Vui lòng thử lại.');
     } finally {
       setSaving(false);
     }
   }
 
-  // ── Answer validation ────────────────────────────────────────────
-
-  const isValid = useMemo(() => {
-    if (!currentQuestion) return false;
-    const { type, allow_other } = currentQuestion;
-    if (type === 'text') return freeText.trim().length > 0;
-    if (type === 'single') return selected.length === 1 || (!!allow_other && otherText.trim().length > 0);
-    if (type === 'multi') return selected.length > 0 || (!!allow_other && otherText.trim().length > 0);
-    return false;
-  }, [currentQuestion, selected, freeText, otherText]);
-
-  // ── Build answer string for AI ────────────────────────────────────
-
-  function buildAnswerContent(): string {
-    if (!currentQuestion) return '';
-    const { type, allow_other } = currentQuestion;
-    if (type === 'text') return freeText.trim();
-    if (type === 'single') {
-      if (selected[0]) return allow_other && otherText.trim() ? `${selected[0]}, ${otherText.trim()}` : selected[0];
-      return otherText.trim();
-    }
-    // multi
-    const parts = [...selected];
-    if (allow_other && otherText.trim()) parts.push(otherText.trim());
-    return parts.join(', ');
-  }
-
-  // ── Handle next ───────────────────────────────────────────────────
-
-  async function handleNext() {
-    if (!currentQuestion || !isValid) return;
-
-    const answer = buildAnswerContent();
-    const newMessages: ConversationMessage[] = [
-      ...messages,
-      { role: 'assistant', content: currentQuestion.question },
-      { role: 'user',      content: answer },
-    ];
-
-    setHistory(prev => [...prev, { messages, question: currentQuestion }]);
-    await fetchNext(newMessages);
-  }
-
-  // ── Handle skip ───────────────────────────────────────────────────
-
-  async function handleSkip() {
-    if (!currentQuestion || fetching || saving) return;
-    const skipText = language === 'vi' ? 'Bỏ qua' : 'Skip';
-    const newMessages: ConversationMessage[] = [
-      ...messages,
-      { role: 'assistant', content: currentQuestion.question },
-      { role: 'user',      content: skipText },
-    ];
-    setHistory(prev => [...prev, { messages, question: currentQuestion }]);
-    await fetchNext(newMessages);
-  }
-
-  // ── Handle back ───────────────────────────────────────────────────
-
-  function handleBack() {
-    if (history.length === 0) return;
-    const prev = history[history.length - 1];
-    setHistory(h => h.slice(0, -1));
-    setMessages(prev.messages);
-    setCurrentQuestion(prev.question);
-    setSelected([]);
-    setOtherText('');
-    setFreeText('');
-  }
-
-  // ── Selection helpers ─────────────────────────────────────────────
-
-  function toggleOption(value: string, noneValue?: string) {
-    setSelected(prev => {
-      // Deselect if already selected
-      if (prev.includes(value)) return prev.filter(v => v !== value);
-
-      // Select "Không có" / "None" clears others
-      if (noneValue && value === noneValue) return [value];
-
-      // Selecting anything else removes "Không có" / "None"
-      let next = [...prev, value];
-      if (noneValue) next = next.filter(v => v !== noneValue);
-      return next;
-    });
-  }
-
-  // ── Render ────────────────────────────────────────────────────────
-
-  const NONE = language === 'vi' ? 'Không có' : 'None';
-  const options: string[] = currentQuestion?.options ?? [];
-
-  const progress = Math.min((questionCount - 1) / 10, 0.9);
+  // ── Saving screen ─────────────────────────────────────────────────
 
   if (saving) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>{t('saving')}</Text>
+        <Text style={styles.loadingText}>Đang lưu thông tin...</Text>
       </View>
     );
   }
 
+  // ── Render ────────────────────────────────────────────────────────
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Language toggle */}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Top bar: language toggle */}
+      <View style={styles.topBar}>
         <View style={styles.languageToggle}>
           {(['vi', 'en'] as const).map(lang => (
             <Pressable
@@ -264,88 +304,83 @@ export default function OnboardingScreen() {
             </Pressable>
           ))}
         </View>
+      </View>
 
-        {/* Progress */}
-        <View style={styles.progressWrap}>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
-          </View>
-          <Text style={styles.progressText}>
-            {fetching ? t('thinking') : t('questionLabel', { n: questionCount })}
-          </Text>
+      {/* Progress bar */}
+      <View style={styles.progressWrap}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${(step / TOTAL_STEPS) * 100}%` }]} />
         </View>
+        <Text style={styles.progressText}>Bước {step}/{TOTAL_STEPS}</Text>
+      </View>
 
-        <Text style={styles.header}>{t('title')}</Text>
-        <Text style={styles.subtitle}>{t('subtitle')}</Text>
-
-        {/* Question card */}
-        <View style={styles.card}>
-          {fetching ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.loadingText}>{t('thinking')}</Text>
-            </View>
-          ) : currentQuestion ? (
-            <>
-              <Text style={styles.question}>{currentQuestion.question}</Text>
-
-              {/* Single / Multi options */}
-              {(currentQuestion.type === 'single' || currentQuestion.type === 'multi') && (
-                <View style={styles.options}>
-                  {options.map(opt => {
-                    const active = selected.includes(opt);
-                    return (
-                      <Pressable
-                        key={opt}
-                        onPress={() =>
-                          currentQuestion.type === 'multi'
-                            ? toggleOption(opt, NONE)
-                            : setSelected([opt])
-                        }
-                        android_ripple={{ color: colors.primary + '22' }}
-                        style={({ pressed }) => [
-                          styles.optionCard,
-                          active && styles.optionCardActive,
-                          pressed && styles.optionCardPressed,
-                        ]}
-                      >
-                        <Text style={[styles.optionText, active && styles.optionTextActive]}>
-                          {opt}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* Free-form input — show directly when allow_other */}
-              {(currentQuestion.type === 'single' || currentQuestion.type === 'multi') &&
-                currentQuestion.allow_other && (
-                  <RNTextInput
-                    style={styles.textInput}
-                    placeholder={t('otherPlaceholder')}
-                    placeholderTextColor={colors.textSecondary}
-                    value={otherText}
-                    onChangeText={setOtherText}
-                    returnKeyType="done"
-                  />
-                )}
-
-              {/* Free text input */}
-              {currentQuestion.type === 'text' && (
-                <RNTextInput
-                  style={styles.textInput}
-                  placeholder={t('typePlaceholder')}
-                  placeholderTextColor={colors.textSecondary}
-                  value={freeText}
-                  onChangeText={setFreeText}
-                  multiline
-                  returnKeyType="done"
-                />
-              )}
-            </>
-          ) : null}
-        </View>
+      {/* Step content */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {step === 1 && (
+          <Step1
+            styles={styles}
+            birthYear={birthYear}
+            setBirthYear={setBirthYear}
+            birthYearError={birthYearError}
+            gender={gender}
+            setGender={setGender}
+            height={height}
+            setHeight={setHeight}
+            heightError={heightError}
+            weight={weight}
+            setWeight={setWeight}
+            weightError={weightError}
+            phone={phone}
+            setPhone={setPhone}
+            phoneError={phoneError}
+          />
+        )}
+        {step === 2 && (
+          <Step2
+            styles={styles}
+            diseases={diseases}
+            toggleDisease={toggleDisease}
+            otherDisease={otherDisease}
+            setOtherDisease={setOtherDisease}
+            medication={medication}
+            setMedication={setMedication}
+          />
+        )}
+        {step === 3 && (
+          <Step3
+            styles={styles}
+            checkupFreq={checkupFreq}
+            setCheckupFreq={setCheckupFreq}
+            exerciseFreq={exerciseFreq}
+            setExerciseFreq={setExerciseFreq}
+            sleepHours={sleepHours}
+            setSleepHours={setSleepHours}
+          />
+        )}
+        {step === 4 && (
+          <Step4
+            styles={styles}
+            mealsPerDay={mealsPerDay}
+            setMealsPerDay={setMealsPerDay}
+            postMealDrowsy={postMealDrowsy}
+            setPostMealDrowsy={setPostMealDrowsy}
+            dinnerTime={dinnerTime}
+            setDinnerTime={setDinnerTime}
+            sweetIntake={sweetIntake}
+            setSweetIntake={setSweetIntake}
+          />
+        )}
+        {step === 5 && (
+          <Step5
+            styles={styles}
+            goals={goals}
+            toggleGoal={toggleGoal}
+          />
+        )}
       </ScrollView>
 
       {/* Footer */}
@@ -354,25 +389,386 @@ export default function OnboardingScreen() {
           label={tc('back')}
           variant="ghost"
           onPress={handleBack}
-          disabled={fetching || saving || history.length === 0}
+          disabled={step === 1}
         />
-        <Button
-          label={t('skip')}
-          variant="ghost"
-          onPress={handleSkip}
-          disabled={fetching || saving || !currentQuestion}
-        />
-        <Button
-          label={tc('continue')}
-          onPress={handleNext}
-          disabled={fetching || saving || !isValid}
-        />
+        {step < TOTAL_STEPS ? (
+          <Button
+            label={tc('continue')}
+            onPress={handleNext}
+            disabled={!canGoNext()}
+          />
+        ) : (
+          <Button
+            label="Hoàn thành"
+            onPress={handleSubmit}
+            disabled={!canGoNext()}
+          />
+        )}
       </View>
     </View>
   );
 }
 
-// ─── Styles ─────────────────────────────────────────────────────────
+// ─── Step 1 ─────────────────────────────────────────────────────────
+
+interface Step1Props {
+  styles: ReturnType<typeof createStyles>;
+  birthYear: string;
+  setBirthYear: (v: string) => void;
+  birthYearError: string;
+  gender: string;
+  setGender: (v: string) => void;
+  height: string;
+  setHeight: (v: string) => void;
+  heightError: string;
+  weight: string;
+  setWeight: (v: string) => void;
+  weightError: string;
+  phone: string;
+  setPhone: (v: string) => void;
+  phoneError: string;
+}
+
+function Step1({
+  styles,
+  birthYear, setBirthYear, birthYearError,
+  gender, setGender,
+  height, setHeight, heightError,
+  weight, setWeight, weightError,
+  phone, setPhone, phoneError,
+}: Step1Props) {
+  return (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Thông tin cơ bản</Text>
+      <Text style={styles.stepSubtitle}>Giúp Asinu hiểu bạn tốt hơn</Text>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Năm sinh" />
+        <RNTextInput
+          style={styles.textInput}
+          placeholder="VD: 1990"
+          placeholderTextColor={colors.textSecondary}
+          value={birthYear}
+          onChangeText={setBirthYear}
+          keyboardType="numeric"
+          maxLength={4}
+          returnKeyType="done"
+        />
+        {!!birthYearError && <Text style={styles.errorText}>{birthYearError}</Text>}
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Giới tính" />
+        <View style={styles.chipRow}>
+          {['Nam', 'Nữ', 'Khác'].map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={gender === opt}
+              onPress={() => setGender(opt)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Chiều cao (cm)" />
+        <RNTextInput
+          style={styles.textInput}
+          placeholder="VD: 165"
+          placeholderTextColor={colors.textSecondary}
+          value={height}
+          onChangeText={setHeight}
+          keyboardType="numeric"
+          returnKeyType="done"
+        />
+        {!!heightError && <Text style={styles.errorText}>{heightError}</Text>}
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Cân nặng (kg)" />
+        <RNTextInput
+          style={styles.textInput}
+          placeholder="VD: 60"
+          placeholderTextColor={colors.textSecondary}
+          value={weight}
+          onChangeText={setWeight}
+          keyboardType="numeric"
+          returnKeyType="done"
+        />
+        {!!weightError && <Text style={styles.errorText}>{weightError}</Text>}
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Số điện thoại" />
+        <RNTextInput
+          style={styles.textInput}
+          placeholder="VD: 0912345678"
+          placeholderTextColor={colors.textSecondary}
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          maxLength={11}
+          returnKeyType="done"
+        />
+        {!!phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
+      </View>
+    </View>
+  );
+}
+
+// ─── Step 2 ─────────────────────────────────────────────────────────
+
+interface Step2Props {
+  styles: ReturnType<typeof createStyles>;
+  diseases: string[];
+  toggleDisease: (v: string) => void;
+  otherDisease: string;
+  setOtherDisease: (v: string) => void;
+  medication: string;
+  setMedication: (v: string) => void;
+}
+
+function Step2({
+  styles,
+  diseases, toggleDisease,
+  otherDisease, setOtherDisease,
+  medication, setMedication,
+}: Step2Props) {
+  const hasDisease = diseases.some(d => d !== 'Không có');
+
+  return (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Bạn đang mắc bệnh nào?</Text>
+      <Text style={styles.stepSubtitle}>Chọn tất cả bệnh bạn đang có (nếu có)</Text>
+
+      <View style={styles.fieldGroup}>
+        <View style={styles.chipWrap}>
+          {DISEASE_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={diseases.includes(opt)}
+              onPress={() => toggleDisease(opt)}
+            />
+          ))}
+        </View>
+      </View>
+
+      {hasDisease && (
+        <View style={styles.fieldGroup}>
+          <SectionLabel label="Bệnh khác (nếu có)" />
+          <RNTextInput
+            style={styles.textInput}
+            placeholder="VD: Viêm khớp, Suy thận,..."
+            placeholderTextColor={colors.textSecondary}
+            value={otherDisease}
+            onChangeText={setOtherDisease}
+            returnKeyType="done"
+          />
+        </View>
+      )}
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Bạn có dùng thuốc hằng ngày không?" />
+        <View style={styles.chipRow}>
+          {MEDICATION_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={medication === opt}
+              onPress={() => setMedication(opt)}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Step 3 ─────────────────────────────────────────────────────────
+
+interface Step3Props {
+  styles: ReturnType<typeof createStyles>;
+  checkupFreq: string;
+  setCheckupFreq: (v: string) => void;
+  exerciseFreq: string;
+  setExerciseFreq: (v: string) => void;
+  sleepHours: string;
+  setSleepHours: (v: string) => void;
+}
+
+function Step3({
+  styles,
+  checkupFreq, setCheckupFreq,
+  exerciseFreq, setExerciseFreq,
+  sleepHours, setSleepHours,
+}: Step3Props) {
+  return (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Thói quen của bạn</Text>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Bạn thường đo sức khoẻ bao lâu một lần?" />
+        <View style={styles.chipWrap}>
+          {CHECKUP_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={checkupFreq === opt}
+              onPress={() => setCheckupFreq(opt)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Bạn thường vận động bao nhiêu mỗi ngày?" />
+        <View style={styles.chipWrap}>
+          {EXERCISE_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={exerciseFreq === opt}
+              onPress={() => setExerciseFreq(opt)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Mỗi ngày bạn thường ngủ được bao nhiêu giờ?" />
+        <View style={styles.chipWrap}>
+          {SLEEP_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={sleepHours === opt}
+              onPress={() => setSleepHours(opt)}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Step 4 ─────────────────────────────────────────────────────────
+
+interface Step4Props {
+  styles: ReturnType<typeof createStyles>;
+  mealsPerDay: string;
+  setMealsPerDay: (v: string) => void;
+  postMealDrowsy: string;
+  setPostMealDrowsy: (v: string) => void;
+  dinnerTime: string;
+  setDinnerTime: (v: string) => void;
+  sweetIntake: string;
+  setSweetIntake: (v: string) => void;
+}
+
+function Step4({
+  styles,
+  mealsPerDay, setMealsPerDay,
+  postMealDrowsy, setPostMealDrowsy,
+  dinnerTime, setDinnerTime,
+  sweetIntake, setSweetIntake,
+}: Step4Props) {
+  return (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Thói quen ăn uống</Text>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Bạn thường ăn bao nhiêu bữa một ngày?" />
+        <View style={styles.chipWrap}>
+          {MEALS_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={mealsPerDay === opt}
+              onPress={() => setMealsPerDay(opt)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Sau khi ăn cơm bạn có thấy buồn ngủ không?" />
+        <View style={styles.chipWrap}>
+          {DROWSY_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={postMealDrowsy === opt}
+              onPress={() => setPostMealDrowsy(opt)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Giờ ăn tối của bạn?" />
+        <View style={styles.chipWrap}>
+          {DINNER_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={dinnerTime === opt}
+              onPress={() => setDinnerTime(opt)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <SectionLabel label="Bạn ăn đồ ngọt, nước ngọt ở mức nào?" />
+        <View style={styles.chipWrap}>
+          {SWEET_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={sweetIntake === opt}
+              onPress={() => setSweetIntake(opt)}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Step 5 ─────────────────────────────────────────────────────────
+
+interface Step5Props {
+  styles: ReturnType<typeof createStyles>;
+  goals: string[];
+  toggleGoal: (v: string) => void;
+}
+
+function Step5({ styles, goals, toggleGoal }: Step5Props) {
+  return (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Bạn muốn Asinu giúp gì nhất?</Text>
+      <Text style={styles.stepSubtitle}>Có thể chọn nhiều</Text>
+
+      <View style={styles.fieldGroup}>
+        <View style={styles.chipColumn}>
+          {GOAL_OPTIONS.map(opt => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={goals.includes(opt)}
+              onPress={() => toggleGoal(opt)}
+              fullWidth
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
@@ -387,14 +783,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.md,
       backgroundColor: colors.background,
     },
-    scroll: {
+    topBar: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
       paddingHorizontal: spacing.xl,
-      paddingBottom: spacing.xl,
-      gap: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xs,
     },
     languageToggle: {
       flexDirection: 'row',
-      alignSelf: 'flex-end',
       gap: spacing.xs,
     },
     langBtn: {
@@ -418,11 +815,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: '#fff',
     },
     progressWrap: {
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.sm,
       gap: spacing.xs,
     },
     progressTrack: {
       height: 6,
-      borderRadius: radius.md,
+      borderRadius: radius.full,
       backgroundColor: colors.surfaceMuted,
       overflow: 'hidden',
       borderWidth: 1,
@@ -431,69 +830,46 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     progressFill: {
       height: '100%',
       backgroundColor: colors.primary,
+      borderRadius: radius.full,
     },
     progressText: {
       fontSize: typography.size.sm,
       color: colors.textSecondary,
+      fontWeight: '500',
     },
-    header: {
+    scroll: {
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.xxl,
+    },
+    stepContainer: {
+      gap: spacing.xl,
+    },
+    stepTitle: {
       fontSize: typography.size.xl,
       fontWeight: '800',
       color: colors.textPrimary,
+      marginTop: spacing.sm,
     },
-    subtitle: {
-      color: colors.textSecondary,
+    stepSubtitle: {
       fontSize: typography.size.sm,
-    },
-    card: {
-      backgroundColor: colors.surface,
-      padding: spacing.lg,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: spacing.md,
-      minHeight: 120,
-    },
-    loadingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    loadingText: {
       color: colors.textSecondary,
-      fontSize: typography.size.sm,
+      marginTop: -spacing.md,
     },
-    question: {
-      fontSize: typography.size.lg,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    options: {
+    fieldGroup: {
       gap: spacing.sm,
     },
-    optionCard: {
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.lg,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
+    chipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
     },
-    optionCardActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primary + '14',
+    chipWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
     },
-    optionCardPressed: {
-      opacity: 0.85,
-    },
-    optionText: {
-      color: colors.textPrimary,
-      fontSize: typography.size.md,
-      fontWeight: '600',
-    },
-    optionTextActive: {
-      color: colors.primary,
+    chipColumn: {
+      gap: spacing.sm,
     },
     textInput: {
       borderWidth: 1,
@@ -503,8 +879,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingVertical: spacing.sm,
       fontSize: typography.size.md,
       color: colors.textPrimary,
-      backgroundColor: colors.surfaceMuted,
+      backgroundColor: colors.surface,
       minHeight: 48,
+    },
+    errorText: {
+      fontSize: typography.size.sm,
+      color: colors.danger,
+    },
+    loadingText: {
+      color: colors.textSecondary,
+      fontSize: typography.size.sm,
     },
     footer: {
       flexDirection: 'row',

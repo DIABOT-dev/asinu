@@ -18,7 +18,7 @@ import {
 } from '../../src/features/notifications/notifications.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { getExpoPushToken, requestNotificationPermissions, scheduleLocalNotification } from '../../src/lib/notifications';
+import { getExpoPushToken, requestNotificationPermissions } from '../../src/lib/notifications';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { AppLanguage, useLanguageStore } from '../../src/stores/language.store';
 import { colors, spacing } from '../../src/styles';
@@ -88,7 +88,11 @@ export default function SettingsScreen() {
   const loadSchedulePrefs = async () => {
     try {
       const prefs = await getNotificationPreferences();
-      if (prefs.ok) setSchedulePrefs(prefs);
+      if (prefs.ok) {
+        setSchedulePrefs(prefs);
+        // Sync reminders toggle from backend (authoritative source)
+        setReminders(prefs.reminders_enabled !== false);
+      }
     } catch {}
   };
 
@@ -153,6 +157,12 @@ export default function SettingsScreen() {
     setNotifications(value);
     await AsyncStorage.setItem(STORAGE_KEY_NOTIFICATIONS, String(value));
 
+    // When turning OFF, clear push token on backend so cron stops sending pushes
+    if (!value) {
+      try {
+        await apiClient('/api/mobile/profile/push-token', { method: 'DELETE' });
+      } catch {}
+    }
   };
 
   const handleRemindersToggle = async (value: boolean) => {
@@ -168,6 +178,10 @@ export default function SettingsScreen() {
     setReminders(value);
     await AsyncStorage.setItem(STORAGE_KEY_REMINDERS, String(value));
 
+    // Persist to backend so cron jobs respect the setting
+    try {
+      await updateNotificationPreferences({ reminders_enabled: value });
+    } catch {}
   };
 
   const handleLogout = async () => {
@@ -376,26 +390,6 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {__DEV__ && (
-          <Button
-            label={t('testNotification')}
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const res = await apiClient<{ ok: boolean; title: string; body: string }>(
-                  '/api/notifications/engagement/preview'
-                );
-                if (res.ok && res.body) {
-                  await scheduleLocalNotification(res.title, res.body);
-                }
-              } catch (e) {
-                // fallback nếu server không chạy
-                await scheduleLocalNotification('Asinu', t('testNotificationBody'));
-              }
-            }}
-            style={{ marginTop: spacing.xl }}
-          />
-        )}
 
         <Button label={t('logout')} variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
         
