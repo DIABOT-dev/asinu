@@ -14,7 +14,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -28,6 +27,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { ScaledText as Text } from './ScaledText';
+import { useModal } from '../hooks/useModal';
 import { usePremium } from '../hooks/usePremium';
 import { VoiceLogType, VoiceParseResult, voiceParseLogs } from '../features/logs/voice.api';
 import { colors, radius, spacing } from '../styles';
@@ -62,6 +62,7 @@ function validateParsed(result: VoiceParseResult): string | null {
 export function VoiceLogButton({ logType, onParsed, onError }: Props) {
   const router = useRouter();
   const { isPremium, loading: premiumLoading } = usePremium();
+  const { showConfirm, modal: appModal } = useModal();
   const [state, setState] = useState<RecordState>('idle');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -94,14 +95,13 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
       const { granted, canAskAgain } = existing.granted ? existing : await Audio.requestPermissionsAsync();
       if (!granted) {
         if (!canAskAgain) {
-          Alert.alert(
-            'Cần quyền microphone',
-            'Vui lòng vào Cài đặt để cấp quyền microphone cho ứng dụng.',
-            [
-              { text: 'Để sau', style: 'cancel' },
-              { text: 'Mở Cài đặt', onPress: () => Linking.openSettings() },
-            ]
-          );
+          showConfirm({
+            title: 'Cần quyền microphone',
+            message: 'Vui lòng vào Cài đặt để cấp quyền microphone cho ứng dụng.',
+            confirmLabel: 'Mở Cài đặt',
+            cancelLabel: 'Để sau',
+            onConfirm: () => Linking.openSettings(),
+          });
         }
         return;
       }
@@ -223,6 +223,7 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
 
   return (
     <>
+      {appModal}
       <Pressable
         onPress={handlePress}
         disabled={isDisabled}

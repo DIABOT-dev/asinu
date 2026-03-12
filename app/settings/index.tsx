@@ -3,10 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import DeleteAccountModal from '../../src/components/DeleteAccountModal';
+import { useModal } from '../../src/hooks/useModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { authApi } from '../../src/features/auth/auth.api';
@@ -40,6 +41,7 @@ export default function SettingsScreen() {
   const { language, setLanguage } = useLanguageStore();
   const logout = useAuthStore((state) => state.logout);
   const { scale, setScale } = useFontSizeStore();
+  const { showInfo, showConfirm, modal } = useModal();
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
@@ -119,21 +121,13 @@ export default function SettingsScreen() {
       const hasPermission = await requestNotificationPermissions();
       
       if (!hasPermission) {
-        Alert.alert(
-          t('notificationPermRequired'),
-          t('notificationPermDesc'),
-          [
-            { text: t('later'), style: 'cancel' },
-            {
-              text: t('openSettings'),
-              onPress: () => {
-                // On iOS, this will open Settings app
-                // On Android, user needs to manually go to settings
-
-              }
-            }
-          ]
-        );
+        showConfirm({
+          title: t('notificationPermRequired'),
+          message: t('notificationPermDesc'),
+          confirmLabel: t('openSettings'),
+          cancelLabel: t('later'),
+          onConfirm: () => Linking.openSettings(),
+        });
         return;
       }
       
@@ -167,11 +161,7 @@ export default function SettingsScreen() {
 
   const handleRemindersToggle = async (value: boolean) => {
     if (value && !notifications) {
-      Alert.alert(
-        t('enableNotificationsFirst'),
-        t('enableNotificationsFirstDesc'),
-        [{ text: tc('ok') }]
-      );
+      showInfo(t('enableNotificationsFirst'), t('enableNotificationsFirstDesc'));
       return;
     }
     
@@ -213,23 +203,18 @@ export default function SettingsScreen() {
         await logout();
         setShowDeleteModal(false);
         router.replace('/login');
-        
-        // Hiển thị thông báo sau khi đã chuyển trang
-        setTimeout(() => {
-          Alert.alert(tc('success'), t('accountDeleted'));
-        }, 500);
       } else {
-        Alert.alert(tc('error'), t('deleteError'));
+        showInfo(tc('error'), t('deleteError'));
       }
     } catch (error) {
-
-      Alert.alert(tc('error'), t('deleteErrorGeneric'));
+      showInfo(tc('error'), t('deleteErrorGeneric'));
     }
   };
 
   return (
     <>
       <Stack.Screen options={screenOptions} />
+      {modal}
       <Screen>
       <ScrollView contentContainerStyle={[styles.container, { paddingTop: spacing.sm }]}>
         <H1SectionHeader title={t('title')} />

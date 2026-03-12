@@ -12,5 +12,101 @@
   "missingInfo": "Thiếu thông tin",
   "pleaseLoginAgain": "Vui lòng đăng nhập lại.",
   "pleaseTryAgain": "Vui lòng thử lại.",
-  "skip": "Bỏ qua"
+  "skip": "Bỏ qua",
+
+  "step": "Bước {{step}}/{{total}}",
+  "finish": "Hoàn thành",
+  "savingInfo": "Đang lưu thông tin...",
+  "cannotSave": "Không thể lưu thông tin. Vui lòng thử lại.",
+
+  "step1Title": "Thông tin cơ bản",
+  "step1Subtitle": "Giúp Asinu hiểu bạn tốt hơn",
+  "step2Title": "Bạn đang mắc bệnh nào?",
+  "step2Subtitle": "Chọn tất cả bệnh bạn đang có (nếu có)",
+  "step3Title": "Thói quen của bạn",
+  "step4Title": "Thói quen ăn uống",
+  "step5Title": "Bạn muốn Asinu giúp gì nhất?",
+  "step5Subtitle": "Có thể chọn nhiều",
+
+  "fieldBirthYear": "Năm sinh",
+  "fieldGender": "Giới tính",
+  "fieldHeight": "Chiều cao (cm)",
+  "fieldWeight": "Cân nặng (kg)",
+  "fieldPhone": "Số điện thoại",
+  "fieldOtherDisease": "Bệnh khác (nếu có)",
+  "fieldMedication": "Bạn có dùng thuốc hằng ngày không?",
+  "fieldCheckupFreq": "Bạn thường đo sức khoẻ bao lâu một lần?",
+  "fieldExerciseFreq": "Bạn thường vận động bao nhiêu mỗi ngày?",
+  "fieldSleepHours": "Mỗi ngày bạn thường ngủ được bao nhiêu giờ?",
+  "fieldMealsPerDay": "Bạn thường ăn bao nhiêu bữa một ngày?",
+  "fieldPostMealDrowsy": "Sau khi ăn cơm bạn có thấy buồn ngủ không?",
+  "fieldDinnerTime": "Giờ ăn tối của bạn?",
+  "fieldSweetIntake": "Bạn ăn đồ ngọt, nước ngọt ở mức nào?",
+
+  "birthYearPlaceholder": "VD: 1990",
+  "heightPlaceholder": "VD: 165",
+  "weightPlaceholder": "VD: 60",
+  "phonePlaceholder": "VD: 0912345678",
+  "otherDiseasePlaceholder": "VD: Viêm khớp, Suy thận, Sỏi mật,...",
+  "otherDiseaseHint": "Phân cách bằng dấu phẩy nếu có nhiều bệnh",
+
+  "errBirthYear": "Năm sinh phải từ 1920 đến {{maxYear}}",
+  "errHeight": "Chiều cao phải từ 50–250 cm",
+  "errWeight": "Cân nặng phải từ 10–300 kg",
+  "errPhone": "Số điện thoại phải đúng định dạng 0xxxxxxxxx",
+  "errPhoneDuplicateTitle": "Số điện thoại đã tồn tại",
+  "errPhoneDuplicate": "Số điện thoại này đã được sử dụng. Vui lòng nhập số điện thoại khác.",
+
+  "genderMale": "Nam",
+  "genderFemale": "Nữ",
+  "genderOther": "Khác",
+
+  "diseaseDiabetes": "Tiểu đường",
+  "diseasePreDiabetes": "Tiền tiểu đường",
+  "diseaseHypertension": "Cao huyết áp",
+  "diseaseHeartDisease": "Bệnh tim",
+  "diseaseDyslipidemia": "Mỡ máu",
+  "diseaseVertigo": "Tiền đình",
+  "diseaseGastritis": "Đau dạ dày",
+  "diseaseGout": "Gout",
+  "diseaseNone": "Không có",
+
+  "medYes": "Có",
+  "medNo": "Không",
+  "medSupplementOnly": "Chỉ TPCN",
+
+  "checkupDaily": "Mỗi ngày",
+  "checkupSeveralPerWeek": "Vài lần/tuần",
+  "checkupOccasionally": "Thỉnh thoảng",
+  "checkupRarely": "Gần như không",
+
+  "exerciseSedentary": "Ít vận động",
+  "exercise30min": "30 phút",
+  "exercise1hour": "1 giờ",
+  "exerciseOver1hour": "Trên 1 giờ",
+
+  "sleep78hours": "Đủ 7-8 giờ",
+  "sleep67hours": "6-7 giờ",
+  "sleepUnder5hours": "Ít hơn 5 giờ",
+
+  "meals2": "2 bữa",
+  "meals3": "3 bữa",
+  "meals4plus": "4 bữa trở lên",
+
+  "drowsyNo": "Không",
+  "drowsySometimes": "Thỉnh thoảng",
+  "drowsyOften": "Thường xuyên",
+
+  "dinnerBefore18": "Trước 18 giờ",
+  "dinner1820": "18-20 giờ",
+  "dinnerAfter20": "Sau 20 giờ",
+
+  "sweetRarely": "Hiếm khi",
+  "sweetSometimes": "Thỉnh thoảng",
+  "sweetOften": "Thường xuyên",
+
+  "goalUnderstandHealth": "Hiểu rõ tình trạng sức khoẻ",
+  "goalDailyReminder": "Nhắc nhở đo chỉ số mỗi ngày",
+  "goalTrackChronic": "Theo dõi bệnh mãn tính",
+  "goalNutritionAdvice": "Lời khuyên dinh dưỡng & lối sống"
 }

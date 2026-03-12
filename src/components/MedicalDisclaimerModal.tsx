@@ -24,8 +24,8 @@ export function containsMedicalKeywords(text: string): boolean {
 }
 
 export function MedicalDisclaimerModal({ visible, onClose }: Props) {
-  const { i18n } = useTranslation();
-  const isVi = i18n.language !== 'en';
+  const { t } = useTranslation('chat');
+  const lines = t('medDisclaimer.lines', { returnObjects: true }) as string[];
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -36,22 +36,10 @@ export function MedicalDisclaimerModal({ visible, onClose }: Props) {
             <Ionicons name="warning" size={36} color={colors.warning} />
           </View>
 
-          <Text style={styles.title}>
-            {isVi ? 'Cảnh báo thông tin y tế' : 'Medical Information Warning'}
-          </Text>
+          <Text style={styles.title}>{t('medDisclaimer.title')}</Text>
 
           <View style={styles.lines}>
-            {(isVi ? [
-              'Nội dung tư vấn được tạo bởi hệ thống AI và chỉ mang tính tham khảo.',
-              'Ứng dụng không cung cấp chẩn đoán y khoa hoặc kê đơn thuốc.',
-              'Thông tin này không thay thế lời khuyên của bác sĩ hoặc chuyên gia y tế.',
-              'Người dùng nên tham khảo ý kiến bác sĩ trước khi sử dụng bất kỳ loại thuốc nào.',
-            ] : [
-              'AI-generated content is for reference only and does not constitute medical advice.',
-              'This app does not provide medical diagnosis or prescriptions.',
-              'This information does not replace advice from a qualified healthcare professional.',
-              'Always consult a doctor before taking any medication.',
-            ]).map((line, i) => (
+            {lines.map((line, i) => (
               <View key={i} style={styles.lineRow}>
                 <Text style={styles.bullet}>{'\u2022'}</Text>
                 <Text style={styles.lineText}>{line}</Text>
@@ -60,21 +48,11 @@ export function MedicalDisclaimerModal({ visible, onClose }: Props) {
           </View>
 
           <View style={styles.buttons}>
-            <Pressable
-              style={[styles.btn, styles.btnSecondary]}
-              onPress={onClose}
-            >
-              <Text style={styles.btnSecondaryText}>
-                {isVi ? 'Đã hiểu' : 'Got it'}
-              </Text>
+            <Pressable style={[styles.btn, styles.btnSecondary]} onPress={onClose}>
+              <Text style={styles.btnSecondaryText}>{t('medDisclaimer.gotIt')}</Text>
             </Pressable>
-            <Pressable
-              style={[styles.btn, styles.btnPrimary]}
-              onPress={onClose}
-            >
-              <Text style={styles.btnPrimaryText}>
-                {isVi ? 'Đồng ý' : 'Agree'}
-              </Text>
+            <Pressable style={[styles.btn, styles.btnPrimary]} onPress={onClose}>
+              <Text style={styles.btnPrimaryText}>{t('medDisclaimer.agree')}</Text>
             </Pressable>
           </View>
         </View>

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
-import { useScaledTypography } from '../hooks/useScaledTypography';
+import { Pressable, StyleSheet, TextStyle, ViewStyle } from 'react-native';
 import { colors, radius, spacing } from '../styles';
+import { ScaledText } from './ScaledText';
 
 type ButtonVariant = 'primary' | 'secondary' | 'warning' | 'ghost';
 
@@ -15,7 +15,6 @@ export type ButtonProps = {
 };
 
 export const Button = ({ label, onPress, variant = 'primary', disabled, style, textStyle }: ButtonProps) => {
-  const scaledTypography = useScaledTypography();
   const variantStyles = useMemo(() => {
     const palette =
       variant === 'secondary'
@@ -44,8 +43,8 @@ export const Button = ({ label, onPress, variant = 'primary', disabled, style, t
   );
 
   const labelStyle = useMemo(
-    () => [styles.label, { color: variantStyles.textColor, fontSize: scaledTypography.size.md }, textStyle],
-    [variantStyles.textColor, scaledTypography.size.md, textStyle]
+    () => [styles.label, { color: variantStyles.textColor }, textStyle],
+    [variantStyles.textColor, textStyle]
   );
 
   return (
@@ -54,7 +53,7 @@ export const Button = ({ label, onPress, variant = 'primary', disabled, style, t
       disabled={disabled}
       style={getButtonStyle}
     >
-      <Text style={labelStyle}>{label}</Text>
+      <ScaledText style={labelStyle}>{label}</ScaledText>
     </Pressable>
   );
 };
@@ -69,6 +68,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
-    fontFamily: 'System'
+    fontFamily: 'System',
+    fontSize: 16,
   }
 });

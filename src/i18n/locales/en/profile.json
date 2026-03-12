@@ -47,5 +47,6 @@
   "heightValue": "{{value}} cm",
   "weightValue": "{{value}} kg",
   "wallet": "Wallet",
-  "subscription": "Subscription"
+  "subscription": "Subscription",
+  "chatNotes": "Chat Notes"
 }

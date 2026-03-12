@@ -1,9 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { ScaledText } from './ScaledText';
 
 type ToastType = 'success' | 'error';
 type ToastPosition = 'top' | 'bottom' | 'center';
@@ -35,7 +35,6 @@ export const Toast = ({
   position = 'top',
   onHide,
 }: ToastProps) => {
-  const scaledTypography = useScaledTypography();
   const [isHidden, setIsHidden] = useState(!visible);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
@@ -99,9 +98,9 @@ export const Toast = ({
       <View style={[styles.iconWrap, { backgroundColor: accent + '28' }]}>
         <MaterialCommunityIcons name={ICON[type]} size={20} color={accent} />
       </View>
-      <Text style={[styles.message, { fontSize: scaledTypography.size.sm }]} numberOfLines={2}>
+      <ScaledText style={styles.message} numberOfLines={2}>
         {message}
-      </Text>
+      </ScaledText>
     </Animated.View>
   );
 };
@@ -135,6 +134,6 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#fff',
     fontWeight: '600',
-    lineHeight: 20,
+    fontSize: 13,
   },
 });

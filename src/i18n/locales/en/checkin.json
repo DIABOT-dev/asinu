@@ -1,0 +1,49 @@
+{
+  "titleCheckin": "Health Check-in",
+  "titleFollowUp": "Update Status",
+
+  "statusFineLabel": "I'm OK",
+  "statusFineSub": "Feeling normal and healthy",
+  "statusTiredLabel": "Slightly unwell",
+  "statusTiredSub": "Something feels off, needs monitoring",
+  "statusVeryTiredLabel": "Very unwell",
+  "statusVeryTiredSub": "Feeling very unwell and uncomfortable",
+  "statusSpecificLabel": "Have a specific concern",
+  "statusSpecificSub": "I have something specific I want to share",
+
+  "headingFollowUp": "How are you feeling now?",
+  "headingMorning": "How are you feeling today?",
+  "chooseStatus": "Choose the status that best describes how you feel right now",
+
+  "questionCount": "Question {{n}}",
+  "analyzing": "Asinu is analyzing...",
+  "customAnswerPlaceholder": "Or type your own answer...",
+
+  "doneFineHeading": "Great! Keep it up.",
+  "doneHeading": "Asinu has noted",
+  "doneFineSubheading": "Asinu will check in with you again this evening.",
+
+  "severityHigh": "High severity",
+  "severityMedium": "Medium severity",
+  "severityLow": "Low severity",
+
+  "recommendationLabel": "Recommendation:",
+  "seeDoctor": "Consider seeing a doctor for a check-up.",
+
+  "followUpIn": "Asinu will check in again in {{hours}} hours.",
+  "followUpHighAlert": "Asinu will follow up in 1–2 hours.",
+  "followUpNormal": "Asinu will follow up in 3 hours.",
+
+  "progressionImproved": "Glad you're feeling better. Keep resting.",
+  "progressionSame": "Asinu will continue monitoring your condition.",
+  "progressionWorsened": "Your condition seems to have worsened.",
+
+  "redFlagTitle": "Attention Needed",
+  "redFlagDesc": "Asinu has detected some signs that need close monitoring. Please rest and check your vitals, or contact a family member or doctor if needed.",
+  "redFlagAction": "Understood",
+
+  "close": "Close",
+
+  "errorTitle": "Error",
+  "errorSaveStatus": "Could not save status. Please try again."
+}

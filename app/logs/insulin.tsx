@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import { useModal } from '../../src/hooks/useModal';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
@@ -26,6 +27,7 @@ export default function InsulinLogScreen() {
   const [timing, setTiming] = useState('pre_meal');
   const [injectionSite, setInjectionSite] = useState('');
   const [notes, setNotes] = useState('');
+  const { showInfo, modal } = useModal();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -94,19 +96,10 @@ export default function InsulinLogScreen() {
     try {
       await createInsulin(payload);
       setIsSaving(false);
-      // Show success message
-      Alert.alert(
-        t('successTitle'),
-        t('logSuccess'),
-        [
-          {
-            text: tc('ok')
-          }
-        ]
-      );
+      showInfo(t('successTitle'), t('logSuccess'));
     } catch (error) {
       setIsSaving(false);
-      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
+      showInfo(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -134,6 +127,7 @@ export default function InsulinLogScreen() {
   return (
     <>
       <Stack.Screen options={screenOptions} />
+      {modal}
       <Screen>
         <LoadingOverlay visible={isSaving} message={t('savingLog')} />
         <KeyboardAvoidingView

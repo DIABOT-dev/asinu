@@ -1,8 +1,9 @@
-import { Tabs } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors } from '../../src/styles';
 
@@ -15,6 +16,15 @@ export default function TabsLayout() {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { bottom } = useSafeAreaInsets();
+  const router = useRouter();
+  const profile = useAuthStore((s) => s.profile);
+  const loading = useAuthStore((s) => s.loading);
+
+  useEffect(() => {
+    if (!loading && profile && !profile.onboardingCompleted) {
+      router.replace('/onboarding');
+    }
+  }, [loading, profile]);
 
   const screenOptions = useMemo(
     () => ({

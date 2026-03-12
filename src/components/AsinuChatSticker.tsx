@@ -1,23 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Animated, Easing, Image, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { colors, spacing } from '../styles';
 
 const AsinuSticker = require('../../assets/asinu_chat_sticker.png');
 
-const MESSAGES = [
-  'Hỏi mình gì đi!',
-  'Hôm nay bạn khoẻ không?',
-  'Mình luôn ở đây nhé!',
-  'Nói chuyện với mình nào~',
-  'Có gì lo cứ kể mình nghe!',
-];
-
 type AsinuChatStickerProps = {
   onPress?: () => void;
 };
 
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
+  const { t } = useTranslation('chat');
+  const MESSAGES = t('stickerMessages', { returnObjects: true }) as string[];
+
   // Float animation
   const floatY = useRef(new Animated.Value(0)).current;
   // Bubble fade

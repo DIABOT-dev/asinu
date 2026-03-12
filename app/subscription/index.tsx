@@ -109,6 +109,7 @@ const featureRowStyle = StyleSheet.create({
 function PlanOption({
   plan, selected, onSelect,
 }: { plan: typeof PLANS[0]; selected: boolean; onSelect: () => void }) {
+  const { t } = useTranslation('subscription');
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
@@ -129,13 +130,13 @@ function PlanOption({
           </View>
         )}
         <Text style={[planOptionStyle.label, selected && planOptionStyle.labelSelected]}>
-          {plan.months === 1 ? '1 tháng' : plan.months === 3 ? '3 tháng' : plan.months === 6 ? '6 tháng' : '12 tháng'}
+          {t('planMonth', { months: plan.months })}
         </Text>
         <Text style={[planOptionStyle.price, selected && planOptionStyle.priceSelected]}>
           {formatVND(plan.price)}đ
         </Text>
         <Text style={[planOptionStyle.perMonth, selected && planOptionStyle.perMonthSelected]}>
-          ~{formatVND(pricePerMonth(plan))}đ/tháng
+          ~{formatVND(pricePerMonth(plan))}đ{t('perMonth')}
         </Text>
       </Pressable>
     </Animated.View>

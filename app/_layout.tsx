@@ -62,6 +62,10 @@ export default function RootLayout() {
               <StatusBar style="dark" translucent backgroundColor="transparent" />
               <Stack screenOptions={screenOptions}>
                 <Stack.Screen
+                  name="onboarding/index"
+                  options={{ gestureEnabled: false }}
+                />
+                <Stack.Screen
                   name="legal/content"
                   options={legalScreenOptions}
                 />

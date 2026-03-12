@@ -7,18 +7,19 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
+import { useModal } from '../hooks/useModal';
 import { checkinApi } from '../features/checkin/checkin.api';
 import { colors, radius, spacing } from '../styles';
 
 export function EmergencySOSButton() {
   const router = useRouter();
+  const { showInfo, modal } = useModal();
   const [loading, setLoading] = useState(false);
   const pressProgress = useRef(new Animated.Value(0)).current;
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,13 +62,9 @@ export function EmergencySOSButton() {
 
       const result = await checkinApi.emergency(location);
 
-      Alert.alert(
-        'Đã gửi tín hiệu khẩn cấp',
-        result.message,
-        [{ text: 'OK' }]
-      );
+      showInfo('Đã gửi tín hiệu khẩn cấp', result.message);
     } catch {
-      Alert.alert('Lỗi', 'Không gửi được tín hiệu khẩn cấp. Vui lòng gọi 115 trực tiếp.');
+      showInfo('Lỗi', 'Không gửi được tín hiệu khẩn cấp. Vui lòng gọi 115 trực tiếp.');
     } finally {
       setLoading(false);
       pressProgress.setValue(0);
@@ -81,6 +78,7 @@ export function EmergencySOSButton() {
 
   return (
     <View style={styles.wrapper}>
+      {modal}
       <Pressable
         onPressIn={startHold}
         onPressOut={cancelHold}

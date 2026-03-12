@@ -47,5 +47,6 @@
   "heightValue": "{{value}} cm",
   "weightValue": "{{value}} kg",
   "wallet": "Ví tiền",
-  "subscription": "Gói cước"
+  "subscription": "Gói cước",
+  "chatNotes": "Ghi chú chat"
 }

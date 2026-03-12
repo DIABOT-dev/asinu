@@ -1,6 +1,6 @@
 import { apiClient } from '../../lib/apiClient';
 
-export type CheckinStatus = 'fine' | 'tired' | 'very_tired';
+export type CheckinStatus = 'fine' | 'tired' | 'very_tired' | 'specific_concern';
 export type FlowState = 'monitoring' | 'follow_up' | 'high_alert' | 'resolved';
 
 export interface CheckinSession {
@@ -34,11 +34,15 @@ export interface TriageResult {
   recommendation?: string;
   needsDoctor?: boolean;
   needsFamilyAlert?: boolean;
+  hasRedFlag?: boolean;
+  followUpHours?: number;
+  closeMessage?: string;
+  progression?: 'improved' | 'same' | 'worsened';
 }
 
 export const checkinApi = {
   getToday: () =>
-    apiClient<{ ok: boolean; session: CheckinSession | null }>('/api/mobile/checkin/today'),
+    apiClient<{ ok: boolean; session: CheckinSession | null; continuityMessage: string | null }>('/api/mobile/checkin/today'),
 
   start: (status: CheckinStatus) =>
     apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/start', {

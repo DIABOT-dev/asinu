@@ -98,6 +98,7 @@ export const SessionProvider = ({ children }: Props) => {
   }, [notificationGranted]);
 
   const value = useMemo(() => ({ ready: !loading && hydrated }), [loading, hydrated]);
+  const profile = useAuthStore((state) => state.profile);
 
   // Block app until permission is granted
   if (hydrated && notificationGranted === false) {
@@ -107,8 +108,6 @@ export const SessionProvider = ({ children }: Props) => {
       </SessionContext.Provider>
     );
   }
-
-  const profile = useAuthStore((state) => state.profile);
 
   return (
     <SessionContext.Provider value={value}>

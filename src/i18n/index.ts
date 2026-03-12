@@ -4,6 +4,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 import enAuth from './locales/en/auth.json';
+import enCheckin from './locales/en/checkin.json';
 import enCareCircle from './locales/en/careCircle.json';
 import enChat from './locales/en/chat.json';
 import enCommon from './locales/en/common.json';
@@ -17,6 +18,7 @@ import enTree from './locales/en/tree.json';
 import enSubscription from './locales/en/subscription.json';
 import enWallet from './locales/en/wallet.json';
 import viAuth from './locales/vi/auth.json';
+import viCheckin from './locales/vi/checkin.json';
 import viCareCircle from './locales/vi/careCircle.json';
 import viChat from './locales/vi/chat.json';
 import viCommon from './locales/vi/common.json';
@@ -41,6 +43,7 @@ const resources = {
     tree: viTree,
     settings: viSettings,
     auth: viAuth,
+    checkin: viCheckin,
     onboarding: viOnboarding,
     careCircle: viCareCircle,
     chat: viChat,
@@ -56,6 +59,7 @@ const resources = {
     tree: enTree,
     settings: enSettings,
     auth: enAuth,
+    checkin: enCheckin,
     onboarding: enOnboarding,
     careCircle: enCareCircle,
     chat: enChat,
@@ -94,6 +98,7 @@ const initI18n = async () => {
       'tree',
       'settings',
       'auth',
+      'checkin',
       'onboarding',
       'careCircle',
       'chat',

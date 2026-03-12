@@ -148,5 +148,6 @@
   "freqTwiceDay": "Twice a day",
   "freqThreeDay": "Three times a day",
   "freqAfterMeal": "After meal",
-  "freqBeforeSleep": "Before sleep"
+  "freqBeforeSleep": "Before sleep",
+  "logSubtitleHero": "Select the metric you want to log today"
 }

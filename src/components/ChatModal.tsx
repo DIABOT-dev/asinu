@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatApi } from '../features/chat/chat.api';
-import { useScaledTypography } from '../hooks/useScaledTypography';
 import { apiClient } from '../lib/apiClient';
 import { router } from 'expo-router';
 import { navigation } from '../lib/navigation';
 import { colors, spacing } from '../styles';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from './MedicalDisclaimerModal';
+import { ScaledText } from './ScaledText';
 
 type ChatModalProps = {
   visible: boolean;
@@ -35,7 +35,6 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const [isPremium, setIsPremium] = useState(false);
   const [showMedicalDisclaimer, setShowMedicalDisclaimer] = useState(false);
   const medicalDisclaimerShown = useRef(false);
-  const scaledTypography = useScaledTypography();
   const hasFetchedPremium = useRef(false);
 
   useEffect(() => {
@@ -129,9 +128,9 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.handle} />
           <View style={styles.titleRow}>
-            <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>{t('chat:title')}</Text>
+            <ScaledText style={styles.title} numberOfLines={1}>{t('chat:title')}</ScaledText>
             <Pressable hitSlop={12} onPress={onClose}>
-              <Text style={[styles.closeLabel, { fontSize: scaledTypography.size.md }]}>{t('common:close')}</Text>
+              <ScaledText style={styles.closeLabel}>{t('common:close')}</ScaledText>
             </Pressable>
           </View>
           <View style={styles.chatBody}>
@@ -189,14 +188,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between'
   },
   title: {
-    lineHeight: 28,
     fontWeight: '700',
-    color: colors.textPrimary
+    color: colors.textPrimary,
+    fontSize: 18,
+    flex: 1,
   },
   closeLabel: {
     color: colors.textSecondary,
     fontWeight: '600',
-    lineHeight: 24
+    fontSize: 15,
   },
   chatBody: {
     flex: 1

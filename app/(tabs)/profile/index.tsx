@@ -62,12 +62,16 @@ export default function ProfileScreen() {
       .catch(() => {});
   }, []);
 
-  // Fetch data on mount
+  // Fetch data on mount (including full profile with health fields)
   useFocusEffect(
     useCallback(() => {
       const controller = new AbortController();
       fetchLogs(controller.signal);
       fetchMissions(controller.signal);
+      // Fetch full profile to get age/height/weight/bloodType/chronicDiseases
+      authApi.fetchProfile()
+        .then(fullProfile => useAuthStore.setState({ profile: fullProfile }))
+        .catch(() => {});
       return () => controller.abort();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -77,6 +81,9 @@ export default function ProfileScreen() {
     const controller = new AbortController();
     fetchLogs(controller.signal);
     fetchMissions(controller.signal);
+    authApi.fetchProfile()
+      .then(fullProfile => useAuthStore.setState({ profile: fullProfile }))
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -477,6 +484,16 @@ export default function ProfileScreen() {
               <Ionicons name="star" size={24} color="#fff" />
             </LinearGradient>
             <Text style={styles.actionLabel}>{t('subscription')}</Text>
+          </Pressable>
+
+          <Pressable style={styles.actionCard} onPress={() => router.push('/chat-notes')}>
+            <LinearGradient
+              colors={['#0ea5e9', '#0284c7']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="bookmark" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>{t('chatNotes')}</Text>
           </Pressable>
         </View>
         </Animated.View>

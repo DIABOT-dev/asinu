@@ -1,1 +1,2 @@
-export { default } from './email';
+import LoginEmailScreen from './email';
+export default LoginEmailScreen;

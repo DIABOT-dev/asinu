@@ -12,5 +12,101 @@
   "missingInfo": "Missing information",
   "pleaseLoginAgain": "Please log in again.",
   "pleaseTryAgain": "Please try again.",
-  "skip": "Skip"
+  "skip": "Skip",
+
+  "step": "Step {{step}}/{{total}}",
+  "finish": "Finish",
+  "savingInfo": "Saving information...",
+  "cannotSave": "Could not save information. Please try again.",
+
+  "step1Title": "Basic Information",
+  "step1Subtitle": "Help Asinu understand you better",
+  "step2Title": "What conditions do you have?",
+  "step2Subtitle": "Select all conditions that apply",
+  "step3Title": "Your habits",
+  "step4Title": "Eating habits",
+  "step5Title": "How can Asinu help you most?",
+  "step5Subtitle": "You can select multiple",
+
+  "fieldBirthYear": "Birth Year",
+  "fieldGender": "Gender",
+  "fieldHeight": "Height (cm)",
+  "fieldWeight": "Weight (kg)",
+  "fieldPhone": "Phone number",
+  "fieldOtherDisease": "Other conditions (if any)",
+  "fieldMedication": "Do you take daily medication?",
+  "fieldCheckupFreq": "How often do you measure your health?",
+  "fieldExerciseFreq": "How much do you exercise each day?",
+  "fieldSleepHours": "How many hours of sleep do you get per day?",
+  "fieldMealsPerDay": "How many meals do you eat per day?",
+  "fieldPostMealDrowsy": "Do you feel drowsy after eating?",
+  "fieldDinnerTime": "When do you usually have dinner?",
+  "fieldSweetIntake": "How much sweet food or drinks do you consume?",
+
+  "birthYearPlaceholder": "e.g. 1990",
+  "heightPlaceholder": "e.g. 165",
+  "weightPlaceholder": "e.g. 60",
+  "phonePlaceholder": "e.g. 0912345678",
+  "otherDiseasePlaceholder": "e.g. Arthritis, Kidney disease, Gallstones,...",
+  "otherDiseaseHint": "Separate multiple conditions with a comma",
+
+  "errBirthYear": "Birth year must be between 1920 and {{maxYear}}",
+  "errHeight": "Height must be between 50–250 cm",
+  "errWeight": "Weight must be between 10–300 kg",
+  "errPhone": "Phone number must be in format 0xxxxxxxxx",
+  "errPhoneDuplicateTitle": "Phone Number Taken",
+  "errPhoneDuplicate": "This phone number is already in use. Please enter a different number.",
+
+  "genderMale": "Male",
+  "genderFemale": "Female",
+  "genderOther": "Other",
+
+  "diseaseDiabetes": "Diabetes",
+  "diseasePreDiabetes": "Pre-diabetes",
+  "diseaseHypertension": "Hypertension",
+  "diseaseHeartDisease": "Heart Disease",
+  "diseaseDyslipidemia": "High Cholesterol",
+  "diseaseVertigo": "Vertigo",
+  "diseaseGastritis": "Gastritis",
+  "diseaseGout": "Gout",
+  "diseaseNone": "None",
+
+  "medYes": "Yes",
+  "medNo": "No",
+  "medSupplementOnly": "Supplements only",
+
+  "checkupDaily": "Every day",
+  "checkupSeveralPerWeek": "Several times/week",
+  "checkupOccasionally": "Occasionally",
+  "checkupRarely": "Almost never",
+
+  "exerciseSedentary": "Sedentary",
+  "exercise30min": "30 minutes",
+  "exercise1hour": "1 hour",
+  "exerciseOver1hour": "Over 1 hour",
+
+  "sleep78hours": "Full 7-8 hours",
+  "sleep67hours": "6-7 hours",
+  "sleepUnder5hours": "Less than 5 hours",
+
+  "meals2": "2 meals",
+  "meals3": "3 meals",
+  "meals4plus": "4 or more meals",
+
+  "drowsyNo": "No",
+  "drowsySometimes": "Sometimes",
+  "drowsyOften": "Often",
+
+  "dinnerBefore18": "Before 6 PM",
+  "dinner1820": "6-8 PM",
+  "dinnerAfter20": "After 8 PM",
+
+  "sweetRarely": "Rarely",
+  "sweetSometimes": "Sometimes",
+  "sweetOften": "Often",
+
+  "goalUnderstandHealth": "Understand my health condition",
+  "goalDailyReminder": "Daily reminders to measure metrics",
+  "goalTrackChronic": "Track chronic conditions",
+  "goalNutritionAdvice": "Nutrition & lifestyle advice"
 }

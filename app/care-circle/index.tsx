@@ -3,9 +3,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import { useModal } from '../../src/hooks/useModal';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
@@ -50,6 +51,7 @@ export default function CareCircleScreen() {
     refresh
   } = useCareCircle();
 
+  const { showInfo, showConfirm, modal } = useModal();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editConnection, setEditConnection] = useState<{ id: string; relationship_type?: string; role?: string; name: string } | null>(null);
@@ -160,9 +162,9 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(id);
       await acceptInvitation(id);
-      Alert.alert(tc('success'), t('acceptSuccess'));
+      showInfo(tc('success'), t('acceptSuccess'));
     } catch (error) {
-      Alert.alert(tc('error'), t('acceptError'));
+      showInfo(tc('error'), t('acceptError'));
     } finally {
       setActionLoading(null);
     }
@@ -172,37 +174,33 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(id);
       await rejectInvitation(id);
-      Alert.alert(tc('success'), t('rejectSuccess'));
+      showInfo(tc('success'), t('rejectSuccess'));
     } catch (error) {
-      Alert.alert(tc('error'), t('rejectError'));
+      showInfo(tc('error'), t('rejectError'));
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleDeleteConnection = async (id: string, name: string) => {
-    Alert.alert(
-      t('confirmDelete'),
-      t('confirmDeleteMsg', { name }),
-      [
-        { text: tc('cancel'), style: 'cancel' },
-        {
-          text: tc('delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setActionLoading(id);
-              await deleteConnection(id);
-              Alert.alert(t('deleted'), t('deletedMsg'));
-            } catch (error) {
-              Alert.alert(tc('error'), t('deleteError'));
-            } finally {
-              setActionLoading(null);
-            }
-          }
+  const handleDeleteConnection = (id: string, name: string) => {
+    showConfirm({
+      title: t('confirmDelete'),
+      message: t('confirmDeleteMsg', { name }),
+      confirmLabel: tc('delete'),
+      cancelLabel: tc('cancel'),
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          setActionLoading(id);
+          await deleteConnection(id);
+          showInfo(t('deleted'), t('deletedMsg'));
+        } catch (error) {
+          showInfo(tc('error'), t('deleteError'));
+        } finally {
+          setActionLoading(null);
         }
-      ]
-    );
+      },
+    });
   };
 
   const handleEditConnection = (connection: any) => {
@@ -231,10 +229,9 @@ export default function CareCircleScreen() {
       });
       
       setEditModalVisible(false);
-      Alert.alert(tc('success'), t('editSuccess'));
+      showInfo(tc('success'), t('editSuccess'));
     } catch (error) {
-
-      Alert.alert(tc('error'), t('editError'));
+      showInfo(tc('error'), t('editError'));
     } finally {
       setActionLoading(null);
     }
@@ -250,6 +247,7 @@ export default function CareCircleScreen() {
   return (
     <>
       <Stack.Screen options={screenOptions} />
+      {modal}
       <Screen>
       <ScrollView
         style={styles.container}

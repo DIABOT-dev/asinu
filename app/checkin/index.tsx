@@ -1,95 +1,95 @@
 /**
- * Daily Health Check-in Screen
- * Flows:
- *   fine       → confirm → done (evening check at 21h)
- *   tired      → triage 3-5 questions → summary
- *   very_tired → triage (more urgent) → summary
- *   followup   → same 3-button screen with context banner
+ * Daily Health Check-in Screen — Asinu 4-Phase Flow
+ *
+ * Phase 1 — Initial Check-in: 4 options
+ * Phase 2 — Clinical Interview (buổi sáng, lần đầu báo cáo không khoẻ)
+ * Phase 3 — Follow-up Monitoring (định kỳ 1-4h): 3-layer Q&A
+ * Phase 4 — Resolution / Escalation
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { useModal } from '../../src/hooks/useModal';
 import { checkinApi, type CheckinStatus, type CheckinSession } from '../../src/features/checkin/checkin.api';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
 
-// ─── Status options ────────────────────────────────────────────────────────────
+// ─── Status options (4 options) ───────────────────────────────────────────────
 
 const STATUS_OPTIONS: Array<{
   status: CheckinStatus;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  label: string;
-  sublabel: string;
+  labelKey: string;
+  subKey: string;
   color: string;
   bg: string;
 }> = [
-  {
-    status: 'fine',
-    icon: 'emoticon-happy-outline',
-    label: 'Tôi ổn',
-    sublabel: 'Cảm thấy bình thường, khoẻ mạnh',
-    color: '#16a34a',
-    bg: '#dcfce7',
-  },
-  {
-    status: 'tired',
-    icon: 'emoticon-sad-outline',
-    label: 'Hơi mệt',
-    sublabel: 'Có gì đó không ổn, cần theo dõi',
-    color: '#d97706',
-    bg: '#fef3c7',
-  },
-  {
-    status: 'very_tired',
-    icon: 'emoticon-cry-outline',
-    label: 'Rất mệt',
-    sublabel: 'Mệt nhiều, không thoải mái',
-    color: '#dc2626',
-    bg: '#fee2e2',
-  },
+  { status: 'fine',             icon: 'emoticon-happy-outline',    labelKey: 'statusFineLabel',     subKey: 'statusFineSub',     color: '#16a34a', bg: '#dcfce7' },
+  { status: 'tired',            icon: 'emoticon-sad-outline',      labelKey: 'statusTiredLabel',    subKey: 'statusTiredSub',    color: '#d97706', bg: '#fef3c7' },
+  { status: 'very_tired',       icon: 'emoticon-cry-outline',      labelKey: 'statusVeryTiredLabel', subKey: 'statusVeryTiredSub', color: '#dc2626', bg: '#fee2e2' },
+  { status: 'specific_concern', icon: 'comment-question-outline',  labelKey: 'statusSpecificLabel', subKey: 'statusSpecificSub', color: '#7c3aed', bg: '#ede9fe' },
 ];
+
+type Styles = ReturnType<typeof createStyles>;
+type ScreenName = 'status' | 'triage' | 'done';
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
-type Screen = 'status' | 'triage' | 'done';
-
 export default function CheckinScreen() {
+  const { t } = useTranslation('checkin');
+  const typography = useScaledTypography();
+  const styles = useMemo(() => createStyles(typography), [typography]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ checkin_id?: string; mode?: string }>();
   const isFollowUp = params.mode === 'followup';
   const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
+  const { showInfo, modal } = useModal();
 
-  const [screen, setScreen]       = useState<Screen>('status');
-  const [loading, setLoading]     = useState(false);
-  const [session, setSession]     = useState<CheckinSession | null>(null);
+  const [screen, setScreen]   = useState<ScreenName>('status');
+  const [loading, setLoading] = useState(false);
+  const [session, setSession] = useState<CheckinSession | null>(null);
+  const [continuityMessage, setContinuityMessage] = useState<string | null>(null);
 
-  // Triage state
-  const [answers, setAnswers]      = useState<Array<{ question: string; answer: string }>>([]);
-  const [currentQ, setCurrentQ]    = useState<string>('');
-  const [currentOpts, setCurrentOpts] = useState<string[]>([]);
-  const [customAnswer, setCustomAnswer] = useState('');
+  const [answers, setAnswers]             = useState<Array<{ question: string; answer: string }>>([]);
+  const [currentQ, setCurrentQ]           = useState<string>('');
+  const [currentOpts, setCurrentOpts]     = useState<string[]>([]);
   const [triageSummary, setTriageSummary] = useState<{
-    summary: string; severity: string; recommendation: string; needsDoctor: boolean;
+    summary: string;
+    severity: string;
+    recommendation: string;
+    needsDoctor: boolean;
+    hasRedFlag: boolean;
+    followUpHours?: number;
+    closeMessage?: string;
+    progression?: string;
   } | null>(null);
 
-  // ─── Status select ─────────────────────────────────────────────────────────
+  // Load continuity message khi mở màn hình lần đầu
+  useEffect(() => {
+    if (!isFollowUp) {
+      checkinApi.getToday().then(res => {
+        if (res.continuityMessage) setContinuityMessage(res.continuityMessage);
+      }).catch(() => {});
+    }
+  }, [isFollowUp]);
 
   const handleStatusSelect = useCallback(async (status: CheckinStatus) => {
     setLoading(true);
     try {
       let sess: CheckinSession;
-
       if (isFollowUp && existingCheckinId) {
         const res = await checkinApi.followUp(existingCheckinId, status);
         sess = res.session;
@@ -97,25 +97,16 @@ export default function CheckinScreen() {
         const res = await checkinApi.start(status);
         sess = res.session;
       }
-
       setSession(sess);
-
-      if (status === 'fine') {
-        setScreen('done');
-        return;
-      }
-
-      // Start triage for tired/very_tired
+      if (status === 'fine') { setScreen('done'); return; }
       await fetchNextQuestion(sess, []);
       setScreen('triage');
     } catch {
-      Alert.alert('Lỗi', 'Không thể lưu trạng thái. Vui lòng thử lại.');
+      showInfo(t('errorTitle'), t('errorSaveStatus'));
     } finally {
       setLoading(false);
     }
-  }, [isFollowUp, existingCheckinId]);
-
-  // ─── Triage ────────────────────────────────────────────────────────────────
+  }, [isFollowUp, existingCheckinId, t]);
 
   const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: typeof answers) => {
     setLoading(true);
@@ -123,16 +114,19 @@ export default function CheckinScreen() {
       const result = await checkinApi.triage(sess.id, prevAnswers);
       if (result.isDone) {
         setTriageSummary({
-          summary: result.summary || '',
-          severity: result.severity || 'medium',
+          summary:      result.summary || '',
+          severity:     result.severity || 'medium',
           recommendation: result.recommendation || '',
-          needsDoctor: result.needsDoctor ?? false,
+          needsDoctor:  result.needsDoctor ?? false,
+          hasRedFlag:   result.hasRedFlag ?? false,
+          followUpHours: result.followUpHours,
+          closeMessage: result.closeMessage,
+          progression:  result.progression,
         });
         setScreen('done');
       } else {
         setCurrentQ(result.question || '');
         setCurrentOpts(result.options || []);
-        setCustomAnswer('');
       }
     } finally {
       setLoading(false);
@@ -146,8 +140,6 @@ export default function CheckinScreen() {
     await fetchNextQuestion(session, newAnswers);
   };
 
-  // ─── Render screens ────────────────────────────────────────────────────────
-
   if (loading && screen === 'status') {
     return (
       <View style={styles.centered}>
@@ -158,9 +150,10 @@ export default function CheckinScreen() {
 
   return (
     <>
+      {modal}
       <Stack.Screen options={{
         headerShown: true,
-        title: isFollowUp ? 'Cập nhật tình trạng' : 'Check-in sức khoẻ',
+        title: isFollowUp ? t('titleFollowUp') : t('titleCheckin'),
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
         headerShadowVisible: false,
@@ -176,18 +169,32 @@ export default function CheckinScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
         keyboardShouldPersistTaps="handled"
       >
-        {screen === 'status' && <StatusScreen onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
+        {screen === 'status' && (
+          <StatusScreen
+            styles={styles}
+            t={t}
+            onSelect={handleStatusSelect}
+            isFollowUp={isFollowUp}
+            continuityMessage={continuityMessage}
+          />
+        )}
         {screen === 'triage' && (
           <TriageScreen
+            styles={styles}
+            t={t}
+            typography={typography}
             question={currentQ}
             options={currentOpts}
             answers={answers}
             loading={loading}
             onAnswer={handleAnswer}
+            isFollowUp={isFollowUp}
           />
         )}
         {screen === 'done' && (
           <DoneScreen
+            styles={styles}
+            t={t}
             session={session}
             triageSummary={triageSummary}
             onClose={() => router.back()}
@@ -201,18 +208,28 @@ export default function CheckinScreen() {
 // ─── Status screen ────────────────────────────────────────────────────────────
 
 function StatusScreen({
-  onSelect,
-  isFollowUp,
+  styles, t, onSelect, isFollowUp, continuityMessage,
 }: {
+  styles: Styles;
+  t: (key: string, opts?: Record<string, unknown>) => string;
   onSelect: (s: CheckinStatus) => void;
   isFollowUp: boolean;
+  continuityMessage: string | null;
 }) {
   return (
     <View style={styles.section}>
+      {/* Continuity Check Banner */}
+      {continuityMessage ? (
+        <View style={styles.continuityBanner}>
+          <Ionicons name="time-outline" size={16} color={colors.primary} />
+          <Text style={styles.continuityText}>{continuityMessage}</Text>
+        </View>
+      ) : null}
+
       <Text style={styles.heading}>
-        {isFollowUp ? 'Tình trạng bây giờ thế nào?' : 'Sáng nay bạn cảm thấy thế nào?'}
+        {isFollowUp ? t('headingFollowUp') : t('headingMorning')}
       </Text>
-      <Text style={styles.subheading}>Chọn trạng thái phù hợp nhất với bạn lúc này</Text>
+      <Text style={styles.subheading}>{t('chooseStatus')}</Text>
 
       <View style={styles.optionList}>
         {STATUS_OPTIONS.map(opt => (
@@ -227,8 +244,8 @@ function StatusScreen({
           >
             <MaterialCommunityIcons name={opt.icon} size={36} color={opt.color} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.statusLabel, { color: opt.color }]}>{opt.label}</Text>
-              <Text style={styles.statusSub}>{opt.sublabel}</Text>
+              <Text style={[styles.statusLabel, { color: opt.color }]}>{t(opt.labelKey)}</Text>
+              <Text style={styles.statusSub}>{t(opt.subKey)}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={opt.color} />
           </Pressable>
@@ -241,39 +258,42 @@ function StatusScreen({
 // ─── Triage screen ────────────────────────────────────────────────────────────
 
 function TriageScreen({
-  question,
-  options,
-  answers,
-  loading,
-  onAnswer,
+  styles, t, typography, question, options, answers, loading, onAnswer, isFollowUp,
 }: {
+  styles: Styles;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+  typography: ReturnType<typeof useScaledTypography>;
   question: string;
   options: string[];
   answers: Array<{ question: string; answer: string }>;
   loading: boolean;
   onAnswer: (a: string) => void;
+  isFollowUp: boolean;
 }) {
   const [custom, setCustom] = useState('');
-  const { TextInput } = require('react-native');
+  const maxDots = isFollowUp ? 3 : 8;
 
   return (
     <View style={styles.section}>
-      {/* Progress dots */}
       <View style={styles.progressDots}>
-        {[0, 1, 2, 3, 4].map(i => (
+        {Array.from({ length: maxDots }, (_, i) => (
           <View
             key={i}
-            style={[styles.dot, i < answers.length && styles.dotFilled, i === answers.length && styles.dotActive]}
+            style={[
+              styles.dot,
+              i < answers.length && styles.dotFilled,
+              i === answers.length && styles.dotActive,
+            ]}
           />
         ))}
       </View>
 
-      <Text style={styles.questionCount}>Câu {answers.length + 1} / tối đa 5</Text>
+      <Text style={styles.questionCount}>{t('questionCount', { n: answers.length + 1 })}</Text>
 
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.subheading, { marginTop: 12 }]}>Asinu đang phân tích...</Text>
+          <Text style={[styles.subheading, { marginTop: 12 }]}>{t('analyzing')}</Text>
         </View>
       ) : (
         <>
@@ -291,11 +311,10 @@ function TriageScreen({
             ))}
           </View>
 
-          {/* Custom answer */}
           <View style={styles.customRow}>
             <TextInput
-              style={styles.customInput}
-              placeholder="Hoặc tự nhập câu trả lời..."
+              style={[styles.customInput, { fontSize: typography.size.md }]}
+              placeholder={t('customAnswerPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={custom}
               onChangeText={setCustom}
@@ -319,19 +338,99 @@ function TriageScreen({
 // ─── Done screen ──────────────────────────────────────────────────────────────
 
 function DoneScreen({
-  session,
-  triageSummary,
-  onClose,
+  styles, t, session, triageSummary, onClose,
 }: {
+  styles: Styles;
+  t: (key: string, opts?: Record<string, unknown>) => string;
   session: CheckinSession | null;
-  triageSummary: { summary: string; severity: string; recommendation: string; needsDoctor: boolean } | null;
+  triageSummary: {
+    summary: string;
+    severity: string;
+    recommendation: string;
+    needsDoctor: boolean;
+    hasRedFlag: boolean;
+    followUpHours?: number;
+    closeMessage?: string;
+    progression?: string;
+  } | null;
   onClose: () => void;
 }) {
   const isFine = session?.current_status === 'fine';
+  const progression = triageSummary?.progression;
 
   const severityColor = triageSummary?.severity === 'high' ? '#dc2626'
     : triageSummary?.severity === 'medium' ? '#d97706' : '#16a34a';
+  const severityLabel = triageSummary?.severity === 'high' ? t('severityHigh')
+    : triageSummary?.severity === 'medium' ? t('severityMedium') : t('severityLow');
 
+  // Câu kết follow-up
+  const followUpText = triageSummary?.closeMessage
+    || (triageSummary?.followUpHours
+      ? t('followUpIn', { hours: triageSummary.followUpHours })
+      : session?.flow_state === 'high_alert'
+        ? t('followUpHighAlert')
+        : t('followUpNormal'));
+
+  // Màn hình red flag escalation
+  if (triageSummary?.hasRedFlag) {
+    return (
+      <View style={styles.section}>
+        <View style={styles.doneIcon}>
+          <Ionicons name="warning" size={64} color="#dc2626" />
+        </View>
+        <Text style={styles.heading}>{t('redFlagTitle')}</Text>
+        <Text style={[styles.subheading, { color: '#dc2626', fontWeight: '600' }]}>
+          {triageSummary.summary}
+        </Text>
+        <View style={[styles.summaryCard, { borderColor: '#dc2626', backgroundColor: '#fff1f2' }]}>
+          <Text style={styles.recommendationLabel}>{t('recommendationLabel')}</Text>
+          <Text style={styles.recommendationText}>{triageSummary.recommendation}</Text>
+          <View style={styles.doctorBanner}>
+            <Ionicons name="medical" size={16} color="#dc2626" />
+            <Text style={styles.doctorText}>{t('seeDoctor')}</Text>
+          </View>
+        </View>
+        <Pressable style={[styles.closeBtn, { backgroundColor: '#dc2626' }]} onPress={onClose}>
+          <Text style={styles.closeBtnText}>{t('redFlagAction')}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Progression result (follow-up done)
+  if (progression) {
+    const progIcon: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
+      improved: 'checkmark-circle',
+      same:     'time-outline',
+      worsened: 'trending-down-outline',
+    };
+    const progColor = progression === 'improved' ? '#16a34a'
+      : progression === 'same' ? '#d97706' : '#dc2626';
+    const progMsg = progression === 'improved' ? t('progressionImproved')
+      : progression === 'same' ? t('progressionSame') : t('progressionWorsened');
+
+    return (
+      <View style={styles.section}>
+        <View style={styles.doneIcon}>
+          <Ionicons name={progIcon[progression] ?? 'information-circle'} size={64} color={progColor} />
+        </View>
+        <Text style={styles.heading}>{t('doneHeading')}</Text>
+        <Text style={styles.subheading}>{progMsg}</Text>
+        {triageSummary?.recommendation ? (
+          <View style={styles.summaryCard}>
+            <Text style={styles.recommendationLabel}>{t('recommendationLabel')}</Text>
+            <Text style={styles.recommendationText}>{triageSummary.recommendation}</Text>
+          </View>
+        ) : null}
+        <Text style={styles.followUpHint}>{followUpText}</Text>
+        <Pressable style={styles.closeBtn} onPress={onClose}>
+          <Text style={styles.closeBtnText}>{t('close')}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Normal done (fine or initial triage completed)
   return (
     <View style={styles.section}>
       <View style={styles.doneIcon}>
@@ -343,51 +442,35 @@ function DoneScreen({
         }
       </View>
 
-      <Text style={styles.heading}>
-        {isFine ? 'Tuyệt! Vui lòng duy trì.' : 'Asinu đã ghi nhận'}
-      </Text>
+      <Text style={styles.heading}>{isFine ? t('doneFineHeading') : t('doneHeading')}</Text>
 
       {isFine ? (
-        <Text style={styles.subheading}>
-          Asinu sẽ hỏi thăm lại vào 9 giờ tối hôm nay để đảm bảo bạn luôn khoẻ.
-        </Text>
+        <Text style={styles.subheading}>{t('doneFineSubheading')}</Text>
       ) : triageSummary && (
         <View style={styles.summaryCard}>
           <View style={[styles.severityBadge, { borderColor: severityColor }]}>
-            <Ionicons
-              name={triageSummary.severity === 'high' ? 'warning' : 'ellipse'}
-              size={12}
-              color={severityColor}
-            />
-            <Text style={[styles.severityBadgeText, { color: severityColor }]}>
-              {triageSummary.severity === 'high' ? 'Mức độ cao'
-                : triageSummary.severity === 'medium' ? 'Mức độ vừa' : 'Mức độ nhẹ'}
-            </Text>
+            <Ionicons name={triageSummary.severity === 'high' ? 'warning' : 'ellipse'} size={12} color={severityColor} />
+            <Text style={[styles.severityBadgeText, { color: severityColor }]}>{severityLabel}</Text>
           </View>
           <Text style={styles.summaryText}>{triageSummary.summary}</Text>
           <View style={styles.divider} />
-          <Text style={styles.recommendationLabel}>Lời khuyên:</Text>
+          <Text style={styles.recommendationLabel}>{t('recommendationLabel')}</Text>
           <Text style={styles.recommendationText}>{triageSummary.recommendation}</Text>
-
           {triageSummary.needsDoctor && (
             <View style={styles.doctorBanner}>
               <Ionicons name="medical" size={16} color="#dc2626" />
-              <Text style={styles.doctorText}>Nên đến gặp bác sĩ để được kiểm tra.</Text>
+              <Text style={styles.doctorText}>{t('seeDoctor')}</Text>
             </View>
           )}
         </View>
       )}
 
       {!isFine && (
-        <Text style={styles.followUpHint}>
-          {session?.flow_state === 'high_alert'
-            ? 'Asinu sẽ hỏi thăm bạn lại sau 2 tiếng.'
-            : 'Asinu sẽ hỏi thăm bạn lại sau 3 tiếng.'}
-        </Text>
+        <Text style={styles.followUpHint}>{followUpText}</Text>
       )}
 
       <Pressable style={styles.closeBtn} onPress={onClose}>
-        <Text style={styles.closeBtnText}>Đóng</Text>
+        <Text style={styles.closeBtnText}>{t('close')}</Text>
       </Pressable>
     </View>
   );
@@ -395,117 +478,102 @@ function DoneScreen({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  container: { padding: spacing.xl },
-  section: { gap: spacing.lg },
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
+    centered:   { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+    container:  { padding: spacing.xl },
+    section:    { gap: spacing.lg },
 
-  heading:    { fontSize: 22, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
-  subheading: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+    continuityBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.primary + '33',
+    },
+    continuityText: {
+      flex: 1,
+      fontSize: typography.size.sm,
+      color: colors.primary,
+      lineHeight: 20,
+      fontWeight: '500',
+    },
 
-  optionList: { gap: spacing.md, marginTop: spacing.sm },
+    heading:    { fontSize: typography.size.xl, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
+    subheading: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
 
-  statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    gap: spacing.md,
-  },
-  statusLabel: { fontSize: 18, fontWeight: '700' },
-  statusSub:   { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+    optionList: { gap: spacing.md, marginTop: spacing.sm },
 
-  progressDots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 4 },
-  dot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
-  dotFilled:    { backgroundColor: colors.primary },
-  dotActive:    { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary, marginTop: -2 },
+    statusCard: {
+      flexDirection: 'row', alignItems: 'center',
+      padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1.5, gap: spacing.md,
+    },
+    statusLabel: { fontSize: typography.size.lg, fontWeight: '700' },
+    statusSub:   { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
 
-  questionCount: { fontSize: 12, color: colors.textSecondary, textAlign: 'center' },
-  question:      { fontSize: 18, fontWeight: '700', color: colors.textPrimary, lineHeight: 26 },
+    progressDots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 4 },
+    dot:          { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
+    dotFilled:    { backgroundColor: colors.primary },
+    dotActive:    { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary, marginTop: -1.5 },
 
-  optionChip: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
-    borderColor: colors.primary + '44',
-  },
-  optionChipText: { fontSize: 15, fontWeight: '600', color: colors.primary },
+    questionCount: { fontSize: typography.size.xs, color: colors.textSecondary, textAlign: 'center' },
+    question:      { fontSize: typography.size.lg, fontWeight: '700', color: colors.textPrimary, lineHeight: 26 },
 
-  customRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  customInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: 15,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-  },
-  sendBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
+    optionChip: {
+      paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
+      borderRadius: radius.full, backgroundColor: colors.primaryLight,
+      borderWidth: 1, borderColor: colors.primary + '44',
+    },
+    optionChipText: { fontSize: typography.size.md, fontWeight: '600', color: colors.primary },
 
-  doneIcon: { alignItems: 'center', marginBottom: spacing.sm },
+    customRow:   { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+    customInput: {
+      flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+      color: colors.textPrimary, backgroundColor: colors.surface,
+    },
+    sendBtn: {
+      backgroundColor: colors.primary, borderRadius: radius.md,
+      paddingHorizontal: 14, justifyContent: 'center',
+    },
 
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.sm,
-  },
-  severityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  severityBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  summaryText:        { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
-  divider:            { height: 1, backgroundColor: colors.border },
-  recommendationLabel:{ fontSize: 12, fontWeight: '700', color: colors.textSecondary },
-  recommendationText: { fontSize: 14, color: colors.textPrimary, lineHeight: 22 },
+    doneIcon: { alignItems: 'center', marginBottom: spacing.sm },
 
-  doctorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#fee2e2',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.xs,
-  },
-  doctorText: { fontSize: 13, color: '#dc2626', fontWeight: '600', flex: 1 },
+    summaryCard: {
+      backgroundColor: colors.surface, borderRadius: radius.lg,
+      padding: spacing.lg, borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
+    },
+    severityBadge: {
+      flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+      gap: 4, borderWidth: 1, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3,
+    },
+    severityBadgeText:   { fontSize: typography.size.xs, fontWeight: '700' },
+    summaryText:         { fontSize: typography.size.md, fontWeight: '600', color: colors.textPrimary },
+    divider:             { height: 1, backgroundColor: colors.border },
+    recommendationLabel: { fontSize: typography.size.xs, fontWeight: '700', color: colors.textSecondary },
+    recommendationText:  { fontSize: typography.size.sm, color: colors.textPrimary, lineHeight: 22 },
 
-  followUpHint: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+    doctorBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+      backgroundColor: '#fee2e2', borderRadius: radius.md, padding: spacing.md, marginTop: spacing.xs,
+    },
+    doctorText:  { fontSize: typography.size.xs, color: '#dc2626', fontWeight: '600', flex: 1 },
 
-  closeBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  closeBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-});
+    followUpHint: {
+      fontSize: typography.size.sm,
+      color: colors.primary,
+      textAlign: 'center',
+      lineHeight: 20,
+      fontWeight: '500',
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+    },
+
+    closeBtn:     { backgroundColor: colors.primary, borderRadius: radius.full, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm },
+    closeBtnText: { color: '#fff', fontSize: typography.size.md, fontWeight: '700' },
+  });
+}

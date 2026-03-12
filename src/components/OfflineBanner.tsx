@@ -1,15 +1,14 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { ScaledText } from './ScaledText';
 
 export const OfflineBanner = ({ message }: { message?: string }) => {
   const { t } = useTranslation('common');
-  const scaledTypography = useScaledTypography();
   const displayMessage = message ?? t('offlineBanner');
   return (
     <View style={styles.container}>
-      <Text style={[styles.text, { fontSize: scaledTypography.size.md }]}>{displayMessage}</Text>
+      <ScaledText style={styles.text}>{displayMessage}</ScaledText>
     </View>
   );
 };
@@ -24,6 +23,7 @@ const styles = StyleSheet.create({
   },
   text: {
     color: colors.textPrimary,
-    fontWeight: '700'
+    fontWeight: '700',
+    fontSize: 15,
   }
 });

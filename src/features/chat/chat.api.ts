@@ -38,6 +38,23 @@ export const chatApi = {
     return { response, reply: response.reply };
   },
 
+  async saveFeedback(payload: {
+    messageId: string;
+    messageText: string;
+    feedbackType: 'like' | 'dislike' | 'note';
+  }): Promise<{ ok: boolean; action?: string }> {
+    return apiClient('/api/mobile/chat/feedback', { method: 'POST', body: payload });
+  },
+
+  async getNotes(): Promise<Array<{ id: number; message_text: string; created_at: string }>> {
+    const res = await apiClient<{ ok: boolean; notes: any[] }>('/api/mobile/chat/notes');
+    return res.notes ?? [];
+  },
+
+  async deleteNote(id: number): Promise<void> {
+    await apiClient(`/api/mobile/chat/notes/${id}`, { method: 'DELETE' });
+  },
+
   async transcribeAudio(uri: string, lang: string = 'vi'): Promise<string> {
     const token = tokenStore.getToken();
     const formData = new FormData();
