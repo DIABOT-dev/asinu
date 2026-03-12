@@ -1,0 +1,11 @@
+name: "[DEPRECATED] Deploy Camp"
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Use the unified 'Deploy' workflow with environment inputs instead of this file."

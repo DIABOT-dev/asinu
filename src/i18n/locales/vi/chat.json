@@ -1,0 +1,49 @@
+{
+  "welcome": "Xin chào, tôi là Asinu Chat. Bạn cần hỗ trợ gì?",
+  "errorReply": "Xin lỗi, tôi chưa thể trả lời lúc này.",
+  "systemBusy": "Xin lỗi, hệ thống đang bận. Vui lòng thử lại sau.",
+  "title": "Trò chuyện với Asinu",
+  "typing": "Asinu đang soạn tin...",
+  "placeholder": "Nhập tin nhắn",
+  "mascotGreeting": "Chào bạn, tôi là Asinu!",
+  "stickerText": "Hãy nói chuyện với Asinu nhé!",
+  "initialGreeting": "Xin chào, Asinu nè. Bạn cần hỗ trợ gì?",
+  "sampleUserMessage": "Tôi muốn theo dõi sức khỏe hằng ngày.",
+  "errorMic": "Lỗi mic",
+  "errorMicPermission": "Không thể truy cập microphone. Vui lòng cấp quyền trong Cài đặt.",
+  "errorMicRecord": "Không thể ghi âm. Vui lòng thử lại.",
+  "stickerMessages": [
+    "Hỏi mình gì đi!",
+    "Hôm nay bạn khoẻ không?",
+    "Mình luôn ở đây nhé!",
+    "Nói chuyện với mình nào~",
+    "Có gì lo cứ kể mình nghe!"
+  ],
+  "actionLike": "Thích",
+  "actionDislike": "Không thích",
+  "actionCopy": "Sao chép",
+  "actionNote": "Lưu ghi chú",
+  "actionNoteSaved": "Đã lưu ghi chú!",
+  "actionCopied": "Đã sao chép!",
+  "notesTitle": "Ghi chú của tôi",
+  "notesEmpty": "Chưa có ghi chú nào.\nNhấn 🔖 dưới tin nhắn của Asinu để lưu.",
+  "noteDelete": "Xoá",
+  "micUpgradeTitle": "Tính năng Premium",
+  "micUpgradeDesc": "Nhắn tin bằng giọng nói với Asinu — AI tự động nhận diện nội dung và trả lời.",
+  "micUpgradeFeature1": "Nhận diện giọng nói tiếng Việt (Whisper AI)",
+  "micUpgradeFeature2": "Nhắn tin không cần gõ phím",
+  "micUpgradeFeature3": "Trải nghiệm hội thoại tự nhiên hơn",
+  "micUpgradeBtn": "Nâng cấp ngay",
+  "micUpgradeLater": "Để sau",
+  "medDisclaimer": {
+    "title": "Cảnh báo thông tin y tế",
+    "lines": [
+      "Nội dung tư vấn được tạo bởi hệ thống AI và chỉ mang tính tham khảo.",
+      "Ứng dụng không cung cấp chẩn đoán y khoa hoặc kê đơn thuốc.",
+      "Thông tin này không thay thế lời khuyên của bác sĩ hoặc chuyên gia y tế.",
+      "Người dùng nên tham khảo ý kiến bác sĩ trước khi sử dụng bất kỳ loại thuốc nào."
+    ],
+    "gotIt": "Đã hiểu",
+    "agree": "Đồng ý"
+  }
+}

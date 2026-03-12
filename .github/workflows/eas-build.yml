@@ -1,0 +1,56 @@
+name: mobile-eas-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile to use
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+        default: preview
+      platform:
+        description: Target platform
+        type: choice
+        options:
+          - android
+          - ios
+          - all
+        default: android
+
+jobs:
+  eas-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Install Expo & EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Trigger EAS build
+        run: |
+          eas build --platform ${{ inputs.platform }} --profile ${{ inputs.profile }} --non-interactive
+
+      - name: Show latest build
+        run: |
+          eas build:list --status finished --limit 1

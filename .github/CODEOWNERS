@@ -1,0 +1,8 @@
+# Module owners
+/apps/**                  @you
+/src/modules/water/**     @you
+/src/modules/meal/**      @you
+/supabase/**              @you
+
+# Default
+*                         @you

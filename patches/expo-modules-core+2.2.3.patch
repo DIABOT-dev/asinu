@@ -1,0 +1,2382 @@
+diff --git a/node_modules/expo-modules-core/.eslintrc.js b/node_modules/expo-modules-core/.eslintrc.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/CHANGELOG.md b/node_modules/expo-modules-core/CHANGELOG.md
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ExpoModulesCore.podspec b/node_modules/expo-modules-core/ExpoModulesCore.podspec
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/README.md b/node_modules/expo-modules-core/README.md
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/CMakeLists.txt b/node_modules/expo-modules-core/android/CMakeLists.txt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle b/node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
+old mode 100644
+new mode 100755
+index 4ec4514..a7e86f1
+--- a/node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
++++ b/node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle
+@@ -92,7 +92,13 @@ ext.useExpoPublishing = {
+     publishing {
+       publications {
+         release(MavenPublication) {
+-          from components.release
++          if (components.findByName("release")) {
++            from components.release
++          } else {
++             // Fallback or skip if release component missing
++             // This fixes Gradle 8+ SoftwareComponent issue
++             println "ExpoModulesCore: 'release' component not found, skipping publication source assignment."
++          }
+         }
+       }
+       repositories {
+diff --git a/node_modules/expo-modules-core/android/build.gradle b/node_modules/expo-modules-core/android/build.gradle
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/proguard-rules.pro b/node_modules/expo-modules-core/android/proguard-rules.pro
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/fabric/CMakeLists.txt b/node_modules/expo-modules-core/android/src/fabric/CMakeLists.txt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/fabric/FabricComponentsRegistry.cpp b/node_modules/expo-modules-core/android/src/fabric/FabricComponentsRegistry.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/fabric/FabricComponentsRegistry.h b/node_modules/expo-modules-core/android/src/fabric/FabricComponentsRegistry.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/AndroidManifest.xml b/node_modules/expo-modules-core/android/src/main/AndroidManifest.xml
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/Exceptions.cpp b/node_modules/expo-modules-core/android/src/main/cpp/Exceptions.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/Exceptions.h b/node_modules/expo-modules-core/android/src/main/cpp/Exceptions.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/ExpoModulesHostObject.cpp b/node_modules/expo-modules-core/android/src/main/cpp/ExpoModulesHostObject.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/ExpoModulesHostObject.h b/node_modules/expo-modules-core/android/src/main/cpp/ExpoModulesHostObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JNIDeallocator.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JNIDeallocator.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JNIDeallocator.h b/node_modules/expo-modules-core/android/src/main/cpp/JNIDeallocator.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JNIFunctionBody.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JNIFunctionBody.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JNIFunctionBody.h b/node_modules/expo-modules-core/android/src/main/cpp/JNIFunctionBody.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JNIInjector.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JNIInjector.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JNIUtils.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JNIUtils.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JNIUtils.h b/node_modules/expo-modules-core/android/src/main/cpp/JNIUtils.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JSIContext.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JSIContext.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JSIContext.h b/node_modules/expo-modules-core/android/src/main/cpp/JSIContext.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JSIObjectWrapper.h b/node_modules/expo-modules-core/android/src/main/cpp/JSIObjectWrapper.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JSITypeConverter.h b/node_modules/expo-modules-core/android/src/main/cpp/JSITypeConverter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JSReferencesCache.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JSReferencesCache.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JSReferencesCache.h b/node_modules/expo-modules-core/android/src/main/cpp/JSReferencesCache.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JSharedObject.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JSharedObject.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JSharedObject.h b/node_modules/expo-modules-core/android/src/main/cpp/JSharedObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaCallback.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaCallback.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaCallback.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaCallback.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaReferencesCache.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaReferencesCache.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaReferencesCache.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaReferencesCache.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptFunction.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptFunction.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptFunction.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptFunction.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptModuleObject.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptModuleObject.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptModuleObject.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptModuleObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptObject.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptObject.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptObject.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptRuntime.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptRuntime.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptRuntime.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptRuntime.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptTypedArray.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptTypedArray.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptTypedArray.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptTypedArray.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptValue.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptValue.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptValue.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptValue.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptWeakObject.cpp b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptWeakObject.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptWeakObject.h b/node_modules/expo-modules-core/android/src/main/cpp/JavaScriptWeakObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/MethodMetadata.cpp b/node_modules/expo-modules-core/android/src/main/cpp/MethodMetadata.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/MethodMetadata.h b/node_modules/expo-modules-core/android/src/main/cpp/MethodMetadata.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/RuntimeHolder.cpp b/node_modules/expo-modules-core/android/src/main/cpp/RuntimeHolder.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/RuntimeHolder.h b/node_modules/expo-modules-core/android/src/main/cpp/RuntimeHolder.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/ThreadSafeJNIGlobalRef.h b/node_modules/expo-modules-core/android/src/main/cpp/ThreadSafeJNIGlobalRef.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/WeakRuntimeHolder.cpp b/node_modules/expo-modules-core/android/src/main/cpp/WeakRuntimeHolder.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/WeakRuntimeHolder.h b/node_modules/expo-modules-core/android/src/main/cpp/WeakRuntimeHolder.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSClassesDecorator.cpp b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSClassesDecorator.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSClassesDecorator.h b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSClassesDecorator.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSConstantsDecorator.cpp b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSConstantsDecorator.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSConstantsDecorator.h b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSConstantsDecorator.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSDecorator.h b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSDecorator.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSDecoratorsBridgingObject.cpp b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSDecoratorsBridgingObject.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSDecoratorsBridgingObject.h b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSDecoratorsBridgingObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSFunctionsDecorator.cpp b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSFunctionsDecorator.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSFunctionsDecorator.h b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSFunctionsDecorator.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSObjectDecorator.cpp b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSObjectDecorator.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSObjectDecorator.h b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSObjectDecorator.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSPropertiesDecorator.cpp b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSPropertiesDecorator.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSPropertiesDecorator.h b/node_modules/expo-modules-core/android/src/main/cpp/decorators/JSPropertiesDecorator.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/javaclasses/Collections.h b/node_modules/expo-modules-core/android/src/main/cpp/javaclasses/Collections.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/AnyType.cpp b/node_modules/expo-modules-core/android/src/main/cpp/types/AnyType.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/AnyType.h b/node_modules/expo-modules-core/android/src/main/cpp/types/AnyType.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/CppType.h b/node_modules/expo-modules-core/android/src/main/cpp/types/CppType.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/ExpectedType.cpp b/node_modules/expo-modules-core/android/src/main/cpp/types/ExpectedType.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/ExpectedType.h b/node_modules/expo-modules-core/android/src/main/cpp/types/ExpectedType.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/FrontendConverter.cpp b/node_modules/expo-modules-core/android/src/main/cpp/types/FrontendConverter.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/FrontendConverter.h b/node_modules/expo-modules-core/android/src/main/cpp/types/FrontendConverter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/FrontendConverterProvider.cpp b/node_modules/expo-modules-core/android/src/main/cpp/types/FrontendConverterProvider.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/FrontendConverterProvider.h b/node_modules/expo-modules-core/android/src/main/cpp/types/FrontendConverterProvider.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/JNIToJSIConverter.cpp b/node_modules/expo-modules-core/android/src/main/cpp/types/JNIToJSIConverter.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/types/JNIToJSIConverter.h b/node_modules/expo-modules-core/android/src/main/cpp/types/JNIToJSIConverter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/com/facebook/react/uimanager/ReactStylesDiffMapHelper.kt b/node_modules/expo-modules-core/android/src/main/java/com/facebook/react/uimanager/ReactStylesDiffMapHelper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/FabricComponentsRegistry.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/FabricComponentsRegistry.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryReadyNotifier.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryReadyNotifier.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/NativeModulesProxy.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/NativeModulesProxy.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ReactAdapterPackage.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ReactAdapterPackage.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ReactModuleRegistryProvider.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ReactModuleRegistryProvider.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ReactPackagesProvider.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ReactPackagesProvider.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/apploader/HeadlessAppLoaderNotifier.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/apploader/HeadlessAppLoaderNotifier.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/apploader/RNHeadlessAppLoader.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/apploader/RNHeadlessAppLoader.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/permissions/PermissionsService.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/permissions/PermissionsService.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/services/EventEmitterModule.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/services/EventEmitterModule.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/services/UIManagerModuleWrapper.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/services/UIManagerModuleWrapper.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/views/ViewManagerAdapterUtils.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/views/ViewManagerAdapterUtils.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/AppLoaderPackagesProviderInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/AppLoaderPackagesProviderInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/AppLoaderProvider.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/AppLoaderProvider.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/HeadlessAppLoader.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/HeadlessAppLoader.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/BasePackage.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/BasePackage.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/MapHelper.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/MapHelper.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/ModulePriorities.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/ModulePriorities.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/ModuleRegistry.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/ModuleRegistry.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/ModuleRegistryProvider.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/ModuleRegistryProvider.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/Promise.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/Promise.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/arguments/MapArguments.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/arguments/MapArguments.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/arguments/ReadableArguments.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/arguments/ReadableArguments.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/CodedException.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/CodedException.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/CodedRuntimeException.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/CodedRuntimeException.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/ContextDestroyedException.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/ContextDestroyedException.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/CurrentActivityNotFoundException.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/CurrentActivityNotFoundException.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/InvalidArgumentException.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/InvalidArgumentException.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/ModuleDestroyedException.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/ModuleDestroyedException.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/ModuleNotFoundException.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/errors/ModuleNotFoundException.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ActivityEventListener.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ActivityEventListener.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ActivityProvider.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ActivityProvider.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ApplicationLifecycleListener.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ApplicationLifecycleListener.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/Arguments.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/Arguments.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/CodedThrowable.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/CodedThrowable.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/Consumer.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/Consumer.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/DoNotStrip.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/DoNotStrip.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/Function.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/Function.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/InternalModule.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/InternalModule.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/JavaScriptContextProvider.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/JavaScriptContextProvider.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/LifecycleEventListener.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/LifecycleEventListener.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/Package.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/Package.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ReactActivityHandler.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ReactActivityHandler.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ReactActivityLifecycleListener.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ReactActivityLifecycleListener.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ReactNativeHostHandler.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/ReactNativeHostHandler.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/RegistryLifecycleListener.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/RegistryLifecycleListener.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/SingletonModule.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/SingletonModule.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/services/EventEmitter.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/services/EventEmitter.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/services/KeepAwakeManager.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/services/KeepAwakeManager.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/services/UIManager.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/interfaces/services/UIManager.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LogHandler.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LogHandler.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LogHandlers.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LogHandlers.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LogType.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LogType.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/Logger.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/Logger.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LoggerTimer.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LoggerTimer.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LoggerUtils.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/LoggerUtils.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/OSLogHandler.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/OSLogHandler.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/PersistentFileLog.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/PersistentFileLog.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/PersistentFileLogHandler.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/PersistentFileLogHandler.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/PersistentFileLogSerialDispatchQueue.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/logging/PersistentFileLogSerialDispatchQueue.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/utilities/EmulatorUtilities.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/utilities/EmulatorUtilities.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/utilities/FileUtilities.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/utilities/FileUtilities.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/utilities/KotlinUtilities.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/utilities/KotlinUtilities.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerProviderInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerProviderInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerResult.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerResult.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerSettings.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerSettings.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerSettingsKey.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/barcodescanner/BarCodeScannerSettingsKey.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/camera/CameraViewInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/camera/CameraViewInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/constants/ConstantsInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/constants/ConstantsInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectionError.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectionError.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectionSkipped.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectionSkipped.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectionUnspecifiedError.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectionUnspecifiedError.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectorInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectorInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectorProviderInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FaceDetectorProviderInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FacesDetectionCompleted.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/facedetector/FacesDetectionCompleted.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/filesystem/AppDirectoriesModuleInterface.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/filesystem/AppDirectoriesModuleInterface.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/filesystem/FilePermissionModuleInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/filesystem/FilePermissionModuleInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/filesystem/Permission.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/filesystem/Permission.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/font/FontManagerInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/font/FontManagerInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/imageloader/ImageLoaderInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/imageloader/ImageLoaderInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/permissions/Permissions.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/permissions/Permissions.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/permissions/PermissionsResponse.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/permissions/PermissionsResponse.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/permissions/PermissionsResponseListener.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/permissions/PermissionsResponseListener.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/permissions/PermissionsStatus.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/permissions/PermissionsStatus.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskConsumer.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskConsumer.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskConsumerInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskConsumerInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskExecutionCallback.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskExecutionCallback.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskManagerInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskManagerInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskManagerUtilsInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskManagerUtilsInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskServiceInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskServiceInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskServiceProviderHelper.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskServiceProviderHelper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskServiceProviderInterface.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/interfaces/taskManager/TaskServiceProviderInterface.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AndroidExtensions.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AndroidExtensions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ArrayExtenstions.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ArrayExtenstions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ConcatIterator.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ConcatIterator.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/CoreLogger.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/CoreLogger.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/DynamicExtenstions.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/DynamicExtenstions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ExpoBridgeModule.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ExpoBridgeModule.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ExpoModulesHelper.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ExpoModulesHelper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/FilteredIterator.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/FilteredIterator.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/KPromiseWrapper.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/KPromiseWrapper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/KotlinInteropModuleRegistry.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/KotlinInteropModuleRegistry.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ModuleHolder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ModuleHolder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ModuleRegistry.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ModuleRegistry.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ModulesProvider.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ModulesProvider.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/Promise.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/Promise.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ReactExtensions.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ReactExtensions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ReactLifecycleDelegate.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ReactLifecycleDelegate.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ReadableArrayIterator.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ReadableArrayIterator.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ReadableTypeExtensions.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ReadableTypeExtensions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/RuntimeContext.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/RuntimeContext.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/Utils.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/Utils.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityaware/AppCompatActivityAware.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityaware/AppCompatActivityAware.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityaware/AppCompatActivityAwareHelper.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityaware/AppCompatActivityAwareHelper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityaware/OnActivityAvailableListener.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityaware/OnActivityAvailableListener.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/ActivityResultsManager.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/ActivityResultsManager.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultCaller.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultCaller.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultContract.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultContract.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultFallbackCallback.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultFallbackCallback.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultLauncher.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultLauncher.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultRegistry.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultRegistry.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/DataPersistor.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/DataPersistor.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/allocators/ObjectConstructor.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/allocators/ObjectConstructor.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/allocators/ObjectConstructorFactory.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/allocators/ObjectConstructorFactory.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/allocators/UnsafeAllocator.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/allocators/UnsafeAllocator.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/apifeatures/Features.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/apifeatures/Features.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/classcomponent/ClassComponentBuilder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/classcomponent/ClassComponentBuilder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/classcomponent/ClassDefinitionData.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/classcomponent/ClassDefinitionData.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/defaultmodules/CoreModule.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/defaultmodules/CoreModule.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/defaultmodules/ErrorManagerModule.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/defaultmodules/ErrorManagerModule.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/defaultmodules/NativeModulesProxyModule.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/defaultmodules/NativeModulesProxyModule.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/ExpoNetworkInspectOkHttpInterceptors.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/ExpoNetworkInspectOkHttpInterceptors.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/ExpoRequestCdpInterceptor.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/ExpoRequestCdpInterceptor.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/OkHttpExtensions.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/OkHttpExtensions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/cdp/CdpNetworkTypes.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/cdp/CdpNetworkTypes.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/EventEmitter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/EventEmitter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/EventListener.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/EventListener.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/EventName.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/EventName.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/EventsDefinition.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/EventsDefinition.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/KModuleEventEmitterWrapper.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/KModuleEventEmitterWrapper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/OnActivityResultPayload.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/OnActivityResultPayload.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/exception/CodedException.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/exception/CodedException.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/exception/CommonExceptions.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/exception/CommonExceptions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/exception/ExceptionDecorator.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/exception/ExceptionDecorator.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AnyFunction.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AnyFunction.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AsyncFunction.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AsyncFunction.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AsyncFunctionBuilder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AsyncFunctionBuilder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AsyncFunctionComponent.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AsyncFunctionComponent.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AsyncFunctionWithPromiseComponent.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/AsyncFunctionWithPromiseComponent.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/BaseAsyncFunctionComponent.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/BaseAsyncFunctionComponent.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/FunctionBuilder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/FunctionBuilder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/SuspendFunctionComponent.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/SuspendFunctionComponent.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/SyncFunctionComponent.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/functions/SyncFunctionComponent.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/CppType.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/CppType.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/ExpectedType.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/ExpectedType.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JNIDeallocator.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JNIDeallocator.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JNIFunctionBody.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JNIFunctionBody.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JNIUtils.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JNIUtils.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JSIContext.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JSIContext.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaCallback.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaCallback.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptFunction.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptFunction.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptModuleObject.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptModuleObject.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptObject.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptObject.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptTypedArray.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptTypedArray.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptValue.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptValue.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptWeakObject.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptWeakObject.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/PromiseImpl.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/PromiseImpl.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/decorators/JSDecoratorsBridgingObject.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/decorators/JSDecoratorsBridgingObject.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/tests/RuntimeHolder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/tests/RuntimeHolder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/DefinitionMarker.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/DefinitionMarker.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/Module.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/Module.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/ModuleDefinitionBuilder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/ModuleDefinitionBuilder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/ModuleDefinitionData.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/ModuleDefinitionData.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/ModuleUtils.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/modules/ModuleUtils.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/EventObservingDefinition.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/EventObservingDefinition.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/ObjectDefinitionBuilder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/ObjectDefinitionBuilder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/ObjectDefinitionData.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/ObjectDefinitionData.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/PropertyComponent.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/PropertyComponent.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/PropertyComponentBuilder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/objects/PropertyComponentBuilder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/providers/AppContextProvider.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/providers/AppContextProvider.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/providers/CurrentActivityProvider.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/providers/CurrentActivityProvider.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/Field.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/Field.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/FieldValidator.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/FieldValidator.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/Record.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/Record.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/RecordTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/RecordTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/Required.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/Required.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/ValidationBinder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/ValidationBinder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/Validators.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/records/Validators.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/ClassRegistry.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/ClassRegistry.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedObject.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedObject.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedObjectRegistry.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedObjectRegistry.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedObjectTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedObjectTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedRef.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedRef.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/tracing/ExpoTrace.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/tracing/ExpoTrace.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/typedarray/ConcreteTypedArrays.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/typedarray/ConcreteTypedArrays.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/typedarray/GenericTypedArray.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/typedarray/GenericTypedArray.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/typedarray/TypedArray.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/typedarray/TypedArray.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/typedarray/TypedArrayIterator.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/typedarray/TypedArrayIterator.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/AnyType.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/AnyType.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/AnyTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/AnyTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ArrayTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ArrayTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ByteArrayTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ByteArrayTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ColorTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ColorTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/DateTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/DateTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/DurationTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/DurationTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/EitherTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/EitherTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/EnforceType.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/EnforceType.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/EnumTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/EnumTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Enumerable.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Enumerable.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/JSTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/JSTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/JSTypeConverterHelper.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/JSTypeConverterHelper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/JavaScriptFunctionTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/JavaScriptFunctionTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ListTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ListTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/MapTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/MapTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/PairTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/PairTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ReadableArgumentsTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ReadableArgumentsTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ReturnType.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/ReturnType.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/SetTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/SetTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/TypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/TypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/TypeConverterProvider.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/TypeConverterProvider.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/TypedArrayTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/TypedArrayTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/UnitTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/UnitTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/folly/FollyDynamicExtensionConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/folly/FollyDynamicExtensionConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/io/FileTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/io/FileTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/io/PathTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/io/PathTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/net/URLTypConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/net/URLTypConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/net/UriTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/net/UriTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/uuidv5/Exceptions.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/uuidv5/Exceptions.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/uuidv5/Uuidv5.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/uuidv5/Uuidv5.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/viewevent/ViewEvent.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/viewevent/ViewEvent.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/viewevent/ViewEventDelegate.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/viewevent/ViewEventDelegate.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/AnyViewProp.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/AnyViewProp.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/CallbacksDefinition.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/CallbacksDefinition.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ComposeProps.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ComposeProps.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ComposeViewProp.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ComposeViewProp.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ConcreteViewProp.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ConcreteViewProp.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ErrorView.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ErrorView.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ExpoComposeView.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ExpoComposeView.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ExpoView.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ExpoView.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/FilteredReadableMap.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/FilteredReadableMap.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/GroupViewManagerWrapper.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/GroupViewManagerWrapper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/SimpleViewManagerWrapper.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/SimpleViewManagerWrapper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewDefinitionBuilder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewDefinitionBuilder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewGroupDefinition.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewGroupDefinition.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewGroupDefinitionBuilder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewGroupDefinitionBuilder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewManagerDefinition.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewManagerDefinition.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewManagerType.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewManagerType.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewManagerWrapperDelegate.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewManagerWrapperDelegate.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewTypeConverter.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewTypeConverter.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewWrapperDelegateHolder.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/ViewWrapperDelegateHolder.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/decorators/CSSProps.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/views/decorators/CSSProps.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/rn74/expo/modules/rncompatibility/RNCompatibleStaticWrapper.kt b/node_modules/expo-modules-core/android/src/rn74/expo/modules/rncompatibility/RNCompatibleStaticWrapper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/rn74/expo/modules/rncompatibility/ReactNativeFeatureFlags.kt b/node_modules/expo-modules-core/android/src/rn74/expo/modules/rncompatibility/ReactNativeFeatureFlags.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/rn77/expo/modules/rncompatibility/RNCompatibleStaticWrapper.kt b/node_modules/expo-modules-core/android/src/rn77/expo/modules/rncompatibility/RNCompatibleStaticWrapper.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/android/src/rn77/expo/modules/rncompatibility/ReactNativeFeatureFlags.kt b/node_modules/expo-modules-core/android/src/rn77/expo/modules/rncompatibility/ReactNativeFeatureFlags.kt
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/EventEmitter.d.ts b/node_modules/expo-modules-core/build/EventEmitter.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/EventEmitter.d.ts.map b/node_modules/expo-modules-core/build/EventEmitter.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/LegacyEventEmitter.d.ts b/node_modules/expo-modules-core/build/LegacyEventEmitter.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/LegacyEventEmitter.d.ts.map b/node_modules/expo-modules-core/build/LegacyEventEmitter.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeModule.d.ts b/node_modules/expo-modules-core/build/NativeModule.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeModule.d.ts.map b/node_modules/expo-modules-core/build/NativeModule.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeModulesProxy.d.ts b/node_modules/expo-modules-core/build/NativeModulesProxy.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeModulesProxy.d.ts.map b/node_modules/expo-modules-core/build/NativeModulesProxy.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeModulesProxy.native.d.ts b/node_modules/expo-modules-core/build/NativeModulesProxy.native.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeModulesProxy.native.d.ts.map b/node_modules/expo-modules-core/build/NativeModulesProxy.native.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeModulesProxy.types.d.ts b/node_modules/expo-modules-core/build/NativeModulesProxy.types.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeModulesProxy.types.d.ts.map b/node_modules/expo-modules-core/build/NativeModulesProxy.types.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeViewManagerAdapter.d.ts b/node_modules/expo-modules-core/build/NativeViewManagerAdapter.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeViewManagerAdapter.d.ts.map b/node_modules/expo-modules-core/build/NativeViewManagerAdapter.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeViewManagerAdapter.native.d.ts b/node_modules/expo-modules-core/build/NativeViewManagerAdapter.native.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/NativeViewManagerAdapter.native.d.ts.map b/node_modules/expo-modules-core/build/NativeViewManagerAdapter.native.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/PermissionsHook.d.ts b/node_modules/expo-modules-core/build/PermissionsHook.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/PermissionsHook.d.ts.map b/node_modules/expo-modules-core/build/PermissionsHook.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/PermissionsInterface.d.ts b/node_modules/expo-modules-core/build/PermissionsInterface.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/PermissionsInterface.d.ts.map b/node_modules/expo-modules-core/build/PermissionsInterface.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/Platform.d.ts b/node_modules/expo-modules-core/build/Platform.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/Platform.d.ts.map b/node_modules/expo-modules-core/build/Platform.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/Refs.d.ts b/node_modules/expo-modules-core/build/Refs.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/Refs.d.ts.map b/node_modules/expo-modules-core/build/Refs.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/SharedObject.d.ts b/node_modules/expo-modules-core/build/SharedObject.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/SharedObject.d.ts.map b/node_modules/expo-modules-core/build/SharedObject.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/SharedRef.d.ts b/node_modules/expo-modules-core/build/SharedRef.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/SharedRef.d.ts.map b/node_modules/expo-modules-core/build/SharedRef.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/TypedArrays.types.d.ts b/node_modules/expo-modules-core/build/TypedArrays.types.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/TypedArrays.types.d.ts.map b/node_modules/expo-modules-core/build/TypedArrays.types.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ensureNativeModulesAreInstalled.d.ts b/node_modules/expo-modules-core/build/ensureNativeModulesAreInstalled.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ensureNativeModulesAreInstalled.d.ts.map b/node_modules/expo-modules-core/build/ensureNativeModulesAreInstalled.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/environment/browser.d.ts b/node_modules/expo-modules-core/build/environment/browser.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/environment/browser.d.ts.map b/node_modules/expo-modules-core/build/environment/browser.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/environment/browser.web.d.ts b/node_modules/expo-modules-core/build/environment/browser.web.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/environment/browser.web.d.ts.map b/node_modules/expo-modules-core/build/environment/browser.web.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/errors/CodedError.d.ts b/node_modules/expo-modules-core/build/errors/CodedError.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/errors/CodedError.d.ts.map b/node_modules/expo-modules-core/build/errors/CodedError.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/errors/UnavailabilityError.d.ts b/node_modules/expo-modules-core/build/errors/UnavailabilityError.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/errors/UnavailabilityError.d.ts.map b/node_modules/expo-modules-core/build/errors/UnavailabilityError.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/hooks/useReleasingSharedObject.d.ts b/node_modules/expo-modules-core/build/hooks/useReleasingSharedObject.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/hooks/useReleasingSharedObject.d.ts.map b/node_modules/expo-modules-core/build/hooks/useReleasingSharedObject.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/index.d.ts b/node_modules/expo-modules-core/build/index.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/index.d.ts.map b/node_modules/expo-modules-core/build/index.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/registerWebModule.d.ts b/node_modules/expo-modules-core/build/registerWebModule.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/registerWebModule.d.ts.map b/node_modules/expo-modules-core/build/registerWebModule.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/reload.d.ts b/node_modules/expo-modules-core/build/reload.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/reload.d.ts.map b/node_modules/expo-modules-core/build/reload.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/requireNativeModule.d.ts b/node_modules/expo-modules-core/build/requireNativeModule.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/requireNativeModule.d.ts.map b/node_modules/expo-modules-core/build/requireNativeModule.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/requireNativeModule.web.d.ts b/node_modules/expo-modules-core/build/requireNativeModule.web.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/requireNativeModule.web.d.ts.map b/node_modules/expo-modules-core/build/requireNativeModule.web.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/sweet/NativeErrorManager.d.ts b/node_modules/expo-modules-core/build/sweet/NativeErrorManager.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/sweet/NativeErrorManager.d.ts.map b/node_modules/expo-modules-core/build/sweet/NativeErrorManager.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/sweet/setUpErrorManager.fx.d.ts b/node_modules/expo-modules-core/build/sweet/setUpErrorManager.fx.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/sweet/setUpErrorManager.fx.d.ts.map b/node_modules/expo-modules-core/build/sweet/setUpErrorManager.fx.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/sweet/setUpErrorManager.fx.web.d.ts b/node_modules/expo-modules-core/build/sweet/setUpErrorManager.fx.web.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/sweet/setUpErrorManager.fx.web.d.ts.map b/node_modules/expo-modules-core/build/sweet/setUpErrorManager.fx.web.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/EventEmitter.d.ts b/node_modules/expo-modules-core/build/ts-declarations/EventEmitter.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/EventEmitter.d.ts.map b/node_modules/expo-modules-core/build/ts-declarations/EventEmitter.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/NativeModule.d.ts b/node_modules/expo-modules-core/build/ts-declarations/NativeModule.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/NativeModule.d.ts.map b/node_modules/expo-modules-core/build/ts-declarations/NativeModule.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/SharedObject.d.ts b/node_modules/expo-modules-core/build/ts-declarations/SharedObject.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/SharedObject.d.ts.map b/node_modules/expo-modules-core/build/ts-declarations/SharedObject.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/SharedRef.d.ts b/node_modules/expo-modules-core/build/ts-declarations/SharedRef.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/SharedRef.d.ts.map b/node_modules/expo-modules-core/build/ts-declarations/SharedRef.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/global.d.ts b/node_modules/expo-modules-core/build/ts-declarations/global.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/ts-declarations/global.d.ts.map b/node_modules/expo-modules-core/build/ts-declarations/global.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/index.d.ts b/node_modules/expo-modules-core/build/uuid/index.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/index.d.ts.map b/node_modules/expo-modules-core/build/uuid/index.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/lib/bytesToUuid.d.ts b/node_modules/expo-modules-core/build/uuid/lib/bytesToUuid.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/lib/bytesToUuid.d.ts.map b/node_modules/expo-modules-core/build/uuid/lib/bytesToUuid.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/lib/sha1.d.ts b/node_modules/expo-modules-core/build/uuid/lib/sha1.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/lib/sha1.d.ts.map b/node_modules/expo-modules-core/build/uuid/lib/sha1.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/lib/v35.d.ts b/node_modules/expo-modules-core/build/uuid/lib/v35.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/lib/v35.d.ts.map b/node_modules/expo-modules-core/build/uuid/lib/v35.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/uuid.d.ts b/node_modules/expo-modules-core/build/uuid/uuid.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/uuid.d.ts.map b/node_modules/expo-modules-core/build/uuid/uuid.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/uuid.types.d.ts b/node_modules/expo-modules-core/build/uuid/uuid.types.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/uuid.types.d.ts.map b/node_modules/expo-modules-core/build/uuid/uuid.types.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/uuid.web.d.ts b/node_modules/expo-modules-core/build/uuid/uuid.web.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/uuid/uuid.web.d.ts.map b/node_modules/expo-modules-core/build/uuid/uuid.web.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/web/CoreModule.d.ts b/node_modules/expo-modules-core/build/web/CoreModule.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/web/CoreModule.d.ts.map b/node_modules/expo-modules-core/build/web/CoreModule.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/web/index.d.ts b/node_modules/expo-modules-core/build/web/index.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/web/index.d.ts.map b/node_modules/expo-modules-core/build/web/index.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/web/index.web.d.ts b/node_modules/expo-modules-core/build/web/index.web.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/build/web/index.web.d.ts.map b/node_modules/expo-modules-core/build/web/index.web.d.ts.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/BridgelessJSCallInvoker.h b/node_modules/expo-modules-core/common/cpp/BridgelessJSCallInvoker.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/EventEmitter.cpp b/node_modules/expo-modules-core/common/cpp/EventEmitter.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/EventEmitter.h b/node_modules/expo-modules-core/common/cpp/EventEmitter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/JSIUtils.cpp b/node_modules/expo-modules-core/common/cpp/JSIUtils.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/JSIUtils.h b/node_modules/expo-modules-core/common/cpp/JSIUtils.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/LazyObject.cpp b/node_modules/expo-modules-core/common/cpp/LazyObject.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/LazyObject.h b/node_modules/expo-modules-core/common/cpp/LazyObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/NativeModule.cpp b/node_modules/expo-modules-core/common/cpp/NativeModule.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/NativeModule.h b/node_modules/expo-modules-core/common/cpp/NativeModule.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/ObjectDeallocator.cpp b/node_modules/expo-modules-core/common/cpp/ObjectDeallocator.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/ObjectDeallocator.h b/node_modules/expo-modules-core/common/cpp/ObjectDeallocator.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/SharedObject.cpp b/node_modules/expo-modules-core/common/cpp/SharedObject.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/SharedObject.h b/node_modules/expo-modules-core/common/cpp/SharedObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/SharedRef.cpp b/node_modules/expo-modules-core/common/cpp/SharedRef.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/SharedRef.h b/node_modules/expo-modules-core/common/cpp/SharedRef.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/TestingSyncJSCallInvoker.h b/node_modules/expo-modules-core/common/cpp/TestingSyncJSCallInvoker.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/TypedArray.cpp b/node_modules/expo-modules-core/common/cpp/TypedArray.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/TypedArray.h b/node_modules/expo-modules-core/common/cpp/TypedArray.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewComponentDescriptor.cpp b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewComponentDescriptor.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewComponentDescriptor.h b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewComponentDescriptor.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewEventEmitter.cpp b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewEventEmitter.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewEventEmitter.h b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewEventEmitter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewProps.cpp b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewProps.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewProps.h b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewProps.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewShadowNode.cpp b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewShadowNode.cpp
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewShadowNode.h b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewShadowNode.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewState.h b/node_modules/expo-modules-core/common/cpp/fabric/ExpoViewState.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/expo-module.config.json b/node_modules/expo-modules-core/expo-module.config.json
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/index.js b/node_modules/expo-modules-core/index.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Builders/ClassComponentBuilder.swift b/node_modules/expo-modules-core/ios/Api/Builders/ClassComponentBuilder.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Builders/ObjectDefinitionBuilder.swift b/node_modules/expo-modules-core/ios/Api/Builders/ObjectDefinitionBuilder.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Builders/ViewDefinitionBuilder.swift b/node_modules/expo-modules-core/ios/Api/Builders/ViewDefinitionBuilder.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/AsyncFunctionFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/AsyncFunctionFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/ClassFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/ClassFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/ConcurrentFunctionFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/ConcurrentFunctionFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/EventListenersFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/EventListenersFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/ModuleFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/ModuleFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/ObjectFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/ObjectFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/PropertyFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/PropertyFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/SyncFunctionFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/SyncFunctionFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Api/Factories/ViewFactories.swift b/node_modules/expo-modules-core/ios/Api/Factories/ViewFactories.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/EXAppDelegateWrapper.h b/node_modules/expo-modules-core/ios/AppDelegates/EXAppDelegateWrapper.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/EXAppDelegateWrapper.mm b/node_modules/expo-modules-core/ios/AppDelegates/EXAppDelegateWrapper.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/EXAppDelegatesLoader.h b/node_modules/expo-modules-core/ios/AppDelegates/EXAppDelegatesLoader.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/EXAppDelegatesLoader.m b/node_modules/expo-modules-core/ios/AppDelegates/EXAppDelegatesLoader.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/EXLegacyAppDelegateWrapper.h b/node_modules/expo-modules-core/ios/AppDelegates/EXLegacyAppDelegateWrapper.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/EXLegacyAppDelegateWrapper.m b/node_modules/expo-modules-core/ios/AppDelegates/EXLegacyAppDelegateWrapper.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/ExpoAppDelegate.swift b/node_modules/expo-modules-core/ios/AppDelegates/ExpoAppDelegate.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/ExpoAppDelegateSubscriber.swift b/node_modules/expo-modules-core/ios/AppDelegates/ExpoAppDelegateSubscriber.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/ExpoAppInstance.swift b/node_modules/expo-modules-core/ios/AppDelegates/ExpoAppInstance.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/AppDelegates/RCTAppDelegateUmbrella.h b/node_modules/expo-modules-core/ios/AppDelegates/RCTAppDelegateUmbrella.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/AppCodeSignEntitlements.swift b/node_modules/expo-modules-core/ios/Core/AppCodeSignEntitlements.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/AppContext.swift b/node_modules/expo-modules-core/ios/Core/AppContext.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/AppContextConfig.swift b/node_modules/expo-modules-core/ios/Core/AppContextConfig.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Arguments/AnyArgument.swift b/node_modules/expo-modules-core/ios/Core/Arguments/AnyArgument.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Arguments/Convertible.swift b/node_modules/expo-modules-core/ios/Core/Arguments/Convertible.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Arguments/Convertibles.swift b/node_modules/expo-modules-core/ios/Core/Arguments/Convertibles.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Arguments/Either.swift b/node_modules/expo-modules-core/ios/Core/Arguments/Either.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Arguments/Enumerable.swift b/node_modules/expo-modules-core/ios/Core/Arguments/Enumerable.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Classes/AnyClassDefinitionElement.swift b/node_modules/expo-modules-core/ios/Core/Classes/AnyClassDefinitionElement.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Classes/ClassDefinition.swift b/node_modules/expo-modules-core/ios/Core/Classes/ClassDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Classes/ClassRegistry.swift b/node_modules/expo-modules-core/ios/Core/Classes/ClassRegistry.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Conversions.swift b/node_modules/expo-modules-core/ios/Core/Conversions.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Convertibles/Convertibles+CMTime.swift b/node_modules/expo-modules-core/ios/Core/Convertibles/Convertibles+CMTime.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Convertibles/Convertibles+Color.swift b/node_modules/expo-modules-core/ios/Core/Convertibles/Convertibles+Color.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/AnyDynamicType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/AnyDynamicType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicArrayType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicArrayType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicConvertibleType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicConvertibleType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicDataType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicDataType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicDictionaryType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicDictionaryType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicEitherType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicEitherType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicEnumType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicEnumType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicJavaScriptType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicJavaScriptType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicNumberType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicNumberType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicOptionalType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicOptionalType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicRawType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicRawType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicSharedObjectType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicSharedObjectType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicStringType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicStringType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicSwiftUIViewType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicSwiftUIViewType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicTypedArrayType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicTypedArrayType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicViewType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicViewType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicVoidType.swift b/node_modules/expo-modules-core/ios/Core/DynamicTypes/DynamicVoidType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/EventListener.swift b/node_modules/expo-modules-core/ios/Core/EventListener.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Events/Callback.swift b/node_modules/expo-modules-core/ios/Core/Events/Callback.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Events/EventDispatcher.swift b/node_modules/expo-modules-core/ios/Core/Events/EventDispatcher.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Events/EventObservingDefinition.swift b/node_modules/expo-modules-core/ios/Core/Events/EventObservingDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Events/LegacyEventEmitterCompat.swift b/node_modules/expo-modules-core/ios/Core/Events/LegacyEventEmitterCompat.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Exceptions/ChainableException.swift b/node_modules/expo-modules-core/ios/Core/Exceptions/ChainableException.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Exceptions/CodedError.swift b/node_modules/expo-modules-core/ios/Core/Exceptions/CodedError.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Exceptions/CommonExceptions.swift b/node_modules/expo-modules-core/ios/Core/Exceptions/CommonExceptions.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Exceptions/Exception.swift b/node_modules/expo-modules-core/ios/Core/Exceptions/Exception.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Exceptions/ExceptionOrigin.swift b/node_modules/expo-modules-core/ios/Core/Exceptions/ExceptionOrigin.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Exceptions/GenericException.swift b/node_modules/expo-modules-core/ios/Core/Exceptions/GenericException.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Exceptions/UnexpectedException.swift b/node_modules/expo-modules-core/ios/Core/Exceptions/UnexpectedException.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/ExpoBridgeModule.h b/node_modules/expo-modules-core/ios/Core/ExpoBridgeModule.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/ExpoBridgeModule.mm b/node_modules/expo-modules-core/ios/Core/ExpoBridgeModule.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/ExpoRuntime.swift b/node_modules/expo-modules-core/ios/Core/ExpoRuntime.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Functions/AnyFunctionDefinition.swift b/node_modules/expo-modules-core/ios/Core/Functions/AnyFunctionDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Functions/AsyncFunctionDefinition.swift b/node_modules/expo-modules-core/ios/Core/Functions/AsyncFunctionDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Functions/ConcurrentFunctionDefinition.swift b/node_modules/expo-modules-core/ios/Core/Functions/ConcurrentFunctionDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Functions/SyncFunctionDefinition.swift b/node_modules/expo-modules-core/ios/Core/Functions/SyncFunctionDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/JavaScriptFunction.swift b/node_modules/expo-modules-core/ios/Core/JavaScriptFunction.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/JavaScriptUtils.swift b/node_modules/expo-modules-core/ios/Core/JavaScriptUtils.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Logging/LogHandlers.swift b/node_modules/expo-modules-core/ios/Core/Logging/LogHandlers.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Logging/LogType.swift b/node_modules/expo-modules-core/ios/Core/Logging/LogType.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Logging/Logger.swift b/node_modules/expo-modules-core/ios/Core/Logging/Logger.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Logging/LoggerTimer.swift b/node_modules/expo-modules-core/ios/Core/Logging/LoggerTimer.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Logging/PersistentFileLog.swift b/node_modules/expo-modules-core/ios/Core/Logging/PersistentFileLog.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/MainValueConverter.swift b/node_modules/expo-modules-core/ios/Core/MainValueConverter.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/ModuleHolder.swift b/node_modules/expo-modules-core/ios/Core/ModuleHolder.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/ModuleRegistry.swift b/node_modules/expo-modules-core/ios/Core/ModuleRegistry.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Modules/CoreModule.swift b/node_modules/expo-modules-core/ios/Core/Modules/CoreModule.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Modules/Module.swift b/node_modules/expo-modules-core/ios/Core/Modules/Module.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Modules/ModuleDefinition.swift b/node_modules/expo-modules-core/ios/Core/Modules/ModuleDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Modules/ModuleDefinitionBuilder.swift b/node_modules/expo-modules-core/ios/Core/Modules/ModuleDefinitionBuilder.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/ModulesProvider.swift b/node_modules/expo-modules-core/ios/Core/ModulesProvider.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Objects/JavaScriptObjectBuilder.swift b/node_modules/expo-modules-core/ios/Core/Objects/JavaScriptObjectBuilder.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Objects/ObjectDefinition.swift b/node_modules/expo-modules-core/ios/Core/Objects/ObjectDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Objects/PropertyDefinition.swift b/node_modules/expo-modules-core/ios/Core/Objects/PropertyDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Promise.swift b/node_modules/expo-modules-core/ios/Core/Promise.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Protocols/AnyDefinition.swift b/node_modules/expo-modules-core/ios/Core/Protocols/AnyDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Protocols/AnyExpoView.swift b/node_modules/expo-modules-core/ios/Core/Protocols/AnyExpoView.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Protocols/AnyModule.swift b/node_modules/expo-modules-core/ios/Core/Protocols/AnyModule.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Protocols/AnyViewDefinition.swift b/node_modules/expo-modules-core/ios/Core/Protocols/AnyViewDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Records/AnyField.swift b/node_modules/expo-modules-core/ios/Core/Records/AnyField.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Records/Field.swift b/node_modules/expo-modules-core/ios/Core/Records/Field.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Records/FieldExtensions.swift b/node_modules/expo-modules-core/ios/Core/Records/FieldExtensions.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Records/FieldOption.swift b/node_modules/expo-modules-core/ios/Core/Records/FieldOption.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Records/Record.swift b/node_modules/expo-modules-core/ios/Core/Records/Record.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/SharedObjects/SharedObject.swift b/node_modules/expo-modules-core/ios/Core/SharedObjects/SharedObject.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/SharedObjects/SharedObjectRegistry.swift b/node_modules/expo-modules-core/ios/Core/SharedObjects/SharedObjectRegistry.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/SharedObjects/SharedRef.swift b/node_modules/expo-modules-core/ios/Core/SharedObjects/SharedRef.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/TypedArrays/AnyTypedArray.swift b/node_modules/expo-modules-core/ios/Core/TypedArrays/AnyTypedArray.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/TypedArrays/ConcreteTypedArrays.swift b/node_modules/expo-modules-core/ios/Core/TypedArrays/ConcreteTypedArrays.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/TypedArrays/GenericTypedArray.swift b/node_modules/expo-modules-core/ios/Core/TypedArrays/GenericTypedArray.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/TypedArrays/TypedArray.swift b/node_modules/expo-modules-core/ios/Core/TypedArrays/TypedArray.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/AnyViewProp.swift b/node_modules/expo-modules-core/ios/Core/Views/AnyViewProp.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/ComponentData.swift b/node_modules/expo-modules-core/ios/Core/Views/ComponentData.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/ConcreteViewProp.swift b/node_modules/expo-modules-core/ios/Core/Views/ConcreteViewProp.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/ExpoView.swift b/node_modules/expo-modules-core/ios/Core/Views/ExpoView.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/Convertibles+SwiftUI.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/Convertibles+SwiftUI.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/ExpoSwiftUI.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/ExpoSwiftUI.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIChild.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIChild.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIHostingView.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIHostingView.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUILayoutMetrics.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUILayoutMetrics.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewDefinition.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewDefinitionBuilder.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewDefinitionBuilder.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewFrameObserver.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewFrameObserver.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewHost.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewHost.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewProps.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewProps.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/ViewDefinition.swift b/node_modules/expo-modules-core/ios/Core/Views/ViewDefinition.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/ViewLifecycleMethod.swift b/node_modules/expo-modules-core/ios/Core/Views/ViewLifecycleMethod.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/ViewModuleWrapper.swift b/node_modules/expo-modules-core/ios/Core/Views/ViewModuleWrapper.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/DevTools/CdpNetworkTypes.swift b/node_modules/expo-modules-core/ios/DevTools/CdpNetworkTypes.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/DevTools/ExpoRequestCdpInterceptor.swift b/node_modules/expo-modules-core/ios/DevTools/ExpoRequestCdpInterceptor.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/DevTools/ExpoRequestInterceptorProtocol.swift b/node_modules/expo-modules-core/ios/DevTools/ExpoRequestInterceptorProtocol.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/DevTools/URLAuthenticationChallengeForwardSender.swift b/node_modules/expo-modules-core/ios/DevTools/URLAuthenticationChallengeForwardSender.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/DevTools/URLRequest+httpBodyData.swift b/node_modules/expo-modules-core/ios/DevTools/URLRequest+httpBodyData.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/DevTools/URLSessionSessionDelegateProxy.swift b/node_modules/expo-modules-core/ios/DevTools/URLSessionSessionDelegateProxy.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/EXAppDefines.h b/node_modules/expo-modules-core/ios/EXAppDefines.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/EXAppDefines.m b/node_modules/expo-modules-core/ios/EXAppDefines.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/EXDefines.h b/node_modules/expo-modules-core/ios/EXDefines.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/EXLegacyExpoViewProtocol.h b/node_modules/expo-modules-core/ios/EXLegacyExpoViewProtocol.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ExpoModulesCore.h b/node_modules/expo-modules-core/ios/ExpoModulesCore.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricViewObjC.h b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricViewObjC.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricViewObjC.mm b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricViewObjC.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/FileSystemUtilities/FileSystemLegacyUtilities.swift b/node_modules/expo-modules-core/ios/FileSystemUtilities/FileSystemLegacyUtilities.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/FileSystemUtilities/FileSystemUtilities.swift b/node_modules/expo-modules-core/ios/FileSystemUtilities/FileSystemUtilities.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Camera/EXCameraInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Camera/EXCameraInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Constants/EXConstantsInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Constants/EXConstantsInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/FaceDetector/EXFaceDetectorManagerInterface.h b/node_modules/expo-modules-core/ios/Interfaces/FaceDetector/EXFaceDetectorManagerInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/FaceDetector/EXFaceDetectorManagerProviderInterface.h b/node_modules/expo-modules-core/ios/Interfaces/FaceDetector/EXFaceDetectorManagerProviderInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/FileSystem/EXFilePermissionModuleInterface.h b/node_modules/expo-modules-core/ios/Interfaces/FileSystem/EXFilePermissionModuleInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/FileSystem/EXFileSystemInterface.h b/node_modules/expo-modules-core/ios/Interfaces/FileSystem/EXFileSystemInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/ImageLoader/EXImageLoaderInterface.h b/node_modules/expo-modules-core/ios/Interfaces/ImageLoader/EXImageLoaderInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Permissions/EXPermissionsInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Permissions/EXPermissionsInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Permissions/EXPermissionsMethodsDelegate.h b/node_modules/expo-modules-core/ios/Interfaces/Permissions/EXPermissionsMethodsDelegate.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Permissions/EXPermissionsMethodsDelegate.m b/node_modules/expo-modules-core/ios/Interfaces/Permissions/EXPermissionsMethodsDelegate.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Permissions/EXUserNotificationCenterProxyInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Permissions/EXUserNotificationCenterProxyInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXAccelerometerInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXAccelerometerInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXBarometerInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXBarometerInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXDeviceMotionInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXDeviceMotionInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXGyroscopeInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXGyroscopeInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXMagnetometerInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXMagnetometerInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXMagnetometerUncalibratedInterface.h b/node_modules/expo-modules-core/ios/Interfaces/Sensors/EXMagnetometerUncalibratedInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskConsumerInterface.h b/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskConsumerInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskInterface.h b/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskLaunchReason.h b/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskLaunchReason.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskManagerInterface.h b/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskManagerInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskServiceInterface.h b/node_modules/expo-modules-core/ios/Interfaces/TaskManager/EXTaskServiceInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJSIConversions.h b/node_modules/expo-modules-core/ios/JSI/EXJSIConversions.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJSIConversions.mm b/node_modules/expo-modules-core/ios/JSI/EXJSIConversions.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJSIInstaller.h b/node_modules/expo-modules-core/ios/JSI/EXJSIInstaller.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJSIInstaller.mm b/node_modules/expo-modules-core/ios/JSI/EXJSIInstaller.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJSIUtils.h b/node_modules/expo-modules-core/ios/JSI/EXJSIUtils.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJSIUtils.mm b/node_modules/expo-modules-core/ios/JSI/EXJSIUtils.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptObject.h b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptObject.mm b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptObject.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptRuntime.h b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptRuntime.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptRuntime.mm b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptRuntime.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptTypedArray.h b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptTypedArray.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptTypedArray.mm b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptTypedArray.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptValue.h b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptValue.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptValue.mm b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptValue.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptWeakObject.h b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptWeakObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXJavaScriptWeakObject.mm b/node_modules/expo-modules-core/ios/JSI/EXJavaScriptWeakObject.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXRawJavaScriptFunction.h b/node_modules/expo-modules-core/ios/JSI/EXRawJavaScriptFunction.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXRawJavaScriptFunction.mm b/node_modules/expo-modules-core/ios/JSI/EXRawJavaScriptFunction.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXSharedObjectUtils.h b/node_modules/expo-modules-core/ios/JSI/EXSharedObjectUtils.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/EXSharedObjectUtils.mm b/node_modules/expo-modules-core/ios/JSI/EXSharedObjectUtils.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/ExpoModulesHostObject.h b/node_modules/expo-modules-core/ios/JSI/ExpoModulesHostObject.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/ExpoModulesHostObject.mm b/node_modules/expo-modules-core/ios/JSI/ExpoModulesHostObject.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/JavaScriptRuntime.swift b/node_modules/expo-modules-core/ios/JSI/JavaScriptRuntime.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/JSI/JavaScriptValue.swift b/node_modules/expo-modules-core/ios/JSI/JavaScriptValue.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/EXBridgeModule.h b/node_modules/expo-modules-core/ios/Legacy/EXBridgeModule.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/EXExportedModule.h b/node_modules/expo-modules-core/ios/Legacy/EXExportedModule.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/EXExportedModule.m b/node_modules/expo-modules-core/ios/Legacy/EXExportedModule.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/EXSingletonModule.h b/node_modules/expo-modules-core/ios/Legacy/EXSingletonModule.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/EXSingletonModule.m b/node_modules/expo-modules-core/ios/Legacy/EXSingletonModule.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/EXUnimodulesCompat.h b/node_modules/expo-modules-core/ios/Legacy/EXUnimodulesCompat.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/EXUtilities.h b/node_modules/expo-modules-core/ios/Legacy/EXUtilities.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/EXUtilities.m b/node_modules/expo-modules-core/ios/Legacy/EXUtilities.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistry/EXModuleRegistry.h b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistry/EXModuleRegistry.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistry/EXModuleRegistry.m b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistry/EXModuleRegistry.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistry/EXModuleRegistryDelegate.h b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistry/EXModuleRegistryDelegate.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryAdapter/EXModuleRegistryAdapter.h b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryAdapter/EXModuleRegistryAdapter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryAdapter/EXModuleRegistryAdapter.m b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryAdapter/EXModuleRegistryAdapter.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryAdapter/EXModuleRegistryHolderReactModule.h b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryAdapter/EXModuleRegistryHolderReactModule.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryAdapter/EXModuleRegistryHolderReactModule.m b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryAdapter/EXModuleRegistryHolderReactModule.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryProvider/EXModuleRegistryProvider.h b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryProvider/EXModuleRegistryProvider.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryProvider/EXModuleRegistryProvider.m b/node_modules/expo-modules-core/ios/Legacy/ModuleRegistryProvider/EXModuleRegistryProvider.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.h b/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.mm b/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/EXNativeModulesProxy.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/NativeModulesProxyModule.swift b/node_modules/expo-modules-core/ios/Legacy/NativeModulesProxy/NativeModulesProxyModule.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXAppLifecycleListener.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXAppLifecycleListener.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXAppLifecycleService.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXAppLifecycleService.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXEventEmitter.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXEventEmitter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXEventEmitterService.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXEventEmitterService.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXInternalModule.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXInternalModule.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXJavaScriptContextProvider.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXJavaScriptContextProvider.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXLogHandler.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXLogHandler.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXModuleRegistryConsumer.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXModuleRegistryConsumer.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXUIManager.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXUIManager.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Protocols/EXUtilitiesInterface.h b/node_modules/expo-modules-core/ios/Legacy/Protocols/EXUtilitiesInterface.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/EXLogManager.h b/node_modules/expo-modules-core/ios/Legacy/Services/EXLogManager.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/EXLogManager.m b/node_modules/expo-modules-core/ios/Legacy/Services/EXLogManager.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/EXReactLogHandler.h b/node_modules/expo-modules-core/ios/Legacy/Services/EXReactLogHandler.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/EXReactLogHandler.m b/node_modules/expo-modules-core/ios/Legacy/Services/EXReactLogHandler.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/EXReactNativeAdapter.h b/node_modules/expo-modules-core/ios/Legacy/Services/EXReactNativeAdapter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/EXReactNativeAdapter.mm b/node_modules/expo-modules-core/ios/Legacy/Services/EXReactNativeAdapter.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/EXReactNativeEventEmitter.h b/node_modules/expo-modules-core/ios/Legacy/Services/EXReactNativeEventEmitter.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/EXReactNativeEventEmitter.m b/node_modules/expo-modules-core/ios/Legacy/Services/EXReactNativeEventEmitter.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXPermissionsService.h b/node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXPermissionsService.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXPermissionsService.m b/node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXPermissionsService.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXReactNativeUserNotificationCenterProxy.h b/node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXReactNativeUserNotificationCenterProxy.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXReactNativeUserNotificationCenterProxy.m b/node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXReactNativeUserNotificationCenterProxy.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Platform.h b/node_modules/expo-modules-core/ios/Platform.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Platform.swift b/node_modules/expo-modules-core/ios/Platform.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/RCTComponentData+Privates.h b/node_modules/expo-modules-core/ios/RCTComponentData+Privates.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/RCTComponentData+Privates.m b/node_modules/expo-modules-core/ios/RCTComponentData+Privates.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/EXReactDelegateWrapper+Private.h b/node_modules/expo-modules-core/ios/ReactDelegates/EXReactDelegateWrapper+Private.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/EXReactDelegateWrapper.h b/node_modules/expo-modules-core/ios/ReactDelegates/EXReactDelegateWrapper.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/EXReactDelegateWrapper.mm b/node_modules/expo-modules-core/ios/ReactDelegates/EXReactDelegateWrapper.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/EXReactRootViewFactory.h b/node_modules/expo-modules-core/ios/ReactDelegates/EXReactRootViewFactory.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/EXReactRootViewFactory.mm b/node_modules/expo-modules-core/ios/ReactDelegates/EXReactRootViewFactory.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/ExpoReactDelegate.swift b/node_modules/expo-modules-core/ios/ReactDelegates/ExpoReactDelegate.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/ExpoReactDelegateHandler.swift b/node_modules/expo-modules-core/ios/ReactDelegates/ExpoReactDelegateHandler.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/ModulePriorities.swift b/node_modules/expo-modules-core/ios/ReactDelegates/ModulePriorities.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/RCTAppDelegate+Recreate.h b/node_modules/expo-modules-core/ios/ReactDelegates/RCTAppDelegate+Recreate.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/ReactDelegates/RCTAppDelegate+Recreate.mm b/node_modules/expo-modules-core/ios/ReactDelegates/RCTAppDelegate+Recreate.mm
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Swift.h b/node_modules/expo-modules-core/ios/Swift.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/AppCodeSignEntitlementsSpec.swift b/node_modules/expo-modules-core/ios/Tests/AppCodeSignEntitlementsSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/BlobConvertiblesSpec.swift b/node_modules/expo-modules-core/ios/Tests/BlobConvertiblesSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ClassDefinitionSpec.swift b/node_modules/expo-modules-core/ios/Tests/ClassDefinitionSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ConstantsSpec.swift b/node_modules/expo-modules-core/ios/Tests/ConstantsSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ConvertiblesSpec.swift b/node_modules/expo-modules-core/ios/Tests/ConvertiblesSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/CoreModuleSpec.swift b/node_modules/expo-modules-core/ios/Tests/CoreModuleSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/DynamicEitherTypeSpec.swift b/node_modules/expo-modules-core/ios/Tests/DynamicEitherTypeSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/DynamicTypeSpec.swift b/node_modules/expo-modules-core/ios/Tests/DynamicTypeSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/EXAppDefinesTest.m b/node_modules/expo-modules-core/ios/Tests/EXAppDefinesTest.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/EitherSpec.swift b/node_modules/expo-modules-core/ios/Tests/EitherSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/EnumerableSpec.swift b/node_modules/expo-modules-core/ios/Tests/EnumerableSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/EventEmitterSpec.swift b/node_modules/expo-modules-core/ios/Tests/EventEmitterSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ExceptionsSpec.swift b/node_modules/expo-modules-core/ios/Tests/ExceptionsSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ExpoModulesSpec.swift b/node_modules/expo-modules-core/ios/Tests/ExpoModulesSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ExpoRequestCdpInterceptorSpec.swift b/node_modules/expo-modules-core/ios/Tests/ExpoRequestCdpInterceptorSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/FileSystemLegacyUtilitiesSpec.swift b/node_modules/expo-modules-core/ios/Tests/FileSystemLegacyUtilitiesSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/FunctionSpec.swift b/node_modules/expo-modules-core/ios/Tests/FunctionSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/FunctionWithConvertiblesSpec.swift b/node_modules/expo-modules-core/ios/Tests/FunctionWithConvertiblesSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/JavaScriptObjectSpec.swift b/node_modules/expo-modules-core/ios/Tests/JavaScriptObjectSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/JavaScriptRuntimeSpec.swift b/node_modules/expo-modules-core/ios/Tests/JavaScriptRuntimeSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/LoggerSpec.swift b/node_modules/expo-modules-core/ios/Tests/LoggerSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/Mocks/ModuleMocks.swift b/node_modules/expo-modules-core/ios/Tests/Mocks/ModuleMocks.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/Mocks/ModulesProviderMock.swift b/node_modules/expo-modules-core/ios/Tests/Mocks/ModulesProviderMock.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ModuleEventListenersSpec.swift b/node_modules/expo-modules-core/ios/Tests/ModuleEventListenersSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ModuleRegistrySpec.swift b/node_modules/expo-modules-core/ios/Tests/ModuleRegistrySpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/PersistentFileLogSpec.swift b/node_modules/expo-modules-core/ios/Tests/PersistentFileLogSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/PropertyDefinitionSpec.swift b/node_modules/expo-modules-core/ios/Tests/PropertyDefinitionSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/RecordSpec.swift b/node_modules/expo-modules-core/ios/Tests/RecordSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/SharedObjectRegistrySpec.swift b/node_modules/expo-modules-core/ios/Tests/SharedObjectRegistrySpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/SharedObjectSpec.swift b/node_modules/expo-modules-core/ios/Tests/SharedObjectSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/SharedRefSpec.swift b/node_modules/expo-modules-core/ios/Tests/SharedRefSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/TypedArraysSpec.swift b/node_modules/expo-modules-core/ios/Tests/TypedArraysSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Tests/ViewDefinitionSpec.swift b/node_modules/expo-modules-core/ios/Tests/ViewDefinitionSpec.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Utilities.swift b/node_modules/expo-modules-core/ios/Utilities.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Uuidv5/Exceptions.swift b/node_modules/expo-modules-core/ios/Uuidv5/Exceptions.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/ios/Uuidv5/Uuidv5.swift b/node_modules/expo-modules-core/ios/Uuidv5/Uuidv5.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/react-native.config.js b/node_modules/expo-modules-core/react-native.config.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/EventEmitter.ts b/node_modules/expo-modules-core/src/EventEmitter.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/LegacyEventEmitter.ts b/node_modules/expo-modules-core/src/LegacyEventEmitter.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/NativeModule.ts b/node_modules/expo-modules-core/src/NativeModule.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/NativeModulesProxy.native.ts b/node_modules/expo-modules-core/src/NativeModulesProxy.native.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/NativeModulesProxy.ts b/node_modules/expo-modules-core/src/NativeModulesProxy.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/NativeModulesProxy.types.ts b/node_modules/expo-modules-core/src/NativeModulesProxy.types.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/NativeViewManagerAdapter.native.tsx b/node_modules/expo-modules-core/src/NativeViewManagerAdapter.native.tsx
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/NativeViewManagerAdapter.tsx b/node_modules/expo-modules-core/src/NativeViewManagerAdapter.tsx
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/PermissionsHook.ts b/node_modules/expo-modules-core/src/PermissionsHook.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/PermissionsInterface.ts b/node_modules/expo-modules-core/src/PermissionsInterface.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/Platform.ts b/node_modules/expo-modules-core/src/Platform.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/Refs.ts b/node_modules/expo-modules-core/src/Refs.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/SharedObject.ts b/node_modules/expo-modules-core/src/SharedObject.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/SharedRef.ts b/node_modules/expo-modules-core/src/SharedRef.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/TypedArrays.types.ts b/node_modules/expo-modules-core/src/TypedArrays.types.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/ensureNativeModulesAreInstalled.ts b/node_modules/expo-modules-core/src/ensureNativeModulesAreInstalled.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/environment/browser.ts b/node_modules/expo-modules-core/src/environment/browser.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/environment/browser.web.ts b/node_modules/expo-modules-core/src/environment/browser.web.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/errors/CodedError.ts b/node_modules/expo-modules-core/src/errors/CodedError.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/errors/UnavailabilityError.ts b/node_modules/expo-modules-core/src/errors/UnavailabilityError.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/hooks/useReleasingSharedObject.ts b/node_modules/expo-modules-core/src/hooks/useReleasingSharedObject.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/index.ts b/node_modules/expo-modules-core/src/index.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/registerWebModule.ts b/node_modules/expo-modules-core/src/registerWebModule.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/reload.ts b/node_modules/expo-modules-core/src/reload.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/requireNativeModule.ts b/node_modules/expo-modules-core/src/requireNativeModule.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/requireNativeModule.web.ts b/node_modules/expo-modules-core/src/requireNativeModule.web.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/sweet/NativeErrorManager.ts b/node_modules/expo-modules-core/src/sweet/NativeErrorManager.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/sweet/setUpErrorManager.fx.ts b/node_modules/expo-modules-core/src/sweet/setUpErrorManager.fx.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/sweet/setUpErrorManager.fx.web.ts b/node_modules/expo-modules-core/src/sweet/setUpErrorManager.fx.web.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/ts-declarations/EventEmitter.ts b/node_modules/expo-modules-core/src/ts-declarations/EventEmitter.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/ts-declarations/ExpoModules.d.ts b/node_modules/expo-modules-core/src/ts-declarations/ExpoModules.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/ts-declarations/NativeEventEmitter.d.ts b/node_modules/expo-modules-core/src/ts-declarations/NativeEventEmitter.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/ts-declarations/NativeModule.ts b/node_modules/expo-modules-core/src/ts-declarations/NativeModule.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/ts-declarations/SharedObject.ts b/node_modules/expo-modules-core/src/ts-declarations/SharedObject.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/ts-declarations/SharedRef.ts b/node_modules/expo-modules-core/src/ts-declarations/SharedRef.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/ts-declarations/global.ts b/node_modules/expo-modules-core/src/ts-declarations/global.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/uuid/index.ts b/node_modules/expo-modules-core/src/uuid/index.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/uuid/lib/bytesToUuid.ts b/node_modules/expo-modules-core/src/uuid/lib/bytesToUuid.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/uuid/lib/sha1.ts b/node_modules/expo-modules-core/src/uuid/lib/sha1.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/uuid/lib/v35.ts b/node_modules/expo-modules-core/src/uuid/lib/v35.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/uuid/uuid.ts b/node_modules/expo-modules-core/src/uuid/uuid.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/uuid/uuid.types.ts b/node_modules/expo-modules-core/src/uuid/uuid.types.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/uuid/uuid.web.ts b/node_modules/expo-modules-core/src/uuid/uuid.web.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/web/CoreModule.ts b/node_modules/expo-modules-core/src/web/CoreModule.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/web/index.ts b/node_modules/expo-modules-core/src/web/index.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/src/web/index.web.ts b/node_modules/expo-modules-core/src/web/index.web.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/tsconfig.json b/node_modules/expo-modules-core/tsconfig.json
+old mode 100644
+new mode 100755
+diff --git a/node_modules/expo-modules-core/types.d.ts b/node_modules/expo-modules-core/types.d.ts
+old mode 100644
+new mode 100755

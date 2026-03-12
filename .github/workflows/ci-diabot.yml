@@ -1,0 +1,11 @@
+name: "[DEPRECATED] DIABOT Build/Smoke"
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "This workflow has been superseded by 'Core CI', 'Docker Build & Smoke', and 'Extended QA'."

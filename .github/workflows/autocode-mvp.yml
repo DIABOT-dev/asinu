@@ -1,0 +1,11 @@
+name: "[DEPRECATED] Autocode: MVP pack"
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "This scaffold workflow is archived. Run the scripts locally if needed."

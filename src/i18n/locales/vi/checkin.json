@@ -1,0 +1,49 @@
+{
+  "titleCheckin": "Check-in sức khoẻ",
+  "titleFollowUp": "Cập nhật tình trạng",
+
+  "statusFineLabel": "Tôi ổn",
+  "statusFineSub": "Cảm thấy bình thường, khoẻ mạnh",
+  "statusTiredLabel": "Hơi không khoẻ",
+  "statusTiredSub": "Có gì đó không ổn, cần theo dõi",
+  "statusVeryTiredLabel": "Rất không khoẻ",
+  "statusVeryTiredSub": "Mệt nhiều, rất khó chịu",
+  "statusSpecificLabel": "Có triệu chứng cụ thể",
+  "statusSpecificSub": "Tôi muốn chia sẻ điều gì đó cụ thể",
+
+  "headingFollowUp": "Tình trạng bây giờ thế nào?",
+  "headingMorning": "Hôm nay bạn cảm thấy thế nào?",
+  "chooseStatus": "Chọn trạng thái phù hợp nhất với bạn lúc này",
+
+  "questionCount": "Câu {{n}}",
+  "analyzing": "Asinu đang phân tích...",
+  "customAnswerPlaceholder": "Hoặc tự nhập câu trả lời...",
+
+  "doneFineHeading": "Tuyệt! Vui lòng duy trì.",
+  "doneHeading": "Asinu đã ghi nhận",
+  "doneFineSubheading": "Asinu sẽ hỏi thăm lại vào buổi tối hôm nay.",
+
+  "severityHigh": "Mức độ cao",
+  "severityMedium": "Mức độ vừa",
+  "severityLow": "Mức độ nhẹ",
+
+  "recommendationLabel": "Lời khuyên:",
+  "seeDoctor": "Nên đến gặp bác sĩ để được kiểm tra.",
+
+  "followUpIn": "Asinu sẽ hỏi thăm lại sau {{hours}} tiếng.",
+  "followUpHighAlert": "Asinu sẽ hỏi thăm bạn lại sau 1–2 tiếng.",
+  "followUpNormal": "Asinu sẽ hỏi thăm bạn lại sau 3 tiếng.",
+
+  "progressionImproved": "Tốt hơn rồi, vui lòng tiếp tục nghỉ ngơi nhé.",
+  "progressionSame": "Asinu sẽ tiếp tục theo dõi tình trạng của bạn.",
+  "progressionWorsened": "Tình trạng có vẻ nặng hơn.",
+
+  "redFlagTitle": "Cần chú ý ngay",
+  "redFlagDesc": "Asinu phát hiện một số dấu hiệu cần theo dõi kỹ. Hãy nghỉ ngơi và kiểm tra các chỉ số sức khoẻ, hoặc liên hệ người thân / bác sĩ nếu cần.",
+  "redFlagAction": "Đã hiểu",
+
+  "close": "Đóng",
+
+  "errorTitle": "Lỗi",
+  "errorSaveStatus": "Không thể lưu trạng thái. Vui lòng thử lại."
+}

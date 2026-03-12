@@ -1,0 +1,12 @@
+water:
+  - any:
+      - "src/modules/water/**"
+meal:
+  - any:
+      - "src/modules/meal/**"
+supabase:
+  - any:
+      - "supabase/**"
+uiux:
+  - any:
+      - "src/interfaces/**"

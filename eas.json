@@ -1,0 +1,72 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "dev",
+        "NODE_ENV": "development"
+      }
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "dev",
+        "NODE_ENV": "development"
+      }
+    },
+    "simulator-standalone": {
+      "developmentClient": false,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "dev",
+        "NODE_ENV": "development"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_API_BASE_URL": "https://asinu.top",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "726570048913-0oj1afglacg0h4p77toi6kvr6buh46j8.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "726570048913-oq7rk69ronarv55lucd7it29t8ti0c32.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "726570048913-atltseun4619ge72ba6itpiqc6hbjnr0.apps.googleusercontent.com",
+        "EXPO_PUBLIC_APPLE_CLIENT_ID": "com.asinu.lite.service",
+        "EXPO_PUBLIC_ZALO_APP_ID": "1593272240133048788"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "node": "20.18.1",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "prod",
+        "EXPO_PUBLIC_API_BASE_URL": "https://asinu.top",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "726570048913-0oj1afglacg0h4p77toi6kvr6buh46j8.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "726570048913-oq7rk69ronarv55lucd7it29t8ti0c32.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "726570048913-atltseun4619ge72ba6itpiqc6hbjnr0.apps.googleusercontent.com",
+        "EXPO_PUBLIC_APPLE_CLIENT_ID": "com.asinu.lite.service",
+        "EXPO_PUBLIC_ZALO_APP_ID": "1593272240133048788"
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+name: "[DISABLED] Auto Fix"
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Auto-fix is disabled by default. Re-enable manually if ever required."

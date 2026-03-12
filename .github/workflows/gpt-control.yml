@@ -1,0 +1,11 @@
+name: "[DEPRECATED] GPT Control CI"
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "GPT-specific checks now run inside 'Core CI' via the 'gpt' label."

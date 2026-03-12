@@ -1,0 +1,148 @@
+name: Extended QA
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to test'
+        required: false
+        default: 'main'
+      base_url:
+        description: 'External base URL for smoke (camp/prod)'
+        required: false
+        default: 'https://camp.diabot.top'
+  schedule:
+    - cron: '0 18 * * *'  # nightly
+
+concurrency:
+  group: extended-qa
+  cancel-in-progress: false
+
+jobs:
+  extended:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: diabot
+          POSTGRES_USER: diabot
+          POSTGRES_PASSWORD: diabot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U diabot -d diabot" \
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      DIABOT_DB_URL: postgresql://diabot:diabot@localhost:5432/diabot
+      QA_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_url || 'https://camp.diabot.top' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || 'main' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app (CI flags)
+        run: npm run build:ci
+
+      - name: Start Next.js (background)
+        run: |
+          npm run start -- --port 3000 &
+          echo $! > app.pid
+
+      - name: Run QA stack (DB + API)
+        run: |
+          chmod +x scripts/qa_stack.sh
+          bash scripts/qa_stack.sh
+
+      - name: Stop Next.js
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill "$(cat app.pid)" || true
+          fi
+
+      - name: External smoke report
+        id: camp
+        shell: bash
+        run: |
+          set -e
+          mkdir -p qa_external
+          ts=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          endpoints=(
+            "/api/qa/selftest"
+            "/api/chart/7d"
+            "/api/profile"
+          )
+
+          curlcode () {
+            curl -sS -m 10 --retry 2 --retry-all-errors -o /dev/null -w "%{http_code}" "$1"
+          }
+          curllat () {
+            curl -sS -m 10 --retry 2 --retry-all-errors -o /dev/null -w "%{time_total}s" "$1"
+          }
+
+          {
+            echo "# 🧪 Extended QA Report"
+            echo "_${ts}_"
+            echo
+            echo "## External endpoints (${QA_BASE_URL})"
+            echo "| Endpoint | Status | Code | Latency |"
+            echo "|---------:|:------:|-----:|--------:|"
+            ok_self=0
+            for p in "${endpoints[@]}"; do
+              url="${QA_BASE_URL}${p}"
+              code=$(curlcode "$url" || echo 000)
+              lat=$(curllat "$url" || echo n/a)
+              status="✅"
+              if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then status="❌"; fi
+              printf "| \\`%s\\` | %s | %s | %s |\n" "$p" "$status" "$code" "$lat"
+              if [ "$p" = "/api/qa/selftest" ] && [ "$status" = "✅" ]; then ok_self=1; fi
+            done
+            echo
+            if [ "$ok_self" -eq 1 ]; then
+              echo "Gate: ✅ /api/qa/selftest"
+            else
+              echo "Gate: ❌ /api/qa/selftest"
+            fi
+          } > qa_external/report.md
+
+          echo "self_ok=$ok_self" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extended-qa-report
+          path: |
+            QA_MVP.md
+            qa_external/report.md
+
+      - name: Add summary
+        if: always()
+        run: |
+          if [ -f QA_MVP.md ]; then
+            echo '### QA_MVP.md' >> $GITHUB_STEP_SUMMARY
+            echo '```markdown' >> $GITHUB_STEP_SUMMARY
+            tail -n 100 QA_MVP.md >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f qa_external/report.md ]; then
+            echo '### External QA' >> $GITHUB_STEP_SUMMARY
+            cat qa_external/report.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Gate on external selftest
+        if: steps.camp.outputs.self_ok != '1'
+        run: |
+          echo "External /api/qa/selftest failed. See report."
+          exit 1

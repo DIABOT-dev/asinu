@@ -1,0 +1,372 @@
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Image } from 'react-native';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+
+const zaloLogo = require('../../src/assets/zalo.png');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '../../src/components/Button';
+import { ScaledText as Text } from '../../src/components/ScaledText';
+import { TextInput } from '../../src/components/TextInput';
+import { SocialProvider } from '../../src/features/auth/auth.service';
+import { useAuthStore } from '../../src/features/auth/auth.store';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { colors, radius, spacing } from '../../src/styles';
+import { LanguageToggle } from '../../src/components/LanguageToggle';
+
+export default function LoginEmailScreen() {
+  const [identifier, setIdentifier] = useState(''); // Email or phone
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [identifierError, setIdentifierError] = useState<string | undefined>();
+  const [pendingAction, setPendingAction] = useState<'login' | SocialProvider | null>(null);
+  const login = useAuthStore((state) => state.login);
+  const loginWithSocial = useAuthStore((state) => state.loginWithSocial);
+  const loading = useAuthStore((state) => state.loading);
+  const error = useAuthStore((state) => state.error);
+  const router = useRouter();
+
+  const navigateAfterLogin = () => {
+    const profile = useAuthStore.getState().profile;
+    if (profile && !profile.onboardingCompleted) {
+      router.replace('/onboarding');
+    } else {
+      router.replace('/(tabs)/home');
+    }
+  };
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation('auth');
+  const { t: tc } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  
+  const openLegal = (type: 'terms' | 'privacy') => {
+    router.push({ pathname: '/legal/content', params: { type } });
+  };
+
+  const handleIdentifierBlur = () => {
+    if (!identifier.trim()) {
+      setIdentifierError(t('emailOrPhoneRequired'));
+    } else {
+      setIdentifierError(undefined);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!identifier.trim() || !password.trim() || loading) return;
+    
+    setPendingAction('login');
+    try {
+      await login({ identifier: identifier.trim(), password: password.trim() });
+      navigateAfterLogin();
+    } catch (err) {
+
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleSocialLogin = async (provider: SocialProvider) => {
+    if (loading) return;
+    setPendingAction(provider);
+    try {
+      await loginWithSocial(provider);
+      navigateAfterLogin();
+    } catch (err) {
+
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const isSubmitting = loading;
+  const loginButtonLoading = isSubmitting && pendingAction === 'login';
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
+      <View style={[styles.langToggleRow, { top: insets.top + spacing.sm }]}>
+        <LanguageToggle />
+      </View>
+      <Text style={styles.title}>{t('login')}</Text>
+      <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
+
+      <View style={styles.form}>
+        <View style={styles.inputGroup}>
+          <TextInput
+            value={identifier}
+            onChangeText={(text) => {
+              setIdentifier(text);
+              setIdentifierError(undefined);
+            }}
+            onBlur={handleIdentifierBlur}
+            placeholder={t('emailOrPhone')}
+            keyboardType="default"
+            autoCapitalize="none"
+            style={styles.inputRounded}
+            leftIcon={<Ionicons name="mail-outline" size={18} color={colors.textSecondary} />}
+          />
+          {identifierError && <Text style={styles.fieldError}>{identifierError}</Text>}
+        </View>
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder={t('password')}
+          secureTextEntry={!showPassword}
+          style={styles.inputRounded}
+          leftIcon={<Ionicons name="lock-closed-outline" size={18} color={colors.textSecondary} />}
+          rightElement={
+            <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+              <Ionicons
+                name={showPassword ? 'eye' : 'eye-off'}
+                size={20}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+          }
+        />
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <Button
+          label={loginButtonLoading ? tc('processing') : t('login')}
+          onPress={handleLogin}
+          disabled={isSubmitting || !identifier.trim() || !password.trim()}
+          style={styles.primaryButton}
+        />
+        <View style={styles.divider}>
+          <Text style={styles.dividerText}>{t('orContinueWith')}</Text>
+        </View>
+        <View style={styles.socialGroup}>
+          {(Platform.OS === 'ios'
+              ? (['google', 'facebook', 'zalo', 'apple'] as SocialProvider[])
+              : (['google', 'facebook', 'zalo'] as SocialProvider[])
+            ).map((provider) => {
+            const isButtonLoading = isSubmitting && pendingAction === provider;
+            const label =
+              provider === 'google'   ? t('continueWithGoogle') :
+              provider === 'facebook' ? t('continueWithFacebook') :
+              provider === 'zalo'     ? t('continueWithZalo') :
+              t('continueWithApple');
+
+            const renderIcon = () => {
+              if (provider === 'google') {
+                return <FontAwesome5 name="google" size={20} color="#EA4335" brand />;
+              }
+              if (provider === 'facebook') {
+                return <FontAwesome5 name="facebook" size={20} color="#1877F2" brand />;
+              }
+              if (provider === 'apple') {
+                return <FontAwesome5 name="apple" size={20} color="#000" brand />;
+              }
+              return <Image source={zaloLogo} style={styles.zaloIcon} resizeMode="contain" />;
+            };
+
+            return (
+              <Pressable
+                key={provider}
+                onPress={() => handleSocialLogin(provider)}
+                disabled={isSubmitting}
+                style={({ pressed }) => [
+                  styles.socialButton,
+                  pressed && styles.socialButtonPressed,
+                  isSubmitting && styles.socialButtonDisabled
+                ]}
+              >
+                {!isButtonLoading && (
+                  <View style={styles.socialIconWrapper}>
+                    {renderIcon()}
+                  </View>
+                )}
+                <Text style={styles.socialButtonText}>{isButtonLoading ? tc('processing') : label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.legal}>
+        <Text style={styles.helper}>{t('agreeTerms')}</Text>
+        <View style={styles.linkRow}>
+          <Pressable onPress={() => openLegal('terms')}>
+            <Text style={styles.link}>{t('termsOfUse')}</Text>
+          </Pressable>
+          <Text style={styles.separator}>·</Text>
+          <Pressable onPress={() => openLegal('privacy')}>
+            <Text style={styles.link}>{t('privacyPolicy')}</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.registerPrompt}>
+        <Text style={styles.registerText}>{t('noAccount')}</Text>
+        <Pressable onPress={() => router.push('/register')}>
+          <Text style={styles.registerLink}>{t('register')}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+    gap: spacing.lg,
+    justifyContent: 'center',
+    backgroundColor: colors.background
+  },
+  langToggleRow: {
+    position: 'absolute',
+    right: spacing.xl,
+    zIndex: 10,
+  },
+  title: {
+    fontSize: typography.size.xl,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontWeight: '400',
+    marginBottom: spacing.lg
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 4,
+    marginHorizontal: spacing.xl
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    borderRadius: radius.md
+  },
+  toggleButtonActive: {
+    backgroundColor: colors.primary
+  },
+  toggleText: {
+    fontSize: typography.size.sm,
+    fontWeight: '600',
+    color: colors.textSecondary
+  },
+  toggleTextActive: {
+    color: colors.background
+  },
+  form: {
+    gap: spacing.xl,
+    width: '100%'
+  },
+  inputRounded: {
+    borderRadius: radius.xxl,
+    height: 52,
+  },
+  inputGroup: {
+    gap: spacing.sm
+  },
+  fieldError: {
+    color: colors.danger,
+    fontSize: typography.size.sm,
+    marginTop: spacing.xs / 2,
+  },
+  errorText: {
+    color: colors.danger
+  },
+  primaryButton: {
+    alignSelf: 'center',
+    width: '100%',
+    borderRadius: radius.xxl,
+    height: 52,
+    marginTop: spacing.lg
+  },
+  divider: {
+    alignItems: 'center',
+    marginTop: spacing.sm
+  },
+  dividerText: {
+    color: colors.textSecondary,
+    fontSize: typography.size.sm,
+    fontWeight: '400'
+  },
+  socialGroup: {
+    gap: spacing.sm
+  },
+  socialButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.xxl,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  zaloIcon: {
+    width: 20,
+    height: 20,
+  },
+  socialIconWrapper: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  socialButtonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }]
+  },
+  socialButtonDisabled: {
+    opacity: 0.6
+  },
+  socialButtonText: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  legal: {
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    alignItems: 'center'
+  },
+  helper: {
+    color: colors.textSecondary,
+    fontWeight: '400',
+    fontSize: typography.size.sm,
+    textAlign: 'center'
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    justifyContent: 'center'
+  },
+  link: {
+    color: colors.primary,
+    fontWeight: '700'
+  },
+  registerPrompt: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.md
+  },
+  registerText: {
+    color: colors.textSecondary,
+    fontSize: typography.size.md
+  },
+  registerLink: {
+    color: colors.primary,
+    fontSize: typography.size.md,
+    fontWeight: '700'
+  },
+  separator: {
+    color: colors.textSecondary
+  }
+});
+}

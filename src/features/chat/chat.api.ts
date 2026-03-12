@@ -1,0 +1,78 @@
+﻿import { apiClient } from '../../lib/apiClient';
+import { env } from '../../lib/env';
+import { tokenStore } from '../../lib/tokenStore';
+
+export type ChatRequest = {
+  message: string;
+  client_ts: number;
+  context?: { lang?: string };
+};
+
+export type ChatResponse = {
+  ok: boolean;
+  reply: string;
+  chat_id: string;
+  provider: 'gemini' | 'mock';
+  created_at: string;
+};
+
+export type ChatHistoryMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+};
+
+export const chatApi = {
+  async fetchHistory(): Promise<ChatHistoryMessage[]> {
+    const response = await apiClient<{ ok: boolean; messages: ChatHistoryMessage[] }>('/api/mobile/chat/history');
+    return response.messages ?? [];
+  },
+
+  async sendMessage(payload: Omit<ChatRequest, 'client_ts'>) {
+    const response = await apiClient<ChatResponse>('/api/mobile/chat', {
+      method: 'POST',
+      body: { ...payload, client_ts: Date.now() },
+      timeoutMs: 35000,
+    });
+    return { response, reply: response.reply };
+  },
+
+  async saveFeedback(payload: {
+    messageId: string;
+    messageText: string;
+    feedbackType: 'like' | 'dislike' | 'note';
+  }): Promise<{ ok: boolean; action?: string }> {
+    return apiClient('/api/mobile/chat/feedback', { method: 'POST', body: payload });
+  },
+
+  async getNotes(): Promise<Array<{ id: number; message_text: string; created_at: string }>> {
+    const res = await apiClient<{ ok: boolean; notes: any[] }>('/api/mobile/chat/notes');
+    return res.notes ?? [];
+  },
+
+  async deleteNote(id: number): Promise<void> {
+    await apiClient(`/api/mobile/chat/notes/${id}`, { method: 'DELETE' });
+  },
+
+  async transcribeAudio(uri: string, lang: string = 'vi'): Promise<string> {
+    const token = tokenStore.getToken();
+    const formData = new FormData();
+    formData.append('audio', { uri, type: 'audio/m4a', name: 'voice.m4a' } as any);
+
+    const response = await fetch(`${env.apiBaseUrl}/api/mobile/chat/transcribe`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Accept-Language': lang,
+        Accept: 'application/json',
+      },
+      body: formData,
+    });
+    const text = await response.text();
+    let data: any;
+    try { data = JSON.parse(text); } catch { throw new Error(`Server error ${response.status}`); }
+    if (!data.ok) throw new Error(data.error ?? `Server error ${response.status}`);
+    return data.text as string;
+  }
+};

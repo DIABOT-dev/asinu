@@ -1,0 +1,104 @@
+{
+  "expo": {
+    "name": "Asinu",
+    "slug": "asinu-lite",
+    "version": "1.0.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "orientation": "portrait",
+    "scheme": "asinu-lite",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.asinu.lite",
+      "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png",
+      "urlSchemes": [
+        "com.googleusercontent.apps.726570048913-oq7rk69ronarv55lucd7it29t8ti0c32"
+      ],
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Asinu cần microphone để nhận lệnh giọng nói",
+        "NSLocationWhenInUseUsageDescription": "Asinu cần vị trí của bạn để gửi tín hiệu khẩn cấp đến người thân",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Asinu cần vị trí của bạn để gửi tín hiệu khẩn cấp đến người thân"
+      }
+    },
+    "android": {
+      "package": "com.asinu.lite",
+      "icon": "./assets/icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android/adaptive-foreground.png",
+        "backgroundImage": "./assets/android/adaptive-background.png"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "com.googleusercontent.apps.726570048913-0oj1afglacg0h4p77toi6kvr6buh46j8"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen",
+      "expo-font",
+      "expo-secure-store",
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#08b8a2",
+          "sounds": ["./assets/sounds/asinu_notify.wav"],
+          "mode": "production"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bd2749a5-5dda-41fa-b306-648331738cde"
+      },
+      "appEnv": "development"
+    }
+  }
+}

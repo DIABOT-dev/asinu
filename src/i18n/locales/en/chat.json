@@ -1,0 +1,49 @@
+{
+  "welcome": "Hi, I'm Asinu Chat. How can I help you?",
+  "errorReply": "Sorry, I can't answer right now.",
+  "systemBusy": "Sorry, the system is busy. Please try again later.",
+  "title": "Chat with Asinu",
+  "typing": "Asinu is typing...",
+  "placeholder": "Enter message",
+  "mascotGreeting": "Hi, I'm Asinu!",
+  "stickerText": "Chat with Asinu!",
+  "initialGreeting": "Hi, I'm Asinu. How can I help you?",
+  "sampleUserMessage": "I want to track my health daily.",
+  "errorMic": "Mic error",
+  "errorMicPermission": "Cannot access microphone. Please grant permission in Settings.",
+  "errorMicRecord": "Cannot record audio. Please try again.",
+  "stickerMessages": [
+    "Ask me anything!",
+    "How are you feeling today?",
+    "I'm always here for you!",
+    "Let's chat!",
+    "Tell me what's on your mind!"
+  ],
+  "actionLike": "Like",
+  "actionDislike": "Dislike",
+  "actionCopy": "Copy",
+  "actionNote": "Save note",
+  "actionNoteSaved": "Note saved!",
+  "actionCopied": "Copied!",
+  "notesTitle": "My Notes",
+  "notesEmpty": "No notes yet.\nTap 🔖 below an Asinu message to save one.",
+  "noteDelete": "Delete",
+  "micUpgradeTitle": "Premium Feature",
+  "micUpgradeDesc": "Send voice messages to Asinu — AI automatically understands and replies.",
+  "micUpgradeFeature1": "Vietnamese speech recognition (Whisper AI)",
+  "micUpgradeFeature2": "Message without typing",
+  "micUpgradeFeature3": "More natural conversation experience",
+  "micUpgradeBtn": "Upgrade Now",
+  "micUpgradeLater": "Maybe Later",
+  "medDisclaimer": {
+    "title": "Medical Information Warning",
+    "lines": [
+      "AI-generated content is for reference only and does not constitute medical advice.",
+      "This app does not provide medical diagnosis or prescriptions.",
+      "This information does not replace advice from a qualified healthcare professional.",
+      "Always consult a doctor before taking any medication."
+    ],
+    "gotIt": "Got it",
+    "agree": "Agree"
+  }
+}
