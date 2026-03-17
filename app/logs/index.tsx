@@ -152,7 +152,7 @@ export default function LogsIndexScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.heroTitle}>{t('quickLog')}</Text>
-                <Text style={styles.heroSub}>Chọn chỉ số bạn muốn ghi hôm nay</Text>
+                <Text style={styles.heroSub}>{t('heroSub')}</Text>
               </View>
             </LinearGradient>
           </Animated.View>

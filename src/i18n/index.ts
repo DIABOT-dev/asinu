@@ -15,6 +15,7 @@ import enProfile from './locales/en/profile.json';
 import enSettings from './locales/en/settings.json';
 import enTree from './locales/en/tree.json';
 import enSubscription from './locales/en/subscription.json';
+import enReport from './locales/en/report.json';
 import enWallet from './locales/en/wallet.json';
 import viAuth from './locales/vi/auth.json';
 import viCareCircle from './locales/vi/careCircle.json';
@@ -28,6 +29,7 @@ import viProfile from './locales/vi/profile.json';
 import viSettings from './locales/vi/settings.json';
 import viTree from './locales/vi/tree.json';
 import viSubscription from './locales/vi/subscription.json';
+import viReport from './locales/vi/report.json';
 import viWallet from './locales/vi/wallet.json';
 
 const LANGUAGE_STORAGE_KEY = '@app/language';
@@ -46,6 +48,7 @@ const resources = {
     chat: viChat,
     logs: viLogs,
     subscription: viSubscription,
+    report: viReport,
     wallet: viWallet,
   },
   en: {
@@ -61,6 +64,7 @@ const resources = {
     chat: enChat,
     logs: enLogs,
     subscription: enSubscription,
+    report: enReport,
     wallet: enWallet,
   },
 };
@@ -99,6 +103,7 @@ const initI18n = async () => {
       'chat',
       'logs',
       'subscription',
+      'report',
       'wallet',
     ],
     interpolation: {

@@ -1,9 +1,9 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,40 +12,100 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { useAuthStore } from '../../src/features/auth/auth.store';
+import { authApi } from '../../src/features/auth/auth.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { apiClient } from '../../src/lib/apiClient';
+import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
 
-// ─── Constants ──────────────────────────────────────────────────────
-
-const DISEASE_OPTIONS = [
-  'Tiểu đường',
-  'Tiền tiểu đường',
-  'Cao huyết áp',
-  'Bệnh tim',
-  'Mỡ máu',
-  'Tiền đình',
-  'Đau dạ dày',
-  'Gout',
-  'Không có',
+const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
+  { value: 'small', iconSize: 16 },
+  { value: 'normal', iconSize: 20 },
+  { value: 'large', iconSize: 24 },
+  { value: 'xlarge', iconSize: 28 },
 ];
 
-const MEDICATION_OPTIONS = ['Có', 'Không', 'Chỉ TPCN'];
-const CHECKUP_OPTIONS = ['Mỗi ngày', 'Vài lần/tuần', 'Thỉnh thoảng', 'Gần như không'];
-const EXERCISE_OPTIONS = ['Ít vận động', '30 phút', '1 giờ', 'Trên 1 giờ'];
-const SLEEP_OPTIONS = ['Đủ 7-8 giờ', '6-7 giờ', 'Ít hơn 5 giờ'];
-const MEALS_OPTIONS = ['2 bữa', '3 bữa', '4 bữa trở lên'];
-const DROWSY_OPTIONS = ['Không', 'Thỉnh thoảng', 'Thường xuyên'];
-const DINNER_OPTIONS = ['Trước 18 giờ', '18-20 giờ', 'Sau 20 giờ'];
-const SWEET_OPTIONS = ['Hiếm khi', 'Thỉnh thoảng', 'Thường xuyên'];
+// ─── Constants ──────────────────────────────────────────────────────
+// value = data sent to backend (Vietnamese, for backward compatibility)
+// labelKey = i18n key for display
+
+const BLOOD_TYPE_OPTIONS = [
+  { value: 'A+', labelKey: 'bloodAPlus' },
+  { value: 'A-', labelKey: 'bloodAMinus' },
+  { value: 'B+', labelKey: 'bloodBPlus' },
+  { value: 'B-', labelKey: 'bloodBMinus' },
+  { value: 'AB+', labelKey: 'bloodABPlus' },
+  { value: 'AB-', labelKey: 'bloodABMinus' },
+  { value: 'O+', labelKey: 'bloodOPlus' },
+  { value: 'O-', labelKey: 'bloodOMinus' },
+];
+
+const DISEASE_GRID = [
+  { value: 'Tiểu đường', labelKey: 'diseaseDiabetes' },
+  { value: 'Tiền tiểu đường', labelKey: 'diseasePrediabetes' },
+  { value: 'Cao huyết áp', labelKey: 'diseaseHypertension' },
+  { value: 'Bệnh tim', labelKey: 'diseaseHeart' },
+  { value: 'Mỡ máu', labelKey: 'diseaseDyslipidemia' },
+  { value: 'Tiền đình', labelKey: 'diseaseVertigo' },
+  { value: 'Đau dạ dày', labelKey: 'diseaseStomach' },
+  { value: 'Gout', labelKey: 'diseaseGout' },
+];
+const DISEASE_FOOTER = [
+  { value: 'Không có', labelKey: 'diseaseNone' },
+  { value: 'Khác', labelKey: 'diseaseOther' },
+];
+
+const MEDICATION_OPTIONS = [
+  { value: 'Có', labelKey: 'medYes' },
+  { value: 'Không', labelKey: 'medNo' },
+  { value: 'Chỉ TPCN', labelKey: 'medSupplementOnly' },
+];
+const CHECKUP_OPTIONS = [
+  { value: 'Mỗi ngày', labelKey: 'checkupDaily' },
+  { value: 'Vài lần/tuần', labelKey: 'checkupFewWeek' },
+  { value: 'Thỉnh thoảng', labelKey: 'checkupSometimes' },
+  { value: 'Gần như không', labelKey: 'checkupRarely' },
+];
+const EXERCISE_OPTIONS = [
+  { value: 'Ít vận động', labelKey: 'exerciseSedentary' },
+  { value: '30 phút', labelKey: 'exercise30min' },
+  { value: '1 giờ', labelKey: 'exercise1hr' },
+  { value: 'Trên 1 giờ', labelKey: 'exerciseOver1hr' },
+];
+const SLEEP_OPTIONS = [
+  { value: 'Đủ 7-8 giờ', labelKey: 'sleep7to8' },
+  { value: '6-7 giờ', labelKey: 'sleep6to7' },
+  { value: 'Ít hơn 5 giờ', labelKey: 'sleepLess5' },
+];
+const MEALS_OPTIONS = [
+  { value: '2 bữa', labelKey: 'meals2' },
+  { value: '3 bữa', labelKey: 'meals3' },
+  { value: '4 bữa trở lên', labelKey: 'meals4plus' },
+];
+const DROWSY_OPTIONS = [
+  { value: 'Không', labelKey: 'drowsyNo' },
+  { value: 'Thỉnh thoảng', labelKey: 'drowsySometimes' },
+  { value: 'Thường xuyên', labelKey: 'drowsyOften' },
+];
+const DINNER_OPTIONS = [
+  { value: 'Trước 18 giờ', labelKey: 'dinnerBefore18' },
+  { value: '18-20 giờ', labelKey: 'dinner18to20' },
+  { value: 'Sau 20 giờ', labelKey: 'dinnerAfter20' },
+];
+const SWEET_OPTIONS = [
+  { value: 'Hiếm khi', labelKey: 'sweetRarely' },
+  { value: 'Thỉnh thoảng', labelKey: 'sweetSometimes' },
+  { value: 'Thường xuyên', labelKey: 'sweetOften' },
+];
 const GOAL_OPTIONS = [
-  'Hiểu rõ tình trạng sức khoẻ',
-  'Nhắc nhở đo chỉ số mỗi ngày',
-  'Theo dõi bệnh mãn tính',
-  'Lời khuyên dinh dưỡng & lối sống',
+  { value: 'Hiểu rõ tình trạng sức khoẻ', labelKey: 'goalUnderstandHealth' },
+  { value: 'Nhắc nhở đo chỉ số mỗi ngày', labelKey: 'goalDailyReminder' },
+  { value: 'Theo dõi bệnh mãn tính', labelKey: 'goalMonitorChronic' },
+  { value: 'Lời khuyên dinh dưỡng & lối sống', labelKey: 'goalNutritionAdvice' },
 ];
 
 const TOTAL_STEPS = 5;
@@ -61,6 +121,7 @@ interface ChipProps {
 }
 
 function Chip({ label, active, onPress, fullWidth }: ChipProps) {
+  const scaledTypography = useScaledTypography();
   return (
     <Pressable
       onPress={onPress}
@@ -72,7 +133,12 @@ function Chip({ label, active, onPress, fullWidth }: ChipProps) {
         fullWidth && chipStyles.chipFullWidth,
       ]}
     >
-      <Text style={[chipStyles.chipText, active && chipStyles.chipTextActive]}>
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        style={[chipStyles.chipText, { fontSize: scaledTypography.size.sm }, active && chipStyles.chipTextActive]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -98,11 +164,16 @@ const chipStyles = StyleSheet.create({
   },
   chipFullWidth: {
     alignSelf: 'stretch',
+    alignItems: 'center',
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   chipText: {
     fontSize: 15,
     fontWeight: '500',
     color: colors.textPrimary,
+    textAlign: 'center',
   },
   chipTextActive: {
     color: '#fff',
@@ -113,8 +184,9 @@ const chipStyles = StyleSheet.create({
 // ─── Section label ───────────────────────────────────────────────────
 
 function SectionLabel({ label }: { label: string }) {
+  const scaledTypography = useScaledTypography();
   return (
-    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 }}>
+    <Text style={{ fontSize: scaledTypography.size.sm, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 }}>
       {label}
     </Text>
   );
@@ -123,9 +195,13 @@ function SectionLabel({ label }: { label: string }) {
 // ─── Main component ──────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
+  const { t } = useTranslation('onboarding');
   const { t: tc } = useTranslation('common');
+  const { t: ts } = useTranslation('settings');
   const { language, setLanguage } = useLanguageStore();
+  const { scale, setScale } = useFontSizeStore();
   const scaledTypography = useScaledTypography();
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
   const router = useRouter();
@@ -134,6 +210,17 @@ export default function OnboardingScreen() {
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [showFontModal, setShowFontModal] = useState(false);
+
+  const getFontSizeLabel = (value: FontSizeScale): string => {
+    const labels: Record<FontSizeScale, string> = {
+      small: ts('fontSmall'),
+      normal: ts('fontNormal'),
+      large: ts('fontLarge'),
+      xlarge: ts('fontXLarge'),
+    };
+    return labels[value];
+  };
 
   // ── Step 1 state ─────────────────────────────────────────────────
   const [birthYear, setBirthYear] = useState('');
@@ -141,6 +228,7 @@ export default function OnboardingScreen() {
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [phone, setPhone] = useState('');
+  const [bloodType, setBloodType] = useState('');
 
   // ── Step 2 state ─────────────────────────────────────────────────
   const [diseases, setDiseases] = useState<string[]>([]);
@@ -171,19 +259,19 @@ export default function OnboardingScreen() {
     birthYearNum <= CURRENT_YEAR - 10;
   const birthYearError =
     birthYear.length > 0 && !birthYearValid
-      ? `Năm sinh phải từ 1920 đến ${CURRENT_YEAR - 10}`
+      ? t('birthYearError', { maxYear: CURRENT_YEAR - 10 })
       : '';
 
   const heightNum = parseFloat(height);
   const heightValid = height.length > 0 && !isNaN(heightNum) && heightNum >= 50 && heightNum <= 250;
-  const heightError = height.length > 0 && !heightValid ? 'Chiều cao phải từ 50–250 cm' : '';
+  const heightError = height.length > 0 && !heightValid ? t('heightError') : '';
 
   const weightNum = parseFloat(weight);
   const weightValid = weight.length > 0 && !isNaN(weightNum) && weightNum >= 10 && weightNum <= 300;
-  const weightError = weight.length > 0 && !weightValid ? 'Cân nặng phải từ 10–300 kg' : '';
+  const weightError = weight.length > 0 && !weightValid ? t('weightError') : '';
 
   const phoneValid = /^0\d{9}$/.test(phone.trim());
-  const phoneError = phone.length > 0 && !phoneValid ? 'Số điện thoại phải đúng định dạng 0xxxxxxxxx' : '';
+  const phoneError = phone.length > 0 && !phoneValid ? t('phoneError') : '';
 
   const step1Valid = birthYearValid && gender !== '' && heightValid && weightValid && phoneValid;
   const step2Valid = diseases.length > 0 && medication !== '';
@@ -205,8 +293,15 @@ export default function OnboardingScreen() {
 
   function toggleDisease(value: string) {
     setDiseases(prev => {
-      if (prev.includes(value)) return prev.filter(v => v !== value);
-      if (value === 'Không có') return ['Không có'];
+      if (prev.includes(value)) {
+        const next = prev.filter(v => v !== value);
+        if (value === 'Khác') setOtherDisease('');
+        return next;
+      }
+      if (value === 'Không có') {
+        setOtherDisease('');
+        return ['Không có'];
+      }
       return [...prev.filter(v => v !== 'Không có'), value];
     });
   }
@@ -252,6 +347,7 @@ export default function OnboardingScreen() {
           height_cm: parseFloat(height),
           weight_kg: parseFloat(weight),
           phone: phone.trim(),
+          blood_type: bloodType || null,
           medical_conditions: medicalConditions,
           daily_medication: medication,
           checkup_freq: checkupFreq,
@@ -266,9 +362,16 @@ export default function OnboardingScreen() {
       });
 
       await bootstrap();
+
+      // Fetch full profile so health data (height, weight, age, etc.) is in store immediately
+      try {
+        const fullProfile = await authApi.fetchProfile();
+        if (fullProfile) useAuthStore.setState({ profile: fullProfile });
+      } catch {}
+
       router.replace('/(tabs)/home');
     } catch {
-      Alert.alert('Lỗi', 'Không thể lưu thông tin. Vui lòng thử lại.');
+      showAlert(tc('error'), tc('saveError'));
     } finally {
       setSaving(false);
     }
@@ -280,7 +383,7 @@ export default function OnboardingScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Đang lưu thông tin...</Text>
+        <Text style={styles.loadingText}>{t('savingInfo')}</Text>
       </View>
     );
   }
@@ -289,8 +392,55 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Top bar: language toggle */}
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+
+      {/* Font size modal */}
+      {showFontModal && (
+        <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
+          <Pressable style={styles.fontModalCard} onPress={() => {}}>
+            <Text style={[styles.fontModalTitle, { fontSize: scaledTypography.size.md }]}>
+              {t('fontSize')}
+            </Text>
+            <View style={styles.fontSizeRow}>
+              {FONT_SIZE_OPTIONS.map(opt => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => { setScale(opt.value); setShowFontModal(false); }}
+                  style={[styles.fontSizeBtn, scale === opt.value && styles.fontSizeBtnActive]}
+                >
+                  <MaterialCommunityIcons
+                    name="format-size"
+                    size={opt.iconSize}
+                    color={scale === opt.value ? '#fff' : colors.primary}
+                    style={{ marginBottom: 4 }}
+                  />
+                  <Text
+                    style={[
+                      styles.fontSizeBtnText,
+                      { fontSize: scaledTypography.size.sm },
+                      scale === opt.value && styles.fontSizeBtnTextActive,
+                    ]}
+                  >
+                    {getFontSizeLabel(opt.value)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={[styles.fontSizePreview, { fontSize: scaledTypography.size.md }]}>
+              {t('fontPreview')}
+            </Text>
+          </Pressable>
+        </Pressable>
+      )}
+
+      {/* Top bar: font size + language toggle */}
       <View style={styles.topBar}>
+        <Pressable style={styles.fontSizeTopBtn} onPress={() => setShowFontModal(true)}>
+          <MaterialCommunityIcons name="format-size" size={18} color={colors.primary} />
+          <Text style={[styles.fontSizeTopLabel, { fontSize: scaledTypography.size.xs }]}>
+            {getFontSizeLabel(scale)}
+          </Text>
+        </Pressable>
         <View style={styles.languageToggle}>
           {(['vi', 'en'] as const).map(lang => (
             <Pressable
@@ -311,7 +461,7 @@ export default function OnboardingScreen() {
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${(step / TOTAL_STEPS) * 100}%` }]} />
         </View>
-        <Text style={styles.progressText}>Bước {step}/{TOTAL_STEPS}</Text>
+        <Text style={styles.progressText}>{t('stepProgress', { step, total: TOTAL_STEPS })}</Text>
       </View>
 
       {/* Step content */}
@@ -319,6 +469,7 @@ export default function OnboardingScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
         {step === 1 && (
           <Step1
@@ -337,6 +488,8 @@ export default function OnboardingScreen() {
             phone={phone}
             setPhone={setPhone}
             phoneError={phoneError}
+            bloodType={bloodType}
+            setBloodType={setBloodType}
           />
         )}
         {step === 2 && (
@@ -399,7 +552,7 @@ export default function OnboardingScreen() {
           />
         ) : (
           <Button
-            label="Hoàn thành"
+            label={t('complete')}
             onPress={handleSubmit}
             disabled={!canGoNext()}
           />
@@ -427,6 +580,8 @@ interface Step1Props {
   phone: string;
   setPhone: (v: string) => void;
   phoneError: string;
+  bloodType: string;
+  setBloodType: (v: string) => void;
 }
 
 function Step1({
@@ -436,17 +591,24 @@ function Step1({
   height, setHeight, heightError,
   weight, setWeight, weightError,
   phone, setPhone, phoneError,
+  bloodType, setBloodType,
 }: Step1Props) {
+  const { t } = useTranslation('onboarding');
+  const GENDER_OPTIONS = [
+    { value: 'Nam', labelKey: 'genderMale' },
+    { value: 'Nữ', labelKey: 'genderFemale' },
+    { value: 'Khác', labelKey: 'genderOther' },
+  ];
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Thông tin cơ bản</Text>
-      <Text style={styles.stepSubtitle}>Giúp Asinu hiểu bạn tốt hơn</Text>
+      <Text style={styles.stepTitle}>{t('step1Title')}</Text>
+      <Text style={styles.stepSubtitle}>{t('step1Subtitle')}</Text>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Năm sinh" />
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('birthYear')} />
         <RNTextInput
           style={styles.textInput}
-          placeholder="VD: 1990"
+          placeholder={t('birthYearPlaceholder')}
           placeholderTextColor={colors.textSecondary}
           value={birthYear}
           onChangeText={setBirthYear}
@@ -457,25 +619,25 @@ function Step1({
         {!!birthYearError && <Text style={styles.errorText}>{birthYearError}</Text>}
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Giới tính" />
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('gender')} />
         <View style={styles.chipRow}>
-          {['Nam', 'Nữ', 'Khác'].map(opt => (
+          {GENDER_OPTIONS.map(opt => (
             <Chip
-              key={opt}
-              label={opt}
-              active={gender === opt}
-              onPress={() => setGender(opt)}
+              key={opt.value}
+              label={t(opt.labelKey)}
+              active={gender === opt.value}
+              onPress={() => setGender(opt.value)}
             />
           ))}
         </View>
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Chiều cao (cm)" />
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('heightCm')} />
         <RNTextInput
           style={styles.textInput}
-          placeholder="VD: 165"
+          placeholder={t('heightPlaceholder')}
           placeholderTextColor={colors.textSecondary}
           value={height}
           onChangeText={setHeight}
@@ -485,11 +647,11 @@ function Step1({
         {!!heightError && <Text style={styles.errorText}>{heightError}</Text>}
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Cân nặng (kg)" />
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('weightKg')} />
         <RNTextInput
           style={styles.textInput}
-          placeholder="VD: 60"
+          placeholder={t('weightPlaceholder')}
           placeholderTextColor={colors.textSecondary}
           value={weight}
           onChangeText={setWeight}
@@ -499,11 +661,11 @@ function Step1({
         {!!weightError && <Text style={styles.errorText}>{weightError}</Text>}
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Số điện thoại" />
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('phone')} />
         <RNTextInput
           style={styles.textInput}
-          placeholder="VD: 0912345678"
+          placeholder={t('phonePlaceholder')}
           placeholderTextColor={colors.textSecondary}
           value={phone}
           onChangeText={setPhone}
@@ -512,6 +674,22 @@ function Step1({
           returnKeyType="done"
         />
         {!!phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
+      </View>
+
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('bloodType')} />
+        <View style={styles.bloodTypeGrid}>
+          {BLOOD_TYPE_OPTIONS.map(opt => (
+            <View key={opt.value} style={styles.bloodTypeItem}>
+              <Chip
+                label={opt.value}
+                active={bloodType === opt.value}
+                onPress={() => setBloodType(bloodType === opt.value ? '' : opt.value)}
+                fullWidth
+              />
+            </View>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -535,50 +713,68 @@ function Step2({
   otherDisease, setOtherDisease,
   medication, setMedication,
 }: Step2Props) {
-  const hasDisease = diseases.some(d => d !== 'Không có');
+  const { t } = useTranslation('onboarding');
+  const hasOther = diseases.includes('Khác');
 
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Bạn đang mắc bệnh nào?</Text>
-      <Text style={styles.stepSubtitle}>Chọn tất cả bệnh bạn đang có (nếu có)</Text>
+      <Text style={styles.stepTitle}>{t('step2Title')}</Text>
+      <Text style={styles.stepSubtitle}>{t('step2Subtitle')}</Text>
 
-      <View style={styles.fieldGroup}>
-        <View style={styles.chipWrap}>
-          {DISEASE_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={diseases.includes(opt)}
-              onPress={() => toggleDisease(opt)}
-            />
+      <View style={styles.questionCard}>
+        <View style={styles.diseaseGrid}>
+          {DISEASE_GRID.map(opt => (
+            <View key={opt.value} style={styles.diseaseGridItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={diseases.includes(opt.value)}
+                onPress={() => toggleDisease(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
+
+        <View style={styles.diseaseFooterRow}>
+          {DISEASE_FOOTER.map(opt => (
+            <View key={opt.value} style={styles.diseaseGridItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={diseases.includes(opt.value)}
+                onPress={() => toggleDisease(opt.value)}
+                fullWidth
+              />
+            </View>
+          ))}
+        </View>
+
+        {hasOther && (
+          <View style={styles.fieldGroup}>
+            <SectionLabel label={t('otherDiseaseLabel')} />
+            <RNTextInput
+              style={styles.textInput}
+              placeholder={t('otherDiseasePlaceholder')}
+              placeholderTextColor={colors.textSecondary}
+              value={otherDisease}
+              onChangeText={setOtherDisease}
+              returnKeyType="done"
+            />
+          </View>
+        )}
       </View>
 
-      {hasDisease && (
-        <View style={styles.fieldGroup}>
-          <SectionLabel label="Bệnh khác (nếu có)" />
-          <RNTextInput
-            style={styles.textInput}
-            placeholder="VD: Viêm khớp, Suy thận,..."
-            placeholderTextColor={colors.textSecondary}
-            value={otherDisease}
-            onChangeText={setOtherDisease}
-            returnKeyType="done"
-          />
-        </View>
-      )}
-
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Bạn có dùng thuốc hằng ngày không?" />
-        <View style={styles.chipRow}>
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('dailyMedication')} />
+        <View style={styles.threeColRow}>
           {MEDICATION_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={medication === opt}
-              onPress={() => setMedication(opt)}
-            />
+            <View key={opt.value} style={styles.threeColItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={medication === opt.value}
+                onPress={() => setMedication(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
       </View>
@@ -604,48 +800,55 @@ function Step3({
   exerciseFreq, setExerciseFreq,
   sleepHours, setSleepHours,
 }: Step3Props) {
+  const { t } = useTranslation('onboarding');
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Thói quen của bạn</Text>
+      <Text style={styles.stepTitle}>{t('step3Title')}</Text>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Bạn thường đo sức khoẻ bao lâu một lần?" />
-        <View style={styles.chipWrap}>
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('checkupFreq')} />
+        <View style={styles.diseaseGrid}>
           {CHECKUP_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={checkupFreq === opt}
-              onPress={() => setCheckupFreq(opt)}
-            />
+            <View key={opt.value} style={styles.diseaseGridItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={checkupFreq === opt.value}
+                onPress={() => setCheckupFreq(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Bạn thường vận động bao nhiêu mỗi ngày?" />
-        <View style={styles.chipWrap}>
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('exerciseFreq')} />
+        <View style={styles.diseaseGrid}>
           {EXERCISE_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={exerciseFreq === opt}
-              onPress={() => setExerciseFreq(opt)}
-            />
+            <View key={opt.value} style={styles.diseaseGridItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={exerciseFreq === opt.value}
+                onPress={() => setExerciseFreq(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Mỗi ngày bạn thường ngủ được bao nhiêu giờ?" />
-        <View style={styles.chipWrap}>
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('sleepHours')} />
+        <View style={styles.threeColRow}>
           {SLEEP_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={sleepHours === opt}
-              onPress={() => setSleepHours(opt)}
-            />
+            <View key={opt.value} style={styles.threeColItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={sleepHours === opt.value}
+                onPress={() => setSleepHours(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
       </View>
@@ -674,62 +877,71 @@ function Step4({
   dinnerTime, setDinnerTime,
   sweetIntake, setSweetIntake,
 }: Step4Props) {
+  const { t } = useTranslation('onboarding');
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Thói quen ăn uống</Text>
+      <Text style={styles.stepTitle}>{t('step4Title')}</Text>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Bạn thường ăn bao nhiêu bữa một ngày?" />
-        <View style={styles.chipWrap}>
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('mealsPerDay')} />
+        <View style={styles.threeColRow}>
           {MEALS_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={mealsPerDay === opt}
-              onPress={() => setMealsPerDay(opt)}
-            />
+            <View key={opt.value} style={styles.threeColItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={mealsPerDay === opt.value}
+                onPress={() => setMealsPerDay(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Sau khi ăn cơm bạn có thấy buồn ngủ không?" />
-        <View style={styles.chipWrap}>
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('postMealDrowsy')} />
+        <View style={styles.threeColRow}>
           {DROWSY_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={postMealDrowsy === opt}
-              onPress={() => setPostMealDrowsy(opt)}
-            />
+            <View key={opt.value} style={styles.threeColItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={postMealDrowsy === opt.value}
+                onPress={() => setPostMealDrowsy(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Giờ ăn tối của bạn?" />
-        <View style={styles.chipWrap}>
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('dinnerTime')} />
+        <View style={styles.threeColRow}>
           {DINNER_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={dinnerTime === opt}
-              onPress={() => setDinnerTime(opt)}
-            />
+            <View key={opt.value} style={styles.threeColItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={dinnerTime === opt.value}
+                onPress={() => setDinnerTime(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
       </View>
 
-      <View style={styles.fieldGroup}>
-        <SectionLabel label="Bạn ăn đồ ngọt, nước ngọt ở mức nào?" />
-        <View style={styles.chipWrap}>
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('sweetIntake')} />
+        <View style={styles.threeColRow}>
           {SWEET_OPTIONS.map(opt => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={sweetIntake === opt}
-              onPress={() => setSweetIntake(opt)}
-            />
+            <View key={opt.value} style={styles.threeColItem}>
+              <Chip
+                label={t(opt.labelKey)}
+                active={sweetIntake === opt.value}
+                onPress={() => setSweetIntake(opt.value)}
+                fullWidth
+              />
+            </View>
           ))}
         </View>
       </View>
@@ -746,19 +958,20 @@ interface Step5Props {
 }
 
 function Step5({ styles, goals, toggleGoal }: Step5Props) {
+  const { t } = useTranslation('onboarding');
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Bạn muốn Asinu giúp gì nhất?</Text>
-      <Text style={styles.stepSubtitle}>Có thể chọn nhiều</Text>
+      <Text style={styles.stepTitle}>{t('step5Title')}</Text>
+      <Text style={styles.stepSubtitle}>{t('step5Subtitle')}</Text>
 
-      <View style={styles.fieldGroup}>
+      <View style={styles.questionCard}>
         <View style={styles.chipColumn}>
           {GOAL_OPTIONS.map(opt => (
             <Chip
-              key={opt}
-              label={opt}
-              active={goals.includes(opt)}
-              onPress={() => toggleGoal(opt)}
+              key={opt.value}
+              label={t(opt.labelKey)}
+              active={goals.includes(opt.value)}
+              onPress={() => toggleGoal(opt.value)}
               fullWidth
             />
           ))}
@@ -785,7 +998,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     topBar: {
       flexDirection: 'row',
-      justifyContent: 'flex-end',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       paddingHorizontal: spacing.xl,
       paddingTop: spacing.sm,
       paddingBottom: spacing.xs,
@@ -795,9 +1009,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.xs,
     },
     langBtn: {
-      paddingVertical: spacing.xs,
       paddingHorizontal: spacing.md,
-      borderRadius: radius.md,
+      height: 36,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: radius.lg,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
@@ -807,8 +1023,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderColor: colors.primary,
     },
     langBtnText: {
-      fontSize: typography.size.sm,
-      fontWeight: '600',
+      fontSize: 13,
+      fontWeight: '700',
       color: colors.textSecondary,
     },
     langBtnTextActive: {
@@ -858,6 +1074,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fieldGroup: {
       gap: spacing.sm,
     },
+    questionCard: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+      gap: spacing.sm,
+    },
     chipRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -867,6 +1091,36 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: spacing.sm,
+    },
+    bloodTypeGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    bloodTypeItem: {
+      flexBasis: '23%',
+      flexGrow: 1,
+    } as any,
+    diseaseGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    diseaseGridItem: {
+      flexBasis: '48%',
+      flexGrow: 1,
+    } as any,
+    diseaseFooterRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    threeColRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    threeColItem: {
+      flex: 1,
     },
     chipColumn: {
       gap: spacing.sm,
@@ -889,6 +1143,77 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     loadingText: {
       color: colors.textSecondary,
       fontSize: typography.size.sm,
+    },
+    fontSizeTopBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: spacing.md,
+      height: 36,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    fontSizeTopLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    fontModalOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 100,
+      padding: spacing.xl,
+    },
+    fontModalCard: {
+      width: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: spacing.xl,
+      gap: spacing.md,
+      shadowColor: '#000',
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 10,
+    },
+    fontModalTitle: {
+      fontWeight: '700',
+      color: colors.textPrimary,
+      textAlign: 'center',
+    },
+    fontSizeRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    fontSizeBtn: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      borderRadius: radius.md,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    fontSizeBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    fontSizeBtnText: {
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    fontSizeBtnTextActive: {
+      color: '#fff',
+    },
+    fontSizePreview: {
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: spacing.xs,
     },
     footer: {
       flexDirection: 'row',

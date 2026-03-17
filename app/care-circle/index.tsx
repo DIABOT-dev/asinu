@@ -3,10 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
+import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
@@ -22,6 +23,7 @@ export default function CareCircleScreen() {
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
 
   const screenOptions = useMemo(() => ({
     headerShown: true,
@@ -160,9 +162,9 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(id);
       await acceptInvitation(id);
-      Alert.alert(tc('success'), t('acceptSuccess'));
+      showAlert(tc('success'), t('acceptSuccess'));
     } catch (error) {
-      Alert.alert(tc('error'), t('acceptError'));
+      showAlert(tc('error'), t('acceptError'));
     } finally {
       setActionLoading(null);
     }
@@ -172,16 +174,16 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(id);
       await rejectInvitation(id);
-      Alert.alert(tc('success'), t('rejectSuccess'));
+      showAlert(tc('success'), t('rejectSuccess'));
     } catch (error) {
-      Alert.alert(tc('error'), t('rejectError'));
+      showAlert(tc('error'), t('rejectError'));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleDeleteConnection = async (id: string, name: string) => {
-    Alert.alert(
+    showAlert(
       t('confirmDelete'),
       t('confirmDeleteMsg', { name }),
       [
@@ -193,9 +195,9 @@ export default function CareCircleScreen() {
             try {
               setActionLoading(id);
               await deleteConnection(id);
-              Alert.alert(t('deleted'), t('deletedMsg'));
+              showAlert(t('deleted'), t('deletedMsg'));
             } catch (error) {
-              Alert.alert(tc('error'), t('deleteError'));
+              showAlert(tc('error'), t('deleteError'));
             } finally {
               setActionLoading(null);
             }
@@ -231,10 +233,10 @@ export default function CareCircleScreen() {
       });
       
       setEditModalVisible(false);
-      Alert.alert(tc('success'), t('editSuccess'));
+      showAlert(tc('success'), t('editSuccess'));
     } catch (error) {
 
-      Alert.alert(tc('error'), t('editError'));
+      showAlert(tc('error'), t('editError'));
     } finally {
       setActionLoading(null);
     }
@@ -249,6 +251,7 @@ export default function CareCircleScreen() {
 
   return (
     <>
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>
       <ScrollView

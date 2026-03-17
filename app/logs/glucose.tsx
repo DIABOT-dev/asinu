@@ -395,7 +395,7 @@ export default function GlucoseLogScreen() {
               {/* Range bar */}
               {numVal > 0 && (
                 <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.rangeCard}>
-                  <Text style={styles.sectionLabel}>{t('glucoseRange') || 'Vùng chỉ số'}</Text>
+                  <Text style={styles.sectionLabel}>{t('glucoseRange')}</Text>
                   <RangeBar value={value} ctx={context} />
                 </Animated.View>
               )}

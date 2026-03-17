@@ -118,25 +118,28 @@ export async function requestNotificationPermissions(): Promise<boolean> {
  */
 export async function getExpoPushToken(): Promise<string | null> {
   try {
-    // Check if running on a physical device
-    if (!Constants.isDevice) {
-
+    // Skip the Constants.isDevice check — it's unreliable in dev builds.
+    // Instead just attempt to get the token; it will fail naturally on web/unsupported.
+    if (Platform.OS === 'web') {
+      console.warn('[PushToken] Web platform — skipping');
       return null;
     }
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (!projectId) {
-
+      console.warn('[PushToken] No projectId found in expoConfig.extra.eas');
       return null;
     }
 
+    console.log('[PushToken] Requesting token with projectId:', projectId);
     const token = await Notifications.getExpoPushTokenAsync({
       projectId,
     });
 
+    console.log('[PushToken] Got token:', token.data);
     return token.data;
   } catch (error) {
-
+    console.error('[PushToken] Error getting push token:', error);
     return null;
   }
 }

@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { LoadingOverlay } from '../../src/components/LoadingOverlay';
+import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { SelectInput } from '../../src/components/SelectInput';
@@ -30,6 +31,7 @@ export default function InsulinLogScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const createInsulin = useLogsStore((state) => state.createInsulin);
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
   const insets = useSafeAreaInsets();
   const padTop = insets.top + spacing.lg;
 
@@ -95,18 +97,10 @@ export default function InsulinLogScreen() {
       await createInsulin(payload);
       setIsSaving(false);
       // Show success message
-      Alert.alert(
-        t('successTitle'),
-        t('logSuccess'),
-        [
-          {
-            text: tc('ok')
-          }
-        ]
-      );
+      showAlert(t('successTitle'), t('logSuccess'), [{ text: tc('ok') }]);
     } catch (error) {
       setIsSaving(false);
-      Alert.alert(t('saveFailed'), t('pleaseTryAgain'));
+      showAlert(t('saveFailed'), t('pleaseTryAgain'));
     }
   };
 
@@ -133,6 +127,7 @@ export default function InsulinLogScreen() {
 
   return (
     <>
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>
         <LoadingOverlay visible={isSaving} message={t('savingLog')} />

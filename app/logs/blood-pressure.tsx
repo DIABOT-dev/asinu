@@ -138,7 +138,7 @@ export default function BloodPressureLogScreen() {
     const sys = parseFloat(systolic);
     const dia = parseFloat(diastolic);
     if (!systolic || !diastolic || isNaN(sys) || isNaN(dia) || sys <= 0 || dia <= 0) {
-      setBpError(t('enterValidBP') || 'Nhập chỉ số huyết áp hợp lệ');
+      setBpError(t('enterValidBP'));
       triggerShake();
       return;
     }

@@ -63,7 +63,12 @@
         {
           "icon": "./assets/icon.png",
           "color": "#08b8a2",
-          "sounds": ["./assets/sounds/asinu_notify.wav"],
+          "sounds": [
+            "./assets/sounds/asinu_reminder.wav",
+            "./assets/sounds/asinu_alert.wav",
+            "./assets/sounds/asinu_care.wav",
+            "./assets/sounds/asinu_milestone.wav"
+          ],
           "mode": "production"
         }
       ],

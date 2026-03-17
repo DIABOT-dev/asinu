@@ -1,12 +1,14 @@
 /**
  * CaregiverAlertModal
- * Hiện khi người thân có alert chưa xác nhận.
- * Cho phép chọn: "Đã biết" | "Đang đến" | "Đã gọi điện"
+ * Hien khi nguoi than co alert chua xac nhan.
+ * Cho phep chon: "Da biet" | "Dang den" | "Da goi dien"
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
+import { useScaledTypography } from '../hooks/useScaledTypography';
 import { apiClient } from '../lib/apiClient';
 import { colors, radius, spacing } from '../styles';
 
@@ -19,19 +21,23 @@ interface PendingAlert {
   sentAt: string;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  fine: 'ổn',
-  tired: 'hơi mệt',
-  very_tired: 'rất mệt',
-};
-
-const ACTIONS = [
-  { key: 'seen',       label: 'Đã biết rồi',      icon: 'checkmark-circle-outline' as const, color: '#16a34a' },
-  { key: 'on_my_way',  label: 'Đang đến gặp',      icon: 'walk-outline'             as const, color: '#2563eb' },
-  { key: 'called',     label: 'Đã gọi điện',       icon: 'call-outline'             as const, color: '#7c3aed' },
-];
-
 export function CaregiverAlertModal() {
+  const { t } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+
+  const STATUS_LABEL: Record<string, string> = {
+    fine: t('careAlertStatusFine'),
+    tired: t('careAlertStatusTired'),
+    very_tired: t('careAlertStatusVeryTired'),
+  };
+
+  const ACTIONS = [
+    { key: 'seen',       label: t('careAlertActionSeen'),    icon: 'checkmark-circle-outline' as const, color: '#16a34a' },
+    { key: 'on_my_way',  label: t('careAlertActionOnWay'),   icon: 'walk-outline'             as const, color: '#2563eb' },
+    { key: 'called',     label: t('careAlertActionCalled'),  icon: 'call-outline'             as const, color: '#7c3aed' },
+  ];
+
   const [alerts, setAlerts] = useState<PendingAlert[]>([]);
   const [current, setCurrent] = useState(0);
   const [confirming, setConfirming] = useState(false);
@@ -86,17 +92,17 @@ export function CaregiverAlertModal() {
 
           {/* Content */}
           <Text style={styles.title}>
-            {isEmergency ? 'Khẩn cấp!' : 'Cần chú ý'}
+            {isEmergency ? t('careAlertEmergency') : t('careAlertAttention')}
           </Text>
           <Text style={styles.body}>
             <Text style={{ fontWeight: '700' }}>{alert.patientName}</Text>
             {isEmergency
-              ? ' đang cần giúp đỡ khẩn cấp. Vui lòng phản hồi ngay.'
-              : ` đang cảm thấy ${STATUS_LABEL[alert.currentStatus] || 'không khoẻ'} và chưa phản hồi Asinu.`
+              ? ` ${t('careAlertNeedHelp')}`
+              : ` ${t('careAlertFeeling')} ${STATUS_LABEL[alert.currentStatus] || t('careAlertUnwell')} ${t('careAlertNoResponse')}`
             }
           </Text>
           <Text style={styles.time}>
-            Gửi lúc {new Date(alert.sentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+            {t('careAlertSentAt')} {new Date(alert.sentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
           </Text>
 
           {/* Actions */}
@@ -122,76 +128,78 @@ export function CaregiverAlertModal() {
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    width: '100%',
-    gap: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 16,
-  },
-  cardEmergency: {
-    borderWidth: 2,
-    borderColor: '#dc2626',
-  },
-  iconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  counter: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  body: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    lineHeight: 22,
-  },
-  time: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  actions: {
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1.5,
-    borderRadius: radius.full,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  actionText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: spacing.xl,
+      width: '100%',
+      gap: spacing.md,
+      shadowColor: '#000',
+      shadowOpacity: 0.2,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 16,
+    },
+    cardEmergency: {
+      borderWidth: 2,
+      borderColor: '#dc2626',
+    },
+    iconRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    iconWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: radius.full,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    counter: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+    title: {
+      fontSize: typography.size.lg,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    body: {
+      fontSize: typography.size.sm,
+      color: colors.textPrimary,
+      lineHeight: 22,
+    },
+    time: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+    },
+    actions: {
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      borderWidth: 1.5,
+      borderRadius: radius.full,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    actionText: {
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+    },
+  });
+}

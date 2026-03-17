@@ -21,18 +21,32 @@ export default function AiChatScreen() {
       .catch(() => {});
   }, []);
 
-  const initialMessages: ChatBubble[] = useMemo(() => [
-    {
-      id: '1',
-      role: 'assistant',
-      text: t('initialGreeting'),
-      timestamp: new Date().toISOString()
-    },
-    { id: '2', role: 'user', text: t('sampleUserMessage'), timestamp: new Date().toISOString() }
-  ], [t]);
+  const greetingMessage: ChatBubble = useMemo(() => ({
+    id: 'greeting',
+    role: 'assistant',
+    text: t('initialGreeting'),
+    timestamp: new Date().toISOString()
+  }), [t]);
 
-  const [messages, setMessages] = useState<ChatBubble[]>(initialMessages);
+  const [messages, setMessages] = useState<ChatBubble[]>([greetingMessage]);
   const [isTyping, setIsTyping] = useState(false);
+
+  // Fetch chat history on mount
+  useEffect(() => {
+    chatApi.fetchHistory()
+      .then((history) => {
+        if (history.length > 0) {
+          const mapped: ChatBubble[] = history.map((m, i) => ({
+            id: `history-${i}`,
+            role: m.role as 'assistant' | 'user',
+            text: m.text,
+            timestamp: m.timestamp || new Date().toISOString(),
+          }));
+          setMessages([greetingMessage, ...mapped]);
+        }
+      })
+      .catch(() => {});
+  }, [greetingMessage]);
 
   const [showMedicalDisclaimer, setShowMedicalDisclaimer] = useState(false);
   const medicalDisclaimerShown = useRef(false);
@@ -71,8 +85,7 @@ export default function AiChatScreen() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      if (!medicalDisclaimerShown.current &&
-          (containsMedicalKeywords(text) || containsMedicalKeywords(assistantText))) {
+      if (!medicalDisclaimerShown.current && containsMedicalKeywords(text)) {
         medicalDisclaimerShown.current = true;
         setShowMedicalDisclaimer(true);
       }

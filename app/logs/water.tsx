@@ -89,7 +89,7 @@ export default function WaterLogScreen() {
   const handleSubmit = async () => {
     const result = validateWaterPayload(volume);
     if (!result.ok) {
-      setVolumeError(result.errors.volume || 'Nhập lượng nước hợp lệ');
+      setVolumeError(result.errors.volume || t('enterValidWater'));
       triggerShake();
       return;
     }
@@ -194,7 +194,7 @@ export default function WaterLogScreen() {
                     <Animated.View entering={ZoomIn.duration(300)} style={styles.waterBadge}>
                       <Ionicons name="checkmark-circle" size={16} color={categoryColors.water} />
                       <Text style={[styles.statusText, { color: categoryColors.water }]}>
-                        {numVal >= 2000 ? 'Tuyệt vời! Đủ nước' : numVal >= 1000 ? 'Khá tốt' : 'Tiếp tục uống nước'}
+                        {numVal >= 2000 ? t('waterStatusExcellent') : numVal >= 1000 ? t('waterStatusGood') : t('waterStatusKeepDrinking')}
                       </Text>
                     </Animated.View>
                   ) : null}

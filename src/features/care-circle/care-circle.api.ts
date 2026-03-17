@@ -128,6 +128,31 @@ export const careCircleApi = {
     return response.connection;
   },
 
+  // Update connection permissions
+  async updatePermissions(connectionId: string, permissions: { can_view_logs: boolean; can_receive_alerts: boolean; can_ack_escalation: boolean }) {
+    const response = await apiClient<{ ok: boolean; connection: CareCircleConnection }>(
+      `/api/care-circle/connections/${connectionId}/permissions`,
+      { method: 'PUT', body: { permissions } }
+    );
+    return response.connection;
+  },
+
+  // Caregiver: view patient's health logs
+  async getPatientLogs(patientId: string) {
+    const response = await apiClient<{
+      ok: boolean;
+      patientName: string;
+      logs: Array<{
+        id: number;
+        log_type: string;
+        occurred_at: string;
+        note: string | null;
+        metadata: any;
+      }>;
+    }>(`/api/mobile/caregiver/logs/${patientId}`);
+    return response;
+  },
+
   // Search users for invitation
   async searchUsers(query: string) {
     const response = await apiClient<{ 

@@ -62,12 +62,20 @@ export default function ProfileScreen() {
       .catch(() => {});
   }, []);
 
-  // Fetch data on mount
+  // Fetch full profile + data on focus
   useFocusEffect(
     useCallback(() => {
       const controller = new AbortController();
       fetchLogs(controller.signal);
       fetchMissions(controller.signal);
+
+      // Lazy-load full profile (includes height, weight, age, bloodType, chronicDiseases)
+      authApi.fetchProfile().then((fullProfile) => {
+        if (fullProfile) {
+          useAuthStore.setState({ profile: fullProfile });
+        }
+      }).catch(() => {});
+
       return () => controller.abort();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -270,7 +278,7 @@ export default function ProfileScreen() {
                 color={subStatus.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.9)'}
               />
               <Text style={[styles.planChipText, subStatus.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
-                {subStatus.isPremium ? 'Premium' : 'Free'}
+                {subStatus.isPremium ? t('planPremium') : t('planFree')}
               </Text>
             </TouchableOpacity>
           )}
@@ -477,6 +485,16 @@ export default function ProfileScreen() {
               <Ionicons name="star" size={24} color="#fff" />
             </LinearGradient>
             <Text style={styles.actionLabel}>{t('subscription')}</Text>
+          </Pressable>
+
+          <Pressable style={styles.actionCard} onPress={() => router.push('/chat-notes')}>
+            <LinearGradient
+              colors={['#8b5cf6', '#6d28d9']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="bookmark" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>{tc('aiNotes')}</Text>
           </Pressable>
         </View>
         </Animated.View>

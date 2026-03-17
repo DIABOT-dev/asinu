@@ -482,7 +482,7 @@ export const AsinuBrainOverlayHost = () => {
         </View>
       </Modal>
 
-      {isAuthenticated && <AsinuEmergencyFAB onInteraction={markInteraction} />}
+      {isAuthenticated && !pathname.startsWith('/onboarding') && <AsinuEmergencyFAB onInteraction={markInteraction} />}
     </View>
   );
 };

@@ -7,55 +7,66 @@
  *   followup   → same 3-button screen with context banner
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeInRight, FadeInLeft } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { checkinApi, type CheckinStatus, type CheckinSession } from '../../src/features/checkin/checkin.api';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
+
+const MAX_TRIAGE_QUESTIONS = 5;
 
 // ─── Status options ────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS: Array<{
   status: CheckinStatus;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  label: string;
-  sublabel: string;
+  labelKey: string;
+  sublabelKey: string;
   color: string;
   bg: string;
+  gradient: [string, string];
 }> = [
   {
     status: 'fine',
     icon: 'emoticon-happy-outline',
-    label: 'Tôi ổn',
-    sublabel: 'Cảm thấy bình thường, khoẻ mạnh',
+    labelKey: 'checkinFine',
+    sublabelKey: 'checkinFineSub',
     color: '#16a34a',
-    bg: '#dcfce7',
+    bg: '#f0fdf4',
+    gradient: ['#dcfce7', '#f0fdf4'],
   },
   {
     status: 'tired',
     icon: 'emoticon-sad-outline',
-    label: 'Hơi mệt',
-    sublabel: 'Có gì đó không ổn, cần theo dõi',
+    labelKey: 'checkinTired',
+    sublabelKey: 'checkinTiredSub',
     color: '#d97706',
-    bg: '#fef3c7',
+    bg: '#fffbeb',
+    gradient: ['#fef3c7', '#fffbeb'],
   },
   {
     status: 'very_tired',
     icon: 'emoticon-cry-outline',
-    label: 'Rất mệt',
-    sublabel: 'Mệt nhiều, không thoải mái',
+    labelKey: 'checkinVeryTired',
+    sublabelKey: 'checkinVeryTiredSub',
     color: '#dc2626',
-    bg: '#fee2e2',
+    bg: '#fef2f2',
+    gradient: ['#fee2e2', '#fef2f2'],
   },
 ];
 
@@ -66,6 +77,10 @@ type Screen = 'status' | 'triage' | 'done';
 export default function CheckinScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation('home');
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
   const params = useLocalSearchParams<{ checkin_id?: string; mode?: string }>();
   const isFollowUp = params.mode === 'followup';
   const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
@@ -109,7 +124,7 @@ export default function CheckinScreen() {
       await fetchNextQuestion(sess, []);
       setScreen('triage');
     } catch {
-      Alert.alert('Lỗi', 'Không thể lưu trạng thái. Vui lòng thử lại.');
+      showAlert(t('error', { ns: 'common' }), t('checkinError'));
     } finally {
       setLoading(false);
     }
@@ -143,6 +158,21 @@ export default function CheckinScreen() {
     if (!session || !answer.trim()) return;
     const newAnswers = [...answers, { question: currentQ, answer: answer.trim() }];
     setAnswers(newAnswers);
+
+    // Hard limit on frontend — force done if we've asked enough
+    if (newAnswers.length >= MAX_TRIAGE_QUESTIONS) {
+      setTriageSummary({
+        summary: '',
+        severity: 'medium',
+        recommendation: '',
+        needsDoctor: false,
+      });
+      setScreen('done');
+      // Still send final answers to backend to save
+      checkinApi.triage(session.id, newAnswers).catch(() => {});
+      return;
+    }
+
     await fetchNextQuestion(session, newAnswers);
   };
 
@@ -160,7 +190,7 @@ export default function CheckinScreen() {
     <>
       <Stack.Screen options={{
         headerShown: true,
-        title: isFollowUp ? 'Cập nhật tình trạng' : 'Check-in sức khoẻ',
+        title: isFollowUp ? t('checkinHeaderFollowUp') : t('checkinHeaderTitle'),
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
         headerShadowVisible: false,
@@ -170,15 +200,17 @@ export default function CheckinScreen() {
           </TouchableOpacity>
         ),
       }} />
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
 
       <ScrollView
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
         keyboardShouldPersistTaps="handled"
       >
-        {screen === 'status' && <StatusScreen onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
+        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
         {screen === 'triage' && (
           <TriageScreen
+            styles={styles}
             question={currentQ}
             options={currentOpts}
             answers={answers}
@@ -188,6 +220,7 @@ export default function CheckinScreen() {
         )}
         {screen === 'done' && (
           <DoneScreen
+            styles={styles}
             session={session}
             triageSummary={triageSummary}
             onClose={() => router.back()}
@@ -200,38 +233,73 @@ export default function CheckinScreen() {
 
 // ─── Status screen ────────────────────────────────────────────────────────────
 
+type Styles = ReturnType<typeof createStyles>;
+
 function StatusScreen({
+  styles,
   onSelect,
   isFollowUp,
 }: {
+  styles: Styles;
   onSelect: (s: CheckinStatus) => void;
   isFollowUp: boolean;
 }) {
+  const { t } = useTranslation('home');
+
+  const getGreeting = () => {
+    if (isFollowUp) return t('checkinGreetingFollowUp');
+    const h = new Date().getHours();
+    if (h < 12) return t('checkinGreetingMorning');
+    if (h < 18) return t('checkinGreetingAfternoon');
+    return t('checkinGreetingEvening');
+  };
+
   return (
     <View style={styles.section}>
-      <Text style={styles.heading}>
-        {isFollowUp ? 'Tình trạng bây giờ thế nào?' : 'Sáng nay bạn cảm thấy thế nào?'}
-      </Text>
-      <Text style={styles.subheading}>Chọn trạng thái phù hợp nhất với bạn lúc này</Text>
+      {/* Asinu avatar */}
+      <Animated.View entering={FadeIn.duration(400)} style={styles.statusAvatarWrap}>
+        <LinearGradient
+          colors={[colors.primary, colors.primaryDark]}
+          style={styles.statusAvatar}
+        >
+          <Ionicons name="heart" size={28} color="#fff" />
+        </LinearGradient>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+        <Text style={styles.heading}>{getGreeting()}</Text>
+        <Text style={styles.subheading}>{t('checkinSubheading')}</Text>
+      </Animated.View>
 
       <View style={styles.optionList}>
-        {STATUS_OPTIONS.map(opt => (
-          <Pressable
-            key={opt.status}
-            style={({ pressed }) => [
-              styles.statusCard,
-              { backgroundColor: opt.bg, borderColor: opt.color + '44' },
-              pressed && { opacity: 0.82, transform: [{ scale: 0.98 }] },
-            ]}
-            onPress={() => onSelect(opt.status)}
-          >
-            <MaterialCommunityIcons name={opt.icon} size={36} color={opt.color} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.statusLabel, { color: opt.color }]}>{opt.label}</Text>
-              <Text style={styles.statusSub}>{opt.sublabel}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={opt.color} />
-          </Pressable>
+        {STATUS_OPTIONS.map((opt, idx) => (
+          <Animated.View key={opt.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.statusCard,
+                { borderColor: opt.color + '44' },
+                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              ]}
+              onPress={() => onSelect(opt.status)}
+            >
+              <LinearGradient
+                colors={opt.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={[styles.statusIconCircle, { backgroundColor: opt.color + '1a' }]}>
+                <MaterialCommunityIcons name={opt.icon} size={28} color={opt.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.statusLabel, { color: opt.color }]}>{t(opt.labelKey)}</Text>
+                <Text style={styles.statusSub}>{t(opt.sublabelKey)}</Text>
+              </View>
+              <View style={[styles.statusArrow, { backgroundColor: opt.color + '15' }]}>
+                <Ionicons name="chevron-forward" size={18} color={opt.color} />
+              </View>
+            </Pressable>
+          </Animated.View>
         ))}
       </View>
     </View>
@@ -241,77 +309,184 @@ function StatusScreen({
 // ─── Triage screen ────────────────────────────────────────────────────────────
 
 function TriageScreen({
+  styles,
   question,
   options,
   answers,
   loading,
   onAnswer,
 }: {
+  styles: Styles;
   question: string;
   options: string[];
   answers: Array<{ question: string; answer: string }>;
   loading: boolean;
   onAnswer: (a: string) => void;
 }) {
+  const { t } = useTranslation('home');
   const [custom, setCustom] = useState('');
-  const { TextInput } = require('react-native');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const scrollRef = useRef<ScrollView>(null);
+
+  const progress = (answers.length + 1) / MAX_TRIAGE_QUESTIONS;
+
+  const toggleOption = (opt: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(opt)) next.delete(opt);
+      else next.add(opt);
+      return next;
+    });
+  };
+
+  const handleConfirm = () => {
+    const parts: string[] = [...selected];
+    if (custom.trim()) parts.push(custom.trim());
+    if (parts.length === 0) return;
+    const combined = parts.join(', ');
+    onAnswer(combined);
+    setSelected(new Set());
+    setCustom('');
+  };
+
+  const hasSelection = selected.size > 0 || custom.trim().length > 0;
 
   return (
     <View style={styles.section}>
-      {/* Progress dots */}
-      <View style={styles.progressDots}>
-        {[0, 1, 2, 3, 4].map(i => (
-          <View
-            key={i}
-            style={[styles.dot, i < answers.length && styles.dotFilled, i === answers.length && styles.dotActive]}
-          />
-        ))}
+      {/* Slim progress bar */}
+      <View style={styles.progressTrack}>
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={[styles.progressFill, { width: `${Math.min(progress * 100, 100)}%` }]}
+        />
       </View>
 
-      <Text style={styles.questionCount}>Câu {answers.length + 1} / tối đa 5</Text>
+      {/* Conversation history */}
+      <View style={styles.chatArea}>
+        {answers.map((a, i) => (
+          <View key={i}>
+            {/* AI question */}
+            <Animated.View entering={FadeInLeft.delay(i * 30).duration(300)} style={styles.aiMsgRow}>
+              <View style={styles.aiAvatarSmall}>
+                <Ionicons name="heart" size={12} color="#fff" />
+              </View>
+              <View style={styles.aiBubble}>
+                <Text style={styles.aiBubbleText}>{a.question}</Text>
+              </View>
+            </Animated.View>
+            {/* User answer */}
+            <Animated.View entering={FadeInRight.delay(i * 30 + 50).duration(300)} style={styles.userMsgRow}>
+              <View style={styles.userAnswerCard}>
+                {a.answer.split(', ').map((item, j) => (
+                  <View key={j} style={styles.userAnswerTag}>
+                    <Ionicons name="checkmark-circle" size={14} color="#fff" />
+                    <Text style={styles.userAnswerTagText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+          </View>
+        ))}
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.subheading, { marginTop: 12 }]}>Asinu đang phân tích...</Text>
-        </View>
-      ) : (
-        <>
-          <Text style={styles.question}>{question}</Text>
+        {loading ? (
+          <Animated.View entering={FadeInLeft.duration(300)} style={styles.aiMsgRow}>
+            <View style={styles.aiAvatarSmall}>
+              <Ionicons name="heart" size={12} color="#fff" />
+            </View>
+            <View style={styles.aiBubble}>
+              <View style={styles.typingRow}>
+                <View style={[styles.typingDot, { opacity: 0.8 }]} />
+                <View style={[styles.typingDot, { opacity: 0.5 }]} />
+                <View style={[styles.typingDot, { opacity: 0.3 }]} />
+              </View>
+            </View>
+          </Animated.View>
+        ) : (
+          <>
+            {/* Current AI question */}
+            <Animated.View entering={FadeInLeft.duration(400)} style={styles.aiMsgRow}>
+              <View style={styles.aiAvatar}>
+                <Ionicons name="heart" size={16} color="#fff" />
+              </View>
+              <View style={styles.currentQuestionBubble}>
+                <Text style={styles.currentQuestionText}>{question}</Text>
+              </View>
+            </Animated.View>
 
-          <View style={styles.optionList}>
-            {options.map(opt => (
+            {/* Hint */}
+            <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.selectHintWrap}>
+              <Ionicons name="hand-left-outline" size={13} color={colors.textSecondary} />
+              <Text style={styles.selectHintText}>{t('checkinSelectHint')}</Text>
+            </Animated.View>
+
+            {/* Multi-select option cards */}
+            <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
+              {options.map((opt) => {
+                const isSelected = selected.has(opt);
+                return (
+                  <Pressable
+                    key={opt}
+                    style={[
+                      styles.optionCard,
+                      isSelected && styles.optionCardSelected,
+                    ]}
+                    onPress={() => toggleOption(opt)}
+                  >
+                    <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
+                      {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                    </View>
+                    <Text style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
+                  </Pressable>
+                );
+              })}
+            </Animated.View>
+
+            {/* Custom text input */}
+            <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
+              <View style={styles.inputWrap}>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('checkinCustomPlaceholder')}
+                  placeholderTextColor={colors.textSecondary + '77'}
+                  value={custom}
+                  onChangeText={setCustom}
+                  returnKeyType="done"
+                />
+              </View>
+            </Animated.View>
+
+            {/* Confirm button */}
+            <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.confirmWrap}>
               <Pressable
-                key={opt}
-                style={({ pressed }) => [styles.optionChip, pressed && { opacity: 0.8 }]}
-                onPress={() => onAnswer(opt)}
+                style={({ pressed }) => [
+                  styles.confirmBtn,
+                  !hasSelection && styles.confirmBtnDisabled,
+                  pressed && hasSelection && { opacity: 0.9, transform: [{ scale: 0.97 }] },
+                ]}
+                disabled={!hasSelection}
+                onPress={handleConfirm}
               >
-                <Text style={styles.optionChipText}>{opt}</Text>
+                <LinearGradient
+                  colors={hasSelection ? [colors.primary, colors.primaryDark] : [colors.border, colors.border]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.confirmBtnGradient}
+                >
+                  <Text style={[styles.confirmBtnText, !hasSelection && { color: colors.textSecondary }]}>
+                    {t('checkinConfirmSelection')}
+                    {selected.size > 0 ? ` (${selected.size})` : ''}
+                  </Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={18}
+                    color={hasSelection ? '#fff' : colors.textSecondary}
+                  />
+                </LinearGradient>
               </Pressable>
-            ))}
-          </View>
-
-          {/* Custom answer */}
-          <View style={styles.customRow}>
-            <TextInput
-              style={styles.customInput}
-              placeholder="Hoặc tự nhập câu trả lời..."
-              placeholderTextColor={colors.textSecondary}
-              value={custom}
-              onChangeText={setCustom}
-              returnKeyType="send"
-              onSubmitEditing={() => { if (custom.trim()) { onAnswer(custom); setCustom(''); } }}
-            />
-            <Pressable
-              style={[styles.sendBtn, !custom.trim() && { opacity: 0.4 }]}
-              disabled={!custom.trim()}
-              onPress={() => { onAnswer(custom); setCustom(''); }}
-            >
-              <Ionicons name="send" size={18} color="#fff" />
-            </Pressable>
-          </View>
-        </>
-      )}
+            </Animated.View>
+          </>
+        )}
+      </View>
     </View>
   );
 }
@@ -319,193 +494,583 @@ function TriageScreen({
 // ─── Done screen ──────────────────────────────────────────────────────────────
 
 function DoneScreen({
+  styles,
   session,
   triageSummary,
   onClose,
 }: {
+  styles: Styles;
   session: CheckinSession | null;
   triageSummary: { summary: string; severity: string; recommendation: string; needsDoctor: boolean } | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('home');
   const isFine = session?.current_status === 'fine';
 
   const severityColor = triageSummary?.severity === 'high' ? '#dc2626'
     : triageSummary?.severity === 'medium' ? '#d97706' : '#16a34a';
+  const severityIcon = triageSummary?.severity === 'high' ? 'alert-circle' : triageSummary?.severity === 'medium' ? 'information-circle' : 'checkmark-circle';
+  const severityBg = triageSummary?.severity === 'high' ? '#fef2f2' : triageSummary?.severity === 'medium' ? '#fffbeb' : '#f0fdf4';
 
   return (
     <View style={styles.section}>
-      <View style={styles.doneIcon}>
-        {isFine
-          ? <Ionicons name="checkmark-circle" size={64} color="#16a34a" />
-          : triageSummary?.severity === 'high'
-            ? <Ionicons name="warning" size={64} color="#dc2626" />
-            : <Ionicons name="clipboard-outline" size={64} color="#d97706" />
-        }
-      </View>
+      {/* Hero icon */}
+      <Animated.View entering={FadeIn.duration(500)} style={styles.doneHero}>
+        <View style={[styles.doneCircleOuter, { backgroundColor: isFine ? '#dcfce7' : severityBg }]}>
+          <View style={[styles.doneCircleInner, { backgroundColor: isFine ? '#16a34a' : severityColor }]}>
+            {isFine
+              ? <Ionicons name="checkmark" size={36} color="#fff" />
+              : <Ionicons name={severityIcon as any} size={36} color="#fff" />
+            }
+          </View>
+        </View>
+      </Animated.View>
 
-      <Text style={styles.heading}>
-        {isFine ? 'Tuyệt! Vui lòng duy trì.' : 'Asinu đã ghi nhận'}
-      </Text>
+      <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+        <Text style={styles.heading}>
+          {isFine ? t('checkinDoneGreat') : t('checkinDoneNoted')}
+        </Text>
+      </Animated.View>
 
       {isFine ? (
-        <Text style={styles.subheading}>
-          Asinu sẽ hỏi thăm lại vào 9 giờ tối hôm nay để đảm bảo bạn luôn khoẻ.
-        </Text>
-      ) : triageSummary && (
-        <View style={styles.summaryCard}>
-          <View style={[styles.severityBadge, { borderColor: severityColor }]}>
-            <Ionicons
-              name={triageSummary.severity === 'high' ? 'warning' : 'ellipse'}
-              size={12}
-              color={severityColor}
-            />
-            <Text style={[styles.severityBadgeText, { color: severityColor }]}>
-              {triageSummary.severity === 'high' ? 'Mức độ cao'
-                : triageSummary.severity === 'medium' ? 'Mức độ vừa' : 'Mức độ nhẹ'}
-            </Text>
+        <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.fineCard}>
+          <View style={styles.fineIconWrap}>
+            <Ionicons name="time-outline" size={22} color={colors.primary} />
           </View>
-          <Text style={styles.summaryText}>{triageSummary.summary}</Text>
-          <View style={styles.divider} />
-          <Text style={styles.recommendationLabel}>Lời khuyên:</Text>
-          <Text style={styles.recommendationText}>{triageSummary.recommendation}</Text>
+          <Text style={styles.fineCardText}>{t('checkinDoneFineSub')}</Text>
+        </Animated.View>
+      ) : triageSummary && (
+        <Animated.View entering={FadeInDown.delay(250).duration(400)}>
+          <View style={[styles.resultCard, { borderColor: severityColor + '33' }]}>
+            {/* Severity strip */}
+            <View style={[styles.severityStrip, { backgroundColor: severityColor }]} />
 
-          {triageSummary.needsDoctor && (
-            <View style={styles.doctorBanner}>
-              <Ionicons name="medical" size={16} color="#dc2626" />
-              <Text style={styles.doctorText}>Nên đến gặp bác sĩ để được kiểm tra.</Text>
+            <View style={styles.resultBody}>
+              {/* Badge */}
+              <View style={[styles.severityBadge, { backgroundColor: severityBg }]}>
+                <Ionicons name={severityIcon as any} size={14} color={severityColor} />
+                <Text style={[styles.severityBadgeText, { color: severityColor }]}>
+                  {triageSummary.severity === 'high' ? t('checkinSeverityHigh')
+                    : triageSummary.severity === 'medium' ? t('checkinSeverityMedium') : t('checkinSeverityLow')}
+                </Text>
+              </View>
+
+              {/* Summary */}
+              {triageSummary.summary ? (
+                <Text style={styles.resultSummary}>{triageSummary.summary}</Text>
+              ) : null}
+
+              {/* Recommendation */}
+              {triageSummary.recommendation ? (
+                <View style={styles.adviceWrap}>
+                  <View style={styles.adviceHeader}>
+                    <Ionicons name="bulb-outline" size={16} color={colors.premium} />
+                    <Text style={styles.adviceLabel}>{t('checkinAdvice')}</Text>
+                  </View>
+                  <Text style={styles.adviceText}>{triageSummary.recommendation}</Text>
+                </View>
+              ) : null}
+
+              {/* Doctor banner */}
+              {triageSummary.needsDoctor && (
+                <View style={styles.doctorBanner}>
+                  <View style={styles.doctorIcon}>
+                    <Ionicons name="medical" size={14} color="#fff" />
+                  </View>
+                  <Text style={styles.doctorText}>{t('checkinSeeDoctor')}</Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
+          </View>
+        </Animated.View>
       )}
 
       {!isFine && (
-        <Text style={styles.followUpHint}>
-          {session?.flow_state === 'high_alert'
-            ? 'Asinu sẽ hỏi thăm bạn lại sau 2 tiếng.'
-            : 'Asinu sẽ hỏi thăm bạn lại sau 3 tiếng.'}
-        </Text>
+        <Animated.View entering={FadeInDown.delay(350).duration(400)} style={styles.followCard}>
+          <Ionicons name="notifications-outline" size={18} color={colors.primary} />
+          <Text style={styles.followText}>
+            {session?.flow_state === 'high_alert'
+              ? t('checkinFollowUpHigh')
+              : t('checkinFollowUpNormal')}
+          </Text>
+        </Animated.View>
       )}
 
-      <Pressable style={styles.closeBtn} onPress={onClose}>
-        <Text style={styles.closeBtnText}>Đóng</Text>
-      </Pressable>
+      <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+        <Pressable
+          style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+          onPress={onClose}
+        >
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.doneBtnGradient}
+          >
+            <Text style={styles.doneBtnText}>{t('checkinClose')}</Text>
+          </LinearGradient>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  container: { padding: spacing.xl },
-  section: { gap: spacing.lg },
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+    container: { padding: spacing.xl },
+    section: { gap: spacing.lg },
 
-  heading:    { fontSize: 22, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
-  subheading: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+    heading: {
+      fontSize: typography.size.lg,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      textAlign: 'center',
+    },
+    subheading: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
+      marginTop: 4,
+    },
 
-  optionList: { gap: spacing.md, marginTop: spacing.sm },
+    optionList: { gap: spacing.md, marginTop: spacing.sm },
 
-  statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    gap: spacing.md,
-  },
-  statusLabel: { fontSize: 18, fontWeight: '700' },
-  statusSub:   { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+    // ── Status screen ──
+    statusAvatarWrap: { alignItems: 'center' },
+    statusAvatar: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statusCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.lg,
+      borderRadius: radius.xl,
+      borderWidth: 1.5,
+      gap: spacing.md,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
+    statusIconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statusLabel: { fontSize: typography.size.md, fontWeight: '700' },
+    statusSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
+    statusArrow: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  progressDots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 4 },
-  dot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
-  dotFilled:    { backgroundColor: colors.primary },
-  dotActive:    { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary, marginTop: -2 },
+    // ── Triage / chat ──
+    progressTrack: {
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.border + '55',
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 2,
+      backgroundColor: colors.primary,
+    },
 
-  questionCount: { fontSize: 12, color: colors.textSecondary, textAlign: 'center' },
-  question:      { fontSize: 18, fontWeight: '700', color: colors.textPrimary, lineHeight: 26 },
+    chatArea: { gap: spacing.sm },
 
-  optionChip: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
-    borderColor: colors.primary + '44',
-  },
-  optionChipText: { fontSize: 15, fontWeight: '600', color: colors.primary },
+    // AI messages (left)
+    aiMsgRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: spacing.xs,
+      maxWidth: '88%',
+    },
+    aiAvatarSmall: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.primary + '88',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    aiAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    aiBubble: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg,
+      borderTopLeftRadius: 4,
+      shadowColor: '#000',
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 1,
+    },
+    aiBubbleText: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
 
-  customRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  customInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: 15,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-  },
-  sendBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
+    // User messages (right)
+    userMsgRow: {
+      alignItems: 'flex-end',
+      marginLeft: 36,
+    },
+    userAnswerCard: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg,
+      borderBottomRightRadius: 4,
+      maxWidth: '90%',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    userAnswerTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    userAnswerTagText: {
+      fontSize: typography.size.xs,
+      color: '#fff',
+      fontWeight: '600',
+      lineHeight: 18,
+    },
 
-  doneIcon: { alignItems: 'center', marginBottom: spacing.sm },
+    // Typing indicator
+    typingRow: { flexDirection: 'row', gap: 5, paddingVertical: 4, paddingHorizontal: 4 },
+    typingDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
+      backgroundColor: colors.primary,
+    },
 
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.sm,
-  },
-  severityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  severityBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  summaryText:        { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
-  divider:            { height: 1, backgroundColor: colors.border },
-  recommendationLabel:{ fontSize: 12, fontWeight: '700', color: colors.textSecondary },
-  recommendationText: { fontSize: 14, color: colors.textPrimary, lineHeight: 22 },
+    // Current question (bigger, emphasized)
+    currentQuestionBubble: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: radius.xl,
+      borderTopLeftRadius: 4,
+      shadowColor: '#000',
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+    },
+    currentQuestionText: {
+      fontSize: typography.size.md,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      lineHeight: 26,
+    },
 
-  doctorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#fee2e2',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.xs,
-  },
-  doctorText: { fontSize: 13, color: '#dc2626', fontWeight: '600', flex: 1 },
+    // Select hint
+    selectHintWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingLeft: 40,
+      marginTop: 2,
+    },
+    selectHintText: {
+      fontSize: typography.size.xxs,
+      color: colors.textSecondary,
+    },
 
-  followUpHint: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+    // Multi-select option cards
+    optionsWrap: {
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+      paddingLeft: 36,
+    },
+    optionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 1,
+    },
+    optionCardSelected: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.1,
+    },
+    optionCheckbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    optionCheckboxSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    optionCardText: {
+      fontSize: typography.size.sm,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      flex: 1,
+    },
+    optionCardTextSelected: {
+      color: colors.primary,
+    },
 
-  closeBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  closeBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-});
+    // Custom text input
+    inputRow: {
+      marginTop: spacing.sm,
+      paddingLeft: 36,
+    },
+    inputWrap: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    input: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 12,
+      fontSize: typography.size.sm,
+      color: colors.textPrimary,
+    },
+
+    // Confirm button
+    confirmWrap: {
+      paddingLeft: 36,
+      marginTop: spacing.sm,
+    },
+    confirmBtn: {
+      borderRadius: radius.full,
+      overflow: 'hidden',
+      shadowColor: colors.primary,
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
+    },
+    confirmBtnDisabled: {
+      shadowOpacity: 0,
+    },
+    confirmBtnGradient: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: spacing.md,
+    },
+    confirmBtnText: {
+      color: '#fff',
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+    },
+
+    // ── Done screen ──
+    doneHero: { alignItems: 'center' },
+    doneCircleOuter: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    doneCircleInner: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
+    },
+
+    fineCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.primary + '28',
+    },
+    fineIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary + '1a',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fineCardText: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 20,
+    },
+
+    // Result card with side strip
+    resultCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      overflow: 'hidden',
+      borderWidth: 1.5,
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 4,
+    },
+    severityStrip: {
+      height: 4,
+      width: '100%',
+    },
+    resultBody: {
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    severityBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 6,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 5,
+      borderRadius: radius.full,
+    },
+    severityBadgeText: {
+      fontSize: typography.size.xs,
+      fontWeight: '700',
+    },
+    resultSummary: {
+      fontSize: typography.size.sm,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      lineHeight: 22,
+    },
+    adviceWrap: {
+      backgroundColor: '#fffbeb',
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      gap: 4,
+    },
+    adviceHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    adviceLabel: {
+      fontSize: typography.size.xxs,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    adviceText: {
+      fontSize: typography.size.sm,
+      color: colors.textPrimary,
+      lineHeight: 22,
+      marginLeft: 22,
+    },
+
+    doctorBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      backgroundColor: '#fee2e2',
+      borderRadius: radius.lg,
+      padding: spacing.md,
+    },
+    doctorIcon: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: '#dc2626',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    doctorText: { fontSize: typography.size.xs, color: '#991b1b', fontWeight: '700', flex: 1 },
+
+    followCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.primary + '22',
+    },
+    followText: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 20,
+    },
+
+    doneBtn: {
+      borderRadius: radius.full,
+      overflow: 'hidden',
+      marginTop: spacing.xs,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: 5,
+    },
+    doneBtnGradient: {
+      paddingVertical: spacing.md + 2,
+      alignItems: 'center',
+    },
+    doneBtnText: {
+      color: '#fff',
+      fontSize: typography.size.md,
+      fontWeight: '700',
+    },
+  });
+}

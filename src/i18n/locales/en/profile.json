@@ -47,5 +47,7 @@
   "heightValue": "{{value}} cm",
   "weightValue": "{{value}} kg",
   "wallet": "Wallet",
-  "subscription": "Subscription"
+  "subscription": "Subscription",
+  "planPremium": "Premium",
+  "planFree": "Free"
 }

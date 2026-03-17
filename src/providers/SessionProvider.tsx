@@ -72,11 +72,17 @@ export const SessionProvider = ({ children }: Props) => {
 
     (async () => {
       const granted = await requestNotificationPermissions();
+      console.log('[Session] Notification permission granted:', granted);
       setNotificationGranted(granted);
       if (granted) {
         const token = await getExpoPushToken();
+        console.log('[Session] Push token result:', token ? token.substring(0, 30) + '...' : 'NULL');
         if (token) {
-          authApi.updatePushToken(token).catch(() => {});
+          authApi.updatePushToken(token)
+            .then(() => console.log('[Session] Push token saved to server'))
+            .catch((err) => console.error('[Session] Failed to save push token:', err));
+        } else {
+          console.warn('[Session] No push token obtained — notifications will not work remotely');
         }
       }
       // Request location permission (for emergency button)

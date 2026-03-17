@@ -180,7 +180,26 @@ export default function HomeScreen() {
         <DailyCheckinCard />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(250).duration(400).springify()}>
+        {/* Health Report Card */}
+        <Animated.View entering={FadeInDown.delay(230).duration(400).springify()}>
+        <Pressable
+          style={({ pressed }) => [styles.reportCard, pressed && { opacity: 0.9 }]}
+          onPress={() => router.push('/report')}
+        >
+          <View style={styles.reportRow}>
+            <View style={styles.reportIconWrap}>
+              <Ionicons name="document-text" size={22} color={brandColors.indigo} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reportTitle}>{t('healthReport')}</Text>
+              <Text style={styles.reportSub}>{t('healthReportSub')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={brandColors.indigo} />
+          </View>
+        </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(260).duration(400).springify()}>
         <AsinuChatSticker onPress={() => setChatOpen(true)} />
         </Animated.View>
 
@@ -628,6 +647,36 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
     fontSize: typography.size.md,
     color: colors.textPrimary,
-  }
+  },
+  reportCard: {
+    borderRadius: 16,
+    padding: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: brandColors.indigo + '44',
+    backgroundColor: '#eef2ff',
+  },
+  reportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  reportIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: brandColors.indigo + '22',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reportTitle: {
+    fontSize: typography.size.sm,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  reportSub: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
 });
 }

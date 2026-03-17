@@ -36,6 +36,26 @@ export interface TriageResult {
   needsFamilyAlert?: boolean;
 }
 
+export interface HealthReportData {
+  period: 'week' | 'month';
+  totalDays: number;
+  checkinDays: number;
+  sessions: Array<{
+    date: string;
+    status: string;
+    severity: 'low' | 'medium' | 'high' | null;
+    summary: string | null;
+    flowState: string;
+    resolved: boolean;
+  }>;
+  severityDistribution: { low: number; medium: number; high: number };
+  statusDistribution: { fine: number; tired: number; very_tired: number; specific_concern: number };
+  commonSymptoms: Array<{ symptom: string; count: number }>;
+  alerts: { familyAlerted: number; emergencyTriggered: number };
+  trend: 'improving' | 'stable' | 'worsening';
+  highlights: Array<{ type: string; value: string | number }>;
+}
+
 export const checkinApi = {
   getToday: () =>
     apiClient<{ ok: boolean; session: CheckinSession | null }>('/api/mobile/checkin/today'),
@@ -69,4 +89,10 @@ export const checkinApi = {
       method: 'POST',
       body: { alert_id, action },
     }),
+
+  getReport: (period: 'week' | 'month' = 'week') =>
+    apiClient<{ ok: boolean } & HealthReportData>(`/api/mobile/checkin/report?period=${period}`),
+
+  resetToday: () =>
+    apiClient<{ ok: boolean; message: string }>('/api/mobile/checkin/reset-today', { method: 'POST' }),
 };

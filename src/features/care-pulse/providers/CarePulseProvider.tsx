@@ -115,7 +115,7 @@ export const CarePulseProvider = ({ children }: Props) => {
   return (
     <CarePulseContext.Provider value={contextValue}>
       {children}
-      <PulsePopup visible={popupVisible} onClose={handleClosePopup} />
+      {/* <PulsePopup visible={popupVisible} onClose={handleClosePopup} /> */}
     </CarePulseContext.Provider>
   );
 };

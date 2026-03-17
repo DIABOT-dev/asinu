@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
+import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 
 export const DATA_CONSENT_KEY = '@asinu/data_consent_v1';
@@ -25,24 +27,11 @@ type Props = {
   onAgree: () => void;
 };
 
-const DATA_ITEMS_VI = [
-  'Chỉ số sức khoẻ bạn nhập (đường huyết, huyết áp, cân nặng, nước uống...)',
-  'Thông tin cá nhân cơ bản (tuổi, giới tính, mục tiêu sức khoẻ)',
-  'Lịch sử trò chuyện với AI để cải thiện tư vấn',
-  'Thông báo nhắc nhở theo dõi sức khoẻ hàng ngày',
-];
-
-const DATA_ITEMS_EN = [
-  'Health metrics you enter (glucose, blood pressure, weight, water intake...)',
-  'Basic personal info (age, gender, health goals)',
-  'AI chat history to improve personalized advice',
-  'Daily health tracking reminder notifications',
-];
-
 export function DataConsentModal({ visible, onAgree }: Props) {
-  const { i18n } = useTranslation();
-  const isVi = i18n.language !== 'en';
-  const items = isVi ? DATA_ITEMS_VI : DATA_ITEMS_EN;
+  const { t } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const items = [t('dataConsentItem1'), t('dataConsentItem2'), t('dataConsentItem3'), t('dataConsentItem4')];
 
   const handleAgree = async () => {
     await saveDataConsent();
@@ -58,18 +47,16 @@ export function DataConsentModal({ visible, onAgree }: Props) {
           </View>
 
           <Text style={styles.title}>
-            {isVi ? 'Đồng ý sử dụng dữ liệu' : 'Data Usage Consent'}
+            {t('dataConsentTitle')}
           </Text>
 
           <Text style={styles.intro}>
-            {isVi
-              ? 'Để cung cấp trải nghiệm theo dõi và tư vấn sức khoẻ cá nhân hoá, Asinu cần thu thập một số dữ liệu của bạn.'
-              : 'To provide personalised health tracking and AI advice, Asinu needs to collect some of your data.'}
+            {t('dataConsentIntro')}
           </Text>
 
           <View style={styles.dataBox}>
             <Text style={styles.dataBoxLabel}>
-              {isVi ? 'Dữ liệu được thu thập:' : 'Data collected:'}
+              {t('dataConsentLabel')}
             </Text>
             {items.map((item, i) => (
               <View key={i} style={styles.dataRow}>
@@ -80,28 +67,24 @@ export function DataConsentModal({ visible, onAgree }: Props) {
           </View>
 
           <Text style={styles.note}>
-            {isVi
-              ? 'Dữ liệu của bạn được bảo mật, không chia sẻ với bên thứ ba vì mục đích thương mại. Bạn có thể rút lại sự đồng ý bất kỳ lúc nào trong Cài đặt.'
-              : 'Your data is kept private and not sold to third parties. You may revoke consent at any time in Settings.'}
+            {t('dataConsentNote')}
           </Text>
 
           <View style={styles.buttons}>
             <Pressable style={[styles.btn, styles.btnSecondary]} onPress={() => {}}>
               <Text style={styles.btnSecondaryText}>
-                {isVi ? 'Không đồng ý' : 'Decline'}
+                {t('decline')}
               </Text>
             </Pressable>
             <Pressable style={[styles.btn, styles.btnPrimary]} onPress={handleAgree}>
               <Text style={styles.btnPrimaryText}>
-                {isVi ? 'Tôi đồng ý' : 'I Agree'}
+                {t('iAgree')}
               </Text>
             </Pressable>
           </View>
 
           <Text style={styles.footer}>
-            {isVi
-              ? 'Bạn phải đồng ý để sử dụng ứng dụng. Nhấn "Tôi đồng ý" để tiếp tục.'
-              : 'Consent is required to use the app. Tap "I Agree" to continue.'}
+            {t('dataConsentFooter')}
           </Text>
         </View>
       </View>
@@ -109,108 +92,110 @@ export function DataConsentModal({ visible, onAgree }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: spacing.xxl,
-    gap: spacing.md,
-    paddingBottom: spacing.xxl + 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 12,
-  },
-  iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: spacing.xs,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  intro: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 21,
-  },
-  dataBox: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  dataBoxLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  dataRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-  },
-  dataText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 19,
-  },
-  note: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  buttons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xs,
-  },
-  btn: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnSecondary: {
-    backgroundColor: colors.surfaceMuted,
-  },
-  btnSecondaryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-  },
-  btnPrimaryText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  footer: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    opacity: 0.7,
-  },
-});
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'flex-end',
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      padding: spacing.xxl,
+      gap: spacing.md,
+      paddingBottom: spacing.xxl + 16,
+      shadowColor: '#000',
+      shadowOpacity: 0.2,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: -4 },
+      elevation: 12,
+    },
+    iconWrap: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.primaryLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      alignSelf: 'center',
+      marginBottom: spacing.xs,
+    },
+    title: {
+      fontSize: typography.size.lg,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      textAlign: 'center',
+    },
+    intro: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 21,
+    },
+    dataBox: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    dataBoxLabel: {
+      fontSize: typography.size.xs,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    dataRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      alignItems: 'flex-start',
+    },
+    dataText: {
+      flex: 1,
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      lineHeight: 19,
+    },
+    note: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      textAlign: 'center',
+    },
+    buttons: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      marginTop: spacing.xs,
+    },
+    btn: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnSecondary: {
+      backgroundColor: colors.surfaceMuted,
+    },
+    btnSecondaryText: {
+      fontSize: typography.size.sm,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    btnPrimary: {
+      backgroundColor: colors.primary,
+    },
+    btnPrimaryText: {
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+      color: '#fff',
+    },
+    footer: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      opacity: 0.7,
+    },
+  });
+}

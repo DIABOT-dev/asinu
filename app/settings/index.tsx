@@ -3,10 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import DeleteAccountModal from '../../src/components/DeleteAccountModal';
+import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { authApi } from '../../src/features/auth/auth.api';
@@ -42,6 +43,7 @@ export default function SettingsScreen() {
   const { scale, setScale } = useFontSizeStore();
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [schedulePrefs, setSchedulePrefs] = useState<NotificationPreferences | null>(null);
@@ -119,7 +121,7 @@ export default function SettingsScreen() {
       const hasPermission = await requestNotificationPermissions();
       
       if (!hasPermission) {
-        Alert.alert(
+        showAlert(
           t('notificationPermRequired'),
           t('notificationPermDesc'),
           [
@@ -167,7 +169,7 @@ export default function SettingsScreen() {
 
   const handleRemindersToggle = async (value: boolean) => {
     if (value && !notifications) {
-      Alert.alert(
+      showAlert(
         t('enableNotificationsFirst'),
         t('enableNotificationsFirstDesc'),
         [{ text: tc('ok') }]
@@ -216,19 +218,20 @@ export default function SettingsScreen() {
         
         // Hiển thị thông báo sau khi đã chuyển trang
         setTimeout(() => {
-          Alert.alert(tc('success'), t('accountDeleted'));
+          showAlert(tc('success'), t('accountDeleted'));
         }, 500);
       } else {
-        Alert.alert(tc('error'), t('deleteError'));
+        showAlert(tc('error'), t('deleteError'));
       }
     } catch (error) {
 
-      Alert.alert(tc('error'), t('deleteErrorGeneric'));
+      showAlert(tc('error'), t('deleteErrorGeneric'));
     }
   };
 
   return (
     <>
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>
       <ScrollView contentContainerStyle={[styles.container, { paddingTop: spacing.sm }]}>
@@ -390,6 +393,27 @@ export default function SettingsScreen() {
           </View>
         )}
 
+
+        {/* Dev Test Button */}
+        <Pressable
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            backgroundColor: '#1a1a2e',
+            borderRadius: 14,
+            padding: 14,
+            marginTop: spacing.xl,
+          }}
+          onPress={() => router.push('/dev-test')}
+        >
+          <Ionicons name="flask" size={20} color="#06b6d4" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: scaledTypography.size.sm, fontWeight: '700', color: '#fff' }}>Test Check-in Flow</Text>
+            <Text style={{ fontSize: scaledTypography.size.xxs, color: '#888' }}>Dev tool — test luồng hỏi đáp AI</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#555" />
+        </Pressable>
 
         <Button label={t('logout')} variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
         

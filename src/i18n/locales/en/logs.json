@@ -16,6 +16,7 @@
   "logTitle": "Health Log",
   "logSubtitle": "Select log type",
   "quickLog": "Quick log",
+  "heroSub": "Choose the metric you want to log today",
   "savingLog": "Saving log...",
   "successTitle": "Success!",
   "logSuccess": "Log saved successfully!",
@@ -148,5 +149,10 @@
   "freqTwiceDay": "Twice a day",
   "freqThreeDay": "Three times a day",
   "freqAfterMeal": "After meal",
-  "freqBeforeSleep": "Before sleep"
+  "freqBeforeSleep": "Before sleep",
+  "enterValidWater": "Please enter a valid water amount",
+  "enterValidBP": "Please enter valid blood pressure values",
+  "waterStatusExcellent": "Excellent! Well hydrated",
+  "waterStatusGood": "Fairly good",
+  "waterStatusKeepDrinking": "Keep drinking water"
 }

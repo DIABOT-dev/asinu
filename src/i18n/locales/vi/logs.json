@@ -16,6 +16,7 @@
   "logTitle": "Ghi nhật ký",
   "logSubtitle": "Chọn loại ghi",
   "quickLog": "Ghi nhanh",
+  "heroSub": "Chọn chỉ số bạn muốn ghi hôm nay",
   "savingLog": "Đang ghi nhật ký...",
   "successTitle": "Thành công!",
   "logSuccess": "Ghi nhật ký thành công!",
@@ -148,5 +149,10 @@
   "freqTwiceDay": "Ngày 2 lần",
   "freqThreeDay": "Ngày 3 lần",
   "freqAfterMeal": "Sau ăn",
-  "freqBeforeSleep": "Trước ngủ"
+  "freqBeforeSleep": "Trước ngủ",
+  "enterValidWater": "Nhập lượng nước hợp lệ",
+  "enterValidBP": "Nhập chỉ số huyết áp hợp lệ",
+  "waterStatusExcellent": "Tuyệt vời! Đủ nước",
+  "waterStatusGood": "Khá tốt",
+  "waterStatusKeepDrinking": "Tiếp tục uống nước"
 }

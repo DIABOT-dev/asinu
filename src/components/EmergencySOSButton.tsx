@@ -2,24 +2,30 @@
  * Emergency SOS Button
  * Press-and-hold 2 seconds to confirm → alerts care circle + sends location.
  */
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
+import { AppAlertModal, useAppAlert } from './AppAlertModal';
 import { ScaledText as Text } from './ScaledText';
 import { checkinApi } from '../features/checkin/checkin.api';
+import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 
 export function EmergencySOSButton() {
+  const { t } = useTranslation('common');
   const router = useRouter();
+  const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const [loading, setLoading] = useState(false);
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
   const pressProgress = useRef(new Animated.Value(0)).current;
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdAnim = useRef<Animated.CompositeAnimation | null>(null);
@@ -61,13 +67,9 @@ export function EmergencySOSButton() {
 
       const result = await checkinApi.emergency(location);
 
-      Alert.alert(
-        'Đã gửi tín hiệu khẩn cấp',
-        result.message,
-        [{ text: 'OK' }]
-      );
+      showAlert(t('sosSent'), result.message, [{ text: t('ok') }]);
     } catch {
-      Alert.alert('Lỗi', 'Không gửi được tín hiệu khẩn cấp. Vui lòng gọi 115 trực tiếp.');
+      showAlert(t('error'), t('sosError'));
     } finally {
       setLoading(false);
       pressProgress.setValue(0);
@@ -81,6 +83,7 @@ export function EmergencySOSButton() {
 
   return (
     <View style={styles.wrapper}>
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Pressable
         onPressIn={startHold}
         onPressOut={cancelHold}
@@ -97,36 +100,38 @@ export function EmergencySOSButton() {
         <Ionicons name="warning" size={20} color="#fff" />
         <Text style={styles.label}>SOS</Text>
       </Pressable>
-      <Text style={styles.hint}>Giữ 2 giây để gửi</Text>
+      <Text style={styles.hint}>{t('sosHint')}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: { alignItems: 'center', gap: 4 },
+function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  return StyleSheet.create({
+    wrapper: { alignItems: 'center', gap: 4 },
 
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#dc2626',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    position: 'relative',
-    minWidth: 80,
-    justifyContent: 'center',
-  },
+    button: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: '#dc2626',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.full,
+      overflow: 'hidden',
+      position: 'relative',
+      minWidth: 80,
+      justifyContent: 'center',
+    },
 
-  progressRing: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
+    progressRing: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(255,255,255,0.25)',
+    },
 
-  label: { color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 1 },
-  hint:  { fontSize: 10, color: colors.textSecondary },
-});
+    label: { color: '#fff', fontSize: typography.size.sm, fontWeight: '800', letterSpacing: 1 },
+    hint:  { fontSize: typography.size.xs, color: colors.textSecondary },
+  });
+}
