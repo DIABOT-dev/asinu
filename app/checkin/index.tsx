@@ -7,17 +7,23 @@
  *   followup   → same 3-button screen with context banner
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, FadeInLeft } from 'react-native-reanimated';
@@ -25,7 +31,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { checkinApi, type CheckinStatus, type CheckinSession } from '../../src/features/checkin/checkin.api';
+import { chatApi } from '../../src/features/chat/chat.api';
+import { usePremium } from '../../src/hooks/usePremium';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
 
 const MAX_TRIAGE_QUESTIONS = 5;
@@ -93,6 +102,7 @@ export default function CheckinScreen() {
   const [answers, setAnswers]      = useState<Array<{ question: string; answer: string }>>([]);
   const [currentQ, setCurrentQ]    = useState<string>('');
   const [currentOpts, setCurrentOpts] = useState<string[]>([]);
+  const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
   const [customAnswer, setCustomAnswer] = useState('');
   const [triageSummary, setTriageSummary] = useState<{
     summary: string; severity: string; recommendation: string; needsDoctor: boolean;
@@ -115,7 +125,14 @@ export default function CheckinScreen() {
 
       setSession(sess);
 
-      if (status === 'fine') {
+      if (status === 'fine' && !isFollowUp) {
+        // Morning check-in "fine" → done immediately
+        setScreen('done');
+        return;
+      }
+
+      if (status === 'fine' && isFollowUp) {
+        // Evening follow-up "fine" → done immediately
         setScreen('done');
         return;
       }
@@ -123,7 +140,8 @@ export default function CheckinScreen() {
       // Start triage for tired/very_tired
       await fetchNextQuestion(sess, []);
       setScreen('triage');
-    } catch {
+    } catch (err: any) {
+      console.error('[Checkin] handleStatusSelect error:', err?.message || err);
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
     } finally {
       setLoading(false);
@@ -147,6 +165,24 @@ export default function CheckinScreen() {
       } else {
         setCurrentQ(result.question || '');
         setCurrentOpts(result.options || []);
+        // If AI specifies multiSelect, use it. Otherwise auto-detect:
+        // Single-select: severity/frequency/yes-no type questions (few exclusive options)
+        // Multi-select: symptom lists, activities, body areas (many combinable options)
+        if (result.multiSelect !== undefined) {
+          setCurrentMultiSelect(result.multiSelect);
+        } else {
+          const opts = result.options || [];
+          const q = (result.question || '').toLowerCase();
+          const isSingleSelect =
+            opts.length <= 4 && (
+              q.includes('mức độ') || q.includes('severity') ||
+              q.includes('bao lâu') || q.includes('how long') ||
+              q.includes('có không') || q.includes('không?') ||
+              q.includes('thường xuyên') || q.includes('frequency') ||
+              q.includes('khi nào') || q.includes('when')
+            );
+          setCurrentMultiSelect(!isSingleSelect);
+        }
         setCustomAnswer('');
       }
     } finally {
@@ -158,6 +194,28 @@ export default function CheckinScreen() {
     if (!session || !answer.trim()) return;
     const newAnswers = [...answers, { question: currentQ, answer: answer.trim() }];
     setAnswers(newAnswers);
+
+    // Evening wrap-up: if this was the evening question for "fine" flow
+    const eveningGoodAnswers = [t('checkinEveningGreat'), t('checkinEveningOk')];
+    const eveningBadAnswers = [t('checkinEveningTired'), t('checkinEveningBad')];
+    if (currentQ === t('checkinEveningQuestion')) {
+      if (eveningGoodAnswers.includes(answer.trim())) {
+        // Good evening → done
+        setTriageSummary({
+          summary: answer.trim(),
+          severity: 'low',
+          recommendation: t('checkinDoneFineSub'),
+          needsDoctor: false,
+        });
+        setScreen('done');
+        return;
+      }
+      if (eveningBadAnswers.includes(answer.trim())) {
+        // Not good evening → start real triage
+        await fetchNextQuestion(session, newAnswers);
+        return;
+      }
+    }
 
     // Hard limit on frontend — force done if we've asked enough
     if (newAnswers.length >= MAX_TRIAGE_QUESTIONS) {
@@ -202,31 +260,41 @@ export default function CheckinScreen() {
       }} />
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
 
-      <ScrollView
-        style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
-        {screen === 'triage' && (
-          <TriageScreen
-            styles={styles}
-            question={currentQ}
-            options={currentOpts}
-            answers={answers}
-            loading={loading}
-            onAnswer={handleAnswer}
-          />
-        )}
-        {screen === 'done' && (
-          <DoneScreen
-            styles={styles}
-            session={session}
-            triageSummary={triageSummary}
-            onClose={() => router.back()}
-          />
-        )}
-      </ScrollView>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            style={{ flex: 1, backgroundColor: colors.background }}
+            contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
+            keyboardShouldPersistTaps="handled"
+          >
+            {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
+            {screen === 'triage' && (
+              <TriageScreen
+                styles={styles}
+                question={currentQ}
+                options={currentOpts}
+                multiSelect={currentMultiSelect}
+                answers={answers}
+                loading={loading}
+                onAnswer={handleAnswer}
+              />
+            )}
+            {screen === 'done' && (
+              <DoneScreen
+                styles={styles}
+                session={session}
+                triageSummary={triageSummary}
+                isFollowUp={isFollowUp}
+                onClose={() => router.back()}
+              />
+            )}
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </>
   );
 }
@@ -312,6 +380,7 @@ function TriageScreen({
   styles,
   question,
   options,
+  multiSelect,
   answers,
   loading,
   onAnswer,
@@ -319,24 +388,95 @@ function TriageScreen({
   styles: Styles;
   question: string;
   options: string[];
+  multiSelect: boolean;
   answers: Array<{ question: string; answer: string }>;
   loading: boolean;
   onAnswer: (a: string) => void;
 }) {
   const { t } = useTranslation('home');
+  const { t: tc } = useTranslation('common');
   const [custom, setCustom] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
 
+  // Voice recording
+  const { isPremium } = usePremium();
+  const { language } = useLanguageStore();
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const recordingRef = useRef<any>(null);
+  const recordingStartRef = useRef<number>(0);
+  const maxMeteringRef = useRef<number>(-160);
+
+  const handleMicPress = async () => {
+    if (!isPremium) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (isRecording) {
+      // Stop recording
+      setIsRecording(false);
+      try {
+        await recordingRef.current?.stopAndUnloadAsync();
+        const uri = recordingRef.current?.getURI();
+        recordingRef.current = null;
+        if (!uri) return;
+        if (Date.now() - recordingStartRef.current < 1500) return;
+        if (maxMeteringRef.current < -40) return;
+        setIsTranscribing(true);
+        try {
+          const text = await chatApi.transcribeAudio(uri, language);
+          if (text) setCustom((prev) => (prev ? `${prev} ${text}` : text));
+        } catch {}
+        setIsTranscribing(false);
+      } catch {
+        setIsTranscribing(false);
+      }
+    } else {
+      // Start recording
+      try {
+        if (recordingRef.current) {
+          try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+          recordingRef.current = null;
+        }
+        const { granted } = await Audio.requestPermissionsAsync();
+        if (!granted) return;
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+        maxMeteringRef.current = -160;
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY,
+          (status) => {
+            if (status.metering != null && status.metering > maxMeteringRef.current) {
+              maxMeteringRef.current = status.metering;
+            }
+          },
+          100
+        );
+        recordingRef.current = recording;
+        recordingStartRef.current = Date.now();
+        setIsRecording(true);
+      } catch {}
+    }
+  };
+
   const progress = (answers.length + 1) / MAX_TRIAGE_QUESTIONS;
 
-  const toggleOption = (opt: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(opt)) next.delete(opt);
-      else next.add(opt);
-      return next;
-    });
+  const handleOptionTap = (opt: string) => {
+    if (multiSelect) {
+      // Multi-select: toggle checkbox
+      setSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(opt)) next.delete(opt);
+        else next.add(opt);
+        return next;
+      });
+    } else {
+      // Single-select: send immediately
+      onAnswer(opt);
+      setSelected(new Set());
+      setCustom('');
+    }
   };
 
   const handleConfirm = () => {
@@ -413,14 +553,16 @@ function TriageScreen({
               </View>
             </Animated.View>
 
-            {/* Hint */}
-            <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.selectHintWrap}>
-              <Ionicons name="hand-left-outline" size={13} color={colors.textSecondary} />
-              <Text style={styles.selectHintText}>{t('checkinSelectHint')}</Text>
-            </Animated.View>
+            {/* Hint — show for multi-select when has options */}
+            {multiSelect && options.length > 0 && (
+              <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.selectHintWrap}>
+                <Ionicons name="hand-left-outline" size={13} color={colors.textSecondary} />
+                <Text style={styles.selectHintText}>{t('checkinSelectHint')}</Text>
+              </Animated.View>
+            )}
 
-            {/* Multi-select option cards */}
-            <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
+            {/* Option cards — only when options exist */}
+            {options.length > 0 && <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
               {options.map((opt) => {
                 const isSelected = selected.has(opt);
                 return (
@@ -430,33 +572,63 @@ function TriageScreen({
                       styles.optionCard,
                       isSelected && styles.optionCardSelected,
                     ]}
-                    onPress={() => toggleOption(opt)}
+                    onPress={() => handleOptionTap(opt)}
                   >
-                    <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
-                      {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
-                    </View>
+                    {multiSelect ? (
+                      <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
+                        {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                      </View>
+                    ) : (
+                      <View style={[styles.optionRadio, isSelected && styles.optionRadioSelected]}>
+                        {isSelected && <View style={styles.optionRadioDot} />}
+                      </View>
+                    )}
                     <Text style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
+                    {!multiSelect && (
+                      <Ionicons name="chevron-forward" size={16} color={colors.primary + '66'} />
+                    )}
                   </Pressable>
                 );
               })}
-            </Animated.View>
+            </Animated.View>}
 
-            {/* Custom text input */}
-            <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
+            {/* Custom text input + mic — show when multi-select OR no options */}
+            {(multiSelect || options.length === 0) && <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
+              <Pressable
+                onPress={handleMicPress}
+                style={[styles.micBtn, isRecording && styles.micBtnActive]}
+                disabled={isTranscribing}
+              >
+                {isTranscribing ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <MaterialCommunityIcons
+                    name={isRecording ? 'stop-circle' : 'microphone'}
+                    size={22}
+                    color={isRecording ? '#fff' : isPremium ? colors.primary : colors.textSecondary}
+                  />
+                )}
+                {!isPremium && !isRecording && !isTranscribing && (
+                  <View style={styles.micPremiumBadge}>
+                    <MaterialCommunityIcons name="crown" size={8} color="#fff" />
+                  </View>
+                )}
+              </Pressable>
               <View style={styles.inputWrap}>
                 <TextInput
                   style={styles.input}
-                  placeholder={t('checkinCustomPlaceholder')}
+                  placeholder={isTranscribing ? '...' : t('checkinCustomPlaceholder')}
                   placeholderTextColor={colors.textSecondary + '77'}
                   value={custom}
                   onChangeText={setCustom}
                   returnKeyType="done"
+                  editable={!isTranscribing}
                 />
               </View>
-            </Animated.View>
+            </Animated.View>}
 
-            {/* Confirm button */}
-            <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.confirmWrap}>
+            {/* Confirm button — show when multi-select OR no options (text-only input) */}
+            {(multiSelect || options.length === 0) && <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.confirmWrap}>
               <Pressable
                 style={({ pressed }) => [
                   styles.confirmBtn,
@@ -483,10 +655,39 @@ function TriageScreen({
                   />
                 </LinearGradient>
               </Pressable>
-            </Animated.View>
+            </Animated.View>}
           </>
         )}
       </View>
+
+      {/* Premium upgrade modal for voice */}
+      <Modal
+        visible={showUpgradeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowUpgradeModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowUpgradeModal(false)} />
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <MaterialCommunityIcons name="microphone" size={32} color={colors.premium} />
+            </View>
+            <Text style={styles.modalTitle}>{tc('voicePremiumTitle')}</Text>
+            <Text style={styles.modalDesc}>{tc('voicePremiumDesc')}</Text>
+            <Pressable
+              style={styles.modalUpgradeBtn}
+              onPress={() => setShowUpgradeModal(false)}
+            >
+              <MaterialCommunityIcons name="crown" size={16} color="#fff" />
+              <Text style={styles.modalUpgradeText}>{tc('voiceUpgrade')}</Text>
+            </Pressable>
+            <Pressable style={styles.modalCancelBtn} onPress={() => setShowUpgradeModal(false)}>
+              <Text style={styles.modalCancelText}>{tc('later')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -497,11 +698,13 @@ function DoneScreen({
   styles,
   session,
   triageSummary,
+  isFollowUp,
   onClose,
 }: {
   styles: Styles;
   session: CheckinSession | null;
   triageSummary: { summary: string; severity: string; recommendation: string; needsDoctor: boolean } | null;
+  isFollowUp: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation('home');
@@ -537,7 +740,9 @@ function DoneScreen({
           <View style={styles.fineIconWrap}>
             <Ionicons name="time-outline" size={22} color={colors.primary} />
           </View>
-          <Text style={styles.fineCardText}>{t('checkinDoneFineSub')}</Text>
+          <Text style={styles.fineCardText}>
+            {isFollowUp ? t('checkinDoneEveningSub') : t('checkinDoneFineSub')}
+          </Text>
         </Animated.View>
       ) : triageSummary && (
         <Animated.View entering={FadeInDown.delay(250).duration(400)}>
@@ -851,6 +1056,24 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.primary,
       borderColor: colors.primary,
     },
+    optionRadio: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    optionRadioSelected: {
+      borderColor: colors.primary,
+    },
+    optionRadioDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: colors.primary,
+    },
     optionCardText: {
       fontSize: typography.size.sm,
       fontWeight: '600',
@@ -861,12 +1084,40 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.primary,
     },
 
-    // Custom text input
+    // Custom text input + mic
     inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
       marginTop: spacing.sm,
       paddingLeft: 36,
     },
+    micBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    micBtnActive: {
+      backgroundColor: colors.danger,
+    },
+    micPremiumBadge: {
+      position: 'absolute',
+      top: -2,
+      right: -2,
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: colors.premium,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.background,
+    },
     inputWrap: {
+      flex: 1,
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
       borderWidth: 1.5,
@@ -877,6 +1128,67 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingVertical: 12,
       fontSize: typography.size.sm,
       color: colors.textPrimary,
+    },
+
+    // Premium modal
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    modalCard: {
+      width: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: 24,
+      padding: spacing.xxl,
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    modalIconWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.premiumLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalTitle: {
+      fontSize: typography.size.md,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    modalDesc: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 21,
+    },
+    modalUpgradeBtn: {
+      backgroundColor: colors.premium,
+      borderRadius: radius.full,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xxl,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      alignSelf: 'stretch',
+      justifyContent: 'center',
+      marginTop: spacing.sm,
+    },
+    modalUpgradeText: {
+      color: '#fff',
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+    },
+    modalCancelBtn: {
+      paddingVertical: spacing.sm,
+    },
+    modalCancelText: {
+      color: colors.textSecondary,
+      fontSize: typography.size.sm,
+      fontWeight: '600',
     },
 
     // Confirm button

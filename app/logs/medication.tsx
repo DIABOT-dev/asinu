@@ -178,21 +178,21 @@ export default function MedicationLogScreen() {
               {/* Medication info */}
               <Animated.View entering={FadeInDown.delay(140).duration(450).springify()}>
                 <Animated.View style={[styles.sectionCard, shakeStyle]}>
-                  <Text style={styles.sectionLabel}>{t('medicationInfo') || 'Thông tin thuốc'}</Text>
+                  <Text style={styles.sectionLabel}>{t('medicationInfo')}</Text>
                   <TextInput
-                    label={t('medicationName') || 'Tên thuốc'}
+                    label={t('medicationName')}
                     value={medication}
                     onChangeText={(v) => { setMedication(v); setErrors({}); }}
                     error={errors.medication}
-                    placeholder={t('medNamePlaceholder') || 'Ví dụ: Metformin'}
+                    placeholder={t('medNamePlaceholder')}
                     leftIcon={<MaterialCommunityIcons name="pill" size={18} color={colors.textSecondary} />}
                   />
                   <TextInput
-                    label={t('medicationDose') || 'Liều dùng'}
+                    label={t('medicationDose')}
                     value={dose}
                     onChangeText={(v) => { setDose(v); setErrors({}); }}
                     error={errors.dose}
-                    placeholder={t('dosePlaceholder') || 'Ví dụ: 500mg'}
+                    placeholder={t('dosePlaceholder')}
                     leftIcon={<Ionicons name="flask-outline" size={18} color={colors.textSecondary} />}
                   />
                 </Animated.View>
@@ -201,7 +201,7 @@ export default function MedicationLogScreen() {
               {/* Frequency chips */}
               <Animated.View entering={FadeInDown.delay(220).duration(400).springify()}>
                 <View style={styles.sectionCard}>
-                  <Text style={styles.sectionLabel}>{t('frequency') || 'Tần suất'}</Text>
+                  <Text style={styles.sectionLabel}>{t('frequency')}</Text>
                   <View style={styles.chipsGrid}>
                     {FREQ_OPTIONS.map((freq) => {
                       const active = frequencyText === freq;
@@ -223,10 +223,10 @@ export default function MedicationLogScreen() {
                     })}
                   </View>
                   <TextInput
-                    label={t('frequency') || 'Hoặc nhập tùy chỉnh'}
+                    label={t('frequency')}
                     value={frequencyText}
                     onChangeText={setFrequencyText}
-                    placeholder={t('freqPlaceholder') || 'Nhập tần suất...'}
+                    placeholder={t('freqPlaceholder')}
                   />
                 </View>
               </Animated.View>
@@ -239,7 +239,7 @@ export default function MedicationLogScreen() {
                     value={notes}
                     onChangeText={setNotes}
                     multiline
-                    placeholder={t('notesPlaceholder') || 'Ghi chú thêm...'}
+                    placeholder={t('notesPlaceholder')}
                   />
                 </View>
               </Animated.View>

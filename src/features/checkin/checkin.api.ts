@@ -28,6 +28,7 @@ export interface TriageResult {
   // when not done
   question?: string;
   options?: string[];
+  multiSelect?: boolean;
   // when done
   summary?: string;
   severity?: 'low' | 'medium' | 'high';
@@ -95,4 +96,8 @@ export const checkinApi = {
 
   resetToday: () =>
     apiClient<{ ok: boolean; message: string }>('/api/mobile/checkin/reset-today', { method: 'POST' }),
+
+  // DEV: simulate time passing — set next_checkin_at to past so follow-up triggers immediately
+  simulateTime: () =>
+    apiClient<{ ok: boolean; session?: any; message: string }>('/api/mobile/checkin/simulate-time', { method: 'POST' }),
 };

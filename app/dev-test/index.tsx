@@ -9,6 +9,7 @@
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { checkinApi, type CheckinSession } from '../../src/features/checkin/checkin.api';
+import { apiClient } from '../../src/lib/apiClient';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
 
@@ -72,7 +74,12 @@ export default function DevTestScreen() {
     }
   }, [addLog]);
 
-  useEffect(() => { refreshSession(); }, []);
+  // Refresh session on mount AND when screen regains focus (after returning from checkin)
+  useFocusEffect(
+    useCallback(() => {
+      refreshSession();
+    }, [refreshSession])
+  );
 
   // Reset today's session
   const handleReset = useCallback(() => {
@@ -257,92 +264,186 @@ export default function DevTestScreen() {
           </View>
         </Pressable>
 
-        <Text style={styles.sectionLabel}>Quick Test Scenarios</Text>
+        <Text style={styles.sectionLabel}>5 Luồng Test</Text>
 
-        <Pressable
-          style={({ pressed }) => [styles.scenarioBtn, pressed && { opacity: 0.85 }]}
-          onPress={async () => {
-            addLog('Scenario: Full morning flow (tired)...', 'action');
-            setLoading(true);
-            try {
-              await checkinApi.resetToday();
-              addLog('Reset OK', 'success');
-              setSession(null);
-              setTimeout(() => router.push('/checkin'), 300);
-            } catch (err: any) {
-              addLog(`Error: ${err.message}`, 'error');
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          <View style={styles.scenarioRow}>
-            <View style={[styles.scenarioIcon, { backgroundColor: '#fef3c7' }]}>
-              <Text style={{ fontSize: 18 }}>1</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.scenarioTitle}>Reset + Morning Check-in</Text>
-              <Text style={styles.scenarioSub}>{t('devTestScenario1')}</Text>
-            </View>
-            <Ionicons name="play-circle" size={24} color={colors.primary} />
+        {/* ══════ LUỒNG 1: Tôi ổn ══════ */}
+        <View style={[styles.scenarioBtn, { borderColor: '#16a34a33', borderWidth: 1.5 }]}>
+          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 1: Tôi ổn</Text>
+          <Text style={styles.scenarioSub}>7h sáng → "Tôi ổn" → 21h tối AI hỏi "Hôm nay thế nào?"</Text>
+          <View style={{ gap: 8, marginTop: 10 }}>
+            <Pressable
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#f0fdf4' }, pressed && { opacity: 0.8 }]}
+              onPress={async () => {
+                setLoading(true);
+                try {
+                  await checkinApi.resetToday(); setSession(null);
+                  addLog('[Luồng 1] Reset OK → mở check-in sáng', 'success');
+                  setTimeout(() => router.push('/checkin'), 300);
+                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
+                finally { setLoading(false); }
+              }}
+            >
+              <MaterialCommunityIcons name="weather-sunny" size={16} color="#16a34a" />
+              <Text style={[styles.stepText, { color: '#16a34a' }]}>1a. Check-in sáng → Chọn "Tôi ổn"</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#ecfdf5' }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
+              disabled={!session}
+              onPress={async () => {
+                if (!session) return;
+                setLoading(true);
+                try {
+                  await checkinApi.simulateTime();
+                  addLog('[Luồng 1] ⏩ 21h tối → mở check-in tối', 'success');
+                  await refreshSession();
+                  setTimeout(() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`), 300);
+                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
+                finally { setLoading(false); }
+              }}
+            >
+              <MaterialCommunityIcons name="weather-night" size={16} color="#16a34a" />
+              <Text style={[styles.stepText, { color: '#16a34a' }]}>1b. ⏩ 21h tối → AI hỏi "Hôm nay thế nào?"</Text>
+            </Pressable>
           </View>
-        </Pressable>
+        </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.scenarioBtn, pressed && { opacity: 0.85 }]}
-          onPress={async () => {
-            addLog('Scenario: Start with very_tired...', 'action');
-            setLoading(true);
-            try {
-              await checkinApi.resetToday();
-              const res = await checkinApi.start('very_tired');
-              setSession(res.session);
-              addLog(`Session started: #${res.session.id} (very_tired)`, 'success');
+        {/* ══════ LUỒNG 2: Hơi mệt ══════ */}
+        <View style={[styles.scenarioBtn, { borderColor: '#d9770633', borderWidth: 1.5 }]}>
+          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 2: Hơi mệt</Text>
+          <Text style={styles.scenarioSub}>Sáng "Hơi mệt" → AI hỏi 3-5 câu → 3h sau follow-up → lặp đến khi ổn</Text>
+          <View style={{ gap: 8, marginTop: 10 }}>
+            <Pressable
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fffbeb' }, pressed && { opacity: 0.8 }]}
+              onPress={async () => {
+                setLoading(true);
+                try {
+                  await checkinApi.resetToday(); setSession(null);
+                  addLog('[Luồng 2] Reset OK → mở check-in sáng', 'success');
+                  setTimeout(() => router.push('/checkin'), 300);
+                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
+                finally { setLoading(false); }
+              }}
+            >
+              <MaterialCommunityIcons name="weather-sunny" size={16} color="#d97706" />
+              <Text style={[styles.stepText, { color: '#d97706' }]}>2a. Check-in sáng → Chọn "Hơi mệt" → Trả lời AI</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fef3c7' }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
+              disabled={!session}
+              onPress={async () => {
+                if (!session) return;
+                setLoading(true);
+                try {
+                  await checkinApi.simulateTime();
+                  addLog(`[Luồng 2] ⏩ 3h sau → follow-up (flow=${session.flow_state})`, 'success');
+                  await refreshSession();
+                  setTimeout(() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`), 300);
+                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
+                finally { setLoading(false); }
+              }}
+            >
+              <MaterialCommunityIcons name="clock-fast" size={16} color="#d97706" />
+              <Text style={[styles.stepText, { color: '#d97706' }]}>2b. ⏩ 3h sau → AI hỏi "Đã đỡ chưa?" (bấm lại nhiều lần)</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ══════ LUỒNG 3: Rất mệt ══════ */}
+        <View style={[styles.scenarioBtn, { borderColor: '#dc262633', borderWidth: 1.5 }]}>
+          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 3: Rất mệt</Text>
+          <Text style={styles.scenarioSub}>Sáng "Rất mệt" → AI hỏi red flag → 1-2h follow-up → cảnh báo gia đình nếu cần</Text>
+          <View style={{ gap: 8, marginTop: 10 }}>
+            <Pressable
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fef2f2' }, pressed && { opacity: 0.8 }]}
+              onPress={async () => {
+                setLoading(true);
+                try {
+                  await checkinApi.resetToday(); setSession(null);
+                  addLog('[Luồng 3] Reset OK → mở check-in sáng', 'success');
+                  setTimeout(() => router.push('/checkin'), 300);
+                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
+                finally { setLoading(false); }
+              }}
+            >
+              <MaterialCommunityIcons name="weather-sunny" size={16} color="#dc2626" />
+              <Text style={[styles.stepText, { color: '#dc2626' }]}>3a. Check-in sáng → Chọn "Rất mệt" → Trả lời AI</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fee2e2' }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
+              disabled={!session}
+              onPress={async () => {
+                if (!session) return;
+                setLoading(true);
+                try {
+                  await checkinApi.simulateTime();
+                  addLog(`[Luồng 3] ⏩ 1h sau → follow-up urgent (flow=${session.flow_state})`, 'success');
+                  await refreshSession();
+                  setTimeout(() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`), 300);
+                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
+                finally { setLoading(false); }
+              }}
+            >
+              <MaterialCommunityIcons name="clock-fast" size={16} color="#dc2626" />
+              <Text style={[styles.stepText, { color: '#dc2626' }]}>3b. ⏩ 1h sau → AI hỏi diễn tiến + red flag (bấm lại nhiều lần)</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ══════ LUỒNG 4: Ghi nhận chủ động ══════ */}
+        <View style={[styles.scenarioBtn, { borderColor: colors.primary + '33', borderWidth: 1.5 }]}>
+          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 4: Ghi nhận chủ động</Text>
+          <Text style={styles.scenarioSub}>User bấm chủ động ghi nhận sức khỏe bất kỳ lúc nào</Text>
+          <Pressable
+            style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.primaryLight, marginTop: 10 }, pressed && { opacity: 0.8 }]}
+            onPress={() => {
+              addLog('[Luồng 4] Mở check-in chủ động', 'action');
               router.push('/checkin');
-            } catch (err: any) {
-              addLog(`Error: ${err.message}`, 'error');
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          <View style={styles.scenarioRow}>
-            <View style={[styles.scenarioIcon, { backgroundColor: '#fee2e2' }]}>
-              <Text style={{ fontSize: 18 }}>2</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.scenarioTitle}>Auto-start "Rất mệt"</Text>
-              <Text style={styles.scenarioSub}>{t('devTestScenario2')}</Text>
-            </View>
-            <Ionicons name="play-circle" size={24} color="#dc2626" />
-          </View>
-        </Pressable>
+            }}
+          >
+            <MaterialCommunityIcons name="plus-circle" size={16} color={colors.primary} />
+            <Text style={[styles.stepText, { color: colors.primary }]}>4. Mở check-in (không reset session)</Text>
+          </Pressable>
+        </View>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.scenarioBtn,
-            !session && { opacity: 0.4 },
-            pressed && session && { opacity: 0.85 },
-          ]}
-          disabled={!session}
-          onPress={() => {
-            if (session) {
-              addLog(`Scenario: Follow-up for session #${session.id}`, 'action');
-              router.push(`/checkin?mode=followup&checkin_id=${session.id}`);
-            }
-          }}
-        >
-          <View style={styles.scenarioRow}>
-            <View style={[styles.scenarioIcon, { backgroundColor: '#eff6ff' }]}>
-              <Text style={{ fontSize: 18 }}>3</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.scenarioTitle}>Test Follow-up</Text>
-              <Text style={styles.scenarioSub}>{t('devTestScenario3')}</Text>
-            </View>
-            <Ionicons name="play-circle" size={24} color="#3b82f6" />
+        {/* ══════ LUỒNG 5: Khẩn cấp SOS ══════ */}
+        <View style={[styles.scenarioBtn, { borderColor: '#dc262655', borderWidth: 1.5 }]}>
+          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 5: Khẩn cấp SOS</Text>
+          <Text style={styles.scenarioSub}>Nút SOS → báo ngay người nhà → gọi cấp cứu nếu cần</Text>
+          <Pressable
+            style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fee2e2', marginTop: 10 }, pressed && { opacity: 0.8 }]}
+            onPress={async () => {
+              addLog('[Luồng 5] Test emergency SOS...', 'action');
+              setLoading(true);
+              try {
+                const res = await checkinApi.emergency();
+                addLog(`SOS sent! Caregivers alerted: ${res.caregiversAlerted}`, 'success');
+                addLog(`Message: ${res.message}`, 'info');
+                await refreshSession();
+              } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
+              finally { setLoading(false); }
+            }}
+          >
+            <MaterialCommunityIcons name="alert-octagon" size={16} color="#dc2626" />
+            <Text style={[styles.stepText, { color: '#dc2626' }]}>5. Gửi SOS → Alert gia đình ngay lập tức</Text>
+          </Pressable>
+        </View>
+
+        {/* Session info */}
+        {session && (
+          <View style={[styles.scenarioBtn, { backgroundColor: '#f9fafb' }]}>
+            <Text style={[styles.scenarioSub, { fontWeight: '600', color: colors.textPrimary }]}>
+              Session #{session.id} | {session.current_status} | {session.flow_state}
+              {session.triage_severity ? ` | ${session.triage_severity}` : ''}
+              {session.family_alerted ? ' | 🚨 Gia đình đã được báo' : ''}
+              {session.resolved_at ? ' | ✅ Resolved' : ''}
+            </Text>
+            {session.next_checkin_at && (
+              <Text style={styles.scenarioSub}>
+                Hẹn hỏi lại: {new Date(session.next_checkin_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
           </View>
-        </Pressable>
+        )}
 
         {/* Logs */}
         <Text style={styles.sectionLabel}>Test Logs</Text>
@@ -507,6 +608,19 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.xxs,
       color: colors.textSecondary,
       marginTop: 2,
+    },
+    stepBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.sm + 2,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.lg,
+    },
+    stepText: {
+      fontSize: typography.size.xs,
+      fontWeight: '600',
+      flex: 1,
     },
 
     // Logs

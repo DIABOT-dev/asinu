@@ -77,10 +77,13 @@ export const SessionProvider = ({ children }: Props) => {
       if (granted) {
         const token = await getExpoPushToken();
         console.log('[Session] Push token result:', token ? token.substring(0, 30) + '...' : 'NULL');
-        if (token) {
+        const authToken = useAuthStore.getState().token;
+        if (token && authToken) {
           authApi.updatePushToken(token)
             .then(() => console.log('[Session] Push token saved to server'))
             .catch((err) => console.error('[Session] Failed to save push token:', err));
+        } else if (!authToken) {
+          console.log('[Session] Skipping push token save — user not logged in');
         } else {
           console.warn('[Session] No push token obtained — notifications will not work remotely');
         }

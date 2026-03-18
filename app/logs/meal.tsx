@@ -178,7 +178,7 @@ export default function MealLogScreen() {
               {/* Meal type chips */}
               <Animated.View entering={FadeInDown.delay(140).duration(450).springify()}>
                 <View style={styles.sectionCard}>
-                  <Text style={styles.sectionLabel}>{t('mealType') || 'Loại bữa ăn'}</Text>
+                  <Text style={styles.sectionLabel}>{t('mealType')}</Text>
                   <View style={styles.chipsGrid}>
                     {MEAL_TYPE_OPTIONS.map((opt) => {
                       const active = mealType === opt.value;
@@ -210,7 +210,7 @@ export default function MealLogScreen() {
               {/* Nutrition inputs */}
               <Animated.View entering={FadeInDown.delay(220).duration(400).springify()}>
                 <View style={styles.sectionCard}>
-                  <Text style={styles.sectionLabel}>{t('nutrition') || 'Dinh dưỡng (tùy chọn)'}</Text>
+                  <Text style={styles.sectionLabel}>{t('nutrition')}</Text>
                   <TextInput
                     label={t('kcal')}
                     keyboardType="numeric"
@@ -259,7 +259,7 @@ export default function MealLogScreen() {
                     value={notes}
                     onChangeText={setNotes}
                     multiline
-                    placeholder={t('notesPlaceholder') || 'Ghi chú thêm...'}
+                    placeholder={t('notesPlaceholder')}
                   />
                 </View>
               </Animated.View>

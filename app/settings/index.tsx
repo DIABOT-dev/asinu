@@ -98,22 +98,6 @@ export default function SettingsScreen() {
     } catch {}
   };
 
-  const handleScheduleChange = async (
-    field: 'morning_hour' | 'evening_hour' | 'water_hour',
-    value: number | null
-  ) => {
-    if (!schedulePrefs) return;
-    const updated = { ...schedulePrefs, [field]: value };
-    setSchedulePrefs(updated as NotificationPreferences); // optimistic
-    try {
-      const result = await updateNotificationPreferences({
-        morning_hour: updated.morning_hour,
-        evening_hour: updated.evening_hour,
-        water_hour:   updated.water_hour,
-      });
-      if (result.ok) setSchedulePrefs(result);
-    } catch {}
-  };
 
   const handleNotificationsToggle = async (value: boolean) => {
     if (value) {
@@ -317,103 +301,10 @@ export default function SettingsScreen() {
             disabled={isLoading}
           />
         </View>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{t('taskReminders')}</Text>
-            <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
-              {t('taskRemindersDesc')}
-            </Text>
-          </View>
-          <Switch 
-            value={reminders} 
-            onValueChange={handleRemindersToggle}
-            disabled={isLoading || !notifications}
-          />
-        </View>
-
-        {/* Notification Schedule */}
-        {schedulePrefs && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { fontSize: scaledTypography.size.md }]}>
-              {t('scheduleTitle')}
-            </Text>
-            <Text style={[styles.scheduleHint, { fontSize: scaledTypography.size.sm }]}>
-              {t('scheduleHint')}
-            </Text>
-
-            {(
-              [
-                { label: t('scheduleMorning'), field: 'morning_hour' as const, options: [6,7,8,9,10],   def: 8  },
-                { label: t('scheduleEvening'), field: 'evening_hour' as const, options: [18,19,20,21,22], def: 21 },
-                { label: t('scheduleWater'),   field: 'water_hour'   as const, options: [11,12,13,14,15], def: 14 },
-              ] as const
-            ).map(({ label, field, options, def }) => {
-              const userVal    = schedulePrefs[field] as number | null;
-              const inferred   = schedulePrefs[`inferred_${field}` as keyof NotificationPreferences] as number | null;
-              const effective  = schedulePrefs[`effective_${field}` as keyof NotificationPreferences] as number;
-              const autoLabel  = inferred
-                ? t('scheduleAutoHint',    { hour: String(inferred).padStart(2,'0') })
-                : t('scheduleDefaultHint', { hour: String(def).padStart(2,'0') });
-
-              return (
-                <View key={field} style={styles.scheduleRow}>
-                  <Text style={[styles.scheduleLabel, { fontSize: scaledTypography.size.sm }]}>
-                    {label}
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.scheduleChips}
-                  >
-                    {/* Auto chip */}
-                    <Pressable
-                      onPress={() => handleScheduleChange(field, null)}
-                      style={[styles.chip, userVal === null && styles.chipActive]}
-                    >
-                      <Text style={[styles.chipText, { fontSize: scaledTypography.size.xs }, userVal === null && styles.chipTextActive]}>
-                        {userVal === null ? `${t('scheduleAuto')} · ${autoLabel}` : t('scheduleAuto')}
-                      </Text>
-                    </Pressable>
-                    {/* Hour chips */}
-                    {options.map(h => (
-                      <Pressable
-                        key={h}
-                        onPress={() => handleScheduleChange(field, h)}
-                        style={[styles.chip, userVal === h && styles.chipActive]}
-                      >
-                        <Text style={[styles.chipText, { fontSize: scaledTypography.size.xs }, userVal === h && styles.chipTextActive]}>
-                          {String(h).padStart(2,'0')}:00
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
-              );
-            })}
-          </View>
-        )}
 
 
-        {/* Dev Test Button */}
-        <Pressable
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 10,
-            backgroundColor: '#1a1a2e',
-            borderRadius: 14,
-            padding: 14,
-            marginTop: spacing.xl,
-          }}
-          onPress={() => router.push('/dev-test')}
-        >
-          <Ionicons name="flask" size={20} color="#06b6d4" />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: scaledTypography.size.sm, fontWeight: '700', color: '#fff' }}>Test Check-in Flow</Text>
-            <Text style={{ fontSize: scaledTypography.size.xxs, color: '#888' }}>Dev tool — test luồng hỏi đáp AI</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#555" />
-        </Pressable>
+
+        {/* Dev Test Button — hidden in production */}
 
         <Button label={t('logout')} variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
         

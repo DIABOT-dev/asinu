@@ -496,6 +496,16 @@ export default function ProfileScreen() {
             </LinearGradient>
             <Text style={styles.actionLabel}>{tc('aiNotes')}</Text>
           </Pressable>
+
+          <Pressable style={styles.actionCard} onPress={() => router.push('/reminder-config')}>
+            <LinearGradient
+              colors={['#f59e0b', '#d97706']}
+              style={styles.actionIconBg}
+            >
+              <Ionicons name="alarm" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.actionLabel}>{tc('reminderConfig')}</Text>
+          </Pressable>
         </View>
         </Animated.View>
 

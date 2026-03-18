@@ -28,7 +28,8 @@
         "com.googleusercontent.apps.726570048913-oq7rk69ronarv55lucd7it29t8ti0c32"
       ],
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Asinu cần microphone để nhận lệnh giọng nói"
+        "NSMicrophoneUsageDescription": "Asinu cần microphone để nhận lệnh giọng nói",
+        "NSLocationWhenInUseUsageDescription": "Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp"
       }
     },
     "android": {
@@ -58,6 +59,12 @@
       "expo-font",
       "expo-secure-store",
       "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp"
+        }
+      ],
       [
         "expo-notifications",
         {

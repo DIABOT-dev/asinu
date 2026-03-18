@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
+import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
 
 const AsinuSticker = require('../../assets/asinu_chat_sticker.png');
@@ -13,6 +14,7 @@ type AsinuChatStickerProps = {
 
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
   const { t } = useTranslation('common');
+  const scaledTypography = useScaledTypography();
   const MESSAGES = [
     t('chatStickerMsg1'),
     t('chatStickerMsg2'),
@@ -72,7 +74,7 @@ export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
         style={[styles.bubble, { opacity: bubbleOpacity, transform: [{ scale: bubbleScale }] }]}
         pointerEvents="none"
       >
-        <Text style={styles.bubbleText}>{MESSAGES[msgIndex]}</Text>
+        <Text style={[styles.bubbleText, { fontSize: scaledTypography.size.xs }]}>{MESSAGES[msgIndex]}</Text>
         <View style={styles.tail} />
       </Animated.View>
     </Pressable>

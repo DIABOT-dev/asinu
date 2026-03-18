@@ -189,7 +189,7 @@ export default function WeightLogScreen() {
               {/* Weight input card */}
               <Animated.View entering={FadeInDown.delay(140).duration(450).springify()}>
                 <View style={[styles.numberCard, weightError ? styles.numberCardError : null]}>
-                  <Text style={styles.numberLabel}>{t('weightKg') || 'Cân nặng'}</Text>
+                  <Text style={styles.numberLabel}>{t('weightKg')}</Text>
                   <Animated.View style={[styles.bigInputRow, shakeStyle]}>
                     <RNTextInput
                       value={weight}
@@ -223,19 +223,19 @@ export default function WeightLogScreen() {
               {/* Height + body comp */}
               <Animated.View entering={FadeInDown.delay(220).duration(400).springify()}>
                 <View style={styles.sectionCard}>
-                  <Text style={styles.sectionLabel}>{t('bodyComposition') || 'Thành phần cơ thể (tùy chọn)'}</Text>
+                  <Text style={styles.sectionLabel}>{t('bodyComposition')}</Text>
                   <TextInput
-                    label={t('heightCm') || 'Chiều cao (cm)'}
+                    label={t('heightCm')}
                     keyboardType="numeric"
                     value={heightCm}
                     onChangeText={setHeightCm}
-                    placeholder={t('heightHint') || 'Dùng tính BMI'}
+                    placeholder={t('heightHint')}
                     leftIcon={<MaterialCommunityIcons name="human-male-height" size={18} color={colors.textSecondary} />}
                   />
                   <View style={styles.rowInputs}>
                     <View style={{ flex: 1 }}>
                       <TextInput
-                        label={t('bodyFatPct') || 'Mỡ cơ thể (%)'}
+                        label={t('bodyFatPct')}
                         keyboardType="numeric"
                         value={bodyfat}
                         onChangeText={setBodyfat}
@@ -244,7 +244,7 @@ export default function WeightLogScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <TextInput
-                        label={t('musclePct') || 'Cơ (%)'}
+                        label={t('musclePct')}
                         keyboardType="numeric"
                         value={musclePct}
                         onChangeText={setMusclePct}
@@ -263,7 +263,7 @@ export default function WeightLogScreen() {
                     value={notes}
                     onChangeText={setNotes}
                     multiline
-                    placeholder={t('notesPlaceholder') || 'Ghi chú thêm...'}
+                    placeholder={t('notesPlaceholder')}
                   />
                 </View>
               </Animated.View>

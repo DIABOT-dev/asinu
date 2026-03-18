@@ -90,6 +90,12 @@
   "checkinSelectHint": "Select one or more options below",
   "checkinClose": "Close",
   "checkinError": "Could not save status. Please try again.",
+  "checkinDoneEveningSub": "Sleep well! Asinu will check in with you tomorrow morning.",
+  "checkinEveningQuestion": "How are you feeling today?",
+  "checkinEveningGreat": "Great",
+  "checkinEveningOk": "Pretty good",
+  "checkinEveningTired": "A bit tired",
+  "checkinEveningBad": "Not so good",
   "healthReport": "Health Report",
   "healthReportSub": "View weekly / monthly summary"
 }

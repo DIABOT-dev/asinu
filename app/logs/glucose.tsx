@@ -449,7 +449,7 @@ export default function GlucoseLogScreen() {
                     value={notes}
                     onChangeText={setNotes}
                     multiline
-                    placeholder={t('notesPlaceholder') || 'Ghi chú thêm...'}
+                    placeholder={t('notesPlaceholder')}
                   />
                 </View>
               </Animated.View>

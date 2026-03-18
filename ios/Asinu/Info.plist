@@ -55,6 +55,8 @@
     </dict>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Asinu cần microphone để nhận lệnh giọng nói</string>
     <key>NSUserActivityTypes</key>

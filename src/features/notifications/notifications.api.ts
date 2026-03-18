@@ -61,19 +61,27 @@ export async function markAllNotificationsAsRead(): Promise<{ ok: boolean; error
 
 export interface NotificationPreferences {
   ok: boolean;
-  // User-set (null = auto)
+  // Legacy hour-only (kept for backward compat)
   morning_hour: number | null;
   evening_hour: number | null;
   water_hour:   number | null;
-  // Auto-inferred from behavior
   inferred_morning_hour: number | null;
   inferred_evening_hour: number | null;
   inferred_water_hour:   number | null;
   inferred_at: string | null;
-  // What will actually fire
   effective_morning_hour: number;
   effective_evening_hour: number;
   effective_water_hour:   number;
+  // HH:MM time strings (new)
+  morning_time:   string | null;
+  afternoon_time: string | null;
+  evening_time:   string | null;
+  inferred_morning_time:   string | null;
+  inferred_afternoon_time: string | null;
+  inferred_evening_time:   string | null;
+  effective_morning_time:   string;
+  effective_afternoon_time: string;
+  effective_evening_time:   string;
   reminders_enabled: boolean;
   error?: string;
 }
@@ -86,6 +94,9 @@ export async function updateNotificationPreferences(prefs: {
   morning_hour?: number | null;
   evening_hour?: number | null;
   water_hour?:   number | null;
+  morning_time?: string | null;
+  afternoon_time?: string | null;
+  evening_time?: string | null;
   reminders_enabled?: boolean;
 }): Promise<NotificationPreferences> {
   return apiClient<NotificationPreferences>('/api/notifications/preferences', {

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -167,6 +168,8 @@ export default function InviteScreen() {
     fetchConnections();
   }, []);
 
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
   const handleSend = async () => {
     if (!selectedUser) {
       setToastMessage(t('pleaseSelectRecipient'));
@@ -186,9 +189,14 @@ export default function InviteScreen() {
       setShowToast(true);
       setTimeout(() => router.back(), 1500);
     } catch (error: any) {
-      setToastMessage(error.message || t('cannotSendInvite'));
-      setToastType('error');
-      setShowToast(true);
+      // Connection limit exceeded → show premium upgrade modal
+      if (error.statusCode === 403 || error.message?.includes('premium') || error.message?.includes('Premium')) {
+        setShowUpgradeModal(true);
+      } else {
+        setToastMessage(error.message || t('cannotSendInvite'));
+        setToastType('error');
+        setShowToast(true);
+      }
     }
   };
 
@@ -440,6 +448,33 @@ export default function InviteScreen() {
           </Pressable>
         </Animated.View>
       </ScrollView>
+
+      {/* Premium upgrade modal — connection limit */}
+      <Modal visible={showUpgradeModal} transparent animationType="fade" onRequestClose={() => setShowUpgradeModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowUpgradeModal(false)} />
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <MaterialCommunityIcons name="account-group" size={36} color={colors.premium} />
+            </View>
+            <Text style={styles.modalTitle}>{tc('connectionLimitTitle')}</Text>
+            <Text style={styles.modalDesc}>{tc('connectionLimitDesc')}</Text>
+            <Pressable
+              style={styles.modalUpgradeBtn}
+              onPress={() => {
+                setShowUpgradeModal(false);
+                router.push('/subscription');
+              }}
+            >
+              <MaterialCommunityIcons name="crown" size={16} color="#fff" />
+              <Text style={styles.modalUpgradeText}>{tc('voiceUpgrade')}</Text>
+            </Pressable>
+            <Pressable style={styles.modalCancelBtn} onPress={() => setShowUpgradeModal(false)}>
+              <Text style={styles.modalCancelText}>{tc('later')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -709,6 +744,68 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.sm,
       fontWeight: '600',
       color: colors.textSecondary,
+    },
+
+    // Premium modal
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    modalCard: {
+      width: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: 24,
+      padding: spacing.xxl,
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    modalIconWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.premiumLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalTitle: {
+      fontSize: typography.size.md,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      textAlign: 'center',
+    },
+    modalDesc: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 21,
+    },
+    modalUpgradeBtn: {
+      backgroundColor: colors.premium,
+      borderRadius: radius.full,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xxl,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      alignSelf: 'stretch',
+      justifyContent: 'center',
+      marginTop: spacing.sm,
+    },
+    modalUpgradeText: {
+      color: '#fff',
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+    },
+    modalCancelBtn: {
+      paddingVertical: spacing.sm,
+    },
+    modalCancelText: {
+      color: colors.textSecondary,
+      fontSize: typography.size.sm,
+      fontWeight: '600',
     },
   });
 }

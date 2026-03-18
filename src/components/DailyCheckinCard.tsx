@@ -7,7 +7,8 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
@@ -29,11 +30,13 @@ export function DailyCheckinCard() {
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const [session, setSession] = useState<CheckinSession | null | undefined>(undefined);
 
-  useEffect(() => {
-    checkinApi.getToday()
-      .then(res => setSession(res.session))
-      .catch(() => setSession(null));
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      checkinApi.getToday()
+        .then(res => setSession(res.session))
+        .catch(() => setSession(null));
+    }, [])
+  );
 
   if (session === undefined) {
     return (

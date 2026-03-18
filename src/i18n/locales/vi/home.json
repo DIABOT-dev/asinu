@@ -90,6 +90,12 @@
   "checkinSelectHint": "Chọn một hoặc nhiều mục bên dưới",
   "checkinClose": "Đóng",
   "checkinError": "Không thể lưu trạng thái. Vui lòng thử lại.",
+  "checkinDoneEveningSub": "Chúc bạn ngủ ngon! Asinu sẽ hỏi thăm bạn vào sáng mai.",
+  "checkinEveningQuestion": "Hôm nay bạn cảm thấy thế nào?",
+  "checkinEveningGreat": "Rất tốt",
+  "checkinEveningOk": "Khá ổn",
+  "checkinEveningTired": "Hơi mệt",
+  "checkinEveningBad": "Không tốt lắm",
   "healthReport": "Báo cáo sức khoẻ",
   "healthReportSub": "Xem tổng hợp tuần / tháng"
 }

@@ -59,6 +59,11 @@ export const chatApi = {
     return res.ids ?? [];
   },
 
+  async fetchFeedbacks(): Promise<Record<string, 'like' | 'dislike'>> {
+    const res = await apiClient<{ ok: boolean; feedbacks: Record<string, 'like' | 'dislike'> }>('/api/mobile/chat/feedbacks');
+    return res.feedbacks ?? {};
+  },
+
   async transcribeAudio(uri: string, lang: string = 'vi'): Promise<string> {
     const token = tokenStore.getToken();
     const formData = new FormData();

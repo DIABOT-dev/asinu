@@ -173,7 +173,7 @@ export default function WaterLogScreen() {
               {/* Volume input card */}
               <Animated.View entering={FadeInDown.delay(140).duration(450).springify()}>
                 <View style={[styles.numberCard, volumeError ? styles.numberCardError : null]}>
-                  <Text style={styles.numberLabel}>{t('volumeMl') || 'Lượng nước uống'}</Text>
+                  <Text style={styles.numberLabel}>{t('volumeMl')}</Text>
                   <Animated.View style={[styles.bigInputRow, shakeStyle]}>
                     <RNTextInput
                       value={volume}
@@ -232,7 +232,7 @@ export default function WaterLogScreen() {
                     value={notes}
                     onChangeText={setNotes}
                     multiline
-                    placeholder={t('notesPlaceholder') || 'Ghi chú thêm...'}
+                    placeholder={t('notesPlaceholder')}
                   />
                 </View>
               </Animated.View>

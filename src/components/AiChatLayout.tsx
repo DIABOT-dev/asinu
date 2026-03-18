@@ -64,10 +64,13 @@ export const AiChatLayout = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [notedIds, setNotedIds] = useState<Set<string>>(new Set());
 
-  // Load noted message IDs from DB on mount
+  // Load noted IDs + like/dislike feedbacks from DB on mount
   useEffect(() => {
     chatApi.fetchNotedMessageIds()
       .then(ids => { if (ids.length) setNotedIds(new Set(ids)); })
+      .catch(() => {});
+    chatApi.fetchFeedbacks()
+      .then(map => { if (Object.keys(map).length) setFeedbacks(map); })
       .catch(() => {});
   }, []);
 
@@ -324,8 +327,8 @@ export const AiChatLayout = ({
             <View style={styles.modalIconWrap}>
               <MaterialCommunityIcons name="crown" size={36} color={colors.premium} />
             </View>
-            <Text style={styles.modalTitle}>{t('common:voicePremiumTitle')}</Text>
-            <Text style={styles.modalDesc}>{t('common:voicePremiumDesc')}</Text>
+            <Text style={[styles.modalTitle, { fontSize: scaledTypography.size.md }]}>{t('common:voicePremiumTitle')}</Text>
+            <Text style={[styles.modalDesc, { fontSize: scaledTypography.size.sm }]}>{t('common:voicePremiumDesc')}</Text>
             <View style={styles.featureList}>
               {[
                 t('common:voicePremiumFeature1'),
@@ -334,7 +337,7 @@ export const AiChatLayout = ({
               ].map((f) => (
                 <View key={f} style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={16} color={colors.emerald} />
-                  <Text style={styles.featureText}>{f}</Text>
+                  <Text style={[styles.featureText, { fontSize: scaledTypography.size.sm }]}>{f}</Text>
                 </View>
               ))}
             </View>
@@ -346,10 +349,10 @@ export const AiChatLayout = ({
               }}
             >
               <MaterialCommunityIcons name="crown" size={18} color="#fff" />
-              <Text style={styles.upgradeBtnText}>{t('common:voiceUpgrade')}</Text>
+              <Text style={[styles.upgradeBtnText, { fontSize: scaledTypography.size.sm }]}>{t('common:voiceUpgrade')}</Text>
             </Pressable>
             <Pressable style={styles.cancelBtn} onPress={() => setShowUpgradeModal(false)}>
-              <Text style={styles.cancelBtnText}>{t('common:later')}</Text>
+              <Text style={[styles.cancelBtnText, { fontSize: scaledTypography.size.sm }]}>{t('common:later')}</Text>
             </Pressable>
           </View>
         </View>
@@ -505,12 +508,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   modalTitle: {
-    fontSize: 18,
     fontWeight: '800',
     color: colors.textPrimary,
   },
   modalDesc: {
-    fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 21,
@@ -526,7 +527,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   featureText: {
-    fontSize: 14,
     color: colors.textPrimary,
     flex: 1,
   },
@@ -544,7 +544,6 @@ const styles = StyleSheet.create({
   },
   upgradeBtnText: {
     color: '#fff',
-    fontSize: 14,
     fontWeight: '700',
   },
   cancelBtn: {
@@ -552,7 +551,6 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     color: colors.textSecondary,
-    fontSize: 14,
     fontWeight: '600',
   },
 });

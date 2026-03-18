@@ -244,7 +244,7 @@ export default function BloodPressureLogScreen() {
                   bpError ? styles.numberCardError : null,
                   status ? { borderColor: status.color + '40' } : null,
                 ]}>
-                  <Text style={styles.numberLabel}>{t('bloodPressureValue') || 'Chỉ số huyết áp'}</Text>
+                  <Text style={styles.numberLabel}>{t('bloodPressureValue')}</Text>
 
                   <Animated.View style={[styles.bpRow, shakeStyle]}>
                     {/* Systolic */}
@@ -260,7 +260,7 @@ export default function BloodPressureLogScreen() {
                         textAlign="center"
                         selectTextOnFocus
                       />
-                      <Text style={styles.bpInputLabel}>{t('systolic') || 'Tâm thu'}</Text>
+                      <Text style={styles.bpInputLabel}>{t('systolic')}</Text>
                     </View>
 
                     <Text style={styles.bpSeparator}>/</Text>
@@ -278,7 +278,7 @@ export default function BloodPressureLogScreen() {
                         textAlign="center"
                         selectTextOnFocus
                       />
-                      <Text style={styles.bpInputLabel}>{t('diastolic') || 'Tâm trương'}</Text>
+                      <Text style={styles.bpInputLabel}>{t('diastolic')}</Text>
                     </View>
                   </Animated.View>
 
@@ -302,11 +302,11 @@ export default function BloodPressureLogScreen() {
               <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
                 <View style={styles.sectionCard}>
                   <TextInput
-                    label={t('pulse') || 'Nhịp tim (tùy chọn)'}
+                    label={t('pulse')}
                     keyboardType="numeric"
                     value={pulse}
                     onChangeText={setPulse}
-                    placeholder={t('optional') || 'Tùy chọn'}
+                    placeholder={t('optional')}
                     leftIcon={<Ionicons name="pulse-outline" size={18} color={colors.textSecondary} />}
                   />
                 </View>
@@ -315,7 +315,7 @@ export default function BloodPressureLogScreen() {
               {/* Context chips */}
               <Animated.View entering={FadeInDown.delay(260).duration(400).springify()}>
                 <View style={styles.sectionCard}>
-                  <Text style={styles.sectionLabel}>{t('bpContextLabel') || 'Thời điểm đo'}</Text>
+                  <Text style={styles.sectionLabel}>{t('bpContextLabel')}</Text>
                   <View style={styles.chipsGrid}>
                     {CONTEXT_OPTIONS.map((opt) => {
                       const active = context === opt.value;
@@ -361,7 +361,7 @@ export default function BloodPressureLogScreen() {
                     value={notes}
                     onChangeText={setNotes}
                     multiline
-                    placeholder={t('notesPlaceholder') || 'Ghi chú thêm...'}
+                    placeholder={t('notesPlaceholder')}
                   />
                 </View>
               </Animated.View>
