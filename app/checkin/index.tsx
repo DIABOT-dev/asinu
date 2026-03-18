@@ -154,6 +154,7 @@ export default function CheckinScreen() {
     setLoading(true);
     try {
       const result = await checkinApi.triage(sess.id, prevAnswers);
+      console.log('[Checkin] triage result:', JSON.stringify(result));
       if (result.isDone) {
         setTriageSummary({
           summary: result.summary || '',
@@ -185,6 +186,9 @@ export default function CheckinScreen() {
         }
         setCustomAnswer('');
       }
+    } catch (err: any) {
+      console.error('[Checkin] fetchNextQuestion error:', err?.message || err);
+      showAlert(t('error', { ns: 'common' }), t('checkinError'));
     } finally {
       setLoading(false);
     }

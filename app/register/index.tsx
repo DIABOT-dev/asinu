@@ -136,8 +136,25 @@ export default function RegisterScreen() {
       setShowToast(true);
       setTimeout(() => router.replace('/login'), 1500);
     } catch (err: any) {
-      setError(err.message || t('registerFailed'));
-      setToastMessage(err.message || t('registerFailed'));
+      const raw = String(err?.message || '');
+      // If error is HTML (ngrok down) or too long, show user-friendly message
+      const isHtml = raw.includes('<!DOCTYPE') || raw.includes('<html');
+      const msg = (isHtml || raw.length > 200 || !raw)
+        ? t('registerFailed')
+        : raw;
+
+      // Show specific field errors based on backend response
+      const msgLower = msg.toLowerCase();
+      if (msgLower.includes('phone') || msgLower.includes('điện thoại') || msgLower.includes('số điện thoại')) {
+        setPhoneError(msg);
+        setError(undefined);
+      } else if (msgLower.includes('email')) {
+        setEmailError(msg);
+        setError(undefined);
+      } else {
+        setError(msg);
+      }
+      setToastMessage(msg);
       setToastType('error');
       setShowToast(true);
     } finally {

@@ -136,7 +136,7 @@ function Chip({ label, active, onPress, fullWidth }: ChipProps) {
       <Text
         numberOfLines={1}
         adjustsFontSizeToFit
-        minimumFontScale={0.75}
+        minimumFontScale={0.7}
         style={[chipStyles.chipText, { fontSize: scaledTypography.size.sm }, active && chipStyles.chipTextActive]}
       >
         {label}
@@ -165,9 +165,11 @@ const chipStyles = StyleSheet.create({
   chipFullWidth: {
     alignSelf: 'stretch',
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    minHeight: 48,
   },
   chipText: {
     fontSize: 15,
@@ -370,8 +372,11 @@ export default function OnboardingScreen() {
       } catch {}
 
       router.replace('/(tabs)/home');
-    } catch {
-      showAlert(tc('error'), tc('saveError'));
+    } catch (err: any) {
+      const raw = String(err?.message || '');
+      const isHtml = raw.includes('<!DOCTYPE') || raw.includes('<html');
+      const msg = (isHtml || raw.length > 200 || !raw) ? tc('saveError') : raw;
+      showAlert(tc('error'), msg);
     } finally {
       setSaving(false);
     }
@@ -1107,8 +1112,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.sm,
     },
     diseaseGridItem: {
-      flexBasis: '48%',
+      flexBasis: '47%',
       flexGrow: 1,
+      flexShrink: 1,
     } as any,
     diseaseFooterRow: {
       flexDirection: 'row',
