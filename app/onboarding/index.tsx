@@ -225,6 +225,7 @@ export default function OnboardingScreen() {
   };
 
   // ── Step 1 state ─────────────────────────────────────────────────
+  const [fullName, setFullName] = useState('');
   const [birthYear, setBirthYear] = useState('');
   const [gender, setGender] = useState('');
   const [height, setHeight] = useState('');
@@ -275,7 +276,7 @@ export default function OnboardingScreen() {
   const phoneValid = /^0\d{9}$/.test(phone.trim());
   const phoneError = phone.length > 0 && !phoneValid ? t('phoneError') : '';
 
-  const step1Valid = birthYearValid && gender !== '' && heightValid && weightValid && phoneValid;
+  const step1Valid = fullName.trim().length >= 2 && birthYearValid && gender !== '' && heightValid && weightValid && phoneValid;
   const step2Valid = diseases.length > 0 && medication !== '';
   const step3Valid = checkupFreq !== '' && exerciseFreq !== '' && sleepHours !== '';
   const step4Valid =
@@ -344,6 +345,7 @@ export default function OnboardingScreen() {
       await apiClient('/api/mobile/onboarding/complete-v2', {
         method: 'POST',
         body: {
+          full_name: fullName.trim(),
           birth_year: parseInt(birthYear, 10),
           gender,
           height_cm: parseFloat(height),
@@ -479,6 +481,8 @@ export default function OnboardingScreen() {
         {step === 1 && (
           <Step1
             styles={styles}
+            fullName={fullName}
+            setFullName={setFullName}
             birthYear={birthYear}
             setBirthYear={setBirthYear}
             birthYearError={birthYearError}
@@ -571,6 +575,8 @@ export default function OnboardingScreen() {
 
 interface Step1Props {
   styles: ReturnType<typeof createStyles>;
+  fullName: string;
+  setFullName: (v: string) => void;
   birthYear: string;
   setBirthYear: (v: string) => void;
   birthYearError: string;
@@ -591,6 +597,7 @@ interface Step1Props {
 
 function Step1({
   styles,
+  fullName, setFullName,
   birthYear, setBirthYear, birthYearError,
   gender, setGender,
   height, setHeight, heightError,
@@ -608,6 +615,19 @@ function Step1({
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>{t('step1Title')}</Text>
       <Text style={styles.stepSubtitle}>{t('step1Subtitle')}</Text>
+
+      <View style={styles.questionCard}>
+        <SectionLabel label={t('fullName')} />
+        <RNTextInput
+          style={styles.textInput}
+          placeholder={t('fullNamePlaceholder')}
+          placeholderTextColor={colors.textSecondary}
+          value={fullName}
+          onChangeText={setFullName}
+          autoCapitalize="words"
+          returnKeyType="next"
+        />
+      </View>
 
       <View style={styles.questionCard}>
         <SectionLabel label={t('birthYear')} />

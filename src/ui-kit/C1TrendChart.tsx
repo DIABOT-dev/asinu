@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
@@ -34,12 +35,19 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
     );
   }
 
-  // Nếu không có dữ liệu
-  if (!data || data.length === 0) {
+  // Nếu không có dữ liệu hoặc tất cả giá trị = 0
+  const hasRealData = data && data.length > 0 && data.some(d => Number.isFinite(d.value) && d.value > 0);
+
+  if (!data || data.length === 0 || !hasRealData) {
     return (
-      <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
-        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>{t('noDataToShow')}</Text>
-        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.sm, marginTop: spacing.xs }}>{t('logToSeeTrend')}</Text>
+      <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }]}>
+        <Ionicons name="happy-outline" size={48} color={colors.primary} />
+        <Text style={{ color: colors.textPrimary, fontSize: scaledTypography.size.md, fontWeight: '700', marginTop: spacing.md, textAlign: 'center' }}>
+          {t('noDataYet')}
+        </Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.sm, marginTop: spacing.xs, textAlign: 'center' }}>
+          {t('logToSeeTrend')}
+        </Text>
       </View>
     );
   }
@@ -50,13 +58,19 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   const chartHeight = height - CHART_PADDING.top - CHART_PADDING.bottom;
 
   // Tính min/max - lọc bỏ giá trị NaN/undefined/null
-  const values = data.map(d => d.value).filter(v => Number.isFinite(v));
-  
-  // Nếu không có giá trị hợp lệ, hiển thị thông báo
+  const values = data.map(d => d.value).filter(v => Number.isFinite(v) && v > 0);
+
+  // Nếu không có giá trị hợp lệ, hiển thị thông báo thân thiện
   if (values.length === 0) {
     return (
-      <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: 16 }]}>
-        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.md }}>{t('invalidData')}</Text>
+      <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }]}>
+        <Ionicons name="happy-outline" size={48} color={colors.primary} />
+        <Text style={{ color: colors.textPrimary, fontSize: scaledTypography.size.md, fontWeight: '700', marginTop: spacing.md, textAlign: 'center' }}>
+          {t('noDataYet')}
+        </Text>
+        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.sm, marginTop: spacing.xs, textAlign: 'center' }}>
+          {t('logToSeeTrend')}
+        </Text>
       </View>
     );
   }

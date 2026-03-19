@@ -329,31 +329,39 @@ export default function HomeScreen() {
           </View>
         </View>
         <View style={styles.logsCard}>
-          {logs.slice(0, 3).map((log: LogEntry, index) => (
-            <View key={log.id} style={[styles.logItem, index < 2 && styles.logItemBorder]}>
-              <View style={styles.logIconBg}>
-                {log.type === 'glucose' && <MaterialCommunityIcons name="water" size={18} color={categoryColors.glucose} />}
-                {log.type === 'blood-pressure' && <MaterialCommunityIcons name="heart-pulse" size={18} color={categoryColors.bloodPressure} />}
-                {log.type === 'weight' && <MaterialCommunityIcons name="scale-bathroom" size={18} color={categoryColors.weight} />}
-                {log.type === 'water' && <MaterialCommunityIcons name="cup-water" size={18} color={categoryColors.water} />}
-                {log.type === 'medication' && <MaterialCommunityIcons name="pill" size={18} color={categoryColors.medication} />}
-                {log.type === 'meal' && <MaterialCommunityIcons name="food" size={18} color={categoryColors.meal} />}
-                {log.type === 'insulin' && <MaterialCommunityIcons name="needle" size={18} color={categoryColors.insulin} />}
-              </View>
-              <View style={styles.logContent}>
-                <Text style={styles.logType}>{t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}</Text>
-                <Text style={styles.logValue}>
-                  {log.type === 'glucose' && (log.value ? `${log.value} ${tc('unitMgdl')}` : tc('noData'))}
-                  {log.type === 'blood-pressure' && (log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} ${tc('unitMmhg')}` : tc('noData'))}
-                  {log.type === 'weight' && (log.weight_kg ? `${log.weight_kg} ${tc('unitKg')}` : tc('noData'))}
-                  {log.type === 'water' && (log.volume_ml ? `${log.volume_ml} ${tc('unitMl')}` : tc('noData'))}
-                  {log.type === 'medication' && (log.medication || tc('noData'))}
-                  {log.type === 'meal' && (log.title || tc('noData'))}
-                  {log.type === 'insulin' && (log.insulin_type ? `${log.dose_units} ${tc('unitInsulin')}` : tc('noData'))}
-                </Text>
-              </View>
+          {logs.length === 0 ? (
+            <View style={styles.emptyLogsContainer}>
+              <Ionicons name="document-text-outline" size={40} color={colors.primary} />
+              <Text style={styles.emptyLogsTitle}>{t('noLogsYet')}</Text>
+              <Text style={styles.emptyLogsSub}>{t('noLogsSub')}</Text>
             </View>
-          ))}
+          ) : (
+            logs.slice(0, 3).map((log: LogEntry, index) => (
+              <View key={log.id} style={[styles.logItem, index < 2 && styles.logItemBorder]}>
+                <View style={styles.logIconBg}>
+                  {log.type === 'glucose' && <MaterialCommunityIcons name="water" size={18} color={categoryColors.glucose} />}
+                  {log.type === 'blood-pressure' && <MaterialCommunityIcons name="heart-pulse" size={18} color={categoryColors.bloodPressure} />}
+                  {log.type === 'weight' && <MaterialCommunityIcons name="scale-bathroom" size={18} color={categoryColors.weight} />}
+                  {log.type === 'water' && <MaterialCommunityIcons name="cup-water" size={18} color={categoryColors.water} />}
+                  {log.type === 'medication' && <MaterialCommunityIcons name="pill" size={18} color={categoryColors.medication} />}
+                  {log.type === 'meal' && <MaterialCommunityIcons name="food" size={18} color={categoryColors.meal} />}
+                  {log.type === 'insulin' && <MaterialCommunityIcons name="needle" size={18} color={categoryColors.insulin} />}
+                </View>
+                <View style={styles.logContent}>
+                  <Text style={styles.logType}>{t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}</Text>
+                  <Text style={styles.logValue}>
+                    {log.type === 'glucose' && (log.value ? `${log.value} ${tc('unitMgdl')}` : tc('noData'))}
+                    {log.type === 'blood-pressure' && (log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} ${tc('unitMmhg')}` : tc('noData'))}
+                    {log.type === 'weight' && (log.weight_kg ? `${log.weight_kg} ${tc('unitKg')}` : tc('noData'))}
+                    {log.type === 'water' && (log.volume_ml ? `${log.volume_ml} ${tc('unitMl')}` : tc('noData'))}
+                    {log.type === 'medication' && (log.medication || tc('noData'))}
+                    {log.type === 'meal' && (log.title || tc('noData'))}
+                    {log.type === 'insulin' && (log.insulin_type ? `${log.dose_units} ${tc('unitInsulin')}` : tc('noData'))}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
         </View>
         </Animated.View>
       </ScrollView>
@@ -622,6 +630,23 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: spacing.sm,
     paddingVertical: spacing.sm,
+  },
+  emptyLogsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+  emptyLogsTitle: {
+    fontSize: typography.size.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptyLogsSub: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   logItemBorder: {
     borderBottomWidth: 1,

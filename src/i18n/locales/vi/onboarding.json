@@ -23,6 +23,8 @@
 
   "step1Title": "Thông tin cơ bản",
   "step1Subtitle": "Giúp Asinu hiểu bạn tốt hơn",
+  "fullName": "Họ tên",
+  "fullNamePlaceholder": "VD: Nguyễn Văn A",
   "birthYear": "Năm sinh",
   "birthYearPlaceholder": "VD: 1990",
   "birthYearError": "Năm sinh phải từ 1920 đến {{maxYear}}",

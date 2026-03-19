@@ -16,6 +16,8 @@
   "glucoseTrend": "Glucose Trend",
   "last7Days": "Last 7 days",
   "recentLogs": "Recent Logs",
+  "noLogsYet": "No logs yet",
+  "noLogsSub": "Start logging to track your health!",
   "chatWithAsinu": "Chat with Asinu!",
 
   "pulseNormal": "OK / Normal",

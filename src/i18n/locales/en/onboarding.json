@@ -23,6 +23,8 @@
 
   "step1Title": "Basic Information",
   "step1Subtitle": "Help Asinu understand you better",
+  "fullName": "Full name",
+  "fullNamePlaceholder": "E.g.: John Doe",
   "birthYear": "Birth year",
   "birthYearPlaceholder": "E.g.: 1990",
   "birthYearError": "Birth year must be between 1920 and {{maxYear}}",
