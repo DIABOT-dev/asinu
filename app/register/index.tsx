@@ -366,7 +366,7 @@ export default function RegisterScreen() {
               disabled={!canSubmit}
             >
               <LinearGradient
-                colors={canSubmit ? [colors.primary, colors.primaryDark] : [colors.border, colors.border]}
+                colors={[colors.primary, colors.primaryDark]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.submitBtnGradient}
@@ -375,8 +375,8 @@ export default function RegisterScreen() {
                   <MaterialCommunityIcons name="loading" size={20} color="#fff" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="account-plus" size={20} color={canSubmit ? '#fff' : colors.textSecondary} />
-                    <Text style={[styles.submitBtnText, !canSubmit && { color: colors.textSecondary }]}>
+                    <MaterialCommunityIcons name="account-plus" size={20} color="#fff" />
+                    <Text style={styles.submitBtnText}>
                       {loading ? tc('processing') : t('register')}
                     </Text>
                   </>

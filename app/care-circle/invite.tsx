@@ -422,7 +422,7 @@ export default function InviteScreen() {
             disabled={!canSend}
           >
             <LinearGradient
-              colors={canSend ? [colors.primary, colors.primaryDark] : [colors.border, colors.border]}
+              colors={[colors.primary, colors.primaryDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.sendBtnGradient}
@@ -431,8 +431,8 @@ export default function InviteScreen() {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <MaterialCommunityIcons name="send" size={20} color={canSend ? '#fff' : colors.textSecondary} />
-                  <Text style={[styles.sendBtnText, !canSend && { color: colors.textSecondary }]}>
+                  <MaterialCommunityIcons name="send" size={20} color="#fff" />
+                  <Text style={styles.sendBtnText}>
                     {t('sendInvite')}
                   </Text>
                 </>

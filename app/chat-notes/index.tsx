@@ -1,12 +1,13 @@
 /**
  * Chat Notes — AI chat notes history with pagination
  */
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,13 +25,12 @@ import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+const DEFAULT_PAGE_SIZE = 5;
 
 type Note = { id: number; message_text: string; created_at: string };
-
 type FilterMode = 'all' | '7days' | '30days' | 'custom';
 
-/** Parse dd/mm/yyyy string into a Date (start of day) or null */
 function parseDDMMYYYY(text: string): Date | null {
   const parts = text.trim().split('/');
   if (parts.length !== 3) return null;
@@ -39,6 +39,20 @@ function parseDDMMYYYY(text: string): Date | null {
   const d = new Date(yyyy, mm - 1, dd);
   if (isNaN(d.getTime())) return null;
   return d;
+}
+
+/** Build visible page numbers: [1, 2, 3, ..., 10] */
+function getPageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | '...')[] = [];
+  if (current <= 4) {
+    pages.push(1, 2, 3, 4, 5, '...', total);
+  } else if (current >= total - 3) {
+    pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total);
+  } else {
+    pages.push(1, '...', current - 1, current, current + 1, '...', total);
+  }
+  return pages;
 }
 
 export default function ChatNotesScreen() {
@@ -51,53 +65,55 @@ export default function ChatNotesScreen() {
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
-  const pageRef = useRef(1);
+  const [showPageSizeDropdown, setShowPageSizeDropdown] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
 
-  // ── Date filter state ──────────────────────────────────
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [fromText, setFromText] = useState('');
   const [toText, setToText] = useState('');
 
-  const fetchNotes = useCallback(async (page = 1, append = false) => {
-    if (page === 1) setLoading(true);
-    else setLoadingMore(true);
+  const fetchNotes = useCallback(async (page = 1, limit = pageSize) => {
+    setLoading(true);
     try {
-      const data = await chatApi.fetchNotes(page, PAGE_SIZE);
-      if (append) {
-        setNotes((prev) => [...prev, ...data.notes]);
-      } else {
-        setNotes(data.notes);
-      }
-      setHasMore(data.pagination.hasMore);
-      setTotal(data.pagination.total);
-      pageRef.current = page;
+      const data = await chatApi.fetchNotes(page, limit);
+      const notesList = data.notes ?? [];
+      setNotes(notesList);
+      const pTotal = data.pagination?.total ?? notesList.length;
+      const pTotalPages = data.pagination?.totalPages ?? (Math.ceil(pTotal / limit) || 1);
+      setTotalPages(pTotalPages);
+      setTotal(pTotal);
+      setCurrentPage(page);
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     } catch {}
     setLoading(false);
-    setLoadingMore(false);
-  }, []);
+  }, [pageSize]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchNotes(1);
-    }, [fetchNotes])
+      fetchNotes(1, pageSize);
+    }, [fetchNotes, pageSize])
   );
 
-  const handleLoadMore = useCallback(() => {
-    if (!hasMore || loadingMore) return;
-    fetchNotes(pageRef.current + 1, true);
-  }, [hasMore, loadingMore, fetchNotes]);
+  const handlePageChange = useCallback((page: number) => {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    fetchNotes(page, pageSize);
+  }, [totalPages, currentPage, fetchNotes, pageSize]);
 
-  // ── Filtered notes ─────────────────────────────────────
+  const handlePageSizeChange = useCallback((size: number) => {
+    setPageSize(size);
+    setShowPageSizeDropdown(false);
+    fetchNotes(1, size);
+  }, [fetchNotes]);
+
   const filteredNotes = useMemo(() => {
     if (filterMode === 'all') return notes;
-
     let fromDate: Date | null = null;
     let toDate: Date | null = null;
-
     if (filterMode === '7days') {
       fromDate = new Date();
       fromDate.setDate(fromDate.getDate() - 7);
@@ -109,12 +125,9 @@ export default function ChatNotesScreen() {
     } else if (filterMode === 'custom') {
       fromDate = parseDDMMYYYY(fromText);
       toDate = parseDDMMYYYY(toText);
-      if (toDate) {
-        toDate.setHours(23, 59, 59, 999);
-      }
+      if (toDate) toDate.setHours(23, 59, 59, 999);
       if (!fromDate && !toDate) return notes;
     }
-
     return notes.filter((note) => {
       const noteDate = new Date(note.created_at);
       if (fromDate && noteDate < fromDate) return false;
@@ -125,43 +138,29 @@ export default function ChatNotesScreen() {
 
   const handleFilterChange = (mode: FilterMode) => {
     setFilterMode(mode);
-    if (mode !== 'custom') {
-      setFromText('');
-      setToText('');
-    }
+    if (mode !== 'custom') { setFromText(''); setToText(''); }
   };
 
   const handleDelete = (note: Note) => {
-    showAlert(
-      t('deleteNoteTitle'),
-      t('deleteNoteMsg'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await chatApi.deleteNote(note.id);
-              setNotes((prev) => prev.filter((n) => n.id !== note.id));
-              setTotal((prev) => Math.max(0, prev - 1));
-            } catch {}
-          },
+    showAlert(t('deleteNoteTitle'), t('deleteNoteMsg'), [
+      { text: t('cancel'), style: 'cancel' },
+      {
+        text: t('delete'), style: 'destructive',
+        onPress: async () => {
+          try {
+            await chatApi.deleteNote(note.id);
+            setNotes((prev) => prev.filter((n) => n.id !== note.id));
+            setTotal((prev) => Math.max(0, prev - 1));
+          } catch {}
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
     const locale = language === 'vi' ? 'vi-VN' : 'en-US';
-    return d.toLocaleDateString(locale, {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   const FILTERS: { key: FilterMode; label: string }[] = [
@@ -171,9 +170,35 @@ export default function ChatNotesScreen() {
     { key: 'custom', label: t('filterCustom') },
   ];
 
+  const pageNumbers = getPageNumbers(currentPage, totalPages);
+
   return (
     <>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+
+      {/* ── Page size dropdown modal ────────────────── */}
+      <Modal visible={showPageSizeDropdown} transparent animationType="fade" onRequestClose={() => setShowPageSizeDropdown(false)}>
+        <Pressable style={styles.dropdownOverlay} onPress={() => setShowPageSizeDropdown(false)}>
+          <View style={styles.dropdownMenu}>
+            <Text style={styles.dropdownTitle}>
+              {language === 'vi' ? 'Số bản ghi / trang' : 'Records per page'}
+            </Text>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <Pressable
+                key={size}
+                style={[styles.dropdownItem, pageSize === size && styles.dropdownItemActive]}
+                onPress={() => handlePageSizeChange(size)}
+              >
+                <Text style={[styles.dropdownItemText, pageSize === size && styles.dropdownItemTextActive]}>
+                  {size} {language === 'vi' ? 'bản ghi' : 'records'}
+                </Text>
+                {pageSize === size && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
       <Stack.Screen
         options={{
           headerShown: true,
@@ -190,72 +215,34 @@ export default function ChatNotesScreen() {
       />
 
       <FlatList
+        ref={flatListRef}
         style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 72 }]}
         data={filteredNotes}
         keyExtractor={(item) => String(item.id)}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
         ListHeaderComponent={
           <View style={styles.filterContainer}>
-            {/* ── Filter chips row ────────────────────────── */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterRow}
-            >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
               {FILTERS.map((f) => {
                 const active = filterMode === f.key;
                 return (
-                  <Pressable
-                    key={f.key}
-                    style={[styles.filterChip, active && styles.filterChipActive]}
-                    onPress={() => handleFilterChange(f.key)}
-                  >
-                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                      {f.label}
-                    </Text>
+                  <Pressable key={f.key} style={[styles.filterChip, active && styles.filterChipActive]} onPress={() => handleFilterChange(f.key)}>
+                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{f.label}</Text>
                   </Pressable>
                 );
               })}
             </ScrollView>
-
-            {/* ── Total count ──────────────────────────────── */}
-            {total > 0 && (
-              <Text style={styles.totalText}>
-                {t('chatNotesCount', { count: total })}
-              </Text>
-            )}
-
-            {/* ── Custom date inputs ─────────────────────── */}
+            {total > 0 && <Text style={styles.totalText}>{t('chatNotesCount', { count: total })}</Text>}
             {filterMode === 'custom' && (
               <View style={styles.customDateRow}>
                 <View style={styles.dateInputWrap}>
                   <Text style={styles.dateLabel}>{t('filterFrom')}</Text>
-                  <TextInput
-                    style={styles.dateInput}
-                    placeholder={t('filterDateFormat')}
-                    placeholderTextColor={colors.border}
-                    value={fromText}
-                    onChangeText={setFromText}
-                    keyboardType="number-pad"
-                    maxLength={10}
-                  />
+                  <TextInput style={styles.dateInput} placeholder={t('filterDateFormat')} placeholderTextColor={colors.border} value={fromText} onChangeText={setFromText} keyboardType="number-pad" maxLength={10} />
                 </View>
-                <View style={styles.dateSeparator}>
-                  <Ionicons name="arrow-forward" size={16} color={colors.textSecondary} />
-                </View>
+                <View style={styles.dateSeparator}><Ionicons name="arrow-forward" size={16} color={colors.textSecondary} /></View>
                 <View style={styles.dateInputWrap}>
                   <Text style={styles.dateLabel}>{t('filterTo')}</Text>
-                  <TextInput
-                    style={styles.dateInput}
-                    placeholder={t('filterDateFormat')}
-                    placeholderTextColor={colors.border}
-                    value={toText}
-                    onChangeText={setToText}
-                    keyboardType="number-pad"
-                    maxLength={10}
-                  />
+                  <TextInput style={styles.dateInput} placeholder={t('filterDateFormat')} placeholderTextColor={colors.border} value={toText} onChangeText={setToText} keyboardType="number-pad" maxLength={10} />
                 </View>
               </View>
             )}
@@ -271,10 +258,8 @@ export default function ChatNotesScreen() {
           ) : null
         }
         ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
+          loading ? (
+            <View style={styles.footerLoader}><ActivityIndicator size="small" color={colors.primary} /></View>
           ) : null
         }
         renderItem={({ item }) => (
@@ -282,11 +267,7 @@ export default function ChatNotesScreen() {
             <View style={styles.noteHeader}>
               <Ionicons name="bookmark" size={16} color={colors.premium} />
               <Text style={styles.noteDate}>{formatDate(item.created_at)}</Text>
-              <Pressable
-                style={styles.deleteBtn}
-                onPress={() => handleDelete(item)}
-                hitSlop={8}
-              >
+              <Pressable style={styles.deleteBtn} onPress={() => handleDelete(item)} hitSlop={8}>
                 <Ionicons name="trash-outline" size={16} color={colors.danger} />
               </Pressable>
             </View>
@@ -294,123 +275,171 @@ export default function ChatNotesScreen() {
           </View>
         )}
       />
+
+      {/* ── Fixed bottom-right pagination bar ──────── */}
+      {!loading && (total > 0 || notes.length > 0) && (
+        <View style={[styles.fixedBar, { bottom: insets.bottom + 8 }]}>
+          {/* Page numbers: < 1 2 3 > */}
+          <View style={styles.pageNumberRow}>
+            <Pressable
+              style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+              onPress={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <Ionicons name="chevron-back" size={14} color={currentPage === 1 ? colors.border : colors.textPrimary} />
+            </Pressable>
+
+            {pageNumbers.map((p, idx) =>
+              p === '...' ? (
+                <View key={`dots-${idx}`} style={styles.pageDots}>
+                  <Text style={styles.pageDotsText}>...</Text>
+                </View>
+              ) : (
+                <Pressable
+                  key={p}
+                  style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
+                  onPress={() => handlePageChange(p)}
+                >
+                  <Text style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]}>{p}</Text>
+                </Pressable>
+              )
+            )}
+
+            <Pressable
+              style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+              onPress={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              <Ionicons name="chevron-forward" size={14} color={currentPage === totalPages ? colors.border : colors.textPrimary} />
+            </Pressable>
+          </View>
+
+          {/* Page size dropdown */}
+          <Pressable style={styles.pageSizeDropdownBtn} onPress={() => setShowPageSizeDropdown(true)}>
+            <Text style={styles.pageSizeDropdownText}>
+              {pageSize}/{language === 'vi' ? 'trang' : 'pg'}
+            </Text>
+            <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+      )}
     </>
   );
 }
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
-    list: {
-      padding: spacing.lg,
-      gap: spacing.md,
-    },
-    /* ── Filter styles ────────────────────────────────── */
-    filterContainer: {
-      gap: spacing.sm,
-      marginBottom: spacing.sm,
-    },
-    filterRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
+    list: { padding: spacing.lg, gap: spacing.md },
+    filterContainer: { gap: spacing.sm, marginBottom: spacing.sm },
+    filterRow: { flexDirection: 'row', gap: spacing.sm },
     filterChip: {
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.full,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
+      paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+      borderRadius: radius.full, backgroundColor: colors.surface,
+      borderWidth: 1, borderColor: colors.border,
     },
-    filterChipActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    filterChipText: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
-    filterChipTextActive: {
-      color: '#ffffff',
-    },
-    totalText: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-    },
-    customDateRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      gap: spacing.sm,
-    },
-    dateInputWrap: {
-      flex: 1,
-      gap: 4,
-    },
-    dateLabel: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
+    filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    filterChipText: { fontSize: typography.size.xs, color: colors.textSecondary, fontWeight: '600' },
+    filterChipTextActive: { color: '#fff' },
+    totalText: { fontSize: typography.size.xs, color: colors.textSecondary },
+    customDateRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
+    dateInputWrap: { flex: 1, gap: 4 },
+    dateLabel: { fontSize: typography.size.xs, color: colors.textSecondary, fontWeight: '600' },
     dateInput: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      fontSize: typography.size.sm,
-      color: colors.textPrimary,
+      backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+      borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+      fontSize: typography.size.sm, color: colors.textPrimary,
     },
-    dateSeparator: {
-      paddingBottom: spacing.sm + 2,
-    },
-    /* ── Existing styles ──────────────────────────────── */
-    emptyWrap: {
-      alignItems: 'center',
-      paddingTop: 80,
-      gap: spacing.sm,
-    },
-    emptyTitle: {
-      fontSize: typography.size.md,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    emptyDesc: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 21,
-      paddingHorizontal: spacing.xxl,
-    },
+    dateSeparator: { paddingBottom: spacing.sm + 2 },
+    emptyWrap: { alignItems: 'center', paddingTop: 80, gap: spacing.sm },
+    emptyTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.textPrimary },
+    emptyDesc: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: spacing.xxl },
     noteCard: {
+      backgroundColor: colors.surface, borderRadius: radius.xl,
+      padding: spacing.lg, borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
+    },
+    noteHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    noteDate: { fontSize: typography.size.xs, color: colors.textSecondary, flex: 1 },
+    deleteBtn: { padding: 4 },
+    noteText: { fontSize: typography.size.sm, color: colors.textPrimary, lineHeight: 22 },
+    footerLoader: { paddingVertical: spacing.lg, alignItems: 'center' },
+
+    /* ── Pagination ──────────────────────────────────── */
+    fixedBar: {
+      position: 'absolute', right: spacing.md,
+      flexDirection: 'row', alignItems: 'center', gap: 8,
       backgroundColor: colors.surface,
+      paddingHorizontal: spacing.sm, paddingVertical: 6,
       borderRadius: radius.xl,
-      padding: spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: spacing.sm,
+      borderWidth: 1, borderColor: colors.border,
+      shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 }, elevation: 8,
     },
-    noteHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
+    pageNumberRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
     },
-    noteDate: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-      flex: 1,
+    pageBtn: {
+      width: 30, height: 30, borderRadius: radius.sm,
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
     },
-    deleteBtn: {
-      padding: 4,
+    pageBtnActive: {
+      backgroundColor: colors.primary, borderColor: colors.primary,
     },
-    noteText: {
-      fontSize: typography.size.sm,
-      color: colors.textPrimary,
-      lineHeight: 22,
+    pageBtnDisabled: {
+      opacity: 0.4,
     },
-    footerLoader: {
-      paddingVertical: spacing.lg,
-      alignItems: 'center',
+    pageBtnText: {
+      fontSize: typography.size.xs, fontWeight: '600', color: colors.textPrimary,
+    },
+    pageBtnTextActive: {
+      color: '#fff',
+    },
+    pageDots: {
+      width: 20, height: 30, alignItems: 'center', justifyContent: 'center',
+    },
+    pageDotsText: {
+      fontSize: typography.size.xs, color: colors.textSecondary,
+    },
+
+    /* ── Page size dropdown button ───────────────────── */
+    pageSizeDropdownBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+      borderRadius: radius.md, backgroundColor: colors.surface,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    pageSizeDropdownText: {
+      fontSize: typography.size.xs, color: colors.textSecondary, fontWeight: '600',
+    },
+
+    /* ── Dropdown modal ──────────────────────────────── */
+    dropdownOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.3)',
+      justifyContent: 'center', alignItems: 'center',
+    },
+    dropdownMenu: {
+      width: 260, backgroundColor: colors.surface,
+      borderRadius: radius.xl, paddingVertical: spacing.md,
+      shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20,
+      shadowOffset: { width: 0, height: 10 }, elevation: 10,
+    },
+    dropdownTitle: {
+      fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary,
+      paddingHorizontal: spacing.lg, paddingBottom: spacing.sm,
+      borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: spacing.xs,
+    },
+    dropdownItem: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    },
+    dropdownItemActive: {
+      backgroundColor: `${colors.primary}15`,
+    },
+    dropdownItemText: {
+      fontSize: typography.size.sm, color: colors.textPrimary,
+    },
+    dropdownItemTextActive: {
+      color: colors.primary, fontWeight: '700',
     },
   });
 }
