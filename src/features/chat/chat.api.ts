@@ -45,9 +45,19 @@ export const chatApi = {
     });
   },
 
-  async fetchNotes(): Promise<Array<{ id: number; message_text: string; created_at: string }>> {
-    const res = await apiClient<{ ok: boolean; notes: Array<{ id: number; message_text: string; created_at: string }> }>('/api/mobile/chat/notes');
-    return res.notes ?? [];
+  async fetchNotes(page = 1, limit = 20): Promise<{
+    notes: Array<{ id: number; message_text: string; created_at: string }>;
+    pagination: { page: number; limit: number; total: number; totalPages: number; hasMore: boolean };
+  }> {
+    const res = await apiClient<{
+      ok: boolean;
+      notes: Array<{ id: number; message_text: string; created_at: string }>;
+      pagination: { page: number; limit: number; total: number; totalPages: number; hasMore: boolean };
+    }>(`/api/mobile/chat/notes?page=${page}&limit=${limit}`);
+    return {
+      notes: res.notes ?? [],
+      pagination: res.pagination ?? { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+    };
   },
 
   async deleteNote(id: number) {

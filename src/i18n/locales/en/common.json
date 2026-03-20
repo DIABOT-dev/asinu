@@ -123,6 +123,7 @@
   "dataConsentFooter": "Consent is required to use the app. Tap \"I Agree\" to continue.",
   "saveError": "Could not save information. Please try again.",
   "chatNotesTitle": "AI Notes",
+  "chatNotesCount": "{{count}} notes total",
   "chatNotesEmpty": "No notes yet",
   "chatNotesEmptyHint": "Tap the bookmark button under AI replies in chat to save notes.",
   "deleteNoteTitle": "Delete note",

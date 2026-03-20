@@ -123,6 +123,7 @@
   "dataConsentFooter": "Bạn phải đồng ý để sử dụng ứng dụng. Nhấn \"Tôi đồng ý\" để tiếp tục.",
   "saveError": "Không thể lưu thông tin. Vui lòng thử lại.",
   "chatNotesTitle": "Ghi chú từ AI",
+  "chatNotesCount": "Tổng {{count}} ghi chú",
   "chatNotesEmpty": "Chưa có ghi chú",
   "chatNotesEmptyHint": "Ấn nút bookmark dưới câu trả lời AI trong chat để lưu ghi chú.",
   "deleteNoteTitle": "Xoá ghi chú",

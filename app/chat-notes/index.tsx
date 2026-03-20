@@ -1,10 +1,11 @@
 /**
- * Chat Notes — AI chat notes history
+ * Chat Notes — AI chat notes history with pagination
  */
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   ScrollView,
@@ -22,6 +23,8 @@ import { chatApi } from '../../src/features/chat/chat.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
+
+const PAGE_SIZE = 20;
 
 type Note = { id: number; message_text: string; created_at: string };
 
@@ -48,6 +51,10 @@ export default function ChatNotesScreen() {
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const pageRef = useRef(1);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
 
   // ── Date filter state ──────────────────────────────────
@@ -55,20 +62,34 @@ export default function ChatNotesScreen() {
   const [fromText, setFromText] = useState('');
   const [toText, setToText] = useState('');
 
-  const fetchNotes = useCallback(async () => {
-    setLoading(true);
+  const fetchNotes = useCallback(async (page = 1, append = false) => {
+    if (page === 1) setLoading(true);
+    else setLoadingMore(true);
     try {
-      const data = await chatApi.fetchNotes();
-      setNotes(data);
+      const data = await chatApi.fetchNotes(page, PAGE_SIZE);
+      if (append) {
+        setNotes((prev) => [...prev, ...data.notes]);
+      } else {
+        setNotes(data.notes);
+      }
+      setHasMore(data.pagination.hasMore);
+      setTotal(data.pagination.total);
+      pageRef.current = page;
     } catch {}
     setLoading(false);
+    setLoadingMore(false);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      fetchNotes();
+      fetchNotes(1);
     }, [fetchNotes])
   );
+
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    fetchNotes(pageRef.current + 1, true);
+  }, [hasMore, loadingMore, fetchNotes]);
 
   // ── Filtered notes ─────────────────────────────────────
   const filteredNotes = useMemo(() => {
@@ -89,10 +110,8 @@ export default function ChatNotesScreen() {
       fromDate = parseDDMMYYYY(fromText);
       toDate = parseDDMMYYYY(toText);
       if (toDate) {
-        // Include the entire "to" day
         toDate.setHours(23, 59, 59, 999);
       }
-      // If both are empty, show all
       if (!fromDate && !toDate) return notes;
     }
 
@@ -125,6 +144,7 @@ export default function ChatNotesScreen() {
             try {
               await chatApi.deleteNote(note.id);
               setNotes((prev) => prev.filter((n) => n.id !== note.id));
+              setTotal((prev) => Math.max(0, prev - 1));
             } catch {}
           },
         },
@@ -174,6 +194,8 @@ export default function ChatNotesScreen() {
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 32 }]}
         data={filteredNotes}
         keyExtractor={(item) => String(item.id)}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
         ListHeaderComponent={
           <View style={styles.filterContainer}>
             {/* ── Filter chips row ────────────────────────── */}
@@ -197,6 +219,13 @@ export default function ChatNotesScreen() {
                 );
               })}
             </ScrollView>
+
+            {/* ── Total count ──────────────────────────────── */}
+            {total > 0 && (
+              <Text style={styles.totalText}>
+                {t('chatNotesCount', { count: total })}
+              </Text>
+            )}
 
             {/* ── Custom date inputs ─────────────────────── */}
             {filterMode === 'custom' && (
@@ -238,6 +267,13 @@ export default function ChatNotesScreen() {
               <Ionicons name="bookmark-outline" size={48} color={colors.border} />
               <Text style={styles.emptyTitle}>{t('chatNotesEmpty')}</Text>
               <Text style={styles.emptyDesc}>{t('chatNotesEmptyHint')}</Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
           ) : null
         }
@@ -296,6 +332,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     filterChipTextActive: {
       color: '#ffffff',
+    },
+    totalText: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
     },
     customDateRow: {
       flexDirection: 'row',
@@ -367,6 +407,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.sm,
       color: colors.textPrimary,
       lineHeight: 22,
+    },
+    footerLoader: {
+      paddingVertical: spacing.lg,
+      alignItems: 'center',
     },
   });
 }
