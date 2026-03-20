@@ -150,7 +150,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       elevation: 16,
     },
     cardEmergency: {
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: '#dc2626',
     },
     iconRow: {

@@ -300,7 +300,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.surface,
       justifyContent: 'center',
       alignItems: 'center',
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
     },
     heroCard: {
@@ -347,7 +347,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: radius.xl,
       padding: spacing.lg,
       gap: spacing.md,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
     },
     sectionLabel: {

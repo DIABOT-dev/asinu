@@ -64,7 +64,7 @@ export const SelectInput = ({
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { fontSize: scaledTypography.size.lg }]}>{label}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={colors.textPrimary} />
+                <Ionicons name="close" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,

@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   },
   avatar: {
     borderColor: colors.surface,
-    borderWidth: 2
+    borderWidth: 1
   },
   name: {
     color: colors.surface,

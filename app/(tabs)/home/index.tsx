@@ -3,12 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
+import { RippleRefreshIndicator } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import ChatModal from '../../../src/components/ChatModal';
 import { FloatingActionButton } from '../../../src/components/FloatingActionButton';
@@ -23,7 +24,7 @@ import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useNotificationStore } from '../../../src/stores/notification.store';
-import { brandColors, categoryColors, colors, spacing } from '../../../src/styles';
+import { brandColors, categoryColors, colors, radius, spacing } from '../../../src/styles';
 import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
 import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
 
@@ -83,9 +84,12 @@ export default function HomeScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
-  const handleRefresh = useCallback(() => {
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
     refreshAll();
-    fetchFromBackend();
+    await fetchFromBackend();
+    setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - refreshAll is stable
 
@@ -126,17 +130,10 @@ export default function HomeScreen() {
       {loading ? <StateLoading /> : null}
       {noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
       {!hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
+      <RippleRefreshIndicator refreshing={refreshing || loading} />
       <ScrollView
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
       >
         {/* Hero Banner */}
         <Animated.View entering={FadeInDown.delay(0).duration(500).springify()}>
@@ -229,7 +226,7 @@ export default function HomeScreen() {
           </View>
         </View>
         <View style={styles.cardList}>
-        {missions.map((mission, index) => {
+        {missions.slice(0, 3).map((mission, index) => {
           const ratio = mission.goal > 0 ? mission.progress / mission.goal : 0;
           const isCompleted = mission.status === 'completed';
           return (
@@ -258,17 +255,15 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.missionProgressText}>{mission.progress}/{mission.goal}</Text>
               </View>
-              <Pressable
-                style={[styles.missionBtn, isCompleted && styles.missionBtnCompleted]}
-                onPress={() => router.push('/missions')}
-              >
-                <Text style={[styles.missionBtnText, isCompleted && styles.missionBtnTextCompleted]}>
-                  {isCompleted ? t('completed') : tc('viewDetails')}
-                </Text>
-              </Pressable>
             </View>
           );
         })}
+        {missions.length > 0 && (
+          <Pressable style={styles.seeMoreBtn} onPress={() => router.push('/missions')}>
+            <Text style={styles.seeMoreText}>{tc('viewMore')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+          </Pressable>
+        )}
         </View>
         </Animated.View>
 
@@ -390,7 +385,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   container: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
-    gap: spacing.lg
+    gap: spacing.xl
   },
   notificationContainer: {
     position: 'absolute',
@@ -437,11 +432,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.md,
   },
   metricCardGlucose: {
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: categoryColors.glucose,
   },
   metricCardBP: {
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: categoryColors.bloodPressure,
   },
   metricIconBg: {
@@ -471,7 +466,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   sectionIconBg: {
     width: 32,
@@ -579,6 +575,21 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   missionBtnTextCompleted: {
     color: colors.emeraldDark,
+  },
+  seeMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 10,
+  },
+  seeMoreText: {
+    color: colors.primary,
+    fontWeight: '600',
+    fontSize: typography.size.md,
   },
   treeCard: {
     backgroundColor: '#fff',

@@ -39,7 +39,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
       overflow: 'hidden',
       height: 36,

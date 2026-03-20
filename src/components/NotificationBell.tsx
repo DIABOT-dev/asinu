@@ -183,7 +183,7 @@ export function NotificationBell({
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
-                  <Ionicons name="close" size={24} color={colors.textPrimary} />
+                  <Ionicons name="close" size={24} color={colors.primary} />
                 </TouchableOpacity>
               </View>
             </View>

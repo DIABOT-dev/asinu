@@ -1,7 +1,7 @@
 import { env } from '../../lib/env';
 import { tokenStore } from '../../lib/tokenStore';
 
-export type VoiceLogType = 'glucose' | 'blood_pressure';
+export type VoiceLogType = 'glucose' | 'blood_pressure' | 'insulin';
 
 export type VoiceParsedGlucose = {
   log_type: 'glucose';
@@ -18,10 +18,19 @@ export type VoiceParsedBloodPressure = {
   notes?: string;
 };
 
+export type VoiceParsedInsulin = {
+  log_type: 'insulin';
+  insulin_type?: string;
+  dose_units: number;
+  timing?: 'pre_meal' | 'post_meal' | 'bedtime' | 'correction';
+  injection_site?: string;
+  notes?: string;
+};
+
 export type VoiceParseResult = {
   ok: boolean;
   transcript: string;
-  parsed: VoiceParsedGlucose | VoiceParsedBloodPressure | null;
+  parsed: VoiceParsedGlucose | VoiceParsedBloodPressure | VoiceParsedInsulin | null;
   error?: string;
 };
 

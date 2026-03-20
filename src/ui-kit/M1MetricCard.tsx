@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.lg,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderStyle: 'solid',
     backgroundColor: colors.surface,
     gap: spacing.sm

@@ -213,7 +213,7 @@ export default function InviteScreen() {
           headerShadowVisible: false,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-              <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+              <Ionicons name="chevron-back" size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
         }}
@@ -415,29 +415,19 @@ export default function InviteScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.sendBtn,
-              !canSend && styles.sendBtnDisabled,
-              pressed && canSend && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+              pressed && { opacity: 0.85 },
             ]}
             onPress={handleSend}
-            disabled={!canSend}
+            disabled={!canSend || loading}
           >
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.sendBtnGradient}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="send" size={20} color="#fff" />
-                  <Text style={styles.sendBtnText}>
-                    {t('sendInvite')}
-                  </Text>
-                </>
-              )}
-            </LinearGradient>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <Text style={styles.sendBtnText}>{t('sendInvite')}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+              </>
+            )}
           </Pressable>
 
           <Pressable
@@ -492,7 +482,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       padding: spacing.xl,
       alignItems: 'center',
       overflow: 'hidden',
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.primary + '22',
       gap: spacing.sm,
     },
@@ -521,7 +511,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.surface,
       borderRadius: radius.xl,
       padding: spacing.lg,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
       shadowColor: '#000',
       shadowOpacity: 0.04,
@@ -713,28 +703,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       marginTop: spacing.xs,
     },
     sendBtn: {
-      borderRadius: radius.full,
-      overflow: 'hidden',
-      shadowColor: colors.primary,
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 5 },
-      elevation: 5,
-    },
-    sendBtnDisabled: {
-      shadowOpacity: 0,
-    },
-    sendBtnGradient: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.md + 2,
+      gap: 4,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.primaryLight,
+      borderRadius: 10,
     },
     sendBtnText: {
-      color: '#fff',
+      color: colors.primary,
       fontSize: typography.size.md,
-      fontWeight: '700',
+      fontWeight: '600',
     },
     cancelBtn: {
       alignItems: 'center',

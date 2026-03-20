@@ -10,6 +10,7 @@
   "missionList": "Mission List",
   "statusCompleted": "Completed",
   "statusInProgress": "In Progress",
+  "statusNotStarted": "Not Started",
   "loadingData": "Loading data...",
   "dailyCheckIn": "Daily Check-in",
   "dailyCheckInDesc": "Open app and check your health daily",

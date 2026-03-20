@@ -192,7 +192,7 @@ export default function NotificationTestScreen() {
         headerShadowVisible: false,
         headerLeft: () => (
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <Ionicons name="chevron-back" size={24} color={colors.primary} />
           </TouchableOpacity>
         ),
       }} />
@@ -413,7 +413,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     catCard: {
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
       overflow: 'hidden',
     },

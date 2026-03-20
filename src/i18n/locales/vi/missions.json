@@ -10,6 +10,7 @@
   "missionList": "Danh sách nhiệm vụ",
   "statusCompleted": "Đã hoàn thành",
   "statusInProgress": "Đang thực hiện",
+  "statusNotStarted": "Chưa thực hiện",
   "loadingData": "Đang tải dữ liệu...",
   "dailyCheckIn": "Điểm danh hàng ngày",
   "dailyCheckInDesc": "Mở app và kiểm tra sức khỏe hàng ngày",

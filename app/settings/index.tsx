@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     gap: spacing.md
   },
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     backgroundColor: colors.surfaceMuted,
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center'
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border
   },
   title: {
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     backgroundColor: colors.surfaceMuted,
   },

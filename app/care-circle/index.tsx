@@ -3,7 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { RippleRefreshIndicator } from '../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
@@ -254,6 +255,7 @@ export default function CareCircleScreen() {
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>
+      <RippleRefreshIndicator refreshing={refreshing} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={{
@@ -261,7 +263,6 @@ export default function CareCircleScreen() {
           paddingBottom: spacing.xl,
         }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         {/* Hero Header - Full Width */}
         <LinearGradient
@@ -307,15 +308,8 @@ export default function CareCircleScreen() {
         {/* Invite Button */}
         <View style={styles.section}>
           <Pressable style={styles.inviteButton} onPress={() => router.push('/care-circle/invite')}>
-            <LinearGradient
-              colors={[colors.primary, '#0ea18f']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.inviteButtonGradient}
-            >
-              <Ionicons name="person-add" size={20} color="#fff" />
-              <Text style={styles.inviteButtonText}>{t('inviteNew')}</Text>
-            </LinearGradient>
+            <Text style={styles.inviteButtonText}>{t('inviteNew')}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </Pressable>
         </View>
 
@@ -696,18 +690,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textPrimary,
   },
   inviteButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  inviteButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: 14,
+    gap: 4,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 10,
   },
   inviteButtonText: {
-    color: '#fff',
+    color: colors.primary,
     fontSize: typography.size.md,
     fontWeight: '600',
   },

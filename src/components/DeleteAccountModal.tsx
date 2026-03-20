@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     width: '100%',
     maxWidth: 400,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.danger,
   },
   iconContainer: {
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: 12,
     marginBottom: spacing.lg,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.danger,
   },
   warningItem: {
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
   input: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: 12,
     padding: spacing.md,
@@ -234,12 +234,12 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: colors.surfaceMuted,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
   deleteButton: {
     backgroundColor: colors.danger,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.danger,
   },
   buttonDisabled: {

@@ -141,7 +141,7 @@ export default function DevTestScreen() {
         headerShadowVisible: false,
         headerLeft: () => (
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <Ionicons name="chevron-back" size={24} color={colors.primary} />
           </TouchableOpacity>
         ),
       }} />
@@ -502,7 +502,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.surface,
       borderRadius: radius.xl,
       padding: spacing.lg,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
     },
     cardHeader: {
@@ -584,7 +584,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
       padding: spacing.md,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
     },
     scenarioRow: {

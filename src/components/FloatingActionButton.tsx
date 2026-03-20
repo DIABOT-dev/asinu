@@ -22,18 +22,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.xl,
     right: spacing.xl,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
     borderRadius: radius.xl,
-    shadowColor: '#000',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 5
   },
   label: {
-    color: colors.surface,
+    color: colors.primary,
     fontWeight: '700',
     fontFamily: 'System'
   }

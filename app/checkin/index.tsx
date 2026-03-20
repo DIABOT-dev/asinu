@@ -315,7 +315,7 @@ export default function CheckinScreen() {
         headerShadowVisible: false,
         headerLeft: () => (
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-            <Ionicons name="close" size={24} color={colors.textPrimary} />
+            <Ionicons name="close" size={24} color={colors.primary} />
           </TouchableOpacity>
         ),
       }} />
@@ -1108,7 +1108,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 24,
       height: 24,
       borderRadius: 8,
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1121,7 +1121,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 24,
       height: 24,
       borderRadius: 12,
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1174,7 +1174,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.premium,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: colors.background,
     },
     inputWrap: {
@@ -1311,7 +1311,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.primaryLight,
       borderRadius: radius.xl,
       padding: spacing.lg,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.primary + '28',
     },
     fineIconWrap: {
@@ -1416,7 +1416,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.primaryLight,
       borderRadius: radius.lg,
       padding: spacing.md,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.primary + '22',
     },
     followText: {

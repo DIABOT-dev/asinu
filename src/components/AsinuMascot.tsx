@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E5F1FF',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#C5DFFF'
   },
   bubble: {
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E1E8F0',
     shadowColor: '#000',
     shadowOpacity: 0.05,

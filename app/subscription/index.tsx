@@ -566,7 +566,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.xl,
     },
     freeBadge: { backgroundColor: '#e5e7eb' },
-    premiumBadge: { backgroundColor: colors.premiumLight, borderWidth: 1, borderColor: colors.premium },
+    premiumBadge: { backgroundColor: colors.premiumLight, borderWidth: 1.5, borderColor: colors.premium },
     planBadgeText: { fontSize: typography.size.sm, fontWeight: '700' },
     freeBadgeText: { color: colors.textSecondary },
     premiumBadgeText: { color: colors.premiumDark },

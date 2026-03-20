@@ -2,9 +2,10 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { RippleRefreshIndicator } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
@@ -127,10 +128,12 @@ export default function TreeScreen() {
     }, []) // Empty deps - fetchTree and fetchLogs are stable in Zustand
   );
 
-  const handleRefresh = useCallback(() => {
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
     const controller = new AbortController();
-    fetchTree(controller.signal);
-    fetchLogs(controller.signal);
+    await Promise.all([fetchTree(controller.signal), fetchLogs(controller.signal)]);
+    setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - fetchTree and fetchLogs are stable in Zustand
 
@@ -139,17 +142,10 @@ export default function TreeScreen() {
       {isStale || errorState === 'remote-failed' ? <OfflineBanner /> : null}
       {status === 'loading' && !summary ? <StateLoading /> : null}
       {errorState === 'no-data' && !summary ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
-      <ScrollView 
+      <RippleRefreshIndicator refreshing={refreshing} />
+      <ScrollView
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={status === 'loading'}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
       >
         {status === 'success' && !summary ? <StateEmpty /> : null}
         
@@ -251,15 +247,8 @@ export default function TreeScreen() {
         ) : null}
         
         <Pressable style={styles.quickLogButton} onPress={() => router.push('/logs')}>
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.quickLogGradient}
-          >
-            <Ionicons name="add-circle" size={22} color="#fff" />
-            <Text style={styles.quickLogText}>{tc('quickLog')}</Text>
-          </LinearGradient>
+          <Text style={styles.quickLogText}>{tc('quickLog')}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
         </Pressable>
         
         {/* Biểu đồ 7 ngày với giải thích */}
@@ -326,7 +315,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.primary + '30',
     gap: spacing.sm
   },
@@ -370,7 +359,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 20,
     padding: spacing.lg,
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     gap: spacing.sm
   },
@@ -384,7 +373,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: colors.surface,
     borderRadius: 20,
     padding: spacing.lg,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     justifyContent: 'center',
     gap: spacing.md
@@ -439,7 +428,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexBasis: '47%',
     padding: spacing.lg,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     gap: spacing.xs
   },
   metricHeader: {
@@ -476,7 +465,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   emptyCard: {
     padding: spacing.xl,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -491,26 +480,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   // Quick Log Button
   quickLogButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4
-  },
-  quickLogGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl
+    gap: 4,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 10,
   },
   quickLogText: {
-    fontSize: typography.size.md,
+    color: colors.primary,
     fontWeight: '600',
-    color: '#fff'
+    fontSize: typography.size.md,
   },
   // Chart Section
   chartSection: {
@@ -536,7 +517,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   placeholderCard: {
     padding: spacing.xxl,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: colors.border,
     backgroundColor: colors.surface,

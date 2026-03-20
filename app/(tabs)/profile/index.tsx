@@ -5,7 +5,8 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { RippleRefreshIndicator } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
@@ -81,10 +82,12 @@ export default function ProfileScreen() {
     }, [])
   );
 
-  const handleRefresh = useCallback(() => {
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
     const controller = new AbortController();
-    fetchLogs(controller.signal);
-    fetchMissions(controller.signal);
+    await Promise.all([fetchLogs(controller.signal), fetchMissions(controller.signal)]);
+    setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -236,17 +239,10 @@ export default function ProfileScreen() {
         type={toastType}
         onHide={() => setToastVisible(false)}
       />
-      <ScrollView 
+      <RippleRefreshIndicator refreshing={refreshing} />
+      <ScrollView
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={false}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
       >
         {/* Profile Header Card */}
         <Animated.View entering={FadeInDown.delay(0).duration(500).springify()}>
@@ -810,7 +806,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   planChipPremium: {
     backgroundColor: colors.premiumLight,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.premium,
   },
   planChipText: {
@@ -840,7 +836,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: colors.surface,
     borderRadius: 20,
     padding: spacing.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -893,7 +889,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.lg,
     alignItems: 'center',
     gap: spacing.sm,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -921,7 +917,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: spacing.lg,
-    borderWidth: 2,
+    borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -1022,7 +1018,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: 12,
     paddingVertical: spacing.md,
@@ -1041,7 +1037,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: '#fff'
   },
   input: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: 12,
     padding: spacing.md,
@@ -1066,7 +1062,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flex: 1,
     padding: spacing.md,
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center'
   },

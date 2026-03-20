@@ -1,10 +1,11 @@
 ﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { RippleRefreshIndicator } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
@@ -38,10 +39,12 @@ export default function MissionsScreen() {
     }, []) // Empty deps - fetchMissions is stable in Zustand
   );
 
-  const handleRefresh = useCallback(() => {
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
     const controller = new AbortController();
-    fetchMissions(controller.signal);
-    return () => controller.abort();
+    await fetchMissions(controller.signal);
+    setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - fetchMissions is stable in Zustand
 
@@ -52,17 +55,10 @@ export default function MissionsScreen() {
       {errorState === 'no-data' && missions.length === 0 ? (
         <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
       ) : null}
+      <RippleRefreshIndicator refreshing={refreshing} />
       <ScrollView
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl 
-            refreshing={status === 'loading'} 
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
       >
         {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
         
@@ -161,14 +157,24 @@ export default function MissionsScreen() {
                   </Text>
                 </View>
                 <View style={styles.statusRow}>
-                  <View style={[styles.statusBadge, isCompleted ? styles.statusBadgeCompleted : styles.statusBadgeActive]}>
-                    <Ionicons 
-                      name={isCompleted ? 'checkmark-circle' : 'time'} 
-                      size={14} 
-                      color={isCompleted ? colors.emerald : colors.premium} 
+                  <View style={[
+                    styles.statusBadge,
+                    isCompleted ? styles.statusBadgeCompleted
+                      : mission.progress > 0 ? styles.statusBadgeActive
+                      : styles.statusBadgeNotStarted
+                  ]}>
+                    <Ionicons
+                      name={isCompleted ? 'checkmark-circle' : mission.progress > 0 ? 'time' : 'ellipse-outline'}
+                      size={14}
+                      color={isCompleted ? colors.emerald : mission.progress > 0 ? colors.premium : colors.textSecondary}
                     />
-                    <Text style={[styles.statusText, isCompleted ? styles.statusTextCompleted : styles.statusTextActive]}>
-                      {isCompleted ? t('statusCompleted') : t('statusInProgress')}
+                    <Text style={[
+                      styles.statusText,
+                      isCompleted ? styles.statusTextCompleted
+                        : mission.progress > 0 ? styles.statusTextActive
+                        : styles.statusTextNotStarted
+                    ]}>
+                      {isCompleted ? t('statusCompleted') : mission.progress > 0 ? t('statusInProgress') : t('statusNotStarted')}
                     </Text>
                   </View>
                 </View>
@@ -191,7 +197,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
   container: {
     padding: spacing.lg,
-    gap: spacing.md
+    gap: spacing.xl
   },
   // Header Card
   headerCard: {
@@ -234,7 +240,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.lg,
     alignItems: 'center',
     gap: spacing.xs,
-    borderWidth: 2
+    borderWidth: 1
   },
   statCardActive: {
     backgroundColor: colors.premiumLight,
@@ -259,7 +265,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.primary + '30',
     gap: spacing.sm
   },
@@ -297,7 +303,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: spacing.sm
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   sectionTitle: {
     fontSize: typography.size.md,
@@ -309,7 +316,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: 20,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     gap: spacing.md,
     shadowColor: '#000',
@@ -411,6 +418,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   statusTextCompleted: {
     color: colors.emeraldDark
+  },
+  statusBadgeNotStarted: {
+    backgroundColor: colors.surfaceMuted
+  },
+  statusTextNotStarted: {
+    color: colors.textSecondary
   },
   loadingMore: {
     padding: spacing.lg,

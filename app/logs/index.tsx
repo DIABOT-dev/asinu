@@ -130,7 +130,7 @@ export default function LogsIndexScreen() {
           <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
             <View style={styles.headerRow}>
               <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textPrimary} />
+                <MaterialCommunityIcons name="arrow-left" size={22} color={colors.primary} />
               </TouchableOpacity>
               <View style={styles.headerText}>
                 <Text style={styles.headerTitle}>{t('logTitle')}</Text>
@@ -214,7 +214,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       height: 40,
       borderRadius: 12,
       backgroundColor: colors.surface,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
       justifyContent: 'center',
       alignItems: 'center',

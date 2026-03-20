@@ -24,7 +24,7 @@ const LEVEL_CONFIG: Record<HealthLevel, {
 }> = {
   ok: {
     bg: '#f0fdf4',
-    border: '#22c55e',
+    border: '#22c55e66',
     icon: 'shield-checkmark-outline',
     iconColor: '#16a34a',
     titleKey: 'healthScoreOk',
@@ -32,7 +32,7 @@ const LEVEL_CONFIG: Record<HealthLevel, {
   },
   monitor: {
     bg: '#fffbeb',
-    border: '#f59e0b',
+    border: '#f59e0b66',
     icon: 'eye-outline',
     iconColor: '#d97706',
     titleKey: 'healthScoreMonitor',
@@ -40,7 +40,7 @@ const LEVEL_CONFIG: Record<HealthLevel, {
   },
   danger: {
     bg: '#fef2f2',
-    border: '#ef4444',
+    border: '#ef444466',
     icon: 'alert-circle-outline',
     iconColor: '#dc2626',
     titleKey: 'healthScoreDanger',
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radius.lg,
-    borderWidth: 4,
+    borderWidth: 1.5,
     padding: spacing.md,
     gap: spacing.md,
   },

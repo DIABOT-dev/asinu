@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   },
   assistantBubble: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
   userBubble: {

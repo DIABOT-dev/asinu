@@ -243,7 +243,7 @@ const pickerStyles = StyleSheet.create({
     borderRadius: radius.xl,
     paddingHorizontal: spacing.xxl,
     paddingVertical: spacing.md,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.primary,
   },
   timeText: {
@@ -298,7 +298,7 @@ const pickerStyles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: radius.full,
     backgroundColor: colors.background,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
   cancelText: {
@@ -424,7 +424,7 @@ export default function ReminderConfigScreen() {
           headerShadowVisible: false,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-              <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+              <Ionicons name="chevron-back" size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
         }}
@@ -587,7 +587,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: radius.xl,
       padding: spacing.lg,
       overflow: 'hidden',
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: '#f59e0b22',
       gap: spacing.md,
     },
@@ -604,7 +604,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     toggleCard: {
       flexDirection: 'row', alignItems: 'center',
       backgroundColor: colors.surface, borderRadius: radius.xl,
-      padding: spacing.lg, borderWidth: 1, borderColor: colors.border, gap: spacing.md,
+      padding: spacing.lg, borderWidth: 1.5, borderColor: colors.border, gap: spacing.md,
     },
     toggleIconWrap: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     toggleTitle: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
@@ -615,7 +615,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: radius.xl,
       padding: spacing.lg,
       overflow: 'hidden',
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border,
       gap: spacing.md,
       shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8,
@@ -646,7 +646,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row', alignItems: 'center', gap: 3,
       backgroundColor: colors.background, borderRadius: radius.full,
       paddingHorizontal: spacing.sm + 2, paddingVertical: 3,
-      marginLeft: spacing.sm, borderWidth: 1, borderColor: colors.border,
+      marginLeft: spacing.sm, borderWidth: 1.5, borderColor: colors.border,
     },
     resetBtnText: { fontSize: typography.size.xxs, fontWeight: '600', color: colors.textSecondary },
 
@@ -655,14 +655,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 32, height: 32, borderRadius: 12,
       backgroundColor: 'rgba(255,255,255,0.8)',
       alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: colors.border,
+      borderWidth: 1.5, borderColor: colors.border,
     },
 
     // Info
     infoCard: {
       flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
       backgroundColor: colors.primaryLight, borderRadius: radius.lg,
-      padding: spacing.md, borderWidth: 1, borderColor: colors.primary + '22',
+      padding: spacing.md, borderWidth: 1.5, borderColor: colors.primary + '22',
     },
     infoText: { fontSize: typography.size.xs, color: colors.textSecondary, flex: 1, lineHeight: 18 },
   });
