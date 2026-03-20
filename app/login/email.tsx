@@ -247,7 +247,7 @@ export default function LoginEmailScreen() {
               disabled={!canLogin}
             >
               <LinearGradient
-                colors={canLogin ? [colors.primary, colors.primaryDark] : [colors.border, colors.border]}
+                colors={[colors.primary, colors.primaryDark]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.loginBtnGradient}
@@ -256,8 +256,8 @@ export default function LoginEmailScreen() {
                   <MaterialCommunityIcons name="loading" size={20} color="#fff" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="login" size={20} color={canLogin ? '#fff' : colors.textSecondary} />
-                    <Text style={[styles.loginBtnText, !canLogin && { color: colors.textSecondary }]}>
+                    <MaterialCommunityIcons name="login" size={20} color="#fff" />
+                    <Text style={styles.loginBtnText}>
                       {loginButtonLoading ? tc('processing') : t('login')}
                     </Text>
                   </>

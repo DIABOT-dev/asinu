@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LogEntry, useLogsStore } from '../logs/logs.store';
 import { useMissionsStore } from '../missions/missions.store';
 import { TreeHistoryPoint, useTreeStore } from '../tree/tree.store';
+import { checkinApi } from '../checkin/checkin.api';
 
 // Helper to get value from log entry
 const getLogValue = (log: LogEntry, field: 'value' | 'systolic' | 'diastolic' | 'volume_ml') => {
@@ -28,6 +29,8 @@ const createGlucoseTrendFromLogs = (logs: LogEntry[]): TreeHistoryPoint[] => {
 };
 
 export const useHomeViewModel = () => {
+  const [healthScore, setHealthScore] = useState<{ level: 'ok' | 'monitor' | 'danger'; factors: string[]; checkinDone: boolean } | null>(null);
+
   const logs = useLogsStore((state) => state.recent);
   const fetchLogs = useLogsStore((state) => state.fetchRecent);
   const logsStatus = useLogsStore((state) => state.status);
@@ -52,6 +55,7 @@ export const useHomeViewModel = () => {
     fetchLogs(controller.signal);
     fetchMissions(controller.signal);
     fetchTree(controller.signal);
+    checkinApi.getHealthScore().then(res => setHealthScore(res)).catch(() => {});
     return () => controller.abort();
   }, [fetchLogs, fetchMissions, fetchTree]);
 
@@ -95,6 +99,7 @@ export const useHomeViewModel = () => {
     treeHistory,
     glucoseTrendData,
     quickMetrics,
+    healthScore,
     logsStatus,
     missionsStatus,
     treeStatus,

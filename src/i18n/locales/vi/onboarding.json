@@ -51,6 +51,7 @@
   "bloodABMinus": "AB−",
   "bloodOPlus": "O+",
   "bloodOMinus": "O−",
+  "bloodTypeUnknown": "Không nhớ / Không biết",
 
   "step2Title": "Bạn đang mắc bệnh nào?",
   "step2Subtitle": "Chọn tất cả bệnh bạn đang có (nếu có)",
@@ -69,7 +70,7 @@
   "dailyMedication": "Bạn có dùng thuốc hằng ngày không?",
   "medYes": "Có",
   "medNo": "Không",
-  "medSupplementOnly": "Chỉ TPCN",
+  "medSupplementOnly": "Chỉ thực phẩm chức năng",
 
   "step3Title": "Thói quen của bạn",
   "checkupFreq": "Bạn thường đo sức khoẻ bao lâu một lần?",

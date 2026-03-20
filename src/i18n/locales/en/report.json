@@ -26,5 +26,9 @@
   "dailyHistory": "Daily History",
   "noData": "No check-in data for this period",
   "resolved": "Resolved",
-  "notResolved": "Unresolved"
+  "notResolved": "Unresolved",
+  "habitTitle": "Habits",
+  "responseRate": "Response rate",
+  "avgCheckinTime": "Usual check-in time",
+  "morningLabel": "AM"
 }

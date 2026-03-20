@@ -311,6 +311,42 @@ export default function ReportScreen() {
             </Animated.View>
           )}
 
+          {/* ─── Habit / Engagement ─── */}
+          <Animated.View entering={FadeInDown.delay(450).duration(400)}>
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.cardIconWrap, { backgroundColor: '#e0f2fe' }]}>
+                  <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#0284c7" />
+                </View>
+                <Text style={styles.cardTitle}>{t('habitTitle')}</Text>
+              </View>
+              {/* Response rate */}
+              <View style={styles.statusRow}>
+                <View style={[styles.statusIconWrap, { backgroundColor: '#f0fdf4' }]}>
+                  <MaterialCommunityIcons name="check-circle-outline" size={16} color="#16a34a" />
+                </View>
+                <Text style={styles.statusLabel}>{t('responseRate')}</Text>
+                <View style={styles.statusBarTrack}>
+                  <View style={[styles.statusBarFill, { width: `${report.responseRate ?? 0}%`, backgroundColor: '#16a34a' }]} />
+                </View>
+                <View style={[styles.statusCountBadge, { backgroundColor: '#f0fdf4' }]}>
+                  <Text style={[styles.statusCount, { color: '#16a34a' }]}>{report.responseRate ?? 0}%</Text>
+                </View>
+              </View>
+              {/* Average check-in hour */}
+              <View style={styles.statusRow}>
+                <View style={[styles.statusIconWrap, { backgroundColor: '#eff6ff' }]}>
+                  <MaterialCommunityIcons name="clock-outline" size={16} color="#3b82f6" />
+                </View>
+                <Text style={styles.statusLabel}>{t('avgCheckinTime')}</Text>
+                <View style={{ flex: 1 }} />
+                <View style={[styles.statusCountBadge, { backgroundColor: '#eff6ff' }]}>
+                  <Text style={[styles.statusCount, { color: '#3b82f6' }]}>~{report.avgCheckinHour ?? 8}h {t('morningLabel')}</Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+
           {/* ─── Daily History ─── */}
           <Animated.View entering={FadeInDown.delay(500).duration(400)}>
             <View style={styles.card}>

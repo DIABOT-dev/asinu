@@ -51,6 +51,7 @@
   "bloodABMinus": "AB−",
   "bloodOPlus": "O+",
   "bloodOMinus": "O−",
+  "bloodTypeUnknown": "Don't remember / Don't know",
 
   "step2Title": "What conditions do you have?",
   "step2Subtitle": "Select all conditions you currently have (if any)",

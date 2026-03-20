@@ -99,5 +99,14 @@
   "checkinEveningTired": "Hơi mệt",
   "checkinEveningBad": "Không tốt lắm",
   "healthReport": "Báo cáo sức khoẻ",
-  "healthReportSub": "Xem tổng hợp tuần / tháng"
+  "healthReportSub": "Xem tổng hợp tuần / tháng",
+
+  "healthScoreOk": "Sức khoẻ ổn định",
+  "healthScoreOkSub": "Mọi chỉ số đều bình thường",
+  "healthScoreMonitor": "Cần theo dõi",
+  "healthScoreMonitorSub": "Có một số chỉ số cần chú ý",
+  "healthScoreDanger": "Cần chú ý",
+  "healthScoreDangerSub": "Phát hiện chỉ số bất thường",
+  "healthScoreNoCheckin": "Chưa check-in hôm nay",
+  "checkinFallbackRecommendation": "Hãy nghỉ ngơi và theo dõi thêm. Asinu sẽ hỏi lại sau nhé."
 }

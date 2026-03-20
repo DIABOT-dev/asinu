@@ -62,7 +62,7 @@ const DISEASE_FOOTER = [
 const MEDICATION_OPTIONS = [
   { value: 'Có', labelKey: 'medYes' },
   { value: 'Không', labelKey: 'medNo' },
-  { value: 'Chỉ TPCN', labelKey: 'medSupplementOnly' },
+  { value: 'Chỉ thực phẩm chức năng', labelKey: 'medSupplementOnly' },
 ];
 const CHECKUP_OPTIONS = [
   { value: 'Mỗi ngày', labelKey: 'checkupDaily' },
@@ -715,6 +715,24 @@ function Step1({
             </View>
           ))}
         </View>
+        <Pressable
+          onPress={() => setBloodType(bloodType === 'Không biết' ? '' : 'Không biết')}
+          style={{
+            alignSelf: 'center',
+            paddingVertical: spacing.sm,
+            paddingHorizontal: spacing.md,
+          }}
+        >
+          <Text
+            style={{
+              color: bloodType === 'Không biết' ? colors.primary : colors.textSecondary,
+              fontWeight: bloodType === 'Không biết' ? '600' : '400',
+              textDecorationLine: 'underline',
+            }}
+          >
+            {t('bloodTypeUnknown')}
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -1143,6 +1161,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     threeColRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: spacing.sm,
     },
     threeColItem: {

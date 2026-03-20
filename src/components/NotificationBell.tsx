@@ -13,6 +13,8 @@ import {
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, typography } from '../styles';
 
+export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
+
 export type Notification = {
   id: string;
   title: string;
@@ -20,7 +22,19 @@ export type Notification = {
   data?: any;
   timestamp: Date;
   read: boolean;
+  priority?: NotificationPriority;
 };
+
+const PRIORITY_STYLES: Record<NotificationPriority, { borderColor: string; bgTint: string; iconColor: string }> = {
+  critical: { borderColor: '#dc2626', bgTint: '#fef2f2', iconColor: '#dc2626' },
+  high: { borderColor: '#f59e0b', bgTint: '#fffbeb', iconColor: '#f59e0b' },
+  medium: { borderColor: colors.primary, bgTint: colors.primaryLight, iconColor: colors.primary },
+  low: { borderColor: 'transparent', bgTint: 'transparent', iconColor: colors.textSecondary },
+};
+
+function getPriorityStyle(priority?: NotificationPriority) {
+  return PRIORITY_STYLES[priority || 'low'];
+}
 
 interface NotificationBellProps {
   notifications: Notification[];
@@ -101,9 +115,16 @@ export function NotificationBell({
       return item.read ? colors.textSecondary : colors.primary;
     };
 
+    const priorityStyle = getPriorityStyle(item.priority);
+
     return (
       <TouchableOpacity
-        style={[styles.notificationItem, !item.read && styles.notificationItemUnread]}
+        style={[
+          styles.notificationItem,
+          !item.read && styles.notificationItemUnread,
+          { borderLeftWidth: 3, borderLeftColor: priorityStyle.borderColor },
+          item.priority === 'critical' && { backgroundColor: priorityStyle.bgTint },
+        ]}
         onPress={() => handleNotificationPress(item)}
       >
         <View style={styles.notificationIcon}>

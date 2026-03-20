@@ -39,6 +39,48 @@ import { colors, radius, spacing } from '../../src/styles';
 
 const MAX_TRIAGE_QUESTIONS = 5;
 
+// ─── Local fallback questions (when network itself fails) ────────────────────
+
+const LOCAL_FALLBACK_INITIAL = [
+  { question: 'Mức độ mệt của bạn hiện tại thế nào?', questionEn: 'How severe is your tiredness right now?', options: ['nhẹ', 'trung bình', 'khá nặng', 'rất nặng'], optionsEn: ['mild', 'moderate', 'quite severe', 'very severe'], multiSelect: false },
+  { question: 'Bạn đang gặp triệu chứng nào?', questionEn: 'What symptoms are you experiencing?', options: ['mệt mỏi', 'chóng mặt', 'đau đầu', 'buồn nôn', 'khát nước', 'không rõ'], optionsEn: ['fatigue', 'dizziness', 'headache', 'nausea', 'thirst', 'not sure'], multiSelect: true },
+  { question: 'Tình trạng này bắt đầu từ khi nào?', questionEn: 'When did this start?', options: ['vừa mới', 'vài giờ trước', 'từ sáng', 'từ hôm qua'], optionsEn: ['just now', 'a few hours ago', 'since morning', 'since yesterday'], multiSelect: false },
+  { question: 'Bạn nghĩ điều gì có thể dẫn đến tình trạng này?', questionEn: 'What might have caused this?', options: ['ngủ ít', 'bỏ bữa', 'căng thẳng', 'quên uống thuốc', 'không rõ'], optionsEn: ['lack of sleep', 'skipped meals', 'stress', 'missed medication', 'not sure'], multiSelect: true },
+  { question: 'Bạn đã làm gì để cải thiện chưa?', questionEn: 'Have you done anything to feel better?', options: ['nghỉ ngơi', 'ăn uống', 'uống nước', 'uống thuốc', 'chưa làm gì'], optionsEn: ['rested', 'ate something', 'drank water', 'took medication', 'nothing yet'], multiSelect: true },
+];
+
+const LOCAL_FALLBACK_FOLLOWUP = [
+  { question: 'So với lần trước, bạn cảm thấy thế nào?', questionEn: 'Compared to before, how are you feeling now?', options: ['đã đỡ hơn', 'vẫn như cũ', 'mệt hơn trước'], optionsEn: ['better', 'about the same', 'worse'], multiSelect: false },
+  { question: 'Bạn có thêm triệu chứng nào mới không?', questionEn: 'Do you have any new symptoms?', options: ['đau đầu', 'chóng mặt', 'buồn nôn', 'khó thở', 'không có gì thêm'], optionsEn: ['headache', 'dizziness', 'nausea', 'shortness of breath', 'nothing new'], multiSelect: true },
+  { question: 'Bạn đã nghỉ ngơi hoặc ăn uống gì chưa?', questionEn: 'Have you rested or eaten anything?', options: ['đã nghỉ ngơi', 'đã ăn uống', 'đã uống thuốc', 'chưa làm gì'], optionsEn: ['rested', 'ate something', 'took medication', 'nothing yet'], multiSelect: true },
+];
+
+function getLocalFallbackQuestion(answerCount: number, isFollowUp: boolean, lang: string = 'vi') {
+  const bank = isFollowUp ? LOCAL_FALLBACK_FOLLOWUP : LOCAL_FALLBACK_INITIAL;
+  const isEn = lang === 'en';
+
+  if (answerCount < bank.length) {
+    const q = bank[answerCount];
+    return {
+      isDone: false,
+      question: isEn ? q.questionEn : q.question,
+      options: isEn ? q.optionsEn : q.options,
+      multiSelect: q.multiSelect,
+      _fallback: true,
+    };
+  }
+
+  // All exhausted → done
+  return {
+    isDone: true,
+    summary: isEn ? 'Asinu has recorded your condition.' : 'Asinu đã ghi nhận tình trạng của bạn.',
+    severity: 'medium' as const,
+    recommendation: isEn ? 'Please rest and monitor. Asinu will check back later.' : 'Hãy nghỉ ngơi và theo dõi thêm. Asinu sẽ hỏi lại sau nhé.',
+    needsDoctor: false,
+    _fallback: true,
+  };
+}
+
 // ─── Status options ────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS: Array<{
@@ -90,6 +132,7 @@ export default function CheckinScreen() {
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
+  const { language } = useLanguageStore();
   const params = useLocalSearchParams<{ checkin_id?: string; mode?: string }>();
   const isFollowUp = params.mode === 'followup';
   const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
@@ -187,8 +230,22 @@ export default function CheckinScreen() {
         setCustomAnswer('');
       }
     } catch (err: any) {
-      console.error('[Checkin] fetchNextQuestion error:', err?.message || err);
-      showAlert(t('error', { ns: 'common' }), t('checkinError'));
+      console.error('[Checkin] fetchNextQuestion error, using local fallback:', err?.message || err);
+      const fallback = getLocalFallbackQuestion(prevAnswers.length, isFollowUp, language);
+      if (fallback.isDone) {
+        setTriageSummary({
+          summary: fallback.summary || '',
+          severity: (fallback as any).severity || 'medium',
+          recommendation: (fallback as any).recommendation || '',
+          needsDoctor: (fallback as any).needsDoctor ?? false,
+        });
+        setScreen('done');
+      } else {
+        setCurrentQ(fallback.question || '');
+        setCurrentOpts(fallback.options || []);
+        setCurrentMultiSelect(fallback.multiSelect ?? false);
+        setCustomAnswer('');
+      }
     } finally {
       setLoading(false);
     }

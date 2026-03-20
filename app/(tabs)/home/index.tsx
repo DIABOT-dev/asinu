@@ -8,6 +8,7 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
+import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import ChatModal from '../../../src/components/ChatModal';
 import { FloatingActionButton } from '../../../src/components/FloatingActionButton';
@@ -41,6 +42,7 @@ export default function HomeScreen() {
     treeHistory,
     glucoseTrendData,
     logs,
+    healthScore,
     logsStatus,
     missionsStatus,
     treeStatus,
@@ -176,6 +178,18 @@ export default function HomeScreen() {
           </Pressable>
         </View>
         </Animated.View>
+
+        {/* Health Score Card */}
+        {healthScore && (
+          <Animated.View entering={FadeInDown.delay(160).duration(400).springify()}>
+            <HealthScoreCard
+              level={healthScore.level}
+              factors={healthScore.factors}
+              checkinDone={healthScore.checkinDone}
+            />
+          </Animated.View>
+        )}
+
         <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
         <DailyCheckinCard />
         </Animated.View>

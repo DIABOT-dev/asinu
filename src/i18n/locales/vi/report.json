@@ -26,5 +26,9 @@
   "dailyHistory": "Lịch sử hàng ngày",
   "noData": "Chưa có dữ liệu check-in trong khoảng thời gian này",
   "resolved": "Đã ổn",
-  "notResolved": "Chưa ổn"
+  "notResolved": "Chưa ổn",
+  "habitTitle": "Thói quen",
+  "responseRate": "Tỉ lệ phản hồi",
+  "avgCheckinTime": "Giờ hay check-in",
+  "morningLabel": "sáng"
 }

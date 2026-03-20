@@ -29,7 +29,8 @@ function convertNotification(data: NotificationData): Notification {
     timestamp: new Date(data.created_at),
     read: data.is_read,
     data: data.data,
-    type: data.type as any
+    type: data.type as any,
+    priority: data.priority,
   };
 }
 

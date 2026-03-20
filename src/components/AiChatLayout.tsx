@@ -214,46 +214,46 @@ export const AiChatLayout = ({
           <View style={styles.actionBar}>
             {/* Like */}
             <Pressable
-              style={[styles.actionBtn, fb === 'like' && styles.actionBtnActive]}
+              style={[styles.actionBtn, { width: scaledTypography.size.lg, height: scaledTypography.size.lg, borderRadius: scaledTypography.size.lg / 2 }, fb === 'like' && styles.actionBtnActive]}
               onPress={() => handleFeedback(item, 'like')}
             >
               <Ionicons
                 name={fb === 'like' ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={14}
+                size={scaledTypography.size.xs}
                 color={fb === 'like' ? colors.primary : colors.textSecondary}
               />
             </Pressable>
 
             {/* Dislike */}
             <Pressable
-              style={[styles.actionBtn, fb === 'dislike' && styles.actionBtnActiveBad]}
+              style={[styles.actionBtn, { width: scaledTypography.size.lg, height: scaledTypography.size.lg, borderRadius: scaledTypography.size.lg / 2 }, fb === 'dislike' && styles.actionBtnActiveBad]}
               onPress={() => handleFeedback(item, 'dislike')}
             >
               <Ionicons
                 name={fb === 'dislike' ? 'thumbs-down' : 'thumbs-down-outline'}
-                size={14}
+                size={scaledTypography.size.xs}
                 color={fb === 'dislike' ? colors.danger : colors.textSecondary}
               />
             </Pressable>
 
             {/* Copy */}
-            <Pressable style={styles.actionBtn} onPress={() => handleCopy(item)}>
+            <Pressable style={[styles.actionBtn, { width: scaledTypography.size.lg, height: scaledTypography.size.lg, borderRadius: scaledTypography.size.lg / 2 }]} onPress={() => handleCopy(item)}>
               <Ionicons
                 name={copiedId === item.id ? 'checkmark' : 'copy-outline'}
-                size={14}
+                size={scaledTypography.size.xs}
                 color={copiedId === item.id ? colors.emerald : colors.textSecondary}
               />
             </Pressable>
 
             {/* Note — once noted, show filled bookmark permanently */}
             <Pressable
-              style={[styles.actionBtn, notedIds.has(item.id) && styles.actionBtnNoted]}
+              style={[styles.actionBtn, { width: scaledTypography.size.lg, height: scaledTypography.size.lg, borderRadius: scaledTypography.size.lg / 2 }, notedIds.has(item.id) && styles.actionBtnNoted]}
               onPress={() => handleNote(item)}
               disabled={notedIds.has(item.id)}
             >
               <Ionicons
                 name={notedIds.has(item.id) ? 'bookmark' : 'bookmark-outline'}
-                size={14}
+                size={scaledTypography.size.xs}
                 color={notedIds.has(item.id) ? colors.premium : colors.textSecondary}
               />
             </Pressable>
@@ -292,7 +292,7 @@ export const AiChatLayout = ({
           ) : (
             <MaterialCommunityIcons
               name={isRecording ? 'stop-circle' : 'microphone'}
-              size={26}
+              size={scaledTypography.size.xl}
               color={isRecording ? '#fff' : colors.primary}
             />
           )}
@@ -325,7 +325,7 @@ export const AiChatLayout = ({
           />
           <View style={styles.modalCard}>
             <View style={styles.modalIconWrap}>
-              <MaterialCommunityIcons name="crown" size={36} color={colors.premium} />
+              <MaterialCommunityIcons name="crown" size={Math.round(scaledTypography.size.xl * 1.2)} color={colors.premium} />
             </View>
             <Text style={[styles.modalTitle, { fontSize: scaledTypography.size.md }]}>{t('common:voicePremiumTitle')}</Text>
             <Text style={[styles.modalDesc, { fontSize: scaledTypography.size.sm }]}>{t('common:voicePremiumDesc')}</Text>
@@ -336,7 +336,7 @@ export const AiChatLayout = ({
                 t('common:voicePremiumFeature3'),
               ].map((f) => (
                 <View key={f} style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.emerald} />
+                  <Ionicons name="checkmark-circle" size={scaledTypography.size.sm} color={colors.emerald} />
                   <Text style={[styles.featureText, { fontSize: scaledTypography.size.sm }]}>{f}</Text>
                 </View>
               ))}
@@ -348,7 +348,7 @@ export const AiChatLayout = ({
                 setTimeout(() => onUpgradePress?.(), 350);
               }}
             >
-              <MaterialCommunityIcons name="crown" size={18} color="#fff" />
+              <MaterialCommunityIcons name="crown" size={scaledTypography.size.md} color="#fff" />
               <Text style={[styles.upgradeBtnText, { fontSize: scaledTypography.size.sm }]}>{t('common:voiceUpgrade')}</Text>
             </Pressable>
             <Pressable style={styles.cancelBtn} onPress={() => setShowUpgradeModal(false)}>
@@ -422,9 +422,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },

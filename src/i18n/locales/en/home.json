@@ -99,5 +99,14 @@
   "checkinEveningTired": "A bit tired",
   "checkinEveningBad": "Not so good",
   "healthReport": "Health Report",
-  "healthReportSub": "View weekly / monthly summary"
+  "healthReportSub": "View weekly / monthly summary",
+
+  "healthScoreOk": "Health is stable",
+  "healthScoreOkSub": "All metrics are normal",
+  "healthScoreMonitor": "Needs monitoring",
+  "healthScoreMonitorSub": "Some metrics need attention",
+  "healthScoreDanger": "Needs attention",
+  "healthScoreDangerSub": "Abnormal metrics detected",
+  "healthScoreNoCheckin": "No check-in today",
+  "checkinFallbackRecommendation": "Please rest and monitor. Asinu will check back later."
 }

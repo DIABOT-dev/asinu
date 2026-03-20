@@ -153,6 +153,13 @@ export const careCircleApi = {
     return response;
   },
 
+  // Care Circle Dashboard — caregiver views member's health summary
+  async getMemberHealthSummary(memberId: number) {
+    return apiClient<{ ok: boolean; healthScore: any; report: any }>(
+      `/api/mobile/care-circle/member/${memberId}/health-summary`
+    );
+  },
+
   // Search users for invitation
   async searchUsers(query: string) {
     const response = await apiClient<{ 

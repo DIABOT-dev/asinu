@@ -35,6 +35,8 @@ export interface TriageResult {
   recommendation?: string;
   needsDoctor?: boolean;
   needsFamilyAlert?: boolean;
+  // set when AI was unavailable and fallback questions were used
+  _fallback?: boolean;
 }
 
 export interface HealthReportData {
@@ -55,6 +57,8 @@ export interface HealthReportData {
   alerts: { familyAlerted: number; emergencyTriggered: number };
   trend: 'improving' | 'stable' | 'worsening';
   highlights: Array<{ type: string; value: string | number }>;
+  responseRate?: number;
+  avgCheckinHour?: number;
 }
 
 export const checkinApi = {
@@ -93,6 +97,9 @@ export const checkinApi = {
 
   getReport: (period: 'week' | 'month' = 'week') =>
     apiClient<{ ok: boolean } & HealthReportData>(`/api/mobile/checkin/report?period=${period}`),
+
+  getHealthScore: () =>
+    apiClient<{ ok: boolean; level: 'ok' | 'monitor' | 'danger'; factors: string[]; checkinDone: boolean }>('/api/mobile/health-score'),
 
   resetToday: () =>
     apiClient<{ ok: boolean; message: string }>('/api/mobile/checkin/reset-today', { method: 'POST' }),
