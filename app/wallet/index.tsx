@@ -91,15 +91,9 @@ function RippleLoader({ size = 60, color = '#fff' }: { size?: number; color?: st
     animate(ring3, opacity3, 800);
   }, []);
 
-  const ringStyle = (scale: typeof ring1, opacity: typeof opacity1) =>
-    useAnimatedStyle(() => ({
-      transform: [{ scale: 0.3 + scale.value * 0.7 }],
-      opacity: opacity.value * 0.6,
-    }));
-
-  const s1 = ringStyle(ring1, opacity1);
-  const s2 = ringStyle(ring2, opacity2);
-  const s3 = ringStyle(ring3, opacity3);
+  const s1 = useAnimatedStyle(() => ({ transform: [{ scale: 0.3 + ring1.value * 0.7 }], opacity: opacity1.value * 0.6 }));
+  const s2 = useAnimatedStyle(() => ({ transform: [{ scale: 0.3 + ring2.value * 0.7 }], opacity: opacity2.value * 0.6 }));
+  const s3 = useAnimatedStyle(() => ({ transform: [{ scale: 0.3 + ring3.value * 0.7 }], opacity: opacity3.value * 0.6 }));
 
   const ringBase = { position: 'absolute' as const, width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: color };
 
@@ -147,6 +141,7 @@ export default function WalletScreen() {
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top]);
 
+  const mountedRef = useRef(true);
   const [balance, setBalance] = useState<string>('0');
   const [amount, setAmount] = useState('');
   const [qr, setQr] = useState<QRData | null>(null);
@@ -184,8 +179,6 @@ export default function WalletScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setLoadingBalance(true);
-    setLoadingHistory(true);
     await Promise.all([fetchBalance(), fetchHistory()]);
     setRefreshing(false);
   }, [fetchBalance, fetchHistory]);
@@ -193,7 +186,7 @@ export default function WalletScreen() {
   useEffect(() => {
     fetchBalance();
     fetchHistory();
-    return () => clearTimers();
+    return () => { clearTimers(); mountedRef.current = false; };
   }, []);
 
   const startCountdown = useCallback((expiresAt: string) => {
@@ -211,8 +204,10 @@ export default function WalletScreen() {
     if (pollRef.current) clearInterval(pollRef.current);
     setPollStatus('polling');
     pollRef.current = setInterval(async () => {
+      if (!mountedRef.current) { if (pollRef.current) clearInterval(pollRef.current); return; }
       try {
         const res = await apiClient<HistoryRes>('/api/payments/history?limit=10');
+        if (!mountedRef.current) return;
         if (res.ok) {
           setPayments(res.payments);
           const found = res.payments.find((p) => p.order_code === orderCode);
@@ -268,13 +263,13 @@ export default function WalletScreen() {
             <View style={styles.decorCircle3} />
 
             <View style={styles.headerRow}>
-              <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')} hitSlop={8} style={styles.backBtn}>
+              <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')} hitSlop={12} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={22} color="#fff" />
               </Pressable>
               <Animated.View entering={FadeIn.delay(300).duration(400)}>
                 <ScaledText style={styles.headerTitle}>{t('title')}</ScaledText>
               </Animated.View>
-              <Pressable onPress={onRefresh} hitSlop={8} style={styles.backBtn}>
+              <Pressable onPress={onRefresh} hitSlop={12} style={styles.backBtn}>
                 <Ionicons name="refresh" size={20} color="#fff" />
               </Pressable>
             </View>

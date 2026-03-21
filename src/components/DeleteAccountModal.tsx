@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
@@ -23,6 +23,106 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
   const [inputValue, setInputValue] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: spacing.xl,
+      width: '100%',
+      maxWidth: 400,
+      borderWidth: 1.5,
+      borderColor: colors.danger,
+    },
+    iconContainer: {
+      alignItems: 'center',
+      marginBottom: spacing.lg,
+    },
+    title: {
+      fontWeight: '800',
+      textAlign: 'center',
+      color: colors.danger,
+      marginBottom: spacing.md,
+    },
+    warningText: {
+      fontWeight: '700',
+      textAlign: 'center',
+      color: colors.textPrimary,
+      marginBottom: spacing.lg,
+    },
+    warningBox: {
+      backgroundColor: colors.surfaceMuted,
+      padding: spacing.md,
+      borderRadius: 12,
+      marginBottom: spacing.lg,
+      borderWidth: 1.5,
+      borderColor: colors.danger,
+    },
+    warningItem: {
+      color: colors.textSecondary,
+      marginBottom: spacing.xs,
+      lineHeight: 22,
+    },
+    confirmSection: {
+      marginBottom: spacing.lg,
+    },
+    confirmLabel: {
+      color: colors.textPrimary,
+      marginBottom: spacing.sm,
+      fontWeight: '600',
+    },
+    confirmWord: {
+      fontWeight: '800',
+      color: colors.danger,
+    },
+    input: {
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: 12,
+      padding: spacing.md,
+      backgroundColor: colors.background,
+      color: colors.textPrimary,
+      fontWeight: '600',
+    },
+    buttonContainer: {
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    button: {
+      flex: 1,
+      padding: spacing.md,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
+    },
+    cancelButton: {
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    deleteButton: {
+      backgroundColor: colors.danger,
+      borderWidth: 1.5,
+      borderColor: colors.danger,
+    },
+    buttonDisabled: {
+      opacity: 0.4,
+    },
+    buttonText: {
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    deleteButtonText: {
+      color: '#fff',
+    },
+  }), []);
   const { t } = useTranslation('settings');
   const { t: tc } = useTranslation('common');
 
@@ -152,104 +252,3 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.xl,
-    width: '100%',
-    maxWidth: 400,
-    borderWidth: 1.5,
-    borderColor: colors.danger,
-  },
-  iconContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  title: {
-    fontWeight: '800',
-    textAlign: 'center',
-    color: colors.danger,
-    marginBottom: spacing.md,
-  },
-  warningText: {
-    fontWeight: '700',
-    textAlign: 'center',
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
-  },
-  warningBox: {
-    backgroundColor: colors.surfaceMuted,
-    padding: spacing.md,
-    borderRadius: 12,
-    marginBottom: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.danger,
-  },
-  warningItem: {
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    lineHeight: 22,
-  },
-  confirmSection: {
-    marginBottom: spacing.lg,
-  },
-  confirmLabel: {
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-    fontWeight: '600',
-  },
-  confirmWord: {
-    fontWeight: '800',
-    color: colors.danger,
-  },
-  input: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  button: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  cancelButton: {
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  deleteButton: {
-    backgroundColor: colors.danger,
-    borderWidth: 1.5,
-    borderColor: colors.danger,
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
-  buttonText: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  deleteButtonText: {
-    color: '#fff',
-  },
-});

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { Notification } from '../components/NotificationBell';
 import {
+    deleteAllNotifications,
+    deleteNotification,
     fetchNotifications,
     markAllNotificationsAsRead,
     markNotificationAsRead,
@@ -16,8 +18,8 @@ interface NotificationStore {
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  removeNotification: (notificationId: string) => void;
-  clearAll: () => void;
+  removeNotification: (notificationId: string) => Promise<void>;
+  clearAll: () => Promise<void>;
 }
 
 // Convert backend notification to UI notification
@@ -100,15 +102,20 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     await markAllNotificationsAsRead();
   },
 
-  removeNotification: (notificationId) =>
-    set((state) => {
-      const notifications = state.notifications.filter((n) => n.id !== notificationId);
-      const unreadCount = notifications.filter(n => !n.read).length;
-      
-      return { notifications, unreadCount };
-    }),
+  removeNotification: async (notificationId) => {
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== notificationId),
+      unreadCount: state.notifications.filter((n) => n.id !== notificationId && !n.read).length,
+    }));
+    const numericId = parseInt(notificationId);
+    if (!isNaN(numericId)) {
+      await deleteNotification(numericId).catch(() => {});
+    }
+  },
 
-  clearAll: () =>
-    set({ notifications: [], unreadCount: 0 }),
+  clearAll: async () => {
+    set({ notifications: [], unreadCount: 0 });
+    await deleteAllNotifications().catch(() => {});
+  },
 }));
 

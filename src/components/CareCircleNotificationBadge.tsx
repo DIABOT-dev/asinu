@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuthStore } from '../features/auth/auth.store';
@@ -14,6 +14,44 @@ export function CareCircleNotificationBadge() {
   const [pendingCount, setPendingCount] = useState(0);
   const scaledTypography = useScaledTypography();
   const { t } = useTranslation('common');
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.primary + '10',
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.primary + '30',
+      padding: spacing.md,
+      marginBottom: spacing.md
+    },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center'
+    },
+    badge: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.md
+    },
+    badgeText: {
+      color: colors.surface,
+      fontWeight: '700'
+    },
+    textContainer: {
+      flex: 1
+    },
+    title: {
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: spacing.xs / 2
+    },
+    subtitle: {
+      color: colors.textSecondary
+    }
+  }), []);
 
   useEffect(() => {
     fetchInvitations();
@@ -51,42 +89,3 @@ export function CareCircleNotificationBadge() {
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.primary + '10',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.primary + '30',
-    padding: spacing.md,
-    marginBottom: spacing.md
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  badge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md
-  },
-  badgeText: {
-    color: colors.surface,
-    fontWeight: '700'
-  },
-  textContainer: {
-    flex: 1
-  },
-  title: {
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs / 2
-  },
-  subtitle: {
-    color: colors.textSecondary
-  }
-});

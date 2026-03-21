@@ -1,11 +1,11 @@
 ﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { RippleRefreshIndicator } from '../../../src/components/RippleRefresh';
+import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
@@ -26,17 +26,17 @@ export default function MissionsScreen() {
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const padTop = insets.top + spacing.lg;
 
-  useEffect(() => {
-    // ensure data ready
-  }, []);
-
+  const lastFetchRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
+      const now = Date.now();
+      if (now - lastFetchRef.current < 3000) return;
+      lastFetchRef.current = now;
       const controller = new AbortController();
       fetchMissions(controller.signal);
       return () => controller.abort();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []) // Empty deps - fetchMissions is stable in Zustand
+    }, [])
   );
 
   const [refreshing, setRefreshing] = useState(false);
@@ -50,13 +50,14 @@ export default function MissionsScreen() {
 
   return (
     <Screen>
-      {isStale || errorState === 'remote-failed' ? <OfflineBanner /> : null}
+      {errorState === 'remote-failed' ? <OfflineBanner /> : null}
       {status === 'loading' && missions.length === 0 ? <StateLoading /> : null}
       {errorState === 'no-data' && missions.length === 0 ? (
         <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
       ) : null}
-      <RippleRefreshIndicator refreshing={refreshing} />
-      <ScrollView
+      <RippleRefreshScrollView
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -188,7 +189,7 @@ export default function MissionsScreen() {
             <Text style={styles.loadingText}>{t('loadingData')}</Text>
           </View>
         )}
-      </ScrollView>
+      </RippleRefreshScrollView>
     </Screen>
   );
 }

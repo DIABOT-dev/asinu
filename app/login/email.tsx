@@ -2,7 +2,7 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Image } from 'react-native';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
@@ -12,7 +12,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, {
+  BounceIn, FadeIn, FadeInDown, FadeInRight, FadeInUp,
+  useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, Easing,
+} from 'react-native-reanimated';
 
 const zaloLogo = require('../../src/assets/zalo.png');
 const appLogo = require('../../logo.jpg');
@@ -24,7 +27,42 @@ import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
+import { Toast } from '../../src/components/Toast';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
+
+// Floating decorative orbs
+function FloatingOrbs() {
+  const y1 = useSharedValue(0);
+  const y2 = useSharedValue(0);
+  const y3 = useSharedValue(0);
+
+  React.useEffect(() => {
+    y1.value = withRepeat(withSequence(
+      withTiming(-15, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+      withTiming(15, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+    ), -1, true);
+    y2.value = withRepeat(withSequence(
+      withTiming(12, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+      withTiming(-12, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+    ), -1, true);
+    y3.value = withRepeat(withSequence(
+      withTiming(-10, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
+      withTiming(10, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
+    ), -1, true);
+  }, []);
+
+  const s1 = useAnimatedStyle(() => ({ transform: [{ translateY: y1.value }] }));
+  const s2 = useAnimatedStyle(() => ({ transform: [{ translateY: y2.value }] }));
+  const s3 = useAnimatedStyle(() => ({ transform: [{ translateY: y3.value }] }));
+
+  return (
+    <>
+      <Animated.View style={[{ position: 'absolute', top: '8%', right: -30, width: 120, height: 120, borderRadius: 60, backgroundColor: colors.primary + '12' }, s1]} />
+      <Animated.View style={[{ position: 'absolute', top: '35%', left: -40, width: 100, height: 100, borderRadius: 50, backgroundColor: colors.emerald + '10' }, s2]} />
+      <Animated.View style={[{ position: 'absolute', bottom: '15%', right: -20, width: 80, height: 80, borderRadius: 40, backgroundColor: colors.premium + '10' }, s3]} />
+    </>
+  );
+}
 
 export default function LoginEmailScreen() {
   const [identifier, setIdentifier] = useState('');
@@ -32,6 +70,10 @@ export default function LoginEmailScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [identifierError, setIdentifierError] = useState<string | undefined>();
   const [pendingAction, setPendingAction] = useState<'login' | SocialProvider | null>(null);
+  const navigatingRef = useRef(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const login = useAuthStore((state) => state.login);
   const loginWithSocial = useAuthStore((state) => state.loginWithSocial);
   const loading = useAuthStore((state) => state.loading);
@@ -85,24 +127,48 @@ export default function LoginEmailScreen() {
   };
 
   const handleLogin = async () => {
-    if (!identifier.trim() || !password.trim() || loading) return;
+    if (loading || navigatingRef.current) return;
+    if (!identifier.trim()) {
+      setIdentifierError(t('emailOrPhoneRequired'));
+      return;
+    }
+    if (!password.trim()) {
+      setToastMsg(t('passwordRequired'));
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
     setPendingAction('login');
     try {
       await login({ identifier: identifier.trim(), password: password.trim() });
-      navigateAfterLogin();
+      navigatingRef.current = true;
+      setToastMsg(t('loginSuccess'));
+      setToastType('success');
+      setToastVisible(true);
+      setTimeout(() => navigateAfterLogin(), 800);
     } catch {
+      setToastMsg(t('loginFailed'));
+      setToastType('error');
+      setToastVisible(true);
     } finally {
       setPendingAction(null);
     }
   };
 
   const handleSocialLogin = async (provider: SocialProvider) => {
-    if (loading) return;
+    if (loading || navigatingRef.current) return;
     setPendingAction(provider);
     try {
       await loginWithSocial(provider);
-      navigateAfterLogin();
+      navigatingRef.current = true;
+      setToastMsg(t('loginSuccess'));
+      setToastType('success');
+      setToastVisible(true);
+      setTimeout(() => navigateAfterLogin(), 800);
     } catch {
+      setToastMsg(t('loginFailed'));
+      setToastType('error');
+      setToastVisible(true);
     } finally {
       setPendingAction(null);
     }
@@ -113,10 +179,18 @@ export default function LoginEmailScreen() {
   const canLogin = identifier.trim().length > 0 && password.trim().length > 0 && !isSubmitting;
 
   return (
+    <>
+    <Toast visible={toastVisible} message={toastMsg} type={toastType} onHide={() => setToastVisible(false)} />
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+    <LinearGradient
+      colors={[colors.primaryLight, colors.background, colors.primaryLight]}
+      locations={[0, 0.5, 1]}
+      style={{ flex: 1 }}
+    >
+    <FloatingOrbs />
       {/* Font size modal */}
       {showFontModal && (
         <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
@@ -162,11 +236,17 @@ export default function LoginEmailScreen() {
 
         {/* Logo + Title */}
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.heroSection}>
-          <View style={styles.logoWrap}>
-            <Image source={appLogo} style={styles.logo} resizeMode="cover" />
-          </View>
-          <Text style={styles.title}>{t('login')}</Text>
-          <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
+          <Animated.View entering={FadeInDown.delay(200).duration(600).springify().damping(12)}>
+            <View style={styles.logoWrap}>
+              <Image source={appLogo} style={styles.logo} resizeMode="cover" />
+            </View>
+          </Animated.View>
+          <Animated.View entering={FadeIn.delay(500).duration(400)}>
+            <Text style={styles.title}>{t('login')}</Text>
+          </Animated.View>
+          <Animated.View entering={FadeIn.delay(600).duration(400)}>
+            <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
+          </Animated.View>
         </Animated.View>
 
         {/* Form Card */}
@@ -215,7 +295,7 @@ export default function LoginEmailScreen() {
                 rightElement={
                   <Pressable
                     onPress={() => setShowPassword(!showPassword)}
-                    hitSlop={8}
+                    hitSlop={12}
                     style={styles.eyeBtn}
                   >
                     <Ionicons
@@ -244,7 +324,6 @@ export default function LoginEmailScreen() {
                 pressed && canLogin && { opacity: 0.9, transform: [{ scale: 0.98 }] },
               ]}
               onPress={handleLogin}
-              disabled={!canLogin}
             >
               <LinearGradient
                 colors={[colors.primary, colors.primaryDark]}
@@ -279,7 +358,7 @@ export default function LoginEmailScreen() {
           {(Platform.OS === 'ios'
             ? (['google', 'facebook', 'zalo', 'apple'] as SocialProvider[])
             : (['google', 'facebook', 'zalo'] as SocialProvider[])
-          ).map((provider) => {
+          ).map((provider, idx) => {
             const isButtonLoading = isSubmitting && pendingAction === provider;
             const label =
               provider === 'google' ? t('continueWithGoogle') :
@@ -295,8 +374,8 @@ export default function LoginEmailScreen() {
             }[provider];
 
             return (
+              <Animated.View key={provider} entering={FadeInRight.delay(550 + idx * 80).duration(400).springify()}>
               <Pressable
-                key={provider}
                 onPress={() => handleSocialLogin(provider)}
                 disabled={isSubmitting}
                 style={({ pressed }) => [
@@ -319,6 +398,7 @@ export default function LoginEmailScreen() {
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary + '66'} />
               </Pressable>
+              </Animated.View>
             );
           })}
         </Animated.View>
@@ -340,12 +420,14 @@ export default function LoginEmailScreen() {
         {/* Register */}
         <Animated.View entering={FadeInUp.delay(700).duration(400)} style={styles.registerPrompt}>
           <Text style={styles.registerText}>{t('noAccount')}</Text>
-          <Pressable onPress={() => router.push('/register')}>
+          <Pressable onPress={() => router.replace('/register')}>
             <Text style={styles.registerLink}> {t('register')}</Text>
           </Pressable>
         </Animated.View>
       </ScrollView>
+    </LinearGradient>
     </KeyboardAvoidingView>
+    </>
   );
 }
 

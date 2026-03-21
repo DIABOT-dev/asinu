@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -6,6 +7,19 @@ import { colors, spacing } from '../styles';
 export const OfflineBanner = ({ message }: { message?: string }) => {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      backgroundColor: colors.warning,
+      padding: spacing.md,
+      borderRadius: 12,
+      marginHorizontal: spacing.xl,
+      marginBottom: spacing.md
+    },
+    text: {
+      color: colors.textPrimary,
+      fontWeight: '700'
+    }
+  }), []);
   const displayMessage = message ?? t('offlineBanner');
   return (
     <View style={styles.container}>
@@ -13,17 +27,3 @@ export const OfflineBanner = ({ message }: { message?: string }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.warning,
-    padding: spacing.md,
-    borderRadius: 12,
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.md
-  },
-  text: {
-    color: colors.textPrimary,
-    fontWeight: '700'
-  }
-});

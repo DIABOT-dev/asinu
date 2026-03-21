@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput as RNTextInput, TextInputProps, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
@@ -13,6 +13,38 @@ type Props = TextInputProps & {
 export const TextInput = ({ label, error, style, leftIcon, rightElement, onFocus, onBlur, ...rest }: Props) => {
   const scaledTypography = useScaledTypography();
   const [focused, setFocused] = useState(false);
+  const styles = useMemo(() => StyleSheet.create({
+    outer: {
+      width: '100%',
+      gap: spacing.xs,
+    },
+    label: {
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+    wrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+    },
+    iconLeft: {
+      marginRight: spacing.sm,
+    },
+    iconRight: {
+      marginLeft: spacing.sm,
+    },
+    input: {
+      flex: 1,
+      color: colors.textPrimary,
+      paddingVertical: 0,
+    },
+    error: {
+      color: colors.danger,
+    },
+  }), []);
 
   const borderColor = error ? colors.danger : focused ? colors.primary : colors.border;
   const bgColor = error ? '#fff5f5' : focused ? colors.primaryLight : colors.surface;
@@ -39,36 +71,3 @@ export const TextInput = ({ label, error, style, leftIcon, rightElement, onFocus
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  outer: {
-    width: '100%',
-    gap: spacing.xs,
-  },
-  label: {
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  wrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  iconLeft: {
-    marginRight: spacing.sm,
-  },
-  iconRight: {
-    marginLeft: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  error: {
-    color: colors.danger,
-  },
-});

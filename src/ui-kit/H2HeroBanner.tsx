@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
@@ -14,6 +15,50 @@ type Props = {
 
 export const H2HeroBanner = ({ name, relationship, summary, action, supporters = [] }: Props) => {
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      padding: spacing.xl,
+      borderRadius: radius.xl,
+      gap: spacing.md
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md
+    },
+    avatar: {
+      borderColor: colors.surface,
+      borderWidth: 1
+    },
+    name: {
+      color: colors.surface,
+      fontWeight: '800'
+    },
+    meta: {
+      color: colors.surface,
+      opacity: 0.85
+    },
+    summary: {
+      color: colors.surface,
+      lineHeight: 22
+    },
+    supporters: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm
+    },
+    supportTag: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.lg,
+      backgroundColor: 'rgba(255,255,255,0.2)'
+    },
+    supportText: {
+      color: colors.surface,
+      fontWeight: '700'
+    }
+  }), []);
+
   return (
     <LinearGradient
       colors={[colors.primary + 'E0', colors.primary + 'F0']}
@@ -42,47 +87,3 @@ export const H2HeroBanner = ({ name, relationship, summary, action, supporters =
     </LinearGradient>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    padding: spacing.xl,
-    borderRadius: radius.xl,
-    gap: spacing.md
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md
-  },
-  avatar: {
-    borderColor: colors.surface,
-    borderWidth: 1
-  },
-  name: {
-    color: colors.surface,
-    fontWeight: '800'
-  },
-  meta: {
-    color: colors.surface,
-    opacity: 0.85
-  },
-  summary: {
-    color: colors.surface,
-    lineHeight: 22
-  },
-  supporters: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm
-  },
-  supportTag: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(255,255,255,0.2)'
-  },
-  supportText: {
-    color: colors.surface,
-    fontWeight: '700'
-  }
-});

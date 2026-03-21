@@ -1,30 +1,37 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Modal, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 
 type ToastType = 'success' | 'error';
-type ToastPosition = 'top' | 'bottom' | 'center';
 
 type ToastProps = {
   visible: boolean;
   message: string;
   type?: ToastType;
   duration?: number;
-  position?: ToastPosition;
   onHide?: () => void;
 };
 
-const ICON: Record<ToastType, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
-  success: 'check-circle',
-  error: 'alert-circle',
-};
-
-const ACCENT: Record<ToastType, string> = {
-  success: colors.primary,
-  error: colors.danger,
+const CONFIG: Record<ToastType, {
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  bg: string;
+  iconBg: string;
+  iconColor: string;
+}> = {
+  success: {
+    icon: 'check-circle',
+    bg: colors.primary,
+    iconBg: 'rgba(255,255,255,0.2)',
+    iconColor: '#fff',
+  },
+  error: {
+    icon: 'alert-circle',
+    bg: colors.danger,
+    iconBg: 'rgba(255,255,255,0.2)',
+    iconColor: '#fff',
+  },
 };
 
 export const Toast = ({
@@ -32,109 +39,91 @@ export const Toast = ({
   message,
   type = 'success',
   duration = 2000,
-  position = 'top',
   onHide,
 }: ToastProps) => {
   const scaledTypography = useScaledTypography();
-  const [isHidden, setIsHidden] = useState(!visible);
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    card: {
+      alignItems: 'center',
+      paddingVertical: spacing.xxl,
+      paddingHorizontal: spacing.xl,
+      borderRadius: radius.xxl,
+      minWidth: 200,
+      maxWidth: 280,
+      gap: spacing.md,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.3,
+      shadowRadius: 20,
+      elevation: 15,
+    },
+    iconWrap: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    message: {
+      color: '#fff',
+      fontWeight: '700',
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+  }), []);
+  const [show, setShow] = useState(false);
+  const scale = useRef(new Animated.Value(0.6)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
-  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible) {
-      setIsHidden(false);
+      setShow(true);
+      scale.setValue(0.6);
       opacity.setValue(0);
-      translateY.setValue(position === 'top' ? -20 : 20);
 
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(translateY, { toValue: 0, friction: 9, tension: 60, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 6, tension: 80, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
 
       const timer = setTimeout(() => {
         Animated.parallel([
-          Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-          Animated.timing(translateY, {
-            toValue: position === 'top' ? -16 : 16,
-            duration: 220,
-            useNativeDriver: true,
-          }),
+          Animated.timing(scale, { toValue: 0.8, duration: 200, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
         ]).start(() => {
-          setIsHidden(true);
+          setShow(false);
           onHide?.();
         });
       }, duration);
 
       return () => clearTimeout(timer);
     } else {
-      setIsHidden(true);
+      setShow(false);
     }
   }, [visible, duration, onHide]);
 
-  if (isHidden) return null;
+  if (!show) return null;
 
-  const getPositionStyle = () => {
-    const screenHeight = Dimensions.get('window').height;
-    if (position === 'center') {
-      return { top: screenHeight / 2 - 36, left: spacing.lg, right: spacing.lg };
-    }
-    if (position === 'bottom') {
-      return { bottom: insets.bottom + spacing.xl, left: spacing.lg, right: spacing.lg };
-    }
-    // top: positioned at 1/4 of screen (between top edge and center)
-    return { top: screenHeight * 0.25 - 36, left: spacing.lg, right: spacing.lg };
-  };
-
-  const accent = ACCENT[type];
+  const cfg = CONFIG[type];
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        getPositionStyle(),
-        { opacity, transform: [{ translateY }] },
-      ]}
-    >
-      <View style={[styles.iconWrap, { backgroundColor: accent + '28' }]}>
-        <MaterialCommunityIcons name={ICON[type]} size={20} color={accent} />
+    <Modal visible={show} transparent animationType="none">
+      <View style={styles.overlay}>
+        <Animated.View style={[styles.card, { backgroundColor: cfg.bg, opacity, transform: [{ scale }] }]}>
+          <View style={[styles.iconWrap, { backgroundColor: cfg.iconBg }]}>
+            <MaterialCommunityIcons name={cfg.icon} size={36} color={cfg.iconColor} />
+          </View>
+          <Text style={[styles.message, { fontSize: scaledTypography.size.md }]}>
+            {message}
+          </Text>
+        </Animated.View>
       </View>
-      <Text style={[styles.message, { fontSize: scaledTypography.size.sm }]} numberOfLines={2}>
-        {message}
-      </Text>
-    </Animated.View>
+    </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderRadius: radius.xl,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 14,
-    zIndex: 9999,
-  },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  message: {
-    flex: 1,
-    color: '#fff',
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-});

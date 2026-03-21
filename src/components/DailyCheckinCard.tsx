@@ -7,7 +7,7 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
@@ -19,31 +19,37 @@ import { colors, radius, spacing } from '../styles';
 function getCheckinGreeting(t: (key: string) => string): string {
   const hour = new Date().getHours();
   if (hour < 12) return t('checkinGreetingMorning');
-  if (hour < 18) return t('checkinGreetingAfternoon');
+  if (hour < 14) return t('checkinGreetingAfternoon');
+  if (hour < 18) return t('checkinGreetingEvening2');
   return t('checkinGreetingEvening');
 }
 
-export function DailyCheckinCard() {
+// Cache session across hot reloads to prevent flash
+let _cachedSession: CheckinSession | null | undefined = undefined;
+
+export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   const router = useRouter();
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
-  const [session, setSession] = useState<CheckinSession | null | undefined>(undefined);
+  const [session, setSession] = useState<CheckinSession | null | undefined>(_cachedSession);
 
   useFocusEffect(
     useCallback(() => {
       checkinApi.getToday()
-        .then(res => setSession(res.session))
-        .catch(() => setSession(null));
+        .then(res => {
+          _cachedSession = res.session;
+          setSession(res.session);
+        })
+        .catch(() => {
+          _cachedSession = null;
+          setSession(null);
+        });
     }, [])
   );
 
   if (session === undefined) {
-    return (
-      <View style={styles.card}>
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
+    return null; // Don't show loading spinner, wait silently
   }
 
   // No session today → initial morning check-in
@@ -70,8 +76,12 @@ export function DailyCheckinCard() {
   // Session resolved → nothing to show
   if (session.resolved_at) return null;
 
+  // Triage not completed (user exited mid-flow) → show card to continue
+  const triageIncomplete = session.initial_status !== 'fine' && !session.triage_completed_at;
+
   // next_checkin_at in future → user already responded, hide card
-  if (session.next_checkin_at && new Date(session.next_checkin_at) > new Date()) {
+  // BUT if triage is incomplete, still show card
+  if (!triageIncomplete && session.next_checkin_at && new Date(session.next_checkin_at) > new Date()) {
     return null;
   }
 
@@ -97,7 +107,7 @@ export function DailyCheckinCard() {
       </View>
     </Pressable>
   );
-}
+});
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({

@@ -1,7 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+let _Audio: typeof import('expo-av').Audio | null = null;
+async function getAudio() {
+  if (!_Audio) { _Audio = (await import('expo-av')).Audio; }
+  return _Audio;
+}
 import { Clipboard } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -47,6 +51,190 @@ export const AiChatLayout = ({
   onUpgradePress,
 }: AiChatLayoutProps) => {
   const { t } = useTranslation(['chat', 'common']);
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    list: {
+      padding: spacing.xl,
+      gap: spacing.md,
+    },
+    messageRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: spacing.sm,
+      marginBottom: 2,
+    },
+    messageRowReverse: {
+      flexDirection: 'row-reverse',
+    },
+    avatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 12,
+    },
+    bubble: {
+      padding: spacing.md,
+      borderRadius: 24,
+      maxWidth: '80%',
+      gap: spacing.xs,
+    },
+    assistantBubble: {
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    userBubble: {
+      backgroundColor: colors.primary,
+    },
+    bubbleText: {
+      color: colors.textPrimary,
+      lineHeight: 24,
+    },
+    userText: {
+      color: colors.surface,
+    },
+    timestamp: {
+      color: colors.textSecondary,
+    },
+    typing: {
+      textAlign: 'center',
+      color: colors.textSecondary,
+      marginBottom: spacing.md,
+    },
+    actionBar: {
+      flexDirection: 'row',
+      marginLeft: 40,
+      marginBottom: spacing.md,
+      gap: 4,
+    },
+    actionBtn: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionBtnActive: {
+      backgroundColor: colors.primaryLight,
+    },
+    actionBtnActiveBad: {
+      backgroundColor: '#fef2f2',
+    },
+    actionBtnNoted: {
+      backgroundColor: colors.premiumLight,
+    },
+    composer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.md,
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+    },
+    input: {
+      flex: 1,
+      padding: spacing.md,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceMuted,
+      color: colors.textPrimary,
+      lineHeight: 24,
+    },
+    sendButton: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: 16,
+      backgroundColor: colors.primary,
+    },
+    sendLabel: {
+      color: colors.surface,
+      fontWeight: '600',
+      lineHeight: 24,
+    },
+    micButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    micButtonActive: {
+      backgroundColor: colors.danger,
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    modalCard: {
+      width: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: 24,
+      padding: spacing.xxl,
+      alignItems: 'center',
+      gap: spacing.md,
+      shadowColor: '#000',
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 12,
+    },
+    modalIconWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.premiumLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    modalTitle: {
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    modalDesc: {
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 21,
+    },
+    featureList: {
+      alignSelf: 'stretch',
+      gap: spacing.sm,
+      marginVertical: spacing.xs,
+    },
+    featureRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    featureText: {
+      color: colors.textPrimary,
+      flex: 1,
+    },
+    upgradeBtn: {
+      backgroundColor: colors.premium,
+      borderRadius: radius.full,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xxl,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      alignSelf: 'stretch',
+      justifyContent: 'center',
+      marginTop: spacing.sm,
+    },
+    upgradeBtnText: {
+      color: '#fff',
+      fontWeight: '700',
+    },
+    cancelBtn: {
+      paddingVertical: spacing.sm,
+    },
+    cancelBtnText: {
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+  }), []);
   const [draft, setDraft] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -140,6 +328,7 @@ export const AiChatLayout = ({
           try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
           recordingRef.current = null;
         }
+        const Audio = await getAudio();
         const { granted } = await Audio.requestPermissionsAsync();
         if (!granted) return;
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -360,194 +549,3 @@ export const AiChatLayout = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  list: {
-    padding: spacing.xl,
-    gap: spacing.md,
-  },
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-    marginBottom: 2,
-  },
-  messageRowReverse: {
-    flexDirection: 'row-reverse',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
-  },
-  bubble: {
-    padding: spacing.md,
-    borderRadius: 24,
-    maxWidth: '80%',
-    gap: spacing.xs,
-  },
-  assistantBubble: {
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  userBubble: {
-    backgroundColor: colors.primary,
-  },
-  bubbleText: {
-    color: colors.textPrimary,
-    lineHeight: 24,
-  },
-  userText: {
-    color: colors.surface,
-  },
-  timestamp: {
-    color: colors.textSecondary,
-  },
-  typing: {
-    textAlign: 'center',
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-  },
-
-  // ─── Action bar (like/dislike/copy/note) ─────────
-  actionBar: {
-    flexDirection: 'row',
-    marginLeft: 40, // offset past avatar
-    marginBottom: spacing.md,
-    gap: 4,
-  },
-  actionBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionBtnActive: {
-    backgroundColor: colors.primaryLight,
-  },
-  actionBtnActiveBad: {
-    backgroundColor: '#fef2f2',
-  },
-  actionBtnNoted: {
-    backgroundColor: colors.premiumLight,
-  },
-
-  // ─── Composer ─────────────────────────────────────
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  input: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceMuted,
-    color: colors.textPrimary,
-    lineHeight: 24,
-  },
-  sendButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-  },
-  sendLabel: {
-    color: colors.surface,
-    fontWeight: '600',
-    lineHeight: 24,
-  },
-  micButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  micButtonActive: {
-    backgroundColor: colors.danger,
-  },
-
-  // ─── Modal Premium ────────────────────────────────
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: spacing.xxl,
-    alignItems: 'center',
-    gap: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
-  },
-  modalIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.premiumLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  modalTitle: {
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  modalDesc: {
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 21,
-  },
-  featureList: {
-    alignSelf: 'stretch',
-    gap: spacing.sm,
-    marginVertical: spacing.xs,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  featureText: {
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  upgradeBtn: {
-    backgroundColor: colors.premium,
-    borderRadius: radius.full,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xxl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-  },
-  upgradeBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  cancelBtn: {
-    paddingVertical: spacing.sm,
-  },
-  cancelBtnText: {
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-});

@@ -1,80 +1,72 @@
 import { Tabs } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet } from 'react-native';
+import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
 const homeIcon = require('../../src/assets/tab-icons/home.png');
 const missionIcon = require('../../src/assets/tab-icons/mission.png');
 const profileIcon = require('../../src/assets/tab-icons/profile.png');
 
+function TabIcon({ source, focused }: { source: any; focused: boolean }) {
+  const { colors } = useThemeColors();
+  const scale = useSharedValue(focused ? 1 : 0.85);
+  const opacity = useSharedValue(focused ? 1 : 0.45);
+
+  useEffect(() => {
+    scale.value = withTiming(focused ? 1.1 : 0.85, { duration: 250 });
+    opacity.value = withTiming(focused ? 1 : 0.45, { duration: 200 });
+  }, [focused]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <Image
+        source={source}
+        style={[styles.icon, { tintColor: focused ? colors.primary : undefined }]}
+        resizeMode="contain"
+      />
+    </Animated.View>
+  );
+}
+
 export default function TabsLayout() {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
 
   const screenOptions = useMemo(
     () => ({
       headerShown: false,
+      lazy: true,
       tabBarActiveTintColor: colors.primary,
+      tabBarInactiveTintColor: colors.textSecondary,
       tabBarHideOnKeyboard: true,
       tabBarLabelStyle: [styles.tabBarLabel, { fontSize: scaledTypography.size.xs }],
       tabBarStyle: {
         ...styles.tabBar,
+        backgroundColor: colors.surface,
         height: 60 + bottom,
         paddingBottom: bottom > 0 ? bottom : 10,
         paddingTop: 14,
       },
     }),
-    [scaledTypography, bottom]
+    [scaledTypography, bottom, colors]
   );
 
-  const renderHomeIcon = useCallback(
-    ({ focused }: { focused: boolean }) => (
-      <Image
-        source={homeIcon}
-        style={[styles.icon, { opacity: focused ? 1 : 0.45, tintColor: focused ? colors.primary : undefined }]}
-        resizeMode="contain"
-      />
-    ),
-    []
-  );
-
-  const renderMissionIcon = useCallback(
-    ({ focused }: { focused: boolean }) => (
-      <Image
-        source={missionIcon}
-        style={[styles.icon, { opacity: focused ? 1 : 0.45, tintColor: focused ? colors.primary : undefined }]}
-        resizeMode="contain"
-      />
-    ),
-    []
-  );
-
-  const renderTreeIcon = useCallback(
-    ({ focused }: { focused: boolean }) => (
-      <Image
-        source={healthcheckIcon}
-        style={[styles.icon, { opacity: focused ? 1 : 0.45, tintColor: focused ? colors.primary : undefined }]}
-        resizeMode="contain"
-      />
-    ),
-    []
-  );
-
-  const renderProfileIcon = useCallback(
-    ({ focused }: { focused: boolean }) => (
-      <Image
-        source={profileIcon}
-        style={[styles.icon, { opacity: focused ? 1 : 0.45, tintColor: focused ? colors.primary : undefined }]}
-        resizeMode="contain"
-      />
-    ),
-    []
-  );
+  const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIcon} focused={focused} />, []);
+  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIcon} focused={focused} />, []);
+  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={healthcheckIcon} focused={focused} />, []);
+  const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIcon} focused={focused} />, []);
 
   return (
     <Tabs screenOptions={screenOptions}>
@@ -124,7 +116,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingTop: 14,
-    backgroundColor: colors.surface,
     borderTopWidth: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

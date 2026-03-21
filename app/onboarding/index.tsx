@@ -351,7 +351,7 @@ export default function OnboardingScreen() {
           height_cm: parseFloat(height),
           weight_kg: parseFloat(weight),
           phone: phone.trim(),
-          blood_type: bloodType || null,
+          blood_type: BLOOD_TYPE_OPTIONS.some(o => o.value === bloodType) ? bloodType : null,
           medical_conditions: medicalConditions,
           daily_medication: medication,
           checkup_freq: checkupFreq,

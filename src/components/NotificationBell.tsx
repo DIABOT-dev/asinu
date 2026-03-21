@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { AppAlertModal, useAppAlert } from './AppAlertModal';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, typography } from '../styles';
 
@@ -42,6 +43,8 @@ interface NotificationBellProps {
   onNotificationPress?: (notification: Notification) => void;
   onMarkAsRead?: (notificationId: string) => void;
   onMarkAllAsRead?: () => void;
+  onDelete?: (notificationId: string) => void;
+  onDeleteAll?: () => void;
   loading?: boolean;
 }
 
@@ -51,12 +54,176 @@ export function NotificationBell({
   onNotificationPress,
   onMarkAsRead,
   onMarkAllAsRead,
+  onDelete,
+  onDeleteAll,
   loading = false
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    bellButton: {
+      position: 'relative',
+      padding: spacing.sm,
+    },
+    badge: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      backgroundColor: colors.danger,
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 4,
+    },
+    badgeText: {
+      color: colors.surface,
+      fontSize: typography.size.xxs,
+      fontWeight: '700',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '80%',
+      minHeight: '50%',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: typography.size.xl,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    markAllButton: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    markAllText: {
+      fontSize: typography.size.sm,
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    closeButton: {
+      padding: spacing.xs,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: spacing.xl * 2,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: spacing.xl * 2,
+    },
+    emptyText: {
+      fontSize: typography.size.md,
+      color: colors.textSecondary,
+      marginTop: spacing.md,
+    },
+    listContent: {
+      paddingVertical: spacing.sm,
+    },
+    notificationItem: {
+      flexDirection: 'row',
+      padding: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    notificationItemUnread: {
+      backgroundColor: colors.primary + '08',
+    },
+    notificationIcon: {
+      marginRight: spacing.md,
+      paddingTop: spacing.xs,
+    },
+    notificationContent: {
+      flex: 1,
+    },
+    notificationTitle: {
+      fontSize: typography.size.md,
+      fontWeight: '500',
+      color: colors.textPrimary,
+      marginBottom: spacing.xs / 2,
+    },
+    notificationTitleUnread: {
+      fontWeight: '700',
+    },
+    notificationBody: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      marginBottom: spacing.xs,
+    },
+    notificationTime: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+    },
+    itemActions: {
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingTop: spacing.xs,
+    },
+    unreadDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.primary,
+    },
+    deleteItemBtn: {
+      padding: 4,
+    },
+    deleteAllButton: {
+      padding: spacing.xs,
+    },
+  }), []);
   const { t } = useTranslation('common');
   const { t: tLogs } = useTranslation('logs');
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
+
+  const handleDeleteOne = (id: string) => {
+    showAlert(
+      t('deleteNotifTitle'),
+      t('deleteNotifMsg'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('delete'), style: 'destructive', onPress: () => onDelete?.(id) },
+      ]
+    );
+  };
+
+  const handleDeleteAll = () => {
+    showAlert(
+      t('deleteAllNotifTitle'),
+      t('deleteAllNotifMsg'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('delete'), style: 'destructive', onPress: () => onDeleteAll?.() },
+      ]
+    );
+  };
 
   const handleNotificationPress = (notification: Notification) => {
     if (!notification.read && onMarkAsRead) {
@@ -145,13 +312,25 @@ export function NotificationBell({
             {formatTimestamp(item.timestamp)}
           </Text>
         </View>
-        {!item.read && <View style={styles.unreadDot} />}
+        <View style={styles.itemActions}>
+          {!item.read && <View style={styles.unreadDot} />}
+          {onDelete && (
+            <TouchableOpacity
+              onPress={() => handleDeleteOne(item.id)}
+              hitSlop={12}
+              style={styles.deleteItemBtn}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            </TouchableOpacity>
+          )}
+        </View>
       </TouchableOpacity>
     );
   };
 
   return (
     <>
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <TouchableOpacity
         style={styles.bellButton}
         onPress={() => setIsOpen(true)}
@@ -179,7 +358,12 @@ export function NotificationBell({
               <View style={styles.headerActions}>
                 {unreadCount > 0 && onMarkAllAsRead && (
                   <TouchableOpacity onPress={onMarkAllAsRead} style={styles.markAllButton}>
-                    <Text style={[styles.markAllText, { fontSize: scaledTypography.size.sm }]}>{tLogs('markAsRead')}</Text>
+                    <Ionicons name="checkmark-done" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
+                {notifications.length > 0 && onDeleteAll && (
+                  <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllButton}>
+                    <Ionicons name="trash-outline" size={16} color={colors.danger} />
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
@@ -215,134 +399,3 @@ export function NotificationBell({
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  bellButton: {
-    position: 'relative',
-    padding: spacing.sm,
-  },
-  badge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: colors.danger,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: colors.surface,
-    fontSize: typography.size.xxs,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    minHeight: '50%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: {
-    fontSize: typography.size.xl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  markAllButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  markAllText: {
-    fontSize: typography.size.sm,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  closeButton: {
-    padding: spacing.xs,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
-  },
-  emptyText: {
-    fontSize: typography.size.md,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
-  listContent: {
-    paddingVertical: spacing.sm,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    padding: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  notificationItemUnread: {
-    backgroundColor: colors.primary + '08',
-  },
-  notificationIcon: {
-    marginRight: spacing.md,
-    paddingTop: spacing.xs,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    fontSize: typography.size.md,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs / 2,
-  },
-  notificationTitleUnread: {
-    fontWeight: '700',
-  },
-  notificationBody: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  notificationTime: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-    marginLeft: spacing.sm,
-    marginTop: spacing.sm,
-  },
-});

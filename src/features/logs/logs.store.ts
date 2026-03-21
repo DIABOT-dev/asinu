@@ -5,6 +5,17 @@ import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
 import { logError } from '../../lib/logger';
 import { logActivity } from '../wellness/api/wellness.api';
+
+// Debounced fetchRecent - prevents multiple concurrent calls
+let _fetchRecentTimer: ReturnType<typeof setTimeout> | null = null;
+let _fetchRecentAbort: AbortController | null = null;
+function debouncedFetchRecent(fetchFn: (signal?: AbortSignal) => Promise<void>, delay = 500) {
+  if (_fetchRecentTimer) clearTimeout(_fetchRecentTimer);
+  if (_fetchRecentAbort) _fetchRecentAbort.abort();
+  _fetchRecentAbort = new AbortController();
+  const signal = _fetchRecentAbort.signal;
+  _fetchRecentTimer = setTimeout(() => { fetchFn(signal).catch(() => {}); }, delay);
+}
 import {
     BloodPressureLogPayload,
     GlucoseLogPayload,
@@ -159,7 +170,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       await logsApi.createGlucose(payload);
       // Log wellness activity
       logActivity('HEALTH_MEASUREMENT', { type: 'glucose', value: payload.value }).catch(() => {});
-      await get().fetchRecent();
+      debouncedFetchRecent((s) => get().fetchRecent(s));
       return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
@@ -182,7 +193,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       await logsApi.createBloodPressure(payload);
       // Log wellness activity
       logActivity('HEALTH_MEASUREMENT', { type: 'blood_pressure', systolic: payload.systolic, diastolic: payload.diastolic }).catch(() => {});
-      await get().fetchRecent();
+      debouncedFetchRecent((s) => get().fetchRecent(s));
       return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
@@ -203,7 +214,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ recent: [optimistic, ...get().recent] });
     try {
       await logsApi.createMedication(payload);
-      await get().fetchRecent();
+      debouncedFetchRecent((s) => get().fetchRecent(s));
       return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
@@ -225,7 +236,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       await logsApi.createWeight(payload);
       // Log wellness activity
       logActivity('HEALTH_MEASUREMENT', { type: 'weight', value: payload.weight_kg }).catch(() => {});
-      await get().fetchRecent();
+      debouncedFetchRecent((s) => get().fetchRecent(s));
       return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
@@ -246,7 +257,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
       await logsApi.createWater(payload);
       // Log wellness activity
       logActivity('HEALTH_MEASUREMENT', { type: 'water', volume_ml: payload.volume_ml }).catch(() => {});
-      await get().fetchRecent();
+      debouncedFetchRecent((s) => get().fetchRecent(s));
       return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
@@ -269,7 +280,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ recent: [optimistic, ...get().recent] });
     try {
       await logsApi.createMeal(payload);
-      await get().fetchRecent();
+      debouncedFetchRecent((s) => get().fetchRecent(s));
       return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
@@ -290,7 +301,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ recent: [optimistic, ...get().recent] });
     try {
       await logsApi.createInsulin(payload);
-      await get().fetchRecent();
+      debouncedFetchRecent((s) => get().fetchRecent(s));
       return optimistic;
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });

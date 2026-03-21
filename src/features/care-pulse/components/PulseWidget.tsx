@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
@@ -12,6 +13,7 @@ type Props = {
 
 export const PulseWidget = ({ triggerSource = 'HOME_WIDGET', onComplete }: Props) => {
   const { t } = useTranslation('home');
+  const styles = useMemo(() => createPulseWidgetStyles(), []);
   const checkIn = useCarePulseStore((state) => state.checkIn);
   const scaledTypography = useScaledTypography();
 
@@ -41,25 +43,13 @@ export const PulseWidget = ({ triggerSource = 'HOME_WIDGET', onComplete }: Props
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.md
-  },
+function createPulseWidgetStyles() { return StyleSheet.create({
+  container: { gap: spacing.md },
   button: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center'
+    paddingVertical: spacing.lg, paddingHorizontal: spacing.lg,
+    borderRadius: 16, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border, alignItems: 'center'
   },
-  buttonPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.98 }]
-  },
-  buttonText: {
-    fontWeight: '700',
-    color: colors.textPrimary
-  }
-});
+  buttonPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  buttonText: { fontWeight: '700', color: colors.textPrimary }
+}); }

@@ -77,26 +77,30 @@ export default function ChatNotesScreen() {
   const [fromText, setFromText] = useState('');
   const [toText, setToText] = useState('');
 
-  const fetchNotes = useCallback(async (page = 1, limit = pageSize) => {
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
+
+  const fetchNotes = useCallback(async (page = 1, limit?: number) => {
+    const size = limit ?? pageSizeRef.current;
     setLoading(true);
     try {
-      const data = await chatApi.fetchNotes(page, limit);
+      const data = await chatApi.fetchNotes(page, size);
       const notesList = data.notes ?? [];
       setNotes(notesList);
       const pTotal = data.pagination?.total ?? notesList.length;
-      const pTotalPages = data.pagination?.totalPages ?? (Math.ceil(pTotal / limit) || 1);
+      const pTotalPages = data.pagination?.totalPages ?? (Math.ceil(pTotal / size) || 1);
       setTotalPages(pTotalPages);
       setTotal(pTotal);
       setCurrentPage(page);
       flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     } catch {}
     setLoading(false);
-  }, [pageSize]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      fetchNotes(1, pageSize);
-    }, [fetchNotes, pageSize])
+      fetchNotes(1);
+    }, [fetchNotes])
   );
 
   const handlePageChange = useCallback((page: number) => {
@@ -267,7 +271,7 @@ export default function ChatNotesScreen() {
             <View style={styles.noteHeader}>
               <Ionicons name="bookmark" size={16} color={colors.premium} />
               <Text style={styles.noteDate}>{formatDate(item.created_at)}</Text>
-              <Pressable style={styles.deleteBtn} onPress={() => handleDelete(item)} hitSlop={8}>
+              <Pressable style={styles.deleteBtn} onPress={() => handleDelete(item)} hitSlop={12}>
                 <Ionicons name="trash-outline" size={16} color={colors.danger} />
               </Pressable>
             </View>

@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Image } from 'react-native';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
@@ -12,7 +12,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, {
+  BounceIn, FadeIn, FadeInDown, FadeInLeft, FadeInUp,
+  useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, Easing,
+} from 'react-native-reanimated';
 
 const appLogo = require('../../logo.jpg');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +28,27 @@ import { getPasswordStrength, validateEmail, validatePassword, validatePhone } f
 import { colors, radius, spacing } from '../../src/styles';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
+
+function FloatingOrbs() {
+  const y1 = useSharedValue(0);
+  const y2 = useSharedValue(0);
+  const y3 = useSharedValue(0);
+  React.useEffect(() => {
+    y1.value = withRepeat(withSequence(withTiming(-15, { duration: 3000, easing: Easing.inOut(Easing.ease) }), withTiming(15, { duration: 3000, easing: Easing.inOut(Easing.ease) })), -1, true);
+    y2.value = withRepeat(withSequence(withTiming(12, { duration: 2500, easing: Easing.inOut(Easing.ease) }), withTiming(-12, { duration: 2500, easing: Easing.inOut(Easing.ease) })), -1, true);
+    y3.value = withRepeat(withSequence(withTiming(-10, { duration: 3500, easing: Easing.inOut(Easing.ease) }), withTiming(10, { duration: 3500, easing: Easing.inOut(Easing.ease) })), -1, true);
+  }, []);
+  const s1 = useAnimatedStyle(() => ({ transform: [{ translateY: y1.value }] }));
+  const s2 = useAnimatedStyle(() => ({ transform: [{ translateY: y2.value }] }));
+  const s3 = useAnimatedStyle(() => ({ transform: [{ translateY: y3.value }] }));
+  return (
+    <>
+      <Animated.View style={[{ position: 'absolute', top: '10%', left: -30, width: 110, height: 110, borderRadius: 55, backgroundColor: colors.emerald + '12' }, s1]} />
+      <Animated.View style={[{ position: 'absolute', top: '40%', right: -35, width: 90, height: 90, borderRadius: 45, backgroundColor: colors.primary + '10' }, s2]} />
+      <Animated.View style={[{ position: 'absolute', bottom: '20%', left: -20, width: 70, height: 70, borderRadius: 35, backgroundColor: colors.premium + '10' }, s3]} />
+    </>
+  );
+}
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -119,6 +143,9 @@ export default function RegisterScreen() {
 
     if (!isAgreed) {
       setError(t('agreeRequired'));
+      setToastMessage(t('agreeRequired'));
+      setToastType('error');
+      setShowToast(true);
       return;
     }
 
@@ -166,9 +193,15 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+    <LinearGradient
+      colors={[colors.primaryLight, colors.background, colors.primaryLight]}
+      locations={[0, 0.5, 1]}
+      style={{ flex: 1 }}
+    >
+    <FloatingOrbs />
       {/* Font size modal */}
       {showFontModal && (
         <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
@@ -222,18 +255,24 @@ export default function RegisterScreen() {
 
         {/* Logo + Title */}
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.heroSection}>
-          <View style={styles.logoWrap}>
-            <Image source={appLogo} style={styles.logo} resizeMode="cover" />
-          </View>
-          <Text style={styles.title}>{t('createAccount')}</Text>
-          <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
+          <Animated.View entering={FadeInDown.delay(200).duration(600).springify().damping(12)}>
+            <View style={styles.logoWrap}>
+              <Image source={appLogo} style={styles.logo} resizeMode="cover" />
+            </View>
+          </Animated.View>
+          <Animated.View entering={FadeIn.delay(500).duration(400)}>
+            <Text style={styles.title}>{t('createAccount')}</Text>
+          </Animated.View>
+          <Animated.View entering={FadeIn.delay(600).duration(400)}>
+            <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
+          </Animated.View>
         </Animated.View>
 
         {/* Form Card */}
         <Animated.View entering={FadeInDown.delay(250).duration(500)}>
           <View style={styles.formCard}>
             {/* Email */}
-            <View style={styles.inputGroup}>
+            <Animated.View entering={FadeInLeft.delay(350).duration(400).springify()} style={styles.inputGroup}>
               <TextInput
                 value={email}
                 onChangeText={(text) => { setEmail(text); setEmailError(undefined); }}
@@ -254,10 +293,10 @@ export default function RegisterScreen() {
                   <Text style={styles.fieldError}>{emailError}</Text>
                 </View>
               )}
-            </View>
+            </Animated.View>
 
             {/* Phone */}
-            <View style={styles.inputGroup}>
+            <Animated.View entering={FadeInLeft.delay(430).duration(400).springify()} style={styles.inputGroup}>
               <TextInput
                 value={phone}
                 onChangeText={(text) => { setPhone(text); setPhoneError(undefined); }}
@@ -278,10 +317,10 @@ export default function RegisterScreen() {
                   <Text style={styles.fieldError}>{phoneError}</Text>
                 </View>
               )}
-            </View>
+            </Animated.View>
 
             {/* Password */}
-            <View style={styles.inputGroup}>
+            <Animated.View entering={FadeInLeft.delay(510).duration(400).springify()} style={styles.inputGroup}>
               <TextInput
                 value={password}
                 onChangeText={(text) => { setPassword(text); setPasswordError(undefined); }}
@@ -295,7 +334,7 @@ export default function RegisterScreen() {
                   </View>
                 }
                 rightElement={
-                  <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8} style={styles.eyeBtn}>
+                  <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={12} style={styles.eyeBtn}>
                     <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color={colors.textSecondary} />
                   </Pressable>
                 }
@@ -311,10 +350,10 @@ export default function RegisterScreen() {
                   {t('strengthLabel')} {getPasswordStrengthText()}
                 </Text>
               )}
-            </View>
+            </Animated.View>
 
             {/* Name (optional) */}
-            <View style={styles.inputGroup}>
+            <Animated.View entering={FadeInLeft.delay(590).duration(400).springify()} style={styles.inputGroup}>
               <TextInput
                 value={name}
                 onChangeText={setName}
@@ -326,7 +365,7 @@ export default function RegisterScreen() {
                   </View>
                 }
               />
-            </View>
+            </Animated.View>
 
             {/* Agree checkbox */}
             <View style={styles.checkboxRow}>
@@ -363,7 +402,6 @@ export default function RegisterScreen() {
                 pressed && canSubmit && { opacity: 0.9, transform: [{ scale: 0.98 }] },
               ]}
               onPress={handleSubmit}
-              disabled={!canSubmit}
             >
               <LinearGradient
                 colors={[colors.primary, colors.primaryDark]}
@@ -394,6 +432,7 @@ export default function RegisterScreen() {
           </Pressable>
         </Animated.View>
       </ScrollView>
+    </LinearGradient>
     </KeyboardAvoidingView>
   );
 }

@@ -546,7 +546,7 @@ export default function ReminderConfigScreen() {
                       <Pressable
                         style={styles.resetBtn}
                         onPress={(e) => { e.stopPropagation(); handleResetToAuto(meta.slot); }}
-                        hitSlop={8}
+                        hitSlop={12}
                       >
                         <MaterialCommunityIcons name="refresh" size={14} color={colors.textSecondary} />
                         <Text style={styles.resetBtnText}>{t('scheduleAuto')}</Text>

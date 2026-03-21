@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
@@ -15,6 +15,63 @@ type AsinuChatStickerProps = {
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    wrapper: {
+      alignSelf: 'center',
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      paddingTop: 56,
+      paddingBottom: 12,
+      position: 'relative',
+      overflow: 'visible',
+    },
+    sticker: {
+      width: 200,
+      height: 200,
+      shadowColor: '#000',
+      shadowOpacity: 0.18,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 8,
+    },
+    bubble: {
+      position: 'absolute',
+      top: 0,
+      right: 6,
+      transform: [{ translateY: -28 }],
+      maxWidth: 180,
+      backgroundColor: '#fff',
+      borderRadius: 14,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      shadowColor: '#000',
+      shadowOpacity: 0.16,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 8,
+    },
+    bubbleText: {
+      fontWeight: '700',
+      fontSize: 14,
+      color: colors.textPrimary,
+      lineHeight: 22,
+    },
+    tail: {
+      position: 'absolute',
+      bottom: -8,
+      right: 22,
+      width: 12,
+      height: 12,
+      backgroundColor: '#fff',
+      transform: [{ rotate: '45deg' }],
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 4,
+    },
+  }), []);
   const MESSAGES = [
     t('chatStickerMsg1'),
     t('chatStickerMsg2'),
@@ -80,61 +137,3 @@ export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    alignSelf: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingTop: 56,
-    paddingBottom: 12,
-    position: 'relative',
-    overflow: 'visible',
-  },
-  sticker: {
-    width: 200,
-    height: 200,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
-  bubble: {
-    position: 'absolute',
-    top: 0,
-    right: 6,
-    transform: [{ translateY: -28 }],
-    maxWidth: 180,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  bubbleText: {
-    fontWeight: '700',
-    fontSize: 14,
-    color: colors.textPrimary,
-    lineHeight: 22,
-  },
-  tail: {
-    position: 'absolute',
-    bottom: -8,
-    right: 22,
-    width: 12,
-    height: 12,
-    backgroundColor: '#fff',
-    transform: [{ rotate: '45deg' }],
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-});

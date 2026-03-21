@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
@@ -48,10 +48,39 @@ const LEVEL_CONFIG: Record<HealthLevel, {
   },
 };
 
-export function HealthScoreCard({ level, factors, checkinDone }: HealthScoreCardProps) {
+export const HealthScoreCard = React.memo(function HealthScoreCard({ level, factors, checkinDone }: HealthScoreCardProps) {
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const config = LEVEL_CONFIG[level];
+  const styles = useMemo(() => StyleSheet.create({
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      padding: spacing.md,
+      gap: spacing.md,
+    },
+    iconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: radius.md,
+      backgroundColor: 'rgba(255,255,255,0.7)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    textWrap: {
+      flex: 1,
+    },
+    title: {
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    subtitle: {
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+  }), []);
 
   return (
     <View style={[styles.card, { backgroundColor: config.bg, borderColor: config.border }]}>
@@ -71,34 +100,4 @@ export function HealthScoreCard({ level, factors, checkinDone }: HealthScoreCard
       </View>
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  textWrap: {
-    flex: 1,
-  },
-  title: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
 });

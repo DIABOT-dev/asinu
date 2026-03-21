@@ -4,7 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { RippleRefreshIndicator } from '../../src/components/RippleRefresh';
+import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
@@ -255,8 +255,9 @@ export default function CareCircleScreen() {
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>
-      <RippleRefreshIndicator refreshing={refreshing} />
-      <ScrollView
+      <RippleRefreshScrollView
+        refreshing={refreshing}
+        onRefresh={refresh}
         style={styles.container}
         contentContainerStyle={{
           paddingTop: spacing.sm,
@@ -587,7 +588,7 @@ export default function CareCircleScreen() {
             </ScrollView>
           </Screen>
         </Modal>
-      </ScrollView>
+      </RippleRefreshScrollView>
     </Screen>
     </>
   );

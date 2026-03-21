@@ -131,12 +131,12 @@ export async function getExpoPushToken(): Promise<string | null> {
       return null;
     }
 
-    console.log('[PushToken] Requesting token with projectId:', projectId);
+    if (__DEV__) console.log('[PushToken] Requesting token with projectId:', projectId);
     const token = await Notifications.getExpoPushTokenAsync({
       projectId,
     });
 
-    console.log('[PushToken] Got token:', token.data);
+    if (__DEV__) console.log('[PushToken] Got token:', token.data);
     return token.data;
   } catch (error) {
     console.error('[PushToken] Error getting push token:', error);

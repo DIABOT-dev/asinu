@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Image, ImageStyle, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors } from '../styles';
@@ -12,6 +13,20 @@ type Props = {
 
 export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }: Props) => {
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    placeholder: {
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.border
+    },
+    initials: {
+      color: colors.textPrimary,
+      fontWeight: '700',
+      fontFamily: 'System'
+    }
+  }), []);
   const initials = name
     .split(' ')
     .map((part) => part.charAt(0))
@@ -39,18 +54,3 @@ export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  placeholder: {
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border
-  },
-  initials: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    fontFamily: 'System'
-  }
-});

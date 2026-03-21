@@ -50,14 +50,7 @@ export const useHomeViewModel = () => {
   const treeIsStale = useTreeStore((state) => state.isStale);
   const treeError = useTreeStore((state) => state.errorState);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchLogs(controller.signal);
-    fetchMissions(controller.signal);
-    fetchTree(controller.signal);
-    checkinApi.getHealthScore().then(res => setHealthScore(res)).catch(() => {});
-    return () => controller.abort();
-  }, [fetchLogs, fetchMissions, fetchTree]);
+  // Data fetching moved to useFocusEffect in home screen to avoid double-fetch
 
   const quickMetrics = useMemo(() => {
     // Find latest glucose
@@ -82,15 +75,20 @@ export const useHomeViewModel = () => {
     return createGlucoseTrendFromLogs(logs);
   }, [logs]);
 
+  const fetchHealthScore = useCallback(() => {
+    checkinApi.getHealthScore().then(res => setHealthScore(res)).catch(() => {});
+  }, []);
+
   const refreshAll = useCallback(() => {
     const controller = new AbortController();
     fetchLogs(controller.signal);
     fetchMissions(controller.signal);
     fetchTree(controller.signal);
+    fetchHealthScore();
     return () => controller.abort();
-  }, [fetchLogs, fetchMissions, fetchTree]);
+  }, [fetchLogs, fetchMissions, fetchTree, fetchHealthScore]);
 
-  const anyStale = logsIsStale || missionsIsStale || treeIsStale || logsError === 'remote-failed' || missionsError === 'remote-failed' || treeError === 'remote-failed';
+  const isOffline = logsError === 'remote-failed' || missionsError === 'remote-failed' || treeError === 'remote-failed';
 
   return {
     logs,
@@ -106,7 +104,7 @@ export const useHomeViewModel = () => {
     logsError,
     missionsError,
     treeError,
-    anyStale,
+    isOffline,
     refreshAll
   };
 };

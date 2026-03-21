@@ -60,6 +60,20 @@ export async function markAllNotificationsAsRead(): Promise<{ ok: boolean; error
   });
 }
 
+/**
+ * Delete a single notification
+ */
+export async function deleteNotification(notificationId: number): Promise<{ ok: boolean; error?: string }> {
+  return apiClient<{ ok: boolean; error?: string }>(`/api/notifications/${notificationId}`, { method: 'DELETE' });
+}
+
+/**
+ * Delete all notifications
+ */
+export async function deleteAllNotifications(): Promise<{ ok: boolean; error?: string }> {
+  return apiClient<{ ok: boolean; error?: string }>('/api/notifications', { method: 'DELETE' });
+}
+
 export interface NotificationPreferences {
   ok: boolean;
   // Legacy hour-only (kept for backward compat)

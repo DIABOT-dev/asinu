@@ -1,18 +1,12 @@
 import { ReactNode } from 'react';
-import { StyleSheet, View, ViewProps } from 'react-native';
-import { colors } from '../styles';
+import { View, ViewProps } from 'react-native';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type ScreenProps = ViewProps & {
   children: ReactNode;
 };
 
 export const Screen = ({ children, style }: ScreenProps) => {
-  return <View style={[styles.container, style]}>{children}</View>;
+  const { colors } = useThemeColors();
+  return <View style={[{ flex: 1, backgroundColor: colors.background }, style]}>{children}</View>;
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background
-  }
-});

@@ -7,7 +7,11 @@
  *   followup   → same 3-button screen with context banner
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+let _Audio: typeof import('expo-av').Audio | null = null;
+async function getAudio() {
+  if (!_Audio) { _Audio = (await import('expo-av')).Audio; }
+  return _Audio;
+}
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -168,36 +172,29 @@ export default function CheckinScreen() {
 
       setSession(sess);
 
-      if (status === 'fine' && !isFollowUp) {
-        // Morning check-in "fine" → done immediately
+      if (status === 'fine') {
         setScreen('done');
+        setLoading(false);
         return;
       }
 
-      if (status === 'fine' && isFollowUp) {
-        // Evening follow-up "fine" → done immediately
-        setScreen('done');
-        return;
-      }
-
-      // Start triage for tired/very_tired
-      await fetchNextQuestion(sess, []);
+      // Switch to triage screen first, then fetch question (loading already true)
       setScreen('triage');
+      await fetchNextQuestion(sess, [], true);
     } catch (err: any) {
       console.error('[Checkin] handleStatusSelect error:', err?.message || err);
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
-    } finally {
       setLoading(false);
     }
   }, [isFollowUp, existingCheckinId]);
 
   // ─── Triage ────────────────────────────────────────────────────────────────
 
-  const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: typeof answers) => {
-    setLoading(true);
+  const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: typeof answers, skipLoadingStart = false) => {
+    if (!skipLoadingStart) setLoading(true);
     try {
       const result = await checkinApi.triage(sess.id, prevAnswers);
-      console.log('[Checkin] triage result:', JSON.stringify(result));
+      if (__DEV__) console.log('[Checkin] triage result:', JSON.stringify(result));
       if (result.isDone) {
         setTriageSummary({
           summary: result.summary || '',
@@ -379,7 +376,8 @@ function StatusScreen({
     if (isFollowUp) return t('checkinGreetingFollowUp');
     const h = new Date().getHours();
     if (h < 12) return t('checkinGreetingMorning');
-    if (h < 18) return t('checkinGreetingAfternoon');
+    if (h < 14) return t('checkinGreetingAfternoon');
+    if (h < 18) return t('checkinGreetingEvening2');
     return t('checkinGreetingEvening');
   };
 
@@ -501,6 +499,7 @@ function TriageScreen({
           try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
           recordingRef.current = null;
         }
+        const Audio = await getAudio();
         const { granted } = await Audio.requestPermissionsAsync();
         if (!granted) return;
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -689,7 +688,7 @@ function TriageScreen({
             </Animated.View>}
 
             {/* Confirm button — show when multi-select OR no options (text-only input) */}
-            {(multiSelect || options.length === 0) && <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.confirmWrap}>
+            {(multiSelect || options.length === 0) && <View style={styles.confirmWrap}>
               <Pressable
                 style={({ pressed }) => [
                   styles.confirmBtn,
@@ -716,7 +715,7 @@ function TriageScreen({
                   />
                 </LinearGradient>
               </Pressable>
-            </Animated.View>}
+            </View>}
           </>
         )}
       </View>

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../../hooks/useScaledTypography';
@@ -12,6 +13,25 @@ type Props = {
 export const StateError = ({ message, onRetry }: Props) => {
   const scaledTypography = useScaledTypography();
   const { t } = useTranslation('common');
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      padding: spacing.xl,
+      alignItems: 'center',
+      gap: spacing.sm
+    },
+    title: {
+      fontWeight: '700',
+      color: colors.textPrimary
+    },
+    subtitle: {
+      color: colors.textSecondary,
+      textAlign: 'center'
+    },
+    retryButton: {
+      marginTop: spacing.md
+    }
+  }), []);
+
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { fontSize: scaledTypography.size.lg }]}>{t('cannotLoadData')}</Text>
@@ -20,22 +40,3 @@ export const StateError = ({ message, onRetry }: Props) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.sm
-  },
-  title: {
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    textAlign: 'center'
-  },
-  retryButton: {
-    marginTop: spacing.md
-  }
-});

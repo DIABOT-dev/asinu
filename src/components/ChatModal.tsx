@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,54 @@ const isUnauthorized = (error: unknown) => {
 export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['chat', 'common']);
+  const styles = useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: colors.overlay
+    },
+    sheet: {
+      width: '100%',
+      flex: 1,
+      maxHeight: SHEET_H,
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      gap: spacing.md,
+      shadowColor: '#000',
+      shadowOpacity: 0.18,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: -4 },
+      elevation: 16
+    },
+    handle: {
+      width: 48,
+      height: 5,
+      borderRadius: 999,
+      alignSelf: 'center',
+      backgroundColor: 'rgba(0,0,0,0.15)'
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between'
+    },
+    title: {
+      lineHeight: 28,
+      fontWeight: '700',
+      color: colors.textPrimary
+    },
+    closeLabel: {
+      color: colors.textSecondary,
+      fontWeight: '600',
+      lineHeight: 24
+    },
+    chatBody: {
+      flex: 1
+    }
+  }), []);
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const hasLoadedHistory = useRef(false);
   const lastVisibleRef = useRef(false);
@@ -153,52 +201,3 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.overlay
-  },
-  sheet: {
-    width: '100%',
-    flex: 1,
-    maxHeight: SHEET_H,
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    gap: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 16
-  },
-  handle: {
-    width: 48,
-    height: 5,
-    borderRadius: 999,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.15)'
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between'
-  },
-  title: {
-    lineHeight: 28,
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  closeLabel: {
-    color: colors.textSecondary,
-    fontWeight: '600',
-    lineHeight: 24
-  },
-  chatBody: {
-    flex: 1
-  }
-});

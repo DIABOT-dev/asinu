@@ -6,6 +6,8 @@
   "fontLarge": "Large",
   "fontXLarge": "X-Large",
   "fontPreview": "This is an example of the current font size",
+  "darkMode": "Dark Mode",
+  "darkModeDesc": "Dark theme for comfortable viewing at night",
   "notifications": "Notifications",
   "notificationsDesc": "Receive log reminders and health updates",
   "taskReminders": "Task Reminders",

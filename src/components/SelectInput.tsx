@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -29,6 +29,86 @@ export const SelectInput = ({
 }: SelectInputProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      marginBottom: spacing.sm,
+    },
+    label: {
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+    },
+    select: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      minHeight: 48,
+    },
+    selectError: {
+      borderColor: colors.danger,
+    },
+    selectText: {
+      color: colors.textPrimary,
+      flex: 1,
+    },
+    placeholder: {
+      color: colors.textSecondary,
+    },
+    error: {
+      color: colors.danger,
+      marginTop: spacing.xs,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '60%',
+      paddingBottom: spacing.xl,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: {
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    optionSelected: {
+      backgroundColor: '#e8f5e9',
+    },
+    optionText: {
+      color: colors.textPrimary,
+    },
+    optionTextSelected: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+  }), []);
   const { t } = useTranslation('common');
   const resolvedPlaceholder = placeholder ?? t('selectOption');
   
@@ -100,84 +180,3 @@ export const SelectInput = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.sm,
-  },
-  label: {
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  select: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    minHeight: 48,
-  },
-  selectError: {
-    borderColor: colors.danger,
-  },
-  selectText: {
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  placeholder: {
-    color: colors.textSecondary,
-  },
-  error: {
-    color: colors.danger,
-    marginTop: spacing.xs,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '60%',
-    paddingBottom: spacing.xl,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  optionSelected: {
-    backgroundColor: '#e8f5e9',
-  },
-  optionText: {
-    color: colors.textPrimary,
-  },
-  optionTextSelected: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-});

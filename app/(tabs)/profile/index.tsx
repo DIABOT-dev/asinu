@@ -2,11 +2,11 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { RippleRefreshIndicator } from '../../../src/components/RippleRefresh';
+import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
@@ -63,20 +63,21 @@ export default function ProfileScreen() {
       .catch(() => {});
   }, []);
 
-  // Fetch full profile + data on focus
+  // Fetch full profile + data on focus (throttled)
+  const lastFetchRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
+      const now = Date.now();
+      if (now - lastFetchRef.current < 3000) return;
+      lastFetchRef.current = now;
       const controller = new AbortController();
       fetchLogs(controller.signal);
       fetchMissions(controller.signal);
-
-      // Lazy-load full profile (includes height, weight, age, bloodType, chronicDiseases)
       authApi.fetchProfile().then((fullProfile) => {
         if (fullProfile) {
           useAuthStore.setState({ profile: fullProfile });
         }
       }).catch(() => {});
-
       return () => controller.abort();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -239,8 +240,9 @@ export default function ProfileScreen() {
         type={toastType}
         onHide={() => setToastVisible(false)}
       />
-      <RippleRefreshIndicator refreshing={refreshing} />
-      <ScrollView
+      <RippleRefreshScrollView
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -545,7 +547,7 @@ export default function ProfileScreen() {
           </View>
         </View>
         </Animated.View>
-      </ScrollView>
+      </RippleRefreshScrollView>
 
       {/* Edit Profile Modal */}
       <Modal

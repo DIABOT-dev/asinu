@@ -6,6 +6,8 @@
   "fontLarge": "Lớn",
   "fontXLarge": "Rất lớn",
   "fontPreview": "Đây là ví dụ về kích thước chữ hiện tại",
+  "darkMode": "Chế độ tối",
+  "darkModeDesc": "Giao diện tối giúp dễ nhìn ban đêm",
   "notifications": "Thông báo",
   "notificationsDesc": "Nhận nhắc nhở log và cập nhật sức khỏe",
   "taskReminders": "Nhắc nhiệm vụ",

@@ -1,3 +1,5 @@
+
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { featureFlags } from '../lib/featureFlags';
@@ -19,6 +21,24 @@ export const T1ProgressRing = ({
   accentColor = colors.primaryDark
 }: T1ProgressRingProps) => {
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    labelWrapper: {
+      position: 'absolute',
+      alignItems: 'center'
+    },
+    percent: {
+      fontWeight: '700',
+      color: colors.textPrimary
+    },
+    label: {
+      color: colors.textSecondary,
+      marginTop: spacing.xs
+    }
+  }), []);
   const disableCharts = featureFlags.disableCharts;
 
   if (disableCharts) {
@@ -68,22 +88,3 @@ export const T1ProgressRing = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  labelWrapper: {
-    position: 'absolute',
-    alignItems: 'center'
-  },
-  percent: {
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  label: {
-    color: colors.textSecondary,
-    marginTop: spacing.xs
-  }
-});

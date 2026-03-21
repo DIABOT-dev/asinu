@@ -2,19 +2,24 @@ import type { ParamListBase, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet } from 'react-native';
+import { Appearance, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { CarePulseProvider } from '../src/features/care-pulse';
 import { WellnessProvider } from '../src/features/wellness';
+import { useThemeColors } from '../src/hooks/useThemeColors';
+import { useThemeStore } from '../src/stores/theme.store';
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
 import '../src/i18n';
 import '../src/lib/initErrorHandler';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SessionProvider } from '../src/providers/SessionProvider';
-import { colors, spacing, typography } from '../src/styles';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { applyTheme, spacing, typography } from '../src/styles';
 
 type NavigationProp = NativeStackNavigationProp<ParamListBase>;
 type ScreenOptionsProps = { 
@@ -24,13 +29,31 @@ type ScreenOptionsProps = {
 
 export default function RootLayout() {
   const { t } = useTranslation('auth');
+  const { colors, isDark } = useThemeColors();
+  const setSystemScheme = useThemeStore((s) => s.setSystemScheme);
+
+  // Apply theme colors globally when resolved theme changes
+  const resolved = useThemeStore((s) => s.resolved);
+  useEffect(() => {
+    applyTheme(resolved);
+  }, [resolved]);
+
+  // Sync system color scheme
+  useEffect(() => {
+    const scheme = Appearance.getColorScheme();
+    if (scheme) setSystemScheme(scheme);
+    const sub = Appearance.addChangeListener(({ colorScheme }) => {
+      if (colorScheme) setSystemScheme(colorScheme);
+    });
+    return () => sub.remove();
+  }, [setSystemScheme]);
 
   const screenOptions = useMemo(
     () => ({
       headerShown: false,
-      contentStyle: styles.contentStyle
+      contentStyle: { backgroundColor: colors.background },
     }),
-    []
+    [colors]
   );
 
   const legalScreenOptions = useCallback(
@@ -38,28 +61,29 @@ export default function RootLayout() {
       presentation: 'modal' as const,
       headerShown: true,
       title: t('legalTitle'),
-      headerTitleStyle: styles.headerTitle,
-      headerStyle: styles.header,
+      headerTitleStyle: { color: colors.textPrimary, fontSize: typography.size.md, fontWeight: '700' as const },
+      headerStyle: { backgroundColor: colors.surface },
       headerShadowVisible: false,
       headerLeft: () => (
         <Pressable
           onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('index')}
           style={styles.headerLeft}
         >
-          <Text style={styles.headerLeftText}>{t('legalClose')}</Text>
+          <Text style={[styles.headerLeftText, { color: colors.primary }]}>{t('legalClose')}</Text>
         </Pressable>
       )
     }),
-    [t]
+    [t, colors]
   );
 
   return (
+    <ErrorBoundary>
     <QueryProvider>
       <SessionProvider>
         <SafeAreaProvider>
           <WellnessProvider>
             <CarePulseProvider>
-              <StatusBar style="dark" translucent backgroundColor="transparent" />
+              <StatusBar style={isDark ? 'light' : 'dark'} translucent backgroundColor="transparent" />
               <Stack screenOptions={screenOptions}>
                 <Stack.Screen
                   name="legal/content"
@@ -72,28 +96,17 @@ export default function RootLayout() {
         </SafeAreaProvider>
       </SessionProvider>
     </QueryProvider>
+    </ErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
-  contentStyle: {
-    backgroundColor: colors.background
-  },
-  header: {
-    backgroundColor: colors.surface
-  },
-  headerTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.size.md,
-    fontWeight: '700'
-  },
   headerLeft: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm
+    paddingVertical: spacing.sm,
   },
   headerLeftText: {
-    color: colors.primary,
     fontSize: typography.size.md,
-    fontWeight: '700'
-  }
+    fontWeight: '700',
+  },
 });

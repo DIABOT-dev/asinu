@@ -1,7 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -9,9 +10,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
-import { RippleRefreshIndicator } from '../../../src/components/RippleRefresh';
+import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
-import ChatModal from '../../../src/components/ChatModal';
+const ChatModal = React.lazy(() => import('../../../src/components/ChatModal'));
 import { FloatingActionButton } from '../../../src/components/FloatingActionButton';
 import { NotificationBell } from '../../../src/components/NotificationBell';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
@@ -25,8 +26,9 @@ import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useNotificationStore } from '../../../src/stores/notification.store';
 import { brandColors, categoryColors, colors, radius, spacing } from '../../../src/styles';
-import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
-import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
+import React from 'react';
+const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
+const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
 
 // Module-level flag: auto-show fires once per app session, not on every tab switch
 let checkinAutoShown = false;
@@ -50,15 +52,26 @@ export default function HomeScreen() {
     logsError,
     missionsError,
     treeError,
-    anyStale,
+    isOffline,
     refreshAll
   } = useHomeViewModel();
   const profile = useAuthStore((state) => state.profile);
-  const { notifications, unreadCount, markAsRead, markAllAsRead, fetchFromBackend } = useNotificationStore();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll, fetchFromBackend } = useNotificationStore();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const padTop = insets.top + spacing.lg;
+
+  // Re-fetch when screen focuses, but throttle to avoid jank on quick tab switches
+  const lastFetchRef = useRef(0);
+  useFocusEffect(
+    useCallback(() => {
+      const now = Date.now();
+      if (now - lastFetchRef.current < 3000) return; // Skip if fetched within 3s
+      lastFetchRef.current = now;
+      refreshAll();
+    }, [refreshAll])
+  );
 
   // Fetch notifications on mount and periodically - only when logged in
   useEffect(() => {
@@ -100,7 +113,7 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      {anyStale ? <OfflineBanner /> : null}
+      {isOffline ? <OfflineBanner /> : null}
       
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
@@ -110,6 +123,8 @@ export default function HomeScreen() {
             unreadCount={unreadCount}
             onMarkAsRead={markAsRead}
             onMarkAllAsRead={markAllAsRead}
+            onDelete={removeNotification}
+            onDeleteAll={clearAll}
             onNotificationPress={(notification) => {
               if (notification.data?.type === 'care_circle_invitation') {
                 router.push('/care-circle');
@@ -130,8 +145,9 @@ export default function HomeScreen() {
       {loading ? <StateLoading /> : null}
       {noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
       {!hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
-      <RippleRefreshIndicator refreshing={refreshing || loading} />
-      <ScrollView
+      <RippleRefreshScrollView
+        refreshing={refreshing || loading}
+        onRefresh={handleRefresh}
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -280,7 +296,9 @@ export default function HomeScreen() {
         </View>
         <View style={styles.treeCard}>
           <View style={styles.treeRow}>
-            <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
+            <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
+              <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
+            </Suspense>
             <View style={styles.treeStats}>
               <View style={styles.treeStatItem}>
                 <View style={[styles.treeStatIcon, { backgroundColor: colors.premiumLight }]}>
@@ -320,11 +338,13 @@ export default function HomeScreen() {
             <Text style={styles.sectionSubtitle}>{t('last7Days')}</Text>
           </View>
         </View>
-        <C1TrendChart
-          data={glucoseTrendData.length > 0 ? glucoseTrendData : treeHistory}
-          title={t('glucose')}
-          unit={tc('unitMgdl')}
-        />
+        <Suspense fallback={<View style={{ height: 200 }} />}>
+          <C1TrendChart
+            data={glucoseTrendData.length > 0 ? glucoseTrendData : treeHistory}
+            title={t('glucose')}
+            unit={tc('unitMgdl')}
+          />
+        </Suspense>
         </Animated.View>
 
         {/* Recent Logs */}
@@ -373,9 +393,13 @@ export default function HomeScreen() {
           )}
         </View>
         </Animated.View>
-      </ScrollView>
+      </RippleRefreshScrollView>
       <FloatingActionButton label={tc('quickLog')} onPress={() => router.push('/logs')} />
-      <ChatModal visible={isChatOpen} onClose={() => setChatOpen(false)} />
+      {isChatOpen && (
+        <Suspense fallback={null}>
+          <ChatModal visible={isChatOpen} onClose={() => setChatOpen(false)} />
+        </Suspense>
+      )}
     </Screen>
   );
 }

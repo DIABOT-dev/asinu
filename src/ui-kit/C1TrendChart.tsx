@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -25,6 +25,22 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   const { t } = useTranslation('tree');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      width: '100%',
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      overflow: 'hidden',
+      borderWidth: 1.5,
+      borderColor: colors.border
+    },
+    chartTitle: {
+      fontWeight: '600',
+      color: colors.textSecondary,
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm
+    }
+  }), []);
   const disableCharts = featureFlags.disableCharts;
 
   if (disableCharts) {
@@ -262,20 +278,3 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: colors.border
-  },
-  chartTitle: {
-    fontWeight: '600',
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm
-  }
-});

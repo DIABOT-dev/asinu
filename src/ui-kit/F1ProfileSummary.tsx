@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
@@ -15,6 +16,25 @@ type Props = {
 export const F1ProfileSummary = ({ name, email, phone, caretakerFor }: Props) => {
   const { t } = useTranslation('profile');
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md
+    },
+    info: {
+      flex: 1,
+      gap: spacing.xs
+    },
+    name: {
+      fontWeight: '700',
+      color: colors.textPrimary
+    },
+    meta: {
+      color: colors.textSecondary
+    }
+  }), []);
+
   return (
     <Card>
       <View style={styles.row}>
@@ -29,22 +49,3 @@ export const F1ProfileSummary = ({ name, email, phone, caretakerFor }: Props) =>
     </Card>
   );
 };
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md
-  },
-  info: {
-    flex: 1,
-    gap: spacing.xs
-  },
-  name: {
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  meta: {
-    color: colors.textSecondary
-  }
-});

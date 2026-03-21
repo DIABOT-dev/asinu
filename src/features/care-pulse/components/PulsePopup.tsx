@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
@@ -14,6 +15,19 @@ export const PulsePopup = ({ visible, onClose }: Props) => {
   const { t } = useTranslation('home');
   const recordPopupDismiss = useCarePulseStore((state) => state.recordPopupDismiss);
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    backdrop: {
+      flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      justifyContent: 'center', padding: spacing.xl
+    },
+    card: {
+      backgroundColor: colors.surface, borderRadius: 20,
+      padding: spacing.xl, gap: spacing.lg
+    },
+    closeButton: { alignSelf: 'flex-end' },
+    closeText: { color: colors.textSecondary, fontWeight: '600' },
+    title: { fontWeight: '700', color: colors.textPrimary }
+  }), []);
 
   const handleDismiss = () => {
     recordPopupDismiss();
@@ -34,29 +48,3 @@ export const PulsePopup = ({ visible, onClose }: Props) => {
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    padding: spacing.xl
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.xl,
-    gap: spacing.lg
-  },
-  closeButton: {
-    alignSelf: 'flex-end'
-  },
-  closeText: {
-    color: colors.textSecondary,
-    fontWeight: '600'
-  },
-  title: {
-    fontWeight: '700',
-    color: colors.textPrimary
-  }
-});

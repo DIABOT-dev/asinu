@@ -120,7 +120,6 @@ export default function LogsIndexScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <Screen>
-        {isStale ? <OfflineBanner /> : null}
 
         <ScrollView
           contentContainerStyle={[styles.container, { paddingTop: insets.top + spacing.lg }]}
@@ -129,32 +128,14 @@ export default function LogsIndexScreen() {
           {/* Header */}
           <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
             <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                <MaterialCommunityIcons name="arrow-left" size={22} color={colors.primary} />
+              <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.primary} />
               </TouchableOpacity>
               <View style={styles.headerText}>
                 <Text style={styles.headerTitle}>{t('logTitle')}</Text>
                 <Text style={styles.headerSub}>{t('logSubtitle')}</Text>
               </View>
             </View>
-          </Animated.View>
-
-          {/* Hero banner */}
-          <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroBanner}
-            >
-              <View style={styles.heroIconWrap}>
-                <MaterialCommunityIcons name="notebook-edit-outline" size={36} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.heroTitle}>{t('quickLog')}</Text>
-                <Text style={styles.heroSub}>{t('heroSub')}</Text>
-              </View>
-            </LinearGradient>
           </Animated.View>
 
           {/* Grid cards */}
@@ -180,9 +161,7 @@ export default function LogsIndexScreen() {
                     </View>
                     <Text style={styles.cardTitle}>{t(card.key as any)}</Text>
                     <Text style={styles.cardDesc} numberOfLines={1}>{card.desc}</Text>
-                    <View style={styles.cardArrow}>
-                      <MaterialCommunityIcons name="arrow-right" size={14} color="rgba(255,255,255,0.7)" />
-                    </View>
+                    <MaterialCommunityIcons name="arrow-right" size={16} color="rgba(255,255,255,0.5)" style={styles.cardArrow} />
                   </LinearGradient>
                 </Pressable>
               </Animated.View>
@@ -209,17 +188,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       gap: spacing.md,
     },
-    backBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    headerText: { flex: 1 },
+    headerText: { flex: 1, marginLeft: spacing.sm },
     headerTitle: {
       fontSize: typography.size.lg,
       fontWeight: '800',
@@ -229,37 +198,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.sm,
       color: colors.textSecondary,
       marginTop: 2,
-    },
-    // Hero banner
-    heroBanner: {
-      borderRadius: radius.xl,
-      padding: spacing.lg,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 8,
-    },
-    heroIconWrap: {
-      width: 60,
-      height: 60,
-      borderRadius: 18,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    heroTitle: {
-      fontSize: typography.size.md,
-      fontWeight: '700',
-      color: '#fff',
-    },
-    heroSub: {
-      fontSize: typography.size.xs,
-      color: 'rgba(255,255,255,0.8)',
-      marginTop: 4,
     },
     // Grid
     grid: {

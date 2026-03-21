@@ -1,12 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
-import DeleteAccountModal from '../../src/components/DeleteAccountModal';
+const DeleteAccountModal = React.lazy(() => import('../../src/components/DeleteAccountModal'));
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
@@ -22,6 +22,8 @@ import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { getExpoPushToken, requestNotificationPermissions } from '../../src/lib/notifications';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { AppLanguage, useLanguageStore } from '../../src/stores/language.store';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { useThemeStore } from '../../src/stores/theme.store';
 import { colors, spacing } from '../../src/styles';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
@@ -39,8 +41,12 @@ export default function SettingsScreen() {
   const { t } = useTranslation('settings');
   const { t: tc } = useTranslation('common');
   const { language, setLanguage } = useLanguageStore();
+  const styles = useMemo(() => createSettingsStyles(), []);
   const logout = useAuthStore((state) => state.logout);
   const { scale, setScale } = useFontSizeStore();
+  const { colors, isDark } = useThemeColors();
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
@@ -290,13 +296,27 @@ export default function SettingsScreen() {
 
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
+            <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{t('darkMode')}</Text>
+            <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
+              {t('darkModeDesc')}
+            </Text>
+          </View>
+          <Switch
+            value={themeMode === 'dark' || (themeMode === 'system' && isDark)}
+            onValueChange={(val) => setThemeMode(val ? 'dark' : 'light')}
+            trackColor={{ true: colors.primary }}
+          />
+        </View>
+
+        <View style={styles.row}>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{t('notifications')}</Text>
             <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
               {t('notificationsDesc')}
             </Text>
           </View>
-          <Switch 
-            value={notifications} 
+          <Switch
+            value={notifications}
             onValueChange={handleNotificationsToggle}
             disabled={isLoading}
           />
@@ -323,17 +343,21 @@ export default function SettingsScreen() {
         </Text>
       </ScrollView>
 
-      <DeleteAccountModal
-        visible={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        onConfirm={handleDeleteAccount}
-      />
+      {showDeleteModal && (
+        <Suspense fallback={null}>
+          <DeleteAccountModal
+            visible={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={handleDeleteAccount}
+          />
+        </Suspense>
+      )}
     </Screen>
     </>
   );
 }
 
-const styles = StyleSheet.create({
+function createSettingsStyles() { return StyleSheet.create({
   container: {
     padding: spacing.xl,
     gap: spacing.lg,
@@ -456,4 +480,4 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600'
   }
-});
+}); }

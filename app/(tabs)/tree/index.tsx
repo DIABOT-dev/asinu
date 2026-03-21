@@ -2,10 +2,10 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { RippleRefreshIndicator } from '../../../src/components/RippleRefresh';
+import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
@@ -18,8 +18,9 @@ import { useTreeStore } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import i18n from '../../../src/i18n';
 import { colors, spacing } from '../../../src/styles';
-import { C1TrendChart } from '../../../src/ui-kit/C1TrendChart';
-import { T1ProgressRing } from '../../../src/ui-kit/T1ProgressRing';
+import React from 'react';
+const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
+const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
 
 export default function TreeScreen() {
   const { t } = useTranslation('tree');
@@ -57,7 +58,7 @@ export default function TreeScreen() {
   const weightLog = latestLogByType('weight');
   const waterLog = latestLogByType('water');
 
-  const metrics = [
+  const metrics = useMemo(() => [
     {
       key: 'glucose',
       title: t('glucose'),
@@ -111,21 +112,24 @@ export default function TreeScreen() {
       bgColor: '#ecfeff',
       borderColor: '#a5f3fc'
     }
-  ];
+  ], [glucoseLog, bpLog, weightLog, waterLog, t, tc]);
 
   const hasAnyMetric = metrics.some((metric) => metric.value !== '--');
   const showChart = hasAnyMetric;
   const chartData = showChart ? history : [];
 
-  // Tự động fetch khi tab được focus (không cần pull to refresh)
+  const lastFetchRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
+      const now = Date.now();
+      if (now - lastFetchRef.current < 3000) return;
+      lastFetchRef.current = now;
       const controller = new AbortController();
       fetchTree(controller.signal);
       fetchLogs(controller.signal);
       return () => controller.abort();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []) // Empty deps - fetchTree and fetchLogs are stable in Zustand
+    }, [])
   );
 
   const [refreshing, setRefreshing] = useState(false);
@@ -139,11 +143,12 @@ export default function TreeScreen() {
 
   return (
     <Screen>
-      {isStale || errorState === 'remote-failed' ? <OfflineBanner /> : null}
+      {errorState === 'remote-failed' ? <OfflineBanner /> : null}
       {status === 'loading' && !summary ? <StateLoading /> : null}
       {errorState === 'no-data' && !summary ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
-      <RippleRefreshIndicator refreshing={refreshing} />
-      <ScrollView
+      <RippleRefreshScrollView
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -188,7 +193,9 @@ export default function TreeScreen() {
         {/* Score Section */}
         <View style={styles.scoreSection}>
           <View style={styles.scoreCard}>
-            <T1ProgressRing percentage={summary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
+            <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
+              <T1ProgressRing percentage={summary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
+            </Suspense>
             <Text style={styles.scoreCaption}>
               {Math.round((summary?.score ?? 0) * 100)}% - {(summary?.score ?? 0) >= 0.7 ? t('good') : (summary?.score ?? 0) >= 0.4 ? t('average') : t('needsImprovement')}
             </Text>
@@ -261,7 +268,9 @@ export default function TreeScreen() {
             <Text style={styles.chartExplain}>{t('chartExplain')}</Text>
           </View>
           {showChart ? (
-            <C1TrendChart data={chartData} title={t('activityScore')} unit={t('scoreUnit')} />
+            <Suspense fallback={<View style={{ height: 200 }} />}>
+              <C1TrendChart data={chartData} title={t('activityScore')} unit={t('scoreUnit')} />
+            </Suspense>
           ) : (
             <View style={styles.placeholderCard}>
               <Ionicons name="analytics" size={32} color={colors.textSecondary} />
@@ -269,7 +278,7 @@ export default function TreeScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </RippleRefreshScrollView>
     </Screen>
   );
 }

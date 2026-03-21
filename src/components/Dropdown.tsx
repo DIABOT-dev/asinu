@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     FlatList,
     Keyboard,
@@ -47,6 +47,114 @@ export function Dropdown({
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<RNTextInput>(null);
   const scaledTypography = useScaledTypography();
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      marginBottom: spacing.md,
+    },
+    label: {
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+    },
+    trigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      minHeight: 48,
+    },
+    triggerError: {
+      borderColor: colors.danger,
+    },
+    triggerText: {
+      color: colors.textPrimary,
+      flex: 1,
+    },
+    triggerTextPlaceholder: {
+      color: colors.textSecondary,
+    },
+    errorText: {
+      color: colors.danger,
+      marginTop: spacing.xs / 2,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'center',
+      padding: spacing.xl,
+    },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      maxHeight: '70%',
+      overflow: 'hidden',
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+      marginHorizontal: spacing.md,
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: 12,
+      gap: spacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      color: colors.textPrimary,
+    },
+    optionsList: {
+      maxHeight: 400,
+    },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    optionSelected: {
+      backgroundColor: colors.primary + '10',
+    },
+    optionDisabled: {
+      opacity: 0.5,
+    },
+    optionContent: {
+      flex: 1,
+    },
+    optionLabel: {
+      color: colors.textPrimary,
+      fontWeight: '500',
+    },
+    optionLabelSelected: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    optionLabelDisabled: {
+      color: colors.textSecondary,
+    },
+    optionSubtitle: {
+      color: colors.textSecondary,
+      marginTop: spacing.xs / 2,
+    },
+    optionSubtitleDisabled: {
+      color: colors.textSecondary + '80',
+    },
+    emptyText: {
+      textAlign: 'center',
+      color: colors.textSecondary,
+      padding: spacing.xl,
+    },
+  }), []);
   const displayPlaceholder = placeholder ?? t('select');
 
   useEffect(() => {
@@ -177,112 +285,3 @@ export function Dropdown({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    minHeight: 48,
-  },
-  triggerError: {
-    borderColor: colors.danger,
-  },
-  triggerText: {
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  triggerTextPlaceholder: {
-    color: colors.textSecondary,
-  },
-  errorText: {
-    color: colors.danger,
-    marginTop: spacing.xs / 2,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    maxHeight: '70%',
-    overflow: 'hidden',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    color: colors.textPrimary,
-  },
-  optionsList: {
-    maxHeight: 400,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  optionSelected: {
-    backgroundColor: colors.primary + '10',
-  },
-  optionDisabled: {
-    opacity: 0.5,
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionLabel: {
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  optionLabelSelected: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  optionLabelDisabled: {
-    color: colors.textSecondary,
-  },
-  optionSubtitle: {
-    color: colors.textSecondary,
-    marginTop: spacing.xs / 2,
-  },
-  optionSubtitleDisabled: {
-    color: colors.textSecondary + '80',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: colors.textSecondary,
-    padding: spacing.xl,
-  },
-});

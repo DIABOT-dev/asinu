@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ReactNode } from 'react';
@@ -25,7 +26,7 @@ const trendKeys = {
   flat: 'stable'
 } as const;
 
-export const M1MetricCard = ({
+export const M1MetricCard = React.memo(({
   title,
   value,
   unit,
@@ -40,6 +41,51 @@ export const M1MetricCard = ({
   const { t } = useTranslation('tree');
   const scaledTypography = useScaledTypography();
   const Container = onPress ? Pressable : View;
+  const styles = useMemo(() => StyleSheet.create({
+    card: {
+      flex: 1,
+      padding: spacing.lg,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderStyle: 'solid',
+      backgroundColor: colors.surface,
+      gap: spacing.sm
+    },
+    accent: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    accentLabel: {
+      color: colors.surface,
+      fontWeight: '600'
+    },
+    title: {
+      color: colors.textSecondary,
+      fontWeight: '700'
+    },
+    valueRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: spacing.xs
+    },
+    value: {
+      color: colors.textPrimary,
+      fontWeight: '700'
+    },
+    unit: {
+      color: colors.textSecondary,
+      marginBottom: spacing.xs
+    },
+    delta: {
+      fontWeight: '600'
+    },
+    helper: {
+      color: colors.textSecondary
+    }
+  }), []);
 
   return (
     <Container style={[styles.card, { borderColor: accentColor }]} onPress={onPress}>
@@ -60,50 +106,4 @@ export const M1MetricCard = ({
       <Text style={[styles.helper, { fontSize: scaledTypography.size.sm }]}>{footnote || t(trendKeys[trend])}</Text>
     </Container>
   );
-};
-
-const styles = StyleSheet.create({
-  card: {
-    flex: 1,
-    padding: spacing.lg,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderStyle: 'solid',
-    backgroundColor: colors.surface,
-    gap: spacing.sm
-  },
-  accent: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  accentLabel: {
-    color: colors.surface,
-    fontWeight: '600'
-  },
-  title: {
-    color: colors.textSecondary,
-    fontWeight: '700'
-  },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.xs
-  },
-  value: {
-    color: colors.textPrimary,
-    fontWeight: '700'
-  },
-  unit: {
-    color: colors.textSecondary,
-    marginBottom: spacing.xs
-  },
-  delta: {
-    fontWeight: '600'
-  },
-  helper: {
-    color: colors.textSecondary
-  }
-});
+}));
