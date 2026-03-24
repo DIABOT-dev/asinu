@@ -26,7 +26,7 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { checkinApi, type CheckinSession } from '../../src/features/checkin/checkin.api';
 import { apiClient } from '../../src/lib/apiClient';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, radius, spacing } from '../../src/styles';
+import { colors, radius, spacing, brandColors} from '../../src/styles';
 
 type TestLog = { time: string; text: string; type: 'info' | 'success' | 'error' | 'action' };
 
@@ -195,7 +195,7 @@ export default function DevTestScreen() {
             style={({ pressed }) => [styles.actionBtn, styles.actionRed, pressed && { opacity: 0.85 }]}
             onPress={handleReset}
           >
-            <View style={[styles.actionIcon, { backgroundColor: '#fee2e2' }]}>
+            <View style={[styles.actionIcon, { backgroundColor: colors.danger + '22' }]}>
               <Ionicons name="trash-outline" size={22} color="#dc2626" />
             </View>
             <Text style={styles.actionTitle}>Reset Session</Text>
@@ -207,7 +207,7 @@ export default function DevTestScreen() {
             style={({ pressed }) => [styles.actionBtn, styles.actionBlue, pressed && { opacity: 0.85 }]}
             onPress={refreshSession}
           >
-            <View style={[styles.actionIcon, { backgroundColor: '#eff6ff' }]}>
+            <View style={[styles.actionIcon, { backgroundColor: brandColors.indigo + '18' }]}>
               <Ionicons name="refresh" size={22} color="#3b82f6" />
             </View>
             <Text style={styles.actionTitle}>Refresh</Text>
@@ -221,7 +221,7 @@ export default function DevTestScreen() {
             style={({ pressed }) => [styles.actionBtn, styles.actionGreen, pressed && { opacity: 0.85 }]}
             onPress={goCheckinMorning}
           >
-            <View style={[styles.actionIcon, { backgroundColor: '#f0fdf4' }]}>
+            <View style={[styles.actionIcon, { backgroundColor: colors.emeraldLight }]}>
               <MaterialCommunityIcons name="weather-sunny" size={22} color="#16a34a" />
             </View>
             <Text style={styles.actionTitle}>Morning Check-in</Text>
@@ -238,7 +238,7 @@ export default function DevTestScreen() {
             onPress={goCheckinFollowUp}
             disabled={!session}
           >
-            <View style={[styles.actionIcon, { backgroundColor: '#fffbeb' }]}>
+            <View style={[styles.actionIcon, { backgroundColor: colors.premiumLight }]}>
               <Ionicons name="pulse" size={22} color="#d97706" />
             </View>
             <Text style={styles.actionTitle}>Follow-up</Text>
@@ -253,7 +253,7 @@ export default function DevTestScreen() {
           onPress={() => router.push('/dev-test/notifications')}
         >
           <View style={styles.scenarioRow}>
-            <View style={[styles.scenarioIcon, { backgroundColor: '#f5f3ff' }]}>
+            <View style={[styles.scenarioIcon, { backgroundColor: brandColors.violet + '18' }]}>
               <Ionicons name="notifications" size={18} color="#8b5cf6" />
             </View>
             <View style={{ flex: 1 }}>
@@ -272,7 +272,7 @@ export default function DevTestScreen() {
           <Text style={styles.scenarioSub}>7h sáng → "Tôi ổn" → 21h tối AI hỏi "Hôm nay thế nào?"</Text>
           <View style={{ gap: 8, marginTop: 10 }}>
             <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#f0fdf4' }, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.emeraldLight }, pressed && { opacity: 0.8 }]}
               onPress={async () => {
                 setLoading(true);
                 try {
@@ -287,7 +287,7 @@ export default function DevTestScreen() {
               <Text style={[styles.stepText, { color: '#16a34a' }]}>1a. Check-in sáng → Chọn "Tôi ổn"</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#ecfdf5' }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.emeraldLight }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
               disabled={!session}
               onPress={async () => {
                 if (!session) return;
@@ -313,7 +313,7 @@ export default function DevTestScreen() {
           <Text style={styles.scenarioSub}>Sáng "Hơi mệt" → AI hỏi 3-5 câu → 3h sau follow-up → lặp đến khi ổn</Text>
           <View style={{ gap: 8, marginTop: 10 }}>
             <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fffbeb' }, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.premiumLight }, pressed && { opacity: 0.8 }]}
               onPress={async () => {
                 setLoading(true);
                 try {
@@ -328,7 +328,7 @@ export default function DevTestScreen() {
               <Text style={[styles.stepText, { color: '#d97706' }]}>2a. Check-in sáng → Chọn "Hơi mệt" → Trả lời AI</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fef3c7' }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.premiumLight }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
               disabled={!session}
               onPress={async () => {
                 if (!session) return;
@@ -354,7 +354,7 @@ export default function DevTestScreen() {
           <Text style={styles.scenarioSub}>Sáng "Rất mệt" → AI hỏi red flag → 1-2h follow-up → cảnh báo gia đình nếu cần</Text>
           <View style={{ gap: 8, marginTop: 10 }}>
             <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fef2f2' }, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.danger + '18' }, pressed && { opacity: 0.8 }]}
               onPress={async () => {
                 setLoading(true);
                 try {
@@ -369,7 +369,7 @@ export default function DevTestScreen() {
               <Text style={[styles.stepText, { color: '#dc2626' }]}>3a. Check-in sáng → Chọn "Rất mệt" → Trả lời AI</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fee2e2' }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.danger + '22' }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
               disabled={!session}
               onPress={async () => {
                 if (!session) return;
@@ -410,7 +410,7 @@ export default function DevTestScreen() {
           <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 5: Khẩn cấp SOS</Text>
           <Text style={styles.scenarioSub}>Nút SOS → báo ngay người nhà → gọi cấp cứu nếu cần</Text>
           <Pressable
-            style={({ pressed }) => [styles.stepBtn, { backgroundColor: '#fee2e2', marginTop: 10 }, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.danger + '22', marginTop: 10 }, pressed && { opacity: 0.8 }]}
             onPress={async () => {
               addLog('[Luồng 5] Test emergency SOS...', 'action');
               setLoading(true);
@@ -430,7 +430,7 @@ export default function DevTestScreen() {
 
         {/* Session info */}
         {session && (
-          <View style={[styles.scenarioBtn, { backgroundColor: '#f9fafb' }]}>
+          <View style={[styles.scenarioBtn, { backgroundColor: colors.surfaceMuted }]}>
             <Text style={[styles.scenarioSub, { fontWeight: '600', color: colors.textPrimary }]}>
               Session #{session.id} | {session.current_status} | {session.flow_state}
               {session.triage_severity ? ` | ${session.triage_severity}` : ''}

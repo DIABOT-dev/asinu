@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export type M1MetricCardProps = {
   title: string;
@@ -41,6 +42,7 @@ export const M1MetricCard = React.memo(({
   const { t } = useTranslation('tree');
   const scaledTypography = useScaledTypography();
   const Container = onPress ? Pressable : View;
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     card: {
       flex: 1,
@@ -85,7 +87,7 @@ export const M1MetricCard = React.memo(({
     helper: {
       color: colors.textSecondary
     }
-  }), []);
+  }), [isDark]);
 
   return (
     <Container style={[styles.card, { borderColor: accentColor }]} onPress={onPress}>

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export const DATA_CONSENT_KEY = '@asinu/data_consent_v1';
 
@@ -30,7 +31,8 @@ type Props = {
 export function DataConsentModal({ visible, onAgree }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const items = [t('dataConsentItem1'), t('dataConsentItem2'), t('dataConsentItem3'), t('dataConsentItem4')];
 
   const handleAgree = async () => {

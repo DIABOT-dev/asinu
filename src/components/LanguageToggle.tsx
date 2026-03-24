@@ -4,6 +4,7 @@ import { ScaledText as Text } from './ScaledText';
 import { AppLanguage, useLanguageStore } from '../stores/language.store';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 const FLAG: Record<AppLanguage, string> = {
   vi: '\u{1F1FB}\u{1F1F3}',
@@ -13,7 +14,8 @@ const FLAG: Record<AppLanguage, string> = {
 export function LanguageToggle() {
   const { language, setLanguage } = useLanguageStore();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   return (
     <View style={styles.container}>

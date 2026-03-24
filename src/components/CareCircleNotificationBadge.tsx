@@ -6,6 +6,7 @@ import { useAuthStore } from '../features/auth/auth.store';
 import { useCareCircle } from '../features/care-circle';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export function CareCircleNotificationBadge() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export function CareCircleNotificationBadge() {
   const [pendingCount, setPendingCount] = useState(0);
   const scaledTypography = useScaledTypography();
   const { t } = useTranslation('common');
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       backgroundColor: colors.primary + '10',
@@ -51,7 +53,7 @@ export function CareCircleNotificationBadge() {
     subtitle: {
       color: colors.textSecondary
     }
-  }), []);
+  }), [isDark]);
 
   useEffect(() => {
     fetchInvitations();

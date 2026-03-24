@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, radius } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type HealthLevel = 'ok' | 'monitor' | 'danger';
 
@@ -52,6 +53,7 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const config = LEVEL_CONFIG[level];
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     card: {
       flexDirection: 'row',
@@ -80,7 +82,7 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
       color: colors.textSecondary,
       marginTop: 2,
     },
-  }), []);
+  }), [isDark]);
 
   return (
     <View style={[styles.card, { backgroundColor: config.bg, borderColor: config.border }]}>

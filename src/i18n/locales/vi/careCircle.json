@@ -118,5 +118,11 @@
   "phoneQueryTooShort": "Vui lòng nhập ít nhất 3 số",
   "noUserFoundByPhone": "Không tìm thấy người dùng với số điện thoại này",
   "alreadyConnected": "Bạn đã có kết nối hoặc lời mời với người này",
-  "cannotInviteSelf": "Bạn không thể kết nối với chính mình"
+  "cannotInviteSelf": "Bạn không thể kết nối với chính mình",
+  "cancelInvite": "Huỷ lời mời",
+  "cancelInviteTitle": "Huỷ lời mời",
+  "cancelInviteMsg": "Bạn có chắc muốn huỷ lời mời này?",
+  "cancelSuccess": "Đã huỷ lời mời thành công",
+  "cancelError": "Không thể huỷ lời mời. Vui lòng thử lại.",
+  "noContactInfo": "Không có thông tin liên hệ"
 }

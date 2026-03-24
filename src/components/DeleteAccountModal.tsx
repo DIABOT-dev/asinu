@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type DeleteAccountModalProps = {
   visible: boolean;
@@ -23,6 +24,7 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
   const [inputValue, setInputValue] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     overlay: {
       flex: 1,
@@ -122,7 +124,7 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
     deleteButtonText: {
       color: '#fff',
     },
-  }), []);
+  }), [isDark]);
   const { t } = useTranslation('settings');
   const { t: tc } = useTranslation('common');
 

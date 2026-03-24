@@ -32,13 +32,15 @@ import { useLogsStore } from '../../src/features/logs/logs.store';
 import { validateMedicationPayload } from '../../src/features/logs/logs.validation';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 export default function MedicationLogScreen() {
   const { t } = useTranslation('logs');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const [medication, setMedication] = useState('');
   const [dose, setDose] = useState('');

@@ -8,6 +8,7 @@ import { apiClient } from '../lib/apiClient';
 import { router } from 'expo-router';
 import { navigation } from '../lib/navigation';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from './MedicalDisclaimerModal';
 
@@ -28,6 +29,7 @@ const isUnauthorized = (error: unknown) => {
 export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['chat', 'common']);
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     overlay: {
       flex: 1,
@@ -75,7 +77,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     chatBody: {
       flex: 1
     }
-  }), []);
+  }), [isDark]);
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const hasLoadedHistory = useRef(false);
   const lastVisibleRef = useRef(false);
@@ -172,7 +174,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.handle} />

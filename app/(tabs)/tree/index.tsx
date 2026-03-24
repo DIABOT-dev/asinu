@@ -18,6 +18,7 @@ import { useTreeStore } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import i18n from '../../../src/i18n';
 import { colors, spacing } from '../../../src/styles';
+import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
 const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
@@ -36,7 +37,8 @@ export default function TreeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const padTop = insets.top + spacing.lg;
 
   const formatTime = (iso?: string) => {

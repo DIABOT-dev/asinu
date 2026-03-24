@@ -38,6 +38,7 @@ import { logsService } from '../../src/features/logs/logs.service';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 // ─── Glucose status helpers ────────────────────────────────────────
 
@@ -131,7 +132,7 @@ const rangeStyles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.textPrimary,
     alignItems: 'center',
@@ -174,7 +175,8 @@ export default function GlucoseLogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const [value, setValue] = useState('');
   const [context, setContext] = useState('pre_meal');

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type Props = {
   visible: boolean;
@@ -27,7 +28,8 @@ export function containsMedicalKeywords(text: string): boolean {
 export function MedicalDisclaimerModal({ visible, onClose }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -106,7 +108,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 68,
       height: 68,
       borderRadius: 34,
-      backgroundColor: '#fef3c7',
+      backgroundColor: colors.premiumLight,
       justifyContent: 'center',
       alignItems: 'center',
       marginBottom: spacing.xs,

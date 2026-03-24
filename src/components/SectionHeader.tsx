@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View, ViewProps } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type Props = ViewProps & {
   title: string;
@@ -11,6 +12,7 @@ type Props = ViewProps & {
 
 export const SectionHeader = ({ title, subtitle, action, style }: Props) => {
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flexDirection: 'row',
@@ -28,7 +30,7 @@ export const SectionHeader = ({ title, subtitle, action, style }: Props) => {
       marginTop: spacing.xs,
       fontFamily: 'System'
     }
-  }), []);
+  }), [isDark]);
 
   return (
     <View style={[styles.container, style]}>

@@ -14,7 +14,8 @@ import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, spacing } from '../../src/styles';
+import { colors, spacing, brandColors} from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 export default function CareCircleScreen() {
   const router = useRouter();
@@ -23,7 +24,8 @@ export default function CareCircleScreen() {
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
 
   const screenOptions = useMemo(() => ({
@@ -44,8 +46,7 @@ export default function CareCircleScreen() {
     connections,
     loading,
     refreshing,
-    fetchInvitations,
-    fetchConnections,
+    cancelInvitation,
     acceptInvitation,
     rejectInvitation,
     deleteConnection,
@@ -58,6 +59,14 @@ export default function CareCircleScreen() {
   const [editConnection, setEditConnection] = useState<{ id: string; relationship_type?: string; role?: string; name: string } | null>(null);
   const [editRelationType, setEditRelationType] = useState<DropdownOption | null>(null);
   const [editRole, setEditRole] = useState<DropdownOption | null>(null);
+
+  // Profile modal
+  type ProfileTarget = {
+    name: string; email?: string; phone?: string;
+    relationship?: string; role?: string;
+    invitationId?: string; // nếu là lời mời đã gửi
+  };
+  const [profileTarget, setProfileTarget] = useState<ProfileTarget | null>(null);
 
   // Relationship options
   const relationshipOptions: DropdownOption[] = [
@@ -155,8 +164,7 @@ export default function CareCircleScreen() {
   };
 
   useEffect(() => {
-    fetchInvitations();
-    fetchConnections();
+    refresh();
   }, []);
 
   const handleAccept = async (id: string) => {
@@ -169,6 +177,31 @@ export default function CareCircleScreen() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const handleCancel = async (id: string) => {
+    showAlert(
+      t('cancelInviteTitle') || 'Huỷ lời mời',
+      t('cancelInviteMsg') || 'Bạn có chắc muốn huỷ lời mời này?',
+      [
+        { text: tc('cancel'), style: 'cancel' },
+        {
+          text: t('cancelInvite') || 'Huỷ lời mời',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(id);
+              await cancelInvitation(id);
+              showAlert(tc('success'), t('cancelSuccess') || 'Đã huỷ lời mời');
+            } catch {
+              showAlert(tc('error'), t('cancelError') || 'Không thể huỷ lời mời');
+            } finally {
+              setActionLoading(null);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleReject = async (id: string) => {
@@ -297,7 +330,7 @@ export default function CareCircleScreen() {
               <Text style={styles.statLabel}>{t('received')}</Text>
             </View>
             <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: '#dbeafe' }]}>
+              <View style={[styles.statIconBg, { backgroundColor: brandColors.indigo + '22' }]}>
                 <Ionicons name="send" size={18} color="#3b82f6" />
               </View>
               <Text style={styles.statValue}>{sentInvitations.length}</Text>
@@ -323,21 +356,32 @@ export default function CareCircleScreen() {
               </View>
               <Text style={styles.sectionTitle}>{t('receivedInvitations', { count: receivedInvitations.length })}</Text>
             </View>
-            {receivedInvitations.map((invitation) => (
-              <View key={invitation.id} style={styles.card}>
+            {receivedInvitations.map((invitation) => {
+              const requesterName = invitation.requester_full_name || invitation.requester_name || invitation.requester_email || `#${invitation.requester_id}`;
+              return (
+              <TouchableOpacity
+                key={invitation.id}
+                style={styles.card}
+                onPress={() => setProfileTarget({
+                  name: requesterName,
+                  email: invitation.requester_email,
+                  phone: invitation.requester_phone,
+                  relationship: invitation.relationship_type,
+                  role: invitation.role,
+                })}
+                activeOpacity={0.75}
+              >
                 <View style={styles.cardHeader}>
                   <LinearGradient
                     colors={[colors.premium, colors.premiumDark]}
                     style={styles.avatar}
                   >
                     <Text style={styles.avatarText}>
-                      {invitation.requester_name?.[0]?.toUpperCase() || '?'}
+                      {requesterName[0]?.toUpperCase() || '?'}
                     </Text>
                   </LinearGradient>
                   <View style={styles.cardInfo}>
-                    <Text style={styles.cardName}>
-                      {invitation.requester_name || `User ${invitation.requester_id}`}
-                    </Text>
+                    <Text style={styles.cardName}>{requesterName}</Text>
                     <View style={styles.cardBadge}>
                       <Ionicons name="link" size={12} color={colors.primary} />
                       <Text style={styles.cardRelation}>
@@ -371,8 +415,9 @@ export default function CareCircleScreen() {
                     <Text style={styles.rejectButtonText}>{t('reject')}</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            ))}
+              </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
@@ -380,34 +425,51 @@ export default function CareCircleScreen() {
         {sentInvitations.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconBg, { backgroundColor: '#dbeafe' }]}>
+              <View style={[styles.sectionIconBg, { backgroundColor: brandColors.indigo + '22' }]}>
                 <Ionicons name="send" size={16} color="#3b82f6" />
               </View>
               <Text style={styles.sectionTitle}>{t('sentInvitations', { count: sentInvitations.length })}</Text>
             </View>
-            {sentInvitations.map((invitation) => (
-              <View key={invitation.id} style={[styles.card, styles.cardPending]}>
+            {sentInvitations.map((invitation) => {
+              const name = invitation.addressee_full_name || invitation.addressee_name || invitation.addressee_email || `#${invitation.addressee_id}`;
+              return (
+              <TouchableOpacity
+                key={invitation.id}
+                style={[styles.card, styles.cardPending]}
+                onPress={() => setProfileTarget({
+                  name,
+                  email: invitation.addressee_email,
+                  phone: invitation.addressee_phone,
+                  relationship: invitation.relationship_type,
+                  role: invitation.role,
+                  invitationId: invitation.id,
+                })}
+                activeOpacity={0.75}
+              >
                 <View style={styles.cardHeader}>
-                  <LinearGradient
-                    colors={['#3b82f6', '#2563eb']}
-                    style={styles.avatar}
-                  >
-                    <Text style={styles.avatarText}>
-                      {invitation.addressee_name?.[0]?.toUpperCase() || '?'}
-                    </Text>
+                  <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.avatar}>
+                    <Text style={styles.avatarText}>{name[0]?.toUpperCase() || '?'}</Text>
                   </LinearGradient>
                   <View style={styles.cardInfo}>
-                    <Text style={styles.cardName}>
-                      {invitation.addressee_name || `User ${invitation.addressee_id}`}
-                    </Text>
+                    <Text style={styles.cardName}>{name}</Text>
                     <View style={styles.pendingBadge}>
                       <Ionicons name="time" size={12} color={colors.premium} />
                       <Text style={styles.cardStatus}>{t('waitingResponse')}</Text>
                     </View>
                   </View>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => handleCancel(invitation.id)}
+                    disabled={actionLoading === invitation.id}
+                  >
+                    {actionLoading === invitation.id
+                      ? <ActivityIndicator size="small" color={colors.danger} />
+                      : <Ionicons name="close-circle" size={22} color={colors.danger} />}
+                  </TouchableOpacity>
                 </View>
-              </View>
-            ))}
+              </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
@@ -421,7 +483,7 @@ export default function CareCircleScreen() {
               {t('activeConnections', { count: connections.length })}
             </Text>
           </View>
-          {loading && connections.length === 0 ? (
+          {(loading || refreshing) && connections.length === 0 ? (
             <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
           ) : connections.length === 0 ? (
             <View style={styles.emptyState}>
@@ -433,7 +495,7 @@ export default function CareCircleScreen() {
             </View>
           ) : (
             connections.map((connection) => {
-              const isRequester = connection.requester_id === profile?.id;
+              const isRequester = String(connection.requester_id) === String(profile?.id);
               const otherUserId = isRequester ? connection.addressee_id : connection.requester_id;
               const otherUserFullName = isRequester ? connection.addressee_full_name : connection.requester_full_name;
               const otherUserEmail = isRequester ? connection.addressee_email : connection.requester_email;
@@ -446,8 +508,20 @@ export default function CareCircleScreen() {
                 ? getRelationshipLabel(connection.relationship_type)
                 : reverseRelationship(connection.relationship_type);
 
+              const otherName = otherUserFullName || otherUserEmail || `#${otherUserId}`;
               return (
-                <View key={connection.id} style={styles.card}>
+                <TouchableOpacity
+                  key={connection.id}
+                  style={styles.card}
+                  onPress={() => setProfileTarget({
+                    name: otherName,
+                    email: otherUserEmail,
+                    phone: otherUserPhone,
+                    relationship: displayRelationship,
+                    role: connection.role,
+                  })}
+                  activeOpacity={0.75}
+                >
                   <View style={styles.cardHeader}>
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                       <LinearGradient
@@ -455,13 +529,11 @@ export default function CareCircleScreen() {
                         style={styles.avatar}
                       >
                         <Text style={styles.avatarText}>
-                          {otherUserFullName?.[0]?.toUpperCase() || '?'}
+                          {otherName[0]?.toUpperCase() || '?'}
                         </Text>
                       </LinearGradient>
                       <View style={styles.cardInfo}>
-                        <Text style={styles.cardName}>
-                          {otherUserFullName || `User ${otherUserId}`}
-                        </Text>
+                        <Text style={styles.cardName}>{otherName}</Text>
                         {otherUserEmail && (
                           <View style={styles.contactRow}>
                             <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
@@ -498,7 +570,7 @@ export default function CareCircleScreen() {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => handleDeleteConnection(connection.id, otherUserFullName || t('thisPerson'))}
+                        onPress={() => handleDeleteConnection(connection.id, otherName)}
                         disabled={actionLoading === connection.id}
                         style={styles.iconBtn}
                       >
@@ -510,11 +582,71 @@ export default function CareCircleScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })
           )}
         </View>
+
+        {/* Profile Modal */}
+        <Modal
+          visible={!!profileTarget}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setProfileTarget(null)}
+        >
+          <View style={styles.profileOverlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setProfileTarget(null)} />
+            <View style={[styles.profileSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+              <View style={styles.profileHandle} />
+              <LinearGradient colors={[colors.emerald, colors.emeraldDark]} style={styles.profileAvatar}>
+                <Text style={styles.profileAvatarText}>{profileTarget?.name?.[0]?.toUpperCase() || '?'}</Text>
+              </LinearGradient>
+              <Text style={styles.profileName}>{profileTarget?.name}</Text>
+              {profileTarget?.relationship ? (
+                <View style={styles.profileBadge}>
+                  <Ionicons name="heart" size={13} color={colors.primary} />
+                  <Text style={styles.profileBadgeText}>{profileTarget.relationship}</Text>
+                </View>
+              ) : null}
+              {profileTarget?.role ? (
+                <View style={[styles.profileBadge, { backgroundColor: colors.premiumLight }]}>
+                  <Ionicons name="briefcase-outline" size={13} color={colors.premium} />
+                  <Text style={[styles.profileBadgeText, { color: colors.premiumDark }]}>{profileTarget.role}</Text>
+                </View>
+              ) : null}
+              <View style={styles.profileInfoList}>
+                {profileTarget?.email ? (
+                  <View style={styles.profileInfoRow}>
+                    <Ionicons name="mail-outline" size={16} color={colors.textSecondary} />
+                    <Text style={styles.profileInfoText}>{profileTarget.email}</Text>
+                  </View>
+                ) : null}
+                {profileTarget?.phone ? (
+                  <View style={styles.profileInfoRow}>
+                    <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
+                    <Text style={styles.profileInfoText}>{profileTarget.phone}</Text>
+                  </View>
+                ) : null}
+                {!profileTarget?.email && !profileTarget?.phone ? (
+                  <Text style={styles.profileNoInfo}>{t('noContactInfo') || 'Không có thông tin liên hệ'}</Text>
+                ) : null}
+              </View>
+              {profileTarget?.invitationId ? (
+                <TouchableOpacity
+                  style={styles.cancelInviteBtn}
+                  onPress={() => { setProfileTarget(null); handleCancel(profileTarget.invitationId!); }}
+                >
+                  <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
+                  <Text style={styles.cancelInviteBtnText}>{t('cancelInvite') || 'Huỷ lời mời'}</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.profileCloseBtn} onPress={() => setProfileTarget(null)}>
+                <Text style={styles.profileCloseBtnText}>{tc('close')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* Edit Connection Modal */}
         <Modal
@@ -576,7 +708,8 @@ export default function CareCircleScreen() {
                   label={tc('cancel')}
                   variant="ghost"
                   onPress={() => setEditModalVisible(false)}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, borderColor: colors.textSecondary }}
+                  textStyle={{ color: colors.textSecondary }}
                 />
                 <Button
                   label={tc('save')}
@@ -639,12 +772,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     padding: spacing.md,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -705,16 +838,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1.5,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   cardPending: {
-    borderColor: colors.premiumLight,
-    backgroundColor: '#fffbeb',
+    borderColor: colors.premium,
+    backgroundColor: colors.premiumLight,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -757,7 +890,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: 4,
     marginTop: 4,
-    backgroundColor: '#f0fdfa',
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -787,7 +920,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -815,7 +948,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600'
   },
   rejectButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceMuted,
   },
   rejectButtonText: {
     color: colors.textSecondary,
@@ -825,10 +958,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   emptyState: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   emptyIconBg: {
     marginBottom: spacing.md,
@@ -845,6 +978,82 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   loader: {
     marginVertical: spacing.xl
+  },
+  cancelBtn: {
+    padding: 4,
+    marginLeft: spacing.sm,
+  },
+  // Profile modal
+  profileOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  profileSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    alignItems: 'center',
+  },
+  profileHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: colors.border, marginBottom: spacing.lg,
+  },
+  profileAvatar: {
+    width: 72, height: 72, borderRadius: 36,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  profileAvatarText: {
+    fontSize: 30, fontWeight: '700', color: '#fff',
+  },
+  profileName: {
+    fontSize: typography.size.lg, fontWeight: '700',
+    color: colors.textPrimary, marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  profileBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: colors.primaryLight, paddingHorizontal: 12,
+    paddingVertical: 5, borderRadius: 20, marginBottom: spacing.xs,
+  },
+  profileBadgeText: {
+    fontSize: typography.size.sm, color: colors.primary, fontWeight: '600',
+  },
+  profileInfoList: {
+    width: '100%', gap: spacing.sm,
+    marginTop: spacing.md, marginBottom: spacing.md,
+  },
+  profileInfoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
+  },
+  profileInfoText: {
+    fontSize: typography.size.md, color: colors.textPrimary, flex: 1,
+  },
+  profileNoInfo: {
+    fontSize: typography.size.sm, color: colors.textSecondary,
+    textAlign: 'center', paddingVertical: spacing.md,
+  },
+  cancelInviteBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingVertical: spacing.md, paddingHorizontal: spacing.xl,
+    borderWidth: 1.5, borderColor: colors.danger + '60',
+    borderRadius: 12, marginBottom: spacing.sm, width: '100%',
+    justifyContent: 'center',
+  },
+  cancelInviteBtnText: {
+    fontSize: typography.size.md, color: colors.danger, fontWeight: '600',
+  },
+  profileCloseBtn: {
+    paddingVertical: spacing.md, width: '100%',
+    backgroundColor: colors.surfaceMuted, borderRadius: 12,
+    alignItems: 'center', marginTop: spacing.xs,
+  },
+  profileCloseBtnText: {
+    fontSize: typography.size.md, color: colors.textSecondary, fontWeight: '600',
   },
   modalContent: {
     padding: spacing.lg,
@@ -881,7 +1090,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     marginTop: spacing.lg
   },
   currentInfoBox: {
-    backgroundColor: '#f0f9ff',
+    backgroundColor: brandColors.cyan + '18',
     borderRadius: 12,
     padding: spacing.md,
     marginBottom: spacing.lg,

@@ -118,5 +118,11 @@
   "phoneQueryTooShort": "Please enter at least 3 digits",
   "noUserFoundByPhone": "No user found with this phone number",
   "alreadyConnected": "You already have a connection or invitation with this person",
-  "cannotInviteSelf": "You cannot connect with yourself"
+  "cannotInviteSelf": "You cannot connect with yourself",
+  "cancelInvite": "Cancel invitation",
+  "cancelInviteTitle": "Cancel invitation",
+  "cancelInviteMsg": "Are you sure you want to cancel this invitation?",
+  "cancelSuccess": "Invitation cancelled successfully",
+  "cancelError": "Cannot cancel invitation. Please try again.",
+  "noContactInfo": "No contact information"
 }

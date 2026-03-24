@@ -281,12 +281,12 @@ export default function NotificationTestScreen() {
                             <Ionicons name="hourglass" size={16} color={colors.textSecondary} />
                           </View>
                         ) : result === 'ok' ? (
-                          <View style={[styles.notifBtn, { backgroundColor: '#dcfce7' }]}>
+                          <View style={[styles.notifBtn, { backgroundColor: colors.emeraldLight }]}>
                             <Ionicons name="checkmark" size={16} color="#16a34a" />
                           </View>
                         ) : result === 'error' ? (
                           <Pressable
-                            style={[styles.notifBtn, { backgroundColor: '#fee2e2' }]}
+                            style={[styles.notifBtn, { backgroundColor: colors.danger + '22' }]}
                             onPress={() => sendTestNotif(item.type)}
                           >
                             <Ionicons name="close" size={16} color="#dc2626" />

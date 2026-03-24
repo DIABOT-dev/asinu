@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -22,7 +22,8 @@ import { Toast } from '../../src/components/Toast';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { careCircleApi, useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, radius, spacing } from '../../src/styles';
+import { colors, radius, spacing, brandColors} from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 type SearchUser = {
   id: string;
@@ -64,7 +65,8 @@ export default function InviteScreen() {
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const profile = useAuthStore(state => state.profile);
   const { createInvitation, loading, invitations, connections, fetchInvitations, fetchConnections } = useCareCircle();
 
@@ -164,8 +166,8 @@ export default function InviteScreen() {
   };
 
   useEffect(() => {
-    fetchInvitations();
-    fetchConnections();
+    fetchInvitations(true);
+    fetchConnections(true);
   }, []);
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -227,14 +229,14 @@ export default function InviteScreen() {
       />
       <ScrollView
         style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
         keyboardShouldPersistTaps="handled"
       >
+        <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.md }}>
         {/* ─── Hero ─── */}
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <View style={styles.heroCard}>
+        <View style={styles.heroCard}>
             <LinearGradient
-              colors={[colors.primaryLight, '#fff']}
+              colors={[colors.primaryLight, colors.surface]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
@@ -245,13 +247,11 @@ export default function InviteScreen() {
             <Text style={styles.heroTitle}>{t('inviteTitle')}</Text>
             <Text style={styles.heroSubtitle}>{t('inviteSubtitle')}</Text>
           </View>
-        </Animated.View>
 
         {/* ─── Phone Search ─── */}
-        <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-          <View style={styles.card}>
+        <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrap, { backgroundColor: '#eff6ff' }]}>
+              <View style={[styles.cardIconWrap, { backgroundColor: brandColors.indigo + '18' }]}>
                 <MaterialCommunityIcons name="phone-outline" size={18} color="#3b82f6" />
               </View>
               <Text style={styles.cardTitle}>{t('searchByPhone')}</Text>
@@ -338,13 +338,11 @@ export default function InviteScreen() {
               </View>
             ) : null}
           </View>
-        </Animated.View>
 
         {/* ─── Relationship & Role ─── */}
-        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrap, { backgroundColor: '#fdf2f8' }]}>
+              <View style={[styles.cardIconWrap, { backgroundColor: brandColors.pink + '18' }]}>
                 <MaterialCommunityIcons name="heart-outline" size={18} color="#ec4899" />
               </View>
               <Text style={styles.cardTitle}>{t('relationship')}</Text>
@@ -357,12 +355,10 @@ export default function InviteScreen() {
               searchable
             />
           </View>
-        </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(250).duration(400)}>
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrap, { backgroundColor: '#f5f3ff' }]}>
+              <View style={[styles.cardIconWrap, { backgroundColor: brandColors.violet + '18' }]}>
                 <MaterialCommunityIcons name="badge-account-horizontal-outline" size={18} color="#8b5cf6" />
               </View>
               <Text style={styles.cardTitle}>{t('role')}</Text>
@@ -375,13 +371,11 @@ export default function InviteScreen() {
               searchable
             />
           </View>
-        </Animated.View>
 
         {/* ─── Permissions ─── */}
-        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrap, { backgroundColor: '#ecfdf5' }]}>
+              <View style={[styles.cardIconWrap, { backgroundColor: colors.emeraldLight }]}>
                 <MaterialCommunityIcons name="lock-open-outline" size={18} color="#10b981" />
               </View>
               <Text style={styles.cardTitle}>{t('permissions')}</Text>
@@ -408,10 +402,9 @@ export default function InviteScreen() {
               </View>
             ))}
           </View>
-        </Animated.View>
 
         {/* ─── Actions ─── */}
-        <Animated.View entering={FadeInDown.delay(350).duration(400)} style={styles.actionsWrap}>
+          <View style={styles.actionsWrap}>
           <Pressable
             style={({ pressed }) => [
               styles.sendBtn,
@@ -436,6 +429,7 @@ export default function InviteScreen() {
           >
             <Text style={styles.cancelBtnText}>{tc('cancel')}</Text>
           </Pressable>
+          </View>
         </Animated.View>
       </ScrollView>
 
@@ -472,7 +466,7 @@ export default function InviteScreen() {
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     scrollContent: {
-      padding: spacing.lg,
+      padding: spacing.xl,
       gap: spacing.md,
     },
 

@@ -35,6 +35,7 @@ import { Screen } from '../../src/components/Screen';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { apiClient } from '../../src/lib/apiClient';
 import { colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 // ---- types ----
 type QRData = { order_code: string; qr_url: string; amount: number; description: string; expires_at: string };
@@ -139,7 +140,8 @@ export default function WalletScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top, isDark]);
 
   const mountedRef = useRef(true);
   const [balance, setBalance] = useState<string>('0');
@@ -588,7 +590,7 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
     generateBtnText: { color: '#fff', fontSize: scaledTypography.size.sm, fontWeight: '700' },
 
     qrContainer: {
-      backgroundColor: '#fff', borderRadius: radius.lg,
+      backgroundColor: colors.surface, borderRadius: radius.lg,
       padding: spacing.md, alignSelf: 'center', marginBottom: spacing.md,
       shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12,
       shadowOffset: { width: 0, height: 4 },

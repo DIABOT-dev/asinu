@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../../hooks/useScaledTypography';
 import { colors, spacing } from '../../styles';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../Button';
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
 export const StateError = ({ message, onRetry }: Props) => {
   const scaledTypography = useScaledTypography();
   const { t } = useTranslation('common');
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       padding: spacing.xl,
@@ -30,7 +32,7 @@ export const StateError = ({ message, onRetry }: Props) => {
     retryButton: {
       marginTop: spacing.md
     }
-  }), []);
+  }), [isDark]);
 
   return (
     <View style={styles.container}>

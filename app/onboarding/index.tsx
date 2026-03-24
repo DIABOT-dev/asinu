@@ -21,6 +21,7 @@ import { apiClient } from '../../src/lib/apiClient';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
   { value: 'small', iconSize: 16 },
@@ -204,7 +205,8 @@ export default function OnboardingScreen() {
   const { scale, setScale } = useFontSizeStore();
   const scaledTypography = useScaledTypography();
   const { alertState, showAlert, dismissAlert } = useAppAlert();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const router = useRouter();
   const insets = useSafeAreaInsets();

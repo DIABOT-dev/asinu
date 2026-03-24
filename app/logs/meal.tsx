@@ -27,6 +27,7 @@ import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const MEAL_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   breakfast: 'cafe-outline',
@@ -41,7 +42,8 @@ export default function MealLogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const [mealType, setMealType] = useState('breakfast');
   const [kcal, setKcal] = useState('');

@@ -23,6 +23,7 @@ import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useLanguageStore } from '../stores/language.store';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export type ChatBubble = {
   id: string;
@@ -51,6 +52,7 @@ export const AiChatLayout = ({
   onUpgradePress,
 }: AiChatLayoutProps) => {
   const { t } = useTranslation(['chat', 'common']);
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
@@ -117,7 +119,7 @@ export const AiChatLayout = ({
       backgroundColor: colors.primaryLight,
     },
     actionBtnActiveBad: {
-      backgroundColor: '#fef2f2',
+      backgroundColor: colors.danger + '18',
     },
     actionBtnNoted: {
       backgroundColor: colors.premiumLight,
@@ -234,7 +236,7 @@ export const AiChatLayout = ({
       color: colors.textSecondary,
       fontWeight: '600',
     },
-  }), []);
+  }), [isDark]);
   const [draft, setDraft] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -403,46 +405,46 @@ export const AiChatLayout = ({
           <View style={styles.actionBar}>
             {/* Like */}
             <Pressable
-              style={[styles.actionBtn, { width: scaledTypography.size.lg, height: scaledTypography.size.lg, borderRadius: scaledTypography.size.lg / 2 }, fb === 'like' && styles.actionBtnActive]}
+              style={[styles.actionBtn, { width: scaledTypography.size.xl, height: scaledTypography.size.xl, borderRadius: scaledTypography.size.xl / 2 }, fb === 'like' && styles.actionBtnActive]}
               onPress={() => handleFeedback(item, 'like')}
             >
               <Ionicons
                 name={fb === 'like' ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={scaledTypography.size.xs}
+                size={scaledTypography.size.md}
                 color={fb === 'like' ? colors.primary : colors.textSecondary}
               />
             </Pressable>
 
             {/* Dislike */}
             <Pressable
-              style={[styles.actionBtn, { width: scaledTypography.size.lg, height: scaledTypography.size.lg, borderRadius: scaledTypography.size.lg / 2 }, fb === 'dislike' && styles.actionBtnActiveBad]}
+              style={[styles.actionBtn, { width: scaledTypography.size.xl, height: scaledTypography.size.xl, borderRadius: scaledTypography.size.xl / 2 }, fb === 'dislike' && styles.actionBtnActiveBad]}
               onPress={() => handleFeedback(item, 'dislike')}
             >
               <Ionicons
                 name={fb === 'dislike' ? 'thumbs-down' : 'thumbs-down-outline'}
-                size={scaledTypography.size.xs}
+                size={scaledTypography.size.md}
                 color={fb === 'dislike' ? colors.danger : colors.textSecondary}
               />
             </Pressable>
 
             {/* Copy */}
-            <Pressable style={[styles.actionBtn, { width: scaledTypography.size.lg, height: scaledTypography.size.lg, borderRadius: scaledTypography.size.lg / 2 }]} onPress={() => handleCopy(item)}>
+            <Pressable style={[styles.actionBtn, { width: scaledTypography.size.xl, height: scaledTypography.size.xl, borderRadius: scaledTypography.size.xl / 2 }]} onPress={() => handleCopy(item)}>
               <Ionicons
                 name={copiedId === item.id ? 'checkmark' : 'copy-outline'}
-                size={scaledTypography.size.xs}
+                size={scaledTypography.size.md}
                 color={copiedId === item.id ? colors.emerald : colors.textSecondary}
               />
             </Pressable>
 
             {/* Note — once noted, show filled bookmark permanently */}
             <Pressable
-              style={[styles.actionBtn, { width: scaledTypography.size.lg, height: scaledTypography.size.lg, borderRadius: scaledTypography.size.lg / 2 }, notedIds.has(item.id) && styles.actionBtnNoted]}
+              style={[styles.actionBtn, { width: scaledTypography.size.xl, height: scaledTypography.size.xl, borderRadius: scaledTypography.size.xl / 2 }, notedIds.has(item.id) && styles.actionBtnNoted]}
               onPress={() => handleNote(item)}
               disabled={notedIds.has(item.id)}
             >
               <Ionicons
                 name={notedIds.has(item.id) ? 'bookmark' : 'bookmark-outline'}
-                size={scaledTypography.size.xs}
+                size={scaledTypography.size.md}
                 color={notedIds.has(item.id) ? colors.premium : colors.textSecondary}
               />
             </Pressable>

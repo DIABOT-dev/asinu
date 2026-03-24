@@ -29,6 +29,7 @@ import { Screen } from '../../src/components/Screen';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { apiClient } from '../../src/lib/apiClient';
 import { colors, radius, spacing, typography } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 // ── Types ──────────────────────────────────────────────────────────
 type SubscriptionStatus = {
@@ -147,7 +148,7 @@ const planOptionStyle = StyleSheet.create({
     backgroundColor: colors.surfaceMuted, padding: spacing.md, alignItems: 'center',
     position: 'relative', overflow: 'hidden',
   },
-  selected: { borderColor: colors.premium, backgroundColor: '#fffbeb' },
+  selected: { borderColor: colors.premium, backgroundColor: colors.premiumLight },
   discountBadge: {
     position: 'absolute', top: 0, right: 0, backgroundColor: colors.premium,
     paddingHorizontal: 6, paddingVertical: 2, borderBottomLeftRadius: radius.sm,
@@ -174,7 +175,8 @@ export default function SubscriptionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top, isDark]);
 
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -565,7 +567,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       flexDirection: 'row', alignItems: 'center', gap: 4,
       paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.xl,
     },
-    freeBadge: { backgroundColor: '#e5e7eb' },
+    freeBadge: { backgroundColor: colors.border },
     premiumBadge: { backgroundColor: colors.premiumLight, borderWidth: 1.5, borderColor: colors.premium },
     planBadgeText: { fontSize: typography.size.sm, fontWeight: '700' },
     freeBadgeText: { color: colors.textSecondary },

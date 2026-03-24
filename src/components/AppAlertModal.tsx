@@ -7,6 +7,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export type AlertButton = {
   text: string;
@@ -24,7 +25,8 @@ type Props = {
 
 export function AppAlertModal({ visible, title, message, buttons, onDismiss }: Props) {
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const resolvedButtons: AlertButton[] =
     buttons && buttons.length > 0 ? buttons : [{ text: 'OK', style: 'default' }];

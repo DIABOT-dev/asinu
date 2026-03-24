@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewProps } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type Props = ViewProps & {
   title: string;
@@ -13,6 +14,7 @@ type Props = ViewProps & {
 export const ListItem = React.memo(({ title, subtitle, onPress, right, style }: Props) => {
   const scaledTypography = useScaledTypography();
   const Container = onPress ? Pressable : View;
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       paddingVertical: spacing.md,
@@ -38,7 +40,7 @@ export const ListItem = React.memo(({ title, subtitle, onPress, right, style }: 
       color: colors.textSecondary,
       fontFamily: 'System'
     }
-  }), []);
+  }), [isDark]);
 
   return (
     <Container style={[styles.container, style]} onPress={onPress}>

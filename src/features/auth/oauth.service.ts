@@ -10,9 +10,6 @@ import i18n from '../../i18n';
 
 const t = (key: string) => i18n.t(key, { ns: 'auth' });
 
-// Required for OAuth to work properly
-WebBrowser.maybeCompleteAuthSession();
-
 export type OAuthProvider = 'google' | 'apple' | 'zalo' | 'facebook';
 
 export type OAuthResult = {

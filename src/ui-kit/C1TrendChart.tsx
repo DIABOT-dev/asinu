@@ -5,6 +5,7 @@ import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { featureFlags } from '../lib/featureFlags';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export type TrendPoint = {
   label: string;
@@ -25,6 +26,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   const { t } = useTranslation('tree');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       width: '100%',
@@ -40,7 +42,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
       paddingHorizontal: spacing.md,
       paddingTop: spacing.sm
     }
-  }), []);
+  }), [isDark]);
   const disableCharts = featureFlags.disableCharts;
 
   if (disableCharts) {

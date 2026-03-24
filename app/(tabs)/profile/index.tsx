@@ -18,6 +18,7 @@ import { useMissionsStore } from '../../../src/features/missions/missions.store'
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { ApiError, apiClient } from '../../../src/lib/apiClient';
 import { brandColors, categoryColors, colors, spacing } from '../../../src/styles';
+import { useThemeColors } from '../../../src/hooks/useThemeColors';
 
 type SubStatus = { tier: 'free' | 'premium'; isPremium: boolean; expiresAt: string | null };
 
@@ -28,7 +29,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const padTop = insets.top + spacing.lg;
 
   // Fetch real data from stores
@@ -767,7 +769,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -780,7 +782,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 2
   },

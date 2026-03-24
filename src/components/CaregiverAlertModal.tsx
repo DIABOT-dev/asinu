@@ -11,6 +11,7 @@ import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { apiClient } from '../lib/apiClient';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 interface PendingAlert {
   alertId: number;
@@ -24,7 +25,8 @@ interface PendingAlert {
 export function CaregiverAlertModal() {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const STATUS_LABEL: Record<string, string> = {
     fine: t('careAlertStatusFine'),
@@ -78,7 +80,7 @@ export function CaregiverAlertModal() {
         <View style={[styles.card, isEmergency && styles.cardEmergency]}>
           {/* Header */}
           <View style={styles.iconRow}>
-            <View style={[styles.iconWrap, { backgroundColor: isEmergency ? '#fee2e2' : '#fef3c7' }]}>
+            <View style={[styles.iconWrap, { backgroundColor: isEmergency ? colors.danger + '22' : colors.premiumLight }]}>
               <Ionicons
                 name={isEmergency ? 'warning' : 'heart-half'}
                 size={28}

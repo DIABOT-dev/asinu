@@ -4,7 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
@@ -16,14 +17,29 @@ import { StateLoading } from '../../../src/components/state/StateLoading';
 import { useMissionActions } from '../../../src/features/missions/useMissionActions';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { brandColors, colors, spacing } from '../../../src/styles';
+import { useThemeColors } from '../../../src/hooks/useThemeColors';
+
+const MISSION_ROUTES: Record<string, string> = {
+  daily_checkin: '/checkin',
+  log_glucose: '/logs/glucose',
+  log_bp: '/logs/blood-pressure',
+  log_weight: '/logs/weight',
+  log_water: '/logs/water',
+  log_meal: '/logs/meal',
+  log_insulin: '/logs/insulin',
+  log_medication: '/logs/medication',
+  connect_caregiver: '/care-circle',
+};
 
 export default function MissionsScreen() {
+  const router = useRouter();
   const { missions, status, isStale, errorState, fetchMissions } = useMissionActions();
   const { t } = useTranslation('missions');
   const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const padTop = insets.top + spacing.lg;
 
   const lastFetchRef = useRef(0);
@@ -128,7 +144,10 @@ export default function MissionsScreen() {
           const isCompleted = mission.status === 'completed';
           return (
             <Animated.View key={mission.id} entering={FadeInDown.delay(300 + index * 80).duration(400).springify()}>
-            <View style={[styles.card, isCompleted && styles.cardCompleted]}>
+            <Pressable
+              onPress={() => { const route = MISSION_ROUTES[mission.missionKey]; if (route) router.push(route as any); }}
+              style={({ pressed }) => [styles.card, isCompleted && styles.cardCompleted, pressed && { opacity: 0.75 }]}
+            >
               <View style={styles.cardHeader}>
                 <View style={[styles.missionNumberBadge, isCompleted && styles.missionNumberBadgeCompleted]}>
                   {isCompleted ? (
@@ -180,7 +199,7 @@ export default function MissionsScreen() {
                   </View>
                 </View>
               </View>
-            </View>
+            </Pressable>
             </Animated.View>
           );
         })}

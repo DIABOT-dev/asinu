@@ -81,6 +81,15 @@ export const careCircleApi = {
     return response.invitations;
   },
 
+  // Cancel sent invitation
+  async cancelInvitation(invitationId: string) {
+    const response = await apiClient<{ ok: boolean; message: string }>(
+      `/api/care-circle/invitations/${invitationId}`,
+      { method: 'DELETE' }
+    );
+    return response;
+  },
+
   // Accept invitation
   async acceptInvitation(invitationId: string) {
     const response = await apiClient<{ ok: boolean; connection: CareCircleConnection }>(

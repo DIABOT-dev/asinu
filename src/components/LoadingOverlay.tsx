@@ -4,6 +4,7 @@ import { ActivityIndicator, Modal, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 interface LoadingOverlayProps {
   visible: boolean;
@@ -14,6 +15,7 @@ export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const displayMessage = message ?? t('processing');
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     overlay: {
       flex: 1,
@@ -33,7 +35,7 @@ export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
       color: colors.textPrimary,
       fontWeight: '600',
     },
-  }), []);
+  }), [isDark]);
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
@@ -90,7 +92,7 @@ export function SuccessOverlay({
       fontWeight: '700',
       textAlign: 'center',
     },
-  }), []);
+  }), [isDark]);
   useEffect(() => {
     if (visible && onComplete) {
       const timer = setTimeout(() => {

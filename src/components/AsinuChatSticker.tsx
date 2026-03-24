@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 const AsinuSticker = require('../../assets/asinu_chat_sticker.png');
 
@@ -15,6 +16,7 @@ type AsinuChatStickerProps = {
 export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     wrapper: {
       alignSelf: 'center',
@@ -41,7 +43,7 @@ export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
       right: 6,
       transform: [{ translateY: -28 }],
       maxWidth: 180,
-      backgroundColor: '#fff',
+      backgroundColor: colors.surface,
       borderRadius: 14,
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.md,
@@ -63,7 +65,7 @@ export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
       right: 22,
       width: 12,
       height: 12,
-      backgroundColor: '#fff',
+      backgroundColor: colors.surface,
       transform: [{ rotate: '45deg' }],
       shadowColor: '#000',
       shadowOpacity: 0.08,
@@ -71,7 +73,7 @@ export default function AsinuChatSticker({ onPress }: AsinuChatStickerProps) {
       shadowOffset: { width: 0, height: 2 },
       elevation: 4,
     },
-  }), []);
+  }), [isDark]);
   const MESSAGES = [
     t('chatStickerMsg1'),
     t('chatStickerMsg2'),

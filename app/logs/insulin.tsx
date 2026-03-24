@@ -34,6 +34,7 @@ import { VoiceLogButton } from '../../src/components/VoiceLogButton';
 import { VoiceParseResult } from '../../src/features/logs/voice.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 export default function InsulinLogScreen() {
   const { t } = useTranslation('logs');
@@ -41,7 +42,8 @@ export default function InsulinLogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const [insulinType, setInsulinType] = useState('');
   const [dose, setDose] = useState('');

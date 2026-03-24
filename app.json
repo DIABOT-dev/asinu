@@ -15,6 +15,11 @@
       "**/*"
     ],
     "icon": "./assets/icon.png",
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#08b8a2",
+      "androidMode": "default"
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -34,10 +39,11 @@
     },
     "android": {
       "package": "com.asinu.lite",
+      "googleServicesFile": "./android/app/google-services.json",
       "icon": "./assets/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android/adaptive-foreground.png",
-        "backgroundImage": "./assets/android/adaptive-background.png"
+        "backgroundColor": "#47BFEA"
       },
       "permissions": ["android.permission.RECORD_AUDIO"],
       "intentFilters": [

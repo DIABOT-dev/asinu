@@ -15,6 +15,7 @@ import { ScaledText as Text } from './ScaledText';
 import { checkinApi, type CheckinSession } from '../features/checkin/checkin.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 function getCheckinGreeting(t: (key: string) => string): string {
   const hour = new Date().getHours();
@@ -31,7 +32,8 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   const router = useRouter();
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const [session, setSession] = useState<CheckinSession | null | undefined>(_cachedSession);
 
   useFocusEffect(
@@ -124,7 +126,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     cardFollowUp: {
       borderColor: '#d97706' + '44',
-      backgroundColor: '#fef3c7',
+      backgroundColor: colors.premiumLight,
     },
     row: {
       flexDirection: 'row',

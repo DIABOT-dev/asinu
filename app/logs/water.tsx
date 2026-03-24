@@ -33,6 +33,7 @@ import { useLogsStore } from '../../src/features/logs/logs.store';
 import { validateWaterPayload } from '../../src/features/logs/logs.validation';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const QUICK_AMOUNTS = [150, 200, 250, 300, 350, 500];
 
@@ -41,7 +42,8 @@ export default function WaterLogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const [volume, setVolume] = useState('');
   const [notes, setNotes] = useState('');

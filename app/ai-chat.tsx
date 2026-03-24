@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
@@ -9,6 +9,7 @@ import { chatApi } from '../src/features/chat/chat.api';
 import { apiClient } from '../src/lib/apiClient';
 import { navigation } from '../src/lib/navigation';
 import { colors } from '../src/styles';
+import { useThemeColors } from '../src/hooks/useThemeColors';
 
 export default function AiChatScreen() {
   const { t } = useTranslation('chat');
@@ -107,6 +108,10 @@ export default function AiChatScreen() {
     }
   };
 
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+  }), [isDark]);
   const screenOptions = useMemo(() => ({
     headerShown: true,
     title: t('title') || 'Asinu AI',
@@ -118,21 +123,26 @@ export default function AiChatScreen() {
         <Ionicons name="arrow-back" size={26} color={colors.primary} />
       </TouchableOpacity>
     ),
-  }), [router, t]);
+  }), [router, t, isDark]);
 
   return (
     <>
       <Stack.Screen options={screenOptions} />
       <SafeAreaView style={styles.container}>
-        <AiChatLayout
-          messages={messages}
-          assistantAvatar={avatars.assistant}
-          userAvatar={avatars.user}
-          isTyping={isTyping}
-          isPremium={isPremium}
-          onSend={handleSend}
-          onUpgradePress={() => router.push('/subscription')}
-        />
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <AiChatLayout
+            messages={messages}
+            assistantAvatar={avatars.assistant}
+            userAvatar={avatars.user}
+            isTyping={isTyping}
+            isPremium={isPremium}
+            onSend={handleSend}
+            onUpgradePress={() => router.push('/subscription')}
+          />
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       <MedicalDisclaimerModal

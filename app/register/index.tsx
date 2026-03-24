@@ -28,6 +28,7 @@ import { getPasswordStrength, validateEmail, validatePassword, validatePhone } f
 import { colors, radius, spacing } from '../../src/styles';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 function FloatingOrbs() {
   const y1 = useSharedValue(0);
@@ -71,7 +72,8 @@ export default function RegisterScreen() {
   const { t: tc } = useTranslation('common');
   const { t: ts } = useTranslation('settings');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const { scale, setScale } = useFontSizeStore();
   const [showFontModal, setShowFontModal] = useState(false);
 
@@ -621,7 +623,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      backgroundColor: '#fef2f2',
+      backgroundColor: colors.danger + '18',
       borderRadius: radius.lg,
       padding: spacing.md,
     },

@@ -28,6 +28,7 @@ import {
 } from '../../src/features/notifications/notifications.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 type TimeSlot = 'morning' | 'afternoon' | 'evening';
 
@@ -332,7 +333,8 @@ export default function ReminderConfigScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('settings');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
@@ -479,7 +481,7 @@ export default function ReminderConfigScreen() {
           {/* Reminders Toggle */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <View style={styles.toggleCard}>
-              <View style={[styles.toggleIconWrap, { backgroundColor: prefs?.reminders_enabled ? '#dcfce7' : '#f3f4f6' }]}>
+              <View style={[styles.toggleIconWrap, { backgroundColor: prefs?.reminders_enabled ? colors.emeraldLight : colors.surfaceMuted }]}>
                 <MaterialCommunityIcons
                   name={prefs?.reminders_enabled ? 'bell-check' : 'bell-off-outline'}
                   size={22}
@@ -593,7 +595,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     heroIconWrap: {
       width: 52, height: 52, borderRadius: 18,
-      backgroundColor: '#fef3c7',
+      backgroundColor: colors.premiumLight,
       alignItems: 'center', justifyContent: 'center',
     },
     heroTextWrap: { flex: 1 },

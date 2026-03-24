@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ViewProps } from 'react-native';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type CardProps = ViewProps & {
   padded?: boolean;
 };
 
 export const Card = React.memo(({ style, children, padded = true, ...rest }: CardProps) => {
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     card: {
       backgroundColor: colors.surface,
@@ -22,7 +24,7 @@ export const Card = React.memo(({ style, children, padded = true, ...rest }: Car
     padded: {
       padding: spacing.lg
     }
-  }), []);
+  }), [isDark]);
 
   return (
     <View style={[styles.card, padded && styles.padded, style]} {...rest}>

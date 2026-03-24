@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export type DropdownOption = {
   id: string;
@@ -47,6 +48,7 @@ export function Dropdown({
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<RNTextInput>(null);
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       marginBottom: spacing.md,
@@ -154,7 +156,7 @@ export function Dropdown({
       color: colors.textSecondary,
       padding: spacing.xl,
     },
-  }), []);
+  }), [isDark]);
   const displayPlaceholder = placeholder ?? t('select');
 
   useEffect(() => {

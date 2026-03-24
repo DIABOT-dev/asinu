@@ -15,7 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { checkinApi, type HealthReportData } from '../../src/features/checkin/checkin.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, radius, spacing } from '../../src/styles';
+import { colors, radius, spacing, brandColors} from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 type Period = 'week' | 'month';
 
@@ -64,7 +65,8 @@ export default function ReportScreen() {
   const { t } = useTranslation('report');
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography, insets), [scaledTypography, insets]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography, insets), [scaledTypography, insets, isDark]);
 
   const [period, setPeriod] = useState<Period>('week');
   const [report, setReport] = useState<HealthReportData | null>(null);
@@ -170,7 +172,7 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={[styles.cardIconWrap, { backgroundColor: '#fff3e0' }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: brandColors.orange + '22' }]}>
                   <MaterialCommunityIcons name="chart-bar" size={18} color="#f59e0b" />
                 </View>
                 <Text style={styles.cardTitle}>{t('severityTitle')}</Text>
@@ -242,7 +244,7 @@ export default function ReportScreen() {
             <Animated.View entering={FadeInDown.delay(300).duration(400)}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={[styles.cardIconWrap, { backgroundColor: '#f3e8ff' }]}>
+                  <View style={[styles.cardIconWrap, { backgroundColor: brandColors.violet + '22' }]}>
                     <MaterialCommunityIcons name="stethoscope" size={18} color="#8b5cf6" />
                   </View>
                   <Text style={styles.cardTitle}>{t('commonSymptoms')}</Text>
@@ -268,7 +270,7 @@ export default function ReportScreen() {
             <Animated.View entering={FadeInDown.delay(400).duration(400)}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={[styles.cardIconWrap, { backgroundColor: '#fef2f2' }]}>
+                  <View style={[styles.cardIconWrap, { backgroundColor: colors.danger + '18' }]}>
                     <MaterialCommunityIcons name="bell-ring-outline" size={18} color="#dc2626" />
                   </View>
                   <Text style={styles.cardTitle}>{t('alertsTitle')}</Text>
@@ -281,7 +283,7 @@ export default function ReportScreen() {
                       end={{ x: 1, y: 0 }}
                       style={StyleSheet.absoluteFill}
                     />
-                    <View style={[styles.alertIconWrap, { backgroundColor: '#fef3c7' }]}>
+                    <View style={[styles.alertIconWrap, { backgroundColor: colors.premiumLight }]}>
                       <MaterialCommunityIcons name="account-group-outline" size={20} color="#f59e0b" />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -298,7 +300,7 @@ export default function ReportScreen() {
                       end={{ x: 1, y: 0 }}
                       style={StyleSheet.absoluteFill}
                     />
-                    <View style={[styles.alertIconWrap, { backgroundColor: '#fee2e2' }]}>
+                    <View style={[styles.alertIconWrap, { backgroundColor: colors.danger + '22' }]}>
                       <MaterialCommunityIcons name="hospital-box-outline" size={20} color="#dc2626" />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -315,32 +317,32 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(450).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={[styles.cardIconWrap, { backgroundColor: '#e0f2fe' }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: brandColors.cyan + '22' }]}>
                   <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#0284c7" />
                 </View>
                 <Text style={styles.cardTitle}>{t('habitTitle')}</Text>
               </View>
               {/* Response rate */}
               <View style={styles.statusRow}>
-                <View style={[styles.statusIconWrap, { backgroundColor: '#f0fdf4' }]}>
+                <View style={[styles.statusIconWrap, { backgroundColor: colors.emeraldLight }]}>
                   <MaterialCommunityIcons name="check-circle-outline" size={16} color="#16a34a" />
                 </View>
                 <Text style={styles.statusLabel}>{t('responseRate')}</Text>
                 <View style={styles.statusBarTrack}>
                   <View style={[styles.statusBarFill, { width: `${report.responseRate ?? 0}%`, backgroundColor: '#16a34a' }]} />
                 </View>
-                <View style={[styles.statusCountBadge, { backgroundColor: '#f0fdf4' }]}>
+                <View style={[styles.statusCountBadge, { backgroundColor: colors.emeraldLight }]}>
                   <Text style={[styles.statusCount, { color: '#16a34a' }]}>{report.responseRate ?? 0}%</Text>
                 </View>
               </View>
               {/* Average check-in hour */}
               <View style={styles.statusRow}>
-                <View style={[styles.statusIconWrap, { backgroundColor: '#eff6ff' }]}>
+                <View style={[styles.statusIconWrap, { backgroundColor: brandColors.indigo + '18' }]}>
                   <MaterialCommunityIcons name="clock-outline" size={16} color="#3b82f6" />
                 </View>
                 <Text style={styles.statusLabel}>{t('avgCheckinTime')}</Text>
                 <View style={{ flex: 1 }} />
-                <View style={[styles.statusCountBadge, { backgroundColor: '#eff6ff' }]}>
+                <View style={[styles.statusCountBadge, { backgroundColor: brandColors.indigo + '18' }]}>
                   <Text style={[styles.statusCount, { color: '#3b82f6' }]}>~{report.avgCheckinHour ?? 8}h {t('morningLabel')}</Text>
                 </View>
               </View>
@@ -351,7 +353,7 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(500).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={[styles.cardIconWrap, { backgroundColor: '#eff6ff' }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: brandColors.indigo + '18' }]}>
                   <MaterialCommunityIcons name="history" size={18} color="#3b82f6" />
                 </View>
                 <Text style={styles.cardTitle}>{t('dailyHistory')}</Text>

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Modal, StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type ToastType = 'success' | 'error';
 
@@ -42,6 +43,7 @@ export const Toast = ({
   onHide,
 }: ToastProps) => {
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     overlay: {
       flex: 1,
@@ -76,7 +78,7 @@ export const Toast = ({
       textAlign: 'center',
       lineHeight: 24,
     },
-  }), []);
+  }), [isDark]);
   const [show, setShow] = useState(false);
   const scale = useRef(new Animated.Value(0.6)).current;
   const opacity = useRef(new Animated.Value(0)).current;

@@ -33,6 +33,7 @@ import { useLogsStore } from '../../src/features/logs/logs.store';
 import { validateWeightPayload } from '../../src/features/logs/logs.validation';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 function getBMIStatus(bmi: number, t: (key: string) => string) {
   if (bmi < 18.5) return { label: t('bmiUnderweight'), color: colors.warning, bg: colors.premiumLight };
@@ -46,7 +47,8 @@ export default function WeightLogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const [weight, setWeight] = useState('');
   const [bodyfat, setBodyfat] = useState('');

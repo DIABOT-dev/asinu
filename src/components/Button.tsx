@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type ButtonVariant = 'primary' | 'secondary' | 'warning' | 'ghost';
 
@@ -17,6 +18,7 @@ export type ButtonProps = {
 
 export const Button = React.memo(({ label, onPress, variant = 'primary', disabled, style, textStyle }: ButtonProps) => {
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     base: {
       paddingVertical: spacing.md,
@@ -29,7 +31,7 @@ export const Button = React.memo(({ label, onPress, variant = 'primary', disable
       fontWeight: '600',
       fontFamily: 'System'
     }
-  }), []);
+  }), [isDark]);
   const variantStyles = useMemo(() => {
     const palette =
       variant === 'secondary'

@@ -26,6 +26,7 @@ import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useNotificationStore } from '../../../src/stores/notification.store';
 import { brandColors, categoryColors, colors, radius, spacing } from '../../../src/styles';
+import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
 const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
@@ -59,7 +60,8 @@ export default function HomeScreen() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll, fetchFromBackend } = useNotificationStore();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const padTop = insets.top + spacing.lg;
 
   // Re-fetch when screen focuses, but throttle to avoid jank on quick tab switches
@@ -246,7 +248,7 @@ export default function HomeScreen() {
           const ratio = mission.goal > 0 ? mission.progress / mission.goal : 0;
           const isCompleted = mission.status === 'completed';
           return (
-            <View key={mission.id} style={[styles.missionCard, isCompleted && styles.missionCardCompleted]}>
+            <Pressable key={mission.id} style={({ pressed }) => [styles.missionCard, isCompleted && styles.missionCardCompleted, pressed && { opacity: 0.85 }]} onPress={() => router.push('/missions')}>
               <View style={styles.missionHeader}>
                 <View style={[styles.missionBadge, isCompleted && styles.missionBadgeCompleted]}>
                   {isCompleted ? (
@@ -271,7 +273,7 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.missionProgressText}>{mission.progress}/{mission.goal}</Text>
               </View>
-            </View>
+            </Pressable>
           );
         })}
         {missions.length > 0 && (
@@ -451,7 +453,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: spacing.md,
   },
@@ -515,7 +517,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   missionCard: {
     padding: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -616,7 +618,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.md,
   },
   treeCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1.5,
@@ -668,7 +670,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.md,
   },
   logsCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1.5,
@@ -727,7 +729,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.lg,
     borderWidth: 1.5,
     borderColor: brandColors.indigo + '44',
-    backgroundColor: '#eef2ff',
+    backgroundColor: brandColors.indigo + '18',
   },
   reportRow: {
     flexDirection: 'row',

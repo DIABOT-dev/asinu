@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export type SelectOption = {
   label: string;
@@ -29,6 +30,7 @@ export const SelectInput = ({
 }: SelectInputProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       marginBottom: spacing.sm,
@@ -108,7 +110,7 @@ export const SelectInput = ({
       color: colors.primary,
       fontWeight: '600',
     },
-  }), []);
+  }), [isDark]);
   const { t } = useTranslation('common');
   const resolvedPlaceholder = placeholder ?? t('selectOption');
   

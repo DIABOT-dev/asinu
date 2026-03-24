@@ -11,39 +11,31 @@ export function useCareCircle() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchInvitations = useCallback(async () => {
+  const fetchInvitations = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
-      setError(null);
-      // Fetch both received and sent invitations
+      if (!silent) { setLoading(true); setError(null); }
       const [received, sent] = await Promise.all([
         careCircleApi.getInvitations('received'),
         careCircleApi.getInvitations('sent')
       ]);
-
-
-      // Combine and deduplicate by id
       const allInvitations = [...received, ...sent.filter(s => !received.find(r => r.id === s.id))];
       setInvitations(allInvitations);
     } catch (err: any) {
-
       setError(err.message || t('cannotLoadInvitations'));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const fetchConnections = useCallback(async () => {
+  const fetchConnections = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) { setLoading(true); setError(null); }
       const data = await careCircleApi.getConnections();
       setConnections(data);
     } catch (err: any) {
-
       setError(err.message || t('cannotLoadConnections'));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -59,6 +51,20 @@ export function useCareCircle() {
     } catch (err: any) {
 
       setError(err.message || t('cannotCreateInvitation'));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const cancelInvitation = useCallback(async (invitationId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await careCircleApi.cancelInvitation(invitationId);
+      setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
+    } catch (err: any) {
+      setError(err.message || t('cannotCancelInvitation'));
       throw err;
     } finally {
       setLoading(false);
@@ -135,7 +141,7 @@ export function useCareCircle() {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([fetchInvitations(), fetchConnections()]);
+      await Promise.all([fetchInvitations(true), fetchConnections(true)]);
     } finally {
       setRefreshing(false);
     }
@@ -150,6 +156,7 @@ export function useCareCircle() {
     fetchInvitations,
     fetchConnections,
     createInvitation,
+    cancelInvitation,
     acceptInvitation,
     rejectInvitation,
     deleteConnection,

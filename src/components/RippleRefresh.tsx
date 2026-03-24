@@ -174,7 +174,12 @@ export function RippleRefreshScrollView({
 }: PullRefreshScrollViewProps) {
   const pullDistance = useSharedValue(0);
   const isTriggered = useSharedValue(false);
+  const isRefreshing = useSharedValue(refreshing);
   const prevRefreshing = useRef(refreshing);
+
+  useEffect(() => {
+    isRefreshing.value = refreshing;
+  }, [refreshing]);
   const styles = useMemo(() => StyleSheet.create({
     pullIndicator: {
       position: 'absolute',
@@ -206,7 +211,7 @@ export function RippleRefreshScrollView({
       const y = event.contentOffset.y;
       if (y < 0) {
         pullDistance.value = Math.abs(y);
-        if (Math.abs(y) >= PULL_THRESHOLD && !isTriggered.value && !refreshing) {
+        if (Math.abs(y) >= PULL_THRESHOLD && !isTriggered.value && !isRefreshing.value) {
           isTriggered.value = true;
           runOnJS(onTrigger)();
         }
@@ -216,7 +221,7 @@ export function RippleRefreshScrollView({
     },
     onEndDrag: () => {
       isTriggered.value = false;
-      if (!refreshing) {
+      if (!isRefreshing.value && pullDistance.value > 0) {
         pullDistance.value = withSpring(0, { damping: 15 });
       }
     },

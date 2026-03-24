@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type Props = {
   name: string;
@@ -15,6 +16,7 @@ type Props = {
 
 export const H2HeroBanner = ({ name, relationship, summary, action, supporters = [] }: Props) => {
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       padding: spacing.xl,
@@ -57,7 +59,7 @@ export const H2HeroBanner = ({ name, relationship, summary, action, supporters =
       color: colors.surface,
       fontWeight: '700'
     }
-  }), []);
+  }), [isDark]);
 
   return (
     <LinearGradient

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type Props = {
   label: string;
@@ -11,6 +12,7 @@ type Props = {
 
 export const FloatingActionButton = React.memo(({ label, onPress, style }: Props) => {
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     fab: {
       position: 'absolute',
@@ -31,7 +33,7 @@ export const FloatingActionButton = React.memo(({ label, onPress, style }: Props
       fontWeight: '700',
       fontFamily: 'System'
     }
-  }), []);
+  }), [isDark]);
 
   return (
     <Pressable style={[styles.fab, style]} onPress={onPress}>

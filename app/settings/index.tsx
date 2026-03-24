@@ -28,10 +28,10 @@ import { colors, spacing } from '../../src/styles';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
-  { value: 'small', iconSize: 16 },
-  { value: 'normal', iconSize: 20 },
-  { value: 'large', iconSize: 24 },
-  { value: 'xlarge', iconSize: 28 }
+  { value: 'small',   iconSize: 16 },
+  { value: 'normal',  iconSize: 20 },
+  { value: 'large',   iconSize: 24 },
+  { value: 'xlarge',  iconSize: 28 },
 ];
 
 const STORAGE_KEY_NOTIFICATIONS = '@app/notifications_enabled';
@@ -41,10 +41,10 @@ export default function SettingsScreen() {
   const { t } = useTranslation('settings');
   const { t: tc } = useTranslation('common');
   const { language, setLanguage } = useLanguageStore();
-  const styles = useMemo(() => createSettingsStyles(), []);
   const logout = useAuthStore((state) => state.logout);
   const { scale, setScale } = useFontSizeStore();
   const { colors, isDark } = useThemeColors();
+  const styles = useMemo(() => createSettingsStyles(), [isDark]);
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
   const [notifications, setNotifications] = useState(true);
@@ -254,6 +254,9 @@ export default function SettingsScreen() {
                     { fontSize: scaledTypography.size.sm },
                     scale === option.value && styles.fontSizeButtonTextActive
                   ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.6}
                 >
                   {getFontSizeLabel(option.value)}
                 </Text>
@@ -294,7 +297,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <View style={styles.row}>
+        {/* TODO: Dark mode - tạm ẩn */}
+        {/* <View style={styles.row}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{t('darkMode')}</Text>
             <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
@@ -306,7 +310,7 @@ export default function SettingsScreen() {
             onValueChange={(val) => setThemeMode(val ? 'dark' : 'light')}
             trackColor={{ true: colors.primary }}
           />
-        </View>
+        </View> */}
 
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
@@ -377,12 +381,12 @@ function createSettingsStyles() { return StyleSheet.create({
   },
   fontSizeOptions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
-    flexWrap: 'wrap'
   },
   fontSizeButton: {
-    flex: 1,
-    minWidth: 70,
+    width: '48%',
+    flexGrow: 1,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     backgroundColor: colors.surfaceMuted,
@@ -398,7 +402,8 @@ function createSettingsStyles() { return StyleSheet.create({
   },
   fontSizeButtonText: {
     fontWeight: '600',
-    color: colors.textPrimary
+    color: colors.textPrimary,
+    textAlign: 'center',
   },
   fontSizeButtonTextActive: {
     color: '#ffffff'

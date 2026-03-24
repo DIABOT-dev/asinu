@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { featureFlags } from '../lib/featureFlags';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export type T1ProgressRingProps = {
   percentage: number;
@@ -21,6 +22,7 @@ export const T1ProgressRing = ({
   accentColor = colors.primaryDark
 }: T1ProgressRingProps) => {
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: {
       alignItems: 'center',
@@ -38,7 +40,7 @@ export const T1ProgressRing = ({
       color: colors.textSecondary,
       marginTop: spacing.xs
     }
-  }), []);
+  }), [isDark]);
   const disableCharts = featureFlags.disableCharts;
 
   if (disableCharts) {

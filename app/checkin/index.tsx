@@ -40,6 +40,7 @@ import { usePremium } from '../../src/hooks/usePremium';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const MAX_TRIAGE_QUESTIONS = 5;
 
@@ -134,7 +135,8 @@ export default function CheckinScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const { language } = useLanguageStore();
   const params = useLocalSearchParams<{ checkin_id?: string; mode?: string }>();
@@ -779,7 +781,7 @@ function DoneScreen({
     <View style={styles.section}>
       {/* Hero icon */}
       <Animated.View entering={FadeIn.duration(500)} style={styles.doneHero}>
-        <View style={[styles.doneCircleOuter, { backgroundColor: isFine ? '#dcfce7' : severityBg }]}>
+        <View style={[styles.doneCircleOuter, { backgroundColor: isFine ? colors.emeraldLight : severityBg }]}>
           <View style={[styles.doneCircleInner, { backgroundColor: isFine ? '#16a34a' : severityColor }]}>
             {isFine
               ? <Ionicons name="checkmark" size={36} color="#fff" />
@@ -1368,7 +1370,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       lineHeight: 22,
     },
     adviceWrap: {
-      backgroundColor: '#fffbeb',
+      backgroundColor: colors.premiumLight,
       borderRadius: radius.lg,
       padding: spacing.md,
       gap: 4,
@@ -1394,7 +1396,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      backgroundColor: '#fee2e2',
+      backgroundColor: colors.danger + '22',
       borderRadius: radius.lg,
       padding: spacing.md,
     },

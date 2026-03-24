@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Image, ImageStyle, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type Props = {
   name: string;
@@ -13,6 +14,7 @@ type Props = {
 
 export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }: Props) => {
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     placeholder: {
       backgroundColor: colors.surfaceMuted,
@@ -26,7 +28,7 @@ export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }
       fontWeight: '700',
       fontFamily: 'System'
     }
-  }), []);
+  }), [isDark]);
   const initials = name
     .split(' ')
     .map((part) => part.charAt(0))

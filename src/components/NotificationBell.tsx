@@ -13,11 +13,13 @@ import {
 import { AppAlertModal, useAppAlert } from './AppAlertModal';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, typography } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export type Notification = {
   id: string;
+  type?: string;
   title: string;
   body: string;
   data?: any;
@@ -60,6 +62,7 @@ export function NotificationBell({
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     bellButton: {
       position: 'relative',
@@ -198,7 +201,7 @@ export function NotificationBell({
     deleteAllButton: {
       padding: spacing.xs,
     },
-  }), []);
+  }), [isDark]);
   const { t } = useTranslation('common');
   const { t: tLogs } = useTranslation('logs');
   const { alertState, showAlert, dismissAlert } = useAppAlert();
@@ -256,29 +259,30 @@ export function NotificationBell({
 
   const renderNotification = ({ item }: { item: Notification }) => {
     // Get icon based on notification type
-    const getNotificationIcon = () => {
-      const alertType = item.data?.alertType || item.data?.type;
-      if (alertType === 'glucose_critical' || alertType === 'blood_pressure_critical') {
-        return 'alert-circle';
-      } else if (alertType === 'glucose_warning' || alertType === 'blood_pressure_warning') {
-        return 'warning';
-      } else if (alertType === 'care_circle_invitation') {
-        return 'people-outline';
-      } else if (alertType === 'health_alert') {
-        return 'heart-outline';
-      }
+    const notifType = item.type || item.data?.type || item.data?.alertType || '';
+    const getNotificationIcon = (): React.ComponentProps<typeof Ionicons>['name'] => {
+      if (notifType === 'emergency') return 'warning';
+      if (notifType === 'glucose_critical' || notifType === 'blood_pressure_critical') return 'alert-circle';
+      if (notifType === 'glucose_warning' || notifType === 'blood_pressure_warning') return 'warning';
+      if (notifType === 'health_alert' || notifType === 'caregiver_alert') return 'heart-circle-outline';
+      if (notifType === 'care_circle_invitation') return 'person-add-outline';
+      if (notifType === 'care_circle_accepted') return 'people-outline';
+      if (notifType === 'morning_checkin' || notifType === 'checkin_followup' || notifType === 'checkin_followup_urgent') return 'sunny-outline';
+      if (notifType.startsWith('reminder')) return 'alarm-outline';
+      if (notifType === 'milestone' || notifType.startsWith('streak') || notifType === 'weekly_recap') return 'trophy-outline';
+      if (notifType === 'engagement') return 'sparkles-outline';
       return item.read ? 'mail-open-outline' : 'mail-unread-outline';
     };
 
     const getIconColor = () => {
-      const alertType = item.data?.alertType || item.data?.type;
-      if (alertType === 'glucose_critical' || alertType === 'blood_pressure_critical') {
-        return colors.danger;
-      } else if (alertType === 'glucose_warning' || alertType === 'blood_pressure_warning') {
-        return colors.warning;
-      } else if (alertType === 'health_alert') {
-        return colors.primary;
-      }
+      if (notifType === 'emergency') return colors.danger;
+      if (notifType === 'glucose_critical' || notifType === 'blood_pressure_critical') return colors.danger;
+      if (notifType === 'glucose_warning' || notifType === 'blood_pressure_warning') return colors.warning;
+      if (notifType === 'health_alert' || notifType === 'caregiver_alert') return '#f59e0b';
+      if (notifType === 'care_circle_invitation' || notifType === 'care_circle_accepted') return '#3b82f6';
+      if (notifType === 'morning_checkin' || notifType.startsWith('checkin')) return colors.emerald;
+      if (notifType.startsWith('reminder')) return colors.primary;
+      if (notifType === 'milestone' || notifType.startsWith('streak') || notifType === 'weekly_recap') return '#f59e0b';
       return item.read ? colors.textSecondary : colors.primary;
     };
 

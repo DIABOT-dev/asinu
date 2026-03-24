@@ -2,6 +2,7 @@ import { ReactNode, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput as RNTextInput, TextInputProps, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type Props = TextInputProps & {
   label?: string;
@@ -13,6 +14,7 @@ type Props = TextInputProps & {
 export const TextInput = ({ label, error, style, leftIcon, rightElement, onFocus, onBlur, ...rest }: Props) => {
   const scaledTypography = useScaledTypography();
   const [focused, setFocused] = useState(false);
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     outer: {
       width: '100%',
@@ -44,7 +46,7 @@ export const TextInput = ({ label, error, style, leftIcon, rightElement, onFocus
     error: {
       color: colors.danger,
     },
-  }), []);
+  }), [isDark]);
 
   const borderColor = error ? colors.danger : focused ? colors.primary : colors.border;
   const bgColor = error ? '#fff5f5' : focused ? colors.primaryLight : colors.surface;

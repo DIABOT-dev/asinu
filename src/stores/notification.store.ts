@@ -26,12 +26,12 @@ interface NotificationStore {
 function convertNotification(data: NotificationData): Notification {
   return {
     id: String(data.id),
+    type: data.type,
     title: data.title,
     body: data.message,
-    timestamp: new Date(data.created_at),
+    timestamp: new Date(data.created_at.endsWith('Z') ? data.created_at : data.created_at + 'Z'),
     read: data.is_read,
     data: data.data,
-    type: data.type as any,
     priority: data.priority,
   };
 }

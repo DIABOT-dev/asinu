@@ -5,6 +5,7 @@ import { Avatar } from '../components/Avatar';
 import { Card } from '../components/Card';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 type Props = {
   name: string;
@@ -16,6 +17,7 @@ type Props = {
 export const F1ProfileSummary = ({ name, email, phone, caretakerFor }: Props) => {
   const { t } = useTranslation('profile');
   const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     row: {
       flexDirection: 'row',
@@ -33,7 +35,7 @@ export const F1ProfileSummary = ({ name, email, phone, caretakerFor }: Props) =>
     meta: {
       color: colors.textSecondary
     }
-  }), []);
+  }), [isDark]);
 
   return (
     <Card>
