@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
@@ -128,11 +129,12 @@ export default function AiChatScreen() {
   return (
     <>
       <Stack.Screen options={screenOptions} />
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
           <AiChatLayout
             messages={messages}
             assistantAvatar={avatars.assistant}
@@ -142,8 +144,8 @@ export default function AiChatScreen() {
             onSend={handleSend}
             onUpgradePress={() => router.push('/subscription')}
           />
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
 
       <MedicalDisclaimerModal
         visible={showMedicalDisclaimer}

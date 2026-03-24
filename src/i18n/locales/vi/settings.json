@@ -54,6 +54,7 @@
   "scheduleAutoHint": "{{hour}}:00 (học từ thói quen)",
   "scheduleDefaultHint": "{{hour}}:00 (mặc định)",
   "scheduleSaved": "Đã lưu giờ nhắc",
+  "scheduleSaveError": "Lưu thất bại, vui lòng thử lại",
   "scheduleSetTime": "Đặt giờ nhắc",
   "scheduleChangeTime": "Đổi giờ",
   "schedulePickHour": "Giờ",

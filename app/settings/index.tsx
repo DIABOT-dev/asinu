@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 const DeleteAccountModal = React.lazy(() => import('../../src/components/DeleteAccountModal'));
@@ -118,11 +118,7 @@ export default function SettingsScreen() {
             { text: t('later'), style: 'cancel' },
             {
               text: t('openSettings'),
-              onPress: () => {
-                // On iOS, this will open Settings app
-                // On Android, user needs to manually go to settings
-
-              }
+              onPress: () => Linking.openSettings()
             }
           ]
         );

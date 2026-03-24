@@ -340,6 +340,7 @@ export default function ReminderConfigScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   // Time picker state
   const [pickerSlot, setPickerSlot] = useState<TimeSlot | null>(null);
@@ -375,9 +376,17 @@ export default function ReminderConfigScreen() {
     setSaving(true);
     try {
       const result = await updateNotificationPreferences({ [field]: time });
-      setPrefs(result);
+      if (result.ok) {
+        setPrefs(result);
+        setToastType('success');
+      } else {
+        setToastType('error');
+      }
       setShowToast(true);
-    } catch {}
+    } catch {
+      setToastType('error');
+      setShowToast(true);
+    }
     setSaving(false);
   }, [prefs, pickerSlot]);
 
@@ -389,9 +398,17 @@ export default function ReminderConfigScreen() {
     setSaving(true);
     try {
       const result = await updateNotificationPreferences({ [field]: null } as any);
-      setPrefs(result);
+      if (result.ok) {
+        setPrefs(result);
+        setToastType('success');
+      } else {
+        setToastType('error');
+      }
       setShowToast(true);
-    } catch {}
+    } catch {
+      setToastType('error');
+      setShowToast(true);
+    }
     setSaving(false);
   }, [prefs]);
 
@@ -433,8 +450,8 @@ export default function ReminderConfigScreen() {
       />
       <Toast
         visible={showToast}
-        message={t('scheduleSaved')}
-        type="success"
+        message={toastType === 'success' ? t('scheduleSaved') : t('scheduleSaveError')}
+        type={toastType}
         position="top"
         onHide={() => setShowToast(false)}
       />

@@ -331,7 +331,7 @@ export default function WalletScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder={t('enterAmount')}
-                  placeholderTextColor={colors.border}
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="numeric"
                   value={amount}
                   onChangeText={(v) => setAmount(v.replace(/[^0-9]/g, ''))}

@@ -54,6 +54,7 @@
   "scheduleAutoHint": "{{hour}}:00 (learned from habits)",
   "scheduleDefaultHint": "{{hour}}:00 (default)",
   "scheduleSaved": "Reminder schedule saved",
+  "scheduleSaveError": "Failed to save, please try again",
   "scheduleSetTime": "Set reminder time",
   "scheduleChangeTime": "Change time",
   "schedulePickHour": "Hour",
