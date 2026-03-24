@@ -416,6 +416,7 @@ function StatusScreen({
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
+                pointerEvents="none"
               />
               <View style={[styles.statusIconCircle, { backgroundColor: opt.color + '1a' }]}>
                 <MaterialCommunityIcons name={opt.icon} size={28} color={opt.color} />

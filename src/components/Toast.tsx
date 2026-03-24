@@ -17,21 +17,24 @@ type ToastProps = {
 
 const CONFIG: Record<ToastType, {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  bg: string;
   iconBg: string;
   iconColor: string;
+  accentColor: string;
+  label: string;
 }> = {
   success: {
-    icon: 'check-circle',
-    bg: colors.primary,
-    iconBg: 'rgba(255,255,255,0.2)',
-    iconColor: '#fff',
+    icon: 'check-circle-outline',
+    iconBg: '#e6faf8',
+    iconColor: '#08b8a2',
+    accentColor: '#08b8a2',
+    label: 'Thành công',
   },
   error: {
-    icon: 'alert-circle',
-    bg: colors.danger,
-    iconBg: 'rgba(255,255,255,0.2)',
-    iconColor: '#fff',
+    icon: 'alert-circle-outline',
+    iconBg: '#fef2f2',
+    iconColor: '#e05252',
+    accentColor: '#e05252',
+    label: 'Thông báo',
   },
 };
 
@@ -39,65 +42,78 @@ export const Toast = ({
   visible,
   message,
   type = 'success',
-  duration = 2000,
+  duration = 2500,
   onHide,
 }: ToastProps) => {
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
+
+  const cardBg = isDark ? '#1e2a29' : '#ffffff';
+  const textPrimary = isDark ? '#f0faf9' : '#1a2e2b';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+  const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+
   const styles = useMemo(() => StyleSheet.create({
     overlay: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: 'rgba(0,0,0,0.3)',
+      backgroundColor: 'rgba(0,0,0,0.25)',
     },
     card: {
       alignItems: 'center',
-      paddingVertical: spacing.xxl,
-      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.xl,
+      paddingHorizontal: spacing.xxl,
       borderRadius: radius.xxl,
-      minWidth: 200,
-      maxWidth: 280,
-      gap: spacing.md,
+      minWidth: 220,
+      maxWidth: 300,
+      gap: spacing.sm,
+      borderWidth: 1.5,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.3,
-      shadowRadius: 20,
-      elevation: 15,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.12,
+      shadowRadius: 24,
+      elevation: 12,
     },
     iconWrap: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
+      width: 68,
+      height: 68,
+      borderRadius: 34,
       alignItems: 'center',
       justifyContent: 'center',
+      marginBottom: spacing.xs,
     },
-    message: {
-      color: '#fff',
+    label: {
       fontWeight: '700',
       textAlign: 'center',
-      lineHeight: 24,
+    },
+    message: {
+      fontWeight: '400',
+      textAlign: 'center',
+      lineHeight: 22,
     },
   }), [isDark]);
+
   const [show, setShow] = useState(false);
-  const scale = useRef(new Animated.Value(0.6)).current;
+  const scale = useRef(new Animated.Value(0.7)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       setShow(true);
-      scale.setValue(0.6);
+      scale.setValue(0.7);
       opacity.setValue(0);
 
       Animated.parallel([
-        Animated.spring(scale, { toValue: 1, friction: 6, tension: 80, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 7, tension: 90, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
       ]).start();
 
       const timer = setTimeout(() => {
         Animated.parallel([
-          Animated.timing(scale, { toValue: 0.8, duration: 200, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 0.85, duration: 180, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
         ]).start(() => {
           setShow(false);
           onHide?.();
@@ -117,11 +133,29 @@ export const Toast = ({
   return (
     <Modal visible={show} transparent animationType="none">
       <View style={styles.overlay}>
-        <Animated.View style={[styles.card, { backgroundColor: cfg.bg, opacity, transform: [{ scale }] }]}>
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              backgroundColor: cardBg,
+              borderColor: cfg.accentColor + '55',
+              opacity,
+              transform: [{ scale }],
+            },
+          ]}
+        >
+          {/* Icon */}
           <View style={[styles.iconWrap, { backgroundColor: cfg.iconBg }]}>
-            <MaterialCommunityIcons name={cfg.icon} size={36} color={cfg.iconColor} />
+            <MaterialCommunityIcons name={cfg.icon} size={38} color={cfg.iconColor} />
           </View>
-          <Text style={[styles.message, { fontSize: scaledTypography.size.md }]}>
+
+          {/* Label */}
+          <Text style={[styles.label, { fontSize: scaledTypography.size.md, color: cfg.accentColor }]}>
+            {cfg.label}
+          </Text>
+
+          {/* Message */}
+          <Text style={[styles.message, { fontSize: scaledTypography.size.sm, color: textSecondary }]}>
             {message}
           </Text>
         </Animated.View>

@@ -318,7 +318,7 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
 }
 
 /**
- * Authenticate with Facebook (server-side callback flow — same pattern as Zalo)
+ * Authenticate with Facebook (server-side callback flow — same pattern as Zalo/Google Android)
  */
 export async function authenticateWithFacebook(): Promise<OAuthResult> {
   try {

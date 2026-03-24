@@ -243,10 +243,10 @@ export default function LoginEmailScreen() {
               <Image source={appLogo} style={styles.logo} resizeMode="cover" />
             </View>
           </Animated.View>
-          <Animated.View entering={FadeIn.delay(500).duration(400)}>
+          <Animated.View entering={FadeIn.delay(500).duration(400)} style={{ alignSelf: 'stretch' }}>
             <Text style={styles.title}>{t('login')}</Text>
           </Animated.View>
-          <Animated.View entering={FadeIn.delay(600).duration(400)}>
+          <Animated.View entering={FadeIn.delay(600).duration(400)} style={{ alignSelf: 'stretch' }}>
             <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
           </Animated.View>
         </Animated.View>
@@ -552,8 +552,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.textSecondary,
       textAlign: 'center',
       fontSize: typography.size.sm,
-      lineHeight: 20,
+      lineHeight: typography.size.sm * 1.4,
       width: '100%',
+      flexShrink: 1,
     },
 
     // ── Form Card ──
@@ -705,6 +706,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       gap: spacing.sm,
       justifyContent: 'center',
+      flexWrap: 'wrap',
     },
     link: {
       color: colors.primary,
@@ -720,6 +722,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
+      flexWrap: 'wrap',
     },
     registerText: {
       color: colors.textSecondary,

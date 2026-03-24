@@ -19,6 +19,7 @@
   "enableNotificationsFirst": "Enable notifications first",
   "enableNotificationsFirstDesc": "You need to enable \"Notifications\" before enabling \"Task Reminders\".",
   "logout": "Log out",
+  "logoutSuccess": "Logged out successfully",
   "deleteAccountForever": "Delete account permanently",
   "version": "v.1",
   "deleteAccountConfirm": "Delete account?",

@@ -54,10 +54,13 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => {
-        isDragging.current = true;
-        return true;
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, { dx, dy }) => {
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+          isDragging.current = true;
+          return true;
+        }
+        return false;
       },
       onPanResponderMove: (evt, { dx, dy }) => {
         pan.x.setValue(offsetRef.current.x + dx);

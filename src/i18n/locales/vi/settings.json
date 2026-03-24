@@ -19,6 +19,7 @@
   "enableNotificationsFirst": "Bật thông báo trước",
   "enableNotificationsFirstDesc": "Bạn cần bật \"Thông báo\" trước khi bật \"Nhắc nhiệm vụ\".",
   "logout": "Đăng xuất",
+  "logoutSuccess": "Đăng xuất thành công",
   "deleteAccountForever": "Xóa tài khoản vĩnh viễn",
   "version": "v.1",
   "deleteAccountConfirm": "Xóa tài khoản?",

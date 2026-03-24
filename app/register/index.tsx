@@ -262,10 +262,10 @@ export default function RegisterScreen() {
               <Image source={appLogo} style={styles.logo} resizeMode="cover" />
             </View>
           </Animated.View>
-          <Animated.View entering={FadeIn.delay(500).duration(400)}>
+          <Animated.View entering={FadeIn.delay(500).duration(400)} style={{ alignSelf: 'stretch' }}>
             <Text style={styles.title}>{t('createAccount')}</Text>
           </Animated.View>
-          <Animated.View entering={FadeIn.delay(600).duration(400)}>
+          <Animated.View entering={FadeIn.delay(600).duration(400)} style={{ alignSelf: 'stretch' }}>
             <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
           </Animated.View>
         </Animated.View>
@@ -563,8 +563,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.textSecondary,
       textAlign: 'center',
       fontSize: typography.size.sm,
-      lineHeight: 20,
+      lineHeight: typography.size.sm * 1.4,
       width: '100%',
+      flexShrink: 1,
     },
 
     // ── Form Card ──

@@ -247,7 +247,6 @@ export const AiChatLayout = ({
   const { language } = useLanguageStore();
   const flatListRef = useRef<FlatList>(null);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Feedback state: messageId → 'like' | 'dislike' | null
   const [feedbacks, setFeedbacks] = useState<Record<string, 'like' | 'dislike' | null>>({});
@@ -298,6 +297,8 @@ export const AiChatLayout = ({
   };
 
   // ─── Mic handler ───────────────────────────────────────────────────
+
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const handleMicPress = async () => {
     if (!isPremium) {

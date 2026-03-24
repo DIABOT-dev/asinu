@@ -15,6 +15,7 @@
   "include": [
     "app",
     "src",
+    "asinu-brain-extension",
     "expo-env.d.ts",
     ".expo/types/**/*.ts"
   ],

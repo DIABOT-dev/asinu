@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
+import { Toast } from '../../src/components/Toast';
 const DeleteAccountModal = React.lazy(() => import('../../src/components/DeleteAccountModal'));
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -52,6 +53,8 @@ export default function SettingsScreen() {
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
   const [schedulePrefs, setSchedulePrefs] = useState<NotificationPreferences | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -173,8 +176,12 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/login');
+    setToastMsg(t('logoutSuccess'));
+    setToastVisible(true);
+    setTimeout(async () => {
+      await logout();
+      router.replace('/login');
+    }, 1200);
   };
 
   const getFontSizeLabel = (value: FontSizeScale): string => {
@@ -217,6 +224,7 @@ export default function SettingsScreen() {
 
   return (
     <>
+      <Toast visible={toastVisible} message={toastMsg} type="success" onHide={() => setToastVisible(false)} />
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>
