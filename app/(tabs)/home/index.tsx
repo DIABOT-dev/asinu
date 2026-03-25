@@ -28,7 +28,7 @@ import { useNotificationStore } from '../../../src/stores/notification.store';
 import { brandColors, categoryColors, colors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
-const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
+const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
 
 // Module-level flag: auto-show fires once per app session, not on every tab switch
@@ -340,11 +340,9 @@ export default function HomeScreen() {
             <Text style={styles.sectionSubtitle}>{t('last7Days')}</Text>
           </View>
         </View>
-        <Suspense fallback={<View style={{ height: 200 }} />}>
-          <C1TrendChart
-            data={glucoseTrendData.length > 0 ? glucoseTrendData : treeHistory}
-            title={t('glucose')}
-            unit={tc('unitMgdl')}
+        <Suspense fallback={<View style={{ height: 240 }} />}>
+          <GlucoseTrendChart
+            data={glucoseTrendData.length > 0 ? glucoseTrendData : []}
           />
         </Suspense>
         </Animated.View>

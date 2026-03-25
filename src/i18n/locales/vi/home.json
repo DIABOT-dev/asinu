@@ -109,5 +109,16 @@
   "healthScoreDanger": "Cần chú ý",
   "healthScoreDangerSub": "Phát hiện chỉ số bất thường",
   "healthScoreNoCheckin": "Chưa check-in hôm nay",
-  "checkinFallbackRecommendation": "Hãy nghỉ ngơi và theo dõi thêm. Asinu sẽ hỏi lại sau nhé."
+  "checkinFallbackRecommendation": "Hãy nghỉ ngơi và theo dõi thêm. Asinu sẽ hỏi lại sau nhé.",
+
+  "glucoseLow":    "Thấp",
+  "glucoseNormal": "Bình thường",
+  "glucoseBorder": "Hơi cao",
+  "glucoseHigh":   "Cao",
+  "noGlucoseData": "Chưa có dữ liệu đường huyết",
+  "logToSeeTrend": "Ghi log để xem xu hướng",
+  "statMin":    "Thấp nhất",
+  "statAvg":    "Trung bình",
+  "statMax":    "Cao nhất",
+  "statStatus": "Trạng thái"
 }

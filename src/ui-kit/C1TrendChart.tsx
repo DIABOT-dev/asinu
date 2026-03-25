@@ -22,7 +22,7 @@ export type C1TrendChartProps = {
 
 const CHART_PADDING = { top: 40, bottom: 35, left: 45, right: 20 };
 
-export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200, title, unit }: C1TrendChartProps) => {
+export const C1TrendChart = ({ data, accentColor = colors.primary, height = 220, title, unit }: C1TrendChartProps) => {
   const { t } = useTranslation('tree');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const scaledTypography = useScaledTypography();
@@ -53,10 +53,8 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
     );
   }
 
-  // Nếu không có dữ liệu hoặc tất cả giá trị = 0
-  const hasRealData = data && data.length > 0 && data.some(d => Number.isFinite(d.value) && d.value > 0);
-
-  if (!data || data.length === 0 || !hasRealData) {
+  // Nếu không có dữ liệu
+  if (!data || data.length === 0) {
     return (
       <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }]}>
         <Ionicons name="happy-outline" size={48} color={colors.primary} />
@@ -73,49 +71,20 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
   // Tính toán dimensions
   const screenWidth = Dimensions.get('window').width - 48; // padding container
   const chartWidth = screenWidth - CHART_PADDING.left - CHART_PADDING.right;
-  const chartHeight = height - CHART_PADDING.top - CHART_PADDING.bottom;
+  // titleRowHeight tính theo font size thực tế để tránh X-axis bị cắt
+  const titleRowHeight = title ? Math.ceil(scaledTypography.size.sm * 1.6 + 10) : 0;
+  const svgHeight = height - titleRowHeight;
+  const chartHeight = svgHeight - CHART_PADDING.top - CHART_PADDING.bottom;
 
-  // Tính min/max - lọc bỏ giá trị NaN/undefined/null
-  const values = data.map(d => d.value).filter(v => Number.isFinite(v) && v > 0);
+  // Lấy tất cả giá trị hợp lệ (kể cả 0)
+  const values = data.map(d => d.value).filter(v => Number.isFinite(v) && v >= 0);
 
-  // Nếu không có giá trị hợp lệ, hiển thị thông báo thân thiện
-  if (values.length === 0) {
-    return (
-      <View style={[styles.container, { height, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }]}>
-        <Ionicons name="happy-outline" size={48} color={colors.primary} />
-        <Text style={{ color: colors.textPrimary, fontSize: scaledTypography.size.md, fontWeight: '700', marginTop: spacing.md, textAlign: 'center' }}>
-          {t('noDataYet')}
-        </Text>
-        <Text style={{ color: colors.textSecondary, fontSize: scaledTypography.size.sm, marginTop: spacing.xs, textAlign: 'center' }}>
-          {t('logToSeeTrend')}
-        </Text>
-      </View>
-    );
-  }
-  
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const range = maxVal - minVal;
-  
-  // Nếu tất cả giá trị giống nhau hoặc = 0, tạo một range giả để chart hiển thị đẹp
-  let yMin: number;
-  let yMax: number;
-  if (range === 0 || maxVal === 0) {
-    // Nếu giá trị = 0, tạo range từ 0-10
-    if (maxVal === 0) {
-      yMin = 0;
-      yMax = 10;
-    } else {
-      // Tạo range ±20% xung quanh giá trị
-      yMin = Math.max(0, minVal * 0.8);
-      yMax = maxVal * 1.2;
-    }
-  } else {
-    yMin = Math.max(0, minVal - range * 0.1);
-    yMax = maxVal + range * 0.1;
-  }
-  // Đảm bảo yRange không bao giờ = 0
-  const yRange = Math.max(yMax - yMin, 1);
+  const maxVal = values.length > 0 ? Math.max(...values) : 0;
+
+  // Y luôn bắt đầu từ 0, max ít nhất là 10 để chart không bị flat
+  const yMin = 0;
+  const yMax = Math.max(maxVal * 1.1, 10);
+  const yRange = yMax - yMin;
 
   // Tạo Y ticks (5 mức)
   const yTickCount = 5;
@@ -136,10 +105,11 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
     return Number.isFinite(y) ? y : chartHeight / 2;
   };
 
-  // Tạo path cho đường line
+  // Tạo path cho đường line (dùng giá trị gốc, 0 vẫn được vẽ)
   const linePath = data.map((point, i) => {
+    const val = Number.isFinite(point.value) ? point.value : 0;
     const x = CHART_PADDING.left + getX(i);
-    const y = CHART_PADDING.top + getY(point.value);
+    const y = CHART_PADDING.top + getY(val);
     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
@@ -160,7 +130,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
       {title && (
         <Text style={[styles.chartTitle, { fontSize: scaledTypography.size.sm }]}>{title}{unit ? ` (${unit})` : ''}</Text>
       )}
-      <Svg width={screenWidth} height={height - (title ? 24 : 0)}>
+      <Svg width={screenWidth} height={svgHeight}>
         {/* Grid lines ngang */}
         {yTicks.map((tick, i) => (
           <Line
@@ -227,8 +197,9 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
 
         {/* Các điểm dữ liệu */}
         {data.map((point, i) => {
+          const val = Number.isFinite(point.value) ? point.value : 0;
           const cx = CHART_PADDING.left + getX(i);
-          const cy = CHART_PADDING.top + getY(point.value);
+          const cy = CHART_PADDING.top + getY(val);
           const isSelected = selectedIndex === i;
 
           return (
@@ -251,28 +222,28 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 200,
                 strokeWidth={2}
               />
               {/* Tooltip khi selected */}
-              {isSelected && (
-                <G>
-                  <Rect
-                    x={cx - 30}
-                    y={cy - 35}
-                    width={60}
-                    height={24}
-                    rx={8}
-                    fill={colors.textPrimary}
-                  />
-                  <SvgText
-                    x={cx}
-                    y={cy - 18}
-                    fontSize={12}
-                    fontWeight="bold"
-                    fill={colors.surface}
-                    textAnchor="middle"
-                  >
-                    {Math.round(point.value)}{unit ? ` ${unit}` : ''}
-                  </SvgText>
-                </G>
-              )}
+              {isSelected && (() => {
+                const label = `${Math.round(val)}${unit ? ` ${unit}` : ''}`;
+                const tipW = Math.max(label.length * 8 + 20, 60);
+                const tipH = 28;
+                const tipX = Math.min(
+                  Math.max(cx - tipW / 2, CHART_PADDING.left),
+                  CHART_PADDING.left + chartWidth - tipW
+                );
+                const tipY = cy - tipH - 10;
+                return (
+                  <G>
+                    {/* Shadow */}
+                    <Rect x={tipX + 2} y={tipY + 3} width={tipW} height={tipH} rx={8} fill="rgba(0,0,0,0.15)" />
+                    {/* Background */}
+                    <Rect x={tipX} y={tipY} width={tipW} height={tipH} rx={8} fill="#ffffff" stroke={accentColor} strokeWidth={1.5} />
+                    {/* Text */}
+                    <SvgText x={tipX + tipW / 2} y={tipY + tipH / 2 + 5} fontSize={13} fontWeight="700" fill="#1a2e2b" textAnchor="middle">
+                      {label}
+                    </SvgText>
+                  </G>
+                );
+              })()}
             </G>
           );
         })}

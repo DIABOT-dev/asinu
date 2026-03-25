@@ -109,5 +109,16 @@
   "healthScoreDanger": "Needs attention",
   "healthScoreDangerSub": "Abnormal metrics detected",
   "healthScoreNoCheckin": "No check-in today",
-  "checkinFallbackRecommendation": "Please rest and monitor. Asinu will check back later."
+  "checkinFallbackRecommendation": "Please rest and monitor. Asinu will check back later.",
+
+  "glucoseLow":    "Low",
+  "glucoseNormal": "Normal",
+  "glucoseBorder": "Slightly high",
+  "glucoseHigh":   "High",
+  "noGlucoseData": "No glucose data yet",
+  "logToSeeTrend": "Log to see your trend",
+  "statMin":    "Min",
+  "statAvg":    "Avg",
+  "statMax":    "Max",
+  "statStatus": "Status"
 }

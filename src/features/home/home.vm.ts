@@ -9,23 +9,33 @@ const getLogValue = (log: LogEntry, field: 'value' | 'systolic' | 'diastolic' | 
   return log[field];
 };
 
-// Helper to create trend data from logs
+// Helper to create trend data from logs — luôn trả về đủ 7 ngày, ngày không đo = 0
 const createGlucoseTrendFromLogs = (logs: LogEntry[]): TreeHistoryPoint[] => {
-  const glucoseLogs = logs
-    .filter(log => log.type === 'glucose' && log.value !== undefined)
-    .slice(0, 7)
-    .reverse(); // Oldest first
-  
-  if (glucoseLogs.length === 0) return [];
-  
-  return glucoseLogs.map((log, index) => {
-    const date = log.recordedAt ? new Date(log.recordedAt) : new Date();
-    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-    return {
-      label: dayNames[date.getDay()],
-      value: log.value || 0
-    };
-  });
+  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const today = new Date();
+  const days: TreeHistoryPoint[] = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
+
+    // Lấy log đường huyết mới nhất trong ngày đó
+    const log = logs.find(l => {
+      if (l.type !== 'glucose' || l.value === undefined) return false;
+      const logDate = l.recordedAt
+        ? new Date(l.recordedAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
+        : null;
+      return logDate === dateStr;
+    });
+
+    days.push({
+      label: dayNames[d.getDay()],
+      value: log?.value ?? 0,
+    });
+  }
+
+  return days;
 };
 
 export const useHomeViewModel = () => {

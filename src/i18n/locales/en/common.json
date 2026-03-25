@@ -76,7 +76,7 @@
   "voicePremiumDesc": "Log health data by voice — AI automatically recognizes readings and fills the form for you.",
   "voicePremiumFeature1": "Vietnamese recognition (Whisper AI)",
   "voicePremiumFeature2": "Auto-fill glucose, blood pressure",
-  "voicePremiumFeature3": "Meal context recognition",
+  "voicePremiumFeature3": "Voice health declaration",
   "voiceUpgrade": "Upgrade now",
   "voiceInputLabel": "Voice input",
   "voiceInputPremium": "Voice input (Premium)",
