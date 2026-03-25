@@ -48,16 +48,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   title: {
     fontSize: typography.size.lg,
     fontWeight: '800',
-    color: colors.textPrimary
+    color: colors.textPrimary,
+    lineHeight: Math.round(typography.size.lg * 1.4)
   },
   updated: {
     color: colors.textSecondary,
-    marginBottom: spacing.sm
+    marginBottom: spacing.sm,
+    lineHeight: Math.round(typography.size.sm * 1.6)
   },
   paragraph: {
     color: colors.textPrimary,
     fontSize: typography.size.sm,
-    lineHeight: 22
+    lineHeight: Math.round(typography.size.sm * 1.6)
   },
   heading: {
     fontWeight: '700',

@@ -27,7 +27,7 @@ import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
-import { Toast } from '../../src/components/Toast';
+import { showToast } from '../../src/stores/toast.store';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -72,9 +72,6 @@ export default function LoginEmailScreen() {
   const [identifierError, setIdentifierError] = useState<string | undefined>();
   const [pendingAction, setPendingAction] = useState<'login' | SocialProvider | null>(null);
   const navigatingRef = useRef(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMsg, setToastMsg] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const login = useAuthStore((state) => state.login);
   const loginWithSocial = useAuthStore((state) => state.loginWithSocial);
   const loading = useAuthStore((state) => state.loading);
@@ -135,23 +132,17 @@ export default function LoginEmailScreen() {
       return;
     }
     if (!password.trim()) {
-      setToastMsg(t('passwordRequired'));
-      setToastType('error');
-      setToastVisible(true);
+      showToast(t('passwordRequired'), 'error');
       return;
     }
     setPendingAction('login');
     try {
       await login({ identifier: identifier.trim(), password: password.trim() });
       navigatingRef.current = true;
-      setToastMsg(t('loginSuccess'));
-      setToastType('success');
-      setToastVisible(true);
+      showToast(t('loginSuccess'), 'success');
       setTimeout(() => navigateAfterLogin(), 800);
     } catch {
-      setToastMsg(t('loginFailed'));
-      setToastType('error');
-      setToastVisible(true);
+      showToast(t('loginFailed'), 'error');
     } finally {
       setPendingAction(null);
     }
@@ -163,14 +154,10 @@ export default function LoginEmailScreen() {
     try {
       await loginWithSocial(provider);
       navigatingRef.current = true;
-      setToastMsg(t('loginSuccess'));
-      setToastType('success');
-      setToastVisible(true);
+      showToast(t('loginSuccess'), 'success');
       setTimeout(() => navigateAfterLogin(), 800);
     } catch {
-      setToastMsg(t('loginFailed'));
-      setToastType('error');
-      setToastVisible(true);
+      showToast(t('loginFailed'), 'error');
     } finally {
       setPendingAction(null);
     }
@@ -182,7 +169,6 @@ export default function LoginEmailScreen() {
 
   return (
     <>
-    <Toast visible={toastVisible} message={toastMsg} type={toastType} onHide={() => setToastVisible(false)} />
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}

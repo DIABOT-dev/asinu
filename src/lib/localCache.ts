@@ -24,5 +24,12 @@ export const localCache = {
     } catch (error) {
 
     }
+  },
+  async removeCached(key: string) {
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
   }
 };

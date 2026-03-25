@@ -47,6 +47,7 @@ interface NotificationBellProps {
   onMarkAllAsRead?: () => void;
   onDelete?: (notificationId: string) => void;
   onDeleteAll?: () => void;
+  onOpen?: () => void;
   loading?: boolean;
 }
 
@@ -58,6 +59,7 @@ export function NotificationBell({
   onMarkAllAsRead,
   onDelete,
   onDeleteAll,
+  onOpen,
   loading = false
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -337,7 +339,7 @@ export function NotificationBell({
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <TouchableOpacity
         style={styles.bellButton}
-        onPress={() => setIsOpen(true)}
+        onPress={() => { setIsOpen(true); onOpen?.(); }}
       >
         <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
         {unreadCount > 0 && (
@@ -352,7 +354,7 @@ export function NotificationBell({
       <Modal
         visible={isOpen}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setIsOpen(false)}
       >
         <View style={styles.modalOverlay}>

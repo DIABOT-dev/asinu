@@ -4,14 +4,13 @@ import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -21,9 +20,6 @@ import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { brandColors, categoryColors, colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_GAP = spacing.md;
-const CARD_W = (SCREEN_W - spacing.lg * 2 - CARD_GAP) / 2;
 
 type LogCard = {
   key: string;
@@ -140,7 +136,7 @@ export default function LogsIndexScreen() {
             </View>
           </Animated.View>
 
-          {/* Grid cards */}
+          {/* Cards — 1 per row */}
           <View style={styles.grid}>
             {LOG_CARDS.map((card, i) => (
               <Animated.View
@@ -157,13 +153,14 @@ export default function LogsIndexScreen() {
                     end={{ x: 1, y: 1 }}
                     style={styles.cardGradient}
                   >
-                    {/* Icon bubble */}
                     <View style={styles.cardIconBg}>
-                      <MaterialCommunityIcons name={card.icon} size={28} color="#fff" />
+                      <MaterialCommunityIcons name={card.icon} size={26} color="#fff" />
                     </View>
-                    <Text style={styles.cardTitle}>{t(card.key as any)}</Text>
-                    <Text style={styles.cardDesc} numberOfLines={1}>{card.desc}</Text>
-                    <MaterialCommunityIcons name="arrow-right" size={16} color="rgba(255,255,255,0.5)" style={styles.cardArrow} />
+                    <View style={styles.cardBody}>
+                      <Text style={styles.cardTitle}>{t(card.key as any)}</Text>
+                      <Text style={styles.cardDesc}>{card.desc}</Text>
+                    </View>
+                    <MaterialCommunityIcons name="arrow-right" size={20} color="rgba(255,255,255,0.6)" />
                   </LinearGradient>
                 </Pressable>
               </Animated.View>
@@ -203,12 +200,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     // Grid
     grid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: CARD_GAP,
+      gap: spacing.sm,
     },
     card: {
-      width: CARD_W,
       borderRadius: radius.xl,
       overflow: 'hidden',
       shadowColor: '#000',
@@ -219,21 +213,27 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     cardPressed: {
       opacity: 0.88,
-      transform: [{ scale: 0.97 }],
+      transform: [{ scale: 0.98 }],
     },
     cardGradient: {
-      padding: spacing.lg,
-      minHeight: 140,
-      gap: spacing.xs,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      gap: spacing.md,
     },
     cardIconBg: {
-      width: 52,
-      height: 52,
-      borderRadius: 16,
+      width: 48,
+      height: 48,
+      borderRadius: 14,
       backgroundColor: 'rgba(255,255,255,0.2)',
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: spacing.xs,
+      flexShrink: 0,
+    },
+    cardBody: {
+      flex: 1,
+      gap: 2,
     },
     cardTitle: {
       fontSize: typography.size.md,
@@ -243,10 +243,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     cardDesc: {
       fontSize: typography.size.xs,
       color: 'rgba(255,255,255,0.75)',
-    },
-    cardArrow: {
-      marginTop: 'auto',
-      alignSelf: 'flex-end',
     },
   });
 }

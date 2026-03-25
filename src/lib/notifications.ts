@@ -31,6 +31,37 @@ export function setupNotificationHandler(): void {
   }
 }
 
+/**
+ * Đăng ký notification categories với action buttons.
+ * - health_alert: nút "Đã xem" hiện ngay trên notification để xác nhận cảnh báo
+ * Phải gọi sau khi đã được cấp quyền notification.
+ */
+export async function registerNotificationCategories(): Promise<void> {
+  try {
+    await Notifications.setNotificationCategoryAsync('health_alert', [
+      {
+        identifier: 'ACKNOWLEDGE',
+        buttonTitle: '✓ Đã xem',
+        options: {
+          isDestructive: false,
+          isAuthenticationRequired: false,
+        },
+      },
+      {
+        identifier: 'CALL',
+        buttonTitle: '📞 Gọi ngay',
+        options: {
+          isDestructive: false,
+          isAuthenticationRequired: false,
+          opensAppToForeground: true,
+        },
+      },
+    ]);
+  } catch (e) {
+    // Silently ignore on platforms that don't support categories
+  }
+}
+
 export interface NotificationData {
   type: 'care_circle_invitation' | 'care_circle_accepted' | 'alert' | 'message' | 'engagement';
   invitationId?: string;
@@ -105,6 +136,9 @@ export async function requestNotificationPermissions(): Promise<boolean> {
         sound: 'asinu_milestone.wav',
       });
     }
+
+    // Đăng ký action buttons trên notification
+    await registerNotificationCategories();
 
     return true;
   } catch (error) {

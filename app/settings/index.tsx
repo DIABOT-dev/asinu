@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
-import { Toast } from '../../src/components/Toast';
+import { showToast } from '../../src/stores/toast.store';
 const DeleteAccountModal = React.lazy(() => import('../../src/components/DeleteAccountModal'));
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -24,7 +24,6 @@ import { getExpoPushToken, requestNotificationPermissions } from '../../src/lib/
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { AppLanguage, useLanguageStore } from '../../src/stores/language.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { useThemeStore } from '../../src/stores/theme.store';
 import { colors, spacing } from '../../src/styles';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
@@ -46,15 +45,11 @@ export default function SettingsScreen() {
   const { scale, setScale } = useFontSizeStore();
   const { colors, isDark } = useThemeColors();
   const styles = useMemo(() => createSettingsStyles(), [isDark]);
-  const themeMode = useThemeStore((s) => s.mode);
-  const setThemeMode = useThemeStore((s) => s.setMode);
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMsg, setToastMsg] = useState('');
   const [schedulePrefs, setSchedulePrefs] = useState<NotificationPreferences | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -176,8 +171,7 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
-    setToastMsg(t('logoutSuccess'));
-    setToastVisible(true);
+    showToast(t('logoutSuccess'), 'success');
     setTimeout(async () => {
       await logout();
       router.replace('/login');
@@ -224,7 +218,6 @@ export default function SettingsScreen() {
 
   return (
     <>
-      <Toast visible={toastVisible} message={toastMsg} type="success" onHide={() => setToastVisible(false)} />
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>

@@ -45,6 +45,13 @@
   "ctxBeforeSleep": "Trước ngủ",
   "ctxRandom": "Ngẫu nhiên",
 
+  "bloodPressureValue": "Chỉ số huyết áp",
+  "bpStatus_low": "Thấp",
+  "bpStatus_normal": "Bình thường",
+  "bpStatus_elevated": "Hơi cao",
+  "bpStatus_stage1": "Tăng huyết áp độ 1",
+  "bpStatus_stage2": "Tăng huyết áp độ 2",
+
   "systolic": "Tâm thu (mmHg)",
   "diastolic": "Tâm trương (mmHg)",
   "pulse": "Nhịp tim (bpm)",
@@ -55,6 +62,7 @@
   "bpAfterRest": "Sau nghỉ ngơi",
   "bpOther": "Khác",
 
+  "bodyComposition": "Thành phần cơ thể",
   "weightKg": "Cân nặng (kg)",
   "bodyFatPct": "Mỡ cơ thể (%)",
   "musclePct": "Cơ bắp (%)",
@@ -84,6 +92,7 @@
   "siteArm": "Cánh tay",
   "siteButtock": "Mông",
 
+  "nutrition": "Dinh dưỡng",
   "mealType": "Loại bữa",
   "selectMealType": "Chọn loại bữa ăn",
   "mealBreakfast": "Bữa sáng",
@@ -97,6 +106,7 @@
   "fat": "Chất béo (g)",
   "selectMealError": "Vui lòng chọn loại bữa ăn",
 
+  "medicationInfo": "Thông tin thuốc",
   "medicationName": "Tên thuốc",
   "medicationDose": "Liều lượng",
   "frequency": "Tần suất",

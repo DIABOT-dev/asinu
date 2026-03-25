@@ -427,85 +427,24 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>{t('quickActions')}</Text>
         </View>
         <View style={styles.quickActionsGrid}>
-          <Pressable style={styles.actionCard} onPress={() => router.push('/care-circle')}>
-            <LinearGradient
-              colors={[colors.emerald, colors.emeraldDark]}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="people" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>{t('careCircle')}</Text>
-          </Pressable>
-          
-          <Pressable style={styles.actionCard} onPress={() => router.push('/settings')}>
-            <LinearGradient
-              colors={[colors.premium, colors.premiumDark]}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="settings" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>{t('settings')}</Text>
-          </Pressable>
-          
-          <Pressable style={styles.actionCard} onPress={handleEditProfile}>
-            <LinearGradient
-              colors={[brandColors.indigo, brandColors.indigoDark]}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="create" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>{t('editProfile')}</Text>
-          </Pressable>
-
-          <Pressable style={styles.actionCard} onPress={() => router.push('/logs')}>
-            <LinearGradient
-              colors={[brandColors.pink, brandColors.pinkDark]}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="journal" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>{t('logEntry')}</Text>
-          </Pressable>
-
-          <Pressable style={styles.actionCard} onPress={() => router.push('/wallet')}>
-            <LinearGradient
-              colors={[brandColors.violet, brandColors.violetDark]}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="wallet" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>{t('wallet')}</Text>
-          </Pressable>
-
-          <Pressable style={styles.actionCard} onPress={() => router.push('/subscription')}>
-            <LinearGradient
-              colors={[colors.premium, colors.premiumDark]}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="star" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>{t('subscription')}</Text>
-          </Pressable>
-
-          <Pressable style={styles.actionCard} onPress={() => router.push('/chat-notes')}>
-            <LinearGradient
-              colors={['#8b5cf6', '#6d28d9']}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="bookmark" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>{tc('aiNotes')}</Text>
-          </Pressable>
-
-          <Pressable style={styles.actionCard} onPress={() => router.push('/reminder-config')}>
-            <LinearGradient
-              colors={['#f59e0b', '#d97706']}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="alarm" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>{tc('reminderConfig')}</Text>
-          </Pressable>
+          {([
+            { colors: [colors.emerald, colors.emeraldDark], icon: 'people', label: t('careCircle'), onPress: () => router.push('/care-circle') },
+            { colors: [colors.premium, colors.premiumDark], icon: 'settings', label: t('settings'), onPress: () => router.push('/settings') },
+            { colors: [brandColors.indigo, brandColors.indigoDark], icon: 'create', label: t('editProfile'), onPress: handleEditProfile },
+            { colors: [brandColors.pink, brandColors.pinkDark], icon: 'journal', label: t('logEntry'), onPress: () => router.push('/logs') },
+            { colors: [brandColors.violet, brandColors.violetDark], icon: 'wallet', label: t('wallet'), onPress: () => router.push('/wallet') },
+            { colors: [colors.premium, colors.premiumDark], icon: 'star', label: t('subscription'), onPress: () => router.push('/subscription') },
+            { colors: ['#8b5cf6', '#6d28d9'], icon: 'bookmark', label: tc('aiNotes'), onPress: () => router.push('/chat-notes') },
+            { colors: ['#f59e0b', '#d97706'], icon: 'alarm', label: tc('reminderConfig'), onPress: () => router.push('/reminder-config') },
+          ] as const).map((item, i) => (
+            <Pressable key={i} style={({ pressed }) => [styles.actionCard, pressed && styles.actionCardPressed]} onPress={item.onPress}>
+              <LinearGradient colors={item.colors as any} style={styles.actionIconBg}>
+                <Ionicons name={item.icon as any} size={22} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.actionLabel}>{item.label}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
+            </Pressable>
+          ))}
         </View>
         </Animated.View>
 
@@ -882,17 +821,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   // Quick Actions
   quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md
+    gap: spacing.sm
   },
   actionCard: {
-    flexBasis: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 16,
-    padding: spacing.lg,
-    alignItems: 'center',
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
     borderWidth: 1.5,
     borderColor: colors.border,
     shadowColor: '#000',
@@ -901,17 +839,25 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     shadowRadius: 4,
     elevation: 2
   },
+  actionCardPressed: {
+    opacity: 0.75,
+  },
   actionIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    flexShrink: 0,
   },
   actionLabel: {
+    flex: 1,
     fontSize: typography.size.sm,
     fontWeight: '600',
     color: colors.textPrimary
+  },
+  actionChevron: {
+    flexShrink: 0,
   },
   // Health Cards
   healthCardsGrid: {

@@ -96,3 +96,53 @@ export const postBrainEmergency = async (payload: {
     body: payload
   });
 };
+
+export type EmergencyTriageQuestion = {
+  id: string;
+  type: 'single_choice';
+  text: string;
+  options: Array<{ value: string; label: string }>;
+  step: number;
+};
+
+export type EmergencyTriageOutcome = {
+  risk_tier: 'HIGH' | 'MEDIUM' | 'LOW';
+  notify_caregiver: boolean;
+  outcome_text: string;
+  recommended_action: string;
+  caregiver_notified: boolean;
+};
+
+export type EmergencyTriageStartResponse = {
+  ok: boolean;
+  session_id: string;
+  question: EmergencyTriageQuestion;
+};
+
+export type EmergencyTriageAnswerResponse = {
+  ok: boolean;
+  isDone: false;
+  question: EmergencyTriageQuestion;
+} | {
+  ok: boolean;
+  isDone: true;
+  outcome: EmergencyTriageOutcome;
+};
+
+export const startEmergencyTriage = async () => {
+  return apiClient<EmergencyTriageStartResponse>('/api/asinu-brain/emergency/triage/start', {
+    method: 'POST',
+    body: {}
+  });
+};
+
+export const submitEmergencyTriageAnswer = async (payload: {
+  session_id: string;
+  question_id: string;
+  answer: { option_id: string; label?: string };
+}) => {
+  return apiClient<EmergencyTriageAnswerResponse>('/api/asinu-brain/emergency/triage/answer', {
+    method: 'POST',
+    body: payload
+  });
+};

@@ -14,12 +14,12 @@ const profileIcon = require('../../src/assets/tab-icons/profile.png');
 
 function TabIcon({ source, focused }: { source: any; focused: boolean }) {
   const { colors } = useThemeColors();
-  const scale = useSharedValue(focused ? 1 : 0.85);
-  const opacity = useSharedValue(focused ? 1 : 0.45);
+  const scale = useSharedValue(focused ? 1 : 0.9);
+  const opacity = useSharedValue(focused ? 1 : 0.65);
 
   useEffect(() => {
-    scale.value = withTiming(focused ? 1.1 : 0.85, { duration: 250 });
-    opacity.value = withTiming(focused ? 1 : 0.45, { duration: 200 });
+    scale.value = withTiming(focused ? 1.05 : 0.9, { duration: 250 });
+    opacity.value = withTiming(focused ? 1 : 0.65, { duration: 200 });
   }, [focused]);
 
   const animStyle = useAnimatedStyle(() => ({
@@ -55,9 +55,9 @@ export default function TabsLayout() {
       tabBarStyle: {
         ...styles.tabBar,
         backgroundColor: colors.surface,
-        height: 60 + bottom,
-        paddingBottom: bottom > 0 ? bottom : 10,
-        paddingTop: 14,
+        height: 28 + scaledTypography.size.xs + 16 + 14 + bottom,
+        paddingBottom: bottom > 0 ? bottom : 8,
+        paddingTop: 8,
       },
     }),
     [scaledTypography, bottom, colors]
@@ -108,14 +108,13 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBarLabel: {
-    marginTop: 2
+    marginTop: 1
   },
   tabBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingTop: 14,
     borderTopWidth: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -126,7 +125,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
   },
   icon: {
-    width: 50,
-    height: 50
+    width: 28,
+    height: 28
   }
 });

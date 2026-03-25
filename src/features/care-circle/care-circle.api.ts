@@ -162,6 +162,28 @@ export const careCircleApi = {
     return response;
   },
 
+  // Caregiver: view patient's check-in history
+  async getPatientCheckins(patientId: string) {
+    const response = await apiClient<{
+      ok: boolean;
+      patientName: string;
+      sessions: Array<{
+        id: number;
+        session_date: string;
+        initial_status: 'fine' | 'tired' | 'very_tired' | 'specific_concern' | null;
+        current_status: string | null;
+        flow_state: 'monitoring' | 'follow_up' | 'high_alert' | 'resolved' | null;
+        triage_summary: string | null;
+        triage_severity: 'low' | 'medium' | 'high' | null;
+        family_alerted: boolean;
+        emergency_triggered: boolean;
+        resolved_at: string | null;
+        created_at: string;
+      }>;
+    }>(`/api/mobile/caregiver/checkins/${patientId}`);
+    return response;
+  },
+
   // Care Circle Dashboard — caregiver views member's health summary
   async getMemberHealthSummary(memberId: number) {
     return apiClient<{ ok: boolean; healthScore: any; report: any }>(

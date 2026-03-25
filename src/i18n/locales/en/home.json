@@ -48,6 +48,11 @@
   "emergencySuddenTired": "Sudden fatigue",
   "emergencyVeryUnwell": "Very unwell",
   "emergencyAlertCaregiver": "Alert caregiver",
+  "emergencyAiThinking": "AI is analyzing your condition...",
+  "emergencyTriageStep": "Question {{step}}/3",
+  "emergencyCaregiverNotified": "Caregiver has been notified",
+  "emergencySent": "Alert sent",
+  "emergencySentDesc": "Your caregiver has been notified. Please stay calm.",
 
   "logTypeGlucose": "Blood Glucose",
   "logTypeBloodPressure": "Blood Pressure",

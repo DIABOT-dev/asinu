@@ -7,6 +7,7 @@ import { logError } from '../../lib/logger';
 import { logActivity } from '../wellness/api/wellness.api';
 
 // Debounced fetchRecent - prevents multiple concurrent calls
+// Also clears tree localCache so tree/home screen doesn't show stale mission counts
 let _fetchRecentTimer: ReturnType<typeof setTimeout> | null = null;
 let _fetchRecentAbort: AbortController | null = null;
 function debouncedFetchRecent(fetchFn: (signal?: AbortSignal) => Promise<void>, delay = 500) {
@@ -14,6 +15,8 @@ function debouncedFetchRecent(fetchFn: (signal?: AbortSignal) => Promise<void>, 
   if (_fetchRecentAbort) _fetchRecentAbort.abort();
   _fetchRecentAbort = new AbortController();
   const signal = _fetchRecentAbort.signal;
+  // Invalidate tree localCache so next navigation shows fresh mission count
+  localCache.removeCached(CACHE_KEYS.TREE).catch(() => {});
   _fetchRecentTimer = setTimeout(() => { fetchFn(signal).catch(() => {}); }, delay);
 }
 import {

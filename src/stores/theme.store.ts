@@ -15,15 +15,14 @@ interface ThemeStore {
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set, get) => ({
-      mode: 'system',
+      mode: 'light',
       resolved: 'light',
       setMode: (mode) => {
-        const resolved = mode === 'system' ? get().resolved : mode;
-        set({ mode, resolved });
+        set({ mode, resolved: 'light' });
       },
-      setSystemScheme: (scheme) => {
-        const { mode } = get();
-        set({ resolved: mode === 'system' ? scheme : (mode as 'light' | 'dark') });
+      setSystemScheme: (_scheme) => {
+        // Dark mode disabled — always light
+        set({ resolved: 'light' });
       },
     }),
     {

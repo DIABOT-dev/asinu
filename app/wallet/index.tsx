@@ -288,10 +288,11 @@ export default function WalletScreen() {
                   <RippleLoader size={50} color="rgba(255,255,255,0.7)" />
                 </View>
               ) : (
-                <Animated.View entering={FadeInUp.delay(500).duration(500).springify()}>
-                  <ScaledText style={styles.balanceValue}>
-                    {formatVND(balance)} <ScaledText style={styles.balanceUnit}>{t('balanceUnit')}</ScaledText>
-                  </ScaledText>
+                <Animated.View entering={FadeIn.delay(500).duration(600)}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 4 }}>
+                    <ScaledText style={styles.balanceValue}>{formatVND(balance)}</ScaledText>
+                    <ScaledText style={styles.balanceUnit}>{t('balanceUnit')}</ScaledText>
+                  </View>
                 </Animated.View>
               )}
             </View>
@@ -529,7 +530,7 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: { color: '#fff', fontSize: scaledTypography.size.md, fontWeight: '700' },
-    balanceSection: { alignItems: 'center', gap: 6 },
+    balanceSection: { alignItems: 'center', gap: 6, paddingTop: 4 },
     balanceIconWrap: {
       width: 56, height: 56, borderRadius: 28,
       backgroundColor: 'rgba(255,255,255,0.15)',
@@ -539,8 +540,8 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       color: 'rgba(255,255,255,0.75)', fontSize: scaledTypography.size.xs,
       textTransform: 'uppercase', letterSpacing: 1,
     },
-    balanceValue: { color: '#fff', fontSize: scaledTypography.size.xl + 4, fontWeight: '800' },
-    balanceUnit: { fontSize: scaledTypography.size.md, fontWeight: '600' },
+    balanceValue: { color: '#fff', fontSize: scaledTypography.size.xl + 4, fontWeight: '800', lineHeight: Math.round((scaledTypography.size.xl + 4) * 1.5) },
+    balanceUnit: { color: '#fff', fontSize: scaledTypography.size.md, fontWeight: '600', marginBottom: 6 },
 
     card: {
       backgroundColor: colors.surface,

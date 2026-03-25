@@ -48,6 +48,11 @@
   "emergencySuddenTired": "Mệt đột ngột",
   "emergencyVeryUnwell": "Rất không ổn",
   "emergencyAlertCaregiver": "Báo người thân",
+  "emergencyAiThinking": "AI đang phân tích tình trạng...",
+  "emergencyTriageStep": "Câu {{step}}/3",
+  "emergencyCaregiverNotified": "Đã thông báo người thân",
+  "emergencySent": "Đã gửi thông báo",
+  "emergencySentDesc": "Người thân của bạn đã được thông báo. Hãy giữ bình tĩnh.",
 
   "logTypeGlucose": "Đường huyết",
   "logTypeBloodPressure": "Huyết áp",

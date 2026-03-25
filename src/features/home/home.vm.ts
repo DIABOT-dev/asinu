@@ -63,10 +63,16 @@ export const useHomeViewModel = () => {
   // Data fetching moved to useFocusEffect in home screen to avoid double-fetch
 
   const quickMetrics = useMemo(() => {
-    // Find latest glucose
-    const latestGlucose = logs.find((log) => log.type === 'glucose');
-    // Find latest blood pressure
-    const latestBloodPressure = logs.find((log) => log.type === 'blood-pressure');
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const isToday = (iso?: string) => {
+      if (!iso) return false;
+      return new Date(iso).getTime() >= todayStart.getTime();
+    };
+    // Find latest glucose recorded TODAY only
+    const latestGlucose = logs.find((log) => log.type === 'glucose' && isToday(log.recordedAt));
+    // Find latest blood pressure recorded TODAY only
+    const latestBloodPressure = logs.find((log) => log.type === 'blood-pressure' && isToday(log.recordedAt));
     
     const glucoseValue = latestGlucose ? getLogValue(latestGlucose, 'value') : null;
     const systolicValue = latestBloodPressure ? getLogValue(latestBloodPressure, 'systolic') : null;

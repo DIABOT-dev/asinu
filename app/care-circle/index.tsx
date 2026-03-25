@@ -513,12 +513,9 @@ export default function CareCircleScreen() {
                 <TouchableOpacity
                   key={connection.id}
                   style={styles.card}
-                  onPress={() => setProfileTarget({
-                    name: otherName,
-                    email: otherUserEmail,
-                    phone: otherUserPhone,
-                    relationship: displayRelationship,
-                    role: connection.role,
+                  onPress={() => router.push({
+                    pathname: '/care-circle/member/[id]',
+                    params: { id: String(otherUserId), name: otherName }
                   })}
                   activeOpacity={0.75}
                 >

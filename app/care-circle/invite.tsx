@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
+import { DropdownOption } from '../../src/components/Dropdown';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Toast } from '../../src/components/Toast';
 import { useAuthStore } from '../../src/features/auth/auth.store';
@@ -77,6 +77,10 @@ export default function InviteScreen() {
   const [selectedUser, setSelectedUser] = useState<SearchUser | null>(null);
   const [selectedRelationship, setSelectedRelationship] = useState<DropdownOption | null>(null);
   const [selectedRole, setSelectedRole] = useState<DropdownOption | null>(null);
+  const [customRelationship, setCustomRelationship] = useState('');
+  const [customRole, setCustomRole] = useState('');
+  const [showRelDropdown, setShowRelDropdown] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [permissions, setPermissions] = useState({
     can_view_logs: false,
     can_receive_alerts: false,
@@ -182,8 +186,8 @@ export default function InviteScreen() {
     try {
       await createInvitation({
         addressee_id: selectedUser.id,
-        relationship_type: selectedRelationship?.label || undefined,
-        role: selectedRole?.label || undefined,
+        relationship_type: selectedRelationship?.label || customRelationship || undefined,
+        role: selectedRole?.label || customRole || undefined,
         permissions,
       });
       setToastMessage(t('inviteSentSuccess'));
@@ -346,14 +350,33 @@ export default function InviteScreen() {
                 <MaterialCommunityIcons name="heart-outline" size={18} color="#ec4899" />
               </View>
               <Text style={styles.cardTitle}>{t('relationship')}</Text>
+              <Text style={styles.optionalBadge}>{t('optional')}</Text>
             </View>
-            <Dropdown
-              placeholder={t('selectRelationship')}
-              options={relationshipOptions}
-              value={selectedRelationship}
-              onChange={setSelectedRelationship}
-              searchable
-            />
+            <View style={styles.comboInputRow}>
+              <TextInput
+                style={styles.comboInput}
+                value={selectedRelationship ? selectedRelationship.label : customRelationship}
+                onChangeText={text => { setCustomRelationship(text); setSelectedRelationship(null); }}
+                placeholder={t('relPlaceholder')}
+                placeholderTextColor={colors.textSecondary + '88'}
+              />
+              <Pressable style={styles.comboDropBtn} onPress={() => setShowRelDropdown(v => !v)}>
+                <Ionicons name={showRelDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primary} />
+              </Pressable>
+            </View>
+            {showRelDropdown && (
+              <View style={styles.suggestionList}>
+                {relationshipOptions.map(opt => (
+                  <Pressable key={opt.id} style={styles.suggestionItem} onPress={() => {
+                    setSelectedRelationship(opt);
+                    setCustomRelationship('');
+                    setShowRelDropdown(false);
+                  }}>
+                    <Text style={styles.suggestionText}>{opt.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
 
           <View style={styles.card}>
@@ -362,14 +385,33 @@ export default function InviteScreen() {
                 <MaterialCommunityIcons name="badge-account-horizontal-outline" size={18} color="#8b5cf6" />
               </View>
               <Text style={styles.cardTitle}>{t('role')}</Text>
+              <Text style={styles.optionalBadge}>{t('optional')}</Text>
             </View>
-            <Dropdown
-              placeholder={t('selectRole')}
-              options={roleOptions}
-              value={selectedRole}
-              onChange={setSelectedRole}
-              searchable
-            />
+            <View style={styles.comboInputRow}>
+              <TextInput
+                style={styles.comboInput}
+                value={selectedRole ? selectedRole.label : customRole}
+                onChangeText={text => { setCustomRole(text); setSelectedRole(null); }}
+                placeholder={t('rolePlaceholder')}
+                placeholderTextColor={colors.textSecondary + '88'}
+              />
+              <Pressable style={styles.comboDropBtn} onPress={() => setShowRoleDropdown(v => !v)}>
+                <Ionicons name={showRoleDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primary} />
+              </Pressable>
+            </View>
+            {showRoleDropdown && (
+              <View style={styles.suggestionList}>
+                {roleOptions.map(opt => (
+                  <Pressable key={opt.id} style={styles.suggestionItem} onPress={() => {
+                    setSelectedRole(opt);
+                    setCustomRole('');
+                    setShowRoleDropdown(false);
+                  }}>
+                    <Text style={styles.suggestionText}>{opt.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
 
         {/* ─── Permissions ─── */}
@@ -700,24 +742,83 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 4,
-      paddingVertical: spacing.sm,
-      backgroundColor: colors.primaryLight,
-      borderRadius: 10,
+      gap: spacing.sm,
+      paddingVertical: spacing.lg,
+      backgroundColor: colors.primary,
+      borderRadius: 14,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.35,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
     },
     sendBtnText: {
-      color: colors.primary,
+      color: '#ffffff',
       fontSize: typography.size.md,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     cancelBtn: {
       alignItems: 'center',
       paddingVertical: spacing.md,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.danger + '60',
+      backgroundColor: colors.danger + '0d',
     },
     cancelBtnText: {
       fontSize: typography.size.sm,
       fontWeight: '600',
+      color: colors.danger,
+    },
+    optionalBadge: {
+      fontSize: typography.size.xxs,
       color: colors.textSecondary,
+      backgroundColor: colors.surfaceMuted,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: 6,
+      marginLeft: 'auto' as any,
+    },
+    comboInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      overflow: 'hidden',
+    },
+    comboInput: {
+      flex: 1,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      fontSize: typography.size.sm,
+      color: colors.textPrimary,
+    },
+    comboDropBtn: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderLeftWidth: 1,
+      borderLeftColor: colors.border,
+    },
+    suggestionList: {
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      maxHeight: 200,
+      overflow: 'hidden',
+    },
+    suggestionItem: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    suggestionText: {
+      fontSize: typography.size.sm,
+      color: colors.textPrimary,
     },
 
     // Premium modal

@@ -13,7 +13,6 @@ import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 const ChatModal = React.lazy(() => import('../../../src/components/ChatModal'));
-import { FloatingActionButton } from '../../../src/components/FloatingActionButton';
 import { NotificationBell } from '../../../src/components/NotificationBell';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
@@ -57,7 +56,7 @@ export default function HomeScreen() {
     refreshAll
   } = useHomeViewModel();
   const profile = useAuthStore((state) => state.profile);
-  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll, fetchFromBackend } = useNotificationStore();
+  const { notifications, unreadCount, loading: notifLoading, markAsRead, markAllAsRead, removeNotification, clearAll, fetchFromBackend } = useNotificationStore();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -123,6 +122,8 @@ export default function HomeScreen() {
           <NotificationBell
             notifications={notifications}
             unreadCount={unreadCount}
+            loading={notifLoading}
+            onOpen={fetchFromBackend}
             onMarkAsRead={markAsRead}
             onMarkAllAsRead={markAllAsRead}
             onDelete={removeNotification}
@@ -316,8 +317,8 @@ export default function HomeScreen() {
                   <Ionicons name="checkmark-circle" size={16} color={colors.emerald} />
                 </View>
                 <View>
-                  <Text style={styles.treeStatValue}>{treeSummary?.completedThisWeek ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
-                  <Text style={styles.treeStatLabel}>{t('thisWeek')}</Text>
+                  <Text style={styles.treeStatValue}>{treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
+                  <Text style={styles.treeStatLabel}>{t('todayMissions')}</Text>
                 </View>
               </View>
             </View>
@@ -387,6 +388,20 @@ export default function HomeScreen() {
                     {log.type === 'meal' && (log.title || tc('noData'))}
                     {log.type === 'insulin' && (log.insulin_type ? `${log.dose_units} ${tc('unitInsulin')}` : tc('noData'))}
                   </Text>
+                  {log.recordedAt ? (
+                    <Text style={styles.logTime}>
+                      {(() => {
+                        const d = new Date(log.recordedAt);
+                        const hh = String(d.getHours()).padStart(2, '0');
+                        const mm = String(d.getMinutes()).padStart(2, '0');
+                        const ss = String(d.getSeconds()).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        const mo = String(d.getMonth() + 1).padStart(2, '0');
+                        const yyyy = d.getFullYear();
+                        return `${hh}:${mm}:${ss} ${dd}/${mo}/${yyyy}`;
+                      })()}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             ))
@@ -394,8 +409,7 @@ export default function HomeScreen() {
         </View>
         </Animated.View>
       </RippleRefreshScrollView>
-      <FloatingActionButton label={tc('quickLog')} onPress={() => router.push('/logs')} />
-      {isChatOpen && (
+{isChatOpen && (
         <Suspense fallback={null}>
           <ChatModal visible={isChatOpen} onClose={() => setChatOpen(false)} />
         </Suspense>
@@ -721,6 +735,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
     fontSize: typography.size.md,
     color: colors.textPrimary,
+  },
+  logTime: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   reportCard: {
     borderRadius: 16,

@@ -10,36 +10,45 @@ import { useScaledFontSize } from '../hooks/useScaledTypography';
  * // Sử dụng: <ScaledText style={{ fontSize: 16 }}>Hello</ScaledText>
  */
 export const ScaledText = ({ style, ...props }: RNTextProps) => {
-  // Lấy fontSize từ style prop
-  const getBaseFontSize = (): number => {
-    if (!style) return 16; // default
-    
+  const getBaseValues = (): { fontSize: number; lineHeight?: number } => {
+    if (!style) return { fontSize: 16 };
+
     // Single style object
     if (typeof style === 'object' && !Array.isArray(style)) {
       const s = style as TextStyle;
-      return s.fontSize ?? 16;
+      return { fontSize: s.fontSize ?? 16, lineHeight: s.lineHeight as number | undefined };
     }
-    
-    // Array of styles - find last fontSize
+
+    // Array of styles - find last fontSize and lineHeight
     if (Array.isArray(style)) {
+      let fontSize = 16;
+      let lineHeight: number | undefined;
       for (let i = style.length - 1; i >= 0; i--) {
         const s = style[i];
-        if (s && typeof s === 'object' && 'fontSize' in s) {
-          return (s as TextStyle).fontSize ?? 16;
+        if (s && typeof s === 'object') {
+          if (lineHeight === undefined && 'lineHeight' in s) lineHeight = (s as TextStyle).lineHeight as number | undefined;
+          if ('fontSize' in s) { fontSize = (s as TextStyle).fontSize ?? 16; break; }
         }
       }
+      return { fontSize, lineHeight };
     }
-    
-    return 16;
+
+    return { fontSize: 16 };
   };
 
-  const baseFontSize = getBaseFontSize();
+  const { fontSize: baseFontSize, lineHeight: baseLineHeight } = getBaseValues();
   const scaledFontSize = useScaledFontSize(baseFontSize);
+  const ratio = baseFontSize > 0 ? scaledFontSize / baseFontSize : 1;
+  // If no lineHeight set, use 1.5x as safe default to prevent text clipping on all screen sizes
+  const scaledLineHeight = baseLineHeight
+    ? Math.round(baseLineHeight * ratio)
+    : Math.round(scaledFontSize * 1.5);
 
-  // Merge scaled fontSize into style
-  const finalStyle = Array.isArray(style)
-    ? [...style, { fontSize: scaledFontSize }]
-    : [style, { fontSize: scaledFontSize }];
+  const overrides: TextStyle = { fontSize: scaledFontSize, lineHeight: scaledLineHeight };
 
-  return <RNText {...props} style={finalStyle} />;
+  const finalStyle: TextStyle[] = Array.isArray(style)
+    ? [...(style as TextStyle[]), overrides]
+    : [style as TextStyle, overrides];
+
+  return <RNText {...props} style={finalStyle} allowFontScaling={false} />;
 };

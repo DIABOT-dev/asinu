@@ -9,7 +9,7 @@ import { treeApi } from './tree.api';
 export type TreeSummary = {
   score: number;
   streakDays: number;
-  completedThisWeek: number;
+  completedToday: number;
   totalMissions?: number;
 };
 
@@ -32,7 +32,7 @@ type TreeState = {
 const fallbackSummary: TreeSummary = {
   score: 0.68,
   streakDays: 6,
-  completedThisWeek: 9,
+  completedToday: 9,
   totalMissions: 12
 };
 

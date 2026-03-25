@@ -45,6 +45,13 @@
   "ctxBeforeSleep": "Before sleep",
   "ctxRandom": "Random",
 
+  "bloodPressureValue": "Blood pressure reading",
+  "bpStatus_low": "Low",
+  "bpStatus_normal": "Normal",
+  "bpStatus_elevated": "Elevated",
+  "bpStatus_stage1": "Stage 1 hypertension",
+  "bpStatus_stage2": "Stage 2 hypertension",
+
   "systolic": "Systolic (mmHg)",
   "diastolic": "Diastolic (mmHg)",
   "pulse": "Heart rate (bpm)",
@@ -55,6 +62,7 @@
   "bpAfterRest": "After rest",
   "bpOther": "Other",
 
+  "bodyComposition": "Body composition",
   "weightKg": "Weight (kg)",
   "bodyFatPct": "Body fat (%)",
   "musclePct": "Muscle (%)",
@@ -84,6 +92,7 @@
   "siteArm": "Arm",
   "siteButtock": "Buttock",
 
+  "nutrition": "Nutrition",
   "mealType": "Meal type",
   "selectMealType": "Select meal type",
   "mealBreakfast": "Breakfast",
@@ -97,6 +106,7 @@
   "fat": "Fat (g)",
   "selectMealError": "Please select a meal type",
 
+  "medicationInfo": "Medication information",
   "medicationName": "Medication name",
   "medicationDose": "Dose",
   "frequency": "Frequency",

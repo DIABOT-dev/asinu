@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "416338225523",
+    "project_id": "poetic-glass-485711-h6",
+    "storage_bucket": "poetic-glass-485711-h6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:416338225523:android:15799c9791d3dfac30bd06",
+        "android_client_info": {
+          "package_name": "com.asinu.lite"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "416338225523-vs42boe39psg5k927thrhuq8doobb29h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.asinu.lite",
+            "certificate_hash": "0049aeeaf21a4373a03cc4bc4edaa23b15c67588"
+          }
+        },
+        {
+          "client_id": "416338225523-2alndgrq7hdoguaus7rptf9pbhrm5u0m.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBauK5Fu8MvJH1smqxJzXa1BvcdbD1Q_30"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "416338225523-2alndgrq7hdoguaus7rptf9pbhrm5u0m.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.asinu.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

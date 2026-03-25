@@ -218,8 +218,8 @@ export default function TreeScreen() {
                 <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
               </View>
               <View style={styles.streakContent}>
-                <Text style={styles.streakValue}>{summary?.completedThisWeek ?? 0}/{summary?.totalMissions ?? 8}</Text>
-                <Text style={styles.streakLabel}>{t('today')}</Text>
+                <Text style={styles.streakValue}>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
+                <Text style={styles.streakLabel}>{t('todayMissions')}</Text>
               </View>
             </View>
           </View>

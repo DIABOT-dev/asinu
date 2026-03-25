@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Appearance, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
+import { GlobalToastHost } from '../src/components/GlobalToastHost';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { CarePulseProvider } from '../src/features/care-pulse';
 import { WellnessProvider } from '../src/features/wellness';
@@ -90,6 +91,7 @@ export default function RootLayout() {
                   options={legalScreenOptions}
                 />
               </Stack>
+              <GlobalToastHost />
               <AsinuBrainOverlayHost />
             </CarePulseProvider>
           </WellnessProvider>

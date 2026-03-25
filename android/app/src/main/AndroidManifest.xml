@@ -16,6 +16,10 @@
       <category android:name="android.intent.category.BROWSABLE" />
       <data android:scheme="https" />
     </intent>
+    <!-- Zalo app -->
+    <package android:name="com.zing.zalo" />
+    <!-- Facebook app -->
+    <package android:name="com.facebook.katana" />
   </queries>
 
   <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@style/AppTheme" android:supportsRtl="true">
@@ -23,6 +27,13 @@
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <!-- Deep link: asinu-lite://auth/*/callback — dùng cho Facebook, Zalo, Google OAuth -->
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="asinu-lite"/>
       </intent-filter>
     </activity>
   </application>

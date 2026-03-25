@@ -6,11 +6,13 @@ import { useAuthStore } from '../features/auth/auth.store';
 import { authApi } from '../features/auth/auth.api';
 import { ScaledText as Text } from '../components/ScaledText';
 import {
+  addNotificationResponseReceivedListener,
   checkNotificationPermission,
   getExpoPushToken,
   requestNotificationPermissions,
   setupNotificationHandler,
 } from '../lib/notifications';
+import { checkinApi } from '../features/checkin/checkin.api';
 import * as Location from 'expo-location';
 import { CaregiverAlertModal } from '../components/CaregiverAlertModal';
 import { colors, radius, spacing } from '../styles';
@@ -93,6 +95,22 @@ export const SessionProvider = ({ children }: Props) => {
       await Location.requestForegroundPermissionsAsync().catch(() => {});
     })();
   }, [bootstrap, hydrated]);
+
+  // Handle notification action buttons (e.g. "✓ Đã xem" on caregiver alert)
+  useEffect(() => {
+    const sub = addNotificationResponseReceivedListener((response) => {
+      const { actionIdentifier, notification } = response;
+      const data = notification.request.content.data as Record<string, unknown>;
+
+      if (actionIdentifier === 'ACKNOWLEDGE') {
+        const alertId = data?.alertId ? Number(data.alertId) : null;
+        if (alertId) {
+          checkinApi.confirmAlert(alertId, 'seen').catch(() => {});
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Re-check when user returns from Settings
   useEffect(() => {

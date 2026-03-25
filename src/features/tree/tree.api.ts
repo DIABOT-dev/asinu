@@ -5,7 +5,7 @@ type TreeSummaryResponse = {
   ok: boolean;
   score: number;
   streakDays: number;
-  completedThisWeek: number;
+  completedToday: number;
   totalMissions?: number;
 };
 
@@ -17,7 +17,7 @@ export const treeApi = {
     }).then(res => ({
       score: res.score,
       streakDays: res.streakDays,
-      completedThisWeek: res.completedThisWeek,
+      completedToday: res.completedToday,
       totalMissions: res.totalMissions
     } as TreeSummary));
   },
