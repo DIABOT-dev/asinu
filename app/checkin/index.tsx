@@ -18,8 +18,6 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -27,10 +25,9 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeInRight, FadeInLeft } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -320,41 +317,35 @@ export default function CheckinScreen() {
       }} />
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      <ScrollView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            style={{ flex: 1, backgroundColor: colors.background }}
-            contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
-            keyboardShouldPersistTaps="handled"
-          >
-            {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
-            {screen === 'triage' && (
-              <TriageScreen
-                styles={styles}
-                question={currentQ}
-                options={currentOpts}
-                multiSelect={currentMultiSelect}
-                answers={answers}
-                loading={loading}
-                onAnswer={handleAnswer}
-              />
-            )}
-            {screen === 'done' && (
-              <DoneScreen
-                styles={styles}
-                session={session}
-                triageSummary={triageSummary}
-                isFollowUp={isFollowUp}
-                onClose={() => router.back()}
-              />
-            )}
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
+        {screen === 'triage' && (
+          <TriageScreen
+            styles={styles}
+            question={currentQ}
+            options={currentOpts}
+            multiSelect={currentMultiSelect}
+            answers={answers}
+            loading={loading}
+            onAnswer={handleAnswer}
+          />
+        )}
+        {screen === 'done' && (
+          <DoneScreen
+            styles={styles}
+            session={session}
+            triageSummary={triageSummary}
+            isFollowUp={isFollowUp}
+            onClose={() => router.back()}
+          />
+        )}
+      </ScrollView>
     </>
   );
 }
@@ -566,17 +557,17 @@ function TriageScreen({
       <View style={styles.chatArea}>
         {answers.map((a, i) => (
           <View key={i}>
-            {/* AI question */}
-            <Animated.View entering={FadeInLeft.delay(i * 30).duration(300)} style={styles.aiMsgRow}>
+            {/* AI question — no entering animation, already answered */}
+            <View style={styles.aiMsgRow}>
               <View style={styles.aiAvatarSmall}>
                 <Ionicons name="heart" size={12} color="#fff" />
               </View>
               <View style={styles.aiBubble}>
                 <Text style={styles.aiBubbleText}>{a.question}</Text>
               </View>
-            </Animated.View>
+            </View>
             {/* User answer */}
-            <Animated.View entering={FadeInRight.delay(i * 30 + 50).duration(300)} style={styles.userMsgRow}>
+            <View style={styles.userMsgRow}>
               <View style={styles.userAnswerCard}>
                 {a.answer.split(', ').map((item, j) => (
                   <View key={j} style={styles.userAnswerTag}>
@@ -585,7 +576,7 @@ function TriageScreen({
                   </View>
                 ))}
               </View>
-            </Animated.View>
+            </View>
           </View>
         ))}
 

@@ -53,6 +53,8 @@
   "emergencyCaregiverNotified": "Caregiver has been notified",
   "emergencySent": "Alert sent",
   "emergencySentDesc": "Your caregiver has been notified. Please stay calm.",
+  "emergencyTypePlaceholder": "Describe the symptoms you are experiencing...",
+  "emergencySendAnswer": "Send",
 
   "logTypeGlucose": "Blood Glucose",
   "logTypeBloodPressure": "Blood Pressure",

@@ -201,7 +201,7 @@ export async function scheduleLocalNotification(
         title,
         body,
         data: data || {},
-        sound: 'asinu_notify.wav',
+        sound: 'asinu_reminder.wav',
         priority: Notifications.AndroidNotificationPriority.HIGH,
       },
       trigger: null,

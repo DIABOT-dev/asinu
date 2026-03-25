@@ -99,9 +99,9 @@ export const postBrainEmergency = async (payload: {
 
 export type EmergencyTriageQuestion = {
   id: string;
-  type: 'single_choice';
+  type: 'single_choice' | 'open_text';
   text: string;
-  options: Array<{ value: string; label: string }>;
+  options?: Array<{ value: string; label: string }>;
   step: number;
 };
 
@@ -139,7 +139,7 @@ export const startEmergencyTriage = async () => {
 export const submitEmergencyTriageAnswer = async (payload: {
   session_id: string;
   question_id: string;
-  answer: { option_id: string; label?: string };
+  answer: { option_id?: string; label?: string; text_input?: string };
 }) => {
   return apiClient<EmergencyTriageAnswerResponse>('/api/asinu-brain/emergency/triage/answer', {
     method: 'POST',

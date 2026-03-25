@@ -5,11 +5,13 @@ import {
     ActivityIndicator,
     FlatList,
     Modal,
+    Pressable,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from './AppAlertModal';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, typography } from '../styles';
@@ -65,6 +67,7 @@ export function NotificationBell({
   const [isOpen, setIsOpen] = useState(false);
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => StyleSheet.create({
     bellButton: {
       position: 'relative',
@@ -90,14 +93,19 @@ export function NotificationBell({
     modalOverlay: {
       flex: 1,
       backgroundColor: colors.overlay,
-      justifyContent: 'flex-end',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.xl,
+    },
+    modalWrapper: {
+      maxHeight: '85%',
+      flexShrink: 1,
     },
     modalContent: {
       backgroundColor: colors.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      maxHeight: '80%',
-      minHeight: '50%',
+      borderRadius: 20,
+      overflow: 'hidden',
+      flexShrink: 1,
     },
     header: {
       flexDirection: 'row',
@@ -270,6 +278,10 @@ export function NotificationBell({
       if (notifType === 'care_circle_invitation') return 'person-add-outline';
       if (notifType === 'care_circle_accepted') return 'people-outline';
       if (notifType === 'morning_checkin' || notifType === 'checkin_followup' || notifType === 'checkin_followup_urgent') return 'sunny-outline';
+      if (notifType === 'caregiver_confirmed') return 'checkmark-circle-outline';
+      if (notifType === 'reminder_afternoon') return 'partly-sunny-outline';
+      if (notifType === 'reminder_morning') return 'sunny-outline';
+      if (notifType === 'reminder_medication') return 'medical-outline';
       if (notifType.startsWith('reminder')) return 'alarm-outline';
       if (notifType === 'milestone' || notifType.startsWith('streak') || notifType === 'weekly_recap') return 'trophy-outline';
       if (notifType === 'engagement') return 'sparkles-outline';
@@ -357,50 +369,50 @@ export function NotificationBell({
         animationType="fade"
         onRequestClose={() => setIsOpen(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.header}>
-              <Text style={[styles.headerTitle, { fontSize: scaledTypography.size.xl }]}>{tLogs('notifications')}</Text>
-              <View style={styles.headerActions}>
-                {unreadCount > 0 && onMarkAllAsRead && (
-                  <TouchableOpacity onPress={onMarkAllAsRead} style={styles.markAllButton}>
-                    <Ionicons name="checkmark-done" size={16} color={colors.primary} />
+        <Pressable style={styles.modalOverlay} onPress={() => setIsOpen(false)}>
+          <Pressable style={styles.modalWrapper} onPress={e => e.stopPropagation()}>
+            <View style={styles.modalContent}>
+              <View style={styles.header}>
+                <Text style={[styles.headerTitle, { fontSize: scaledTypography.size.xl }]}>{tLogs('notifications')}</Text>
+                <View style={styles.headerActions}>
+                  {unreadCount > 0 && onMarkAllAsRead && (
+                    <TouchableOpacity onPress={onMarkAllAsRead} style={styles.markAllButton}>
+                      <Ionicons name="checkmark-done" size={16} color={colors.primary} />
+                    </TouchableOpacity>
+                  )}
+                  {notifications.length > 0 && onDeleteAll && (
+                    <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllButton}>
+                      <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
+                    <Ionicons name="close" size={24} color={colors.primary} />
                   </TouchableOpacity>
-                )}
-                {notifications.length > 0 && onDeleteAll && (
-                  <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllButton}>
-                    <Ionicons name="trash-outline" size={16} color={colors.danger} />
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
-                  <Ionicons name="close" size={24} color={colors.primary} />
-                </TouchableOpacity>
+                </View>
               </View>
-            </View>
 
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-              </View>
-            ) : notifications.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons
-                  name="notifications-off-outline"
-                  size={64}
-                  color={colors.textSecondary}
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+              ) : notifications.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="notifications-off-outline" size={64} color={colors.textSecondary} />
+                  <Text style={[styles.emptyText, { fontSize: scaledTypography.size.md }]}>{tLogs('noNotifications')}</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={notifications}
+                  renderItem={renderNotification}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + spacing.md }]}
+                  bounces={false}
+                  overScrollMode="never"
                 />
-                <Text style={[styles.emptyText, { fontSize: scaledTypography.size.md }]}>{tLogs('noNotifications')}</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={notifications}
-                renderItem={renderNotification}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContent}
-              />
-            )}
-          </View>
-        </View>
+              )}
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </>
   );

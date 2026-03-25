@@ -3,9 +3,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
@@ -51,14 +51,16 @@ export default function CareCircleScreen() {
     rejectInvitation,
     deleteConnection,
     updateConnection,
+    updatePermissions,
     refresh
   } = useCareCircle();
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editConnection, setEditConnection] = useState<{ id: string; relationship_type?: string; role?: string; name: string } | null>(null);
+  const [editConnection, setEditConnection] = useState<{ id: string; relationship_type?: string; role?: string; name: string; permissions?: { can_view_logs: boolean; can_receive_alerts: boolean; can_ack_escalation: boolean } } | null>(null);
   const [editRelationType, setEditRelationType] = useState<DropdownOption | null>(null);
   const [editRole, setEditRole] = useState<DropdownOption | null>(null);
+  const [editPermissions, setEditPermissions] = useState({ can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true });
 
   // Profile modal
   type ProfileTarget = {
@@ -252,6 +254,11 @@ export default function CareCircleScreen() {
     );
     setEditRelationType(relOption || null);
     setEditRole(roleOption || null);
+    setEditPermissions({
+      can_view_logs: connection.permissions?.can_view_logs ?? true,
+      can_receive_alerts: connection.permissions?.can_receive_alerts ?? true,
+      can_ack_escalation: connection.permissions?.can_ack_escalation ?? true,
+    });
     setEditModalVisible(true);
   };
 
@@ -261,10 +268,13 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(editConnection.id);
       
-      await updateConnection(editConnection.id, {
-        relationship_type: editRelationType?.id,
-        role: editRole?.id
-      });
+      await Promise.all([
+        updateConnection(editConnection.id, {
+          relationship_type: editRelationType?.id,
+          role: editRole?.id,
+        }),
+        updatePermissions(editConnection.id, editPermissions),
+      ]);
       
       setEditModalVisible(false);
       showAlert(tc('success'), t('editSuccess'));
@@ -642,11 +652,11 @@ export default function CareCircleScreen() {
         <Modal
           visible={editModalVisible}
           animationType="slide"
-          transparent={true}
+          transparent={false}
           onRequestClose={() => setEditModalVisible(false)}
         >
-          <Screen>
-            <ScrollView 
+          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <ScrollView
               style={{ flex: 1 }}
               contentContainerStyle={styles.modalContent}
             >
@@ -688,6 +698,26 @@ export default function CareCircleScreen() {
                 />
               </View>
               
+              <View style={styles.modalSection}>
+                <Text style={[styles.currentInfoTitle, { marginBottom: spacing.sm }]}>{t('permissions')}</Text>
+                {[
+                  { key: 'can_view_logs' as const, icon: 'eye-outline', color: '#3b82f6', label: t('permViewLogs') },
+                  { key: 'can_receive_alerts' as const, icon: 'notifications-outline', color: '#f59e0b', label: t('permReceiveAlerts') },
+                  { key: 'can_ack_escalation' as const, icon: 'shield-checkmark-outline', color: '#10b981', label: t('permAckEscalation') },
+                ].map(perm => (
+                  <View key={perm.key} style={styles.permRow}>
+                    <Ionicons name={perm.icon as any} size={20} color={perm.color} style={{ marginRight: spacing.sm }} />
+                    <Text style={styles.permLabel}>{perm.label}</Text>
+                    <Switch
+                      value={editPermissions[perm.key]}
+                      onValueChange={(val) => setEditPermissions(prev => ({ ...prev, [perm.key]: val }))}
+                      trackColor={{ false: colors.border, true: perm.color + '55' }}
+                      thumbColor={editPermissions[perm.key] ? perm.color : colors.textSecondary}
+                    />
+                  </View>
+                ))}
+              </View>
+
               <View style={styles.buttonGroup}>
                 <Button
                   label={tc('cancel')}
@@ -704,7 +734,7 @@ export default function CareCircleScreen() {
                 />
               </View>
             </ScrollView>
-          </Screen>
+          </SafeAreaView>
         </Modal>
       </RippleRefreshScrollView>
     </Screen>
@@ -1054,6 +1084,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     gap: spacing.md,
     marginTop: spacing.lg
+  },
+  permRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  permLabel: {
+    flex: 1,
+    fontSize: typography.size.md,
+    color: colors.textPrimary,
   },
   currentInfoBox: {
     backgroundColor: brandColors.cyan + '18',

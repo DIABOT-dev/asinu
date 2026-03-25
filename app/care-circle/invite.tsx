@@ -81,9 +81,9 @@ export default function InviteScreen() {
   const [showRelDropdown, setShowRelDropdown] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [permissions, setPermissions] = useState({
-    can_view_logs: false,
-    can_receive_alerts: false,
-    can_ack_escalation: false,
+    can_view_logs: true,
+    can_receive_alerts: true,
+    can_ack_escalation: true,
   });
 
   const relationshipOptions: DropdownOption[] = [

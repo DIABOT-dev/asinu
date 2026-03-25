@@ -410,6 +410,13 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
             </Pressable>
           ))}
+          {__DEV__ && (
+            <Pressable style={({ pressed }) => [styles.actionCard, pressed && styles.actionCardPressed]} onPress={() => router.push('/dev-test')}>
+              <Ionicons name="flask-outline" size={22} color="#7c3aed" style={styles.actionIcon} />
+              <Text style={styles.actionLabel}>🧪 Dev Test</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
+            </Pressable>
+          )}
         </View>
         </Animated.View>
 

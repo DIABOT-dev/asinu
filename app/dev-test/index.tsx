@@ -1,16 +1,11 @@
 /**
- * Dev Test Screen — Check-in Flow Testing
- *
- * Allows testing all check-in scenarios:
- * - Reset today's session
- * - Start fresh morning check-in
- * - Start follow-up check-in
- * - View current session state
+ * Dev Test Hub — Unified testing screen
+ * 3 tabs: Check-in flows | Notification types | Caregiver alert (⚠️)
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -19,123 +14,293 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { checkinApi, type CheckinSession } from '../../src/features/checkin/checkin.api';
 import { apiClient } from '../../src/lib/apiClient';
+import { scheduleLocalNotification } from '../../src/lib/notifications';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, radius, spacing, brandColors} from '../../src/styles';
+import { colors, radius, spacing, brandColors } from '../../src/styles';
 
-type TestLog = { time: string; text: string; type: 'info' | 'success' | 'error' | 'action' };
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export default function DevTestScreen() {
+type Tab = 'checkin' | 'notif' | 'alert';
+type LogEntry = { time: string; text: string; kind: 'info' | 'success' | 'error' | 'action' };
+
+// ─── Notification catalog ────────────────────────────────────────────────────
+
+const NOTIF_CATS = [
+  {
+    label: 'Nhắc nhở',
+    icon: 'alarm-outline' as const,
+    color: '#3b82f6',
+    bg: '#eff6ff',
+    items: [
+      { type: 'reminder_log_morning',      label: 'Nhắc ghi log sáng' },
+      { type: 'reminder_afternoon',        label: 'Nhắc buổi chiều' },
+      { type: 'reminder_log_evening',      label: 'Nhắc ghi log tối' },
+      { type: 'reminder_glucose',          label: 'Nhắc đo đường huyết' },
+      { type: 'reminder_bp',               label: 'Nhắc đo huyết áp' },
+      { type: 'reminder_medication_morning', label: 'Nhắc thuốc sáng' },
+      { type: 'reminder_medication_evening', label: 'Nhắc thuốc tối' },
+    ],
+  },
+  {
+    label: 'Check-in',
+    icon: 'heart-outline' as const,
+    color: '#08b8a2',
+    bg: '#e6faf8',
+    items: [
+      { type: 'morning_checkin',          label: 'Check-in sáng' },
+      { type: 'checkin_followup',         label: 'Follow-up thông thường' },
+      { type: 'checkin_followup_urgent',  label: 'Follow-up khẩn (HIGH)' },
+    ],
+  },
+  {
+    label: 'Cảnh báo',
+    icon: 'warning-outline' as const,
+    color: '#dc2626',
+    bg: '#fef2f2',
+    items: [
+      { type: 'emergency',        label: 'Khẩn cấp SOS' },
+      { type: 'caregiver_alert',  label: 'Cảnh báo người thân ⚠️' },
+      { type: 'health_alert',     label: 'Cảnh báo sức khoẻ' },
+    ],
+  },
+  {
+    label: 'Vòng kết nối',
+    icon: 'people-outline' as const,
+    color: '#10b981',
+    bg: '#d1fae5',
+    items: [
+      { type: 'care_circle_invitation', label: 'Lời mời kết nối' },
+      { type: 'care_circle_accepted',   label: 'Chấp nhận kết nối' },
+    ],
+  },
+  {
+    label: 'Thành tích',
+    icon: 'trophy-outline' as const,
+    color: '#f59e0b',
+    bg: '#fffbeb',
+    items: [
+      { type: 'streak_7',     label: 'Streak 7 ngày 🔥' },
+      { type: 'streak_14',    label: 'Streak 14 ngày 🔥🔥' },
+      { type: 'streak_30',    label: 'Streak 30 ngày 🏆' },
+      { type: 'weekly_recap', label: 'Tổng kết tuần' },
+    ],
+  },
+  {
+    label: 'AI Engagement',
+    icon: 'chatbubble-outline' as const,
+    color: '#8b5cf6',
+    bg: '#f5f3ff',
+    items: [
+      { type: 'engagement', label: 'AI cá nhân hoá' },
+    ],
+  },
+] as const;
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function DevTestHub() {
+  // Guard BEFORE any hooks — __DEV__ is a compile-time constant so hook count is consistent
+  if (!__DEV__) return null;
+
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
-
-  const [session, setSession] = useState<CheckinSession | null | undefined>(undefined);
-  const [loading, setLoading] = useState(false);
-  const [logs, setLogs] = useState<TestLog[]>([]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
 
-  const addLog = useCallback((text: string, type: TestLog['type'] = 'info') => {
+  const [tab, setTab] = useState<Tab>('checkin');
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Check-in state
+  const [session, setSession] = useState<CheckinSession | null | undefined>(undefined);
+
+  // Notification state
+  const [notifSending, setNotifSending] = useState<string | null>(null);
+  const [notifResults, setNotifResults] = useState<Record<string, 'ok' | 'error'>>({});
+  const [notifLastResult, setNotifLastResult] = useState<string | null>(null);
+
+  // Alert state
+  const [pendingAlerts, setPendingAlerts] = useState<any[]>([]);
+  const [alertLoading, setAlertLoading] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [healthScore, setHealthScore] = useState<any>(null);
+
+  const addLog = useCallback((text: string, kind: LogEntry['kind'] = 'info') => {
     const time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setLogs(prev => [{ time, text, type }, ...prev]);
+    setLogs(prev => [{ time, text, kind }, ...prev.slice(0, 49)]);
   }, []);
 
-  // Load current session on mount
+  // ── Checkin helpers ────────────────────────────────────────────────────────
+
   const refreshSession = useCallback(async () => {
     setLoading(true);
     try {
       const res = await checkinApi.getToday();
       setSession(res.session);
       if (res.session) {
-        addLog(`Session found: #${res.session.id} | status=${res.session.initial_status} | flow=${res.session.flow_state}`, 'info');
-        if (res.session.triage_severity) {
-          addLog(`Triage: severity=${res.session.triage_severity} | summary="${res.session.triage_summary || 'N/A'}"`, 'info');
-        }
-        if (res.session.next_checkin_at) {
-          const next = new Date(res.session.next_checkin_at);
-          const diff = Math.round((next.getTime() - Date.now()) / 60000);
-          addLog(`Next check-in: ${next.toLocaleTimeString('vi-VN')} (${diff > 0 ? `in ${diff} min` : 'overdue'})`, 'info');
+        const s = res.session;
+        addLog(`Session #${s.id} | ${s.initial_status} | ${s.flow_state}${s.triage_severity ? ` | ${s.triage_severity}` : ''}`, 'info');
+        if (s.next_checkin_at) {
+          const diff = Math.round((new Date(s.next_checkin_at).getTime() - Date.now()) / 60000);
+          addLog(`Hẹn check-in: ${new Date(s.next_checkin_at).toLocaleTimeString('vi-VN')} (${diff > 0 ? `còn ${diff} phút` : '⏰ quá giờ'})`, 'info');
         }
       } else {
-        addLog('No session today — ready for morning check-in', 'info');
+        addLog('Không có session hôm nay — sẵn sàng test', 'info');
       }
     } catch (err: any) {
-      addLog(`Error loading session: ${err.message}`, 'error');
+      addLog(`Lỗi tải session: ${err.message}`, 'error');
       setSession(null);
     } finally {
       setLoading(false);
     }
   }, [addLog]);
 
-  // Refresh session on mount AND when screen regains focus (after returning from checkin)
-  useFocusEffect(
-    useCallback(() => {
-      refreshSession();
-    }, [refreshSession])
-  );
+  useFocusEffect(useCallback(() => { refreshSession(); }, [refreshSession]));
 
-  // Reset today's session
   const handleReset = useCallback(() => {
-    showAlert(
-      'Reset Session',
-      t('devTestResetConfirm'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              await checkinApi.resetToday();
-              addLog('Session reset OK — ready for fresh test', 'success');
-              setSession(null);
-            } catch (err: any) {
-              addLog(`Reset failed: ${err.message}`, 'error');
-            } finally {
-              setLoading(false);
-            }
-          },
+    showAlert('Reset Session', 'Xoá session hôm nay để test từ đầu?', [
+      { text: 'Huỷ', style: 'cancel' },
+      {
+        text: 'Reset',
+        style: 'destructive',
+        onPress: async () => {
+          setLoading(true);
+          try {
+            await checkinApi.resetToday();
+            setSession(null);
+            addLog('✓ Reset session xong — sẵn sàng test', 'success');
+          } catch (err: any) {
+            addLog(`Reset thất bại: ${err.message}`, 'error');
+          } finally { setLoading(false); }
         },
-      ]
-    );
+      },
+    ]);
   }, [addLog, showAlert]);
 
-  // Navigate to check-in (morning)
-  const goCheckinMorning = useCallback(() => {
-    addLog('Opening check-in (morning flow)...', 'action');
-    router.push('/checkin');
-  }, [addLog, router]);
+  const simulateAndOpenFollowUp = useCallback(async () => {
+    if (!session) { addLog('Chưa có session — bắt đầu check-in sáng trước', 'error'); return; }
+    setLoading(true);
+    try {
+      const res = await checkinApi.simulateTime();
+      addLog(`⏩ Giả lập thời gian → ${res.message}`, 'success');
+      await refreshSession();
+      setTimeout(() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`), 300);
+    } catch (err: any) {
+      addLog(`Lỗi simulate: ${err.message}`, 'error');
+    } finally { setLoading(false); }
+  }, [session, addLog, refreshSession, router]);
 
-  // Navigate to check-in (follow-up)
-  const goCheckinFollowUp = useCallback(() => {
-    if (!session) {
-      addLog('No session to follow up — start morning first', 'error');
-      return;
+  // ── Notification helpers ───────────────────────────────────────────────────
+
+  const sendTestNotif = useCallback(async (type: string, label: string) => {
+    setNotifSending(type);
+    setNotifLastResult(null);
+    try {
+      const res = await apiClient<{ ok: boolean; title?: string; body?: string; error?: string }>(
+        '/api/mobile/test-notification',
+        { method: 'POST', body: { type } }
+      );
+      if (res.ok) {
+        setNotifResults(prev => ({ ...prev, [type]: 'ok' }));
+        setNotifLastResult(`✓ Push gửi: ${res.title}`);
+        addLog(`[Notif] ${label} → OK`, 'success');
+      } else if (res.error?.toLowerCase().includes('push_token')) {
+        await scheduleLocalNotification(label, `Test: ${type}`, { type } as any);
+        setNotifResults(prev => ({ ...prev, [type]: 'ok' }));
+        setNotifLastResult(`✓ Local: ${label} (no push token)`);
+        addLog(`[Notif] ${label} → Local OK`, 'success');
+      } else {
+        setNotifResults(prev => ({ ...prev, [type]: 'error' }));
+        setNotifLastResult(`✗ ${res.error || 'Unknown'}`);
+        addLog(`[Notif] ${label} → Error: ${res.error}`, 'error');
+      }
+    } catch (err: any) {
+      setNotifResults(prev => ({ ...prev, [type]: 'error' }));
+      setNotifLastResult(`✗ ${err.message}`);
+      addLog(`[Notif] ${label} → ${err.message}`, 'error');
+    } finally {
+      setNotifSending(null);
     }
-    addLog(`Opening follow-up for session #${session.id}...`, 'action');
-    router.push(`/checkin?mode=followup&checkin_id=${session.id}`);
-  }, [addLog, router, session]);
+  }, [addLog]);
 
-  const sessionStatusColor = !session ? colors.textSecondary
+  // ── Alert helpers ──────────────────────────────────────────────────────────
+
+  const fetchPendingAlerts = useCallback(async () => {
+    setAlertLoading(true);
+    try {
+      const res = await apiClient<{ ok: boolean; alerts: any[] }>('/api/mobile/checkin/pending-alerts');
+      setPendingAlerts(res.alerts || []);
+      addLog(`[Cảnh báo] ${res.alerts?.length || 0} cảnh báo đang chờ xác nhận`, 'info');
+    } catch (err: any) {
+      addLog(`[Cảnh báo] Lỗi tải: ${err.message}`, 'error');
+    } finally { setAlertLoading(false); }
+  }, [addLog]);
+
+  const confirmAlert = useCallback(async (alertId: number, action: 'seen' | 'on_my_way' | 'called') => {
+    const labels = { seen: 'Đã thấy', on_my_way: 'Đang đến', called: 'Đã gọi' };
+    setConfirmingId(alertId);
+    try {
+      await checkinApi.confirmAlert(alertId, action);
+      addLog(`[Cảnh báo] #${alertId} → "${labels[action]}" ✓`, 'success');
+      setPendingAlerts(prev => prev.filter(a => a.id !== alertId));
+    } catch (err: any) {
+      addLog(`[Cảnh báo] Xác nhận thất bại: ${err.message}`, 'error');
+    } finally { setConfirmingId(null); }
+  }, [addLog]);
+
+  const triggerTestEmergency = useCallback(async () => {
+    showAlert('Test Emergency', 'Gửi SOS test → báo tất cả caregiver?', [
+      { text: 'Huỷ', style: 'cancel' },
+      {
+        text: 'Gửi SOS',
+        style: 'destructive',
+        onPress: async () => {
+          setLoading(true);
+          try {
+            const res = await checkinApi.emergency();
+            addLog(`[SOS] Gửi thành công | ${res.caregiversAlerted} người thân nhận thông báo`, 'success');
+            await refreshSession();
+            await fetchPendingAlerts();
+          } catch (err: any) {
+            addLog(`[SOS] Thất bại: ${err.message}`, 'error');
+          } finally { setLoading(false); }
+        },
+      },
+    ]);
+  }, [addLog, refreshSession, fetchPendingAlerts, showAlert]);
+
+  const fetchHealthScore = useCallback(async () => {
+    try {
+      const res = await checkinApi.getHealthScore();
+      setHealthScore(res);
+      addLog(`[Score] Level: ${res.level} | Factors: ${res.factors?.join(', ') || 'none'}`, 'info');
+    } catch (err: any) {
+      addLog(`[Score] Lỗi: ${err.message}`, 'error');
+    }
+  }, [addLog]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  const sessionColor = !session ? colors.textSecondary
     : session.flow_state === 'resolved' ? '#16a34a'
     : session.flow_state === 'high_alert' ? '#dc2626'
     : session.flow_state === 'follow_up' ? '#d97706'
     : colors.primary;
+
+  const notifSuccessCount = Object.values(notifResults).filter(r => r === 'ok').length;
 
   return (
     <>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={{
         headerShown: true,
-        title: t('devTestTitle'),
+        title: '🧪 Dev Test Hub',
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
         headerShadowVisible: false,
@@ -146,334 +311,494 @@ export default function DevTestScreen() {
         ),
       }} />
 
+      {/* Tab switcher */}
+      <View style={[styles.tabBar, { paddingTop: 6 }]}>
+        <TabBtn label="🔄 Check-in" active={tab === 'checkin'} onPress={() => setTab('checkin')} styles={styles} />
+        <TabBtn label="🔔 Thông báo" active={tab === 'notif'} onPress={() => setTab('notif')} styles={styles} />
+        <TabBtn label="⚠️ Cảnh báo" active={tab === 'alert'} onPress={() => { setTab('alert'); fetchPendingAlerts(); fetchHealthScore(); }} styles={styles} />
+      </View>
+
       <ScrollView
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Session Status Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.statusDot, { backgroundColor: sessionStatusColor }]} />
-            <Text style={styles.cardTitle}>{t('devTestSessionToday')}</Text>
-            <Pressable onPress={refreshSession} hitSlop={12}>
-              <Ionicons name="refresh" size={20} color={colors.primary} />
-            </Pressable>
-          </View>
-
-          {loading && session === undefined ? (
-            <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 12 }} />
-          ) : !session ? (
-            <View style={styles.emptySession}>
-              <MaterialCommunityIcons name="clipboard-outline" size={32} color={colors.border} />
-              <Text style={styles.emptyText}>{t('devTestNoSession')}</Text>
+        {/* ══════════════════════════════════════════════════
+            TAB 1 — CHECK-IN FLOWS
+        ══════════════════════════════════════════════════ */}
+        {tab === 'checkin' && (
+          <>
+            {/* Session status */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.dot, { backgroundColor: sessionColor }]} />
+                <Text style={styles.cardTitle}>Session hôm nay</Text>
+                {loading && <ActivityIndicator size="small" color={colors.primary} />}
+                <Pressable onPress={refreshSession} hitSlop={12} style={{ marginLeft: 'auto' }}>
+                  <Ionicons name="refresh" size={20} color={colors.primary} />
+                </Pressable>
+              </View>
+              {session === undefined ? (
+                <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 12 }} />
+              ) : !session ? (
+                <Text style={styles.emptyText}>Chưa có session — sẵn sàng check-in sáng</Text>
+              ) : (
+                <View style={styles.sessionGrid}>
+                  <SessionRow label="ID" value={`#${session.id}`} />
+                  <SessionRow label="Status" value={session.current_status} color={sessionColor} />
+                  <SessionRow
+                    label="Flow"
+                    value={{
+                      resolved:   '✅ resolved',
+                      monitoring: '👁 monitoring',
+                      follow_up:  '🔄 follow_up',
+                      high_alert: '🚨 high_alert',
+                    }[session.flow_state] ?? session.flow_state}
+                    color={sessionColor}
+                  />
+                  <SessionRow label="Severity" value={session.triage_severity || '—'} />
+                  <SessionRow label="Family alerted" value={session.family_alerted ? '🚨 Có' : 'Chưa'} />
+                  <SessionRow label="No-response" value={`${session.no_response_count} lần`} />
+                  {session.next_checkin_at ? (
+                    <SessionRow
+                      label="Hẹn check-in"
+                      value={(() => {
+                        const t = new Date(session.next_checkin_at!);
+                        const diff = Math.round((t.getTime() - Date.now()) / 60000);
+                        const timeStr = t.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                        const flowHint = session.flow_state === 'monitoring' ? ' (hỏi tối)'
+                          : session.flow_state === 'high_alert' ? ' (theo dõi khẩn)'
+                          : session.flow_state === 'follow_up' ? ' (follow-up)'
+                          : '';
+                        return diff > 0
+                          ? `${timeStr}${flowHint} — còn ${diff < 60 ? `${diff}p` : `${Math.round(diff / 60)}h`}`
+                          : `⏰ ${timeStr}${flowHint} — quá giờ`;
+                      })()}
+                      color={new Date(session.next_checkin_at!).getTime() < Date.now() ? '#dc2626' : undefined}
+                    />
+                  ) : session.flow_state === 'resolved' ? (
+                    <SessionRow label="Hẹn check-in" value="— đã kết thúc hôm nay" color="#16a34a" />
+                  ) : null}
+                </View>
+              )}
             </View>
-          ) : (
-            <View style={styles.sessionInfo}>
-              <InfoRow label="ID" value={`#${session.id}`} />
-              <InfoRow label="Status" value={session.initial_status} color={sessionStatusColor} />
-              <InfoRow label="Flow" value={session.flow_state} color={sessionStatusColor} />
-              <InfoRow label="Severity" value={session.triage_severity || '—'} />
-              <InfoRow label="Summary" value={session.triage_summary || '—'} />
-              <InfoRow
-                label="Next check-in"
-                value={session.next_checkin_at
-                  ? new Date(session.next_checkin_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-                  : '—'}
-              />
-              <InfoRow label="Messages" value={`${(session.triage_messages || []).length} Q&A`} />
-              <InfoRow label="Resolved" value={session.resolved_at ? 'Yes' : 'No'} />
+
+            {/* Quick actions */}
+            <View style={styles.row}>
+              <QuickBtn icon="trash-outline" label="Reset Session" sub="Xoá để test lại" color="#dc2626" bg={colors.danger + '15'} onPress={handleReset} />
+              <QuickBtn icon="refresh" label="Tải lại" sub="Cập nhật trạng thái" color="#3b82f6" bg={brandColors.indigo + '15'} onPress={refreshSession} />
+              <QuickBtn icon="time-outline" label="Giả lập thời gian ⏩" sub="Đặt next_checkin_at = quá khứ" color="#d97706" bg={colors.premiumLight} onPress={simulateAndOpenFollowUp} disabled={!session} />
             </View>
-          )}
-        </View>
 
-        {/* Action Buttons */}
-        <Text style={styles.sectionLabel}>Test Actions</Text>
+            {/* ── Luồng 1: Tôi ổn ── */}
+            <FlowCard
+              color="#16a34a"
+              title="Luồng 1 — Tôi ổn"
+              desc="Sáng: fine → monitoring → 21h tối AI hỏi"
+              steps={[
+                {
+                  icon: 'weather-sunny',
+                  label: '1a. Sáng → Chọn "Tôi ổn"',
+                  bg: colors.emeraldLight,
+                  color: '#16a34a',
+                  onPress: async () => {
+                    setLoading(true);
+                    try {
+                      await checkinApi.resetToday(); setSession(null);
+                      addLog('[L1] Reset → mở check-in sáng', 'action');
+                      setTimeout(() => router.push('/checkin'), 300);
+                    } catch (err: any) { addLog(`Lỗi: ${err.message}`, 'error'); }
+                    finally { setLoading(false); }
+                  },
+                },
+                {
+                  icon: 'weather-night',
+                  label: '1b. ⏩ 21h → AI hỏi hôm nay thế nào',
+                  bg: colors.emeraldLight,
+                  color: '#16a34a',
+                  disabled: !session,
+                  onPress: simulateAndOpenFollowUp,
+                },
+              ]}
+            />
 
-        <View style={styles.actionsGrid}>
-          {/* Reset */}
-          <Pressable
-            style={({ pressed }) => [styles.actionBtn, styles.actionRed, pressed && { opacity: 0.85 }]}
-            onPress={handleReset}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.danger + '22' }]}>
-              <Ionicons name="trash-outline" size={22} color="#dc2626" />
-            </View>
-            <Text style={styles.actionTitle}>Reset Session</Text>
-            <Text style={styles.actionSub}>{t('devTestResetSession')}</Text>
-          </Pressable>
+            {/* ── Luồng 2: Hơi mệt ── */}
+            <FlowCard
+              color="#d97706"
+              title="Luồng 2 — Hơi mệt"
+              desc="tired → follow_up → AI hỏi 3-5 câu → 3h sau hỏi lại"
+              steps={[
+                {
+                  icon: 'weather-sunny',
+                  label: '2a. Sáng → Chọn "Hơi mệt" → Trả lời AI',
+                  bg: colors.premiumLight,
+                  color: '#d97706',
+                  onPress: async () => {
+                    setLoading(true);
+                    try {
+                      await checkinApi.resetToday(); setSession(null);
+                      addLog('[L2] Reset → mở check-in sáng', 'action');
+                      setTimeout(() => router.push('/checkin'), 300);
+                    } catch (err: any) { addLog(`Lỗi: ${err.message}`, 'error'); }
+                    finally { setLoading(false); }
+                  },
+                },
+                {
+                  icon: 'clock-fast',
+                  label: '2b. ⏩ 3h sau → AI hỏi đã đỡ chưa (bấm nhiều lần)',
+                  bg: colors.premiumLight,
+                  color: '#d97706',
+                  disabled: !session,
+                  onPress: simulateAndOpenFollowUp,
+                },
+              ]}
+            />
 
-          {/* Refresh */}
-          <Pressable
-            style={({ pressed }) => [styles.actionBtn, styles.actionBlue, pressed && { opacity: 0.85 }]}
-            onPress={refreshSession}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: brandColors.indigo + '18' }]}>
-              <Ionicons name="refresh" size={22} color="#3b82f6" />
-            </View>
-            <Text style={styles.actionTitle}>Refresh</Text>
-            <Text style={styles.actionSub}>{t('devTestReloadSession')}</Text>
-          </Pressable>
-        </View>
+            {/* ── Luồng 3: Rất mệt ── */}
+            <FlowCard
+              color="#dc2626"
+              title="Luồng 3 — Rất mệt"
+              desc="very_tired → high_alert → AI red flag → cảnh báo gia đình"
+              steps={[
+                {
+                  icon: 'weather-sunny',
+                  label: '3a. Sáng → Chọn "Rất mệt" → Trả lời AI',
+                  bg: colors.danger + '18',
+                  color: '#dc2626',
+                  onPress: async () => {
+                    setLoading(true);
+                    try {
+                      await checkinApi.resetToday(); setSession(null);
+                      addLog('[L3] Reset → mở check-in sáng', 'action');
+                      setTimeout(() => router.push('/checkin'), 300);
+                    } catch (err: any) { addLog(`Lỗi: ${err.message}`, 'error'); }
+                    finally { setLoading(false); }
+                  },
+                },
+                {
+                  icon: 'clock-fast',
+                  label: '3b. ⏩ 1h sau → AI hỏi diễn tiến + red flag',
+                  bg: colors.danger + '18',
+                  color: '#dc2626',
+                  disabled: !session,
+                  onPress: simulateAndOpenFollowUp,
+                },
+              ]}
+            />
 
-        <View style={styles.actionsGrid}>
-          {/* Morning check-in */}
-          <Pressable
-            style={({ pressed }) => [styles.actionBtn, styles.actionGreen, pressed && { opacity: 0.85 }]}
-            onPress={goCheckinMorning}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.emeraldLight }]}>
-              <MaterialCommunityIcons name="weather-sunny" size={22} color="#16a34a" />
-            </View>
-            <Text style={styles.actionTitle}>Morning Check-in</Text>
-            <Text style={styles.actionSub}>{t('devTestMorningFlow')}</Text>
-          </Pressable>
+            {/* ── Luồng 4: Ghi nhận chủ động ── */}
+            <FlowCard
+              color={colors.primary}
+              title="Luồng 4 — Ghi nhận chủ động"
+              desc="User bấm chủ động bất kỳ lúc nào (không reset session)"
+              steps={[
+                {
+                  icon: 'plus-circle',
+                  label: '4. Mở check-in trực tiếp',
+                  bg: colors.primaryLight,
+                  color: colors.primary,
+                  onPress: () => { addLog('[L4] Mở check-in chủ động', 'action'); router.push('/checkin'); },
+                },
+              ]}
+            />
 
-          {/* Follow-up */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionBtn, styles.actionOrange,
-              !session && { opacity: 0.4 },
-              pressed && session && { opacity: 0.85 },
-            ]}
-            onPress={goCheckinFollowUp}
-            disabled={!session}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.premiumLight }]}>
-              <Ionicons name="pulse" size={22} color="#d97706" />
-            </View>
-            <Text style={styles.actionTitle}>Follow-up</Text>
-            <Text style={styles.actionSub}>{t('devTestFollowUpFlow')}</Text>
-          </Pressable>
-        </View>
-
-        {/* Test Scenarios */}
-        {/* Push Notification Tester */}
-        <Pressable
-          style={({ pressed }) => [styles.scenarioBtn, { borderColor: '#8b5cf6' + '44', borderWidth: 1.5 }, pressed && { opacity: 0.85 }]}
-          onPress={() => router.push('/dev-test/notifications')}
-        >
-          <View style={styles.scenarioRow}>
-            <View style={[styles.scenarioIcon, { backgroundColor: brandColors.violet + '18' }]}>
-              <Ionicons name="notifications" size={18} color="#8b5cf6" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.scenarioTitle}>Test Push Notifications</Text>
-              <Text style={styles.scenarioSub}>{t('devTestNotifAll')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#8b5cf6" />
-          </View>
-        </Pressable>
-
-        <Text style={styles.sectionLabel}>5 Luồng Test</Text>
-
-        {/* ══════ LUỒNG 1: Tôi ổn ══════ */}
-        <View style={[styles.scenarioBtn, { borderColor: '#16a34a33', borderWidth: 1.5 }]}>
-          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 1: Tôi ổn</Text>
-          <Text style={styles.scenarioSub}>7h sáng → "Tôi ổn" → 21h tối AI hỏi "Hôm nay thế nào?"</Text>
-          <View style={{ gap: 8, marginTop: 10 }}>
-            <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.emeraldLight }, pressed && { opacity: 0.8 }]}
-              onPress={async () => {
-                setLoading(true);
-                try {
-                  await checkinApi.resetToday(); setSession(null);
-                  addLog('[Luồng 1] Reset OK → mở check-in sáng', 'success');
-                  setTimeout(() => router.push('/checkin'), 300);
-                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
-                finally { setLoading(false); }
-              }}
-            >
-              <MaterialCommunityIcons name="weather-sunny" size={16} color="#16a34a" />
-              <Text style={[styles.stepText, { color: '#16a34a' }]}>1a. Check-in sáng → Chọn "Tôi ổn"</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.emeraldLight }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
-              disabled={!session}
-              onPress={async () => {
-                if (!session) return;
-                setLoading(true);
-                try {
-                  await checkinApi.simulateTime();
-                  addLog('[Luồng 1] ⏩ 21h tối → mở check-in tối', 'success');
-                  await refreshSession();
-                  setTimeout(() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`), 300);
-                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
-                finally { setLoading(false); }
-              }}
-            >
-              <MaterialCommunityIcons name="weather-night" size={16} color="#16a34a" />
-              <Text style={[styles.stepText, { color: '#16a34a' }]}>1b. ⏩ 21h tối → AI hỏi "Hôm nay thế nào?"</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* ══════ LUỒNG 2: Hơi mệt ══════ */}
-        <View style={[styles.scenarioBtn, { borderColor: '#d9770633', borderWidth: 1.5 }]}>
-          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 2: Hơi mệt</Text>
-          <Text style={styles.scenarioSub}>Sáng "Hơi mệt" → AI hỏi 3-5 câu → 3h sau follow-up → lặp đến khi ổn</Text>
-          <View style={{ gap: 8, marginTop: 10 }}>
-            <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.premiumLight }, pressed && { opacity: 0.8 }]}
-              onPress={async () => {
-                setLoading(true);
-                try {
-                  await checkinApi.resetToday(); setSession(null);
-                  addLog('[Luồng 2] Reset OK → mở check-in sáng', 'success');
-                  setTimeout(() => router.push('/checkin'), 300);
-                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
-                finally { setLoading(false); }
-              }}
-            >
-              <MaterialCommunityIcons name="weather-sunny" size={16} color="#d97706" />
-              <Text style={[styles.stepText, { color: '#d97706' }]}>2a. Check-in sáng → Chọn "Hơi mệt" → Trả lời AI</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.premiumLight }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
-              disabled={!session}
-              onPress={async () => {
-                if (!session) return;
-                setLoading(true);
-                try {
-                  await checkinApi.simulateTime();
-                  addLog(`[Luồng 2] ⏩ 3h sau → follow-up (flow=${session.flow_state})`, 'success');
-                  await refreshSession();
-                  setTimeout(() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`), 300);
-                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
-                finally { setLoading(false); }
-              }}
-            >
-              <MaterialCommunityIcons name="clock-fast" size={16} color="#d97706" />
-              <Text style={[styles.stepText, { color: '#d97706' }]}>2b. ⏩ 3h sau → AI hỏi "Đã đỡ chưa?" (bấm lại nhiều lần)</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* ══════ LUỒNG 3: Rất mệt ══════ */}
-        <View style={[styles.scenarioBtn, { borderColor: '#dc262633', borderWidth: 1.5 }]}>
-          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 3: Rất mệt</Text>
-          <Text style={styles.scenarioSub}>Sáng "Rất mệt" → AI hỏi red flag → 1-2h follow-up → cảnh báo gia đình nếu cần</Text>
-          <View style={{ gap: 8, marginTop: 10 }}>
-            <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.danger + '18' }, pressed && { opacity: 0.8 }]}
-              onPress={async () => {
-                setLoading(true);
-                try {
-                  await checkinApi.resetToday(); setSession(null);
-                  addLog('[Luồng 3] Reset OK → mở check-in sáng', 'success');
-                  setTimeout(() => router.push('/checkin'), 300);
-                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
-                finally { setLoading(false); }
-              }}
-            >
-              <MaterialCommunityIcons name="weather-sunny" size={16} color="#dc2626" />
-              <Text style={[styles.stepText, { color: '#dc2626' }]}>3a. Check-in sáng → Chọn "Rất mệt" → Trả lời AI</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.danger + '22' }, !session && { opacity: 0.4 }, pressed && session && { opacity: 0.8 }]}
-              disabled={!session}
-              onPress={async () => {
-                if (!session) return;
-                setLoading(true);
-                try {
-                  await checkinApi.simulateTime();
-                  addLog(`[Luồng 3] ⏩ 1h sau → follow-up urgent (flow=${session.flow_state})`, 'success');
-                  await refreshSession();
-                  setTimeout(() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`), 300);
-                } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
-                finally { setLoading(false); }
-              }}
-            >
-              <MaterialCommunityIcons name="clock-fast" size={16} color="#dc2626" />
-              <Text style={[styles.stepText, { color: '#dc2626' }]}>3b. ⏩ 1h sau → AI hỏi diễn tiến + red flag (bấm lại nhiều lần)</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* ══════ LUỒNG 4: Ghi nhận chủ động ══════ */}
-        <View style={[styles.scenarioBtn, { borderColor: colors.primary + '33', borderWidth: 1.5 }]}>
-          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 4: Ghi nhận chủ động</Text>
-          <Text style={styles.scenarioSub}>User bấm chủ động ghi nhận sức khỏe bất kỳ lúc nào</Text>
-          <Pressable
-            style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.primaryLight, marginTop: 10 }, pressed && { opacity: 0.8 }]}
-            onPress={() => {
-              addLog('[Luồng 4] Mở check-in chủ động', 'action');
-              router.push('/checkin');
-            }}
-          >
-            <MaterialCommunityIcons name="plus-circle" size={16} color={colors.primary} />
-            <Text style={[styles.stepText, { color: colors.primary }]}>4. Mở check-in (không reset session)</Text>
-          </Pressable>
-        </View>
-
-        {/* ══════ LUỒNG 5: Khẩn cấp SOS ══════ */}
-        <View style={[styles.scenarioBtn, { borderColor: '#dc262655', borderWidth: 1.5 }]}>
-          <Text style={[styles.scenarioTitle, { marginBottom: 8 }]}>Luồng 5: Khẩn cấp SOS</Text>
-          <Text style={styles.scenarioSub}>Nút SOS → báo ngay người nhà → gọi cấp cứu nếu cần</Text>
-          <Pressable
-            style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.danger + '22', marginTop: 10 }, pressed && { opacity: 0.8 }]}
-            onPress={async () => {
-              addLog('[Luồng 5] Test emergency SOS...', 'action');
-              setLoading(true);
-              try {
-                const res = await checkinApi.emergency();
-                addLog(`SOS sent! Caregivers alerted: ${res.caregiversAlerted}`, 'success');
-                addLog(`Message: ${res.message}`, 'info');
-                await refreshSession();
-              } catch (err: any) { addLog(`Error: ${err.message}`, 'error'); }
-              finally { setLoading(false); }
-            }}
-          >
-            <MaterialCommunityIcons name="alert-octagon" size={16} color="#dc2626" />
-            <Text style={[styles.stepText, { color: '#dc2626' }]}>5. Gửi SOS → Alert gia đình ngay lập tức</Text>
-          </Pressable>
-        </View>
-
-        {/* Session info */}
-        {session && (
-          <View style={[styles.scenarioBtn, { backgroundColor: colors.surfaceMuted }]}>
-            <Text style={[styles.scenarioSub, { fontWeight: '600', color: colors.textPrimary }]}>
-              Session #{session.id} | {session.current_status} | {session.flow_state}
-              {session.triage_severity ? ` | ${session.triage_severity}` : ''}
-              {session.family_alerted ? ' | 🚨 Gia đình đã được báo' : ''}
-              {session.resolved_at ? ' | ✅ Resolved' : ''}
-            </Text>
-            {session.next_checkin_at && (
-              <Text style={styles.scenarioSub}>
-                Hẹn hỏi lại: {new Date(session.next_checkin_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            )}
-          </View>
+            {/* ── Luồng 5: SOS ── */}
+            <FlowCard
+              color="#dc2626"
+              title="Luồng 5 — SOS Khẩn cấp"
+              desc="Bấm SOS → báo ngay TẤT CẢ caregiver có can_receive_alerts"
+              steps={[
+                {
+                  icon: 'alert-octagon',
+                  label: '5. Gửi SOS → Alert gia đình ngay lập tức',
+                  bg: colors.danger + '22',
+                  color: '#dc2626',
+                  onPress: triggerTestEmergency,
+                },
+              ]}
+            />
+          </>
         )}
 
-        {/* Logs */}
-        <Text style={styles.sectionLabel}>Test Logs</Text>
-        <View style={styles.logCard}>
-          {logs.length === 0 ? (
-            <Text style={styles.logEmpty}>{t('devTestNoLogs')}</Text>
-          ) : (
-            logs.map((log, i) => (
-              <View key={i} style={styles.logRow}>
-                <Text style={styles.logTime}>{log.time}</Text>
-                <View style={[
-                  styles.logDot,
-                  { backgroundColor: log.type === 'error' ? '#dc2626' : log.type === 'success' ? '#16a34a' : log.type === 'action' ? '#3b82f6' : colors.textSecondary },
-                ]} />
-                <Text style={[
-                  styles.logText,
-                  log.type === 'error' && { color: '#dc2626' },
-                  log.type === 'success' && { color: '#16a34a' },
-                ]}>{log.text}</Text>
+        {/* ══════════════════════════════════════════════════
+            TAB 2 — NOTIFICATION TYPES
+        ══════════════════════════════════════════════════ */}
+        {tab === 'notif' && (
+          <>
+            {/* Header */}
+            <View style={styles.darkCard}>
+              <View style={styles.row}>
+                <Ionicons name="notifications" size={22} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.cardTitle, { color: '#fff' }]}>Push Notification Tester</Text>
+                  <Text style={[styles.metaText, { color: '#888' }]}>
+                    {NOTIF_CATS.reduce((s, c) => s + c.items.length, 0)} loại  |  {notifSuccessCount} đã gửi
+                  </Text>
+                </View>
+              </View>
+              {notifLastResult && (
+                <Text style={[styles.metaText, { color: notifLastResult.startsWith('✗') ? '#f87171' : '#4ade80', marginTop: 4 }]}>
+                  {notifLastResult}
+                </Text>
+              )}
+              <Pressable
+                style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
+                onPress={async () => {
+                  showAlert('Gửi tất cả', `Gửi ${NOTIF_CATS.reduce((s, c) => s + c.items.length, 0)} thông báo liên tiếp?`, [
+                    { text: 'Huỷ', style: 'cancel' },
+                    {
+                      text: 'Gửi hết',
+                      onPress: async () => {
+                        for (const cat of NOTIF_CATS) {
+                          for (const item of cat.items) {
+                            await sendTestNotif(item.type, item.label);
+                            await new Promise(r => setTimeout(r, 1200));
+                          }
+                        }
+                      },
+                    },
+                  ]);
+                }}
+              >
+                <Ionicons name="paper-plane" size={16} color="#fff" />
+                <Text style={styles.primaryBtnText}>Gửi tất cả</Text>
+              </Pressable>
+            </View>
+
+            {NOTIF_CATS.map(cat => (
+              <View key={cat.label}>
+                <View style={styles.catHeader}>
+                  <View style={[styles.catIcon, { backgroundColor: cat.bg }]}>
+                    <Ionicons name={cat.icon} size={15} color={cat.color} />
+                  </View>
+                  <Text style={styles.catLabel}>{cat.label}</Text>
+                  <Text style={styles.catCount}>{cat.items.length}</Text>
+                </View>
+                <View style={styles.listCard}>
+                  {cat.items.map((item, i) => {
+                    const isSending = notifSending === item.type;
+                    const result = notifResults[item.type];
+                    return (
+                      <View key={item.type}>
+                        {i > 0 && <View style={styles.hairline} />}
+                        <Pressable
+                          style={({ pressed }) => [styles.notifRow, pressed && { backgroundColor: colors.surfaceMuted }]}
+                          onPress={() => sendTestNotif(item.type, item.label)}
+                          disabled={!!notifSending}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.notifLabel}>{item.label}</Text>
+                            <Text style={styles.typeTag}>{item.type}</Text>
+                          </View>
+                          <View style={styles.notifActionWrap}>
+                            {isSending ? (
+                              <ActivityIndicator size="small" color={cat.color} />
+                            ) : result === 'ok' ? (
+                              <Ionicons name="checkmark-circle" size={22} color="#16a34a" />
+                            ) : result === 'error' ? (
+                              <Ionicons name="close-circle" size={22} color="#dc2626" />
+                            ) : (
+                              <View style={[styles.sendDot, { backgroundColor: cat.bg }]}>
+                                <Ionicons name="paper-plane-outline" size={14} color={cat.color} />
+                              </View>
+                            )}
+                          </View>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+
+            {notifSuccessCount > 0 && (
+              <Pressable style={styles.clearBtn} onPress={() => { setNotifResults({}); setNotifLastResult(null); }}>
+                <Text style={styles.clearBtnText}>Xoá kết quả</Text>
+              </Pressable>
+            )}
+          </>
+        )}
+
+        {/* ══════════════════════════════════════════════════
+            TAB 3 — CAREGIVER ALERT (⚠️)
+        ══════════════════════════════════════════════════ */}
+        {tab === 'alert' && (
+          <>
+            {/* Health score */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="fitness-outline" size={18} color={colors.primary} />
+                <Text style={styles.cardTitle}>Health Score</Text>
+                <Pressable onPress={fetchHealthScore} hitSlop={12} style={{ marginLeft: 'auto' }}>
+                  <Ionicons name="refresh" size={18} color={colors.primary} />
+                </Pressable>
+              </View>
+              {healthScore ? (
+                <View style={styles.sessionGrid}>
+                  <SessionRow
+                    label="Level"
+                    value={healthScore.level}
+                    color={healthScore.level === 'ok' ? '#16a34a' : healthScore.level === 'monitor' ? '#d97706' : '#dc2626'}
+                  />
+                  <SessionRow label="Check-in done" value={healthScore.checkinDone ? 'Có' : 'Chưa'} />
+                  {healthScore.factors?.length > 0 && (
+                    <SessionRow label="Factors" value={healthScore.factors.join(', ')} />
+                  )}
+                </View>
+              ) : (
+                <Text style={styles.emptyText}>Bấm refresh để tải health score</Text>
+              )}
+            </View>
+
+            {/* Test actions */}
+            <Text style={styles.sectionLabel}>Kích hoạt cảnh báo</Text>
+            <View style={styles.row}>
+              <QuickBtn
+                icon="alert-circle-outline"
+                label="Gửi SOS"
+                sub="Báo NGAY tất cả caregiver"
+                color="#dc2626"
+                bg={colors.danger + '15'}
+                onPress={triggerTestEmergency}
+              />
+              <QuickBtn
+                icon="notifications-outline"
+                label="Test caregiver_alert"
+                sub="Gửi push ⚠️ về máy này"
+                color="#d97706"
+                bg={colors.premiumLight}
+                onPress={() => sendTestNotif('caregiver_alert', 'Cảnh báo người thân ⚠️')}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <QuickBtn
+                icon="heart-dislike-outline"
+                label="Test health_alert"
+                sub="Cảnh báo sức khoẻ cao"
+                color="#ef4444"
+                bg="#fef2f2"
+                onPress={() => sendTestNotif('health_alert', 'Cảnh báo sức khoẻ')}
+              />
+              <QuickBtn
+                icon="medical-outline"
+                label="Test emergency notif"
+                sub="Loại thông báo khẩn"
+                color="#dc2626"
+                bg={colors.danger + '15'}
+                onPress={() => sendTestNotif('emergency', 'Khẩn cấp SOS')}
+              />
+            </View>
+
+            {/* Pending alerts */}
+            <View style={styles.cardHeader}>
+              <Text style={styles.sectionLabel}>Cảnh báo đang chờ xác nhận</Text>
+              <Pressable onPress={fetchPendingAlerts} hitSlop={12} style={{ marginLeft: 8 }}>
+                {alertLoading
+                  ? <ActivityIndicator size="small" color={colors.primary} />
+                  : <Ionicons name="refresh" size={16} color={colors.primary} />
+                }
+              </Pressable>
+            </View>
+
+            {pendingAlerts.length === 0 ? (
+              <View style={[styles.card, { alignItems: 'center', paddingVertical: spacing.xl }]}>
+                <Ionicons name="checkmark-circle-outline" size={32} color="#16a34a" />
+                <Text style={[styles.emptyText, { marginTop: 8 }]}>Không có cảnh báo nào đang chờ</Text>
+              </View>
+            ) : (
+              pendingAlerts.map(alert => (
+                <View key={alert.id} style={[styles.alertCard, { borderColor: '#d97706' + '44' }]}>
+                  <View style={styles.alertHeader}>
+                    <Ionicons name="warning" size={18} color="#d97706" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.alertTitle}>{alert.title || `Cảnh báo #${alert.id}`}</Text>
+                      <Text style={styles.metaText}>{alert.message || alert.body}</Text>
+                      {alert.created_at && (
+                        <Text style={styles.typeTag}>{new Date(alert.created_at).toLocaleString('vi-VN')}</Text>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.alertActions}>
+                    {(['seen', 'on_my_way', 'called'] as const).map(action => {
+                      const cfg = {
+                        seen:       { label: '👁 Đã thấy',  color: '#3b82f6', bg: '#eff6ff' },
+                        on_my_way:  { label: '🚗 Đang đến', color: '#d97706', bg: '#fffbeb' },
+                        called:     { label: '📞 Đã gọi',   color: '#16a34a', bg: '#f0fdf4' },
+                      }[action];
+                      return (
+                        <Pressable
+                          key={action}
+                          style={({ pressed }) => [
+                            styles.alertActionBtn,
+                            { backgroundColor: cfg.bg },
+                            pressed && { opacity: 0.8 },
+                          ]}
+                          onPress={() => confirmAlert(alert.id, action)}
+                          disabled={confirmingId === alert.id}
+                        >
+                          {confirmingId === alert.id
+                            ? <ActivityIndicator size="small" color={cfg.color} />
+                            : <Text style={[styles.alertActionText, { color: cfg.color }]}>{cfg.label}</Text>
+                          }
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))
+            )}
+
+            {/* Flow diagram */}
+            <View style={styles.card}>
+              <Text style={[styles.cardTitle, { marginBottom: spacing.sm }]}>⚠️ Luồng cảnh báo gia đình</Text>
+              {[
+                { icon: 'alert-circle-outline', color: '#dc2626', text: 'User check-in "Rất mệt" / Không phản hồi 2 lần / Bấm SOS' },
+                { icon: 'arrow-down', color: colors.textSecondary, text: '' },
+                { icon: 'people-outline', color: '#d97706', text: 'Hệ thống gửi push ⚠️ đến caregivers (can_receive_alerts=true)' },
+                { icon: 'arrow-down', color: colors.textSecondary, text: '' },
+                { icon: 'phone-portrait-outline', color: '#3b82f6', text: 'Caregiver nhận push → mở app → thấy dấu ⚠️ màu vàng' },
+                { icon: 'arrow-down', color: colors.textSecondary, text: '' },
+                { icon: 'checkmark-circle-outline', color: '#16a34a', text: 'Caregiver bấm: "Đã thấy" / "Đang đến" / "Đã gọi"' },
+              ].map((step, i) => step.text ? (
+                <View key={i} style={styles.flowStep}>
+                  <Ionicons name={step.icon as any} size={16} color={step.color} />
+                  <Text style={styles.flowText}>{step.text}</Text>
+                </View>
+              ) : (
+                <Ionicons key={i} name="arrow-down" size={14} color={colors.border} style={{ marginLeft: 2, marginVertical: 2 }} />
+              ))}
+              <View style={[styles.flowStep, { marginTop: spacing.sm, backgroundColor: '#fffbeb', borderRadius: 8, padding: spacing.sm }]}>
+                <Ionicons name="information-circle-outline" size={16} color="#d97706" />
+                <Text style={[styles.metaText, { flex: 1 }]}>
+                  Cảnh báo tự leo thang: người ≥65 tuổi hoặc ban đêm (22h-6h) → báo ngay sau 1 lần miss
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* ── Log console (tất cả tab) ── */}
+        <Text style={styles.sectionLabel}>Console</Text>
+        <View style={styles.console}>
+          {logs.length === 0
+            ? <Text style={styles.consoleEmpty}>Chưa có log...</Text>
+            : logs.map((l, i) => (
+              <View key={i} style={styles.consoleRow}>
+                <Text style={styles.consoleTime}>{l.time}</Text>
+                <View style={[styles.consoleDot, {
+                  backgroundColor: l.kind === 'error' ? '#dc2626' : l.kind === 'success' ? '#16a34a' : l.kind === 'action' ? '#3b82f6' : '#555',
+                }]} />
+                <Text style={[styles.consoleText, l.kind === 'error' && { color: '#f87171' }, l.kind === 'success' && { color: '#4ade80' }]}>
+                  {l.text}
+                </Text>
               </View>
             ))
-          )}
+          }
         </View>
-
         {logs.length > 0 && (
-          <Pressable
-            style={styles.clearLogsBtn}
-            onPress={() => setLogs([])}
-          >
-            <Text style={styles.clearLogsText}>Clear logs</Text>
+          <Pressable style={styles.clearBtn} onPress={() => setLogs([])}>
+            <Text style={styles.clearBtnText}>Xoá console</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -481,192 +806,180 @@ export default function DevTestScreen() {
   );
 }
 
-function InfoRow({ label, value, color }: { label: string; value: string; color?: string }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function TabBtn({ label, active, onPress, styles }: { label: string; active: boolean; onPress: () => void; styles: any }) {
+  return (
+    <Pressable
+      style={[styles.tabBtn, active && styles.tabBtnActive]}
+      onPress={onPress}
+    >
+      <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function SessionRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 }}>
-      <Text style={{ fontSize: 13, color: colors.textSecondary }}>{label}</Text>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: color || colors.textPrimary, maxWidth: '65%' }} numberOfLines={1}>{value}</Text>
+      <Text style={{ fontSize: 12, color: colors.textSecondary }}>{label}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '600', color: color || colors.textPrimary, maxWidth: '62%' }} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
 
+function QuickBtn({ icon, label, sub, color, bg, onPress, disabled }: {
+  icon: string; label: string; sub: string; color: string; bg: string;
+  onPress: () => void; disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [{
+        flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg,
+        padding: spacing.md, borderWidth: 1.5, borderColor: color + '33', gap: 4,
+        opacity: disabled ? 0.4 : pressed ? 0.85 : 1,
+      }]}
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={icon as any} size={20} color={color} />
+      </View>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>{label}</Text>
+      <Text style={{ fontSize: 11, color: colors.textSecondary }}>{sub}</Text>
+    </Pressable>
+  );
+}
+
+function FlowCard({ color, title, desc, steps }: {
+  color: string; title: string; desc: string;
+  steps: Array<{ icon: string; label: string; bg: string; color: string; onPress: () => void; disabled?: boolean }>;
+}) {
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1.5, borderColor: color + '33' }}>
+      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 }}>{title}</Text>
+      <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: spacing.sm }}>{desc}</Text>
+      {steps.map((step, i) => (
+        <Pressable
+          key={i}
+          style={({ pressed }) => [{
+            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+            paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+            borderRadius: radius.md, backgroundColor: step.bg, marginTop: i > 0 ? 6 : 0,
+            opacity: step.disabled ? 0.4 : pressed ? 0.8 : 1,
+          }]}
+          onPress={step.onPress}
+          disabled={step.disabled}
+        >
+          <MaterialCommunityIcons name={step.icon as any} size={15} color={step.color} />
+          <Text style={{ fontSize: 12, fontWeight: '600', color: step.color, flex: 1 }}>{step.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
-    container: {
-      padding: spacing.lg,
-      gap: spacing.md,
+    tabBar: {
+      flexDirection: 'row',
+      backgroundColor: colors.background,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 6,
+      gap: spacing.xs,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
     },
-
-    // Card
+    tabBtn: {
+      flex: 1, paddingVertical: 8, borderRadius: radius.md,
+      alignItems: 'center', backgroundColor: 'transparent',
+    },
+    tabBtnActive: {
+      backgroundColor: colors.primaryLight,
+    },
+    tabBtnText: {
+      fontSize: typography.size.xs, fontWeight: '600', color: colors.textSecondary,
+    },
+    tabBtnTextActive: {
+      color: colors.primary,
+    },
+    container: {
+      padding: spacing.lg, gap: spacing.md,
+    },
     card: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+      backgroundColor: colors.surface, borderRadius: radius.xl,
+      padding: spacing.lg, borderWidth: 1.5, borderColor: colors.border,
+    },
+    darkCard: {
+      backgroundColor: '#1a1a2e', borderRadius: radius.xl,
+      padding: spacing.lg, gap: spacing.sm,
     },
     cardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.sm,
-    },
-    statusDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
+      flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm,
     },
     cardTitle: {
-      fontSize: typography.size.sm,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      flex: 1,
+      fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary, flex: 1,
     },
-    emptySession: {
-      alignItems: 'center',
-      paddingVertical: spacing.lg,
-      gap: spacing.sm,
-    },
-    emptyText: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-    },
-    sessionInfo: {
-      gap: 2,
-    },
-
-    // Section
+    dot: { width: 10, height: 10, borderRadius: 5 },
+    emptyText: { fontSize: typography.size.xs, color: colors.textSecondary, textAlign: 'center', paddingVertical: spacing.md },
+    sessionGrid: { gap: 2 },
+    row: { flexDirection: 'row', gap: spacing.sm },
     sectionLabel: {
-      fontSize: typography.size.xs,
-      fontWeight: '700',
-      color: colors.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      marginTop: spacing.sm,
+      fontSize: typography.size.xxs, fontWeight: '700', color: colors.textSecondary,
+      textTransform: 'uppercase', letterSpacing: 1, marginTop: spacing.xs,
     },
-
-    // Actions grid
-    actionsGrid: {
-      flexDirection: 'row',
-      gap: spacing.md,
+    metaText: { fontSize: typography.size.xxs, color: colors.textSecondary },
+    typeTag: { fontSize: 10, color: colors.textSecondary + '77', fontFamily: 'Courier', marginTop: 1 },
+    primaryBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: spacing.sm, backgroundColor: colors.primary,
+      borderRadius: radius.lg, paddingVertical: spacing.sm + 2,
     },
-    actionBtn: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.md,
-      borderWidth: 1.5,
-      gap: spacing.xs,
+    primaryBtnText: { fontSize: typography.size.xs, fontWeight: '700', color: '#fff' },
+    catHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+    catIcon: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+    catLabel: { fontSize: typography.size.xs, fontWeight: '700', color: colors.textPrimary, flex: 1 },
+    catCount: {
+      fontSize: typography.size.xxs, color: colors.textSecondary,
+      backgroundColor: colors.surfaceMuted, paddingHorizontal: 7, paddingVertical: 1,
+      borderRadius: 10, overflow: 'hidden',
     },
-    actionRed: { borderColor: '#dc2626' + '33' },
-    actionBlue: { borderColor: '#3b82f6' + '33' },
-    actionGreen: { borderColor: '#16a34a' + '33' },
-    actionOrange: { borderColor: '#d97706' + '33' },
-    actionIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
+    listCard: {
+      backgroundColor: colors.surface, borderRadius: radius.lg,
+      borderWidth: 1.5, borderColor: colors.border, overflow: 'hidden',
     },
-    actionTitle: {
-      fontSize: typography.size.xs,
-      fontWeight: '700',
-      color: colors.textPrimary,
+    hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginLeft: spacing.lg },
+    notifRow: {
+      flexDirection: 'row', alignItems: 'center', padding: spacing.md, gap: spacing.md,
     },
-    actionSub: {
-      fontSize: typography.size.xxs,
-      color: colors.textSecondary,
+    notifLabel: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textPrimary },
+    notifActionWrap: { width: 32, alignItems: 'center' },
+    sendDot: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+    alertCard: {
+      backgroundColor: colors.surface, borderRadius: radius.lg,
+      padding: spacing.md, borderWidth: 1.5, gap: spacing.md,
     },
-
-    // Scenarios
-    scenarioBtn: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+    alertHeader: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+    alertTitle: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
+    alertActions: { flexDirection: 'row', gap: spacing.sm },
+    alertActionBtn: {
+      flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md,
+      alignItems: 'center', justifyContent: 'center',
     },
-    scenarioRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
+    alertActionText: { fontSize: typography.size.xs, fontWeight: '700' },
+    flowStep: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', paddingVertical: 2 },
+    flowText: { fontSize: typography.size.xxs, color: colors.textSecondary, flex: 1, lineHeight: 18 },
+    console: {
+      backgroundColor: '#1a1a2e', borderRadius: radius.lg, padding: spacing.md, minHeight: 80,
     },
-    scenarioIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    scenarioTitle: {
-      fontSize: typography.size.sm,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    scenarioSub: {
-      fontSize: typography.size.xxs,
-      color: colors.textSecondary,
-      marginTop: 2,
-    },
-    stepBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.sm + 2,
-      paddingHorizontal: spacing.md,
-      borderRadius: radius.lg,
-    },
-    stepText: {
-      fontSize: typography.size.xs,
-      fontWeight: '600',
-      flex: 1,
-    },
-
-    // Logs
-    logCard: {
-      backgroundColor: '#1a1a2e',
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      minHeight: 100,
-    },
-    logEmpty: {
-      fontSize: typography.size.xs,
-      color: '#555',
-      fontStyle: 'italic',
-    },
-    logRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.xs,
-      paddingVertical: 3,
-    },
-    logTime: {
-      fontSize: 11,
-      color: '#666',
-      fontFamily: 'Courier',
-      width: 65,
-    },
-    logDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      marginTop: 5,
-    },
-    logText: {
-      fontSize: 12,
-      color: '#ccc',
-      flex: 1,
-      fontFamily: 'Courier',
-    },
-    clearLogsBtn: {
-      alignSelf: 'center',
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.lg,
-    },
-    clearLogsText: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-    },
+    consoleEmpty: { fontSize: 12, color: '#444', fontStyle: 'italic' },
+    consoleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs, paddingVertical: 2 },
+    consoleTime: { fontSize: 10, color: '#555', fontFamily: 'Courier', width: 68 },
+    consoleDot: { width: 6, height: 6, borderRadius: 3, marginTop: 5 },
+    consoleText: { fontSize: 11, color: '#aaa', flex: 1, fontFamily: 'Courier' },
+    clearBtn: { alignSelf: 'center', paddingVertical: spacing.xs, paddingHorizontal: spacing.xl },
+    clearBtnText: { fontSize: typography.size.xs, color: colors.textSecondary },
   });
 }

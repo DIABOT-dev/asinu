@@ -53,6 +53,8 @@
   "emergencyCaregiverNotified": "Đã thông báo người thân",
   "emergencySent": "Đã gửi thông báo",
   "emergencySentDesc": "Người thân của bạn đã được thông báo. Hãy giữ bình tĩnh.",
+  "emergencyTypePlaceholder": "Mô tả triệu chứng bạn đang gặp phải...",
+  "emergencySendAnswer": "Gửi",
 
   "logTypeGlucose": "Đường huyết",
   "logTypeBloodPressure": "Huyết áp",

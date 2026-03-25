@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { colors, spacing, typography } from '../../src/styles';
 import {
@@ -33,6 +33,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<TriageStep>({ phase: 'menu' });
   const [loading, setLoading] = useState<EmergencyType | null>(null);
+  const [textInput, setTextInput] = useState('');
   const [positionLoaded, setPositionLoaded] = useState(false);
   const pan = useRef(new Animated.ValueXY()).current;
   const isDragging = useRef(false);
@@ -121,6 +122,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
     onInteraction?.();
     setVisible(false);
     setStep({ phase: 'menu' });
+    setTextInput('');
   };
 
   const handleSuddenTired = async () => {
@@ -138,13 +140,22 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
     }
   };
 
-  const handleTriageAnswer = async (sessionId: string, questionId: string, optionValue: string, optionLabel: string) => {
+  const handleTriageAnswer = async (
+    sessionId: string,
+    questionId: string,
+    optionValue?: string,
+    optionLabel?: string,
+    freeText?: string,
+  ) => {
     setStep({ phase: 'triage_loading' });
+    setTextInput('');
     try {
       const res = await submitEmergencyTriageAnswer({
         session_id: sessionId,
         question_id: questionId,
-        answer: { option_id: optionValue, label: optionLabel }
+        answer: freeText
+          ? { text_input: freeText, label: freeText }
+          : { option_id: optionValue, label: optionLabel },
       });
       if (!res.ok) { close(); return; }
       if (!res.isDone) {
@@ -185,7 +196,15 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
         <Pressable style={styles.backdrop} onPress={step.phase === 'menu' ? close : undefined}>
-          <View style={styles.sheet}>
+          <Pressable onPress={e => e.stopPropagation()}>
+          <ScrollView
+            style={styles.sheet}
+            contentContainerStyle={styles.sheetContent}
+            bounces={false}
+            overScrollMode="never"
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
 
             {/* Menu chọn loại khẩn cấp */}
             {step.phase === 'menu' && (
@@ -219,15 +238,45 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
               <>
                 <Text style={styles.triageStep}>{t('emergencyTriageStep', { step: step.question.step })}</Text>
                 <Text style={styles.sheetTitle}>{step.question.text}</Text>
-                {step.question.options.map((opt) => (
-                  <Pressable
-                    key={opt.value}
-                    style={styles.actionButton}
-                    onPress={() => handleTriageAnswer(step.sessionId, step.question.id, opt.value, opt.label)}
-                  >
-                    <Text style={styles.actionText}>{opt.label}</Text>
-                  </Pressable>
-                ))}
+
+                {step.question.type === 'open_text' ? (
+                  /* Nhập tự do — mô tả triệu chứng */
+                  <>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder={t('emergencyTypePlaceholder')}
+                      placeholderTextColor={colors.textSecondary}
+                      value={textInput}
+                      onChangeText={setTextInput}
+                      multiline
+                      numberOfLines={3}
+                      maxLength={200}
+                      autoFocus
+                    />
+                    <Pressable
+                      style={[styles.confirmButton, !textInput.trim() && styles.confirmButtonDisabled]}
+                      onPress={() => {
+                        if (textInput.trim()) {
+                          handleTriageAnswer(step.sessionId, step.question.id, undefined, undefined, textInput.trim());
+                        }
+                      }}
+                      disabled={!textInput.trim()}
+                    >
+                      <Text style={styles.confirmText}>{t('emergencySendAnswer')}</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  /* Chọn 1 trong nhiều lựa chọn */
+                  step.question.options?.map((opt) => (
+                    <Pressable
+                      key={opt.value}
+                      style={styles.actionButton}
+                      onPress={() => handleTriageAnswer(step.sessionId, step.question.id, opt.value, opt.label)}
+                    >
+                      <Text style={styles.actionText}>{opt.label}</Text>
+                    </Pressable>
+                  ))
+                )}
               </>
             )}
 
@@ -260,7 +309,8 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
               </>
             )}
 
-          </View>
+          </ScrollView>
+          </Pressable>
         </Pressable>
       </Modal>
     </View>
@@ -300,13 +350,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.35)',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl
+    paddingHorizontal: spacing.sm
   },
   sheet: {
     backgroundColor: colors.surface,
-    padding: spacing.lg,
     borderRadius: 20,
-    gap: spacing.sm
+    maxHeight: '85%',
+  },
+  sheetContent: {
+    padding: spacing.lg,
+    gap: spacing.sm,
   },
   sheetTitle: {
     fontSize: typography.size.md,
@@ -371,12 +424,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center'
   },
+  textInput: {
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.md,
+    fontSize: typography.size.md,
+    color: colors.textPrimary,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    backgroundColor: colors.surfaceMuted,
+  },
   confirmButton: {
     marginTop: spacing.md,
     backgroundColor: colors.primary,
     paddingVertical: spacing.md,
     borderRadius: 12,
     alignItems: 'center'
+  },
+  confirmButtonDisabled: {
+    backgroundColor: colors.border,
   },
   confirmText: {
     color: '#ffffff',

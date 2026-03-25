@@ -121,13 +121,27 @@ export function useCareCircle() {
     }
   }, []);
 
+  const updatePermissions = useCallback(async (connectionId: string, permissions: { can_view_logs: boolean; can_receive_alerts: boolean; can_ack_escalation: boolean }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedConnection = await careCircleApi.updatePermissions(connectionId, permissions);
+      setConnections((prev) => prev.map((conn) => conn.id === connectionId ? { ...conn, ...updatedConnection } : conn));
+      return updatedConnection;
+    } catch (err: any) {
+      setError(err.message || t('cannotUpdateConnection'));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const updateConnection = useCallback(async (connectionId: string, updates: { relationship_type?: string; role?: string }) => {
     try {
       setLoading(true);
       setError(null);
       const updatedConnection = await careCircleApi.updateConnection(connectionId, updates);
-      // Update in connections list
-      setConnections((prev) => prev.map((conn) => conn.id === connectionId ? updatedConnection : conn));
+      setConnections((prev) => prev.map((conn) => conn.id === connectionId ? { ...conn, ...updatedConnection } : conn));
       return updatedConnection;
     } catch (err: any) {
 
@@ -161,6 +175,7 @@ export function useCareCircle() {
     rejectInvitation,
     deleteConnection,
     updateConnection,
+    updatePermissions,
     refresh
   };
 }
