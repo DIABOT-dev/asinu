@@ -110,14 +110,60 @@ export const darkCategoryColors: typeof lightCategoryColors = {
 
 export const categoryColors = { ...lightCategoryColors };
 
+// ── Soft icon colors (lighter, less saturated — for icon tints) ───
+export const lightIconColors = {
+  primary:    '#2dd4bf',  // teal-400
+  danger:     '#f87171',  // red-400
+  warning:    '#fbbf24',  // amber-400
+  emerald:    '#34d399',  // emerald-400
+  premium:    '#fcd34d',  // amber-300
+  indigo:     '#818cf8',  // indigo-400
+  violet:     '#a78bfa',  // violet-400
+  pink:       '#f472b6',  // pink-400
+  cyan:       '#22d3ee',  // cyan-400
+  orange:     '#fb923c',  // orange-400
+  // Health metric icon tints
+  glucose:    '#60a5fa',  // blue-400
+  bp:         '#f87171',  // red-400
+  weight:     '#a78bfa',  // violet-400
+  water:      '#22d3ee',  // cyan-400
+  insulin:    '#818cf8',  // indigo-400
+  meal:       '#fbbf24',  // amber-400
+  medication: '#34d399',  // emerald-400
+};
+
+export const darkIconColors: typeof lightIconColors = {
+  primary:    '#5eead4',  // teal-300
+  danger:     '#fca5a5',  // red-300
+  warning:    '#fde68a',  // amber-200
+  emerald:    '#6ee7b7',  // emerald-300
+  premium:    '#fde68a',  // amber-200
+  indigo:     '#a5b4fc',  // indigo-300
+  violet:     '#c4b5fd',  // violet-300
+  pink:       '#f9a8d4',  // pink-300
+  cyan:       '#67e8f9',  // cyan-300
+  orange:     '#fdba74',  // orange-300
+  glucose:    '#93c5fd',  // blue-300
+  bp:         '#fca5a5',  // red-300
+  weight:     '#c4b5fd',  // violet-300
+  water:      '#67e8f9',  // cyan-300
+  insulin:    '#a5b4fc',  // indigo-300
+  meal:       '#fde68a',  // amber-200
+  medication: '#6ee7b7',  // emerald-300
+};
+
+export const iconColors = { ...lightIconColors };
+
 // ── Apply theme: mutates color objects in-place ───────
 export function applyTheme(mode: 'light' | 'dark') {
   const c = mode === 'dark' ? darkColors : lightColors;
   const b = mode === 'dark' ? darkBrandColors : lightBrandColors;
   const cat = mode === 'dark' ? darkCategoryColors : lightCategoryColors;
+  const ic = mode === 'dark' ? darkIconColors : lightIconColors;
   Object.assign(colors, c);
   Object.assign(brandColors, b);
   Object.assign(categoryColors, cat);
+  Object.assign(iconColors, ic);
 }
 
 // ── Spacing ───────────────────────────────────────────

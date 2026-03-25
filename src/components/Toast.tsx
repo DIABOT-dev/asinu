@@ -1,7 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Animated, Dimensions, StyleSheet } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { radius, spacing } from '../styles';
@@ -32,28 +31,27 @@ const CONFIG = {
 };
 
 export const Toast = ({ visible, message, type = 'success', duration = 2500, onHide }: ToastProps) => {
-  const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const translateY = useRef(new Animated.Value(-120)).current;
+  const scale = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(translateY, { toValue: 0, friction: 8, tension: 80, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 7, tension: 100, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
       ]).start();
 
       const timer = setTimeout(() => {
         Animated.parallel([
-          Animated.timing(translateY, { toValue: -120, duration: 250, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 0.85, duration: 200, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
         ]).start(() => onHide?.());
       }, duration);
 
       return () => clearTimeout(timer);
     } else {
-      translateY.setValue(-120);
+      scale.setValue(0.85);
       opacity.setValue(0);
     }
   }, [visible, duration]);
@@ -63,43 +61,53 @@ export const Toast = ({ visible, message, type = 'success', duration = 2500, onH
   return (
     <Animated.View
       pointerEvents="none"
-      style={[
-        styles.container,
-        {
-          top: insets.top + spacing.sm,
-          backgroundColor: cfg.bg,
-          borderColor: cfg.border,
-          opacity,
-          transform: [{ translateY }],
-        },
-      ]}
+      style={[styles.overlay, { opacity }]}
     >
-      <MaterialCommunityIcons name={cfg.icon} size={scaledTypography.size.lg} color={cfg.color} />
-      <Text style={[styles.message, { fontSize: scaledTypography.size.sm, color: cfg.color }]}>
-        {message}
-      </Text>
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            backgroundColor: cfg.bg,
+            borderColor: cfg.border,
+            transform: [{ scale }],
+          },
+        ]}
+      >
+        <MaterialCommunityIcons name={cfg.icon} size={scaledTypography.size.lg} color={cfg.color} />
+        <Text style={[styles.message, { fontSize: scaledTypography.size.sm, color: cfg.color }]}>
+          {message}
+        </Text>
+      </Animated.View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: radius.xl,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 9999,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    elevation: 8,
+    maxWidth: Dimensions.get('window').width - spacing.lg * 2,
+    minWidth: 200,
   },
   message: {
     flex: 1,

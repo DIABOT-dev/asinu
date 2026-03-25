@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
@@ -24,7 +24,7 @@ import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useNotificationStore } from '../../../src/stores/notification.store';
-import { brandColors, categoryColors, colors, radius, spacing } from '../../../src/styles';
+import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
 const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
@@ -32,6 +32,28 @@ const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRi
 
 // Module-level flag: auto-show fires once per app session, not on every tab switch
 let checkinAutoShown = false;
+
+function InfoButton({ text, styles }: { text: string; styles: any }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Pressable onPress={() => setOpen(true)} hitSlop={10} style={styles.infoBtn}>
+        <Ionicons name="help-circle-outline" size={20} color={colors.textSecondary} />
+      </Pressable>
+      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.infoModalOverlay} onPress={() => setOpen(false)}>
+          <Pressable style={styles.infoModalBox} onPress={() => {}}>
+            <View style={styles.infoModalHeader}>
+              <Ionicons name="information-circle" size={20} color={colors.primary} />
+              <Text style={styles.infoModalTitle}>Thông tin</Text>
+            </View>
+            <Text style={styles.infoModalText}>{text}</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
 
 export default function HomeScreen() {
   const { t } = useTranslation('home');
@@ -177,17 +199,13 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(120).duration(450).springify()}>
         <View style={styles.metricsRow}>
           <Pressable style={[styles.metricCard, styles.metricCardGlucose]} onPress={() => router.push('/logs/glucose')}>
-            <View style={styles.metricIconBg}>
-              <MaterialCommunityIcons name="water" size={22} color={categoryColors.glucose} />
-            </View>
+            <MaterialCommunityIcons name="water" size={22} color={iconColors.glucose} />
             <Text style={styles.metricTitle}>{t('glucose')}</Text>
             <Text style={styles.metricValue}>{quickMetrics.glucose ?? '--'}</Text>
             <Text style={styles.metricUnit}>{tc('unitMgdl')}</Text>
           </Pressable>
           <Pressable style={[styles.metricCard, styles.metricCardBP]} onPress={() => router.push('/logs/blood-pressure')}>
-            <View style={[styles.metricIconBg, { backgroundColor: categoryColors.bloodPressureBg }]}>
-              <MaterialCommunityIcons name="heart-pulse" size={22} color={categoryColors.bloodPressure} />
-            </View>
+            <MaterialCommunityIcons name="heart-pulse" size={22} color={iconColors.bp} />
             <Text style={styles.metricTitle}>{t('bloodPressure')}</Text>
             <Text style={styles.metricValue}>{quickMetrics.bloodPressure ?? '--'}</Text>
             <Text style={styles.metricUnit}>{tc('unitMmhg')}</Text>
@@ -217,14 +235,12 @@ export default function HomeScreen() {
           onPress={() => router.push('/report')}
         >
           <View style={styles.reportRow}>
-            <View style={styles.reportIconWrap}>
-              <Ionicons name="document-text" size={22} color={brandColors.indigo} />
-            </View>
+            <Ionicons name="document-text" size={22} color={iconColors.indigo} />
             <View style={{ flex: 1 }}>
               <Text style={styles.reportTitle}>{t('healthReport')}</Text>
               <Text style={styles.reportSub}>{t('healthReportSub')}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={brandColors.indigo} />
+            <Ionicons name="chevron-forward" size={20} color={iconColors.indigo} />
           </View>
         </Pressable>
         </Animated.View>
@@ -236,13 +252,10 @@ export default function HomeScreen() {
         {/* Section Header */}
         <Animated.View entering={FadeInDown.delay(280).duration(400).springify()}>
         <View style={styles.sectionHeaderRow}>
-          <View style={styles.sectionIconBg}>
-            <Ionicons name="flag" size={18} color="#fff" />
-          </View>
-          <View>
-            <Text style={styles.sectionTitle}>{t('todayMissions')}</Text>
-            <Text style={styles.sectionSubtitle}>{t('missionsRefreshDaily')}</Text>
-          </View>
+          <Ionicons name="flag" size={20} color={iconColors.warning} />
+          <Text style={styles.sectionTitle}>{t('todayMissions')}</Text>
+          <View style={{ flex: 1 }} />
+          <InfoButton text={t('missionsRefreshDaily')} styles={styles} />
         </View>
         <View style={styles.cardList}>
         {missions.slice(0, 3).map((mission, index) => {
@@ -280,7 +293,7 @@ export default function HomeScreen() {
         {missions.length > 0 && (
           <Pressable style={styles.seeMoreBtn} onPress={() => router.push('/missions')}>
             <Text style={styles.seeMoreText}>{tc('viewMore')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            <Ionicons name="chevron-forward" size={16} color={iconColors.primary} />
           </Pressable>
         )}
         </View>
@@ -289,13 +302,10 @@ export default function HomeScreen() {
         {/* Tree Section */}
         <Animated.View entering={FadeInDown.delay(360).duration(400).springify()}>
         <View style={styles.sectionHeaderRow}>
-          <View style={[styles.sectionIconBg, { backgroundColor: colors.emerald }]}>
-            <Ionicons name="leaf" size={18} color="#fff" />
-          </View>
-          <View>
-            <Text style={styles.sectionTitle}>{t('healthTree')}</Text>
-            <Text style={styles.sectionSubtitle}>{t('treeFormula')}</Text>
-          </View>
+            <Ionicons name="leaf" size={20} color={iconColors.emerald} />
+          <Text style={styles.sectionTitle}>{t('healthTree')}</Text>
+          <View style={{ flex: 1 }} />
+          <InfoButton text={t('treeFormula')} styles={styles} />
         </View>
         <View style={styles.treeCard}>
           <View style={styles.treeRow}>
@@ -304,18 +314,14 @@ export default function HomeScreen() {
             </Suspense>
             <View style={styles.treeStats}>
               <View style={styles.treeStatItem}>
-                <View style={[styles.treeStatIcon, { backgroundColor: colors.premiumLight }]}>
-                  <Ionicons name="flame" size={16} color={colors.premium} />
-                </View>
+                <Ionicons name="flame" size={18} color={iconColors.premium} />
                 <View>
                   <Text style={styles.treeStatValue}>{treeSummary?.streakDays ?? 0} {t('days')}</Text>
                   <Text style={styles.treeStatLabel}>{t('streak')}</Text>
                 </View>
               </View>
               <View style={styles.treeStatItem}>
-                <View style={[styles.treeStatIcon, { backgroundColor: colors.emeraldLight }]}>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.emerald} />
-                </View>
+                <Ionicons name="checkmark-circle" size={18} color={iconColors.emerald} />
                 <View>
                   <Text style={styles.treeStatValue}>{treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
                   <Text style={styles.treeStatLabel}>{t('todayMissions')}</Text>
@@ -325,7 +331,7 @@ export default function HomeScreen() {
           </View>
           <Pressable style={styles.treeBtn} onPress={() => router.push('/tree')}>
             <Text style={styles.treeBtnText}>{tc('viewDetails')}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+            <Ionicons name="chevron-forward" size={18} color={iconColors.primary} />
           </Pressable>
         </View>
         </Animated.View>
@@ -333,13 +339,10 @@ export default function HomeScreen() {
         {/* Chart Section */}
         <Animated.View entering={FadeInDown.delay(440).duration(400).springify()}>
         <View style={styles.sectionHeaderRow}>
-          <View style={[styles.sectionIconBg, { backgroundColor: brandColors.indigo }]}>
-            <Ionicons name="trending-up" size={18} color="#fff" />
-          </View>
-          <View>
-            <Text style={styles.sectionTitle}>{t('glucoseTrend')}</Text>
-            <Text style={styles.sectionSubtitle}>{t('last7Days')}</Text>
-          </View>
+            <Ionicons name="trending-up" size={20} color={iconColors.indigo} />
+          <Text style={styles.sectionTitle}>{t('glucoseTrend')}</Text>
+          <View style={{ flex: 1 }} />
+          <InfoButton text={t('last7Days')} styles={styles} />
         </View>
         <Suspense fallback={<View style={{ height: 240 }} />}>
           <GlucoseTrendChart
@@ -351,32 +354,31 @@ export default function HomeScreen() {
         {/* Recent Logs */}
         <Animated.View entering={FadeInDown.delay(520).duration(400).springify()}>
         <View style={styles.sectionHeaderRow}>
-          <View style={[styles.sectionIconBg, { backgroundColor: brandColors.pink }]}>
-            <Ionicons name="journal" size={18} color="#fff" />
-          </View>
-          <View>
-            <Text style={styles.sectionTitle}>{t('recentLogs')}</Text>
-          </View>
+            <Ionicons name="journal" size={20} color={iconColors.pink} />
+          <Text style={styles.sectionTitle}>{t('recentLogs')}</Text>
         </View>
-        <View style={styles.logsCard}>
-          {logs.length === 0 ? (
-            <View style={styles.emptyLogsContainer}>
-              <Ionicons name="document-text-outline" size={40} color={colors.primary} />
-              <Text style={styles.emptyLogsTitle}>{t('noLogsYet')}</Text>
-              <Text style={styles.emptyLogsSub}>{t('noLogsSub')}</Text>
-            </View>
-          ) : (
-            logs.slice(0, 3).map((log: LogEntry, index) => (
-              <View key={log.id} style={[styles.logItem, index < 2 && styles.logItemBorder]}>
-                <View style={styles.logIconBg}>
-                  {log.type === 'glucose' && <MaterialCommunityIcons name="water" size={18} color={categoryColors.glucose} />}
-                  {log.type === 'blood-pressure' && <MaterialCommunityIcons name="heart-pulse" size={18} color={categoryColors.bloodPressure} />}
-                  {log.type === 'weight' && <MaterialCommunityIcons name="scale-bathroom" size={18} color={categoryColors.weight} />}
-                  {log.type === 'water' && <MaterialCommunityIcons name="cup-water" size={18} color={categoryColors.water} />}
-                  {log.type === 'medication' && <MaterialCommunityIcons name="pill" size={18} color={categoryColors.medication} />}
-                  {log.type === 'meal' && <MaterialCommunityIcons name="food" size={18} color={categoryColors.meal} />}
-                  {log.type === 'insulin' && <MaterialCommunityIcons name="needle" size={18} color={categoryColors.insulin} />}
-                </View>
+        {logs.length === 0 ? (
+          <View style={styles.emptyLogsContainer}>
+            <Ionicons name="document-text-outline" size={40} color={iconColors.primary} />
+            <Text style={styles.emptyLogsTitle}>{t('noLogsYet')}</Text>
+            <Text style={styles.emptyLogsSub}>{t('noLogsSub')}</Text>
+          </View>
+        ) : (
+          <View style={styles.logsGrid}>
+            {logs.slice(0, 3).map((log: LogEntry) => {
+              const logMeta: Record<string, { bg: string; iconBg: string; color: string; icon: string }> = {
+                'glucose':        { bg: '#e8f4fd', iconBg: '#bfdbfe', color: iconColors.glucose,    icon: 'water' },
+                'blood-pressure': { bg: '#fde8e8', iconBg: '#fecaca', color: iconColors.bp,         icon: 'heart-pulse' },
+                'weight':         { bg: '#ede8fd', iconBg: '#ddd6fe', color: iconColors.weight,     icon: 'scale-bathroom' },
+                'water':          { bg: '#e8f8fc', iconBg: '#a5f3fc', color: iconColors.water,      icon: 'cup-water' },
+                'medication':     { bg: '#e8faf2', iconBg: '#a7f3d0', color: iconColors.medication, icon: 'pill' },
+                'meal':           { bg: '#fef6e8', iconBg: '#fde68a', color: iconColors.meal,       icon: 'food' },
+                'insulin':        { bg: '#eceefe', iconBg: '#c7d2fe', color: iconColors.insulin,    icon: 'needle' },
+              };
+              const meta = logMeta[log.type] ?? { bg: colors.surfaceMuted, iconBg: colors.border, color: colors.textSecondary, icon: 'dots-horizontal' };
+              return (
+              <View key={log.id} style={[styles.logCard, { backgroundColor: meta.bg, borderColor: meta.iconBg }]}>
+                <MaterialCommunityIcons name={meta.icon as any} size={22} color={meta.color} />
                 <View style={styles.logContent}>
                   <Text style={styles.logType}>{t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}</Text>
                   <Text style={styles.logValue}>
@@ -404,9 +406,10 @@ export default function HomeScreen() {
                   ) : null}
                 </View>
               </View>
-            ))
-          )}
-        </View>
+              );
+            })}
+          </View>
+        )}
         </Animated.View>
       </RippleRefreshScrollView>
 {isChatOpen && (
@@ -477,15 +480,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderWidth: 1.5,
     borderColor: categoryColors.bloodPressure,
   },
-  metricIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: categoryColors.glucoseBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
   metricTitle: {
     fontSize: typography.size.sm,
     color: colors.textSecondary,
@@ -507,22 +501,47 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
-  sectionIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   sectionTitle: {
     fontSize: typography.size.lg,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  sectionSubtitle: {
+  infoBtn: {
+    padding: 2,
+  },
+  infoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  infoModalBox: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  infoModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  infoModalTitle: {
+    fontSize: typography.size.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  infoModalText: {
     fontSize: typography.size.sm,
     color: colors.textSecondary,
+    lineHeight: 22,
   },
   cardList: {
     gap: spacing.md
@@ -650,13 +669,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: spacing.sm,
   },
-  treeStatIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   treeStatValue: {
     fontSize: typography.size.md,
     fontWeight: '700',
@@ -681,18 +693,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
     fontSize: typography.size.md,
   },
-  logsCard: {
-    backgroundColor: colors.surface,
+  logsGrid: {
+    gap: spacing.sm,
+  },
+  logCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  logItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
   },
   emptyLogsContainer: {
     alignItems: 'center',
@@ -710,18 +720,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.sm,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  logItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  logIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   logContent: {
     flex: 1,
@@ -752,14 +750,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-  },
-  reportIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    backgroundColor: brandColors.indigo + '22',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   reportTitle: {
     fontSize: typography.size.sm,

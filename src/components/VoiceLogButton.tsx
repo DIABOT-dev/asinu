@@ -243,7 +243,7 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
           pressed && styles.pressed,
         ]}
       >
-        <Animated.View style={[styles.iconWrap, { backgroundColor: iconBg }, pulseStyle]}>
+        <Animated.View style={[styles.iconWrap, pulseStyle]}>
           {renderIcon()}
         </Animated.View>
 

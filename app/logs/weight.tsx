@@ -32,7 +32,7 @@ import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { validateWeightPayload } from '../../src/features/logs/logs.validation';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { categoryColors, colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 function getBMIStatus(bmi: number, t: (key: string) => string) {
@@ -162,22 +162,15 @@ export default function WeightLogScreen() {
               <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
                 <View style={styles.navRow}>
                   <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color={categoryColors.weight} />
+                    <Ionicons name="arrow-back" size={22} color={iconColors.weight} />
                   </TouchableOpacity>
                 </View>
               </Animated.View>
 
               {/* Hero card */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <LinearGradient
-                  colors={[categoryColors.weight, '#7c3aed']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.heroCard}
-                >
-                  <View style={styles.heroIconBg}>
-                    <MaterialCommunityIcons name="scale-bathroom" size={30} color="#fff" />
-                  </View>
+                <View style={[styles.heroCard, { backgroundColor: '#ede8fd' }]}>
+                  <MaterialCommunityIcons name="scale-bathroom" size={30} color={iconColors.weight} />
                   <View style={styles.heroText}>
                     <Text style={styles.heroTitle}>{t('weight')}</Text>
                     <Text style={styles.heroSub}>{t('quickLog')}</Text>
@@ -185,7 +178,7 @@ export default function WeightLogScreen() {
                   <View style={styles.heroBadge}>
                     <Text style={styles.heroBadgeText}>kg</Text>
                   </View>
-                </LinearGradient>
+                </View>
               </Animated.View>
 
               {/* Weight input card */}
@@ -335,33 +328,25 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      shadowColor: categoryColors.weight,
-      shadowOpacity: 0.3,
+      shadowColor: '#000',
+      shadowOpacity: 0.06,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 6 },
       elevation: 8,
-    },
-    heroIconBg: {
-      width: 56,
-      height: 56,
-      borderRadius: 16,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     heroText: { flex: 1 },
     heroTitle: {
       fontSize: typography.size.lg,
       fontWeight: '800',
-      color: '#fff',
+      color: colors.textPrimary,
     },
     heroSub: {
       fontSize: typography.size.sm,
-      color: 'rgba(255,255,255,0.8)',
+      color: colors.textSecondary,
       marginTop: 2,
     },
     heroBadge: {
-      backgroundColor: 'rgba(255,255,255,0.25)',
+      backgroundColor: colors.border,
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs,
       borderRadius: radius.full,
@@ -369,7 +354,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     heroBadgeText: {
       fontSize: typography.size.xs,
       fontWeight: '700',
-      color: '#fff',
+      color: colors.textSecondary,
     },
     numberCard: {
       backgroundColor: colors.surface,

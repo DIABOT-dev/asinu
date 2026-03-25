@@ -42,14 +42,6 @@ export class ErrorBoundary extends Component<Props, State> {
         width: '100%',
         maxWidth: 320,
       },
-      iconWrap: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        backgroundColor: `${colors.warning}15`,
-        alignItems: 'center',
-        justifyContent: 'center',
-      },
       title: {
         fontSize: 18,
         fontWeight: '700',
@@ -81,9 +73,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <View style={styles.container}>
           <View style={styles.card}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="warning-outline" size={40} color={colors.warning} />
-            </View>
+            <Ionicons name="warning-outline" size={40} color={colors.warning} />
             <Text style={styles.title}>Đã xảy ra lỗi</Text>
             <Text style={styles.message}>
               {this.state.error?.message || 'Có gì đó không đúng. Vui lòng thử lại.'}

@@ -17,7 +17,7 @@ import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useMissionsStore } from '../../../src/features/missions/missions.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { ApiError, apiClient } from '../../../src/lib/apiClient';
-import { brandColors, categoryColors, colors, spacing } from '../../../src/styles';
+import { brandColors, categoryColors, colors, iconColors, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 
 type SubStatus = { tier: 'free' | 'premium'; isPremium: boolean; expiresAt: string | null };
@@ -288,129 +288,96 @@ export default function ProfileScreen() {
         {/* User Info Card */}
         <Animated.View entering={FadeInDown.delay(120).duration(400).springify()}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
+          <Ionicons name="person-circle-outline" size={22} color={iconColors.primary} />
           <Text style={styles.sectionTitle}>{t('personalInfo')}</Text>
         </View>
-        <View style={styles.infoCard}>
+        <View style={styles.infoList}>
           {hasProfile ? (
             <>
-              <View style={styles.infoRow}>
-                <View style={styles.infoIconContainer}>
-                  <Ionicons name="person-outline" size={18} color={colors.primary} />
-                </View>
+              <View style={styles.infoItemCard}>
+                <Ionicons name="person-outline" size={22} color={iconColors.primary} style={styles.infoIcon} />
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>{t('fullName')}</Text>
                   <Text style={styles.infoValue}>{name || tc('notUpdated')}</Text>
                 </View>
               </View>
-              
-              <View style={styles.infoDivider} />
-              
-              <View style={styles.infoRow}>
-                <View style={styles.infoIconContainer}>
-                  <Ionicons name="call-outline" size={18} color={colors.primaryDark} />
-                </View>
+
+              <View style={styles.infoItemCard}>
+                <Ionicons name="call-outline" size={22} color={iconColors.emerald} style={styles.infoIcon} />
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>{t('phone')}</Text>
                   <Text style={styles.infoValue}>{phone || tc('notUpdated')}</Text>
                 </View>
               </View>
-              
+
               {profile?.gender ? (
-                <>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoIconContainer}>
-                      <Ionicons name={profile.gender === 'Nam' ? 'male' : 'female'} size={18} color={profile.gender === 'Nam' ? categoryColors.glucose : brandColors.pink} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>{t('gender')}</Text>
-                      <Text style={styles.infoValue}>{profile.gender === 'Nam' ? tc('male') : tc('female')}</Text>
-                    </View>
+                <View style={styles.infoItemCard}>
+                  <Ionicons
+                    name={profile.gender === 'Nam' ? 'male-outline' : 'female-outline'}
+                    size={22}
+                    color={profile.gender === 'Nam' ? iconColors.glucose : iconColors.pink}
+                    style={styles.infoIcon}
+                  />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('gender')}</Text>
+                    <Text style={styles.infoValue}>{profile.gender === 'Nam' ? tc('male') : tc('female')}</Text>
                   </View>
-                </>
+                </View>
               ) : null}
-              
+
               {profile?.age ? (
-                <>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoIconContainer}>
-                      <FontAwesome5 name="birthday-cake" size={16} color={colors.premium} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>{t('age')}</Text>
-                      <Text style={styles.infoValue}>{Math.round(profile.age)} {t('ageUnit')}</Text>
-                    </View>
+                <View style={styles.infoItemCard}>
+                  <MaterialCommunityIcons name="cake-variant-outline" size={22} color={iconColors.premium} style={styles.infoIcon} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('age')}</Text>
+                    <Text style={styles.infoValue}>{Math.round(profile.age)} {t('ageUnit')}</Text>
                   </View>
-                </>
+                </View>
               ) : null}
-              
+
               {profile?.heightCm ? (
-                <>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoIconContainer}>
-                      <MaterialCommunityIcons name="human-male-height" size={20} color={brandColors.violet} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>{t('height')}</Text>
-                      <Text style={styles.infoValue}>{t('heightValue', { value: Math.round(profile.heightCm) })}</Text>
-                    </View>
+                <View style={styles.infoItemCard}>
+                  <MaterialCommunityIcons name="human-male-height" size={22} color={iconColors.violet} style={styles.infoIcon} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('height')}</Text>
+                    <Text style={styles.infoValue}>{t('heightValue', { value: Math.round(profile.heightCm) })}</Text>
                   </View>
-                </>
+                </View>
               ) : null}
-              
+
               {profile?.weightKg ? (
-                <>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoIconContainer}>
-                      <MaterialCommunityIcons name="scale-bathroom" size={18} color={brandColors.cyan} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>{t('weight')}</Text>
-                      <Text style={styles.infoValue}>{t('weightValue', { value: Math.round(profile.weightKg) })}</Text>
-                    </View>
+                <View style={styles.infoItemCard}>
+                  <MaterialCommunityIcons name="scale-bathroom" size={22} color={iconColors.cyan} style={styles.infoIcon} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('weight')}</Text>
+                    <Text style={styles.infoValue}>{t('weightValue', { value: Math.round(profile.weightKg) })}</Text>
                   </View>
-                </>
+                </View>
               ) : null}
-              
+
               {profile?.bloodType ? (
-                <>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoIconContainer}>
-                      <FontAwesome5 name="tint" size={16} color={colors.danger} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>{t('bloodType')}</Text>
-                      <Text style={styles.infoValue}>{profile.bloodType}</Text>
-                    </View>
+                <View style={styles.infoItemCard}>
+                  <MaterialCommunityIcons name="water-outline" size={22} color={iconColors.danger} style={styles.infoIcon} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('bloodType')}</Text>
+                    <Text style={styles.infoValue}>{profile.bloodType}</Text>
                   </View>
-                </>
+                </View>
               ) : null}
-              
+
               {profile?.chronicDiseases && profile.chronicDiseases.length > 0 ? (
-                <>
-                  <View style={styles.infoDivider} />
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoIconContainer}>
-                      <MaterialCommunityIcons name="medical-bag" size={18} color={brandColors.orange} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>{t('chronicDiseases')}</Text>
-                      <Text style={styles.infoValue}>{profile.chronicDiseases.join(', ')}</Text>
-                    </View>
+                <View style={styles.infoItemCard}>
+                  <MaterialCommunityIcons name="medical-bag" size={22} color={iconColors.orange} style={styles.infoIcon} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('chronicDiseases')}</Text>
+                    <Text style={styles.infoValue}>{profile.chronicDiseases.join(', ')}</Text>
                   </View>
-                </>
+                </View>
               ) : null}
             </>
           ) : phone ? (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="call-outline" size={18} color={colors.primaryDark} />
-              </View>
+            <View style={styles.infoItemCard}>
+              <Ionicons name="call-outline" size={22} color={iconColors.emerald} style={styles.infoIcon} />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>{t('phone')}</Text>
                 <Text style={styles.infoValue}>{phone}</Text>
@@ -423,24 +390,22 @@ export default function ProfileScreen() {
         {/* Quick Actions */}
         <Animated.View entering={FadeInDown.delay(220).duration(400).springify()}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="flash-outline" size={22} color={colors.warning} />
+          <Ionicons name="flash-outline" size={22} color={iconColors.warning} />
           <Text style={styles.sectionTitle}>{t('quickActions')}</Text>
         </View>
         <View style={styles.quickActionsGrid}>
           {([
-            { colors: [colors.emerald, colors.emeraldDark], icon: 'people', label: t('careCircle'), onPress: () => router.push('/care-circle') },
-            { colors: [colors.premium, colors.premiumDark], icon: 'settings', label: t('settings'), onPress: () => router.push('/settings') },
-            { colors: [brandColors.indigo, brandColors.indigoDark], icon: 'create', label: t('editProfile'), onPress: handleEditProfile },
-            { colors: [brandColors.pink, brandColors.pinkDark], icon: 'journal', label: t('logEntry'), onPress: () => router.push('/logs') },
-            { colors: [brandColors.violet, brandColors.violetDark], icon: 'wallet', label: t('wallet'), onPress: () => router.push('/wallet') },
-            { colors: [colors.premium, colors.premiumDark], icon: 'star', label: t('subscription'), onPress: () => router.push('/subscription') },
-            { colors: ['#8b5cf6', '#6d28d9'], icon: 'bookmark', label: tc('aiNotes'), onPress: () => router.push('/chat-notes') },
-            { colors: ['#f59e0b', '#d97706'], icon: 'alarm', label: tc('reminderConfig'), onPress: () => router.push('/reminder-config') },
+            { icon: 'people-outline',    color: iconColors.emerald,  label: t('careCircle'),      onPress: () => router.push('/care-circle') },
+            { icon: 'settings-outline',  color: iconColors.primary,  label: t('settings'),        onPress: () => router.push('/settings') },
+            { icon: 'create-outline',    color: iconColors.indigo,   label: t('editProfile'),     onPress: handleEditProfile },
+            { icon: 'journal-outline',   color: iconColors.pink,     label: t('logEntry'),        onPress: () => router.push('/logs') },
+            { icon: 'wallet-outline',    color: iconColors.cyan,     label: t('wallet'),          onPress: () => router.push('/wallet') },
+            { icon: 'star-outline',      color: iconColors.premium,  label: t('subscription'),    onPress: () => router.push('/subscription') },
+            { icon: 'bookmark-outline',  color: iconColors.violet,   label: tc('aiNotes'),        onPress: () => router.push('/chat-notes') },
+            { icon: 'alarm-outline',     color: iconColors.orange,   label: tc('reminderConfig'), onPress: () => router.push('/reminder-config') },
           ] as const).map((item, i) => (
             <Pressable key={i} style={({ pressed }) => [styles.actionCard, pressed && styles.actionCardPressed]} onPress={item.onPress}>
-              <LinearGradient colors={item.colors as any} style={styles.actionIconBg}>
-                <Ionicons name={item.icon as any} size={22} color="#fff" />
-              </LinearGradient>
+              <Ionicons name={item.icon as any} size={22} color={item.color} style={styles.actionIcon} />
               <Text style={styles.actionLabel}>{item.label}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
             </Pressable>
@@ -451,19 +416,19 @@ export default function ProfileScreen() {
         {/* Health Overview */}
         <Animated.View entering={FadeInDown.delay(320).duration(400).springify()}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="heart-circle-outline" size={22} color={colors.danger} />
+          <Ionicons name="heart-circle-outline" size={22} color={iconColors.danger} />
           <Text style={styles.sectionTitle}>{t('healthOverview')}</Text>
         </View>
         <View style={styles.healthCardsGrid}>
           <View style={[styles.healthCard, styles.healthCardGlucose]}>
             <View style={styles.healthCardHeader}>
-              <MaterialCommunityIcons name="water" size={20} color={categoryColors.glucose} />
+              <MaterialCommunityIcons name="water" size={20} color={iconColors.glucose} />
               <Text style={styles.healthCardTitle}>{t('glucose')}</Text>
             </View>
             <Text style={[styles.healthCardValue, glucoseStatus === 'warning' && styles.healthValueWarning, glucoseStatus === 'danger' && styles.healthValueDanger]}>{glucoseText}</Text>
             {glucoseStatus !== 'normal' && (
               <View style={styles.healthAlert}>
-                <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? colors.danger : colors.premium} />
+                <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? iconColors.danger : iconColors.premium} />
                 <Text style={[styles.healthAlertText, { color: glucoseStatus === 'danger' ? colors.danger : colors.premium }]}>
                   {glucoseStatus === 'danger' ? t('needsAttention') : t('slightlyHigh')}
                 </Text>
@@ -473,7 +438,7 @@ export default function ProfileScreen() {
           
           <View style={[styles.healthCard, styles.healthCardBP]}>
             <View style={styles.healthCardHeader}>
-              <MaterialCommunityIcons name="heart-pulse" size={20} color={categoryColors.bloodPressure} />
+              <MaterialCommunityIcons name="heart-pulse" size={20} color={iconColors.bp} />
               <Text style={styles.healthCardTitle}>{t('bloodPressure')}</Text>
             </View>
             <Text style={styles.healthCardValue}>{bpText}</Text>
@@ -481,7 +446,7 @@ export default function ProfileScreen() {
           
           <View style={[styles.healthCard, styles.healthCardMissions]}>
             <View style={styles.healthCardHeader}>
-              <Ionicons name="checkbox-outline" size={20} color={colors.emerald} />
+              <Ionicons name="checkbox-outline" size={20} color={iconColors.emerald} />
               <Text style={styles.healthCardTitle}>{t('missions')}</Text>
             </View>
             <Text style={styles.healthCardValue}>{todayTasksText}</Text>
@@ -514,7 +479,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
-                  <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
+                  <Ionicons name="person-outline" size={16} color={iconColors.primary} />
                   <Text style={styles.inputLabel}>{t('fullName')}</Text>
                 </View>
                 <TextInput
@@ -528,7 +493,7 @@ export default function ProfileScreen() {
               
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
-                  <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
+                  <Ionicons name="call-outline" size={16} color={iconColors.emerald} />
                   <Text style={styles.inputLabel}>{t('phone')}</Text>
                 </View>
                 <TextInput
@@ -544,7 +509,7 @@ export default function ProfileScreen() {
               
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
-                  <FontAwesome5 name="birthday-cake" size={14} color={colors.textSecondary} />
+                  <FontAwesome5 name="birthday-cake" size={14} color={iconColors.premium} />
                   <Text style={styles.inputLabel}>{t('age')}</Text>
                 </View>
                 <TextInput
@@ -559,7 +524,7 @@ export default function ProfileScreen() {
               
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
-                  <Ionicons name="male-female" size={16} color={colors.textSecondary} />
+                  <Ionicons name="male-female" size={16} color={iconColors.violet} />
                   <Text style={styles.inputLabel}>{t('gender')}</Text>
                 </View>
                 <View style={styles.genderButtonsRow}>
@@ -590,7 +555,7 @@ export default function ProfileScreen() {
               
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
-                  <MaterialCommunityIcons name="human-male-height" size={16} color={colors.textSecondary} />
+                  <MaterialCommunityIcons name="human-male-height" size={16} color={iconColors.cyan} />
                   <Text style={styles.inputLabel}>{t('heightCm')}</Text>
                 </View>
                 <TextInput
@@ -605,7 +570,7 @@ export default function ProfileScreen() {
               
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
-                  <MaterialCommunityIcons name="scale-bathroom" size={16} color={colors.textSecondary} />
+                  <MaterialCommunityIcons name="scale-bathroom" size={16} color={iconColors.weight} />
                   <Text style={styles.inputLabel}>{t('weightKg')}</Text>
                 </View>
                 <TextInput
@@ -620,7 +585,7 @@ export default function ProfileScreen() {
               
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
-                  <FontAwesome5 name="tint" size={14} color={colors.textSecondary} />
+                  <FontAwesome5 name="tint" size={14} color={iconColors.danger} />
                   <Text style={styles.inputLabel}>{t('bloodType')}</Text>
                 </View>
                 <TextInput
@@ -635,7 +600,7 @@ export default function ProfileScreen() {
               
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabelRow}>
-                  <MaterialCommunityIcons name="medical-bag" size={16} color={colors.textSecondary} />
+                  <MaterialCommunityIcons name="medical-bag" size={16} color={iconColors.medication} />
                   <Text style={styles.inputLabel}>{t('chronicDiseases')}</Text>
                 </View>
                 <TextInput
@@ -775,31 +740,29 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textPrimary
   },
   // Info Card
-  infoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2
+  infoList: {
+    gap: spacing.sm,
   },
-  infoRow: {
+  infoItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.sm
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  infoIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center'
+  infoIcon: {
+    flexShrink: 0,
+    width: 28,
+    textAlign: 'center',
   },
   infoContent: {
     flex: 1
@@ -813,11 +776,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary
-  },
-  infoDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.xs
   },
   // Quick Actions
   quickActionsGrid: {
@@ -842,13 +800,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   actionCardPressed: {
     opacity: 0.75,
   },
-  actionIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+  actionIcon: {
     flexShrink: 0,
+    width: 26,
+    textAlign: 'center',
   },
   actionLabel: {
     flex: 1,

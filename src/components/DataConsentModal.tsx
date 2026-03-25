@@ -44,9 +44,7 @@ export function DataConsentModal({ visible, onAgree }: Props) {
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="shield-checkmark" size={36} color={colors.primary} />
-          </View>
+          <Ionicons name="shield-checkmark" size={36} color={colors.primary} />
 
           <Text style={styles.title}>
             {t('dataConsentTitle')}
@@ -113,16 +111,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       shadowRadius: 24,
       shadowOffset: { width: 0, height: -4 },
       elevation: 12,
-    },
-    iconWrap: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: colors.primaryLight,
-      justifyContent: 'center',
-      alignItems: 'center',
-      alignSelf: 'center',
-      marginBottom: spacing.xs,
     },
     title: {
       fontSize: typography.size.lg,

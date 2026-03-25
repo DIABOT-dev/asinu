@@ -131,7 +131,7 @@ export const careCircleApi = {
       `/api/care-circle/connections/${connectionId}`,
       { 
         method: 'PUT',
-        body: JSON.stringify(updates)
+        body: updates
       }
     );
     return response.connection;

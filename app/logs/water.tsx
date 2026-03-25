@@ -32,7 +32,7 @@ import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { validateWaterPayload } from '../../src/features/logs/logs.validation';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { categoryColors, colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const QUICK_AMOUNTS = [150, 200, 250, 300, 350, 500];
@@ -146,22 +146,15 @@ export default function WaterLogScreen() {
               <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
                 <View style={styles.navRow}>
                   <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color={categoryColors.water} />
+                    <Ionicons name="arrow-back" size={22} color={iconColors.water} />
                   </TouchableOpacity>
                 </View>
               </Animated.View>
 
               {/* Hero card */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <LinearGradient
-                  colors={[categoryColors.water, '#0891b2']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.heroCard}
-                >
-                  <View style={styles.heroIconBg}>
-                    <Ionicons name="water" size={30} color="#fff" />
-                  </View>
+                <View style={[styles.heroCard, { backgroundColor: '#e8f8fc' }]}>
+                  <Ionicons name="water" size={30} color={iconColors.water} />
                   <View style={styles.heroText}>
                     <Text style={styles.heroTitle}>{t('water')}</Text>
                     <Text style={styles.heroSub}>{t('quickLog')}</Text>
@@ -169,7 +162,7 @@ export default function WaterLogScreen() {
                   <View style={styles.heroBadge}>
                     <Text style={styles.heroBadgeText}>ml</Text>
                   </View>
-                </LinearGradient>
+                </View>
               </Animated.View>
 
               {/* Volume input card */}
@@ -304,33 +297,25 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      shadowColor: categoryColors.water,
-      shadowOpacity: 0.3,
+      shadowColor: '#000',
+      shadowOpacity: 0.06,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 6 },
       elevation: 8,
-    },
-    heroIconBg: {
-      width: 56,
-      height: 56,
-      borderRadius: 16,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     heroText: { flex: 1 },
     heroTitle: {
       fontSize: typography.size.lg,
       fontWeight: '800',
-      color: '#fff',
+      color: colors.textPrimary,
     },
     heroSub: {
       fontSize: typography.size.sm,
-      color: 'rgba(255,255,255,0.8)',
+      color: colors.textSecondary,
       marginTop: 2,
     },
     heroBadge: {
-      backgroundColor: 'rgba(255,255,255,0.25)',
+      backgroundColor: colors.border,
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs,
       borderRadius: radius.full,
@@ -338,7 +323,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     heroBadgeText: {
       fontSize: typography.size.xs,
       fontWeight: '700',
-      color: '#fff',
+      color: colors.textSecondary,
     },
     numberCard: {
       backgroundColor: colors.surface,
@@ -390,7 +375,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
       borderRadius: radius.full,
-      backgroundColor: categoryColors.waterBg,
       marginTop: spacing.xs,
     },
     statusText: {

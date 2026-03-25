@@ -1,5 +1,4 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +16,7 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { brandColors, categoryColors, colors, radius, spacing } from '../../src/styles';
+import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 
@@ -25,8 +24,8 @@ type LogCard = {
   key: string;
   route: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  colors: [string, string];
-  iconBg: string;
+  bg: string;
+  iconColor: string;
   desc: string;
 };
 
@@ -56,62 +55,13 @@ export default function LogsIndexScreen() {
   }, [fetchLogs]);
 
   const LOG_CARDS: LogCard[] = useMemo(() => [
-    {
-      key: 'glucose',
-      route: '/logs/glucose',
-      icon: 'water',
-      colors: [categoryColors.glucose, '#2563eb'],
-      iconBg: categoryColors.glucoseBg,
-      desc: t('glucoseValue'),
-    },
-    {
-      key: 'bloodPressure',
-      route: '/logs/blood-pressure',
-      icon: 'heart-pulse',
-      colors: [categoryColors.bloodPressure, '#b91c1c'],
-      iconBg: categoryColors.bloodPressureBg,
-      desc: t('systolic') + ' / ' + t('diastolic'),
-    },
-    {
-      key: 'medicationInsulin',
-      route: '/logs/medication',
-      icon: 'pill',
-      colors: [categoryColors.medication, '#047857'],
-      iconBg: categoryColors.medicationBg,
-      desc: t('medicationName'),
-    },
-    {
-      key: 'insulin',
-      route: '/logs/insulin',
-      icon: 'needle',
-      colors: [categoryColors.insulin, '#4338ca'],
-      iconBg: categoryColors.insulinBg,
-      desc: t('insulinDose'),
-    },
-    {
-      key: 'meal',
-      route: '/logs/meal',
-      icon: 'food',
-      colors: [categoryColors.meal, '#d97706'],
-      iconBg: categoryColors.mealBg,
-      desc: t('kcal'),
-    },
-    {
-      key: 'water',
-      route: '/logs/water',
-      icon: 'cup-water',
-      colors: [categoryColors.water, '#0891b2'],
-      iconBg: categoryColors.waterBg,
-      desc: t('volumeMl'),
-    },
-    {
-      key: 'weight',
-      route: '/logs/weight',
-      icon: 'scale-bathroom',
-      colors: [categoryColors.weight, '#6d28d9'],
-      iconBg: categoryColors.weightBg,
-      desc: t('weightKg'),
-    },
+    { key: 'glucose',          route: '/logs/glucose',       icon: 'water',          bg: '#e8f4fd', iconColor: iconColors.glucose,    desc: t('glucoseValue') },
+    { key: 'bloodPressure',    route: '/logs/blood-pressure',icon: 'heart-pulse',    bg: '#fde8e8', iconColor: iconColors.bp,         desc: t('systolic') + ' / ' + t('diastolic') },
+    { key: 'medicationInsulin',route: '/logs/medication',    icon: 'pill',           bg: '#e8faf2', iconColor: iconColors.medication, desc: t('medicationName') },
+    { key: 'insulin',          route: '/logs/insulin',       icon: 'needle',         bg: '#eceefe', iconColor: iconColors.insulin,    desc: t('insulinDose') },
+    { key: 'meal',             route: '/logs/meal',          icon: 'food',           bg: '#fef6e8', iconColor: iconColors.meal,       desc: t('kcal') },
+    { key: 'water',            route: '/logs/water',         icon: 'cup-water',      bg: '#e8f8fc', iconColor: iconColors.water,      desc: t('volumeMl') },
+    { key: 'weight',           route: '/logs/weight',        icon: 'scale-bathroom', bg: '#ede8fd', iconColor: iconColors.weight,     desc: t('weightKg') },
   ], [t]);
 
   return (
@@ -127,7 +77,7 @@ export default function LogsIndexScreen() {
           <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
             <View style={styles.headerRow}>
               <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.primary} />
+                <MaterialCommunityIcons name="arrow-left" size={24} color={iconColors.primary} />
               </TouchableOpacity>
               <View style={styles.headerText}>
                 <Text style={styles.headerTitle}>{t('logTitle')}</Text>
@@ -145,23 +95,14 @@ export default function LogsIndexScreen() {
               >
                 <Pressable
                   onPress={() => router.push(card.route as any)}
-                  style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+                  style={({ pressed }) => [styles.card, { backgroundColor: card.bg }, pressed && styles.cardPressed]}
                 >
-                  <LinearGradient
-                    colors={card.colors as [string, string]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.cardGradient}
-                  >
-                    <View style={styles.cardIconBg}>
-                      <MaterialCommunityIcons name={card.icon} size={26} color="#fff" />
-                    </View>
-                    <View style={styles.cardBody}>
-                      <Text style={styles.cardTitle}>{t(card.key as any)}</Text>
-                      <Text style={styles.cardDesc}>{card.desc}</Text>
-                    </View>
-                    <MaterialCommunityIcons name="arrow-right" size={20} color="rgba(255,255,255,0.6)" />
-                  </LinearGradient>
+                  <MaterialCommunityIcons name={card.icon} size={26} color={card.iconColor} />
+                  <View style={styles.cardBody}>
+                    <Text style={styles.cardTitle}>{t(card.key as any)}</Text>
+                    <Text style={styles.cardDesc}>{card.desc}</Text>
+                  </View>
+                  <MaterialCommunityIcons name="arrow-right" size={20} color={colors.textSecondary} />
                 </Pressable>
               </Animated.View>
             ))}
@@ -203,33 +144,22 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.sm,
     },
     card: {
-      borderRadius: radius.xl,
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 5,
-    },
-    cardPressed: {
-      opacity: 0.88,
-      transform: [{ scale: 0.98 }],
-    },
-    cardGradient: {
       flexDirection: 'row',
       alignItems: 'center',
+      gap: spacing.md,
+      borderRadius: radius.xl,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
-      gap: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
     },
-    cardIconBg: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      flexShrink: 0,
+    cardPressed: {
+      opacity: 0.85,
     },
     cardBody: {
       flex: 1,
@@ -238,11 +168,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     cardTitle: {
       fontSize: typography.size.md,
       fontWeight: '700',
-      color: '#fff',
+      color: colors.textPrimary,
     },
     cardDesc: {
       fontSize: typography.size.xs,
-      color: 'rgba(255,255,255,0.75)',
+      color: colors.textSecondary,
     },
   });
 }

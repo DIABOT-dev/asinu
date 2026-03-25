@@ -63,14 +63,6 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
       padding: spacing.md,
       gap: spacing.md,
     },
-    iconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: radius.md,
-      backgroundColor: 'rgba(255,255,255,0.7)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     textWrap: {
       flex: 1,
     },
@@ -86,9 +78,7 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
 
   return (
     <View style={[styles.card, { backgroundColor: config.bg, borderColor: config.border }]}>
-      <View style={styles.iconWrap}>
-        <Ionicons name={config.icon} size={28} color={config.iconColor} />
-      </View>
+      <Ionicons name={config.icon} size={28} color={config.iconColor} />
       <View style={styles.textWrap}>
         <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>
           {!checkinDone ? t('healthScoreNoCheckin' as any) : t(config.titleKey as any)}

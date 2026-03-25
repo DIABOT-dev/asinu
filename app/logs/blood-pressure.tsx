@@ -36,7 +36,7 @@ import { logsApi } from '../../src/features/logs/logs.api';
 import { logsService } from '../../src/features/logs/logs.service';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { categoryColors, colors, radius, spacing } from '../../src/styles';
+import { categoryColors, colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 // ─── BP status helpers ─────────────────────────────────────────────
@@ -213,22 +213,15 @@ export default function BloodPressureLogScreen() {
               <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
                 <View style={styles.navRow}>
                   <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color={categoryColors.bloodPressure} />
+                    <Ionicons name="arrow-back" size={22} color={iconColors.bp} />
                   </TouchableOpacity>
                 </View>
               </Animated.View>
 
               {/* Hero gradient card */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <LinearGradient
-                  colors={[categoryColors.bloodPressure, '#dc2626']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.heroCard}
-                >
-                  <View style={styles.heroIconBg}>
-                    <MaterialCommunityIcons name="heart-pulse" size={32} color="#fff" />
-                  </View>
+                <View style={[styles.heroCard, { backgroundColor: '#fde8e8' }]}>
+                  <MaterialCommunityIcons name="heart-pulse" size={32} color={iconColors.bp} />
                   <View style={styles.heroText}>
                     <Text style={styles.heroTitle}>{t('bloodPressure')}</Text>
                     <Text style={styles.heroSub}>{t('quickLog')}</Text>
@@ -236,7 +229,7 @@ export default function BloodPressureLogScreen() {
                   <View style={styles.heroBadge}>
                     <Text style={styles.heroBadgeText}>mmHg</Text>
                   </View>
-                </LinearGradient>
+                </View>
               </Animated.View>
 
               {/* SYS / DIA input card */}
@@ -433,33 +426,25 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      shadowColor: categoryColors.bloodPressure,
-      shadowOpacity: 0.3,
+      shadowColor: '#000',
+      shadowOpacity: 0.06,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 6 },
       elevation: 8,
-    },
-    heroIconBg: {
-      width: 56,
-      height: 56,
-      borderRadius: 16,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     heroText: { flex: 1 },
     heroTitle: {
       fontSize: typography.size.lg,
       fontWeight: '800',
-      color: '#fff',
+      color: colors.textPrimary,
     },
     heroSub: {
       fontSize: typography.size.sm,
-      color: 'rgba(255,255,255,0.8)',
+      color: colors.textSecondary,
       marginTop: 2,
     },
     heroBadge: {
-      backgroundColor: 'rgba(255,255,255,0.25)',
+      backgroundColor: colors.border,
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs,
       borderRadius: radius.full,
@@ -467,7 +452,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     heroBadgeText: {
       fontSize: typography.size.xs,
       fontWeight: '700',
-      color: '#fff',
+      color: colors.textSecondary,
     },
     numberCard: {
       backgroundColor: colors.surface,

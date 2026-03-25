@@ -62,9 +62,7 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
         onPress={() => router.push('/checkin')}
       >
         <View style={styles.row}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="heart-half" size={24} color={colors.primary} />
-          </View>
+          <Ionicons name="heart-half" size={24} color={colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={styles.promptTitle}>{t('checkinTitle')}</Text>
             <Text style={styles.sub}>{getCheckinGreeting(t)}</Text>
@@ -98,9 +96,7 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
       onPress={() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`)}
     >
       <View style={styles.row}>
-        <View style={styles.iconWrapFollow}>
-          <Ionicons name="pulse" size={22} color="#d97706" />
-        </View>
+        <Ionicons name="pulse" size={22} color="#d97706" />
         <View style={{ flex: 1 }}>
           <Text style={styles.followTitle}>{t('checkinFollowTitle')}</Text>
           <Text style={styles.sub}>{followUpLabel}</Text>
@@ -132,22 +128,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-    },
-    iconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: radius.full,
-      backgroundColor: colors.primary + '22',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    iconWrapFollow: {
-      width: 44,
-      height: 44,
-      borderRadius: radius.full,
-      backgroundColor: '#d97706' + '22',
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     promptTitle:  { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
     followTitle:  { fontSize: typography.size.sm, fontWeight: '700', color: '#d97706' },

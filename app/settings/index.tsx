@@ -24,7 +24,7 @@ import { getExpoPushToken, requestNotificationPermissions } from '../../src/lib/
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { AppLanguage, useLanguageStore } from '../../src/stores/language.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { colors, spacing } from '../../src/styles';
+import { colors, iconColors, spacing } from '../../src/styles';
 import { H1SectionHeader } from '../../src/ui-kit/H1SectionHeader';
 
 const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
@@ -64,7 +64,7 @@ export default function SettingsScreen() {
     headerShadowVisible: false,
     headerLeft: () => (
       <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, marginLeft: 0 }}>
-        <Ionicons name="arrow-back" size={26} color={colors.primary} />
+        <Ionicons name="arrow-back" size={26} color={iconColors.primary} />
       </TouchableOpacity>
     ),
   }), [router, t]);
@@ -239,11 +239,10 @@ export default function SettingsScreen() {
                   scale === option.value && styles.fontSizeButtonActive
                 ]}
               >
-                <MaterialCommunityIcons 
-                  name="format-size" 
-                  size={option.iconSize} 
-                  color={scale === option.value ? '#ffffff' : colors.primary}
-                  style={{ marginBottom: 4 }}
+                <MaterialCommunityIcons
+                  name="format-size"
+                  size={option.iconSize}
+                  color={scale === option.value ? '#ffffff' : iconColors.primary}
                 />
                 <Text
                   style={[
@@ -251,12 +250,12 @@ export default function SettingsScreen() {
                     { fontSize: scaledTypography.size.sm },
                     scale === option.value && styles.fontSizeButtonTextActive
                   ]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.6}
                 >
                   {getFontSizeLabel(option.value)}
                 </Text>
+                {scale === option.value && (
+                  <MaterialCommunityIcons name="check-circle" size={18} color="#fff" style={{ marginLeft: 'auto' }} />
+                )}
               </Pressable>
             ))}
           </View>
@@ -280,6 +279,7 @@ export default function SettingsScreen() {
                   language === lang && styles.fontSizeButtonActive
                 ]}
               >
+                <Text style={{ fontSize: 22 }}>{lang === 'vi' ? '🇻🇳' : '🇬🇧'}</Text>
                 <Text
                   style={[
                     styles.fontSizeButtonText,
@@ -289,6 +289,9 @@ export default function SettingsScreen() {
                 >
                   {lang === 'vi' ? t('languageVi') : t('languageEn')}
                 </Text>
+                {language === lang && (
+                  <MaterialCommunityIcons name="check-circle" size={18} color="#fff" style={{ marginLeft: 'auto' }} />
+                )}
               </Pressable>
             ))}
           </View>
@@ -377,21 +380,18 @@ function createSettingsStyles() { return StyleSheet.create({
     marginBottom: spacing.xs
   },
   fontSizeOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   fontSizeButton: {
-    width: '48%',
-    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.lg,
     backgroundColor: colors.surfaceMuted,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center'
   },
   fontSizeButtonActive: {
     backgroundColor: colors.primary,

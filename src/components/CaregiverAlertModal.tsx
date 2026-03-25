@@ -80,13 +80,11 @@ export function CaregiverAlertModal() {
         <View style={[styles.card, isEmergency && styles.cardEmergency]}>
           {/* Header */}
           <View style={styles.iconRow}>
-            <View style={[styles.iconWrap, { backgroundColor: isEmergency ? colors.danger + '22' : colors.premiumLight }]}>
-              <Ionicons
-                name={isEmergency ? 'warning' : 'heart-half'}
-                size={28}
-                color={isEmergency ? '#dc2626' : '#d97706'}
-              />
-            </View>
+            <Ionicons
+              name={isEmergency ? 'warning' : 'heart-half'}
+              size={28}
+              color={isEmergency ? '#dc2626' : '#d97706'}
+            />
             {alerts.length > 1 && (
               <Text style={styles.counter}>{current + 1}/{alerts.length}</Text>
             )}
@@ -159,13 +157,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-    },
-    iconWrap: {
-      width: 52,
-      height: 52,
-      borderRadius: radius.full,
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     counter: {
       fontSize: typography.size.xs,

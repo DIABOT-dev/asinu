@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +21,7 @@ import { Toast } from '../../src/components/Toast';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { careCircleApi, useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, radius, spacing, brandColors} from '../../src/styles';
+import { colors, iconColors, radius, spacing, brandColors} from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 type SearchUser = {
@@ -239,15 +238,7 @@ export default function InviteScreen() {
         <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.md }}>
         {/* ─── Hero ─── */}
         <View style={styles.heroCard}>
-            <LinearGradient
-              colors={[colors.primaryLight, colors.surface]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={styles.heroIconWrap}>
-              <MaterialCommunityIcons name="account-plus-outline" size={28} color={colors.primary} />
-            </View>
+            <MaterialCommunityIcons name="account-plus-outline" size={28} color={iconColors.primary} />
             <Text style={styles.heroTitle}>{t('inviteTitle')}</Text>
             <Text style={styles.heroSubtitle}>{t('inviteSubtitle')}</Text>
           </View>
@@ -255,9 +246,7 @@ export default function InviteScreen() {
         {/* ─── Phone Search ─── */}
         <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrap, { backgroundColor: brandColors.indigo + '18' }]}>
-                <MaterialCommunityIcons name="phone-outline" size={18} color="#3b82f6" />
-              </View>
+              <MaterialCommunityIcons name="phone-outline" size={18} color={iconColors.indigo} />
               <Text style={styles.cardTitle}>{t('searchByPhone')}</Text>
             </View>
 
@@ -346,9 +335,7 @@ export default function InviteScreen() {
         {/* ─── Relationship & Role ─── */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrap, { backgroundColor: brandColors.pink + '18' }]}>
-                <MaterialCommunityIcons name="heart-outline" size={18} color="#ec4899" />
-              </View>
+              <MaterialCommunityIcons name="heart-outline" size={18} color={iconColors.pink} />
               <Text style={styles.cardTitle}>{t('relationship')}</Text>
               <Text style={styles.optionalBadge}>{t('optional')}</Text>
             </View>
@@ -381,9 +368,7 @@ export default function InviteScreen() {
 
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrap, { backgroundColor: brandColors.violet + '18' }]}>
-                <MaterialCommunityIcons name="badge-account-horizontal-outline" size={18} color="#8b5cf6" />
-              </View>
+              <MaterialCommunityIcons name="badge-account-horizontal-outline" size={18} color={iconColors.violet} />
               <Text style={styles.cardTitle}>{t('role')}</Text>
               <Text style={styles.optionalBadge}>{t('optional')}</Text>
             </View>
@@ -417,9 +402,7 @@ export default function InviteScreen() {
         {/* ─── Permissions ─── */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrap, { backgroundColor: colors.emeraldLight }]}>
-                <MaterialCommunityIcons name="lock-open-outline" size={18} color="#10b981" />
-              </View>
+              <MaterialCommunityIcons name="lock-open-outline" size={18} color={iconColors.emerald} />
               <Text style={styles.cardTitle}>{t('permissions')}</Text>
             </View>
 
@@ -517,18 +500,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: radius.xl,
       padding: spacing.xl,
       alignItems: 'center',
-      overflow: 'hidden',
+      backgroundColor: colors.primaryLight,
       borderWidth: 1.5,
       borderColor: colors.primary + '22',
       gap: spacing.sm,
-    },
-    heroIconWrap: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: colors.primary + '15',
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     heroTitle: {
       fontSize: typography.size.lg,
@@ -560,13 +535,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       gap: spacing.sm,
       marginBottom: spacing.md,
-    },
-    cardIconWrap: {
-      width: 32,
-      height: 32,
-      borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     cardTitle: {
       fontSize: typography.size.sm,

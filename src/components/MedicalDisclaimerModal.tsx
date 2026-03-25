@@ -36,9 +36,7 @@ export function MedicalDisclaimerModal({ visible, onClose }: Props) {
       <View style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.card}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="warning" size={36} color={colors.warning} />
-          </View>
+          <Ionicons name="warning" size={36} color={colors.warning} />
 
           <Text style={styles.title}>
             {t('medicalWarningTitle')}
@@ -103,15 +101,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       shadowRadius: 20,
       shadowOffset: { width: 0, height: 8 },
       elevation: 10,
-    },
-    iconWrap: {
-      width: 68,
-      height: 68,
-      borderRadius: 34,
-      backgroundColor: colors.premiumLight,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: spacing.xs,
     },
     title: {
       fontSize: typography.size.md,

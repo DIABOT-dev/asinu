@@ -163,9 +163,7 @@ export default function TreeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.headerCard}
         >
-          <View style={styles.headerIconContainer}>
-            <FontAwesome5 name="tree" size={28} color="#fff" />
-          </View>
+          <FontAwesome5 name="tree" size={28} color="#fff" />
           <Text style={styles.headerTitle}>{t('healthTree')}</Text>
           <Text style={styles.headerSubtitle}>{t('summaryFromLogs')}</Text>
         </LinearGradient>
@@ -173,9 +171,7 @@ export default function TreeScreen() {
         {/* Giải thích cách tính điểm */}
         <View style={styles.infoBox}>
           <View style={styles.infoTitleRow}>
-            <View style={styles.infoIconBg}>
-              <Ionicons name="bar-chart" size={16} color="#fff" />
-            </View>
+            <Ionicons name="bar-chart" size={16} color={colors.textSecondary} />
             <Text style={styles.infoTitle}>{t('scoringMethod')}</Text>
           </View>
           <View style={styles.infoItem}>
@@ -204,9 +200,7 @@ export default function TreeScreen() {
           </View>
           <View style={styles.streakCard}>
             <View style={styles.streakItem}>
-              <View style={[styles.streakIconBg, { backgroundColor: colors.premiumLight }]}>
-                <Ionicons name="flame" size={20} color={colors.premium} />
-              </View>
+              <Ionicons name="flame" size={20} color={colors.premium} />
               <View style={styles.streakContent}>
                 <Text style={styles.streakValue}>{summary?.streakDays ?? 0}</Text>
                 <Text style={styles.streakLabel}>{t('consecutiveDays')}</Text>
@@ -214,9 +208,7 @@ export default function TreeScreen() {
             </View>
             <View style={styles.streakDivider} />
             <View style={styles.streakItem}>
-              <View style={[styles.streakIconBg, { backgroundColor: colors.emeraldLight }]}>
-                <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
-              </View>
+              <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
               <View style={styles.streakContent}>
                 <Text style={styles.streakValue}>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
                 <Text style={styles.streakLabel}>{t('todayMissions')}</Text>
@@ -302,15 +294,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     shadowRadius: 12,
     elevation: 8
   },
-  headerIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md
-  },
   headerTitle: {
     fontSize: typography.size.xl,
     fontWeight: '700',
@@ -335,14 +318,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.xs
-  },
-  infoIconBg: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: colors.primaryDark,
-    justifyContent: 'center',
-    alignItems: 'center'
   },
   infoTitle: {
     fontSize: typography.size.md,
@@ -393,13 +368,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm
-  },
-  streakIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center'
   },
   streakContent: {
     flex: 1

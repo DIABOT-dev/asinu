@@ -418,9 +418,7 @@ function StatusScreen({
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
-              <View style={[styles.statusIconCircle, { backgroundColor: opt.color + '1a' }]}>
-                <MaterialCommunityIcons name={opt.icon} size={28} color={opt.color} />
-              </View>
+              <MaterialCommunityIcons name={opt.icon} size={28} color={opt.color} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.statusLabel, { color: opt.color }]}>{t(opt.labelKey)}</Text>
                 <Text style={styles.statusSub}>{t(opt.sublabelKey)}</Text>
@@ -733,9 +731,7 @@ function TriageScreen({
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowUpgradeModal(false)} />
           <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
-              <MaterialCommunityIcons name="microphone" size={32} color={colors.premium} />
-            </View>
+            <MaterialCommunityIcons name="microphone" size={32} color={colors.premium} />
             <Text style={styles.modalTitle}>{tc('voicePremiumTitle')}</Text>
             <Text style={styles.modalDesc}>{tc('voicePremiumDesc')}</Text>
             <Pressable
@@ -782,14 +778,10 @@ function DoneScreen({
     <View style={styles.section}>
       {/* Hero icon */}
       <Animated.View entering={FadeIn.duration(500)} style={styles.doneHero}>
-        <View style={[styles.doneCircleOuter, { backgroundColor: isFine ? colors.emeraldLight : severityBg }]}>
-          <View style={[styles.doneCircleInner, { backgroundColor: isFine ? '#16a34a' : severityColor }]}>
-            {isFine
-              ? <Ionicons name="checkmark" size={36} color="#fff" />
-              : <Ionicons name={severityIcon as any} size={36} color="#fff" />
-            }
-          </View>
-        </View>
+        {isFine
+          ? <Ionicons name="checkmark-circle" size={64} color={colors.emerald} />
+          : <Ionicons name={severityIcon as any} size={64} color={severityColor} />
+        }
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(150).duration(400)}>
@@ -800,9 +792,7 @@ function DoneScreen({
 
       {isFine ? (
         <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.fineCard}>
-          <View style={styles.fineIconWrap}>
-            <Ionicons name="time-outline" size={22} color={colors.primary} />
-          </View>
+          <Ionicons name="time-outline" size={22} color={colors.primary} />
           <Text style={styles.fineCardText}>
             {isFollowUp ? t('checkinDoneEveningSub') : t('checkinDoneFineSub')}
           </Text>
@@ -929,13 +919,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
       elevation: 3,
-    },
-    statusIconCircle: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     statusLabel: { fontSize: typography.size.md, fontWeight: '700' },
     statusSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
@@ -1209,14 +1192,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       gap: spacing.md,
     },
-    modalIconWrap: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: colors.premiumLight,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
     modalTitle: {
       fontSize: typography.size.md,
       fontWeight: '800',
@@ -1286,25 +1261,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
 
     // ── Done screen ──
     doneHero: { alignItems: 'center' },
-    doneCircleOuter: {
-      width: 96,
-      height: 96,
-      borderRadius: 48,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    doneCircleInner: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 4,
-    },
 
     fineCard: {
       flexDirection: 'row',
@@ -1315,14 +1271,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       padding: spacing.lg,
       borderWidth: 1.5,
       borderColor: colors.primary + '28',
-    },
-    fineIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.primary + '1a',
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     fineCardText: {
       fontSize: typography.size.sm,

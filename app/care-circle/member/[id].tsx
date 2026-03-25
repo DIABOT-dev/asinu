@@ -215,9 +215,7 @@ export default function MemberLogsScreen() {
                   const value = getLogValue(log);
                   return (
                     <View key={log.id} style={styles.logCard}>
-                      <View style={[styles.logIcon, { backgroundColor: cfg.bg }]}>
-                        <MaterialCommunityIcons name={cfg.icon as any} size={20} color={cfg.color} />
-                      </View>
+                      <MaterialCommunityIcons name={cfg.icon as any} size={20} color={cfg.color} />
                       <View style={styles.logInfo}>
                         <Text style={styles.logType}>{cfg.label}</Text>
                         {value !== '' && <Text style={styles.logValue}>{value}</Text>}
@@ -261,9 +259,7 @@ export default function MemberLogsScreen() {
                   {/* Header row */}
                   <View style={styles.checkinHeader}>
                     {statusCfg && (
-                      <View style={[styles.checkinIconWrap, { backgroundColor: statusCfg.bg }]}>
-                        <MaterialCommunityIcons name={statusCfg.icon as any} size={22} color={statusCfg.color} />
-                      </View>
+                      <MaterialCommunityIcons name={statusCfg.icon as any} size={22} color={statusCfg.color} />
                     )}
                     <View style={styles.checkinHeaderInfo}>
                       <Text style={styles.checkinDate}>{formatCheckinDateTime(session.created_at)}</Text>
@@ -375,7 +371,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderColor: colors.border,
       gap: spacing.md,
     },
-    logIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     logInfo: { flex: 1, gap: 2 },
     logType: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textPrimary },
     logValue: { fontSize: typography.size.md, fontWeight: '700', color: colors.primary },
@@ -395,13 +390,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-    },
-    checkinIconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     checkinHeaderInfo: { flex: 1 },
     checkinDate: {

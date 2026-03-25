@@ -14,7 +14,7 @@ import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, spacing, brandColors} from '../../src/styles';
+import { colors, iconColors, spacing, brandColors} from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 export default function CareCircleScreen() {
@@ -36,7 +36,7 @@ export default function CareCircleScreen() {
     headerShadowVisible: false,
     headerLeft: () => (
       <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, marginLeft: 0 }}>
-        <Ionicons name="arrow-back" size={26} color={colors.primary} />
+        <Ionicons name="arrow-back" size={26} color={iconColors.primary} />
       </TouchableOpacity>
     ),
   }), [router, t]);
@@ -299,51 +299,50 @@ export default function CareCircleScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Header - Full Width */}
-        <LinearGradient
-          colors={[colors.emerald, colors.emeraldDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
-        >
-          <View style={styles.heroIconBg}>
-            <MaterialCommunityIcons name="account-group" size={36} color="#fff" />
-          </View>
+        <View style={styles.heroBanner}>
+          <MaterialCommunityIcons name="account-group" size={36} color={iconColors.emerald} />
           <Text style={styles.heroTitle}>{t('title')}</Text>
           <Text style={styles.heroSubtitle}>{t('subtitle')}</Text>
-        </LinearGradient>
+        </View>
         
-        {/* Stats Row - With Horizontal Padding */}
+        {/* Stats — 3 rows */}
         <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: colors.emeraldLight }]}>
-                <Ionicons name="people" size={18} color={colors.emerald} />
-              </View>
-              <Text style={styles.statValue}>{connections.length}</Text>
-              <Text style={styles.statLabel}>{t('connections')}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: colors.premiumLight }]}>
-                <Ionicons name="mail" size={18} color={colors.premium} />
-              </View>
-              <Text style={styles.statValue}>{receivedInvitations.length}</Text>
-              <Text style={styles.statLabel}>{t('received')}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: brandColors.indigo + '22' }]}>
-                <Ionicons name="send" size={18} color="#3b82f6" />
-              </View>
-              <Text style={styles.statValue}>{sentInvitations.length}</Text>
-              <Text style={styles.statLabel}>{t('sent')}</Text>
-            </View>
+          <View style={styles.statCard}>
+            <Ionicons name="people" size={20} color={iconColors.emerald} />
+            <Text style={styles.statLabel}>{t('connections')}</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.statValue}>{connections.length}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="mail-unread" size={20} color={iconColors.premium} />
+            <Text style={styles.statLabel}>{t('received')}</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.statValue}>{receivedInvitations.length}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="send" size={18} color={iconColors.glucose} />
+            <Text style={styles.statLabel}>{t('sent')}</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.statValue}>{sentInvitations.length}</Text>
           </View>
         </View>
 
         {/* Invite Button */}
         <View style={styles.section}>
-          <Pressable style={styles.inviteButton} onPress={() => router.push('/care-circle/invite')}>
-            <Text style={styles.inviteButtonText}>{t('inviteNew')}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          <Pressable
+            onPress={() => router.push('/care-circle/invite')}
+            style={({ pressed }) => [styles.inviteButton, pressed && styles.inviteButtonPressed]}
+          >
+            <LinearGradient
+              colors={['#5ba8a0', '#3d8f87']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.inviteButtonGradient}
+            >
+              <Ionicons name="person-add" size={20} color="#fff" />
+              <Text style={styles.inviteButtonText}>{t('inviteNew')}</Text>
+              <Ionicons name="arrow-forward-circle" size={22} color="rgba(255,255,255,0.8)" style={{ marginLeft: 'auto' }} />
+            </LinearGradient>
           </Pressable>
         </View>
 
@@ -351,9 +350,7 @@ export default function CareCircleScreen() {
         {receivedInvitations.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconBg, { backgroundColor: colors.premiumLight }]}>
-                <Ionicons name="mail-unread" size={16} color={colors.premium} />
-              </View>
+              <Ionicons name="mail-unread" size={16} color={iconColors.premium} />
               <Text style={styles.sectionTitle}>{t('receivedInvitations', { count: receivedInvitations.length })}</Text>
             </View>
             {receivedInvitations.map((invitation) => {
@@ -383,7 +380,7 @@ export default function CareCircleScreen() {
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardName}>{requesterName}</Text>
                     <View style={styles.cardBadge}>
-                      <Ionicons name="link" size={12} color={colors.primary} />
+                      <Ionicons name="link" size={12} color={iconColors.primary} />
                       <Text style={styles.cardRelation}>
                         {invitation.relationship_type || invitation.role || t('connection')}
                       </Text>
@@ -425,9 +422,7 @@ export default function CareCircleScreen() {
         {sentInvitations.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconBg, { backgroundColor: brandColors.indigo + '22' }]}>
-                <Ionicons name="send" size={16} color="#3b82f6" />
-              </View>
+              <Ionicons name="send" size={16} color={iconColors.glucose} />
               <Text style={styles.sectionTitle}>{t('sentInvitations', { count: sentInvitations.length })}</Text>
             </View>
             {sentInvitations.map((invitation) => {
@@ -453,7 +448,7 @@ export default function CareCircleScreen() {
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardName}>{name}</Text>
                     <View style={styles.pendingBadge}>
-                      <Ionicons name="time" size={12} color={colors.premium} />
+                      <Ionicons name="time" size={12} color={iconColors.premium} />
                       <Text style={styles.cardStatus}>{t('waitingResponse')}</Text>
                     </View>
                   </View>
@@ -463,8 +458,8 @@ export default function CareCircleScreen() {
                     disabled={actionLoading === invitation.id}
                   >
                     {actionLoading === invitation.id
-                      ? <ActivityIndicator size="small" color={colors.danger} />
-                      : <Ionicons name="close-circle" size={22} color={colors.danger} />}
+                      ? <ActivityIndicator size="small" color={iconColors.danger} />
+                      : <Ionicons name="close-circle" size={22} color={iconColors.danger} />}
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
@@ -476,15 +471,13 @@ export default function CareCircleScreen() {
         {/* Active Connections */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIconBg, { backgroundColor: colors.emeraldLight }]}>
-              <Ionicons name="people" size={16} color={colors.emerald} />
-            </View>
+            <Ionicons name="people" size={16} color={iconColors.emerald} />
             <Text style={styles.sectionTitle}>
               {t('activeConnections', { count: connections.length })}
             </Text>
           </View>
           {(loading || refreshing) && connections.length === 0 ? (
-            <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+            <ActivityIndicator size="large" color={iconColors.primary} style={styles.loader} />
           ) : connections.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconBg}>
@@ -549,7 +542,7 @@ export default function CareCircleScreen() {
                         )}
                         {(displayRelationship || connection.role) && (
                           <View style={styles.cardBadge}>
-                            <Ionicons name="heart" size={12} color={colors.primary} />
+                            <Ionicons name="heart" size={12} color={iconColors.primary} />
                             <Text style={styles.cardRelation}>
                               {displayRelationship || connection.role}
                             </Text>
@@ -563,7 +556,7 @@ export default function CareCircleScreen() {
                         onPress={() => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` })}
                         style={styles.iconBtn}
                       >
-                        <Ionicons name="pencil" size={18} color={colors.primary} />
+                        <Ionicons name="pencil" size={18} color={iconColors.primary} />
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -572,9 +565,9 @@ export default function CareCircleScreen() {
                         style={styles.iconBtn}
                       >
                         {actionLoading === connection.id ? (
-                          <ActivityIndicator size="small" color={colors.danger} />
+                          <ActivityIndicator size="small" color={iconColors.danger} />
                         ) : (
-                          <Ionicons name="trash" size={18} color={colors.danger} />
+                          <Ionicons name="trash" size={18} color={iconColors.danger} />
                         )}
                       </TouchableOpacity>
                     </View>
@@ -602,13 +595,13 @@ export default function CareCircleScreen() {
               <Text style={styles.profileName}>{profileTarget?.name}</Text>
               {profileTarget?.relationship ? (
                 <View style={styles.profileBadge}>
-                  <Ionicons name="heart" size={13} color={colors.primary} />
+                  <Ionicons name="heart" size={13} color={iconColors.primary} />
                   <Text style={styles.profileBadgeText}>{profileTarget.relationship}</Text>
                 </View>
               ) : null}
               {profileTarget?.role ? (
                 <View style={[styles.profileBadge, { backgroundColor: colors.premiumLight }]}>
-                  <Ionicons name="briefcase-outline" size={13} color={colors.premium} />
+                  <Ionicons name="briefcase-outline" size={13} color={iconColors.premium} />
                   <Text style={[styles.profileBadgeText, { color: colors.premiumDark }]}>{profileTarget.role}</Text>
                 </View>
               ) : null}
@@ -634,7 +627,7 @@ export default function CareCircleScreen() {
                   style={styles.cancelInviteBtn}
                   onPress={() => { setProfileTarget(null); handleCancel(profileTarget.invitationId!); }}
                 >
-                  <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
+                  <Ionicons name="close-circle-outline" size={18} color={iconColors.danger} />
                   <Text style={styles.cancelInviteBtnText}>{t('cancelInvite') || 'Huỷ lời mời'}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -658,12 +651,7 @@ export default function CareCircleScreen() {
               contentContainerStyle={styles.modalContent}
             >
               <View style={styles.modalHeader}>
-                <LinearGradient
-                  colors={['#6366f1', '#8b5cf6']}
-                  style={styles.modalIconBg}
-                >
-                  <Ionicons name="person" size={24} color="#fff" />
-                </LinearGradient>
+                <Ionicons name="person" size={24} color={iconColors.indigo} />
                 <Text style={styles.modalTitle}>{t('editConnection')}</Text>
                 <Text style={styles.modalSubtitle}>{editConnection?.name}</Text>
               </View>
@@ -737,42 +725,35 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     marginHorizontal: spacing.lg,
     borderRadius: 20,
-    overflow: 'hidden',
+    backgroundColor: colors.emeraldLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.sm,
   },
   statsContainer: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.lg,
     marginBottom: spacing.lg,
-  },
-  heroIconBg: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   heroTitle: {
     fontSize: typography.size.lg,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   heroSubtitle: {
     fontSize: typography.size.md,
-    color: 'rgba(255,255,255,0.85)',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+    color: colors.textSecondary,
   },
   statCard: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: 14,
-    padding: spacing.md,
-    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderWidth: 1.5,
     borderColor: colors.border,
     shadowColor: '#000',
@@ -781,22 +762,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     shadowRadius: 4,
     elevation: 2,
   },
-  statIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
   statValue: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   statLabel: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
+    fontSize: typography.size.sm,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   section: {
     paddingHorizontal: spacing.lg,
@@ -808,31 +782,35 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  sectionIconBg: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   sectionTitle: {
     fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   inviteButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  inviteButtonPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.98 }],
+  },
+  inviteButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 10,
+    gap: spacing.md,
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing.lg,
   },
   inviteButtonText: {
-    color: colors.primary,
+    color: '#fff',
     fontSize: typography.size.md,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   card: {
     backgroundColor: colors.surface,
@@ -917,7 +895,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1060,14 +1037,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   modalHeader: {
     alignItems: 'center',
     marginBottom: spacing.lg,
-  },
-  modalIconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
   modalTitle: {
     fontSize: 20,

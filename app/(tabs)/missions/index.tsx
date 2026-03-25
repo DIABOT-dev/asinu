@@ -87,9 +87,7 @@ export default function MissionsScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.headerCard}
         >
-          <View style={styles.headerIconContainer}>
-            <MaterialCommunityIcons name="flag-checkered" size={32} color="#fff" />
-          </View>
+          <MaterialCommunityIcons name="flag-checkered" size={32} color="#fff" />
           <Text style={styles.headerTitle}>{t('dailyMissions')}</Text>
           <Text style={styles.headerSubtitle}>{t('refreshDaily')}</Text>
         </LinearGradient>
@@ -114,9 +112,7 @@ export default function MissionsScreen() {
         {/* Thông tin hướng dẫn */}
         <View style={styles.infoCard}>
           <View style={styles.infoTitleRow}>
-            <View style={styles.infoIconBg}>
-              <Ionicons name="information-circle" size={18} color="#fff" />
-            </View>
+            <Ionicons name="information-circle" size={18} color={colors.textSecondary} />
             <Text style={styles.infoTitle}>{t('howItWorks')}</Text>
           </View>
           <View style={styles.infoItem}>
@@ -230,15 +226,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     shadowRadius: 12,
     elevation: 8
   },
-  headerIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md
-  },
   headerTitle: {
     fontSize: typography.size.xl,
     fontWeight: '700',
@@ -294,14 +281,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.xs
-  },
-  infoIconBg: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center'
   },
   infoTitle: {
     fontSize: typography.size.md,

@@ -27,7 +27,7 @@ import {
   type NotificationPreferences,
 } from '../../src/features/notifications/notifications.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, radius, spacing } from '../../src/styles';
+import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 type TimeSlot = 'morning' | 'afternoon' | 'evening';
@@ -479,15 +479,7 @@ export default function ReminderConfigScreen() {
           {/* Hero */}
           <Animated.View entering={FadeIn.duration(400)}>
             <View style={styles.heroCard}>
-              <LinearGradient
-                colors={['#fffbeb', '#fff']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.heroIconWrap}>
-                <MaterialCommunityIcons name="bell-ring-outline" size={28} color="#f59e0b" />
-              </View>
+              <MaterialCommunityIcons name="bell-ring-outline" size={28} color="#f59e0b" />
               <View style={styles.heroTextWrap}>
                 <Text style={styles.heroTitle}>{t('scheduleTitle')}</Text>
                 <Text style={styles.heroSubtitle}>{t('scheduleHint')}</Text>
@@ -498,13 +490,11 @@ export default function ReminderConfigScreen() {
           {/* Reminders Toggle */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <View style={styles.toggleCard}>
-              <View style={[styles.toggleIconWrap, { backgroundColor: prefs?.reminders_enabled ? colors.emeraldLight : colors.surfaceMuted }]}>
-                <MaterialCommunityIcons
-                  name={prefs?.reminders_enabled ? 'bell-check' : 'bell-off-outline'}
-                  size={22}
-                  color={prefs?.reminders_enabled ? '#16a34a' : colors.textSecondary}
-                />
-              </View>
+              <MaterialCommunityIcons
+                name={prefs?.reminders_enabled ? 'bell-check' : 'bell-off-outline'}
+                size={22}
+                color={prefs?.reminders_enabled ? iconColors.emerald : colors.textSecondary}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={styles.toggleTitle}>{t('taskReminders')}</Text>
                 <Text style={styles.toggleDesc}>{t('taskRemindersDesc')}</Text>
@@ -528,21 +518,13 @@ export default function ReminderConfigScreen() {
             return (
               <Animated.View key={meta.slot} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
                 <Pressable
-                  style={[styles.scheduleCard, disabled && { opacity: 0.5 }]}
+                  style={[styles.scheduleCard, { backgroundColor: meta.iconBg }, disabled && { opacity: 0.5 }]}
                   onPress={() => !disabled && setPickerSlot(meta.slot)}
                   disabled={disabled}
                 >
-                  <LinearGradient
-                    colors={meta.gradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                  />
 
                   <View style={styles.scheduleTop}>
-                    <View style={[styles.scheduleIconWrap, { backgroundColor: meta.iconBg }]}>
-                      <MaterialCommunityIcons name={meta.icon} size={24} color={meta.iconColor} />
-                    </View>
+                    <MaterialCommunityIcons name={meta.icon} size={24} color={meta.iconColor} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.scheduleLabel}>{t(meta.labelKey)}</Text>
                       <Text style={styles.scheduleDesc}>{t(meta.descKey)}</Text>
@@ -605,15 +587,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       borderRadius: radius.xl,
       padding: spacing.lg,
-      overflow: 'hidden',
+      backgroundColor: '#fffbeb',
       borderWidth: 1.5,
       borderColor: '#f59e0b22',
       gap: spacing.md,
-    },
-    heroIconWrap: {
-      width: 52, height: 52, borderRadius: 18,
-      backgroundColor: colors.premiumLight,
-      alignItems: 'center', justifyContent: 'center',
     },
     heroTextWrap: { flex: 1 },
     heroTitle: { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
@@ -625,7 +602,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.surface, borderRadius: radius.xl,
       padding: spacing.lg, borderWidth: 1.5, borderColor: colors.border, gap: spacing.md,
     },
-    toggleIconWrap: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     toggleTitle: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
     toggleDesc: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2 },
 
@@ -633,7 +609,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     scheduleCard: {
       borderRadius: radius.xl,
       padding: spacing.lg,
-      overflow: 'hidden',
       borderWidth: 1.5,
       borderColor: colors.border,
       gap: spacing.md,
@@ -641,7 +616,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       shadowOffset: { width: 0, height: 2 }, elevation: 2,
     },
     scheduleTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-    scheduleIconWrap: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     scheduleLabel: { fontSize: typography.size.md, fontWeight: '700', color: colors.textPrimary },
     scheduleDesc: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
 
