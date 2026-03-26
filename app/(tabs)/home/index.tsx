@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
@@ -24,6 +24,7 @@ import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useNotificationStore } from '../../../src/stores/notification.store';
+import { useToastStore } from '../../../src/stores/toast.store';
 import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
@@ -56,6 +57,9 @@ function InfoButton({ text, styles }: { text: string; styles: any }) {
 }
 
 export default function HomeScreen() {
+  const flushPending = useToastStore((s) => s.flushPending);
+  useEffect(() => { flushPending(); }, []);
+
   const { t } = useTranslation('home');
   const { t: tc } = useTranslation('common');
   const [isChatOpen, setChatOpen] = useState(false);
@@ -98,11 +102,15 @@ export default function HomeScreen() {
 
   // Fetch notifications on mount and periodically - only when logged in
   useEffect(() => {
-    if (!profile) return; // Don't fetch if not logged in
+    if (!profile) return;
 
     fetchFromBackend();
-    const interval = setInterval(fetchFromBackend, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchFromBackend, 30000);
+    // Re-fetch immediately when app comes to foreground
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') fetchFromBackend();
+    });
+    return () => { clearInterval(interval); sub.remove(); };
   }, [fetchFromBackend, profile]);
 
   // Auto-show check-in screen if not yet checked in today
@@ -189,9 +197,6 @@ export default function HomeScreen() {
             <Text style={styles.heroName}>{profile?.name || t('defaultName')}</Text>
             <Text style={styles.heroSummary}>{t('heroSummary')}</Text>
           </View>
-          <Pressable style={styles.heroSettingsBtn} onPress={() => router.push('/settings')}>
-            <Ionicons name="settings-outline" size={22} color="#fff" />
-          </Pressable>
         </LinearGradient>
         </Animated.View>
 

@@ -159,8 +159,9 @@ export const useMissionsStore = create<MissionsState>((set) => ({
       set({ missions: getFallbackMissions(), status: 'success', isStale: false, errorState: 'none' });
       return;
     }
+    const todayKey = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' — cache hết hạn khi sang ngày mới
     let usedCache = false;
-    const cachedRecords = await localCache.getCached<MissionRecord[]>(CACHE_KEYS.MISSIONS, '1');
+    const cachedRecords = await localCache.getCached<MissionRecord[]>(CACHE_KEYS.MISSIONS, todayKey);
     if (cachedRecords) {
       // Re-map with current language on every read (don't use cached title strings)
       set({ missions: cachedRecords.map(mapMission), status: 'success', isStale: true, errorState: 'none' });
@@ -175,7 +176,7 @@ export const useMissionsStore = create<MissionsState>((set) => ({
 
       set({ missions, status: 'success', isStale: false, errorState: 'none' });
       // Cache raw records (not mapped) so re-mapping always uses current language
-      await localCache.setCached(CACHE_KEYS.MISSIONS, '1', missionRecords);
+      await localCache.setCached(CACHE_KEYS.MISSIONS, todayKey, missionRecords);
     } catch (error) {
       // Ignore AbortError - it's expected when component unmounts
       if (error instanceof Error && error.name === 'AbortError') {

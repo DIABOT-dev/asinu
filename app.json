@@ -45,7 +45,9 @@
         "foregroundImage": "./assets/android/adaptive-foreground.png",
         "backgroundColor": "#47BFEA"
       },
-      "permissions": ["android.permission.RECORD_AUDIO"],
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -55,7 +57,10 @@
               "scheme": "com.googleusercontent.apps.726570048913-0oj1afglacg0h4p77toi6kvr6buh46j8"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },

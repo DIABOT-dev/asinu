@@ -411,7 +411,7 @@ export default function InviteScreen() {
                 key={perm.key}
                 style={[styles.permissionRow, i === PERM_META.length - 1 && { borderBottomWidth: 0 }]}
               >
-                <View style={[styles.permIconWrap, { backgroundColor: perm.bg }]}>
+                <View style={styles.permIconWrap}>
                   <MaterialCommunityIcons name={perm.icon} size={18} color={perm.color} />
                 </View>
                 <View style={styles.permissionInfo}>

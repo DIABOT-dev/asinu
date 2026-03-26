@@ -3,10 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
-import { showToast } from '../../src/stores/toast.store';
+import { showToast, setPendingToast } from '../../src/stores/toast.store';
 const DeleteAccountModal = React.lazy(() => import('../../src/components/DeleteAccountModal'));
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -15,7 +15,6 @@ import { authApi } from '../../src/features/auth/auth.api';
 import { apiClient } from '../../src/lib/apiClient';
 import {
   getNotificationPreferences,
-  updateNotificationPreferences,
   type NotificationPreferences,
 } from '../../src/features/notifications/notifications.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
@@ -50,6 +49,7 @@ export default function SettingsScreen() {
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [schedulePrefs, setSchedulePrefs] = useState<NotificationPreferences | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -171,11 +171,9 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
-    showToast(t('logoutSuccess'), 'success');
-    setTimeout(async () => {
-      await logout();
-      router.replace('/login');
-    }, 1200);
+    await logout();
+    setPendingToast(t('logoutSuccess'), 'success');
+    router.replace('/login');
   };
 
   const getFontSizeLabel = (value: FontSizeScale): string => {
@@ -330,7 +328,7 @@ export default function SettingsScreen() {
 
         {/* Dev Test Button — hidden in production */}
 
-        <Button label={t('logout')} variant="warning" onPress={handleLogout} style={{ marginTop: spacing.xl }} />
+        <Button label={t('logout')} variant="warning" onPress={() => setShowLogoutModal(true)} style={{ marginTop: spacing.xl }} />
         
         <Pressable 
           style={styles.deleteAccountButton}
@@ -346,6 +344,31 @@ export default function SettingsScreen() {
           {t('version')}
         </Text>
       </ScrollView>
+
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowLogoutModal(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.modalIconWrap}>
+              <Ionicons name="log-out-outline" size={32} color={colors.warning ?? '#F59E0B'} />
+            </View>
+            <Text style={styles.modalTitle}>{t('logoutConfirmTitle')}</Text>
+            <Text style={styles.modalMessage}>{t('logoutConfirmMessage')}</Text>
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setShowLogoutModal(false)}>
+                <Text style={styles.modalBtnCancelText}>{tc('cancel')}</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalBtnConfirm]} onPress={() => { setShowLogoutModal(false); handleLogout(); }}>
+                <Text style={styles.modalBtnConfirmText}>{t('logout')}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {showDeleteModal && (
         <Suspense fallback={null}>
@@ -465,6 +488,75 @@ function createSettingsStyles() { return StyleSheet.create({
     fontWeight: '600',
   },
   chipTextActive: {
+    color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: spacing.xl,
+    width: '100%',
+    alignItems: 'center',
+    gap: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+    width: '100%',
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalBtnCancel: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  modalBtnConfirm: {
+    backgroundColor: '#F59E0B',
+  },
+  modalBtnCancelText: {
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  modalBtnConfirmText: {
+    fontWeight: '700',
     color: '#fff',
   },
   deleteAccountButton: {

@@ -108,4 +108,4 @@ export const M1MetricCard = React.memo(({
       <Text style={[styles.helper, { fontSize: scaledTypography.size.sm }]}>{footnote || t(trendKeys[trend])}</Text>
     </Container>
   );
-}));
+})

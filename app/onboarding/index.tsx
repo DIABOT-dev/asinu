@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -22,6 +22,7 @@ import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.stor
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { useToastStore } from '../../src/stores/toast.store';
 
 const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
   { value: 'small', iconSize: 16 },
@@ -135,9 +136,6 @@ function Chip({ label, active, onPress, fullWidth }: ChipProps) {
       ]}
     >
       <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
         style={[chipStyles.chipText, { fontSize: scaledTypography.size.sm }, active && chipStyles.chipTextActive]}
       >
         {label}
@@ -198,6 +196,9 @@ function SectionLabel({ label }: { label: string }) {
 // ─── Main component ──────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
+  const flushPending = useToastStore((s) => s.flushPending);
+  useEffect(() => { flushPending(); }, []);
+
   const { t } = useTranslation('onboarding');
   const { t: tc } = useTranslation('common');
   const { t: ts } = useTranslation('settings');
@@ -810,9 +811,9 @@ function Step2({
 
       <View style={styles.questionCard}>
         <SectionLabel label={t('dailyMedication')} />
-        <View style={styles.threeColRow}>
+        <View style={styles.diseaseGrid}>
           {MEDICATION_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.threeColItem}>
+            <View key={opt.value} style={styles.diseaseGridItem}>
               <Chip
                 label={t(opt.labelKey)}
                 active={medication === opt.value}
@@ -884,9 +885,9 @@ function Step3({
 
       <View style={styles.questionCard}>
         <SectionLabel label={t('sleepHours')} />
-        <View style={styles.threeColRow}>
+        <View style={styles.diseaseGrid}>
           {SLEEP_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.threeColItem}>
+            <View key={opt.value} style={styles.diseaseGridItem}>
               <Chip
                 label={t(opt.labelKey)}
                 active={sleepHours === opt.value}
@@ -929,9 +930,9 @@ function Step4({
 
       <View style={styles.questionCard}>
         <SectionLabel label={t('mealsPerDay')} />
-        <View style={styles.threeColRow}>
+        <View style={styles.diseaseGrid}>
           {MEALS_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.threeColItem}>
+            <View key={opt.value} style={styles.diseaseGridItem}>
               <Chip
                 label={t(opt.labelKey)}
                 active={mealsPerDay === opt.value}
@@ -945,9 +946,9 @@ function Step4({
 
       <View style={styles.questionCard}>
         <SectionLabel label={t('postMealDrowsy')} />
-        <View style={styles.threeColRow}>
+        <View style={styles.diseaseGrid}>
           {DROWSY_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.threeColItem}>
+            <View key={opt.value} style={styles.diseaseGridItem}>
               <Chip
                 label={t(opt.labelKey)}
                 active={postMealDrowsy === opt.value}
@@ -961,9 +962,9 @@ function Step4({
 
       <View style={styles.questionCard}>
         <SectionLabel label={t('dinnerTime')} />
-        <View style={styles.threeColRow}>
+        <View style={styles.diseaseGrid}>
           {DINNER_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.threeColItem}>
+            <View key={opt.value} style={styles.diseaseGridItem}>
               <Chip
                 label={t(opt.labelKey)}
                 active={dinnerTime === opt.value}
@@ -977,9 +978,9 @@ function Step4({
 
       <View style={styles.questionCard}>
         <SectionLabel label={t('sweetIntake')} />
-        <View style={styles.threeColRow}>
+        <View style={styles.diseaseGrid}>
           {SWEET_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.threeColItem}>
+            <View key={opt.value} style={styles.diseaseGridItem}>
               <Chip
                 label={t(opt.labelKey)}
                 active={sweetIntake === opt.value}
@@ -1147,17 +1148,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexGrow: 1,
     } as any,
     diseaseGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection: 'column',
       gap: spacing.sm,
     },
     diseaseGridItem: {
-      flexBasis: '47%',
-      flexGrow: 1,
-      flexShrink: 1,
+      alignSelf: 'stretch',
     } as any,
     diseaseFooterRow: {
-      flexDirection: 'row',
+      flexDirection: 'column',
       gap: spacing.sm,
       marginTop: spacing.xs,
     },

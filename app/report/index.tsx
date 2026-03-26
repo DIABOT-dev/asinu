@@ -138,7 +138,7 @@ export default function ReportScreen() {
                 style={StyleSheet.absoluteFill}
               />
               <View style={styles.trendTop}>
-                <View style={[styles.trendIconWrap, { backgroundColor: TREND_META[report.trend]?.color + '1a' }]}>
+                <View style={styles.trendIconWrap}>
                   <MaterialCommunityIcons
                     name={TREND_META[report.trend]?.icon ?? 'minus'}
                     size={28}
@@ -172,7 +172,7 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={[styles.cardIconWrap, { backgroundColor: brandColors.orange + '22' }]}>
+                <View style={styles.cardIconWrap}>
                   <MaterialCommunityIcons name="chart-bar" size={18} color="#f59e0b" />
                 </View>
                 <Text style={styles.cardTitle}>{t('severityTitle')}</Text>
@@ -192,7 +192,7 @@ export default function ReportScreen() {
                         </View>
                       </View>
                       <Text style={[styles.barCount, { color: SEVERITY_COLORS[sev] }]}>{report.severityDistribution[sev]}</Text>
-                      <View style={[styles.barIconWrap, { backgroundColor: SEVERITY_BG[sev] }]}>
+                      <View style={styles.barIconWrap}>
                         <MaterialCommunityIcons name={SEVERITY_ICON[sev]} size={14} color={SEVERITY_COLORS[sev]} />
                       </View>
                       <Text style={styles.barLabel}>
@@ -209,7 +209,7 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(200).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={[styles.cardIconWrap, { backgroundColor: colors.primaryLight }]}>
+                <View style={styles.cardIconWrap}>
                   <MaterialCommunityIcons name="emoticon-outline" size={18} color={colors.primary} />
                 </View>
                 <Text style={styles.cardTitle}>{t('statusTitle')}</Text>
@@ -223,7 +223,7 @@ export default function ReportScreen() {
                 const labelKey = st === 'fine' ? 'statusFine' : st === 'tired' ? 'statusTired' : st === 'very_tired' ? 'statusVeryTired' : 'statusSpecificConcern';
                 return (
                   <View key={st} style={styles.statusRow}>
-                    <View style={[styles.statusIconWrap, { backgroundColor: meta.bg }]}>
+                    <View style={styles.statusIconWrap}>
                       <MaterialCommunityIcons name={meta.icon} size={16} color={meta.color} />
                     </View>
                     <Text style={styles.statusLabel}>{t(labelKey)}</Text>
@@ -244,7 +244,7 @@ export default function ReportScreen() {
             <Animated.View entering={FadeInDown.delay(300).duration(400)}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={[styles.cardIconWrap, { backgroundColor: brandColors.violet + '22' }]}>
+                  <View style={styles.cardIconWrap}>
                     <MaterialCommunityIcons name="stethoscope" size={18} color="#8b5cf6" />
                   </View>
                   <Text style={styles.cardTitle}>{t('commonSymptoms')}</Text>
@@ -270,7 +270,7 @@ export default function ReportScreen() {
             <Animated.View entering={FadeInDown.delay(400).duration(400)}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={[styles.cardIconWrap, { backgroundColor: colors.danger + '18' }]}>
+                  <View style={styles.cardIconWrap}>
                     <MaterialCommunityIcons name="bell-ring-outline" size={18} color="#dc2626" />
                   </View>
                   <Text style={styles.cardTitle}>{t('alertsTitle')}</Text>
@@ -283,7 +283,7 @@ export default function ReportScreen() {
                       end={{ x: 1, y: 0 }}
                       style={StyleSheet.absoluteFill}
                     />
-                    <View style={[styles.alertIconWrap, { backgroundColor: colors.premiumLight }]}>
+                    <View style={styles.alertIconWrap}>
                       <MaterialCommunityIcons name="account-group-outline" size={20} color="#f59e0b" />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -300,7 +300,7 @@ export default function ReportScreen() {
                       end={{ x: 1, y: 0 }}
                       style={StyleSheet.absoluteFill}
                     />
-                    <View style={[styles.alertIconWrap, { backgroundColor: colors.danger + '22' }]}>
+                    <View style={styles.alertIconWrap}>
                       <MaterialCommunityIcons name="hospital-box-outline" size={20} color="#dc2626" />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -317,14 +317,14 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(450).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={[styles.cardIconWrap, { backgroundColor: brandColors.cyan + '22' }]}>
+                <View style={styles.cardIconWrap}>
                   <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#0284c7" />
                 </View>
                 <Text style={styles.cardTitle}>{t('habitTitle')}</Text>
               </View>
               {/* Response rate */}
               <View style={styles.statusRow}>
-                <View style={[styles.statusIconWrap, { backgroundColor: colors.emeraldLight }]}>
+                <View style={styles.statusIconWrap}>
                   <MaterialCommunityIcons name="check-circle-outline" size={16} color="#16a34a" />
                 </View>
                 <Text style={styles.statusLabel}>{t('responseRate')}</Text>
@@ -337,7 +337,7 @@ export default function ReportScreen() {
               </View>
               {/* Average check-in hour */}
               <View style={styles.statusRow}>
-                <View style={[styles.statusIconWrap, { backgroundColor: brandColors.indigo + '18' }]}>
+                <View style={styles.statusIconWrap}>
                   <MaterialCommunityIcons name="clock-outline" size={16} color="#3b82f6" />
                 </View>
                 <Text style={styles.statusLabel}>{t('avgCheckinTime')}</Text>
@@ -353,7 +353,7 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(500).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={[styles.cardIconWrap, { backgroundColor: brandColors.indigo + '18' }]}>
+                <View style={styles.cardIconWrap}>
                   <MaterialCommunityIcons name="history" size={18} color="#3b82f6" />
                 </View>
                 <Text style={styles.cardTitle}>{t('dailyHistory')}</Text>
@@ -364,7 +364,7 @@ export default function ReportScreen() {
                 return (
                   <View key={i} style={[styles.historyRow, i === report.sessions.length - 1 && { borderBottomWidth: 0 }]}>
                     <View style={styles.historyLeft}>
-                      <View style={[styles.historyDayIcon, { backgroundColor: statusMeta.bg }]}>
+                      <View style={styles.historyDayIcon}>
                         <MaterialCommunityIcons name={statusMeta.icon} size={16} color={statusMeta.color} />
                       </View>
                       <View>
@@ -375,7 +375,7 @@ export default function ReportScreen() {
                       </View>
                     </View>
                     {s.severity && (
-                      <View style={[styles.historySeverityBadge, { backgroundColor: SEVERITY_BG[s.severity] }]}>
+                      <View style={styles.historySeverityBadge}>
                         <MaterialCommunityIcons name={SEVERITY_ICON[s.severity]} size={12} color={SEVERITY_COLORS[s.severity]} />
                         <Text style={[styles.historySeverityText, { color: SEVERITY_COLORS[s.severity] }]}>
                           {t(s.severity === 'low' ? 'severityLow' : s.severity === 'medium' ? 'severityMedium' : 'severityHigh')}

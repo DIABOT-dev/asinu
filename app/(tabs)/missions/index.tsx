@@ -55,6 +55,8 @@ export default function MissionsScreen() {
     }, [])
   );
 
+  const [tooltipId, setTooltipId] = useState<string | null>(null);
+
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -141,7 +143,7 @@ export default function MissionsScreen() {
           return (
             <Animated.View key={mission.id} entering={FadeInDown.delay(300 + index * 80).duration(400).springify()}>
             <Pressable
-              onPress={() => { const route = MISSION_ROUTES[mission.missionKey]; if (route) router.push(route as any); }}
+              onPress={() => { setTooltipId(null); const route = MISSION_ROUTES[mission.missionKey]; if (route) router.push(route as any); }}
               style={({ pressed }) => [styles.card, isCompleted && styles.cardCompleted, pressed && { opacity: 0.75 }]}
             >
               <View style={styles.cardHeader}>
@@ -154,8 +156,20 @@ export default function MissionsScreen() {
                 </View>
                 <View style={styles.cardTitleContainer}>
                   <Text style={[styles.title, isCompleted && styles.titleCompleted]}>{mission.title}</Text>
-                  {mission.description ? <Text style={styles.description}>{mission.description}</Text> : null}
+                  {tooltipId === mission.id && mission.description ? (
+                    <View style={styles.tooltip}>
+                      <Text style={styles.tooltipText}>{mission.description}</Text>
+                    </View>
+                  ) : null}
                 </View>
+                {mission.description ? (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={(e) => { e.stopPropagation(); setTooltipId(tooltipId === mission.id ? null : mission.id); }}
+                  >
+                    <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
+                  </Pressable>
+                ) : null}
               </View>
               
               <View style={styles.progressContainer}>
@@ -352,6 +366,19 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   cardTitleContainer: {
     flex: 1,
     gap: spacing.xs
+  },
+  tooltip: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  tooltipText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   title: {
     fontSize: typography.size.md,

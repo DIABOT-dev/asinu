@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">Asinu</string>
-
+    <string name="appID">1807041944337139731</string>
+    <string name="facebook_app_id">1498953168498253</string>
+    <string name="facebook_client_token">d079afd832d0f03ff61ca921cfea04fc</string>
 </resources>

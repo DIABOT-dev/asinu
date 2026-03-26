@@ -5,7 +5,9 @@ import { Image } from 'react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -17,7 +19,6 @@ import Animated, {
   useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, Easing,
 } from 'react-native-reanimated';
 
-const zaloLogo = require('../../src/assets/zalo.png');
 const appLogo = require('../../logo.jpg');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -27,7 +28,7 @@ import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
-import { showToast } from '../../src/stores/toast.store';
+import { showToast, setPendingToast, useToastStore } from '../../src/stores/toast.store';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -66,6 +67,9 @@ function FloatingOrbs() {
 }
 
 export default function LoginEmailScreen() {
+  const flushPending = useToastStore((s) => s.flushPending);
+  React.useEffect(() => { flushPending(); }, []);
+
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -139,8 +143,8 @@ export default function LoginEmailScreen() {
     try {
       await login({ identifier: identifier.trim(), password: password.trim() });
       navigatingRef.current = true;
-      showToast(t('loginSuccess'), 'success');
-      setTimeout(() => navigateAfterLogin(), 800);
+      setPendingToast(t('loginSuccess'), 'success');
+      navigateAfterLogin();
     } catch {
       showToast(t('loginFailed'), 'error');
     } finally {
@@ -154,8 +158,8 @@ export default function LoginEmailScreen() {
     try {
       await loginWithSocial(provider);
       navigatingRef.current = true;
-      showToast(t('loginSuccess'), 'success');
-      setTimeout(() => navigateAfterLogin(), 800);
+      setPendingToast(t('loginSuccess'), 'success');
+      navigateAfterLogin();
     } catch {
       showToast(t('loginFailed'), 'error');
     } finally {
@@ -375,7 +379,7 @@ export default function LoginEmailScreen() {
                 {!isButtonLoading && (
                   <View style={[styles.socialIconCircle, { backgroundColor: meta.bg }]}>
                     {provider === 'zalo' ? (
-                      <Image source={zaloLogo} style={styles.zaloIcon} resizeMode="contain" />
+                      <Image source={require('../../src/assets/zalo.png')} style={styles.zaloIcon} resizeMode="contain" />
                     ) : (
                       <FontAwesome5 name={meta.icon} size={18} color={meta.color} brand />
                     )}

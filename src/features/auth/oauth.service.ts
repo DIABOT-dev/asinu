@@ -266,10 +266,49 @@ function generateCodeVerifier(): string {
 }
 
 /**
- * Authenticate with Zalo (server-side callback flow)
- * Backend receives code from Zalo, exchanges token, redirects back to app with JWT
+ * Authenticate with Zalo (native SDK first, fallback to server-side web flow)
  */
 export async function authenticateWithZalo(): Promise<OAuthResult> {
+  // --- Native ZaloKit (iOS & Android) ---
+  try {
+    const ZaloKit = require('react-native-zalo-kit');
+    const loginFn = ZaloKit?.login ?? ZaloKit?.default?.login;
+    if (loginFn) {
+      console.log('[Zalo] flow=native_sdk');
+      // Timeout 15s: nếu SDK bị treo sau dialog "Bản Zalo không tương thích" → fall through
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('zalo_timeout')), 15000)
+      );
+      const data = await Promise.race([loginFn('AUTH_VIA_APP'), timeout]);
+      const accessToken: string = (data as any).accessToken;
+
+      const profileRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
+        headers: { access_token: accessToken },
+      });
+      const profileJson = await profileRes.json();
+
+      if (profileJson?.id) {
+        console.log('[Zalo] native_sdk success, userId:', profileJson.id);
+        return {
+          type: 'success',
+          token: accessToken,
+          profile: {
+            sub: profileJson.id,
+            name: profileJson.name,
+            picture: profileJson.picture?.data?.url,
+          },
+        };
+      }
+      console.log('[Zalo] native_sdk: no profile id, falling through to web');
+    } else {
+      console.log('[Zalo] native_sdk unavailable, falling through to web');
+    }
+  } catch (err: any) {
+    console.log('[Zalo] native_sdk error:', err?.message ?? err, '→ fallback to web flow');
+  }
+
+  // --- Web / server-side callback flow (fallback) ---
+  console.log('[Zalo] flow=web_callback');
   try {
     const appId = process.env.EXPO_PUBLIC_ZALO_APP_ID;
     if (!appId) return { type: 'error', error: 'Zalo App ID chưa được cấu hình' };
@@ -318,16 +357,71 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
 }
 
 /**
- * Authenticate with Facebook (server-side callback flow — same pattern as Zalo/Google Android)
+ * Authenticate with Facebook (native FBSDK — opens Facebook app directly)
  */
 export async function authenticateWithFacebook(): Promise<OAuthResult> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const FBSDK = require('react-native-fbsdk-next');
+    const LoginManager = FBSDK?.LoginManager ?? FBSDK?.default?.LoginManager;
+    const AccessToken = FBSDK?.AccessToken ?? FBSDK?.default?.AccessToken;
+
+    if (!LoginManager || !AccessToken) {
+      return authenticateWithFacebookWeb();
+    }
+
+    // Đặt login behavior: native app trước, fallback web nếu chưa cài FB
+    LoginManager.setLoginBehavior('native_with_fallback');
+
+    const loginResult = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+
+    if (loginResult.isCancelled) {
+      return { type: 'cancel' };
+    }
+
+    const tokenData = await AccessToken.getCurrentAccessToken();
+    if (!tokenData?.accessToken) {
+      return { type: 'error', error: t('noAccessToken') };
+    }
+
+    const fbAccessToken = tokenData.accessToken;
+
+    // Gửi FB access token lên backend để đổi lấy JWT
+    const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+    if (!apiBase) return { type: 'error', error: 'API base URL chưa được cấu hình' };
+
+    const res = await fetch(`${apiBase}/api/auth/facebook/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_token: fbAccessToken }),
+    });
+
+    if (!res.ok) {
+      // Fallback: thử endpoint cũ với server-side flow
+      return authenticateWithFacebookWeb();
+    }
+
+    const json = await res.json();
+    if (!json.token) return { type: 'error', error: t('authFailed') };
+
+    return { type: 'success', directToken: json.token };
+  } catch (error) {
+    return {
+      type: 'error',
+      error: error instanceof Error ? error.message : t('unknownError')
+    };
+  }
+}
+
+/**
+ * Fallback: Facebook web OAuth (server-side callback flow)
+ */
+async function authenticateWithFacebookWeb(): Promise<OAuthResult> {
   try {
     const appId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
     if (!appId) return { type: 'error', error: 'Facebook App ID chưa được cấu hình' };
 
     const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
-    if (!apiBase) return { type: 'error', error: 'API base URL chưa được cấu hình' };
-
     const redirectUri = `${apiBase}/api/auth/facebook/callback`;
     const appCallbackUri = 'asinu-lite://auth/facebook/callback';
 
@@ -340,13 +434,8 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
 
     const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUri);
 
-    if (result.type === 'cancel' || result.type === 'dismiss') {
-      return { type: 'cancel' };
-    }
-
-    if (result.type !== 'success' || !result.url) {
-      return { type: 'error', error: t('authFailed') };
-    }
+    if (result.type === 'cancel' || result.type === 'dismiss') return { type: 'cancel' };
+    if (result.type !== 'success' || !result.url) return { type: 'error', error: t('authFailed') };
 
     const url = new URL(result.url);
     const error = url.searchParams.get('error');

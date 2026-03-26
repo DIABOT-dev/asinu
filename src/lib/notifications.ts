@@ -26,6 +26,8 @@ export function setupNotificationHandler(): void {
         shouldShowList: true,
       }),
     });
+    // Đăng ký action buttons sớm nhất có thể (trước khi nhận notification)
+    registerNotificationCategories();
   } catch (e) {
 
   }
@@ -45,6 +47,7 @@ export async function registerNotificationCategories(): Promise<void> {
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
+          opensAppToForeground: true, // Cần mở app để listener xử lý và gửi confirm lên backend
         },
       },
       {

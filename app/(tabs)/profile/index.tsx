@@ -88,8 +88,13 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    lastFetchRef.current = 0; // reset throttle so focus effect re-fetches next time
     const controller = new AbortController();
-    await Promise.all([fetchLogs(controller.signal), fetchMissions(controller.signal)]);
+    await Promise.all([
+      fetchLogs(controller.signal),
+      fetchMissions(controller.signal),
+      authApi.fetchProfile().then((p) => { if (p) useAuthStore.setState({ profile: p }); }).catch(() => {}),
+    ]);
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

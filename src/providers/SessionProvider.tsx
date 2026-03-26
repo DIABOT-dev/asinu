@@ -64,9 +64,11 @@ export const SessionProvider = ({ children }: Props) => {
   const bootstrap = useAuthStore((state) => state.bootstrap);
   const loading = useAuthStore((state) => state.loading);
   const hydrated = useAuthStore((state) => state.hydrated);
+  const authToken = useAuthStore((state) => state.token);
   const [notificationGranted, setNotificationGranted] = useState<boolean | null>(null);
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
 
-  // Initial permission request
+  // Initial setup: permissions + bootstrap (runs once when hydrated)
   useEffect(() => {
     if (!hydrated) return;
 
@@ -80,21 +82,21 @@ export const SessionProvider = ({ children }: Props) => {
       if (granted) {
         const token = await getExpoPushToken();
         if (__DEV__) console.log('[Session] Push token result:', token ? token.substring(0, 30) + '...' : 'NULL');
-        const authToken = useAuthStore.getState().token;
-        if (token && authToken) {
-          authApi.updatePushToken(token)
-            .then(() => { if (__DEV__) console.log('[Session] Push token saved to server'); })
-            .catch((err) => console.error('[Session] Failed to save push token:', err));
-        } else if (!authToken) {
-          if (__DEV__) console.log('[Session] Skipping push token save — user not logged in');
-        } else {
-          console.warn('[Session] No push token obtained — notifications will not work remotely');
-        }
+        if (token) setExpoPushToken(token);
+        else console.warn('[Session] No push token obtained — notifications will not work remotely');
       }
       // Request location permission (for emergency button)
       await Location.requestForegroundPermissionsAsync().catch(() => {});
     })();
   }, [bootstrap, hydrated]);
+
+  // Save push token to backend whenever token or expoPushToken changes (handles login after app open)
+  useEffect(() => {
+    if (!authToken || !expoPushToken) return;
+    authApi.updatePushToken(expoPushToken)
+      .then(() => { if (__DEV__) console.log('[Session] Push token saved to server'); })
+      .catch((err) => console.error('[Session] Failed to save push token:', err));
+  }, [authToken, expoPushToken]);
 
   // Handle notification action buttons (e.g. "✓ Đã xem" on caregiver alert)
   useEffect(() => {

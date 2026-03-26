@@ -40,6 +40,7 @@ export default function TreeScreen() {
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const padTop = insets.top + spacing.lg;
+  const [chartTooltip, setChartTooltip] = useState(false);
 
   const formatTime = (iso?: string) => {
     if (!iso) {
@@ -258,8 +259,15 @@ export default function TreeScreen() {
             <View style={styles.chartTitleRow}>
               <Ionicons name="trending-up" size={20} color={colors.primary} />
               <Text style={styles.chartLabel}>{t('activityChart7Days')}</Text>
+              <Pressable hitSlop={8} onPress={() => setChartTooltip(v => !v)}>
+                <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
+              </Pressable>
             </View>
-            <Text style={styles.chartExplain}>{t('chartExplain')}</Text>
+            {chartTooltip && (
+              <View style={styles.chartTooltip}>
+                <Text style={styles.chartTooltipText}>{t('chartExplain')}</Text>
+              </View>
+            )}
           </View>
           {showChart ? (
             <Suspense fallback={<View style={{ height: 200 }} />}>
@@ -485,13 +493,23 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.sm
   },
   chartLabel: {
+    flex: 1,
     fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary
   },
-  chartExplain: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary
+  chartTooltip: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chartTooltipText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   placeholderCard: {
     padding: spacing.xxl,

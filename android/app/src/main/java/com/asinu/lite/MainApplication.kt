@@ -2,6 +2,7 @@ package com.asinu.lite
 
 import android.app.Application
 import android.content.res.Configuration
+import com.zing.zalo.zalosdk.oauth.ZaloSDKApplication
 
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
@@ -48,6 +49,7 @@ class MainApplication : Application(), ReactApplication {
       load()
     }
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+    ZaloSDKApplication.wrap(this)
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

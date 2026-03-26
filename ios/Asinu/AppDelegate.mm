@@ -2,16 +2,16 @@
 
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
+#import <ZaloSDK/ZaloSDK.h>
 
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
   self.moduleName = @"main";
-
-  // You can add your custom initial props in the dictionary below.
-  // They will be passed down to the ViewController used by React Native.
   self.initialProps = @{};
+
+  [[ZaloSDK sharedInstance] initializeWithAppId:@"1807041944337139731"];
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
 }
@@ -32,7 +32,9 @@
 
 // Linking API
 - (BOOL)application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {
-  return [super application:application openURL:url options:options] || [RCTLinkingManager application:application openURL:url options:options];
+  return [[ZDKApplicationDelegate sharedInstance] application:application openURL:url options:options]
+    || [RCTLinkingManager application:application openURL:url options:options]
+    || [super application:application openURL:url options:options];
 }
 
 // Universal Links

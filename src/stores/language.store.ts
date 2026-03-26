@@ -31,6 +31,12 @@ export const useLanguageStore = create<LanguageStore>()(
     {
       name: 'language-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        // Sync i18n với ngôn ngữ đã lưu khi Zustand rehydrate từ AsyncStorage
+        if (state?.language) {
+          i18n.changeLanguage(state.language);
+        }
+      },
     }
   )
 );

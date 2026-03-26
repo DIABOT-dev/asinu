@@ -39,6 +39,18 @@
           <string>exp+asinu-lite</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>zalo-1807041944337139731</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>fb1498953168498253</string>
+        </array>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
@@ -89,5 +101,20 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
+    <key>ZaloAppID</key>
+    <string>1807041944337139731</string>
+    <key>FacebookAppID</key>
+    <string>1498953168498253</string>
+    <key>FacebookClientToken</key>
+    <string>d079afd832d0f03ff61ca921cfea04fc</string>
+    <key>FacebookDisplayName</key>
+    <string>Asinu</string>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+      <string>zalosdk</string>
+      <string>zaloshareext</string>
+      <string>fbapi</string>
+      <string>fb-messenger-share-api</string>
+    </array>
   </dict>
 </plist>
