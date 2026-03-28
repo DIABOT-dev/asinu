@@ -92,8 +92,9 @@ export const GlucoseTrendChart = ({ data, height = 280 }: Props) => {
     statLbl:  { color: labelCol, textAlign: 'center' },
     legendRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
-      gap: spacing.md,
+      gap: spacing.sm,
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.md,
       paddingBottom: spacing.xs,

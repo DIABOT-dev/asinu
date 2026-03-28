@@ -62,6 +62,7 @@ export default function HomeScreen() {
 
   const { t } = useTranslation('home');
   const { t: tc } = useTranslation('common');
+  const { t: tt } = useTranslation('tree');
   const [isChatOpen, setChatOpen] = useState(false);
   const router = useRouter();
   const {
@@ -336,25 +337,30 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }} />
           <InfoButton text={t('treeFormula')} styles={styles} />
         </View>
-        <View style={styles.treeCard}>
-          <View style={styles.treeRow}>
+        <View style={styles.treeCards}>
+          <View style={styles.treeCard}>
             <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
               <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
             </Suspense>
-            <View style={styles.treeStats}>
-              <View style={styles.treeStatItem}>
-                <Ionicons name="flame" size={18} color={iconColors.premium} />
-                <View style={{ flex: 1, overflow: 'hidden' }}>
-                  <Text style={styles.treeStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{treeSummary?.streakDays ?? 0} {t('days')}</Text>
-                  <Text style={styles.treeStatLabel} numberOfLines={1}>{t('streak')}</Text>
-                </View>
+            <Text style={styles.treeStatLabel}>
+              {Math.round((treeSummary?.score ?? 0) * 100)}% - {(treeSummary?.score ?? 0) >= 0.7 ? tt('good') : (treeSummary?.score ?? 0) >= 0.4 ? tt('average') : tt('needsImprovement')}
+            </Text>
+          </View>
+          <View style={styles.treeCard}>
+            <View style={styles.treeStatItem}>
+              <Ionicons name="flame" size={18} color={iconColors.premium} />
+              <View style={{ flex: 1, overflow: 'hidden' }}>
+                <Text style={styles.treeStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{treeSummary?.streakDays ?? 0} {t('days')}</Text>
+                <Text style={styles.treeStatLabel} numberOfLines={1}>{t('streak')}</Text>
               </View>
-              <View style={styles.treeStatItem}>
-                <Ionicons name="checkmark-circle" size={18} color={iconColors.emerald} />
-                <View style={{ flex: 1, overflow: 'hidden' }}>
-                  <Text style={styles.treeStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
-                  <Text style={styles.treeStatLabel} numberOfLines={1}>{t('todayMissions')}</Text>
-                </View>
+            </View>
+          </View>
+          <View style={styles.treeCard}>
+            <View style={styles.treeStatItem}>
+              <Ionicons name="checkmark-circle" size={18} color={iconColors.emerald} />
+              <View style={{ flex: 1, overflow: 'hidden' }}>
+                <Text style={styles.treeStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
+                <Text style={styles.treeStatLabel} numberOfLines={1}>{t('todayMissions')}</Text>
               </View>
             </View>
           </View>
@@ -686,21 +692,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
     fontSize: typography.size.md,
   },
+  treeCards: {
+    gap: spacing.md,
+  },
   treeCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
-    padding: spacing.md,
+    padding: spacing.lg,
     borderWidth: 1.5,
     borderColor: colors.border,
-  },
-  treeRow: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    alignItems: 'center'
-  },
-  treeStats: {
-    flex: 1,
-    gap: spacing.md
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   treeStatItem: {
     flexDirection: 'row',

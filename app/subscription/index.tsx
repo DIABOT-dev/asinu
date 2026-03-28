@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { apiClient, ApiError } from '../../src/lib/apiClient';
 import { colors, radius, spacing, typography } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
@@ -109,8 +110,8 @@ const featureRowStyle = StyleSheet.create({
 
 // ── Animated Plan Option ──────────────────────────────────────────────
 function PlanOption({
-  plan, selected, onSelect,
-}: { plan: typeof PLANS[0]; selected: boolean; onSelect: () => void }) {
+  plan, selected, onSelect, isXLarge,
+}: { plan: typeof PLANS[0]; selected: boolean; onSelect: () => void; isXLarge?: boolean }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
@@ -120,7 +121,7 @@ function PlanOption({
   };
 
   return (
-    <Animated.View style={[animStyle, { width: '47%' }]}>
+    <Animated.View style={[animStyle, { width: isXLarge ? '100%' : '47%' }]}>
       <Pressable
         style={[planOptionStyle.option, selected && planOptionStyle.selected]}
         onPress={handlePress}
@@ -177,6 +178,8 @@ export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
+  const fontScale = useFontSizeStore((s) => s.scale);
+  const isXLarge = fontScale === 'xlarge';
   const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top, isDark]);
 
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
@@ -357,7 +360,7 @@ export default function SubscriptionScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* ── Header ── */}
-        <Animated.View entering={FadeInDown.duration(500).springify()}>
+        <Animated.View entering={FadeInDown.duration(400)}>
           <LinearGradient
             colors={[colors.premium, colors.premiumDark]}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -374,7 +377,7 @@ export default function SubscriptionScreen() {
         </Animated.View>
 
         {/* ── Current plan ── */}
-        <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} style={styles.card}>
+        <View style={styles.card}>
           <Text style={styles.cardTitle}>{t('currentPlan')}</Text>
           {loadingStatus ? <ActivityIndicator color={colors.primary} /> : (
             <View style={styles.planRow}>
@@ -407,19 +410,19 @@ export default function SubscriptionScreen() {
               </View>
             </View>
           )}
-        </Animated.View>
+        </View>
 
         {/* ── Two-column feature comparison ── */}
-        <View style={styles.plansRow}>
-          <Animated.View entering={FadeInDown.delay(200).duration(400).springify()} style={{ flex: 1 }}>
-            <View style={[styles.planCard, styles.freePlanCard]}>
+        <View style={isXLarge ? styles.plansColumn : styles.plansRow}>
+          <View style={!isXLarge ? { flex: 1 } : undefined}>
+            <View style={[styles.planCard, styles.freePlanCard, !isXLarge && { flex: 1 }]}>
               <View style={styles.planCardHeader}>
                 <Ionicons name="person-circle-outline" size={28} color={colors.textSecondary} />
                 <Text style={styles.freePlanTitle}>{t('free')}</Text>
                 <Text style={styles.freePlanPrice}>0đ</Text>
                 <Text style={styles.planPriceUnit}>{t('perMonth')}</Text>
               </View>
-              <View style={styles.planCardBody}>
+              <View style={[styles.planCardBody, !isXLarge && { flex: 1 }]}>
                 {freeFeatures.map((f, i) => (
                   <FeatureRow key={i} icon={f.icon} text={f.text} dim={f.dim} />
                 ))}
@@ -428,10 +431,10 @@ export default function SubscriptionScreen() {
                 <Text style={styles.freeCTAText}>{status?.isPremium ? t('free') : t('currentlyUsing')}</Text>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(300).duration(400).springify()} style={{ flex: 1 }}>
-            <View style={[styles.planCard, styles.premiumPlanCard]}>
+          <View style={!isXLarge ? { flex: 1 } : undefined}>
+            <View style={[styles.planCard, styles.premiumPlanCard, !isXLarge && { flex: 1 }]}>
               <LinearGradient colors={[colors.premium, colors.premiumDark]} style={styles.premiumCardHeader}>
                 <MaterialCommunityIcons name="crown" size={28} color="#fff" />
                 <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
@@ -450,20 +453,21 @@ export default function SubscriptionScreen() {
                 </View>
               )}
             </View>
-          </Animated.View>
+          </View>
         </View>
 
         {/* ── Plan selector ── */}
         {!status?.isPremium && (
-          <Animated.View entering={FadeInDown.delay(400).duration(400).springify()} style={styles.card}>
+          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.card}>
             <Text style={styles.cardTitle}>{t('planSelector')}</Text>
-            <View style={styles.planGrid}>
+            <View style={isXLarge ? styles.planGridColumn : styles.planGrid}>
               {PLANS.map((plan) => (
                 <PlanOption
                   key={plan.months}
                   plan={plan}
                   selected={plan.months === selectedPlan}
                   onSelect={() => { setSelectedPlan(plan.months); setQr(null); setPollStatus('idle'); clearTimers(); }}
+                  isXLarge={isXLarge}
                 />
               ))}
             </View>
@@ -765,9 +769,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     plansRow: {
       flexDirection: 'row', gap: spacing.md,
       marginHorizontal: spacing.lg, marginTop: spacing.lg,
+      alignItems: 'stretch',
+    },
+    plansColumn: {
+      gap: spacing.md,
+      marginHorizontal: spacing.lg, marginTop: spacing.lg,
     },
     planCard: {
-      flex: 1, borderRadius: radius.lg, overflow: 'hidden',
+      borderRadius: radius.lg, overflow: 'hidden',
       shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8,
       shadowOffset: { width: 0, height: 3 }, elevation: 3,
       backgroundColor: colors.surface,
@@ -788,7 +797,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     premiumPlanTitle: { fontSize: typography.size.md, fontWeight: '800', color: '#fff' },
     premiumPlanPrice: { fontSize: typography.size.xl, fontWeight: '800', color: '#fff' },
     premiumPlanPriceUnit: { fontSize: typography.size.xs, color: 'rgba(255,255,255,0.85)' },
-    planCardBody: { padding: spacing.md, gap: 2, flex: 1 },
+    planCardBody: { padding: spacing.md, gap: 2 },
     planCTABtn: {
       margin: spacing.md, marginTop: 0, paddingVertical: spacing.sm,
       borderRadius: radius.lg, alignItems: 'center',
@@ -801,6 +810,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     },
 
     planGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+    planGridColumn: { gap: spacing.sm, marginBottom: spacing.lg },
 
     premiumCTABtn: { borderRadius: radius.lg, overflow: 'hidden' },
     premiumCTAGradient: { paddingVertical: spacing.md, alignItems: 'center' },

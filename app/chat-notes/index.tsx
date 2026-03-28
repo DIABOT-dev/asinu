@@ -9,7 +9,6 @@ import {
   FlatList,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -228,7 +227,7 @@ export default function ChatNotesScreen() {
         keyExtractor={(item) => String(item.id)}
         ListHeaderComponent={
           <View style={styles.filterContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            <View style={styles.filterRow}>
               {FILTERS.map((f) => {
                 const active = filterMode === f.key;
                 return (
@@ -237,7 +236,7 @@ export default function ChatNotesScreen() {
                   </Pressable>
                 );
               })}
-            </ScrollView>
+            </View>
             {total > 0 && <Text style={styles.totalText}>{t('chatNotesCount', { count: total })}</Text>}
             {filterMode === 'custom' && (
               <View style={styles.customDateRow}>
@@ -337,7 +336,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     list: { padding: spacing.lg, gap: spacing.md },
     filterContainer: { gap: spacing.sm, marginBottom: spacing.sm },
-    filterRow: { flexDirection: 'row', gap: spacing.sm },
+    filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
     filterChip: {
       paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
       borderRadius: radius.full, backgroundColor: colors.surface,

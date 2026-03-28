@@ -17,7 +17,7 @@ import Animated, {
   useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, Easing,
 } from 'react-native-reanimated';
 
-const appLogo = require('../../logo.jpg');
+const appLogo = require('../../assets/icon.png');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { TextInput } from '../../src/components/TextInput';
@@ -211,7 +211,7 @@ export default function RegisterScreen() {
                     name="format-size"
                     size={opt.iconSize}
                     color={scale === opt.value ? '#fff' : colors.primary}
-                    style={{ marginBottom: 4 }}
+                    style={{ width: 28, textAlign: 'center' }}
                   />
                   <Text style={[styles.fontSizeBtnText, scale === opt.value && styles.fontSizeBtnTextActive]}>
                     {getFontSizeLabel(opt.value)}
@@ -353,7 +353,7 @@ export default function RegisterScreen() {
             </Animated.View>
 
             {/* Agree checkbox */}
-            <View style={styles.checkboxRow}>
+            <View style={[styles.checkboxRow, scale !== 'xlarge' && styles.checkboxRowInline]}>
               <Pressable style={styles.checkboxToggle} onPress={() => setAgreed(!isAgreed)}>
                 <Ionicons
                   name={isAgreed ? 'checkbox' : 'square-outline'}
@@ -365,7 +365,7 @@ export default function RegisterScreen() {
               <Pressable onPress={() => openLegal('terms')}>
                 <Text style={styles.linkItalic}>{t('termsOfUse')}</Text>
               </Pressable>
-              <Text style={styles.checkboxLabel}>{t('and')}</Text>
+              <Text style={styles.checkboxLabel}>&</Text>
               <Pressable onPress={() => openLegal('privacy')}>
                 <Text style={styles.linkItalic}>{t('privacyPolicyShort')}</Text>
               </Pressable>
@@ -470,28 +470,31 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: 20,
       padding: spacing.xl,
       width: '85%',
-      alignItems: 'center',
     },
     fontModalTitle: {
       fontSize: typography.size.lg,
       fontWeight: '700',
       color: colors.textPrimary,
       marginBottom: spacing.lg,
+      textAlign: 'center',
     },
     fontSizeRow: {
-      flexDirection: 'row',
+      flexDirection: 'column',
       gap: spacing.sm,
       marginBottom: spacing.md,
     },
     fontSizeBtn: {
-      flex: 1,
+      width: '100%',
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
       paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
       borderRadius: 14,
       borderWidth: 1.5,
       borderColor: colors.border,
       backgroundColor: colors.background,
+      gap: spacing.sm,
     },
     fontSizeBtnActive: {
       backgroundColor: colors.primary,
@@ -570,7 +573,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     inputRounded: {
       borderRadius: radius.xxl,
-      height: 52,
+      minHeight: 52,
     },
     inputIconWrap: {
       width: 28,
@@ -619,10 +622,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
 
     // ── Checkbox ──
     checkboxRow: {
-      flexDirection: 'row',
       alignItems: 'center',
-      flexWrap: 'wrap',
       gap: spacing.xs,
+    },
+    checkboxRowInline: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
     },
     checkboxToggle: {
       flexDirection: 'row',

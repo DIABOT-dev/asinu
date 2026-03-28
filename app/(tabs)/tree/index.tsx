@@ -50,7 +50,13 @@ export default function TreeScreen() {
     if (Number.isNaN(date.getTime())) {
       return '';
     }
-    return date.toLocaleTimeString(i18n.language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    const ss = String(date.getSeconds()).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const MM = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${hh}:${mm}:${ss} ${dd}/${MM}/${yyyy}`;
   };
 
   const latestLogByType = (type: string) =>
@@ -207,7 +213,8 @@ export default function TreeScreen() {
                 <Text style={styles.streakLabel} numberOfLines={1}>{t('consecutiveDays')}</Text>
               </View>
             </View>
-            <View style={styles.streakDivider} />
+          </View>
+          <View style={styles.streakCard}>
             <View style={styles.streakItem}>
               <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
               <View style={styles.streakContent}>
@@ -230,10 +237,10 @@ export default function TreeScreen() {
               <View style={styles.metricTopRow}>
                 <MaterialCommunityIcons name={metric.icon} size={20} color={metric.iconColor} />
                 <Text style={styles.metricTitle}>{metric.title}</Text>
-                <View style={styles.metricValueRow}>
-                  <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metric.value}</Text>
-                  <Text style={styles.metricUnit}>{metric.unit}</Text>
-                </View>
+              </View>
+              <View style={styles.metricValueRow}>
+                <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metric.value}</Text>
+                <Text style={styles.metricUnit}>{metric.unit}</Text>
               </View>
               {metric.meta ? <Text style={styles.metricMeta}>{metric.meta}</Text> : null}
             </View>
@@ -344,18 +351,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   // Score Section
   scoreSection: {
-    flexDirection: 'row',
-    gap: spacing.md
+    gap: spacing.md,
   },
   scoreCard: {
-    flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 20,
     padding: spacing.lg,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: colors.border,
-    gap: spacing.sm
+    gap: spacing.sm,
   },
   scoreCaption: {
     fontSize: typography.size.xs,
@@ -363,14 +368,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     textAlign: 'center'
   },
   streakCard: {
-    flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 20,
     padding: spacing.lg,
     borderWidth: 1.5,
     borderColor: colors.border,
     justifyContent: 'center',
-    gap: spacing.md
   },
   streakItem: {
     flexDirection: 'row',
@@ -389,10 +392,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   streakLabel: {
     fontSize: typography.size.xs,
     color: colors.textSecondary,
-  },
-  streakDivider: {
-    height: 1,
-    backgroundColor: colors.border
   },
   // Section Header
   sectionHeader: {
@@ -420,23 +419,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: spacing.sm,
   },
-  metricHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
   metricTitle: {
     fontSize: typography.size.md,
     color: colors.textPrimary,
     fontWeight: '600',
-    flex: 1,
   },
   metricValueRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.xs,
-    width: 100,
-    justifyContent: 'flex-end',
   },
   metricValue: {
     fontSize: typography.size.xl,
@@ -446,12 +437,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   metricUnit: {
     fontSize: typography.size.sm,
     color: colors.textSecondary,
-    marginBottom: 3
+    marginBottom: 3,
   },
   metricMeta: {
     fontSize: typography.size.sm,
     color: colors.textSecondary,
-    marginLeft: 28,
   },
   // Empty Card
   emptyCard: {

@@ -524,44 +524,7 @@ export default function CareCircleScreen() {
                   activeOpacity={0.75}
                 >
                   <View style={styles.cardHeader}>
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                      <LinearGradient
-                        colors={[colors.emerald, colors.emeraldDark]}
-                        style={styles.avatar}
-                      >
-                        <Text style={styles.avatarText}>
-                          {otherName[0]?.toUpperCase() || '?'}
-                        </Text>
-                      </LinearGradient>
-                      <View style={styles.cardInfo}>
-                        <Text style={styles.cardName}>{otherName}</Text>
-                        {otherUserEmail && (
-                          <View style={styles.contactRow}>
-                            <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
-                            <Text style={styles.cardContact} numberOfLines={1}>
-                              {otherUserEmail}
-                            </Text>
-                          </View>
-                        )}
-                        {otherUserPhone && (
-                          <View style={styles.contactRow}>
-                            <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
-                            <Text style={styles.cardContact} numberOfLines={1}>
-                              {otherUserPhone}
-                            </Text>
-                          </View>
-                        )}
-                        {(displayRelationship || connection.role) && (
-                          <View style={styles.cardBadge}>
-                            <Ionicons name="heart" size={12} color={iconColors.primary} />
-                            <Text style={styles.cardRelation}>
-                              {displayRelationship || connection.role}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-
+                    <Text style={styles.cardName} numberOfLines={2}>{otherName}</Text>
                     <View style={styles.cardActionsSmall}>
                       <TouchableOpacity
                         onPress={() => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` })}
@@ -569,7 +532,6 @@ export default function CareCircleScreen() {
                       >
                         <Ionicons name="pencil" size={18} color={iconColors.primary} />
                       </TouchableOpacity>
-
                       <TouchableOpacity
                         onPress={() => handleDeleteConnection(connection.id, otherName)}
                         disabled={actionLoading === connection.id}
@@ -583,6 +545,26 @@ export default function CareCircleScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
+                  {otherUserEmail && (
+                    <View style={styles.contactRow}>
+                      <Ionicons name="mail-outline" size={14} color={colors.textSecondary} />
+                      <Text style={styles.cardContact}>{otherUserEmail}</Text>
+                    </View>
+                  )}
+                  {otherUserPhone && (
+                    <View style={styles.contactRow}>
+                      <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
+                      <Text style={styles.cardContact}>{otherUserPhone}</Text>
+                    </View>
+                  )}
+                  {(displayRelationship || connection.role) && (
+                    <View style={styles.cardBadge}>
+                      <Ionicons name="heart" size={12} color={iconColors.primary} />
+                      <Text style={styles.cardRelation}>
+                        {displayRelationship || connection.role}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })
@@ -850,6 +832,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     marginBottom: spacing.sm,
     borderWidth: 1.5,
     borderColor: colors.border,
+    gap: spacing.xs,
   },
   cardPending: {
     borderColor: colors.premium,
@@ -858,6 +841,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
   avatar: {
     width: 48,
@@ -865,7 +849,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md
   },
   avatarText: {
     fontSize: typography.size.lg,
@@ -879,7 +862,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.md,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 2,
+    flex: 1,
   },
   contactRow: {
     flexDirection: 'row',

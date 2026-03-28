@@ -15,11 +15,12 @@ import { authApi } from '../../src/features/auth/auth.api';
 import { apiClient } from '../../src/lib/apiClient';
 import {
   getNotificationPreferences,
+  updateNotificationPreferences,
   type NotificationPreferences,
 } from '../../src/features/notifications/notifications.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { getExpoPushToken, requestNotificationPermissions } from '../../src/lib/notifications';
+import { getExpoPushToken, requestNotificationPermissions, clearAllNotifications } from '../../src/lib/notifications';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { AppLanguage, useLanguageStore } from '../../src/stores/language.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
@@ -107,7 +108,7 @@ export default function SettingsScreen() {
     if (value) {
       // Request permission when enabling
       const hasPermission = await requestNotificationPermissions();
-      
+
       if (!hasPermission) {
         showAlert(
           t('notificationPermRequired'),
@@ -122,34 +123,26 @@ export default function SettingsScreen() {
         );
         return;
       }
-      
+
       // Get push token and send to backend
       const token = await getExpoPushToken();
       if (token) {
-
         try {
-          const response = await authApi.updatePushToken(token);
-          if (response.ok) {
-
-          } else {
-
-          }
+          await authApi.updatePushToken(token);
         } catch (error) {
           showToast(tc('error'), 'error');
         }
       }
     }
-    
+
     setNotifications(value);
     await AsyncStorage.setItem(STORAGE_KEY_NOTIFICATIONS, String(value));
 
-    // When turning OFF, clear push token on backend so cron stops sending pushes
-    if (!value) {
-      try {
-        await apiClient('/api/mobile/profile/push-token', { method: 'DELETE' });
-      } catch {
-        showToast(tc('error'), 'error');
-      }
+    // Update backend: chỉ bật/tắt nhắc nhở log & cập nhật sức khỏe
+    try {
+      await updateNotificationPreferences({ reminders_enabled: value });
+    } catch {
+      showToast(tc('error'), 'error');
     }
   };
 

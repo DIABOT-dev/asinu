@@ -238,14 +238,6 @@ export default function ProfileScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.profileHeaderCard}
         >
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={40} color={colors.primary} />
-            </View>
-            <View style={styles.statusBadge}>
-              <Ionicons name="checkmark-circle" size={20} color="#4ade80" />
-            </View>
-          </View>
           <Text style={styles.profileName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{identityTitle}</Text>
           <Text style={styles.profileStatus}>{statusText}</Text>
           <TouchableOpacity
@@ -387,7 +379,7 @@ export default function ProfileScreen() {
           ] as const).map((item, i) => (
             <Pressable key={i} style={({ pressed }) => [styles.actionCard, pressed && styles.actionCardPressed]} onPress={item.onPress}>
               <Ionicons name={item.icon as any} size={22} color={item.color} style={styles.actionIcon} />
-              <Text style={styles.actionLabel}>{item.label}</Text>
+              <Text style={styles.actionLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{item.label}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
             </Pressable>
           ))}
@@ -449,8 +441,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Ionicons name="person-circle" size={32} color={colors.primary} />
-              <Text style={styles.modalTitle}>{t('editProfileTitle')}</Text>
+              <Text style={styles.modalTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t('editProfileTitle')}</Text>
             </View>
             
             <ScrollView 

@@ -14,6 +14,7 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
+  TextInput as RNTextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -115,7 +116,31 @@ function TimePickerModal({
     return arr;
   }, [hourRange]);
 
-  const minutes = useMemo(() => [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55], []);
+  const [minuteText, setMinuteText] = useState(String(minute).padStart(2, '0'));
+
+  useEffect(() => {
+    setMinuteText(String(minute).padStart(2, '0'));
+  }, [minute]);
+
+  const handleMinuteChange = (text: string) => {
+    const cleaned = text.replace(/[^0-9]/g, '').slice(0, 2);
+    setMinuteText(cleaned);
+    const num = parseInt(cleaned, 10);
+    if (!isNaN(num) && num >= 0 && num <= 59) {
+      setMinute(num);
+    }
+  };
+
+  const handleMinuteBlur = () => {
+    const num = parseInt(minuteText, 10);
+    if (isNaN(num) || num < 0 || num > 59) {
+      setMinute(0);
+      setMinuteText('00');
+    } else {
+      setMinute(num);
+      setMinuteText(String(num).padStart(2, '0'));
+    }
+  };
 
   const handleConfirm = () => {
     const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
@@ -167,25 +192,19 @@ function TimePickerModal({
           {/* Minute picker */}
           <View style={pickerStyles.pickerSection}>
             <Text style={[pickerStyles.pickerLabel, { fontSize: scaledTypography.size.xs }]}>
-              {t('schedulePickMinute')}
+              {t('schedulePickMinute')} (0–59)
             </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={pickerStyles.pickerRow}
-            >
-              {minutes.map(m => (
-                <Pressable
-                  key={m}
-                  onPress={() => setMinute(m)}
-                  style={[pickerStyles.pickerItem, minute === m && pickerStyles.pickerItemActive]}
-                >
-                  <Text style={[pickerStyles.pickerItemText, minute === m && pickerStyles.pickerItemTextActive]}>
-                    {String(m).padStart(2, '0')}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+            <RNTextInput
+              style={pickerStyles.minuteInput}
+              value={minuteText}
+              onChangeText={handleMinuteChange}
+              onBlur={handleMinuteBlur}
+              keyboardType="number-pad"
+              maxLength={2}
+              placeholder="00"
+              placeholderTextColor={colors.border}
+              selectTextOnFocus
+            />
           </View>
 
           {/* Actions */}
@@ -286,6 +305,19 @@ const pickerStyles = StyleSheet.create({
   },
   pickerItemTextActive: {
     color: '#fff',
+  },
+  minuteInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    width: 80,
   },
   actions: {
     flexDirection: 'row',

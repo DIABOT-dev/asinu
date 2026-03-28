@@ -324,6 +324,7 @@ export async function setBadgeCount(count: number): Promise<void> {
 export async function clearAllNotifications(): Promise<void> {
   try {
     await Notifications.dismissAllNotificationsAsync();
+    await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (error) {
 
   }

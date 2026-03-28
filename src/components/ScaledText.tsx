@@ -1,4 +1,4 @@
-import { Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native';
+import { Platform, Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native';
 import { useScaledFontSize } from '../hooks/useScaledTypography';
 
 /**
@@ -39,10 +39,11 @@ export const ScaledText = ({ style, ...props }: RNTextProps) => {
   const { fontSize: baseFontSize, lineHeight: baseLineHeight } = getBaseValues();
   const scaledFontSize = useScaledFontSize(baseFontSize);
   const ratio = baseFontSize > 0 ? scaledFontSize / baseFontSize : 1;
-  // If no lineHeight set, use 1.5x as safe default to prevent text clipping on all screen sizes
+  // Android needs extra lineHeight for Vietnamese diacritics (ơ, ư, ô, ê) to prevent clipping
+  const lineHeightMultiplier = Platform.OS === 'android' ? 1.6 : 1.5;
   const scaledLineHeight = baseLineHeight
-    ? Math.round(baseLineHeight * ratio)
-    : Math.round(scaledFontSize * 1.5);
+    ? Math.max(Math.round(baseLineHeight * ratio), Math.round(scaledFontSize * lineHeightMultiplier))
+    : Math.round(scaledFontSize * lineHeightMultiplier);
 
   const overrides: TextStyle = { fontSize: scaledFontSize, lineHeight: scaledLineHeight };
 
