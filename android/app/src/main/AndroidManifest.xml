@@ -2,13 +2,18 @@
           xmlns:tools="http://schemas.android.com/tools">
 
   <uses-permission android:name="android.permission.INTERNET"/>
-  <!-- OPTIONAL PERMISSIONS, REMOVE WHATEVER YOU DO NOT NEED -->
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
-  <!-- These require runtime permissions on M -->
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-  <!-- END OPTIONAL PERMISSIONS -->
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <!-- Push notifications (bắt buộc Android 13+) -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <!-- Khôi phục lịch thông báo sau reboot -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+  <!-- SOS khẩn cấp -->
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <!-- Ảnh đại diện: Android 13+ dùng READ_MEDIA_IMAGES, cũ hơn dùng READ_EXTERNAL_STORAGE -->
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:targetApi="33"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
 
   <queries>
     <!-- Support checking for http(s) links via the Linking API -->

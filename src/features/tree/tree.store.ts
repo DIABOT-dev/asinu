@@ -27,6 +27,7 @@ type TreeState = {
   isStale: boolean;
   errorState: ErrorState;
   fetchTree: (signal?: AbortSignal) => Promise<void>;
+  reset: () => void;
 };
 
 const fallbackSummary: TreeSummary = {
@@ -55,14 +56,18 @@ export const useTreeStore = create<TreeState>((set) => ({
   status: 'idle',
   isStale: false,
   errorState: 'none',
+  reset() {
+    set({ summary: null, history: [], status: 'idle', isStale: false, errorState: 'none' });
+  },
   async fetchTree(signal) {
     if (featureFlags.devBypassAuth) {
       set({ summary: fallbackSummary, history: getFallbackHistory(), status: 'success', isStale: false, errorState: 'none' });
       return;
     }
 
+    const todayKey = new Date().toISOString().slice(0, 10);
     let usedCache = false;
-    const cached = await localCache.getCached<{ summary: TreeSummary; history: TreeHistoryPoint[] }>(CACHE_KEYS.TREE, '1');
+    const cached = await localCache.getCached<{ summary: TreeSummary; history: TreeHistoryPoint[] }>(CACHE_KEYS.TREE, todayKey);
     if (cached) {
       set({ summary: cached.summary, history: cached.history, status: 'success', isStale: true, errorState: 'none' });
       usedCache = true;
@@ -76,7 +81,7 @@ export const useTreeStore = create<TreeState>((set) => ({
         treeApi.fetchHistory({ signal })
       ]);
       set({ summary, history, status: 'success', isStale: false, errorState: 'none' });
-      await localCache.setCached(CACHE_KEYS.TREE, '1', { summary, history });
+      await localCache.setCached(CACHE_KEYS.TREE, todayKey, { summary, history });
     } catch (error) {
       // Ignore AbortError - it's expected when component unmounts
       if (error instanceof Error && error.name === 'AbortError') {

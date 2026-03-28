@@ -12,6 +12,7 @@ import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { useAuthStore } from '../../src/features/auth/auth.store';
+import { showToast } from '../../src/stores/toast.store';
 import { useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, spacing, brandColors} from '../../src/styles';
@@ -173,9 +174,9 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(id);
       await acceptInvitation(id);
-      showAlert(tc('success'), t('acceptSuccess'));
+      showToast(t('acceptSuccess'), 'success');
     } catch (error) {
-      showAlert(tc('error'), t('acceptError'));
+      showToast(t('acceptError'), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -194,9 +195,9 @@ export default function CareCircleScreen() {
             try {
               setActionLoading(id);
               await cancelInvitation(id);
-              showAlert(tc('success'), t('cancelSuccess') || 'Đã huỷ lời mời');
+              showToast(t('cancelSuccess') || 'Đã huỷ lời mời', 'success');
             } catch {
-              showAlert(tc('error'), t('cancelError') || 'Không thể huỷ lời mời');
+              showToast(t('cancelError') || 'Không thể huỷ lời mời', 'error');
             } finally {
               setActionLoading(null);
             }
@@ -210,9 +211,9 @@ export default function CareCircleScreen() {
     try {
       setActionLoading(id);
       await rejectInvitation(id);
-      showAlert(tc('success'), t('rejectSuccess'));
+      showToast(t('rejectSuccess'), 'success');
     } catch (error) {
-      showAlert(tc('error'), t('rejectError'));
+      showToast(t('rejectError'), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -231,9 +232,9 @@ export default function CareCircleScreen() {
             try {
               setActionLoading(id);
               await deleteConnection(id);
-              showAlert(t('deleted'), t('deletedMsg'));
+              showToast(t('deletedMsg'), 'success');
             } catch (error) {
-              showAlert(tc('error'), t('deleteError'));
+              showToast(t('deleteError'), 'error');
             } finally {
               setActionLoading(null);
             }
@@ -277,10 +278,10 @@ export default function CareCircleScreen() {
       ]);
       
       setEditModalVisible(false);
-      showAlert(tc('success'), t('editSuccess'));
+      showToast(t('editSuccess'), 'success');
     } catch (error) {
 
-      showAlert(tc('error'), t('editError'));
+      showToast(t('editError'), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -373,7 +374,7 @@ export default function CareCircleScreen() {
                   name: requesterName,
                   email: invitation.requester_email,
                   phone: invitation.requester_phone,
-                  relationship: invitation.relationship_type,
+                  relationship: reverseRelationship(invitation.relationship_type) || invitation.relationship_type,
                   role: invitation.role,
                 })}
                 activeOpacity={0.75}
@@ -392,7 +393,7 @@ export default function CareCircleScreen() {
                     <View style={styles.cardBadge}>
                       <Ionicons name="link" size={12} color={iconColors.primary} />
                       <Text style={styles.cardRelation}>
-                        {invitation.relationship_type || invitation.role || t('connection')}
+                        {reverseRelationship(invitation.relationship_type) || invitation.role || t('connection')}
                       </Text>
                     </View>
                   </View>

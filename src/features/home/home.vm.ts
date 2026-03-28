@@ -1,3 +1,4 @@
+import i18n from '../../i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LogEntry, useLogsStore } from '../logs/logs.store';
 import { useMissionsStore } from '../missions/missions.store';
@@ -9,9 +10,13 @@ const getLogValue = (log: LogEntry, field: 'value' | 'systolic' | 'diastolic' | 
   return log[field];
 };
 
+const getDayLabel = (date: Date): string => {
+  const locale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
+  return date.toLocaleDateString(locale, { weekday: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
+};
+
 // Helper to create trend data from logs — luôn trả về đủ 7 ngày, ngày không đo = 0
 const createGlucoseTrendFromLogs = (logs: LogEntry[]): TreeHistoryPoint[] => {
-  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   const today = new Date();
   const days: TreeHistoryPoint[] = [];
 
@@ -30,7 +35,7 @@ const createGlucoseTrendFromLogs = (logs: LogEntry[]): TreeHistoryPoint[] => {
     });
 
     days.push({
-      label: dayNames[d.getDay()],
+      label: getDayLabel(d),
       value: log?.value ?? 0,
     });
   }

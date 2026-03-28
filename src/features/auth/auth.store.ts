@@ -1,9 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { localCache } from '../../lib/localCache';
 import { tokenStore } from '../../lib/tokenStore';
 import { useNotificationStore } from '../../stores/notification.store';
+import { useCarePulseStore } from '../care-pulse/store/carePulse.store';
+import { useLogsStore } from '../logs/logs.store';
+import { useMissionsStore } from '../missions/missions.store';
+import { useProfileStore } from '../profile/profile.store';
+import { useTreeStore } from '../tree/tree.store';
+import { useWellnessStore } from '../wellness/store/wellness.store';
 import { AppLanguage, useLanguageStore } from '../../stores/language.store';
+import { apiClient } from '../../lib/apiClient';
 import { authApi, LoginPayload, UpdateProfilePayload } from './auth.api';
 import { authService, SocialProvider } from './auth.service';
 
@@ -88,6 +96,7 @@ export const useAuthStore = create<AuthState>()(
             if (profile?.languagePreference) {
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
+            if (profile?.id) localCache.setUserId(profile.id);
             set({ profile, loading: false, hydrated: true });
           } catch (err) {
             // If profile fetch fails but we have token, keep the token but clear profile
@@ -131,6 +140,7 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
+          if (profile?.id) localCache.setUserId(profile.id);
           set({ profile, token, loading: false });
         } catch (error) {
 
@@ -158,6 +168,7 @@ export const useAuthStore = create<AuthState>()(
             profile = response.profile || null;
           }
 
+          if (profile?.id) localCache.setUserId(profile.id);
           set({ profile, token, loading: false });
         } catch (error) {
 
@@ -189,6 +200,7 @@ export const useAuthStore = create<AuthState>()(
             profile = response.profile || null;
           }
 
+          if (profile?.id) localCache.setUserId(profile.id);
           set({ profile, token, loading: false });
         } catch (error) {
 
@@ -202,6 +214,14 @@ export const useAuthStore = create<AuthState>()(
         try {
           await authApi.deleteAccount();
           await tokenStore.clearToken();
+          localCache.setUserId(null);
+          useMissionsStore.getState().reset();
+          useTreeStore.getState().reset();
+          useLogsStore.getState().reset();
+          useProfileStore.getState().reset();
+          useWellnessStore.getState().reset();
+          useCarePulseStore.getState().reset();
+          AsyncStorage.multiRemove(['wellness-store', 'care_pulse_v1']).catch(() => {});
           set({ profile: null, token: null, loading: false });
         } catch (error) {
           set({ loading: false, error: (error as Error).message });
@@ -215,21 +235,8 @@ export const useAuthStore = create<AuthState>()(
           const updatedProfile = await authApi.updateProfile(payload);
           set({ profile: updatedProfile, loading: false });
         } catch (error) {
-          // Update locally if API fails (for demo mode)
-          const currentProfile = get().profile;
-          if (currentProfile) {
-            set({
-              profile: {
-                ...currentProfile,
-                name: payload.name ?? currentProfile.name,
-                phone: payload.phone ?? currentProfile.phone
-              },
-              loading: false
-            });
-          } else {
-            set({ loading: false, error: (error as Error).message });
-            throw error;
-          }
+          set({ loading: false, error: (error as Error).message });
+          throw error;
         }
       },
 
@@ -237,13 +244,26 @@ export const useAuthStore = create<AuthState>()(
         try {
           await authApi.logout();
         } catch (error) {
-
+          // Logout API failed (network error) — try clearing push token separately
+          try {
+            await apiClient('/api/mobile/profile/push-token', { method: 'DELETE' });
+          } catch {}
         }
         await tokenStore.clearToken();
-        
-        // Clear notification store
+        localCache.setUserId(null);
+
+        // Reset all user-scoped stores
         useNotificationStore.getState().clearAll();
-        
+        useMissionsStore.getState().reset();
+        useTreeStore.getState().reset();
+        useLogsStore.getState().reset();
+        useProfileStore.getState().reset();
+        useWellnessStore.getState().reset();
+        useCarePulseStore.getState().reset();
+
+        // Clear persisted user-scoped data from AsyncStorage
+        AsyncStorage.multiRemove(['wellness-store', 'care_pulse_v1', '@asinu/data_consent_v1']).catch(() => {});
+
         set({ profile: null, token: null });
       }
     }),

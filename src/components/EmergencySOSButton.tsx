@@ -55,7 +55,11 @@ export function EmergencySOSButton() {
     try {
       let location: { lat: number; lng: number; accuracy?: number } | undefined;
 
-      const { status } = await Location.getForegroundPermissionsAsync();
+      let { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const req = await Location.requestForegroundPermissionsAsync().catch(() => null);
+        if (req) status = req.status;
+      }
       if (status === 'granted') {
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         location = {

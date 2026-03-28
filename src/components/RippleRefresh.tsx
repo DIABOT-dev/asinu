@@ -14,7 +14,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, ScrollViewProps, StyleSheet, Text, View } from 'react-native';
+import { Platform, RefreshControl, ScrollView, ScrollViewProps, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
@@ -253,6 +253,14 @@ export function RippleRefreshScrollView({
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         bounces={true}
+        refreshControl={Platform.OS === 'android' ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[rippleColor]}
+            tintColor={rippleColor}
+          />
+        ) : undefined}
       >
         {children}
       </AnimatedScrollView>

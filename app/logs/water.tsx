@@ -15,7 +15,6 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  FadeIn,
   FadeInDown,
   ZoomIn,
   useAnimatedStyle,
@@ -24,7 +23,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LoadingOverlay } from '../../src/components/LoadingOverlay';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
@@ -32,6 +30,7 @@ import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { validateWaterPayload } from '../../src/features/logs/logs.validation';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { showToast } from '../../src/stores/toast.store';
 import { categoryColors, colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -50,7 +49,6 @@ export default function WaterLogScreen() {
   const [volumeError, setVolumeError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   const createWater = useLogsStore((state) => state.createWater);
 
@@ -71,12 +69,6 @@ export default function WaterLogScreen() {
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (!saved) return;
-    const timer = setTimeout(() => router.back(), 1600);
-    return () => clearTimeout(timer);
-  }, [saved]);
 
   const handleBack = useCallback(() => router.back(), [router]);
 
@@ -99,8 +91,11 @@ export default function WaterLogScreen() {
     setIsSaving(true);
     try {
       await createWater(result.value);
-      setSaved(true);
+      showToast(t('savedTitle'), 'success');
+      router.back();
     } catch {
+      showToast(t('saveFailed'), 'error');
+    } finally {
       setIsSaving(false);
     }
   };
@@ -111,22 +106,6 @@ export default function WaterLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
-
-        {saved && (
-          <Animated.View entering={FadeIn.duration(250)} style={styles.successOverlay}>
-            <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.successCard}>
-              <MaterialCommunityIcons name="check-circle" size={80} color={colors.emerald} />
-              <Text style={styles.successTitle}>{t('savedTitle')}</Text>
-              <Text style={styles.successSub}>{t('savedMessage')}</Text>
-              <View style={styles.successMeta}>
-                <Text style={styles.successValue}>{volume}</Text>
-                <Text style={styles.successUnit}> ml</Text>
-              </View>
-            </Animated.View>
-          </Animated.View>
-        )}
-
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -445,50 +424,5 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       transform: [{ scale: 0.98 }],
     },
     saveBtnDisabled: { opacity: 0.6 },
-    successOverlay: {
-      position: 'absolute',
-      inset: 0,
-      zIndex: 999,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    successCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xxl,
-      padding: spacing.xxxl,
-      alignItems: 'center',
-      gap: spacing.md,
-      width: 280,
-      shadowColor: '#000',
-      shadowOpacity: 0.15,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 12,
-    },
-    successTitle: {
-      fontSize: typography.size.xl,
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    successSub: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-    },
-    successMeta: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      marginTop: spacing.xs,
-    },
-    successValue: {
-      fontSize: typography.size.xl,
-      fontWeight: '800',
-      color: categoryColors.water,
-    },
-    successUnit: {
-      fontSize: typography.size.md,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
   });
 }

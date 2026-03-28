@@ -39,7 +39,7 @@ import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
-const MAX_TRIAGE_QUESTIONS = 5;
+const MAX_TRIAGE_QUESTIONS = 8;
 
 // ─── Local fallback questions (when network itself fails) ────────────────────
 
@@ -149,6 +149,7 @@ export default function CheckinScreen() {
   const [currentQ, setCurrentQ]    = useState<string>('');
   const [currentOpts, setCurrentOpts] = useState<string[]>([]);
   const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
+  const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
   const [customAnswer, setCustomAnswer] = useState('');
   const [triageSummary, setTriageSummary] = useState<{
     summary: string; severity: string; recommendation: string; needsDoctor: boolean;
@@ -223,6 +224,7 @@ export default function CheckinScreen() {
             );
           setCurrentMultiSelect(!isSingleSelect);
         }
+        setCurrentAllowFreeText(result.allowFreeText === true);
         setCustomAnswer('');
       }
     } catch (err: any) {
@@ -331,6 +333,7 @@ export default function CheckinScreen() {
             question={currentQ}
             options={currentOpts}
             multiSelect={currentMultiSelect}
+            allowFreeText={currentAllowFreeText}
             answers={answers}
             loading={loading}
             onAnswer={handleAnswer}
@@ -440,6 +443,7 @@ function TriageScreen({
   question: string;
   options: string[];
   multiSelect: boolean;
+  allowFreeText?: boolean;
   answers: Array<{ question: string; answer: string }>;
   loading: boolean;
   onAnswer: (a: string) => void;
@@ -644,8 +648,8 @@ function TriageScreen({
               })}
             </Animated.View>}
 
-            {/* Custom text input + mic — show when multi-select OR no options */}
-            {(multiSelect || options.length === 0) && <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
+            {/* Custom text input + mic — show when multi-select, allowFreeText, or no options */}
+            {(multiSelect || allowFreeText || options.length === 0) && <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
               <Pressable
                 onPress={handleMicPress}
                 style={[styles.micBtn, isRecording && styles.micBtnActive]}

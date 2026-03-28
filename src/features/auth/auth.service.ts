@@ -61,8 +61,8 @@ export const authService = {
         throw new Error(oauthResult.error || i18n.t('authFailed', { ns: 'auth' }));
       }
       
-      // Zalo/Facebook server-side flow: backend already handled everything, token is the JWT
-      if ((payload.provider === 'zalo' || payload.provider === 'facebook') && oauthResult.directToken) {
+      // Zalo/Facebook/Google server-side flow: backend already handled everything, token is the JWT
+      if ((payload.provider === 'zalo' || payload.provider === 'facebook' || payload.provider === 'google') && oauthResult.directToken) {
         const meResponse = await apiClient<{ok: boolean, user: {id: string, email?: string, full_name?: string, avatar_url?: string}}>(
           '/api/auth/me',
           { headers: { Authorization: `Bearer ${oauthResult.directToken}` } }

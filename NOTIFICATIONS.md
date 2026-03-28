@@ -20,39 +20,45 @@ User nhận thông báo ngoài app (push)
 
 ---
 
-## 2. Các loại thông báo (21 loại)
+## 2. Các loại thông báo push (ngoài app)
 
-### CRITICAL — không có cooldown
-| Type | Mô tả |
-|------|-------|
-| `emergency` | Cảnh báo khẩn từ caregiver |
-| `checkin_followup_urgent` | Follow-up sức khoẻ khẩn |
+### Nhóm A — Cron định kỳ (`basic.notification.service.js`)
 
-### HIGH — cooldown 30 phút
-| Type | Mô tả |
-|------|-------|
-| `health_alert` | Chỉ số sức khoẻ bất thường |
-| `caregiver_alert` | Thông báo cho caregiver |
-| `morning_checkin` | Check-in buổi sáng |
-| `care_circle_invitation` | Mời vào vòng kết nối |
-| `care_circle_accepted` | Chấp nhận lời mời |
+| Type | Gửi khi | Điều kiện thêm | Cooldown |
+|------|---------|----------------|----------|
+| `reminder_log_morning` | Giờ sáng đã cài (default 8h) | Chưa log hôm nay | 1 lần/ngày |
+| `reminder_afternoon` | Giờ chiều đã cài (default 14h) | — | 1 lần/ngày |
+| `reminder_log_evening` | Giờ tối đã cài (default 21h) | Chưa log tối | 1 lần/ngày |
+| `reminder_glucose` | Giờ sáng | Có tiểu đường + chưa đo | 1 lần/ngày |
+| `reminder_bp` | Giờ sáng | Có huyết áp + chưa đo | 1 lần/ngày |
+| `reminder_medication_morning` | Giờ sáng | Có bệnh nền + chưa uống thuốc | 1 lần/ngày |
+| `reminder_medication_evening` | Giờ tối | Có bệnh nền + chưa uống thuốc | 1 lần/ngày |
+| `streak_7` / `streak_14` / `streak_30` | Giờ sáng | Đạt chuỗi milestone | 1 lần/25 ngày |
+| `weekly_recap` | Chủ nhật 20:00 | — | 1 lần/tuần |
 
-### MEDIUM — cooldown 60 phút
-| Type | Mô tả |
-|------|-------|
-| `reminder_glucose` | Nhắc đo đường huyết |
-| `reminder_bp` | Nhắc đo huyết áp |
-| `reminder_medication_morning/evening` | Nhắc uống thuốc |
-| `reminder_log_morning/evening` | Nhắc ghi chỉ số |
-| `reminder_afternoon` | Nhắc buổi chiều |
+### Nhóm B — Checkin flow (kích hoạt theo hành vi user, `checkin.service.js`)
 
-### LOW — cooldown 120 phút
-| Type | Mô tả |
-|------|-------|
-| `reminder_water` | Nhắc uống nước |
-| `streak_7/14/30` | Đạt chuỗi ngày liên tiếp |
-| `weekly_recap` | Tổng kết tuần (Chủ nhật 20h) |
-| `engagement` | AI re-engagement cá nhân hoá |
+| Type | Gửi cho | Khi nào | Cooldown |
+|------|---------|---------|----------|
+| `morning_checkin` | User | 7:00 mỗi sáng | 1 lần/ngày |
+| `checkin_followup` | User | Miss lần 1 (sau 2–4h không trả lời) | Theo `next_checkin_at` |
+| `checkin_followup_urgent` | User | Miss lần 2+ | Theo `next_checkin_at` |
+| `caregiver_alert` | Caregiver | User không phản hồi nhiều lần / AI thấy nguy hiểm | CRITICAL — không cooldown |
+| `emergency` | Caregiver | User báo khẩn cấp | CRITICAL — không cooldown |
+| `health_alert` | User / Caregiver | AI phát hiện triệu chứng nghiêm trọng | 30 phút |
+| `caregiver_confirmed` | User (bệnh nhân) | Caregiver đã xác nhận hành động | — |
+
+### Nhóm C — Care Circle (`careCircle.service.js`)
+
+| Type | Gửi cho | Khi nào | Cooldown |
+|------|---------|---------|----------|
+| `care_circle_accepted` | Người gửi lời mời | Được chấp nhận vào vòng kết nối | 30 phút |
+
+### Nhóm D — AI Engagement (`engagement.notification.service.js`)
+
+| Type | Gửi cho | Khi nào | Cooldown |
+|------|---------|---------|----------|
+| `engagement` | User | User không active lâu, AI tạo nội dung cá nhân hoá | 120 phút |
 
 ---
 
@@ -124,30 +130,11 @@ Fallback: User set → Inference → Mặc định (sáng 8h, tối 21h)
 
 ---
 
-## 7. Fix ưu tiên ngay (thông báo ngoài app)
+## 7. Fix đã thực hiện (thông báo ngoài app)
 
-### Fix [1] — Token deletion endpoint
+**[9] Logout không xóa push_token** — `mobile.routes.js` `/auth/logout` chỉ return 200 mà không xóa token → cron vẫn gửi sau khi logout. Đã fix: route gọi `logout(pool, userId)` trong `auth.service.js` để `UPDATE users SET push_token = NULL`.
 
-Trong `backend.asinu/src/routes/auth.routes.js` hoặc `mobile.routes.js`, cần có:
-```js
-router.delete('/push-token', authMiddleware, async (req, res) => {
-  await pool.query('UPDATE users SET push_token = NULL WHERE id = $1', [req.user.id]);
-  res.json({ ok: true });
-});
-```
-
-### Fix [3] — Timezone Vietnam cho notification
-
-Trong `basic.notification.service.js`, thay:
-```js
-const hour = new Date().getUTCHours(); // UTC
-```
-thành:
-```js
-const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000);
-const hour = nowVN.getUTCHours(); // UTC+7
-const minute = nowVN.getUTCMinutes();
-```
+**[10] Orchestrator dùng in-memory cooldown** — `notification.orchestrator.js` dùng `Map` lưu thời gian gửi gần nhất → mất khi server restart → cron gửi lại toàn bộ. Đã fix: thay bằng DB query `SELECT FROM notifications WHERE created_at >= NOW() - interval`.
 
 ---
 

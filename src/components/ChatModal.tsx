@@ -141,7 +141,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     setMessages((prev) => [...prev, userMessage]);
     setIsTyping(true);
     try {
-      const { reply } = await chatApi.sendMessage({ message: text, context: { lang: 'vi' } });
+      const { reply } = await chatApi.sendMessage({ message: text, context: {} });
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',

@@ -10,6 +10,7 @@ import { logActivity } from '../wellness/api/wellness.api';
 // Also clears tree localCache so tree/home screen doesn't show stale mission counts
 let _fetchRecentTimer: ReturnType<typeof setTimeout> | null = null;
 let _fetchRecentAbort: AbortController | null = null;
+
 function debouncedFetchRecent(fetchFn: (signal?: AbortSignal) => Promise<void>, delay = 500) {
   if (_fetchRecentTimer) clearTimeout(_fetchRecentTimer);
   if (_fetchRecentAbort) _fetchRecentAbort.abort();
@@ -18,6 +19,11 @@ function debouncedFetchRecent(fetchFn: (signal?: AbortSignal) => Promise<void>, 
   // Invalidate tree localCache so next navigation shows fresh mission count
   localCache.removeCached(CACHE_KEYS.TREE).catch(() => {});
   _fetchRecentTimer = setTimeout(() => { fetchFn(signal).catch(() => {}); }, delay);
+}
+
+function cancelDebouncedFetchRecent() {
+  if (_fetchRecentTimer) { clearTimeout(_fetchRecentTimer); _fetchRecentTimer = null; }
+  if (_fetchRecentAbort) { _fetchRecentAbort.abort(); _fetchRecentAbort = null; }
 }
 import {
     BloodPressureLogPayload,
@@ -80,6 +86,7 @@ type LogsState = {
   isStale: boolean;
   errorState: ErrorState;
   fetchRecent: (signal?: AbortSignal) => Promise<void>;
+  reset: () => void;
   createGlucose: (payload: GlucoseLogPayload) => Promise<LogEntry>;
   createBloodPressure: (payload: BloodPressureLogPayload) => Promise<LogEntry>;
   createMedication: (payload: MedicationLogPayload) => Promise<LogEntry>;
@@ -118,16 +125,20 @@ export const useLogsStore = create<LogsState>((set, get) => ({
   status: 'idle',
   isStale: false,
   errorState: 'none',
+  reset() {
+    cancelDebouncedFetchRecent();
+    set({ recent: [], status: 'idle', isStale: false, errorState: 'none' });
+  },
   async fetchRecent(signal) {
     if (featureFlags.devBypassAuth) {
       set({ recent: fallbackRecent, status: 'success', isStale: false, errorState: 'none' });
       return;
     }
 
+    const todayKey = new Date().toISOString().slice(0, 10);
     let usedCache = false;
-    const cached = await localCache.getCached<LogEntry[]>(CACHE_KEYS.RECENT_LOGS, '1');
+    const cached = await localCache.getCached<LogEntry[]>(CACHE_KEYS.RECENT_LOGS, todayKey);
     if (cached) {
-
       set({ recent: cached, status: 'success', isStale: true, errorState: 'none' });
       usedCache = true;
     } else {
@@ -135,14 +146,9 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     }
 
     try {
-
       const recent = await logsApi.fetchRecent({ signal });
-
-      if (recent.length > 0) {
-
-      }
       set({ recent, status: 'success', isStale: false, errorState: 'none' });
-      await localCache.setCached(CACHE_KEYS.RECENT_LOGS, '1', recent);
+      await localCache.setCached(CACHE_KEYS.RECENT_LOGS, todayKey, recent);
     } catch (error) {
       // Ignore AbortError - it's expected when component unmounts
       if (error instanceof Error && error.name === 'AbortError') {

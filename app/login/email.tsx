@@ -349,7 +349,7 @@ export default function LoginEmailScreen() {
         <Animated.View entering={FadeInUp.delay(500).duration(500)} style={styles.socialGroup}>
           {(Platform.OS === 'ios'
             ? (['google', 'facebook', 'zalo', 'apple'] as SocialProvider[])
-            : (['google', 'facebook', 'zalo'] as SocialProvider[])
+            : (['google', 'zalo'] as SocialProvider[])
           ).map((provider, idx) => {
             const isButtonLoading = isSubmitting && pendingAction === provider;
             const label =
@@ -416,6 +416,7 @@ export default function LoginEmailScreen() {
             <Text style={styles.registerLink}> {t('register')}</Text>
           </Pressable>
         </Animated.View>
+
       </ScrollView>
     </LinearGradient>
     </KeyboardAvoidingView>

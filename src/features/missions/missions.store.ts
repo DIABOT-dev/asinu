@@ -36,6 +36,7 @@ type MissionsState = {
   isStale: boolean;
   errorState: ErrorState;
   fetchMissions: (signal?: AbortSignal) => Promise<void>;
+  reset: () => void;
 };
 
 const getMissionMeta = (): Record<string, { title: string; description?: string }> => ({
@@ -154,6 +155,9 @@ export const useMissionsStore = create<MissionsState>((set) => ({
   status: 'idle',
   isStale: false,
   errorState: 'none',
+  reset() {
+    set({ missions: [], status: 'idle', isStale: false, errorState: 'none' });
+  },
   async fetchMissions(signal) {
     if (featureFlags.devBypassAuth) {
       set({ missions: getFallbackMissions(), status: 'success', isStale: false, errorState: 'none' });

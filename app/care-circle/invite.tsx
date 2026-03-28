@@ -17,8 +17,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DropdownOption } from '../../src/components/Dropdown';
 import { ScaledText as Text } from '../../src/components/ScaledText';
-import { Toast } from '../../src/components/Toast';
 import { useAuthStore } from '../../src/features/auth/auth.store';
+import { showToast } from '../../src/stores/toast.store';
 import { careCircleApi, useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing, brandColors} from '../../src/styles';
@@ -118,13 +118,10 @@ export default function InviteScreen() {
     { id: 'tu-van-tam-ly', label: t('roleCounselor'), subtitle: t('roleCounselorDesc') },
   ];
 
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
-
   const handleSearchByPhone = async () => {
     const phone = phoneQuery.trim();
-    if (phone.length < 3) {
+    const isValidPhone = /^(0[0-9]{9}|\+84[0-9]{9})$/.test(phone);
+    if (!isValidPhone) {
       setSearchError(t('phoneQueryTooShort'));
       setSearchedUser(null);
       setSelectedUser(null);
@@ -177,9 +174,7 @@ export default function InviteScreen() {
 
   const handleSend = async () => {
     if (!selectedUser) {
-      setToastMessage(t('pleaseSelectRecipient'));
-      setToastType('error');
-      setShowToast(true);
+      showToast(t('pleaseSelectRecipient'), 'error');
       return;
     }
     try {
@@ -189,18 +184,14 @@ export default function InviteScreen() {
         role: selectedRole?.label || customRole || undefined,
         permissions,
       });
-      setToastMessage(t('inviteSentSuccess'));
-      setToastType('success');
-      setShowToast(true);
+      showToast(t('inviteSentSuccess'), 'success');
       setTimeout(() => router.back(), 1500);
     } catch (error: any) {
       // Connection limit exceeded → show premium upgrade modal
       if (error.statusCode === 403 || error.message?.includes('premium') || error.message?.includes('Premium')) {
         setShowUpgradeModal(true);
       } else {
-        setToastMessage(error.message || t('cannotSendInvite'));
-        setToastType('error');
-        setShowToast(true);
+        showToast(error.message || t('cannotSendInvite'), 'error');
       }
     }
   };
@@ -222,13 +213,6 @@ export default function InviteScreen() {
             </TouchableOpacity>
           ),
         }}
-      />
-      <Toast
-        visible={showToast}
-        message={toastMessage}
-        type={toastType}
-        position="center"
-        onHide={() => setShowToast(false)}
       />
       <ScrollView
         style={{ flex: 1, backgroundColor: colors.background }}
@@ -352,7 +336,7 @@ export default function InviteScreen() {
               </Pressable>
             </View>
             {showRelDropdown && (
-              <View style={styles.suggestionList}>
+              <ScrollView style={styles.suggestionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                 {relationshipOptions.map(opt => (
                   <Pressable key={opt.id} style={styles.suggestionItem} onPress={() => {
                     setSelectedRelationship(opt);
@@ -362,7 +346,7 @@ export default function InviteScreen() {
                     <Text style={styles.suggestionText}>{opt.label}</Text>
                   </Pressable>
                 ))}
-              </View>
+              </ScrollView>
             )}
           </View>
 
@@ -385,7 +369,7 @@ export default function InviteScreen() {
               </Pressable>
             </View>
             {showRoleDropdown && (
-              <View style={styles.suggestionList}>
+              <ScrollView style={styles.suggestionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                 {roleOptions.map(opt => (
                   <Pressable key={opt.id} style={styles.suggestionItem} onPress={() => {
                     setSelectedRole(opt);
@@ -395,7 +379,7 @@ export default function InviteScreen() {
                     <Text style={styles.suggestionText}>{opt.label}</Text>
                   </Pressable>
                 ))}
-              </View>
+              </ScrollView>
             )}
           </View>
 
@@ -776,7 +760,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: 12,
       backgroundColor: colors.surface,
       maxHeight: 200,
-      overflow: 'hidden',
     },
     suggestionItem: {
       paddingHorizontal: spacing.md,

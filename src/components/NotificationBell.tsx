@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { showToast } from '../stores/toast.store';
 import {
     ActivityIndicator,
     FlatList,
@@ -12,7 +13,6 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppAlertModal, useAppAlert } from './AppAlertModal';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, typography } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
@@ -211,31 +211,85 @@ export function NotificationBell({
     deleteAllButton: {
       padding: spacing.xs,
     },
+    confirmOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      zIndex: 100,
+      padding: spacing.xl,
+    },
+    confirmCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: spacing.xl,
+      width: '100%',
+      maxWidth: 320,
+      alignItems: 'center' as const,
+    },
+    confirmTitle: {
+      fontSize: 17,
+      fontWeight: '700' as const,
+      color: colors.textPrimary,
+      textAlign: 'center' as const,
+      marginBottom: spacing.xs,
+    },
+    confirmText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center' as const,
+      marginBottom: spacing.lg,
+      lineHeight: 20,
+    },
+    confirmButtons: {
+      flexDirection: 'row' as const,
+      gap: spacing.sm,
+      width: '100%',
+    },
+    confirmCancel: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      alignItems: 'center' as const,
+    },
+    confirmCancelText: {
+      fontWeight: '700' as const,
+      color: '#fff',
+      fontSize: 15,
+    },
+    confirmDelete: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: colors.danger,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 6,
+    },
+    confirmDeleteText: {
+      fontWeight: '700' as const,
+      color: '#fff',
+      fontSize: 15,
+    },
   }), [isDark]);
   const { t } = useTranslation('common');
   const { t: tLogs } = useTranslation('logs');
-  const { alertState, showAlert, dismissAlert } = useAppAlert();
+  const [confirmTarget, setConfirmTarget] = useState<string | 'all' | null>(null);
 
-  const handleDeleteOne = (id: string) => {
-    showAlert(
-      t('deleteNotifTitle'),
-      t('deleteNotifMsg'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        { text: t('delete'), style: 'destructive', onPress: () => onDelete?.(id) },
-      ]
-    );
-  };
+  const handleDeleteOne = (id: string) => setConfirmTarget(id);
+  const handleDeleteAll = () => setConfirmTarget('all');
 
-  const handleDeleteAll = () => {
-    showAlert(
-      t('deleteAllNotifTitle'),
-      t('deleteAllNotifMsg'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        { text: t('delete'), style: 'destructive', onPress: () => onDeleteAll?.() },
-      ]
-    );
+  const confirmDelete = () => {
+    if (confirmTarget === 'all') {
+      onDeleteAll?.();
+      showToast(t('allNotifsDeleted'), 'success');
+    } else if (confirmTarget) {
+      onDelete?.(confirmTarget);
+      showToast(t('notifDeleted'), 'success');
+    }
+    setConfirmTarget(null);
   };
 
   const handleNotificationPress = (notification: Notification) => {
@@ -333,13 +387,13 @@ export function NotificationBell({
         <View style={styles.itemActions}>
           {!item.read && <View style={styles.unreadDot} />}
           {onDelete && (
-            <TouchableOpacity
-              onPress={() => handleDeleteOne(item.id)}
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); handleDeleteOne(item.id); }}
               hitSlop={12}
               style={styles.deleteItemBtn}
             >
               <Ionicons name="trash-outline" size={16} color={colors.danger} />
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       </TouchableOpacity>
@@ -348,7 +402,6 @@ export function NotificationBell({
 
   return (
     <>
-      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <TouchableOpacity
         style={styles.bellButton}
         onPress={() => { setIsOpen(true); onOpen?.(); }}
@@ -390,6 +443,29 @@ export function NotificationBell({
                   </TouchableOpacity>
                 </View>
               </View>
+
+              {confirmTarget !== null && (
+                <View style={styles.confirmOverlay}>
+                  <View style={styles.confirmCard}>
+                    <Ionicons name="trash-outline" size={32} color={colors.danger} style={{ marginBottom: spacing.sm }} />
+                    <Text style={styles.confirmTitle}>
+                      {confirmTarget === 'all' ? t('deleteAllNotifTitle') : t('deleteNotifTitle')}
+                    </Text>
+                    <Text style={styles.confirmText}>
+                      {confirmTarget === 'all' ? t('deleteAllNotifMsg') : t('deleteNotifMsg')}
+                    </Text>
+                    <View style={styles.confirmButtons}>
+                      <Pressable style={styles.confirmCancel} onPress={() => setConfirmTarget(null)}>
+                        <Text style={styles.confirmCancelText}>{t('cancel')}</Text>
+                      </Pressable>
+                      <Pressable style={styles.confirmDelete} onPress={confirmDelete}>
+                        <Ionicons name="trash-outline" size={14} color="#fff" />
+                        <Text style={styles.confirmDeleteText}>{t('delete')}</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {loading ? (
                 <View style={styles.loadingContainer}>

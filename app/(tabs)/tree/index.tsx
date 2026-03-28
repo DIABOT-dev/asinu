@@ -203,16 +203,16 @@ export default function TreeScreen() {
             <View style={styles.streakItem}>
               <Ionicons name="flame" size={20} color={colors.premium} />
               <View style={styles.streakContent}>
-                <Text style={styles.streakValue}>{summary?.streakDays ?? 0}</Text>
-                <Text style={styles.streakLabel}>{t('consecutiveDays')}</Text>
+                <Text style={styles.streakValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{summary?.streakDays ?? 0}</Text>
+                <Text style={styles.streakLabel} numberOfLines={1}>{t('consecutiveDays')}</Text>
               </View>
             </View>
             <View style={styles.streakDivider} />
             <View style={styles.streakItem}>
               <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
               <View style={styles.streakContent}>
-                <Text style={styles.streakValue}>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
-                <Text style={styles.streakLabel}>{t('todayMissions')}</Text>
+                <Text style={styles.streakValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
+                <Text style={styles.streakLabel} numberOfLines={1}>{t('todayMissions')}</Text>
               </View>
             </View>
           </View>
@@ -227,15 +227,15 @@ export default function TreeScreen() {
         <View style={styles.metricGrid}>
           {metrics.map((metric) => (
             <View key={metric.key} style={[styles.metricCard, { backgroundColor: metric.bgColor, borderColor: metric.borderColor }]}>
-              <View style={styles.metricHeader}>
+              <View style={styles.metricTopRow}>
                 <MaterialCommunityIcons name={metric.icon} size={20} color={metric.iconColor} />
                 <Text style={styles.metricTitle}>{metric.title}</Text>
+                <View style={styles.metricValueRow}>
+                  <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metric.value}</Text>
+                  <Text style={styles.metricUnit}>{metric.unit}</Text>
+                </View>
               </View>
-              <View style={styles.metricValueRow}>
-                <Text style={styles.metricValue}>{metric.value}</Text>
-                <Text style={styles.metricUnit}>{metric.unit}</Text>
-              </View>
-              <Text style={styles.metricMeta}>{metric.meta}</Text>
+              {metric.meta ? <Text style={styles.metricMeta}>{metric.meta}</Text> : null}
             </View>
           ))}
         </View>
@@ -378,16 +378,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.sm
   },
   streakContent: {
-    flex: 1
+    flex: 1,
+    overflow: 'hidden',
   },
   streakValue: {
     fontSize: typography.size.md,
     fontWeight: '700',
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
   streakLabel: {
     fontSize: typography.size.xs,
-    color: colors.textSecondary
+    color: colors.textSecondary,
   },
   streakDivider: {
     height: 1,
@@ -406,38 +407,41 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   // Metric Grid
   metricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.md
   },
   metricCard: {
-    flexGrow: 1,
-    flexBasis: '47%',
     padding: spacing.lg,
     borderRadius: 16,
     borderWidth: 1.5,
     gap: spacing.xs
   },
+  metricTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   metricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginBottom: spacing.xs
   },
   metricTitle: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    fontWeight: '500'
+    fontSize: typography.size.md,
+    color: colors.textPrimary,
+    fontWeight: '600',
+    flex: 1,
   },
   metricValueRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: spacing.xs
+    gap: spacing.xs,
+    width: 100,
+    justifyContent: 'flex-end',
   },
   metricValue: {
     fontSize: typography.size.xl,
     fontWeight: '700',
-    color: colors.textPrimary
+    color: colors.textPrimary,
   },
   metricUnit: {
     fontSize: typography.size.sm,
@@ -445,8 +449,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     marginBottom: 3
   },
   metricMeta: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginLeft: 28,
   },
   // Empty Card
   emptyCard: {

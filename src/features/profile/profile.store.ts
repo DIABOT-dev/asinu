@@ -6,11 +6,15 @@ interface ProfileState {
   profile: Profile | null;
   status: 'idle' | 'loading' | 'success' | 'error';
   fetchProfile: () => Promise<void>;
+  reset: () => void;
 }
 
 export const useProfileStore = create<ProfileState>((set) => ({
   profile: null,
   status: 'idle',
+  reset() {
+    set({ profile: null, status: 'idle' });
+  },
   async fetchProfile() {
     set({ status: 'loading' });
     try {

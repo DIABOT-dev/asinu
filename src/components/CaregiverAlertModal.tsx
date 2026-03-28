@@ -4,14 +4,15 @@
  * Cho phep chon: "Da biet" | "Dang den" | "Da goi dien"
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { apiClient } from '../lib/apiClient';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { showToast } from '../stores/toast.store';
 
 interface PendingAlert {
   alertId: number;
@@ -43,12 +44,32 @@ export function CaregiverAlertModal() {
   const [alerts, setAlerts] = useState<PendingAlert[]>([]);
   const [current, setCurrent] = useState(0);
   const [confirming, setConfirming] = useState(false);
+  const appStateRef = useRef(AppState.currentState);
 
-  useEffect(() => {
+  const fetchPendingAlerts = useCallback(() => {
     apiClient<{ ok: boolean; alerts: PendingAlert[] }>('/api/mobile/checkin/pending-alerts')
-      .then(res => { if (res.alerts?.length) setAlerts(res.alerts); })
+      .then(res => {
+        if (res.alerts?.length) {
+          setAlerts(res.alerts);
+          setCurrent(0);
+        }
+      })
       .catch(() => {});
   }, []);
+
+  // Fetch on mount
+  useEffect(() => { fetchPendingAlerts(); }, [fetchPendingAlerts]);
+
+  // Re-fetch every time app comes back to foreground (e.g. user tapped notification)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
+        fetchPendingAlerts();
+      }
+      appStateRef.current = nextState;
+    });
+    return () => sub.remove();
+  }, [fetchPendingAlerts]);
 
   const alert = alerts[current];
   if (!alert) return null;
@@ -69,6 +90,7 @@ export function CaregiverAlertModal() {
         setAlerts([]);
       }
     } catch {
+      showToast(t('error'), 'error');
     } finally {
       setConfirming(false);
     }

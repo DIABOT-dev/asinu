@@ -20,7 +20,7 @@ import {
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
-import { Toast } from '../../src/components/Toast';
+import { showToast } from '../../src/stores/toast.store';
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
@@ -339,8 +339,6 @@ export default function ReminderConfigScreen() {
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   // Time picker state
   const [pickerSlot, setPickerSlot] = useState<TimeSlot | null>(null);
@@ -378,14 +376,12 @@ export default function ReminderConfigScreen() {
       const result = await updateNotificationPreferences({ [field]: time });
       if (result.ok) {
         setPrefs(result);
-        setToastType('success');
+        showToast(t('scheduleSaved'), 'success');
       } else {
-        setToastType('error');
+        showToast(t('scheduleSaveError'), 'error');
       }
-      setShowToast(true);
     } catch {
-      setToastType('error');
-      setShowToast(true);
+      showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
   }, [prefs, pickerSlot]);
@@ -400,14 +396,12 @@ export default function ReminderConfigScreen() {
       const result = await updateNotificationPreferences({ [field]: null } as any);
       if (result.ok) {
         setPrefs(result);
-        setToastType('success');
+        showToast(t('scheduleSaved'), 'success');
       } else {
-        setToastType('error');
+        showToast(t('scheduleSaveError'), 'error');
       }
-      setShowToast(true);
     } catch {
-      setToastType('error');
-      setShowToast(true);
+      showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
   }, [prefs]);
@@ -428,7 +422,9 @@ export default function ReminderConfigScreen() {
     try {
       const result = await updateNotificationPreferences({ reminders_enabled: enabled });
       setPrefs(result);
-    } catch {}
+    } catch {
+      showToast(t('scheduleSaveError'), 'error');
+    }
     setSaving(false);
   }, [prefs]);
 
@@ -448,14 +444,6 @@ export default function ReminderConfigScreen() {
           ),
         }}
       />
-      <Toast
-        visible={showToast}
-        message={toastType === 'success' ? t('scheduleSaved') : t('scheduleSaveError')}
-        type={toastType}
-        position="top"
-        onHide={() => setShowToast(false)}
-      />
-
       {/* Time Picker */}
       <TimePickerModal
         visible={!!pickerSlot}

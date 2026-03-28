@@ -21,8 +21,8 @@ const appLogo = require('../../logo.jpg');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { TextInput } from '../../src/components/TextInput';
-import { Toast } from '../../src/components/Toast';
 import { authApi } from '../../src/features/auth/auth.api';
+import { showToast } from '../../src/stores/toast.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { getPasswordStrength, validateEmail, validatePassword, validatePhone } from '../../src/lib/validation';
 import { colors, radius, spacing } from '../../src/styles';
@@ -63,9 +63,6 @@ export default function RegisterScreen() {
   const [phoneError, setPhoneError] = useState<string | undefined>();
   const [passwordError, setPasswordError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('auth');
@@ -145,9 +142,7 @@ export default function RegisterScreen() {
 
     if (!isAgreed) {
       setError(t('agreeRequired'));
-      setToastMessage(t('agreeRequired'));
-      setToastType('error');
-      setShowToast(true);
+      showToast(t('agreeRequired'), 'error');
       return;
     }
 
@@ -160,9 +155,7 @@ export default function RegisterScreen() {
         password: password.trim(),
         full_name: name.trim() || undefined,
       });
-      setToastMessage(t('registerSuccess'));
-      setToastType('success');
-      setShowToast(true);
+      showToast(t('registerSuccess'), 'success');
       setTimeout(() => router.replace('/login'), 1500);
     } catch (err: any) {
       const raw = String(err?.message || '');
@@ -183,9 +176,7 @@ export default function RegisterScreen() {
       } else {
         setError(msg);
       }
-      setToastMessage(msg);
-      setToastType('error');
-      setShowToast(true);
+      showToast(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -232,14 +223,6 @@ export default function RegisterScreen() {
           </Pressable>
         </Pressable>
       )}
-
-      <Toast
-        visible={showToast}
-        message={toastMessage}
-        type={toastType}
-        position="center"
-        onHide={() => setShowToast(false)}
-      />
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + 24 }]}

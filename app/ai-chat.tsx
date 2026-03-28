@@ -77,7 +77,7 @@ export default function AiChatScreen() {
     setMessages((prev) => [...prev, userMessage]);
     setIsTyping(true);
     try {
-      const { reply } = await chatApi.sendMessage({ message: text, context: { lang: 'vi' } });
+      const { reply } = await chatApi.sendMessage({ message: text, context: {} });
       const assistantText = reply || t('errorReply');
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,

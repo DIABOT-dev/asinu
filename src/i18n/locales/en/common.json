@@ -131,6 +131,8 @@
   "deleteNotifMsg": "Are you sure you want to delete this notification?",
   "deleteAllNotifTitle": "Delete all",
   "deleteAllNotifMsg": "Are you sure you want to delete all notifications?",
+  "notifDeleted": "Notification deleted",
+  "allNotifsDeleted": "All notifications deleted",
   "deleteNoteTitle": "Delete note",
   "deleteNoteMsg": "Are you sure you want to delete this note?",
   "aiNotes": "AI Notes",

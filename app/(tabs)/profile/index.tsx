@@ -3,15 +3,15 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
-import { Toast } from '../../../src/components/Toast';
 import { authApi } from '../../../src/features/auth/auth.api';
+import { showToast } from '../../../src/stores/toast.store';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useMissionsStore } from '../../../src/features/missions/missions.store';
@@ -51,9 +51,6 @@ export default function ProfileScreen() {
   const [editChronicDiseases, setEditChronicDiseases] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
 
   // Removed dropdown - use direct input instead
@@ -157,38 +154,28 @@ export default function ProfileScreen() {
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) {
-      setToastMessage(t('nameRequired'));
-      setToastType('error');
-      setToastVisible(true);
+      showToast(t('nameRequired'), 'error');
       return;
     }
 
     if (editHeight && (isNaN(parseFloat(editHeight)) || parseFloat(editHeight) <= 0)) {
-      setToastMessage(t('heightPositive'));
-      setToastType('error');
-      setToastVisible(true);
+      showToast(t('heightPositive'), 'error');
       return;
     }
 
     if (editWeight && (isNaN(parseFloat(editWeight)) || parseFloat(editWeight) <= 0)) {
-      setToastMessage(t('weightPositive'));
-      setToastType('error');
-      setToastVisible(true);
+      showToast(t('weightPositive'), 'error');
       return;
     }
 
     if (editAge && (isNaN(Number(editAge)) || Number(editAge) <= 0 || Number(editAge) > 150)) {
-      setToastMessage(t('ageValid'));
-      setToastType('error');
-      setToastVisible(true);
+      showToast(t('ageValid'), 'error');
       return;
     }
 
     const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
     if (editBloodType && !validBloodTypes.includes(editBloodType)) {
-      setToastMessage(t('bloodTypeInvalid'));
-      setToastType('error');
-      setToastVisible(true);
+      showToast(t('bloodTypeInvalid'), 'error');
       return;
     }
     
@@ -220,17 +207,13 @@ export default function ProfileScreen() {
       useAuthStore.setState({ profile: updatedProfile });
       
       handleCloseEditModal();
-      setToastMessage(t('profileUpdated'));
-      setToastType('success');
-      setToastVisible(true);
+      showToast(t('profileUpdated'), 'success');
     } catch (error) {
 
       if (error instanceof ApiError && error.statusCode === 409) {
         setPhoneError(t('phoneAlreadyUsed'));
       } else {
-        setToastMessage((error as Error).message || t('profileUpdateError'));
-        setToastType('error');
-        setToastVisible(true);
+        showToast((error as Error).message || t('profileUpdateError'), 'error');
       }
     } finally {
       setIsSaving(false);
@@ -241,12 +224,6 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <Toast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
-      />
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={handleRefresh}
@@ -254,7 +231,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Profile Header Card */}
-        <Animated.View entering={FadeInDown.delay(0).duration(500).springify()}>
+        <Animated.View entering={FadeIn.delay(0).duration(400)}>
         <LinearGradient
           colors={[colors.primary, colors.primaryDark]}
           start={{ x: 0, y: 0 }}
@@ -269,29 +246,28 @@ export default function ProfileScreen() {
               <Ionicons name="checkmark-circle" size={20} color="#4ade80" />
             </View>
           </View>
-          <Text style={styles.profileName}>{identityTitle}</Text>
+          <Text style={styles.profileName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{identityTitle}</Text>
           <Text style={styles.profileStatus}>{statusText}</Text>
-          {subStatus && (
-            <TouchableOpacity
-              style={[styles.planChip, subStatus.isPremium ? styles.planChipPremium : styles.planChipFree]}
-              onPress={() => router.push('/subscription')}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons
-                name={subStatus.isPremium ? 'crown' : 'account-outline'}
-                size={13}
-                color={subStatus.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.9)'}
-              />
-              <Text style={[styles.planChipText, subStatus.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
-                {subStatus.isPremium ? t('planPremium') : t('planFree')}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.planChip, subStatus?.isPremium ? styles.planChipPremium : styles.planChipFree, !subStatus && { opacity: 0 }]}
+            onPress={() => router.push('/subscription')}
+            activeOpacity={0.8}
+            disabled={!subStatus}
+          >
+            <MaterialCommunityIcons
+              name={subStatus?.isPremium ? 'crown' : 'account-outline'}
+              size={13}
+              color={subStatus?.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.9)'}
+            />
+            <Text style={[styles.planChipText, subStatus?.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
+              {subStatus?.isPremium ? t('planPremium') : t('planFree')}
+            </Text>
+          </TouchableOpacity>
         </LinearGradient>
         </Animated.View>
 
         {/* User Info Card */}
-        <Animated.View entering={FadeInDown.delay(120).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(80).duration(350)}>
         <View style={styles.sectionHeader}>
           <Ionicons name="person-circle-outline" size={22} color={iconColors.primary} />
           <Text style={styles.sectionTitle}>{t('personalInfo')}</Text>
@@ -393,7 +369,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Quick Actions */}
-        <Animated.View entering={FadeInDown.delay(220).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(160).duration(350)}>
         <View style={styles.sectionHeader}>
           <Ionicons name="flash-outline" size={22} color={iconColors.warning} />
           <Text style={styles.sectionTitle}>{t('quickActions')}</Text>
@@ -415,18 +391,11 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
             </Pressable>
           ))}
-          {__DEV__ && (
-            <Pressable style={({ pressed }) => [styles.actionCard, pressed && styles.actionCardPressed]} onPress={() => router.push('/dev-test')}>
-              <Ionicons name="flask-outline" size={22} color="#7c3aed" style={styles.actionIcon} />
-              <Text style={styles.actionLabel}>🧪 Dev Test</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
-            </Pressable>
-          )}
         </View>
         </Animated.View>
 
         {/* Health Overview */}
-        <Animated.View entering={FadeInDown.delay(320).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(240).duration(350)}>
         <View style={styles.sectionHeader}>
           <Ionicons name="heart-circle-outline" size={22} color={iconColors.danger} />
           <Text style={styles.sectionTitle}>{t('healthOverview')}</Text>
@@ -706,7 +675,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.xl,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: spacing.xs
+    marginBottom: spacing.xs,
+    width: '100%',
+    textAlign: 'center',
   },
   profileStatus: {
     fontSize: typography.size.sm,

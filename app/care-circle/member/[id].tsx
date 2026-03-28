@@ -9,17 +9,17 @@ import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { colors, spacing } from '../../../src/styles';
 
 // ── Log type config ──────────────────────────────────────────────
-const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string; label: string }> = {
-  glucose:    { icon: 'water',                 color: '#3b82f6', bg: '#eff6ff', label: 'Đường huyết' },
-  bp:         { icon: 'heart-pulse',           color: '#ef4444', bg: '#fef2f2', label: 'Huyết áp' },
-  weight:     { icon: 'scale-bathroom',        color: '#8b5cf6', bg: '#f5f3ff', label: 'Cân nặng' },
-  water:      { icon: 'cup-water',             color: '#06b6d4', bg: '#ecfeff', label: 'Nước uống' },
-  medication: { icon: 'pill',                  color: '#f59e0b', bg: '#fffbeb', label: 'Thuốc' },
-  meal:       { icon: 'food-apple-outline',    color: '#10b981', bg: '#ecfdf5', label: 'Bữa ăn' },
-  insulin:    { icon: 'needle',                color: '#6366f1', bg: '#eef2ff', label: 'Insulin' },
+const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {
+  glucose:    { icon: 'water',                 color: '#3b82f6', bg: '#eff6ff', labelKey: 'glucose' },
+  bp:         { icon: 'heart-pulse',           color: '#ef4444', bg: '#fef2f2', labelKey: 'bloodPressure' },
+  weight:     { icon: 'scale-bathroom',        color: '#8b5cf6', bg: '#f5f3ff', labelKey: 'weight' },
+  water:      { icon: 'cup-water',             color: '#06b6d4', bg: '#ecfeff', labelKey: 'water' },
+  medication: { icon: 'pill',                  color: '#f59e0b', bg: '#fffbeb', labelKey: 'medication' },
+  meal:       { icon: 'food-apple-outline',    color: '#10b981', bg: '#ecfdf5', labelKey: 'meal' },
+  insulin:    { icon: 'needle',                color: '#6366f1', bg: '#eef2ff', labelKey: 'insulin' },
 };
 const getLogConfig = (type: string) =>
-  LOG_TYPE_CONFIG[type] || { icon: 'clipboard-text-outline', color: colors.textSecondary, bg: colors.surfaceMuted, label: type };
+  LOG_TYPE_CONFIG[type] || { icon: 'clipboard-text-outline', color: colors.textSecondary, bg: colors.surfaceMuted, labelKey: type };
 
 // ── Checkin status config ────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {
@@ -80,6 +80,7 @@ export default function MemberLogsScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const router = useRouter();
   const { t } = useTranslation('careCircle');
+  const { t: tl } = useTranslation('logs');
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
@@ -217,7 +218,7 @@ export default function MemberLogsScreen() {
                     <View key={log.id} style={styles.logCard}>
                       <MaterialCommunityIcons name={cfg.icon as any} size={20} color={cfg.color} />
                       <View style={styles.logInfo}>
-                        <Text style={styles.logType}>{cfg.label}</Text>
+                        <Text style={styles.logType}>{tl(cfg.labelKey)}</Text>
                         {value !== '' && <Text style={styles.logValue}>{value}</Text>}
                         {log.note && <Text style={styles.logNote}>{log.note}</Text>}
                       </View>

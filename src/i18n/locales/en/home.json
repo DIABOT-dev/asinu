@@ -127,5 +127,6 @@
   "statMin":    "Min",
   "statAvg":    "Avg",
   "statMax":    "Max",
-  "statStatus": "Status"
+  "statStatus": "Status",
+  "checkinReminder": "You haven't checked in today. Tap to start!"
 }

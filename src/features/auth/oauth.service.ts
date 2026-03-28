@@ -273,19 +273,39 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
   try {
     const ZaloKit = require('react-native-zalo-kit');
     const loginFn = ZaloKit?.login ?? ZaloKit?.default?.login;
+    // Log hash key thực tế đang dùng để verify với Zalo Developer Console
+    if (Platform.OS === 'android') {
+      const getHashKey = ZaloKit?.getApplicationHashKey ?? ZaloKit?.default?.getApplicationHashKey;
+      if (getHashKey) {
+        try {
+          const hashKey = await getHashKey();
+          console.log('[Zalo] Android hash key (dùng key này điền vào Zalo Console):', hashKey);
+        } catch (e) {}
+      }
+    }
+
     if (loginFn) {
-      console.log('[Zalo] flow=native_sdk');
-      // Timeout 15s: nếu SDK bị treo sau dialog "Bản Zalo không tương thích" → fall through
+      console.log('[Zalo] flow=native_sdk, loginFn:', typeof loginFn);
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('zalo_timeout')), 15000)
+        setTimeout(() => reject(new Error('zalo_timeout')), 8000)
       );
-      const data = await Promise.race([loginFn('AUTH_VIA_APP'), timeout]);
+      let data: any;
+      try {
+        console.log('[Zalo] calling loginFn AUTH_VIA_APP_OR_WEB...');
+        data = await Promise.race([loginFn('AUTH_VIA_APP_OR_WEB'), timeout]);
+        console.log('[Zalo] loginFn resolved:', JSON.stringify(data));
+      } catch (loginErr: any) {
+        console.log('[Zalo] loginFn rejected:', loginErr?.message, 'code:', loginErr?.code, 'full:', JSON.stringify(loginErr));
+        throw loginErr;
+      }
       const accessToken: string = (data as any).accessToken;
+      console.log('[Zalo] accessToken:', accessToken ? accessToken.slice(0, 20) + '...' : 'null');
 
       const profileRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
         headers: { access_token: accessToken },
       });
       const profileJson = await profileRes.json();
+      console.log('[Zalo] profile:', JSON.stringify(profileJson));
 
       if (profileJson?.id) {
         console.log('[Zalo] native_sdk success, userId:', profileJson.id);
@@ -304,10 +324,15 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
       console.log('[Zalo] native_sdk unavailable, falling through to web');
     }
   } catch (err: any) {
-    console.log('[Zalo] native_sdk error:', err?.message ?? err, '→ fallback to web flow');
+    console.log('[Zalo] native_sdk error — message:', err?.message, 'code:', err?.code, 'full:', JSON.stringify(err));
   }
 
-  // --- Web / server-side callback flow (fallback) ---
+  // Android: web flow yêu cầu quét QR hoặc nhập mật khẩu → tạm thời tắt
+  if (Platform.OS === 'android') {
+    return { type: 'error', error: 'Đăng nhập Zalo chưa khả dụng trên thiết bị này' };
+  }
+
+  // --- Web / server-side callback flow (fallback, iOS only) ---
   console.log('[Zalo] flow=web_callback');
   try {
     const appId = process.env.EXPO_PUBLIC_ZALO_APP_ID;
@@ -360,6 +385,11 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
  * Authenticate with Facebook (native FBSDK — opens Facebook app directly)
  */
 export async function authenticateWithFacebook(): Promise<OAuthResult> {
+  // Android: native FBSDK yêu cầu Live mode → dùng web flow (server-side callback)
+  if (Platform.OS === 'android') {
+    return authenticateWithFacebookWeb();
+  }
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const FBSDK = require('react-native-fbsdk-next');
@@ -367,28 +397,70 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
     const AccessToken = FBSDK?.AccessToken ?? FBSDK?.default?.AccessToken;
 
     if (!LoginManager || !AccessToken) {
+      console.log('[Facebook] FBSDK unavailable → web flow');
       return authenticateWithFacebookWeb();
     }
 
-    // Đặt login behavior: native app trước, fallback web nếu chưa cài FB
+    console.log('[Facebook] flow=native_fbsdk');
     LoginManager.setLoginBehavior('native_with_fallback');
 
-    const loginResult = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+    // iOS: xoá session cũ để force Limited Login mới (tránh dùng cached Standard Login token)
+    // Android: Standard Login → AccessToken (EAAG...) verify được bằng debug_token
+    if (Platform.OS === 'ios') LoginManager.logOut();
+    // API: logInWithPermissions(permissions, loginTrackingIOS, nonce) — string, không phải object
+    const loginResult = Platform.OS === 'ios'
+      ? await LoginManager.logInWithPermissions(['public_profile', 'email'], 'limited')
+      : await LoginManager.logInWithPermissions(['public_profile', 'email']);
+    console.log('[Facebook] isCancelled:', loginResult.isCancelled, 'granted:', loginResult.grantedPermissions);
 
     if (loginResult.isCancelled) {
       return { type: 'cancel' };
     }
 
-    const tokenData = await AccessToken.getCurrentAccessToken();
-    if (!tokenData?.accessToken) {
-      return { type: 'error', error: t('noAccessToken') };
-    }
-
-    const fbAccessToken = tokenData.accessToken;
-
-    // Gửi FB access token lên backend để đổi lấy JWT
     const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
     if (!apiBase) return { type: 'error', error: 'API base URL chưa được cấu hình' };
+
+    if (Platform.OS === 'ios') {
+      const AuthenticationToken = FBSDK?.AuthenticationToken ?? FBSDK?.default?.AuthenticationToken;
+      const authToken = AuthenticationToken ? await AuthenticationToken.getAuthenticationTokenIOS() : null;
+      console.log('[Facebook iOS] hasAuthToken:', !!authToken?.authenticationTokenString);
+
+      const idToken = (authToken as any)?.authenticationToken ?? null;
+      // Limited Login không trả về AccessToken — lấy userID từ authToken nonce hoặc null
+      const userId = null;
+
+      if (!idToken) {
+        console.log('[Facebook iOS] no token → web fallback');
+        return authenticateWithFacebookWeb();
+      }
+
+      const res = await fetch(`${apiBase}/api/auth/facebook/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: idToken, user_id: userId }),
+      });
+
+      if (!res.ok) {
+        console.log('[Facebook iOS] backend failed status:', res.status, '→ web fallback');
+        return authenticateWithFacebookWeb();
+      }
+
+      const json = await res.json();
+      if (!json.token) return { type: 'error', error: t('authFailed') };
+
+      console.log('[Facebook iOS] native_fbsdk success');
+      return { type: 'success', directToken: json.token };
+    }
+
+    // Android
+    const tokenData = await AccessToken.getCurrentAccessToken();
+    console.log('[Facebook Android] tokenData:', JSON.stringify(tokenData));
+
+    const fbAccessToken = tokenData?.accessToken ? String(tokenData.accessToken) : null;
+    if (!fbAccessToken) {
+      console.log('[Facebook Android] no accessToken → web fallback');
+      return authenticateWithFacebookWeb();
+    }
 
     const res = await fetch(`${apiBase}/api/auth/facebook/token`, {
       method: 'POST',
@@ -397,13 +469,14 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
     });
 
     if (!res.ok) {
-      // Fallback: thử endpoint cũ với server-side flow
+      console.log('[Facebook] backend failed status:', res.status, '→ web fallback');
       return authenticateWithFacebookWeb();
     }
 
     const json = await res.json();
     if (!json.token) return { type: 'error', error: t('authFailed') };
 
+    console.log('[Facebook] native_fbsdk success');
     return { type: 'success', directToken: json.token };
   } catch (error) {
     return {
@@ -417,6 +490,7 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
  * Fallback: Facebook web OAuth (server-side callback flow)
  */
 async function authenticateWithFacebookWeb(): Promise<OAuthResult> {
+  console.log('[Facebook] flow=web_callback');
   try {
     const appId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
     if (!appId) return { type: 'error', error: 'Facebook App ID chưa được cấu hình' };

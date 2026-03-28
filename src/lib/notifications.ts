@@ -47,7 +47,16 @@ export async function registerNotificationCategories(): Promise<void> {
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
-          opensAppToForeground: true, // Cần mở app để listener xử lý và gửi confirm lên backend
+          opensAppToForeground: true,
+        },
+      },
+      {
+        identifier: 'ON_MY_WAY',
+        buttonTitle: '🚗 Đang tới',
+        options: {
+          isDestructive: false,
+          isAuthenticationRequired: false,
+          opensAppToForeground: true,
         },
       },
       {
@@ -83,7 +92,15 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     let finalStatus = existingStatus;
     
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowCriticalAlerts: true,
+        },
+        android: {},
+      });
       finalStatus = status;
     }
     
@@ -92,49 +109,56 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       return false;
     }
 
-    // For Android, set notification channels — each with its own sound
+    // For Android, delete old channels first then recreate — ensures sound settings
+    // are never stuck from a previous cached channel without sound.
     if (Platform.OS === 'android') {
-      // Nhắc nhở hàng ngày: log sáng/tối, uống nước, thuốc
+      const CHANNEL_IDS = ['reminder', 'alert', 'care-circle', 'checkin', 'milestone'];
+      await Promise.allSettled(
+        CHANNEL_IDS.map(id => Notifications.deleteNotificationChannelAsync(id))
+      );
+
       await Notifications.setNotificationChannelAsync('reminder', {
         name: 'Nhắc nhở sức khoẻ',
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 200],
+        enableVibrate: true,
         lightColor: '#08b8a2',
         sound: 'asinu_reminder.wav',
       });
 
-      // Cảnh báo sức khoẻ: chỉ số bất thường, leo thang
       await Notifications.setNotificationChannelAsync('alert', {
         name: 'Cảnh báo sức khoẻ',
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 300, 150, 300],
+        enableVibrate: true,
         lightColor: '#FF6B6B',
         sound: 'asinu_alert.wav',
+        bypassDnd: true,
       });
 
-      // Vòng kết nối: mời / chấp nhận kết nối
       await Notifications.setNotificationChannelAsync('care-circle', {
         name: 'Vòng kết nối',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 100, 250],
+        enableVibrate: true,
         lightColor: '#6B8FFF',
         sound: 'asinu_care.wav',
       });
 
-      // Daily health check-in
       await Notifications.setNotificationChannelAsync('checkin', {
         name: 'Check-in sức khoẻ',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 300, 100, 300],
+        enableVibrate: true,
         lightColor: '#08b8a2',
         sound: 'asinu_reminder.wav',
       });
 
-      // Milestone / weekly recap
       await Notifications.setNotificationChannelAsync('milestone', {
         name: 'Thành tích',
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 100, 50, 100, 50, 200],
+        enableVibrate: true,
         lightColor: '#FFD700',
         sound: 'asinu_milestone.wav',
       });
@@ -212,6 +236,32 @@ export async function scheduleLocalNotification(
   } catch (error) {
 
   }
+}
+
+/**
+ * Re-schedule a caregiver alert as a local notification so that action buttons
+ * (ACKNOWLEDGE / CALL) appear. Called when a remote push of type caregiver_alert
+ * or emergency arrives while the app is in the foreground — Expo intercepts these
+ * and we re-display them locally so the category buttons are rendered.
+ */
+export async function reNotifyAsLocal(
+  title: string,
+  body: string,
+  data: Record<string, unknown>
+): Promise<void> {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data,
+        sound: 'asinu_alert.wav',
+        categoryIdentifier: 'health_alert',
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+      trigger: null, // immediate
+    });
+  } catch {}
 }
 
 /**

@@ -127,5 +127,6 @@
   "statMin":    "Thấp nhất",
   "statAvg":    "Trung bình",
   "statMax":    "Cao nhất",
-  "statStatus": "Trạng thái"
+  "statStatus": "Trạng thái",
+  "checkinReminder": "Bạn chưa check-in hôm nay. Nhấn để bắt đầu!"
 }

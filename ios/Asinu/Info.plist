@@ -71,6 +71,12 @@
     <string>Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Asinu cần microphone để nhận lệnh giọng nói</string>
+    <key>NSUserTrackingUsageDescription</key>
+    <string>Asinu sử dụng thông tin này để cung cấp trải nghiệm cá nhân hoá tốt hơn</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Asinu cần truy cập ảnh để cập nhật ảnh đại diện</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Asinu cần camera để chụp ảnh đại diện</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

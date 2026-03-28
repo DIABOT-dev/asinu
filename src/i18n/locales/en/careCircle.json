@@ -115,7 +115,7 @@
   "enterPhoneNumber": "Enter phone number (e.g. 0901234567)",
   "search": "Search",
   "selectThisUser": "Select this person",
-  "phoneQueryTooShort": "Please enter at least 3 digits",
+  "phoneQueryTooShort": "Please enter a valid phone number (10 digits, starting with 0)",
   "noUserFoundByPhone": "No user found with this phone number",
   "alreadyConnected": "You already have a connection or invitation with this person",
   "cannotInviteSelf": "You cannot connect with yourself",

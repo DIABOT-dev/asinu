@@ -135,7 +135,7 @@ export default function SettingsScreen() {
 
           }
         } catch (error) {
-
+          showToast(tc('error'), 'error');
         }
       }
     }
@@ -147,7 +147,9 @@ export default function SettingsScreen() {
     if (!value) {
       try {
         await apiClient('/api/mobile/profile/push-token', { method: 'DELETE' });
-      } catch {}
+      } catch {
+        showToast(tc('error'), 'error');
+      }
     }
   };
 
@@ -167,7 +169,9 @@ export default function SettingsScreen() {
     // Persist to backend so cron jobs respect the setting
     try {
       await updateNotificationPreferences({ reminders_enabled: value });
-    } catch {}
+    } catch {
+      showToast(tc('error'), 'error');
+    }
   };
 
   const handleLogout = async () => {
@@ -202,9 +206,7 @@ export default function SettingsScreen() {
         router.replace('/login');
         
         // Hiển thị thông báo sau khi đã chuyển trang
-        setTimeout(() => {
-          showAlert(tc('success'), t('accountDeleted'));
-        }, 500);
+        setPendingToast(t('accountDeleted'), 'success');
       } else {
         showAlert(tc('error'), t('deleteError'));
       }

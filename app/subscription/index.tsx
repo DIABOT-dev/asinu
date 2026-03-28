@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,7 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { apiClient } from '../../src/lib/apiClient';
+import { apiClient, ApiError } from '../../src/lib/apiClient';
 import { colors, radius, spacing, typography } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -187,6 +188,11 @@ export default function SubscriptionScreen() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [pollStatus, setPollStatus] = useState<'idle' | 'polling' | 'success'>('idle');
+  const [showPayMethodModal, setShowPayMethodModal] = useState(false);
+  const [showWalletConfirm, setShowWalletConfirm] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<string>('0');
+  const [walletPayResult, setWalletPayResult] = useState<'idle' | 'loading' | 'success' | 'failed'>('idle');
+  const [walletPayError, setWalletPayError] = useState<string>('');
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -291,6 +297,40 @@ export default function SubscriptionScreen() {
   }, [selectedPlan, startCountdown, startPolling]);
 
   const handleCancelQR = useCallback(() => { clearTimers(); setQr(null); setPollStatus('idle'); }, [clearTimers]);
+
+  const handleOpenPayMethod = useCallback(async () => {
+    setShowPayMethodModal(true);
+    try {
+      const res = await apiClient<{ ok: boolean; balance: string }>('/api/payments/balance');
+      if (res.ok) setWalletBalance(res.balance);
+    } catch {}
+  }, []);
+
+  const handleWalletPay = useCallback(async () => {
+    setWalletPayResult('loading');
+    setWalletPayError('');
+    try {
+      const res = await apiClient<{ ok: boolean; message?: string }>('/api/subscriptions/wallet', {
+        method: 'POST',
+        body: { months: selectedPlan },
+      });
+      if (res.ok) {
+        setWalletPayResult('success');
+        fetchStatus();
+        fetchHistory();
+      } else {
+        setWalletPayResult('failed');
+        setWalletPayError(res.message ?? 'Thanh toán thất bại. Vui lòng thử lại.');
+      }
+    } catch (err) {
+      setWalletPayResult('failed');
+      if (err instanceof ApiError) {
+        setWalletPayError(err.message || 'Thanh toán thất bại. Vui lòng thử lại.');
+      } else {
+        setWalletPayError('Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.');
+      }
+    }
+  }, [selectedPlan, fetchStatus, fetchHistory]);
   const isQrExpired = qr ? countdown <= 0 && pollStatus !== 'success' : false;
 
   function statusLabel(s: SubRecord['status']) {
@@ -430,7 +470,7 @@ export default function SubscriptionScreen() {
 
             {/* CTA button with pulse */}
             <Animated.View style={ctaAnimStyle}>
-              <Pressable style={styles.premiumCTABtn} onPress={handleCreateQR} disabled={creatingQR || !!qr}>
+              <Pressable style={styles.premiumCTABtn} onPress={handleOpenPayMethod} disabled={creatingQR || !!qr || walletPayResult === 'success'}>
                 <LinearGradient
                   colors={[colors.premium, colors.premiumDark]}
                   start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
@@ -499,6 +539,15 @@ export default function SubscriptionScreen() {
           </Animated.View>
         )}
 
+        {/* ── Wallet Pay Success ── */}
+        {walletPayResult === 'success' && (
+          <Animated.View entering={ZoomIn.springify().damping(12)} style={[styles.card, styles.successBox]}>
+            <Ionicons name="checkmark-circle" size={64} color={colors.success} />
+            <Text style={styles.successTitle}>{t('activationSuccess')}</Text>
+            <Text style={styles.successDesc}>{t('activationSuccessDesc')}</Text>
+          </Animated.View>
+        )}
+
         {/* ── History ── */}
         <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} style={styles.card}>
           <Text style={styles.cardTitle}>{t('historyTitle')}</Text>
@@ -535,6 +584,139 @@ export default function SubscriptionScreen() {
         </Animated.View>
 
       </ScrollView>
+
+      {/* ── Modal chọn phương thức thanh toán ── */}
+      <Modal visible={showPayMethodModal} transparent animationType="fade" onRequestClose={() => setShowPayMethodModal(false)}>
+        <Pressable style={styles.payModalOverlay} onPress={() => setShowPayMethodModal(false)}>
+          <Pressable style={styles.payModalBox} onPress={() => {}}>
+            <Text style={styles.payModalTitle}>Chọn phương thức</Text>
+
+            <Pressable
+              style={styles.payMethodBtn}
+              onPress={() => { setShowPayMethodModal(false); setShowWalletConfirm(true); }}
+            >
+              <View style={styles.payMethodIcon}>
+                <MaterialCommunityIcons name="wallet" size={24} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.payMethodLabel}>Trừ số dư ví</Text>
+                <Text style={styles.payMethodSub}>Số dư: {formatVND(walletBalance)}đ</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </Pressable>
+
+            <Pressable
+              style={styles.payMethodBtn}
+              onPress={() => { setShowPayMethodModal(false); handleCreateQR(); }}
+            >
+              <View style={styles.payMethodIcon}>
+                <MaterialCommunityIcons name="qrcode-scan" size={24} color={colors.premium} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.payMethodLabel}>Quét mã QR</Text>
+                <Text style={styles.payMethodSub}>Chuyển khoản ngân hàng</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </Pressable>
+
+            <Pressable style={styles.payCancelBtn} onPress={() => setShowPayMethodModal(false)}>
+              <Text style={styles.payCancelText}>Huỷ</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Modal xác nhận thanh toán bằng ví ── */}
+      <Modal
+        visible={showWalletConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (walletPayResult !== 'loading') {
+            setShowWalletConfirm(false);
+            setWalletPayResult('idle');
+            setWalletPayError('');
+          }
+        }}
+      >
+        <Pressable
+          style={styles.payModalOverlay}
+          onPress={() => {
+            if (walletPayResult !== 'loading') {
+              setShowWalletConfirm(false);
+              setWalletPayResult('idle');
+              setWalletPayError('');
+            }
+          }}
+        >
+          <Pressable style={styles.payModalBox} onPress={() => {}}>
+            {walletPayResult === 'success' ? (
+              /* ── Thành công ── */
+              <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.walletResultBox}>
+                <Ionicons name="checkmark-circle" size={56} color={colors.success} />
+                <Text style={styles.walletResultTitle}>Đăng ký thành công!</Text>
+                <Text style={styles.walletResultDesc}>Gói {activePlan.months} tháng đã được kích hoạt.</Text>
+                <Pressable
+                  style={styles.confirmOkBtn}
+                  onPress={() => { setShowWalletConfirm(false); setWalletPayResult('idle'); }}
+                >
+                  <Text style={styles.confirmOkText}>Đóng</Text>
+                </Pressable>
+              </Animated.View>
+            ) : (
+              /* ── Form xác nhận ── */
+              <>
+                <MaterialCommunityIcons name="wallet-outline" size={36} color={colors.primary} style={{ alignSelf: 'center', marginBottom: spacing.sm }} />
+                <Text style={styles.payModalTitle}>Xác nhận đăng ký</Text>
+                <Text style={styles.confirmDesc}>
+                  Bạn có chắc chắn muốn đăng ký{'\n'}
+                  <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
+                    gói {activePlan.months} tháng · {formatVND(activePlan.price)}đ
+                  </Text>
+                  {'\n'}bằng số dư ví không?
+                </Text>
+                <View style={styles.confirmBalanceRow}>
+                  <Text style={styles.confirmBalanceLabel}>Số dư hiện tại</Text>
+                  <Text style={styles.confirmBalanceValue}>{formatVND(walletBalance)}đ</Text>
+                </View>
+                {walletPayResult === 'failed' && (
+                  <Animated.View entering={FadeInDown.duration(300)} style={styles.walletErrorBox}>
+                    <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                    <Text style={styles.walletErrorText}>{walletPayError}</Text>
+                  </Animated.View>
+                )}
+                <View style={styles.confirmActions}>
+                  <Pressable
+                    style={styles.confirmCancelBtn}
+                    onPress={() => {
+                      setShowWalletConfirm(false);
+                      setWalletPayResult('idle');
+                      setWalletPayError('');
+                      setShowPayMethodModal(true);
+                    }}
+                    disabled={walletPayResult === 'loading'}
+                  >
+                    <Text style={styles.confirmCancelText}>Quay lại</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.confirmOkBtn, walletPayResult === 'failed' && styles.confirmRetryBtn]}
+                    onPress={handleWalletPay}
+                    disabled={walletPayResult === 'loading'}
+                  >
+                    {walletPayResult === 'loading'
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.confirmOkText}>
+                          {walletPayResult === 'failed' ? 'Thử lại' : 'Xác nhận'}
+                        </Text>
+                    }
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     </Screen>
   );
 }
@@ -652,5 +834,76 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     historyValidity: { fontSize: typography.size.xs, color: colors.premiumDark, fontWeight: '600' },
     historyBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.sm },
     historyBadgeText: { fontSize: typography.size.xs, fontWeight: '600' },
+
+    // Payment method modal
+    payModalOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.xl,
+    },
+    payModalBox: {
+      backgroundColor: colors.surface,
+      borderRadius: 24,
+      padding: spacing.xl,
+      gap: spacing.sm,
+    },
+    payModalTitle: {
+      fontSize: typography.size.md, fontWeight: '700',
+      color: colors.textPrimary, textAlign: 'center',
+      marginBottom: spacing.sm,
+    },
+    payMethodBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      padding: spacing.lg, borderRadius: 16,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1.5, borderColor: colors.border,
+    },
+    payMethodIcon: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: colors.surface,
+      alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1, borderColor: colors.border,
+    },
+    payMethodLabel: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
+    payMethodSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
+    payCancelBtn: { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
+    payCancelText: { fontSize: typography.size.sm, color: colors.textSecondary, fontWeight: '600' },
+
+    // Wallet confirm modal
+    confirmDesc: {
+      fontSize: typography.size.sm, color: colors.textSecondary,
+      textAlign: 'center', lineHeight: 22,
+    },
+    confirmBalanceRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      backgroundColor: colors.surfaceMuted, borderRadius: 12,
+      paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+      marginTop: spacing.xs,
+    },
+    confirmBalanceLabel: { fontSize: typography.size.sm, color: colors.textSecondary },
+    confirmBalanceValue: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
+    confirmActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+    confirmCancelBtn: {
+      flex: 1, paddingVertical: spacing.md, borderRadius: 12,
+      borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
+    },
+    confirmCancelText: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textSecondary },
+    confirmOkBtn: {
+      flex: 1, paddingVertical: spacing.md, borderRadius: 12,
+      backgroundColor: colors.primary, alignItems: 'center',
+    },
+    confirmRetryBtn: { backgroundColor: colors.warning },
+    confirmOkText: { fontSize: typography.size.sm, fontWeight: '700', color: '#fff' },
+
+    walletResultBox: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+    walletResultTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.success },
+    walletResultDesc: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center' },
+
+    walletErrorBox: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+      backgroundColor: colors.danger + '15', borderRadius: 10,
+      padding: spacing.md, marginTop: spacing.xs,
+    },
+    walletErrorText: { flex: 1, fontSize: typography.size.xs, color: colors.danger, fontWeight: '500' },
   });
 }

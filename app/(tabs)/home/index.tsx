@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppState, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
@@ -31,8 +31,8 @@ import React from 'react';
 const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
 
-// Module-level flag: auto-show fires once per app session, not on every tab switch
-let checkinAutoShown = false;
+// Module-level flag: only fetch checkin status once per app session
+let checkinStatusChecked = false;
 
 function InfoButton({ text, styles }: { text: string; styles: any }) {
   const [open, setOpen] = useState(false);
@@ -82,7 +82,14 @@ export default function HomeScreen() {
     refreshAll
   } = useHomeViewModel();
   const profile = useAuthStore((state) => state.profile);
-  const { notifications, unreadCount, loading: notifLoading, markAsRead, markAllAsRead, removeNotification, clearAll, fetchFromBackend } = useNotificationStore();
+  const notifications = useNotificationStore(s => s.notifications);
+  const unreadCount = useNotificationStore(s => s.unreadCount);
+  const notifLoading = useNotificationStore(s => s.loading);
+  const markAsRead = useNotificationStore(s => s.markAsRead);
+  const markAllAsRead = useNotificationStore(s => s.markAllAsRead);
+  const removeNotification = useNotificationStore(s => s.removeNotification);
+  const clearAll = useNotificationStore(s => s.clearAll);
+  const fetchFromBackend = useNotificationStore(s => s.fetchFromBackend);
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -113,20 +120,33 @@ export default function HomeScreen() {
     return () => { clearInterval(interval); sub.remove(); };
   }, [fetchFromBackend, profile]);
 
-  // Auto-show check-in screen if not yet checked in today
+  // Check if user has checked in today — show banner instead of auto-redirect
+  const [showCheckinBanner, setShowCheckinBanner] = useState(false);
   useEffect(() => {
-    if (!profile || checkinAutoShown) return;
-    checkinAutoShown = true;
+    if (!profile || checkinStatusChecked) return;
+    checkinStatusChecked = true;
 
     checkinApi.getToday()
       .then(res => {
-        if (!res.session) {
-          setTimeout(() => router.push('/checkin'), 600);
-        }
+        if (!res.session) setShowCheckinBanner(true);
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
+
+  const handleNotificationPress = useCallback((notification: any) => {
+    if (notification.data?.type === 'care_circle_invitation') {
+      router.push('/care-circle');
+    } else if (notification.data?.type === 'health_alert') {
+      if (notification.data?.alertType?.includes('glucose')) {
+        router.push('/logs/glucose');
+      } else if (notification.data?.alertType?.includes('blood_pressure')) {
+        router.push('/logs/blood-pressure');
+      } else {
+        router.push('/care-circle');
+      }
+    }
+  }, []);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -138,7 +158,7 @@ export default function HomeScreen() {
   }, []); // Empty deps - refreshAll is stable
 
   const hasData = Boolean(treeSummary || missions.length || logs.length);
-  const loading = logsStatus === 'loading' && missionsStatus === 'loading' && treeStatus === 'loading' && !hasData;
+  const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
   const noDataError =
     (logsError === 'no-data' || missionsError === 'no-data' || treeError === 'no-data') && !hasData;
 
@@ -158,19 +178,7 @@ export default function HomeScreen() {
             onMarkAllAsRead={markAllAsRead}
             onDelete={removeNotification}
             onDeleteAll={clearAll}
-            onNotificationPress={(notification) => {
-              if (notification.data?.type === 'care_circle_invitation') {
-                router.push('/care-circle');
-              } else if (notification.data?.type === 'health_alert') {
-                if (notification.data?.alertType?.includes('glucose')) {
-                  router.push('/logs/glucose');
-                } else if (notification.data?.alertType?.includes('blood_pressure')) {
-                  router.push('/logs/blood-pressure');
-                } else {
-                  router.push('/care-circle');
-                }
-              }
-            }}
+            onNotificationPress={handleNotificationPress}
           />
         </View>
       )}
@@ -185,7 +193,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Banner */}
-        <Animated.View entering={FadeInDown.delay(0).duration(500).springify()}>
+        <Animated.View entering={FadeIn.delay(0).duration(400)}>
         <LinearGradient
           colors={[colors.primary, colors.primaryDark]}
           start={{ x: 0, y: 0 }}
@@ -200,8 +208,26 @@ export default function HomeScreen() {
         </LinearGradient>
         </Animated.View>
 
+        {/* Check-in reminder banner */}
+        {showCheckinBanner && (
+          <Animated.View entering={FadeIn.delay(100).duration(300)}>
+            <Pressable
+              style={styles.checkinBanner}
+              onPress={() => { setShowCheckinBanner(false); router.push('/checkin'); }}
+            >
+              <MaterialCommunityIcons name="emoticon-happy-outline" size={22} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.checkinBannerText}>{t('checkinReminder')}</Text>
+              </View>
+              <Pressable hitSlop={12} onPress={() => setShowCheckinBanner(false)}>
+                <MaterialCommunityIcons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </Pressable>
+          </Animated.View>
+        )}
+
         {/* Metrics Row */}
-        <Animated.View entering={FadeInDown.delay(120).duration(450).springify()}>
+        <Animated.View entering={FadeIn.delay(80).duration(350)}>
         <View style={styles.metricsRow}>
           <Pressable style={[styles.metricCard, styles.metricCardGlucose]} onPress={() => router.push('/logs/glucose')}>
             <MaterialCommunityIcons name="water" size={22} color={iconColors.glucose} />
@@ -220,7 +246,7 @@ export default function HomeScreen() {
 
         {/* Health Score Card */}
         {healthScore && (
-          <Animated.View entering={FadeInDown.delay(160).duration(400).springify()}>
+          <Animated.View entering={FadeIn.delay(120).duration(350)}>
             <HealthScoreCard
               level={healthScore.level}
               factors={healthScore.factors}
@@ -229,12 +255,12 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(150).duration(350)}>
         <DailyCheckinCard />
         </Animated.View>
 
         {/* Health Report Card */}
-        <Animated.View entering={FadeInDown.delay(230).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(170).duration(350)}>
         <Pressable
           style={({ pressed }) => [styles.reportCard, pressed && { opacity: 0.9 }]}
           onPress={() => router.push('/report')}
@@ -250,12 +276,12 @@ export default function HomeScreen() {
         </Pressable>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(260).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(190).duration(350)}>
         <AsinuChatSticker onPress={() => setChatOpen(true)} />
         </Animated.View>
 
         {/* Section Header */}
-        <Animated.View entering={FadeInDown.delay(280).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(210).duration(350)}>
         <View style={styles.sectionHeaderRow}>
           <Ionicons name="flag" size={20} color={iconColors.warning} />
           <Text style={styles.sectionTitle}>{t('todayMissions')}</Text>
@@ -268,19 +294,17 @@ export default function HomeScreen() {
           const isCompleted = mission.status === 'completed';
           return (
             <Pressable key={mission.id} style={({ pressed }) => [styles.missionCard, isCompleted && styles.missionCardCompleted, pressed && { opacity: 0.85 }]} onPress={() => router.push('/missions')}>
-              <View style={styles.missionHeader}>
+              <View style={styles.missionTitleRow}>
                 <View style={[styles.missionBadge, isCompleted && styles.missionBadgeCompleted]}>
                   {isCompleted ? (
-                    <Ionicons name="checkmark" size={14} color="#fff" />
+                    <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
                   ) : (
                     <Text style={styles.missionBadgeText}>{index + 1}</Text>
                   )}
                 </View>
-                <View style={styles.missionInfo}>
-                  <Text style={[styles.missionTitle, isCompleted && styles.missionTitleCompleted]}>{mission.title}</Text>
-                  {mission.description ? <Text style={styles.missionDesc}>{mission.description}</Text> : null}
-                </View>
+                <Text style={[styles.missionTitle, isCompleted && styles.missionTitleCompleted, { flex: 1 }]}>{mission.title}</Text>
               </View>
+              {mission.description ? <Text style={styles.missionDesc}>{mission.description}</Text> : null}
               <View style={styles.missionProgressRow}>
                 <View style={styles.missionProgressTrack}>
                   <LinearGradient
@@ -305,7 +329,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Tree Section */}
-        <Animated.View entering={FadeInDown.delay(360).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(260).duration(350)}>
         <View style={styles.sectionHeaderRow}>
             <Ionicons name="leaf" size={20} color={iconColors.emerald} />
           <Text style={styles.sectionTitle}>{t('healthTree')}</Text>
@@ -320,16 +344,16 @@ export default function HomeScreen() {
             <View style={styles.treeStats}>
               <View style={styles.treeStatItem}>
                 <Ionicons name="flame" size={18} color={iconColors.premium} />
-                <View>
-                  <Text style={styles.treeStatValue}>{treeSummary?.streakDays ?? 0} {t('days')}</Text>
-                  <Text style={styles.treeStatLabel}>{t('streak')}</Text>
+                <View style={{ flex: 1, overflow: 'hidden' }}>
+                  <Text style={styles.treeStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{treeSummary?.streakDays ?? 0} {t('days')}</Text>
+                  <Text style={styles.treeStatLabel} numberOfLines={1}>{t('streak')}</Text>
                 </View>
               </View>
               <View style={styles.treeStatItem}>
                 <Ionicons name="checkmark-circle" size={18} color={iconColors.emerald} />
-                <View>
-                  <Text style={styles.treeStatValue}>{treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
-                  <Text style={styles.treeStatLabel}>{t('todayMissions')}</Text>
+                <View style={{ flex: 1, overflow: 'hidden' }}>
+                  <Text style={styles.treeStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
+                  <Text style={styles.treeStatLabel} numberOfLines={1}>{t('todayMissions')}</Text>
                 </View>
               </View>
             </View>
@@ -342,11 +366,10 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Chart Section */}
-        <Animated.View entering={FadeInDown.delay(440).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(310).duration(350)}>
         <View style={styles.sectionHeaderRow}>
             <Ionicons name="trending-up" size={20} color={iconColors.indigo} />
-          <Text style={styles.sectionTitle}>{t('glucoseTrend')}</Text>
-          <View style={{ flex: 1 }} />
+          <Text style={[styles.sectionTitle, { flex: 1 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t('glucoseTrend')}</Text>
           <InfoButton text={t('last7Days')} styles={styles} />
         </View>
         <Suspense fallback={<View style={{ height: 240 }} />}>
@@ -357,7 +380,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Recent Logs */}
-        <Animated.View entering={FadeInDown.delay(520).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(360).duration(350)}>
         <View style={styles.sectionHeaderRow}>
             <Ionicons name="journal" size={20} color={iconColors.pink} />
           <Text style={styles.sectionTitle}>{t('recentLogs')}</Text>
@@ -437,6 +460,20 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     position: 'absolute',
     right: spacing.md,
     zIndex: 1000,
+  },
+  checkinBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 14,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  checkinBannerText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: colors.primary,
   },
   heroBanner: {
     borderRadius: 20,
@@ -568,21 +605,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  missionBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.primary,
+  missionTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.sm,
   },
-  missionBadgeCompleted: {
-    backgroundColor: colors.emerald,
-  },
+  missionBadge: {},
+  missionBadgeCompleted: {},
   missionBadgeText: {
-    color: '#fff',
+    color: colors.primary,
     fontWeight: '700',
-    fontSize: typography.size.xs,
+    fontSize: typography.size.md,
   },
   missionInfo: {
     flex: 1,

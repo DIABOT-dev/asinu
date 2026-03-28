@@ -15,7 +15,6 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  FadeIn,
   FadeInDown,
   ZoomIn,
   useAnimatedStyle,
@@ -26,7 +25,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LoadingOverlay } from '../../src/components/LoadingOverlay';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
@@ -34,9 +32,9 @@ import { VoiceLogButton } from '../../src/components/VoiceLogButton';
 import { VoiceParseResult } from '../../src/features/logs/voice.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { logsApi } from '../../src/features/logs/logs.api';
-import { logsService } from '../../src/features/logs/logs.service';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { showToast } from '../../src/stores/toast.store';
 import { categoryColors, colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -184,7 +182,6 @@ export default function GlucoseLogScreen() {
   const [valueError, setValueError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   const createGlucose = useLogsStore((state) => state.createGlucose);
   const profile = useAuthStore((state) => state.profile);
@@ -214,13 +211,6 @@ export default function GlucoseLogScreen() {
       pulseScale.value = withSpring(1);
     }
   }, [numVal]);
-
-  // auto-navigate back after saved
-  useEffect(() => {
-    if (!saved) return;
-    const timer = setTimeout(() => router.back(), 1600);
-    return () => clearTimeout(timer);
-  }, [saved]);
 
   // pre-fill from last log
   useEffect(() => {
@@ -268,11 +258,11 @@ export default function GlucoseLogScreen() {
         context: context as 'fasting' | 'pre_meal' | 'post_meal' | 'before_sleep' | 'random',
         notes: notes || undefined,
       });
-      if (profile?.id) {
-        await logsService.checkHealthOnLog(profile.id.toString(), 'glucose', { value: parsed });
-      }
-      setSaved(true);
+      showToast(t('savedTitle'), 'success');
+      router.back();
     } catch {
+      showToast(t('saveFailed'), 'error');
+    } finally {
       setIsSaving(false);
     }
   };
@@ -293,23 +283,6 @@ export default function GlucoseLogScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <Screen>
-        <LoadingOverlay visible={isSaving} message={t('savingLog')} />
-
-        {/* Success overlay */}
-        {saved && (
-          <Animated.View entering={FadeIn.duration(250)} style={styles.successOverlay}>
-            <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.successCard}>
-              <MaterialCommunityIcons name="check-circle" size={80} color={colors.emerald} />
-              <Text style={styles.successTitle}>{t('savedTitle')}</Text>
-              <Text style={styles.successSub}>{t('savedMessage')}</Text>
-              <View style={styles.successMeta}>
-                <Text style={styles.successValue}>{value}</Text>
-                <Text style={styles.successUnit}> mg/dL</Text>
-              </View>
-            </Animated.View>
-          </Animated.View>
-        )}
-
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -687,51 +660,5 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       transform: [{ scale: 0.98 }],
     },
     saveBtnDisabled: { opacity: 0.6 },
-    // Success overlay
-    successOverlay: {
-      position: 'absolute',
-      inset: 0,
-      zIndex: 999,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    successCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xxl,
-      padding: spacing.xxxl,
-      alignItems: 'center',
-      gap: spacing.md,
-      width: 280,
-      shadowColor: '#000',
-      shadowOpacity: 0.15,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 12,
-    },
-    successTitle: {
-      fontSize: typography.size.xl,
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    successSub: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-    },
-    successMeta: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      marginTop: spacing.xs,
-    },
-    successValue: {
-      fontSize: typography.size.xl,
-      fontWeight: '800',
-      color: categoryColors.glucose,
-    },
-    successUnit: {
-      fontSize: typography.size.md,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
   });
 }

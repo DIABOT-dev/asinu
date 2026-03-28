@@ -16,6 +16,7 @@ type CarePulseStore = {
   recordPopupShown: () => Promise<void>;
   recordPopupDismiss: () => Promise<void>;
   checkIn: (status: PulseStatus, subStatus: string | undefined, triggerSource: TriggerSource) => Promise<void>;
+  reset: () => void;
 };
 
 const createSessionId = (): string => {
@@ -123,6 +124,9 @@ export const useCarePulseStore = create<CarePulseStore>()(
           set({ popupSessionId: null });
 
         }
+      },
+      reset: () => {
+        set({ engineState: initialEngineState, popupSessionId: null });
       },
       checkIn: async (status, _subStatus, triggerSource) => {
         const token = tokenStore.getToken();

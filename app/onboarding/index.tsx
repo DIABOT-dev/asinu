@@ -22,7 +22,7 @@ import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.stor
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { useToastStore } from '../../src/stores/toast.store';
+import { setPendingToast, useToastStore } from '../../src/stores/toast.store';
 
 const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
   { value: 'small', iconSize: 16 },
@@ -376,6 +376,7 @@ export default function OnboardingScreen() {
         if (fullProfile) useAuthStore.setState({ profile: fullProfile });
       } catch {}
 
+      setPendingToast(tc('savedSuccessfully'), 'success');
       router.replace('/(tabs)/home');
     } catch (err: any) {
       const raw = String(err?.message || '');

@@ -42,20 +42,35 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   loading: false,
   error: null,
 
+  _fetching: false,
   fetchFromBackend: async () => {
-    set({ loading: true, error: null });
+    // Prevent concurrent fetches (mount + AppState + interval can overlap)
+    if (get()._fetching) return;
+    set({ _fetching: true });
+    // Only show loading on first fetch, not on polling (avoids rerender every 30s)
+    const isFirstFetch = get().notifications.length === 0 && !get().error;
+    if (isFirstFetch) set({ loading: true, error: null });
     try {
       const response = await fetchNotifications(1, 50);
       if (response.ok && response.notifications) {
         const notifications = response.notifications.map(convertNotification);
         const unreadCount = response.pagination?.unreadCount || 0;
-        set({ notifications, unreadCount, loading: false });
+        // Skip set if data hasn't changed (prevents unnecessary rerenders)
+        const current = get();
+        if (current.unreadCount === unreadCount && current.notifications.length === notifications.length
+            && current.notifications[0]?.id === notifications[0]?.id) {
+          if (isFirstFetch) set({ loading: false, _fetching: false });
+          else set({ _fetching: false });
+          return;
+        }
+        set({ notifications, unreadCount, loading: false, error: null });
       } else {
         set({ error: response.error || 'Failed to fetch', loading: false });
       }
     } catch (error) {
-
       set({ error: 'Network error', loading: false });
+    } finally {
+      set({ _fetching: false });
     }
   },
 
@@ -75,6 +90,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }),
 
   markAsRead: async (notificationId) => {
+    const prev = get().notifications;
     // Optimistic update
     set((state) => {
       const notifications = state.notifications.map((n) =>
@@ -84,22 +100,32 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       return { notifications, unreadCount };
     });
 
-    // Sync to backend
+    // Sync to backend — rollback on failure
     const numericId = parseInt(notificationId);
     if (!isNaN(numericId)) {
-      await markNotificationAsRead(numericId);
+      try {
+        await markNotificationAsRead(numericId);
+      } catch {
+        set({ notifications: prev, unreadCount: prev.filter(n => !n.read).length });
+      }
     }
   },
 
   markAllAsRead: async () => {
+    const prev = get().notifications;
+    const prevUnread = get().unreadCount;
     // Optimistic update
     set((state) => ({
       notifications: state.notifications.map((n) => ({ ...n, read: true })),
       unreadCount: 0,
     }));
 
-    // Sync to backend
-    await markAllNotificationsAsRead();
+    // Sync to backend — rollback on failure
+    try {
+      await markAllNotificationsAsRead();
+    } catch {
+      set({ notifications: prev, unreadCount: prevUnread });
+    }
   },
 
   removeNotification: async (notificationId) => {

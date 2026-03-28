@@ -2,7 +2,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -82,7 +82,7 @@ export default function MissionsScreen() {
         {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
         
         {/* Header Section */}
-        <Animated.View entering={FadeInDown.delay(0).duration(500).springify()}>
+        <Animated.View entering={FadeIn.delay(0).duration(400)}>
         <LinearGradient
           colors={[brandColors.indigo, brandColors.violet]}
           start={{ x: 0, y: 0 }}
@@ -96,7 +96,7 @@ export default function MissionsScreen() {
         </Animated.View>
 
         {/* Stats Row */}
-        <Animated.View entering={ZoomIn.delay(150).duration(400).springify()}>
+        <Animated.View entering={FadeIn.delay(100).duration(350)}>
         <View style={styles.statsRow}>
           <View style={[styles.statCard, styles.statCardActive]}>
             <Ionicons name="time-outline" size={20} color={colors.premium} />
@@ -141,7 +141,7 @@ export default function MissionsScreen() {
           const progressRatio = mission.goal > 0 ? mission.progress / mission.goal : 0;
           const isCompleted = mission.status === 'completed';
           return (
-            <Animated.View key={mission.id} entering={FadeInDown.delay(300 + index * 80).duration(400).springify()}>
+            <Animated.View key={mission.id} entering={FadeIn.delay(150 + index * 50).duration(300)}>
             <Pressable
               onPress={() => { setTooltipId(null); const route = MISSION_ROUTES[mission.missionKey]; if (route) router.push(route as any); }}
               style={({ pressed }) => [styles.card, isCompleted && styles.cardCompleted, pressed && { opacity: 0.75 }]}
@@ -344,14 +344,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.md
   },
   missionNumberBadge: {
-    width: 32,
-    height: 32,
+    minWidth: 32,
+    minHeight: 32,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
     borderRadius: 10,
-    backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -397,7 +398,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   progressRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: spacing.sm
   },
   progressTrack: {
@@ -405,7 +406,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     height: 10,
     backgroundColor: colors.border,
     borderRadius: 999,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    marginBottom: 6,
   },
   progressFill: {
     height: '100%',
@@ -416,7 +418,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textPrimary,
     fontSize: typography.size.sm,
     minWidth: 40,
-    textAlign: 'right'
+    textAlign: 'right',
+    paddingBottom: 2,
   },
   statusRow: {
     flexDirection: 'row'

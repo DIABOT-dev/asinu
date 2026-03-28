@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Appearance, Pressable, StyleSheet } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
 import { GlobalToastHost } from '../src/components/GlobalToastHost';
 import { ScaledText as Text } from '../src/components/ScaledText';
@@ -78,10 +79,11 @@ export default function RootLayout() {
   );
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <ErrorBoundary>
     <QueryProvider>
       <SessionProvider>
-        <SafeAreaProvider>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <WellnessProvider>
             <CarePulseProvider>
               <StatusBar style={isDark ? 'light' : 'dark'} translucent backgroundColor="transparent" />
@@ -99,6 +101,7 @@ export default function RootLayout() {
       </SessionProvider>
     </QueryProvider>
     </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 

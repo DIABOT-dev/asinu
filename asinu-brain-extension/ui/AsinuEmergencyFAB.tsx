@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { colors, spacing, typography } from '../../src/styles';
 import {
@@ -35,11 +37,14 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   const [loading, setLoading] = useState<EmergencyType | null>(null);
   const [textInput, setTextInput] = useState('');
   const [positionLoaded, setPositionLoaded] = useState(false);
-  const pan = useRef(new Animated.ValueXY()).current;
-  const isDragging = useRef(false);
-  const moveDistRef = useRef(0);
-  const offsetRef = useRef({ x: 0, y: 0 });
-  // Keep stable refs so PanResponder callbacks always see latest values
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
+  // Lưu kích thước màn hình vào shared value để dùng trong worklet
+  const screenW = useSharedValue(Dimensions.get('window').width);
+  const screenH = useSharedValue(Dimensions.get('window').height);
+  // Keep stable refs so gesture callbacks always see latest values
   const onInteractionRef = useRef(onInteraction);
   const setVisibleRef = useRef(setVisible);
   useEffect(() => { onInteractionRef.current = onInteraction; }, [onInteraction]);
@@ -47,75 +52,76 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
 
   // Khôi phục vị trí từ storage khi component mount
   useEffect(() => {
-    const loadPosition = async () => {
-      try {
-        const savedPosition = await AsyncStorage.getItem(FAB_POSITION_KEY);
-        if (savedPosition) {
-          const { x, y } = JSON.parse(savedPosition);
-          offsetRef.current = { x, y };
-          pan.setValue({ x, y });
+    AsyncStorage.getItem(FAB_POSITION_KEY)
+      .then(saved => {
+        if (saved) {
+          const { x, y } = JSON.parse(saved);
+          translateX.value = x;
+          translateY.value = y;
         }
-      } catch (error) {
-
-      } finally {
-        setPositionLoaded(true);
-      }
-    };
-    loadPosition();
+      })
+      .catch(() => {})
+      .finally(() => setPositionLoaded(true));
   }, []);
 
   // Lưu vị trí vào storage
-  const savePosition = async (x: number, y: number) => {
+  const savePosition = useCallback(async (x: number, y: number) => {
     try {
       await AsyncStorage.setItem(FAB_POSITION_KEY, JSON.stringify({ x, y }));
-    } catch (error) {
+    } catch {}
+  }, []);
 
-    }
-  };
+  const handleTap = useCallback(() => {
+    onInteractionRef.current?.();
+    setVisibleRef.current(true);
+  }, []);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      // Claim every touch immediately so Android doesn't route to child views
-      onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => false,
-      onMoveShouldSetPanResponder: () => true,
-      // Capture move events once past drag threshold so ScrollView never receives them
-      onMoveShouldSetPanResponderCapture: (_, { dx, dy }) => Math.abs(dx) > 3 || Math.abs(dy) > 3,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: () => {
-        isDragging.current = false;
-        moveDistRef.current = 0;
-      },
-      onPanResponderMove: (_, { dx, dy }) => {
-        moveDistRef.current = Math.sqrt(dx * dx + dy * dy);
-        if (moveDistRef.current > 5) {
-          isDragging.current = true;
-        }
-        pan.x.setValue(offsetRef.current.x + dx);
-        pan.y.setValue(offsetRef.current.y + dy);
-      },
-      onPanResponderRelease: (_, { dx, dy }) => {
-        if (!isDragging.current) {
-          // Treated as tap — open menu
-          onInteractionRef.current?.();
-          setVisibleRef.current(true);
-          return;
-        }
-        isDragging.current = false;
-        const newX = offsetRef.current.x + dx;
-        const newY = offsetRef.current.y + dy;
-        offsetRef.current = { x: newX, y: newY };
-        savePosition(newX, newY);
-      },
-      onPanResponderTerminate: (_, { dx, dy }) => {
-        isDragging.current = false;
-        const newX = offsetRef.current.x + dx;
-        const newY = offsetRef.current.y + dy;
-        offsetRef.current = { x: newX, y: newY };
-        savePosition(newX, newY);
-      },
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
+  }));
+
+  const panGesture = Gesture.Pan()
+    .minDistance(5)
+    .onStart(() => {
+      startX.value = translateX.value;
+      startY.value = translateY.value;
     })
-  ).current;
+    .onUpdate((e) => {
+      translateX.value = startX.value + e.translationX;
+      translateY.value = startY.value + e.translationY;
+    })
+    .onEnd((e) => {
+      const FAB = 56;
+      const MARGIN = 16;
+      const rawX = startX.value + e.translationX;
+      const rawY = startY.value + e.translationY;
+
+      // Vị trí ban đầu của FAB (right: 16, bottom: 16)
+      const initLeft = screenW.value - MARGIN - FAB;
+      const initTop  = screenH.value - MARGIN - FAB;
+
+      // Vị trí tuyệt đối hiện tại
+      const absLeft = initLeft + rawX;
+      const absTop  = initTop  + rawY;
+
+      // Clamp trong màn hình có margin
+      const clampedLeft = Math.max(MARGIN, Math.min(screenW.value - FAB - MARGIN, absLeft));
+      const clampedTop  = Math.max(MARGIN, Math.min(screenH.value - FAB - MARGIN, absTop));
+
+      // Chuyển lại thành translate
+      const finalX = clampedLeft - initLeft;
+      const finalY = clampedTop  - initTop;
+
+      translateX.value = withSpring(finalX, { damping: 20, stiffness: 200 });
+      translateY.value = withSpring(finalY, { damping: 20, stiffness: 200 });
+      runOnJS(savePosition)(finalX, finalY);
+    });
+
+  const tapGesture = Gesture.Tap().onEnd(() => {
+    runOnJS(handleTap)();
+  });
+
+  const gesture = Gesture.Exclusive(panGesture, tapGesture);
 
 
   const close = () => {
@@ -182,16 +188,17 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   return (
     <View pointerEvents="box-none" style={styles.host}>
       {positionLoaded && (
-        <Animated.View
-          style={[styles.fabContainer, { transform: [{ translateX: pan.x }, { translateY: pan.y }] }]}
-          {...panResponder.panHandlers}
-          accessibilityLabel="Emergency"
-          accessibilityRole="button"
-        >
-          <View style={styles.fab}>
-            <Text style={styles.fabText}>!</Text>
-          </View>
-        </Animated.View>
+        <GestureDetector gesture={gesture}>
+          <Animated.View
+            style={[styles.fabContainer, animStyle]}
+            accessibilityLabel="Emergency"
+            accessibilityRole="button"
+          >
+            <View style={styles.fab}>
+              <Text style={styles.fabText}>!</Text>
+            </View>
+          </Animated.View>
+        </GestureDetector>
       )}
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>

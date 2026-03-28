@@ -6,11 +6,11 @@ import { useTranslation } from 'react-i18next';
 import {
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
+import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -247,7 +247,9 @@ export default function WalletScreen() {
 
   return (
     <Screen>
-      <ScrollView
+      <RippleRefreshScrollView
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -513,7 +515,7 @@ export default function WalletScreen() {
             )}
           </View>
         </Animated.View>
-      </ScrollView>
+      </RippleRefreshScrollView>
     </Screen>
   );
 }
