@@ -64,6 +64,7 @@ export function SuccessOverlay({
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const displayMessage = message ?? t('savedSuccessfully');
+  const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     overlay: {
       flex: 1,

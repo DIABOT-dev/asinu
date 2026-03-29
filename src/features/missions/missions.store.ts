@@ -85,7 +85,7 @@ const mapMission = (mission: MissionRecord): Mission => {
   return {
     id: mission.id || mission.mission_key,
     missionKey: mission.mission_key,
-    title: meta.title || mission.title,
+    title: meta.title || mission.title || mission.mission_key,
     description: meta.description || mission.description,
     status: mission.status,
     progress: mission.progress,

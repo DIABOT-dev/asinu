@@ -35,6 +35,7 @@ export interface TriageResult {
   recommendation?: string;
   needsDoctor?: boolean;
   needsFamilyAlert?: boolean;
+  allowFreeText?: boolean;
   // set when AI was unavailable and fallback questions were used
   _fallback?: boolean;
 }

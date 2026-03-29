@@ -14,6 +14,7 @@ interface NotificationStore {
   unreadCount: number;
   loading: boolean;
   error: string | null;
+  _fetching: boolean;
   fetchFromBackend: () => Promise<void>;
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
   markAsRead: (notificationId: string) => Promise<void>;

@@ -34,7 +34,6 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   const { t } = useTranslation('home');
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<TriageStep>({ phase: 'menu' });
-  const [loading, setLoading] = useState<EmergencyType | null>(null);
   const [textInput, setTextInput] = useState('');
   const [positionLoaded, setPositionLoaded] = useState(false);
   const translateX = useSharedValue(0);
@@ -51,13 +50,22 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   useEffect(() => { setVisibleRef.current = setVisible; }, [setVisible]);
 
   // Khôi phục vị trí từ storage khi component mount
+  // Fix #7: Validate bounds khi load vị trí từ storage
   useEffect(() => {
     AsyncStorage.getItem(FAB_POSITION_KEY)
       .then(saved => {
         if (saved) {
           const { x, y } = JSON.parse(saved);
-          translateX.value = x;
-          translateY.value = y;
+          const FAB = 56;
+          const MARGIN = 16;
+          const sw = Dimensions.get('window').width;
+          const sh = Dimensions.get('window').height;
+          const initLeft = sw - MARGIN - FAB;
+          const initTop = sh - MARGIN - FAB;
+          const absLeft = Math.max(MARGIN, Math.min(sw - FAB - MARGIN, initLeft + x));
+          const absTop = Math.max(MARGIN, Math.min(sh - FAB - MARGIN, initTop + y));
+          translateX.value = absLeft - initLeft;
+          translateY.value = absTop - initTop;
         }
       })
       .catch(() => {})

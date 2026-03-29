@@ -50,6 +50,7 @@ export type BrainNextResponse = {
   outcome?: BrainOutcome;
   decision?: BrainDecision;
   explainability?: BrainExplainability;
+  next_due_at?: string;
 };
 
 export type BrainTimelineResponse = {

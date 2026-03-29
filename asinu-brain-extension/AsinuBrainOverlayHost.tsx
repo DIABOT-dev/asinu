@@ -1,15 +1,42 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import { router, usePathname } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { useScaledTypography } from '../src/hooks/useScaledTypography';
+import { showToast } from '../src/stores/toast.store';
 import { colors, spacing } from '../src/styles';
 import { BrainOutcome, BrainQuestion, fetchBrainNext, sendBrainAnswer } from './asinuBrain.api';
 import { AsinuEmergencyFAB } from './ui/AsinuEmergencyFAB';
+
+const OUTCOME_HISTORY_KEY = '@asinu_brain_outcomes';
+const MAX_OUTCOMES = 50;
+
+type SavedOutcome = {
+  risk_tier: string;
+  outcome_text?: string | null;
+  recommended_action?: string | null;
+  saved_at: string;
+};
+
+async function saveOutcomeToHistory(outcome: BrainOutcome) {
+  try {
+    const raw = await AsyncStorage.getItem(OUTCOME_HISTORY_KEY);
+    const history: SavedOutcome[] = raw ? JSON.parse(raw) : [];
+    history.unshift({
+      risk_tier: outcome.risk_tier,
+      outcome_text: outcome.outcome_text,
+      recommended_action: outcome.recommended_action,
+      saved_at: new Date().toISOString(),
+    });
+    if (history.length > MAX_OUTCOMES) history.length = MAX_OUTCOMES;
+    await AsyncStorage.setItem(OUTCOME_HISTORY_KEY, JSON.stringify(history));
+  } catch {}
+}
 
 const riskTierLabel = (tier: string | undefined, t: (key: string) => string) => {
   if (tier === 'HIGH') return t('brainRiskHigh');
@@ -49,6 +76,25 @@ export const AsinuBrainOverlayHost = () => {
   const [nextDueAt, setNextDueAt] = useState<Date | null>(null);
   const [lastDismissed, setLastDismissed] = useState<number>(0);
   const [logsRequired, setLogsRequired] = useState<{ message: string; missingTypes: string[] } | null>(null);
+  const sessionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fix #3: Session timeout — auto-dismiss sau 5 phút không tương tác
+  useEffect(() => {
+    if (visible) {
+      if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
+      sessionTimerRef.current = setTimeout(() => {
+        resetAndDismiss();
+      }, 5 * 60 * 1000);
+    } else {
+      if (sessionTimerRef.current) {
+        clearTimeout(sessionTimerRef.current);
+        sessionTimerRef.current = null;
+      }
+    }
+    return () => {
+      if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
+    };
+  }, [visible]);
 
   const isForeground = appState === 'active';
 
@@ -71,7 +117,23 @@ export const AsinuBrainOverlayHost = () => {
     setIdleTick((prev) => prev + 1);
   };
 
-  const handleResponse = (response: { ok: boolean; session_id?: string; question?: BrainQuestion; question_flow?: { step: number; total: number }; outcome?: BrainOutcome; requires_logs?: boolean; message?: string; missing_log_types?: string[] }) => {
+  // Fix #5: Reset toàn bộ state khi dismiss
+  const resetAndDismiss = () => {
+    setVisible(false);
+    setLastDismissed(Date.now());
+    setSessionId(null);
+    setQuestion(null);
+    setQuestionFlow(null);
+    setOutcome(null);
+    setLogsRequired(null);
+    setSelectedOption(null);
+    setSelectedMood(null);
+    setSelectedSymptoms([]);
+    setSelectedSeverity(null);
+    markInteraction();
+  };
+
+  const handleResponse = (response: { ok: boolean; session_id?: string; question?: BrainQuestion; question_flow?: { step: number; total: number }; outcome?: BrainOutcome; requires_logs?: boolean; message?: string; missing_log_types?: string[]; next_due_at?: string }) => {
     if (!response?.ok) return;
 
     if (response.session_id) {
@@ -80,6 +142,12 @@ export const AsinuBrainOverlayHost = () => {
 
     if (response.question_flow) {
       setQuestionFlow(response.question_flow);
+    }
+
+    // Fix #4: Set nextDueAt từ API response
+    if (response.next_due_at) {
+      const due = new Date(response.next_due_at);
+      if (!isNaN(due.getTime())) setNextDueAt(due);
     }
 
     // Nếu cần logs trước khi hỏi
@@ -107,6 +175,7 @@ export const AsinuBrainOverlayHost = () => {
       setOutcome(response.outcome);
       setLogsRequired(null);
       setVisible(true);
+      saveOutcomeToHistory(response.outcome);
       return;
     }
 
@@ -121,12 +190,14 @@ export const AsinuBrainOverlayHost = () => {
     return canQ;
   }, [lastDismissed]);
 
+  const queryEnabled = isForeground && isHome && idle && !visible && canQuery;
+
   const nextQuery = useQuery({
     queryKey: ['asinu-brain-next'],
     queryFn: fetchBrainNext,
-    enabled: false, // TẮT TẠM THỜI - đặt lại thành: isForeground && isHome && idle && !visible && canQuery
+    enabled: queryEnabled,
     staleTime: 60 * 1000,
-    refetchInterval: false, // TẮT TẠM THỜI - đặt lại thành: isForeground && isHome && idle && !visible && canQuery ? 30000 : false
+    refetchInterval: queryEnabled ? 30000 : false,
     refetchOnWindowFocus: false
   });
 
@@ -153,8 +224,8 @@ export const AsinuBrainOverlayHost = () => {
         answer: { option_id: value, value, label }
       });
       handleResponse(response);
-    } catch (error) {
-
+    } catch {
+      showToast(t('common:error'), 'error');
     } finally {
       setLoading(false);
     }
@@ -172,8 +243,8 @@ export const AsinuBrainOverlayHost = () => {
         answer: { option_id: value, value }
       });
       handleResponse(response);
-    } catch (error) {
-
+    } catch {
+      showToast(t('common:error'), 'error');
     } finally {
       setLoading(false);
     }
@@ -197,8 +268,8 @@ export const AsinuBrainOverlayHost = () => {
         answer: { option_id: selectedSymptoms, value: selectedSeverity }
       });
       handleResponse(response);
-    } catch (error) {
-
+    } catch {
+      showToast(t('common:error'), 'error');
     } finally {
       setLoading(false);
     }
@@ -234,21 +305,17 @@ export const AsinuBrainOverlayHost = () => {
         visible={visible}
         transparent
         animationType="fade"
-        onRequestClose={() => setVisible(false)}
+        onRequestClose={resetAndDismiss}
       >
         <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setVisible(false)} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={resetAndDismiss} />
           <View style={styles.modalContent}>
             <View style={styles.card}>
               <View style={styles.header}>
                 <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>
                   {t('brainTitle')}
                 </Text>
-                <Pressable onPress={() => {
-                  setVisible(false);
-                  setLastDismissed(Date.now());
-                  markInteraction();
-                }} style={styles.dismissButton}>
+                <Pressable onPress={resetAndDismiss} style={styles.dismissButton}>
                   <Text style={[styles.dismissText, { fontSize: scaledTypography.size.sm }]}>
                     {t('brainDismiss')}
                   </Text>

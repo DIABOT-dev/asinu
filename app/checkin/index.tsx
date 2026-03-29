@@ -435,6 +435,7 @@ function TriageScreen({
   question,
   options,
   multiSelect,
+  allowFreeText,
   answers,
   loading,
   onAnswer,
