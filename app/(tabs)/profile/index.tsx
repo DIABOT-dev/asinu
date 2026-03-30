@@ -851,16 +851,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   modalOverlay: {
     flex: 1,
     backgroundColor: colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl
+    justifyContent: 'flex-end',
   },
   modalContent: {
     width: '100%',
-    maxHeight: '85%',
+    maxHeight: '92%',
     backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: spacing.xl
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   modalHeader: {
     flexDirection: 'row',

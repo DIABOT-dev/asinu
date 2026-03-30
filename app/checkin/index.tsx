@@ -151,6 +151,7 @@ export default function CheckinScreen() {
   const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
   const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
   const [customAnswer, setCustomAnswer] = useState('');
+  const mainScrollRef = useRef<ScrollView>(null);
   const [triageSummary, setTriageSummary] = useState<{
     summary: string; severity: string; recommendation: string; needsDoctor: boolean;
   } | null>(null);
@@ -195,6 +196,9 @@ export default function CheckinScreen() {
     try {
       const result = await checkinApi.triage(sess.id, prevAnswers);
       if (__DEV__) console.log('[Checkin] triage result:', JSON.stringify(result));
+      if ((result as any).ok === false) {
+        throw new Error((result as any).error || 'Triage API error');
+      }
       if (result.isDone) {
         setTriageSummary({
           summary: result.summary || '',
@@ -320,11 +324,19 @@ export default function CheckinScreen() {
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
 
       <ScrollView
+        ref={mainScrollRef}
         style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 120 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        bounces={false}
+        overScrollMode="never"
+        onContentSizeChange={() => {
+          if (screen === 'triage') {
+            mainScrollRef.current?.scrollToEnd({ animated: true });
+          }
+        }}
       >
         {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
         {screen === 'triage' && (

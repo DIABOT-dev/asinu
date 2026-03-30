@@ -31,8 +31,6 @@ import React from 'react';
 const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
 
-// Module-level flag: only fetch checkin status once per app session
-let checkinStatusChecked = false;
 
 function InfoButton({ text, styles }: { text: string; styles: any }) {
   const [open, setOpen] = useState(false);
@@ -121,19 +119,18 @@ export default function HomeScreen() {
     return () => { clearInterval(interval); sub.remove(); };
   }, [fetchFromBackend, profile]);
 
-  // Check if user has checked in today — show banner instead of auto-redirect
+  // Check if user has checked in today — re-check every time screen focuses
   const [showCheckinBanner, setShowCheckinBanner] = useState(false);
-  useEffect(() => {
-    if (!profile || checkinStatusChecked) return;
-    checkinStatusChecked = true;
-
-    checkinApi.getToday()
-      .then(res => {
-        if (!res.session) setShowCheckinBanner(true);
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile) return;
+      checkinApi.getToday()
+        .then(res => {
+          setShowCheckinBanner(!res.session);
+        })
+        .catch(() => {});
+    }, [profile])
+  );
 
   const handleNotificationPress = useCallback((notification: any) => {
     if (notification.data?.type === 'care_circle_invitation') {
@@ -294,7 +291,19 @@ export default function HomeScreen() {
           const ratio = mission.goal > 0 ? mission.progress / mission.goal : 0;
           const isCompleted = mission.status === 'completed';
           return (
-            <Pressable key={mission.id} style={({ pressed }) => [styles.missionCard, isCompleted && styles.missionCardCompleted, pressed && { opacity: 0.85 }]} onPress={() => router.push('/missions')}>
+            <Pressable key={mission.id} style={({ pressed }) => [styles.missionCard, isCompleted && styles.missionCardCompleted, pressed && { opacity: 0.85 }]} onPress={() => {
+              const routes: Record<string, string> = {
+                daily_checkin: '/checkin',
+                log_glucose: '/logs/glucose',
+                log_bp: '/logs/blood-pressure',
+                log_water: '/logs/water',
+                log_meal: '/logs/meal',
+                log_weight: '/logs/weight',
+                log_medication: '/logs/medication',
+                log_insulin: '/logs/insulin',
+              };
+              router.push(routes[mission.missionKey] || '/(tabs)/missions');
+            }}>
               <View style={styles.missionTitleRow}>
                 <View style={[styles.missionBadge, isCompleted && styles.missionBadgeCompleted]}>
                   {isCompleted ? (

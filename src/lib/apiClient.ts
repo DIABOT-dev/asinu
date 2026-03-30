@@ -93,6 +93,12 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
       );
 
       if (!response.ok) {
+        // Auto-logout khi JWT hết hạn (401)
+        if (response.status === 401 && token && !path.includes('/auth/')) {
+          const { useAuthStore } = require('../features/auth/auth.store');
+          useAuthStore.getState().logout();
+        }
+
         if (shouldRetry(method, null, response) && attempt < attempts) {
           const delay = initialDelay * Math.pow(factor, attempt - 1);
           logWarn('api retry', { url, method, attempt, delay });
@@ -106,11 +112,11 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
         } catch {
           errorData = { error: errorText || `Request failed: ${response.status}` };
         }
-        logError(new Error(errorData.error || errorText || `Request failed: ${response.status}`), { 
-          url, 
-          method, 
+        logError(new Error(errorData.error || errorText || `Request failed: ${response.status}`), {
+          url,
+          method,
           status: response.status,
-          details: errorData.details 
+          details: errorData.details
         });
         throw new ApiError(errorData.error || errorText || `Request failed: ${response.status}`, response.status);
       }

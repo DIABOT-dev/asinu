@@ -267,7 +267,7 @@ export const AiChatLayout = ({
     if (messages.length === 0) return;
     const timer = setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
-    }, 80);
+    }, 300);
     return () => clearTimeout(timer);
   }, [messages, isTyping]);
 
@@ -389,13 +389,12 @@ export const AiChatLayout = ({
             <Text style={[styles.timestamp, { fontSize: scaledTypography.size.xs }]}>
               {(() => {
                 const d = new Date(item.timestamp);
-                const locale = language === 'vi' ? 'vi-VN' : 'en-US';
-                const today = new Date();
-                const isToday = d.toDateString() === today.toDateString();
-                const time = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-                if (isToday) return time;
-                const date = d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
-                return `${date} ${time}`;
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mm = String(d.getMinutes()).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mo = String(d.getMonth() + 1).padStart(2, '0');
+                const yy = d.getFullYear();
+                return `${hh}:${mm} ${dd}/${mo}/${yy}`;
               })()}
             </Text>
           </View>
@@ -464,6 +463,7 @@ export const AiChatLayout = ({
         data={messages}
         keyExtractor={(item) => item.id}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
         renderItem={renderMessage}
         ListFooterComponent={
           isTyping ? (

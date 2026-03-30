@@ -53,6 +53,13 @@
   "emergencyCaregiverNotified": "Đã thông báo người thân",
   "emergencySent": "Đã gửi thông báo",
   "emergencySentDesc": "Người thân của bạn đã được thông báo. Hãy giữ bình tĩnh.",
+  "emergencyNotifiedTitle": "🚨 Đã thông báo người thân",
+  "emergencyNotifiedDesc": "Asinu đã gửi cảnh báo khẩn cấp đến {{count}} người thân trong vòng kết nối. Họ sẽ liên lạc với bạn sớm nhất có thể.",
+  "emergencyNotifiedBadge": "✅ {{count}} người thân đã được thông báo",
+  "emergencyNotifiedAdvice": "Hãy ngồi hoặc nằm nghỉ ở nơi an toàn. Nếu có triệu chứng nặng (đau ngực, khó thở, ngất) hãy gọi cấp cứu 115 ngay.",
+  "emergencyNoCaregiverTitle": "⚠️ Chưa thể thông báo người thân",
+  "emergencyNoCaregiverDesc": "Bạn chưa có ai trong vòng kết nối Care Circle nên Asinu chưa thể gửi cảnh báo. Hãy thêm người thân vào Care Circle để được hỗ trợ khi cần.",
+  "emergencyNoCaregiverAdvice": "Nếu bạn đang cần trợ giúp khẩn cấp, hãy gọi cấp cứu 115 hoặc liên hệ người thân trực tiếp.",
   "emergencyTypePlaceholder": "Mô tả triệu chứng bạn đang gặp phải...",
   "emergencySendAnswer": "Gửi",
 

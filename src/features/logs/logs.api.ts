@@ -174,7 +174,7 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
 
     const baseEntry: LogEntry = {
       id: log.id,
-      type: log.log_type === 'bp' ? 'blood-pressure' : log.log_type,
+      type: (log.log_type === 'bp' || log.log_type === 'blood_pressure') ? 'blood-pressure' : log.log_type,
       recordedAt: log.occurred_at,
       notes: log.note,
       tags: Array.isArray(log.metadata?.tags) ? log.metadata.tags : []
@@ -190,9 +190,10 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
           meal_tag: detail.meal_tag
         };
       case 'bp':
-        return { 
-          ...baseEntry, 
-          systolic: typeof detail.systolic === 'string' ? parseInt(detail.systolic, 10) : detail.systolic, 
+      case 'blood_pressure':
+        return {
+          ...baseEntry,
+          systolic: typeof detail.systolic === 'string' ? parseInt(detail.systolic, 10) : detail.systolic,
           diastolic: typeof detail.diastolic === 'string' ? parseInt(detail.diastolic, 10) : detail.diastolic,
           pulse: detail.pulse ? (typeof detail.pulse === 'string' ? parseInt(detail.pulse, 10) : detail.pulse) : null,
           unit: detail.unit

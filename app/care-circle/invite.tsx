@@ -236,9 +236,8 @@ export default function InviteScreen() {
 
             <View style={styles.phoneSearchRow}>
               <View style={styles.phoneInputWrap}>
-                <Ionicons name="search" size={18} color={colors.textSecondary} style={{ marginLeft: spacing.md }} />
                 <TextInput
-                  style={styles.phoneInput}
+                  style={styles.comboInput}
                   value={phoneQuery}
                   onChangeText={text => {
                     setPhoneQuery(text);
@@ -537,18 +536,20 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.background,
-      borderRadius: radius.lg,
+      borderRadius: 12,
       borderWidth: 1.5,
       borderColor: colors.border,
-      height: 48,
+      overflow: 'hidden',
     },
     phoneInput: {
       flex: 1,
       paddingHorizontal: spacing.sm,
       paddingRight: spacing.md,
+      paddingVertical: 0,
       fontSize: typography.size.sm,
       color: colors.textPrimary,
       height: 48,
+      textAlignVertical: 'center',
     },
     searchBtn: {
       width: 48,

@@ -26,7 +26,7 @@ import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
-const DEFAULT_PAGE_SIZE = 5;
+const DEFAULT_PAGE_SIZE = 10;
 
 type Note = { id: number; message_text: string; created_at: string };
 type FilterMode = 'all' | '7days' | '30days' | 'custom';
@@ -81,9 +81,11 @@ export default function ChatNotesScreen() {
   const pageSizeRef = useRef(pageSize);
   pageSizeRef.current = pageSize;
 
-  const fetchNotes = useCallback(async (page = 1, limit?: number) => {
+  const hasFetched = useRef(false);
+
+  const fetchNotes = useCallback(async (page = 1, limit?: number, showLoader = true) => {
     const size = limit ?? pageSizeRef.current;
-    setLoading(true);
+    if (showLoader) setLoading(true);
     try {
       const data = await chatApi.fetchNotes(page, size);
       const notesList = data.notes ?? [];
@@ -93,14 +95,20 @@ export default function ChatNotesScreen() {
       setTotalPages(pTotalPages);
       setTotal(pTotal);
       setCurrentPage(page);
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      if (showLoader) flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     } catch {}
     setLoading(false);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      fetchNotes(1);
+      if (!hasFetched.current) {
+        hasFetched.current = true;
+        fetchNotes(1);
+      } else {
+        // Refetch silently without loading indicator on subsequent focuses
+        fetchNotes(1, undefined, false);
+      }
     }, [fetchNotes])
   );
 
@@ -222,9 +230,11 @@ export default function ChatNotesScreen() {
       <FlatList
         ref={flatListRef}
         style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 72 }]}
+        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 120 }]}
         data={filteredNotes}
         keyExtractor={(item) => String(item.id)}
+        bounces={false}
+        overScrollMode="never"
         ListHeaderComponent={
           <View style={styles.filterContainer}>
             <View style={styles.filterRow}>
@@ -249,6 +259,47 @@ export default function ChatNotesScreen() {
                   <Text style={styles.dateLabel}>{t('filterTo')}</Text>
                   <TextInput style={styles.dateInput} placeholder={t('filterDateFormat')} placeholderTextColor={colors.border} value={toText} onChangeText={setToText} keyboardType="number-pad" maxLength={10} />
                 </View>
+              </View>
+            )}
+
+            {/* Pagination inline */}
+            {!loading && totalPages > 0 && (
+              <View style={styles.inlinePagination}>
+                <View style={styles.pageNumberRow}>
+                  <Pressable
+                    style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+                    onPress={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <Ionicons name="chevron-back" size={14} color={currentPage === 1 ? colors.border : colors.textPrimary} />
+                  </Pressable>
+                  {pageNumbers.map((p, idx) =>
+                    p === '...' ? (
+                      <View key={`dots-${idx}`} style={styles.pageDots}>
+                        <Text style={styles.pageDotsText}>...</Text>
+                      </View>
+                    ) : (
+                      <Pressable
+                        key={p}
+                        style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
+                        onPress={() => handlePageChange(p as number)}
+                      >
+                        <Text style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]}>{p}</Text>
+                      </Pressable>
+                    )
+                  )}
+                  <Pressable
+                    style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+                    onPress={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <Ionicons name="chevron-forward" size={14} color={currentPage === totalPages ? colors.border : colors.textPrimary} />
+                  </Pressable>
+                </View>
+                <Pressable style={styles.pageSizeDropdownBtn} onPress={() => setShowPageSizeDropdown(true)}>
+                  <Text style={styles.pageSizeDropdownText}>{pageSize}/{language === 'vi' ? 'trang' : 'pg'}</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textSecondary} />
+                </Pressable>
               </View>
             )}
           </View>
@@ -281,53 +332,6 @@ export default function ChatNotesScreen() {
         )}
       />
 
-      {/* ── Fixed bottom-right pagination bar ──────── */}
-      {!loading && (total > 0 || notes.length > 0) && (
-        <View style={[styles.fixedBar, { bottom: insets.bottom + 8 }]}>
-          {/* Page numbers: < 1 2 3 > */}
-          <View style={styles.pageNumberRow}>
-            <Pressable
-              style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
-              onPress={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <Ionicons name="chevron-back" size={14} color={currentPage === 1 ? colors.border : colors.textPrimary} />
-            </Pressable>
-
-            {pageNumbers.map((p, idx) =>
-              p === '...' ? (
-                <View key={`dots-${idx}`} style={styles.pageDots}>
-                  <Text style={styles.pageDotsText}>...</Text>
-                </View>
-              ) : (
-                <Pressable
-                  key={p}
-                  style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
-                  onPress={() => handlePageChange(p)}
-                >
-                  <Text style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]}>{p}</Text>
-                </Pressable>
-              )
-            )}
-
-            <Pressable
-              style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
-              onPress={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              <Ionicons name="chevron-forward" size={14} color={currentPage === totalPages ? colors.border : colors.textPrimary} />
-            </Pressable>
-          </View>
-
-          {/* Page size dropdown */}
-          <Pressable style={styles.pageSizeDropdownBtn} onPress={() => setShowPageSizeDropdown(true)}>
-            <Text style={styles.pageSizeDropdownText}>
-              {pageSize}/{language === 'vi' ? 'trang' : 'pg'}
-            </Text>
-            <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-      )}
     </>
   );
 }
@@ -369,15 +373,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     footerLoader: { paddingVertical: spacing.lg, alignItems: 'center' },
 
     /* ── Pagination ──────────────────────────────────── */
-    fixedBar: {
-      position: 'absolute', right: spacing.md,
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: colors.surface,
-      paddingHorizontal: spacing.sm, paddingVertical: 6,
-      borderRadius: radius.xl,
-      borderWidth: 1.5, borderColor: colors.border,
-      shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 }, elevation: 8,
+    inlinePagination: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, marginTop: spacing.sm,
     },
     pageNumberRow: {
       flexDirection: 'row', alignItems: 'center', gap: 4,

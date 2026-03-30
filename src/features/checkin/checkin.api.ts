@@ -82,6 +82,7 @@ export const checkinApi = {
     apiClient<TriageResult>('/api/mobile/checkin/triage', {
       method: 'POST',
       body: { checkin_id, previous_answers },
+      timeoutMs: 30000,
     }),
 
   emergency: (location?: { lat: number; lng: number; accuracy?: number }) =>
@@ -102,10 +103,4 @@ export const checkinApi = {
   getHealthScore: () =>
     apiClient<{ ok: boolean; level: 'ok' | 'monitor' | 'danger'; factors: string[]; checkinDone: boolean }>('/api/mobile/health-score'),
 
-  resetToday: () =>
-    apiClient<{ ok: boolean; message: string }>('/api/mobile/checkin/reset-today', { method: 'POST' }),
-
-  // DEV: simulate time passing — set next_checkin_at to past so follow-up triggers immediately
-  simulateTime: () =>
-    apiClient<{ ok: boolean; session?: any; message: string }>('/api/mobile/checkin/simulate-time', { method: 'POST' }),
 };

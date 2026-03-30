@@ -14,6 +14,8 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
   TextInput as RNTextInput,
   TouchableOpacity,
   View,
@@ -116,31 +118,11 @@ function TimePickerModal({
     return arr;
   }, [hourRange]);
 
-  const [minuteText, setMinuteText] = useState(String(minute).padStart(2, '0'));
-
-  useEffect(() => {
-    setMinuteText(String(minute).padStart(2, '0'));
-  }, [minute]);
-
-  const handleMinuteChange = (text: string) => {
-    const cleaned = text.replace(/[^0-9]/g, '').slice(0, 2);
-    setMinuteText(cleaned);
-    const num = parseInt(cleaned, 10);
-    if (!isNaN(num) && num >= 0 && num <= 59) {
-      setMinute(num);
-    }
-  };
-
-  const handleMinuteBlur = () => {
-    const num = parseInt(minuteText, 10);
-    if (isNaN(num) || num < 0 || num > 59) {
-      setMinute(0);
-      setMinuteText('00');
-    } else {
-      setMinute(num);
-      setMinuteText(String(num).padStart(2, '0'));
-    }
-  };
+  const minutes = useMemo(() => {
+    const arr: number[] = [];
+    for (let i = 0; i < 60; i++) arr.push(i);
+    return arr;
+  }, []);
 
   const handleConfirm = () => {
     const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
@@ -148,8 +130,8 @@ function TimePickerModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={pickerStyles.overlay}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onCancel}>
+      <KeyboardAvoidingView style={pickerStyles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
         <View style={pickerStyles.card}>
           <View style={pickerStyles.handle} />
@@ -192,19 +174,25 @@ function TimePickerModal({
           {/* Minute picker */}
           <View style={pickerStyles.pickerSection}>
             <Text style={[pickerStyles.pickerLabel, { fontSize: scaledTypography.size.xs }]}>
-              {t('schedulePickMinute')} (0–59)
+              {t('schedulePickMinute')}
             </Text>
-            <RNTextInput
-              style={pickerStyles.minuteInput}
-              value={minuteText}
-              onChangeText={handleMinuteChange}
-              onBlur={handleMinuteBlur}
-              keyboardType="number-pad"
-              maxLength={2}
-              placeholder="00"
-              placeholderTextColor={colors.border}
-              selectTextOnFocus
-            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={pickerStyles.pickerRow}
+            >
+              {minutes.map(m => (
+                <Pressable
+                  key={m}
+                  onPress={() => setMinute(m)}
+                  style={[pickerStyles.pickerItem, minute === m && pickerStyles.pickerItemActive]}
+                >
+                  <Text style={[pickerStyles.pickerItemText, minute === m && pickerStyles.pickerItemTextActive]}>
+                    {String(m).padStart(2, '0')}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
 
           {/* Actions */}
@@ -226,7 +214,7 @@ function TimePickerModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

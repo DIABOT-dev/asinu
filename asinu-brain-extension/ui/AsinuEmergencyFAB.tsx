@@ -182,11 +182,14 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
     }
   };
 
+  const [emergencyResult, setEmergencyResult] = useState<{ status: string; message: string; caregiversAlerted?: number } | null>(null);
+
   const sendEmergency = async (type: 'VERY_UNWELL' | 'ALERT_CAREGIVER') => {
     onInteraction?.();
     setStep({ phase: 'emergency_loading', type });
     try {
-      await postBrainEmergency({ type });
+      const res = await postBrainEmergency({ type });
+      setEmergencyResult(res);
       setStep({ phase: 'emergency_done' });
     } catch {
       close();
@@ -209,9 +212,10 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
         </GestureDetector>
       )}
 
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
-        <Pressable style={styles.backdrop} onPress={step.phase === 'menu' ? close : undefined}>
-          <Pressable onPress={e => e.stopPropagation()}>
+      <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={close}>
+        <View style={styles.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={close} />
+          <View style={styles.sheetWrapper}>
           <ScrollView
             style={styles.sheet}
             contentContainerStyle={styles.sheetContent}
@@ -316,17 +320,45 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
             {/* Xác nhận đã gửi (VERY_UNWELL / ALERT_CAREGIVER) */}
             {step.phase === 'emergency_done' && (
               <>
-                <Text style={styles.sheetTitle}>{t('emergencySent')}</Text>
-                <Text style={styles.outcomeAction}>{t('emergencySentDesc')}</Text>
+                {emergencyResult?.caregiversAlerted != null && emergencyResult.caregiversAlerted > 0 ? (
+                  <>
+                    <Text style={[styles.sheetTitle, styles.titleDanger]}>
+                      {t('emergencyNotifiedTitle')}
+                    </Text>
+                    <Text style={styles.outcomeAction}>
+                      {t('emergencyNotifiedDesc', { count: emergencyResult.caregiversAlerted })}
+                    </Text>
+                    <View style={styles.notifiedBadge}>
+                      <Text style={styles.notifiedText}>
+                        {t('emergencyNotifiedBadge', { count: emergencyResult.caregiversAlerted })}
+                      </Text>
+                    </View>
+                    <Text style={styles.outcomeAction}>
+                      {t('emergencyNotifiedAdvice')}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.sheetTitle, styles.titleDanger]}>
+                      {t('emergencyNoCaregiverTitle')}
+                    </Text>
+                    <Text style={styles.outcomeAction}>
+                      {t('emergencyNoCaregiverDesc')}
+                    </Text>
+                    <Text style={styles.outcomeAction}>
+                      {t('emergencyNoCaregiverAdvice')}
+                    </Text>
+                  </>
+                )}
                 <Pressable onPress={close} style={styles.confirmButton}>
-                  <Text style={styles.confirmText}>{t('common:ok')}</Text>
+                  <Text style={styles.confirmText}>{t('common:understood') || t('common:ok')}</Text>
                 </Pressable>
               </>
             )}
 
           </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -363,14 +395,18 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
-    paddingHorizontal: spacing.sm
+    alignItems: 'center',
+    paddingHorizontal: spacing.md
+  },
+  sheetWrapper: {
+    width: '100%',
+    maxHeight: '85%',
   },
   sheet: {
     backgroundColor: colors.surface,
     borderRadius: 20,
-    maxHeight: '85%',
   },
   sheetContent: {
     padding: spacing.lg,

@@ -1,9 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState, Suspense } from 'react';
+import React, { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
 import { showToast, setPendingToast } from '../../src/stores/toast.store';
@@ -44,7 +44,7 @@ export default function SettingsScreen() {
   const logout = useAuthStore((state) => state.logout);
   const { scale, setScale } = useFontSizeStore();
   const { colors, isDark } = useThemeColors();
-  const styles = useMemo(() => createSettingsStyles(), [isDark]);
+  const styles = useMemo(() => createSettingsStyles(), []);
   const [notifications, setNotifications] = useState(true);
   const [reminders, setReminders] = useState(true);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
@@ -56,6 +56,9 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const padTop = insets.top + spacing.lg;
+  const renderCount = useRef(0);
+  renderCount.current++;
+  console.log(`[Settings] RENDER #${renderCount.current} isLoading=${isLoading} notifications=${notifications} reminders=${reminders} schedulePrefs=${!!schedulePrefs}`);
 
   const screenOptions = useMemo(() => ({
     headerShown: true,
@@ -213,8 +216,15 @@ export default function SettingsScreen() {
     <>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
-      <Screen>
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: spacing.sm }]}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: spacing.sm, paddingBottom: insets.bottom + 96 }]}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={() => {}} tintColor="transparent" />}
+      >
         <H1SectionHeader title={t('title')} />
         
         {/* Font Size Setting */}
@@ -374,7 +384,7 @@ export default function SettingsScreen() {
           />
         </Suspense>
       )}
-    </Screen>
+    </View>
     </>
   );
 }

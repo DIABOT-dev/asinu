@@ -172,98 +172,24 @@ export function RippleRefreshScrollView({
   contentContainerStyle,
   ...scrollProps
 }: PullRefreshScrollViewProps) {
-  const pullDistance = useSharedValue(0);
-  const isTriggered = useSharedValue(false);
-  const isRefreshing = useSharedValue(refreshing);
-  const prevRefreshing = useRef(refreshing);
-
-  useEffect(() => {
-    isRefreshing.value = refreshing;
-  }, [refreshing]);
-  const styles = useMemo(() => StyleSheet.create({
-    pullIndicator: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: 70,
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 100,
-    },
-  }), []);
-
-  useEffect(() => {
-    if (prevRefreshing.current && !refreshing) {
-      triggerHaptic('done');
-      pullDistance.value = withSpring(0, { damping: 15 });
-    }
-    prevRefreshing.current = refreshing;
-  }, [refreshing]);
-
-  const onTrigger = useCallback(() => {
-    triggerHaptic('trigger');
-    onRefresh();
-  }, [onRefresh]);
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      const y = event.contentOffset.y;
-      if (y < 0) {
-        pullDistance.value = Math.abs(y);
-        if (Math.abs(y) >= PULL_THRESHOLD && !isTriggered.value && !isRefreshing.value) {
-          isTriggered.value = true;
-          runOnJS(onTrigger)();
-        }
-      } else {
-        pullDistance.value = 0;
-      }
-    },
-    onEndDrag: () => {
-      isTriggered.value = false;
-      if (!isRefreshing.value && pullDistance.value > 0) {
-        pullDistance.value = withSpring(0, { damping: 15 });
-      }
-    },
-  });
-
-  const indicatorStyle = useAnimatedStyle(() => {
-    const progress = interpolate(pullDistance.value, [0, PULL_THRESHOLD], [0, 1], Extrapolation.CLAMP);
-    return {
-      opacity: progress,
-      transform: [
-        { translateY: interpolate(pullDistance.value, [0, PULL_THRESHOLD, PULL_THRESHOLD * 2], [-30, 10, 30], Extrapolation.CLAMP) },
-        { scale: interpolate(progress, [0, 1], [0.5, 1], Extrapolation.CLAMP) },
-      ],
-    };
-  });
-
-  const showRipple = refreshing || pullDistance.value > 10;
-
   return (
-    <View style={{ flex: 1 }}>
-      {/* Pull indicator */}
-      <Animated.View style={[styles.pullIndicator, indicatorStyle]} pointerEvents="none">
-        <RippleCircles active={refreshing} color={rippleColor} size={40} />
-      </Animated.View>
-
-      <AnimatedScrollView
-        {...scrollProps}
-        contentContainerStyle={contentContainerStyle}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        bounces={true}
-        refreshControl={Platform.OS === 'android' ? (
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[rippleColor]}
-            tintColor={rippleColor}
-          />
-        ) : undefined}
-      >
-        {children}
-      </AnimatedScrollView>
-    </View>
+    <ScrollView
+      {...scrollProps}
+      contentContainerStyle={contentContainerStyle}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[rippleColor]}
+          tintColor={rippleColor}
+        />
+      }
+    >
+      {children}
+    </ScrollView>
   );
 }

@@ -47,7 +47,7 @@ export async function registerNotificationCategories(): Promise<void> {
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
-          opensAppToForeground: true,
+          opensAppToForeground: false,
         },
       },
       {
@@ -56,7 +56,7 @@ export async function registerNotificationCategories(): Promise<void> {
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
-          opensAppToForeground: true,
+          opensAppToForeground: false,
         },
       },
       {

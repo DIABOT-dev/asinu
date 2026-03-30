@@ -305,7 +305,7 @@ export default function CareCircleScreen() {
         style={styles.container}
         contentContainerStyle={{
           paddingTop: spacing.sm,
-          paddingBottom: spacing.xl,
+          paddingBottom: 96,
         }}
         showsVerticalScrollIndicator={false}
       >

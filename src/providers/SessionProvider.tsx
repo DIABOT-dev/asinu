@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState, Linking, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
@@ -96,7 +96,7 @@ export const SessionProvider = ({ children }: Props) => {
     if (!authToken || !expoPushToken) return;
     authApi.updatePushToken(expoPushToken)
       .then(() => { if (__DEV__) console.log('[Session] Push token saved to server'); })
-      .catch((err) => console.error('[Session] Failed to save push token:', err));
+      .catch(() => {});
   }, [authToken, expoPushToken]);
 
   // When a caregiver_alert / emergency push arrives in foreground, re-display it
@@ -114,12 +114,73 @@ export const SessionProvider = ({ children }: Props) => {
     return () => sub.remove();
   }, []);
 
-  // Handle notification taps: deep link + action buttons
+  // ── Notification deep link routing ──
+  const handleNotificationRoute = useCallback((data: Record<string, unknown>) => {
+    const type = data?.type as string | undefined;
+    if (!type) return;
+
+    // Check-in
+    if (type === 'morning_checkin') {
+      router.push('/checkin');
+    } else if (type === 'checkin_followup' || type === 'checkin_followup_urgent') {
+      const checkinId = data?.checkinId as string;
+      if (checkinId) {
+        router.push({ pathname: '/checkin', params: { checkin_id: checkinId, mode: 'followup' } });
+      } else {
+        router.push('/checkin');
+      }
+    } else if (type === 'health_alert') {
+      const alertType = data?.alertType as string;
+      if (alertType?.includes('glucose')) router.push('/logs/glucose');
+      else if (alertType?.includes('blood_pressure')) router.push('/logs/blood-pressure');
+      else router.push('/checkin');
+
+    // Reminders → trang ghi log tương ứng
+    } else if (type === 'reminder_morning_summary' || type === 'reminder_log_morning') {
+      const firstMissing = data?.firstMissing as string;
+      if (firstMissing === 'glucose') router.push('/logs/glucose');
+      else if (firstMissing === 'blood_pressure') router.push('/logs/blood-pressure');
+      else if (firstMissing === 'medication') router.push('/logs/medication');
+      else router.push('/checkin');
+    } else if (type === 'reminder_afternoon') {
+      const target = data?.target as string;
+      if (target === 'glucose') router.push('/logs/glucose');
+      else if (target === 'blood_pressure') router.push('/logs/blood-pressure');
+      else router.push('/(tabs)/home');
+    } else if (type === 'reminder_evening_summary' || type === 'reminder_log_evening') {
+      const firstMissing = data?.firstMissing as string;
+      if (firstMissing === 'medication') router.push('/logs/medication');
+      else router.push('/(tabs)/home');
+    } else if (type === 'reminder_glucose') {
+      router.push('/logs/glucose');
+    } else if (type === 'reminder_bp') {
+      router.push('/logs/blood-pressure');
+    } else if (type === 'reminder_medication' || type === 'reminder_medication_morning' || type === 'reminder_medication_evening') {
+      router.push('/logs/medication');
+
+    // Care circle
+    } else if (type === 'care_circle_invitation' || type === 'care_circle_accepted') {
+      router.push('/care-circle');
+
+    // Emergency / Caregiver
+    } else if (type === 'caregiver_alert' || type === 'caregiver_confirmed' || type === 'emergency') {
+      router.push('/(tabs)/home');
+
+    // Milestones
+    } else if (type === 'streak_7' || type === 'streak_14' || type === 'streak_30' || type === 'weekly_recap') {
+      router.push('/(tabs)/missions');
+
+    // Default
+    } else {
+      router.push('/(tabs)/home');
+    }
+  }, []);
+
+  // Handle notification taps: deep link + action buttons (warm start)
   useEffect(() => {
     const sub = addNotificationResponseReceivedListener((response) => {
       const { actionIdentifier, notification } = response;
       const data = notification.request.content.data as Record<string, unknown>;
-      const type = data?.type as string | undefined;
 
       // Action buttons on caregiver alert push notification
       if (actionIdentifier === 'ACKNOWLEDGE') {
@@ -140,31 +201,32 @@ export const SessionProvider = ({ children }: Props) => {
         return;
       }
 
-      // Default tap (user tapped the notification itself) → deep link
+      // Default tap → deep link
       if (actionIdentifier === 'expo.modules.notifications.actions.DEFAULT') {
-        if (!type) return;
-        if (type === 'care_circle_invitation') {
-          router.push('/care-circle');
-        } else if (type === 'care_circle_accepted') {
-          router.push('/care-circle');
-        } else if (
-          type === 'reminder_log_morning' ||
-          type === 'reminder_morning_summary' ||
-          type === 'reminder_afternoon' ||
-          type === 'reminder_log_evening' ||
-          type === 'reminder_evening_summary'
-        ) {
-          router.push('/(tabs)/home');
-        } else if (type === 'streak' || type === 'weekly_recap') {
-          router.push('/(tabs)/missions');
-        } else if (type === 'emergency' || type === 'caregiver_alert') {
-          // Navigate to home — CaregiverAlertModal will auto-fetch and show on app focus
-          router.push('/(tabs)/home');
-        }
+        handleNotificationRoute(data);
       }
     });
     return () => sub.remove();
-  }, []);
+  }, [handleNotificationRoute]);
+
+  // Handle cold start: app was killed, user tapped notification to open it
+  useEffect(() => {
+    let mounted = true;
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!mounted || !response) return;
+      const { actionIdentifier, notification } = response;
+      const data = notification.request.content.data as Record<string, unknown>;
+
+      // Only handle default tap (not action buttons — those need auth first)
+      if (actionIdentifier === 'expo.modules.notifications.actions.DEFAULT') {
+        // Delay to ensure router is ready after cold start
+        setTimeout(() => {
+          if (mounted) handleNotificationRoute(data);
+        }, 1000);
+      }
+    });
+    return () => { mounted = false; };
+  }, [handleNotificationRoute]);
 
   // Re-check when user returns from Settings
   useEffect(() => {

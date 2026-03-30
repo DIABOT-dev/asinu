@@ -53,6 +53,13 @@
   "emergencyCaregiverNotified": "Caregiver has been notified",
   "emergencySent": "Alert sent",
   "emergencySentDesc": "Your caregiver has been notified. Please stay calm.",
+  "emergencyNotifiedTitle": "🚨 Caregivers notified",
+  "emergencyNotifiedDesc": "Asinu has sent an emergency alert to {{count}} caregiver(s) in your Care Circle. They will contact you as soon as possible.",
+  "emergencyNotifiedBadge": "✅ {{count}} caregiver(s) notified",
+  "emergencyNotifiedAdvice": "Please sit or lie down in a safe place. If you have severe symptoms (chest pain, difficulty breathing, fainting), call emergency services immediately.",
+  "emergencyNoCaregiverTitle": "⚠️ Unable to notify caregivers",
+  "emergencyNoCaregiverDesc": "You don't have anyone in your Care Circle yet, so Asinu couldn't send an alert. Add family members to your Care Circle for support when needed.",
+  "emergencyNoCaregiverAdvice": "If you need emergency help, please call emergency services or contact your family directly.",
   "emergencyTypePlaceholder": "Describe the symptoms you are experiencing...",
   "emergencySendAnswer": "Send",
 
