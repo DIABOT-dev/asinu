@@ -14,7 +14,7 @@ async function getAudio() {
 }
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -136,13 +136,45 @@ export default function CheckinScreen() {
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const { language } = useLanguageStore();
-  const params = useLocalSearchParams<{ checkin_id?: string; mode?: string }>();
+  const params = useLocalSearchParams<{ checkin_id?: string; mode?: string; preset_status?: string }>();
   const isFollowUp = params.mode === 'followup';
+  const isRandom = params.mode === 'random';
   const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
+  const presetStatus = params.preset_status as 'tired' | 'very_tired' | undefined;
 
   const [screen, setScreen]       = useState<Screen>('status');
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading]     = useState(!isFollowUp && !existingCheckinId && !isRandom);
   const [session, setSession]     = useState<CheckinSession | null>(null);
+
+  // Auto-detect: đã check-in hôm nay chưa? Nếu rồi → redirect đúng mode
+  // Random mode: bỏ qua check, luôn cho check-in
+  useEffect(() => {
+    if (isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
+    checkinApi.getToday()
+      .then(res => {
+        if (res.session) {
+          const s = res.session;
+          if (s.initial_status === 'fine' || s.flow_state === 'resolved') {
+            if (router.canGoBack()) router.back();
+            else router.replace('/(tabs)/home');
+            return;
+          } else if (s.triage_completed_at) {
+            router.replace({ pathname: '/checkin', params: { checkin_id: String(s.id), mode: 'followup' } });
+            return;
+          }
+        }
+        setLoading(false);
+      })
+      .catch(() => { setLoading(false); });
+  }, []);
+
+  // Auto-start nếu có preset_status từ FAB
+  const presetHandled = useRef(false);
+  useEffect(() => {
+    if (!presetStatus || presetHandled.current || loading) return;
+    presetHandled.current = true;
+    handleStatusSelect(presetStatus);
+  }, [presetStatus, loading]);
 
   // Triage state
   const [answers, setAnswers]      = useState<Array<{ question: string; answer: string }>>([]);

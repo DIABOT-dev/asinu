@@ -1,20 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Dimensions, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { router } from 'expo-router';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { colors, spacing, typography } from '../../src/styles';
-import {
-  postBrainEmergency,
-  startEmergencyTriage,
-  submitEmergencyTriageAnswer,
-  type EmergencyTriageQuestion,
-  type EmergencyTriageOutcome
-} from '../asinuBrain.api';
-
-type EmergencyType = 'SUDDEN_TIRED' | 'VERY_UNWELL' | 'ALERT_CAREGIVER';
+import { checkinApi } from '../../src/features/checkin/checkin.api';
 
 type Props = {
   onInteraction?: () => void;
@@ -22,19 +16,9 @@ type Props = {
 
 const FAB_POSITION_KEY = '@asinu_fab_position';
 
-type TriageStep =
-  | { phase: 'menu' }
-  | { phase: 'triage_loading' }
-  | { phase: 'triage_question'; sessionId: string; question: EmergencyTriageQuestion }
-  | { phase: 'triage_outcome'; outcome: EmergencyTriageOutcome }
-  | { phase: 'emergency_loading'; type: 'VERY_UNWELL' | 'ALERT_CAREGIVER' }
-  | { phase: 'emergency_done' };
-
 export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   const { t } = useTranslation('home');
   const [visible, setVisible] = useState(false);
-  const [step, setStep] = useState<TriageStep>({ phase: 'menu' });
-  const [textInput, setTextInput] = useState('');
   const [positionLoaded, setPositionLoaded] = useState(false);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -79,10 +63,51 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
     } catch {}
   }, []);
 
-  const handleTap = useCallback(() => {
+  const [todaySessionId, setTodaySessionId] = useState<number | null>(null);
+  const [alerting, setAlerting] = useState(false);
+  const [alertResult, setAlertResult] = useState<{ ok: boolean; message?: string } | null>(null);
+
+  const handleTap = useCallback(async () => {
     onInteractionRef.current?.();
+    // Check session hôm nay trước khi hiện menu
+    try {
+      const res = await checkinApi.getToday();
+      if (res.session) setTodaySessionId(res.session.id);
+      else setTodaySessionId(null);
+    } catch {}
+    setAlertResult(null);
+    setAlerting(false);
     setVisibleRef.current(true);
   }, []);
+
+  const close = () => {
+    onInteraction?.();
+    setVisible(false);
+    setAlertResult(null);
+    setAlerting(false);
+  };
+
+  const handleFabCheckin = (status: 'tired' | 'very_tired') => {
+    close();
+    if (todaySessionId) {
+      // Đã có session hôm nay → follow-up (cùng session, không tạo mới)
+      router.push({ pathname: '/checkin', params: { checkin_id: String(todaySessionId), mode: 'followup' } });
+    } else {
+      // Chưa có → tạo check-in mới
+      router.push({ pathname: '/checkin', params: { preset_status: status } });
+    }
+  };
+
+  const handleAlertFamily = async () => {
+    setAlerting(true);
+    try {
+      const res = await checkinApi.emergency();
+      setAlertResult({ ok: true, message: res.message });
+    } catch {
+      setAlertResult({ ok: false, message: 'Không thể gửi cảnh báo. Vui lòng thử lại.' });
+    }
+    setAlerting(false);
+  };
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
@@ -132,69 +157,6 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   const gesture = Gesture.Exclusive(panGesture, tapGesture);
 
 
-  const close = () => {
-    onInteraction?.();
-    setVisible(false);
-    setStep({ phase: 'menu' });
-    setTextInput('');
-  };
-
-  const handleSuddenTired = async () => {
-    onInteraction?.();
-    setStep({ phase: 'triage_loading' });
-    try {
-      const res = await startEmergencyTriage();
-      if (res.ok && res.question) {
-        setStep({ phase: 'triage_question', sessionId: res.session_id, question: res.question });
-      } else {
-        close();
-      }
-    } catch {
-      close();
-    }
-  };
-
-  const handleTriageAnswer = async (
-    sessionId: string,
-    questionId: string,
-    optionValue?: string,
-    optionLabel?: string,
-    freeText?: string,
-  ) => {
-    setStep({ phase: 'triage_loading' });
-    setTextInput('');
-    try {
-      const res = await submitEmergencyTriageAnswer({
-        session_id: sessionId,
-        question_id: questionId,
-        answer: freeText
-          ? { text_input: freeText, label: freeText }
-          : { option_id: optionValue, label: optionLabel },
-      });
-      if (!res.ok) { close(); return; }
-      if (!res.isDone) {
-        setStep({ phase: 'triage_question', sessionId, question: res.question });
-      } else {
-        setStep({ phase: 'triage_outcome', outcome: res.outcome });
-      }
-    } catch {
-      close();
-    }
-  };
-
-  const [emergencyResult, setEmergencyResult] = useState<{ status: string; message: string; caregiversAlerted?: number } | null>(null);
-
-  const sendEmergency = async (type: 'VERY_UNWELL' | 'ALERT_CAREGIVER') => {
-    onInteraction?.();
-    setStep({ phase: 'emergency_loading', type });
-    try {
-      const res = await postBrainEmergency({ type });
-      setEmergencyResult(res);
-      setStep({ phase: 'emergency_done' });
-    } catch {
-      close();
-    }
-  };
 
   return (
     <View pointerEvents="box-none" style={styles.host}>
@@ -206,7 +168,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
             accessibilityRole="button"
           >
             <View style={styles.fab}>
-              <Text style={styles.fabText}>!</Text>
+              <Ionicons name="medkit" size={24} color="#fff" />
             </View>
           </Animated.View>
         </GestureDetector>
@@ -216,147 +178,56 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
         <View style={styles.backdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={close} />
           <View style={styles.sheetWrapper}>
-          <ScrollView
-            style={styles.sheet}
-            contentContainerStyle={styles.sheetContent}
-            bounces={false}
-            overScrollMode="never"
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-
-            {/* Menu chọn loại khẩn cấp */}
-            {step.phase === 'menu' && (
-              <>
-                <Text style={styles.sheetTitle}>{t('emergencyTitle')}</Text>
-                <Pressable onPress={handleSuddenTired} style={styles.actionButton}>
-                  <Text style={styles.actionText}>{t('emergencySuddenTired')}</Text>
-                </Pressable>
-                <Pressable onPress={() => sendEmergency('VERY_UNWELL')} style={styles.actionButton}>
-                  <Text style={styles.actionText}>{t('emergencyVeryUnwell')}</Text>
-                </Pressable>
-                <Pressable onPress={() => sendEmergency('ALERT_CAREGIVER')} style={styles.actionButton}>
-                  <Text style={styles.actionText}>{t('emergencyAlertCaregiver')}</Text>
-                </Pressable>
-                <Pressable onPress={close} style={styles.cancelButton}>
-                  <Text style={styles.cancelText}>{t('common:close')}</Text>
-                </Pressable>
-              </>
-            )}
-
-            {/* Loading AI */}
-            {(step.phase === 'triage_loading' || step.phase === 'emergency_loading') && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>{t('emergencyAiThinking')}</Text>
-              </View>
-            )}
-
-            {/* AI đang hỏi câu hỏi */}
-            {step.phase === 'triage_question' && (
-              <>
-                <Text style={styles.triageStep}>{t('emergencyTriageStep', { step: step.question.step })}</Text>
-                <Text style={styles.sheetTitle}>{step.question.text}</Text>
-
-                {step.question.type === 'open_text' ? (
-                  /* Nhập tự do — mô tả triệu chứng */
+            <View style={styles.sheet}>
+              <View style={styles.sheetContent}>
+                {alertResult ? (
                   <>
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder={t('emergencyTypePlaceholder')}
-                      placeholderTextColor={colors.textSecondary}
-                      value={textInput}
-                      onChangeText={setTextInput}
-                      multiline
-                      numberOfLines={3}
-                      maxLength={200}
-                      autoFocus
-                    />
-                    <Pressable
-                      style={[styles.confirmButton, !textInput.trim() && styles.confirmButtonDisabled]}
-                      onPress={() => {
-                        if (textInput.trim()) {
-                          handleTriageAnswer(step.sessionId, step.question.id, undefined, undefined, textInput.trim());
-                        }
-                      }}
-                      disabled={!textInput.trim()}
-                    >
-                      <Text style={styles.confirmText}>{t('emergencySendAnswer')}</Text>
-                    </Pressable>
-                  </>
-                ) : (
-                  /* Chọn 1 trong nhiều lựa chọn */
-                  step.question.options?.map((opt) => (
-                    <Pressable
-                      key={opt.value}
-                      style={styles.actionButton}
-                      onPress={() => handleTriageAnswer(step.sessionId, step.question.id, opt.value, opt.label)}
-                    >
-                      <Text style={styles.actionText}>{opt.label}</Text>
-                    </Pressable>
-                  ))
-                )}
-              </>
-            )}
-
-            {/* Kết quả đánh giá AI (SUDDEN_TIRED) */}
-            {step.phase === 'triage_outcome' && (
-              <>
-                <Text style={[styles.sheetTitle, step.outcome.risk_tier === 'HIGH' && styles.titleDanger]}>
-                  {step.outcome.risk_tier === 'HIGH' ? '⚠️ ' : '✓ '}{step.outcome.outcome_text}
-                </Text>
-                <Text style={styles.outcomeAction}>{step.outcome.recommended_action}</Text>
-                {step.outcome.caregiver_notified && (
-                  <View style={styles.notifiedBadge}>
-                    <Text style={styles.notifiedText}>{t('emergencyCaregiverNotified')}</Text>
-                  </View>
-                )}
-                <Pressable onPress={close} style={styles.confirmButton}>
-                  <Text style={styles.confirmText}>{t('common:understood')}</Text>
-                </Pressable>
-              </>
-            )}
-
-            {/* Xác nhận đã gửi (VERY_UNWELL / ALERT_CAREGIVER) */}
-            {step.phase === 'emergency_done' && (
-              <>
-                {emergencyResult?.caregiversAlerted != null && emergencyResult.caregiversAlerted > 0 ? (
-                  <>
-                    <Text style={[styles.sheetTitle, styles.titleDanger]}>
-                      {t('emergencyNotifiedTitle')}
-                    </Text>
-                    <Text style={styles.outcomeAction}>
-                      {t('emergencyNotifiedDesc', { count: emergencyResult.caregiversAlerted })}
-                    </Text>
-                    <View style={styles.notifiedBadge}>
-                      <Text style={styles.notifiedText}>
-                        {t('emergencyNotifiedBadge', { count: emergencyResult.caregiversAlerted })}
+                    <View style={{ alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md }}>
+                      <Text style={{ fontSize: 40 }}>{alertResult.ok ? '✓' : '✗'}</Text>
+                      <Text style={[styles.sheetTitle, { textAlign: 'center' }]}>
+                        {alertResult.ok ? t('emergencyNotifiedTitle') : t('emergencyNoCaregiverTitle')}
+                      </Text>
+                      <Text style={[styles.sheetSubtitle, { textAlign: 'center' }]}>
+                        {alertResult.message || (alertResult.ok ? t('emergencyNotifiedAdvice') : t('emergencyNoCaregiverDesc'))}
                       </Text>
                     </View>
-                    <Text style={styles.outcomeAction}>
-                      {t('emergencyNotifiedAdvice')}
-                    </Text>
+                    <Pressable onPress={close} style={styles.confirmButton}>
+                      <Text style={styles.confirmText}>{t('common:understood') || t('common:ok')}</Text>
+                    </Pressable>
                   </>
                 ) : (
                   <>
-                    <Text style={[styles.sheetTitle, styles.titleDanger]}>
-                      {t('emergencyNoCaregiverTitle')}
+                    <Text style={styles.sheetTitle}>{t('fabCheckinTitle')}</Text>
+                    <Text style={styles.sheetSubtitle}>
+                      {todaySessionId ? t('fabCheckinSubFollowup') : t('fabCheckinSub')}
                     </Text>
-                    <Text style={styles.outcomeAction}>
-                      {t('emergencyNoCaregiverDesc')}
-                    </Text>
-                    <Text style={styles.outcomeAction}>
-                      {t('emergencyNoCaregiverAdvice')}
-                    </Text>
+
+                    <Pressable onPress={() => handleFabCheckin('tired')} style={styles.actionButton}>
+                      <Text style={styles.actionText}>{t('checkinTired')}</Text>
+                      <Text style={styles.actionSubText}>{t('checkinTiredSub')}</Text>
+                    </Pressable>
+
+                    <Pressable onPress={() => handleFabCheckin('very_tired')} style={[styles.actionButton, styles.actionButtonDanger]}>
+                      <Text style={[styles.actionText, styles.actionTextDanger]}>{t('checkinVeryTired')}</Text>
+                      <Text style={[styles.actionSubText, styles.actionSubTextDanger]}>{t('checkinVeryTiredSub')}</Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={handleAlertFamily}
+                      disabled={alerting}
+                      style={[styles.actionButton, { backgroundColor: '#fef2f2', borderWidth: 1.5, borderColor: '#f87171' }]}
+                    >
+                      <Text style={[styles.actionText, { color: '#dc2626' }]}>{t('emergencyAlertCaregiver')}</Text>
+                      <Text style={[styles.actionSubText, { color: '#ef4444' }]}>{t('emergencyAlertCaregiverSub')}</Text>
+                    </Pressable>
+
+                    <Pressable onPress={close} style={styles.cancelButton}>
+                      <Text style={styles.cancelText}>{t('common:close')}</Text>
+                    </Pressable>
                   </>
                 )}
-                <Pressable onPress={close} style={styles.confirmButton}>
-                  <Text style={styles.confirmText}>{t('common:understood') || t('common:ok')}</Text>
-                </Pressable>
-              </>
-            )}
-
-          </ScrollView>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -379,7 +250,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.warning,
+    backgroundColor: '#ef4444',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.textPrimary,
@@ -417,14 +288,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary
   },
+  sheetSubtitle: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
   actionButton: {
     backgroundColor: colors.surfaceMuted,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderRadius: 12
   },
-  actionButtonDisabled: {
-    opacity: 0.6
+  actionButtonDanger: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1.5,
+    borderColor: '#fecaca',
+  },
+  actionSubText: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  actionSubTextDanger: {
+    color: '#dc2626',
+  },
+  actionTextDanger: {
+    color: '#dc2626',
   },
   actionText: {
     fontSize: typography.size.md,

@@ -45,9 +45,13 @@
   "brainRiskStable": "Ổn định",
 
   "emergencyTitle": "Cần hỗ trợ ngay?",
+  "fabCheckinTitle": "Bạn cảm thấy thế nào?",
+  "fabCheckinSub": "Cho Asinu biết tình trạng hiện tại của bạn",
+  "fabCheckinSubFollowup": "Cập nhật tình trạng sức khoẻ của bạn",
   "emergencySuddenTired": "Mệt đột ngột",
   "emergencyVeryUnwell": "Rất không ổn",
   "emergencyAlertCaregiver": "Báo người thân",
+  "emergencyAlertCaregiverSub": "Gửi cảnh báo cho người thân trong vòng kết nối",
   "emergencyAiThinking": "AI đang phân tích tình trạng...",
   "emergencyTriageStep": "Câu {{step}}/3",
   "emergencyCaregiverNotified": "Đã thông báo người thân",
@@ -135,5 +139,7 @@
   "statAvg":    "Trung bình",
   "statMax":    "Cao nhất",
   "statStatus": "Trạng thái",
-  "checkinReminder": "Bạn chưa check-in hôm nay. Nhấn để bắt đầu!"
+  "checkinReminder": "Bạn chưa check-in hôm nay. Nhấn để bắt đầu!",
+  "alreadyCheckedIn": "Hôm nay bạn đã check-in rồi",
+  "alreadyCheckedInSub": "Asinu sẽ nhắc bạn khi cần cập nhật thêm"
 }

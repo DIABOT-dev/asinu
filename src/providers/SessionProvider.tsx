@@ -162,8 +162,11 @@ export const SessionProvider = ({ children }: Props) => {
     } else if (type === 'care_circle_invitation' || type === 'care_circle_accepted') {
       router.push('/care-circle');
 
-    // Emergency / Caregiver
-    } else if (type === 'caregiver_alert' || type === 'caregiver_confirmed' || type === 'emergency') {
+    // Emergency / Caregiver → vào home, CaregiverAlertModal sẽ tự fetch và hiện
+    } else if (type === 'caregiver_alert' || type === 'emergency') {
+      // Force app state change để CaregiverAlertModal re-fetch pending alerts
+      router.push('/(tabs)/home');
+    } else if (type === 'caregiver_confirmed') {
       router.push('/(tabs)/home');
 
     // Milestones
@@ -210,16 +213,21 @@ export const SessionProvider = ({ children }: Props) => {
   }, [handleNotificationRoute]);
 
   // Handle cold start: app was killed, user tapped notification to open it
+  // Only process if notification was received within the last 5 seconds (fresh tap)
   useEffect(() => {
     let mounted = true;
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!mounted || !response) return;
+
+      // Check if this notification response is fresh (within 5 seconds)
+      const responseTime = response.notification.date;
+      const now = Date.now() / 1000; // date is in seconds
+      if (now - responseTime > 5) return; // stale notification, ignore
+
       const { actionIdentifier, notification } = response;
       const data = notification.request.content.data as Record<string, unknown>;
 
-      // Only handle default tap (not action buttons — those need auth first)
       if (actionIdentifier === 'expo.modules.notifications.actions.DEFAULT') {
-        // Delay to ensure router is ready after cold start
         setTimeout(() => {
           if (mounted) handleNotificationRoute(data);
         }, 1000);

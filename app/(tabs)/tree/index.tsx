@@ -26,6 +26,7 @@ const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRi
 export default function TreeScreen() {
   const { t } = useTranslation('tree');
   const { t: tc } = useTranslation('common');
+  const { t: th } = useTranslation('home');
   const summary = useTreeStore((state) => state.summary);
   const history = useTreeStore((state) => state.history);
   const fetchTree = useTreeStore((state) => state.fetchTree);
@@ -225,6 +226,21 @@ export default function TreeScreen() {
           </View>
         </View>
 
+        {/* Health Report Card — ngay dưới cây sức khoẻ */}
+        <Pressable
+          style={({ pressed }) => [styles.reportCard, pressed && { opacity: 0.9 }]}
+          onPress={() => router.push('/report')}
+        >
+          <View style={styles.reportRow}>
+            <Ionicons name="document-text" size={22} color="#6366f1" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reportTitle}>{th('healthReport')}</Text>
+              <Text style={styles.reportSub}>{th('healthReportSub')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6366f1" />
+          </View>
+        </Pressable>
+
         {/* Section Header */}
         <View style={styles.sectionHeader}>
           <Ionicons name="stats-chart" size={20} color={colors.textPrimary} />
@@ -287,6 +303,7 @@ export default function TreeScreen() {
             </View>
           )}
         </View>
+
       </RippleRefreshScrollView>
     </Screen>
   );
@@ -519,6 +536,28 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   placeholderText: {
     fontSize: typography.size.sm,
     color: colors.textSecondary
-  }
+  },
+  reportCard: {
+    borderRadius: 16,
+    padding: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: '#6366f144',
+    backgroundColor: '#6366f118',
+  },
+  reportRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.md,
+  },
+  reportTitle: {
+    fontSize: typography.size.sm,
+    fontWeight: '700' as const,
+    color: colors.textPrimary,
+  },
+  reportSub: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
 });
 }

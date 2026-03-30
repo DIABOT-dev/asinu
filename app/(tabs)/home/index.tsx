@@ -121,16 +121,34 @@ export default function HomeScreen() {
 
   // Check if user has checked in today — re-check every time screen focuses
   const [showCheckinBanner, setShowCheckinBanner] = useState(false);
+  const [todaySession, setTodaySession] = useState<any>(null);
   useFocusEffect(
     useCallback(() => {
       if (!profile) return;
       checkinApi.getToday()
         .then(res => {
+          setTodaySession(res.session || null);
           setShowCheckinBanner(!res.session);
         })
         .catch(() => {});
     }, [profile])
   );
+
+  // Navigate to checkin — check session trước, hiện modal nếu đã done
+  const [showAlreadyDoneModal, setShowAlreadyDoneModal] = useState(false);
+  const goToCheckin = useCallback(async () => {
+    try {
+      const res = await checkinApi.getToday();
+      if (res.session) {
+        const s = res.session;
+        if (s.initial_status === 'fine' || s.flow_state === 'resolved') {
+          setShowAlreadyDoneModal(true);
+          return;
+        }
+      }
+    } catch {}
+    router.push('/checkin');
+  }, []);
 
   const handleNotificationPress = useCallback((notification: any) => {
     if (notification.data?.type === 'care_circle_invitation') {
@@ -162,6 +180,20 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      {/* Modal: Đã check-in rồi */}
+      <Modal visible={showAlreadyDoneModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowAlreadyDoneModal(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setShowAlreadyDoneModal(false)}>
+          <Pressable style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 28, alignItems: 'center', gap: 12, width: '100%', maxWidth: 320 }} onPress={() => {}}>
+            <Ionicons name="checkmark-circle" size={56} color={colors.primary} />
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' }}>{t('alreadyCheckedIn')}</Text>
+            <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>{t('alreadyCheckedInSub')}</Text>
+            <Pressable style={{ backgroundColor: colors.primary, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12, marginTop: 4 }} onPress={() => setShowAlreadyDoneModal(false)}>
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{tc('understood')}</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {isOffline ? <OfflineBanner /> : null}
       
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
@@ -211,7 +243,7 @@ export default function HomeScreen() {
           <Animated.View entering={FadeIn.delay(100).duration(300)}>
             <Pressable
               style={styles.checkinBanner}
-              onPress={() => { setShowCheckinBanner(false); router.push('/checkin'); }}
+              onPress={() => { setShowCheckinBanner(false); goToCheckin(); }}
             >
               <MaterialCommunityIcons name="emoticon-happy-outline" size={22} color={colors.primary} />
               <View style={{ flex: 1 }}>
@@ -257,22 +289,6 @@ export default function HomeScreen() {
         <DailyCheckinCard />
         </Animated.View>
 
-        {/* Health Report Card */}
-        <Animated.View entering={FadeIn.delay(170).duration(350)}>
-        <Pressable
-          style={({ pressed }) => [styles.reportCard, pressed && { opacity: 0.9 }]}
-          onPress={() => router.push('/report')}
-        >
-          <View style={styles.reportRow}>
-            <Ionicons name="document-text" size={22} color={iconColors.indigo} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.reportTitle}>{t('healthReport')}</Text>
-              <Text style={styles.reportSub}>{t('healthReportSub')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={iconColors.indigo} />
-          </View>
-        </Pressable>
-        </Animated.View>
 
         <Animated.View entering={FadeIn.delay(190).duration(350)}>
         <AsinuChatSticker onPress={() => setChatOpen(true)} />
@@ -292,8 +308,11 @@ export default function HomeScreen() {
           const isCompleted = mission.status === 'completed';
           return (
             <Pressable key={mission.id} style={({ pressed }) => [styles.missionCard, isCompleted && styles.missionCardCompleted, pressed && { opacity: 0.85 }]} onPress={() => {
+              if (mission.missionKey === 'daily_checkin') {
+                goToCheckin();
+                return;
+              }
               const routes: Record<string, string> = {
-                daily_checkin: '/checkin',
                 log_glucose: '/logs/glucose',
                 log_bp: '/logs/blood-pressure',
                 log_water: '/logs/water',

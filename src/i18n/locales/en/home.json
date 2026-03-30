@@ -45,9 +45,13 @@
   "brainRiskStable": "Stable",
 
   "emergencyTitle": "Need help now?",
+  "fabCheckinTitle": "How are you feeling?",
+  "fabCheckinSub": "Let Asinu know your current condition",
+  "fabCheckinSubFollowup": "Update your current health status",
   "emergencySuddenTired": "Sudden fatigue",
   "emergencyVeryUnwell": "Very unwell",
   "emergencyAlertCaregiver": "Alert caregiver",
+  "emergencyAlertCaregiverSub": "Send an alert to your Care Circle",
   "emergencyAiThinking": "AI is analyzing your condition...",
   "emergencyTriageStep": "Question {{step}}/3",
   "emergencyCaregiverNotified": "Caregiver has been notified",
@@ -135,5 +139,7 @@
   "statAvg":    "Avg",
   "statMax":    "Max",
   "statStatus": "Status",
-  "checkinReminder": "You haven't checked in today. Tap to start!"
+  "checkinReminder": "You haven't checked in today. Tap to start!",
+  "alreadyCheckedIn": "You've already checked in today",
+  "alreadyCheckedInSub": "Asinu will remind you when it's time for an update"
 }
