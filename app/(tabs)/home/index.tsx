@@ -321,7 +321,7 @@ export default function HomeScreen() {
                 log_medication: '/logs/medication',
                 log_insulin: '/logs/insulin',
               };
-              router.push(routes[mission.missionKey] || '/(tabs)/missions');
+              router.push((routes[mission.missionKey] || '/(tabs)/missions') as any);
             }}>
               <View style={styles.missionTitleRow}>
                 <View style={[styles.missionBadge, isCompleted && styles.missionBadgeCompleted]}>

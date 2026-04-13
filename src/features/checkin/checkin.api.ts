@@ -38,6 +38,11 @@ export interface TriageResult {
   allowFreeText?: boolean;
   // set when AI was unavailable and fallback questions were used
   _fallback?: boolean;
+  // Illusion Layer fields (Phase 3+4)
+  _empathy?: { text: string; templateId: string };
+  _continuity?: { text: string; templateId: string };
+  _progress?: { text: string; templateId: string };
+  _greeting?: { displayText: string; templateId: string };
 }
 
 export interface HealthReportData {

@@ -327,13 +327,8 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
     console.log('[Zalo] native_sdk error — message:', err?.message, 'code:', err?.code, 'full:', JSON.stringify(err));
   }
 
-  // Android: web flow yêu cầu quét QR hoặc nhập mật khẩu → tạm thời tắt
-  if (Platform.OS === 'android') {
-    return { type: 'error', error: 'Đăng nhập Zalo chưa khả dụng trên thiết bị này' };
-  }
-
-  // --- Web / server-side callback flow (fallback, iOS only) ---
-  console.log('[Zalo] flow=web_callback');
+  // --- Web / server-side callback flow (fallback for both iOS & Android) ---
+  console.log('[Zalo] flow=web_callback, platform:', Platform.OS);
   try {
     const appId = process.env.EXPO_PUBLIC_ZALO_APP_ID;
     if (!appId) return { type: 'error', error: 'Zalo App ID chưa được cấu hình' };

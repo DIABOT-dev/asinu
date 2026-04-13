@@ -186,7 +186,13 @@ export default function CheckinScreen() {
   const mainScrollRef = useRef<ScrollView>(null);
   const [triageSummary, setTriageSummary] = useState<{
     summary: string; severity: string; recommendation: string; needsDoctor: boolean;
+    _progress?: { text: string; templateId: string };
   } | null>(null);
+
+  // Illusion layer state
+  const [currentEmpathy, setCurrentEmpathy] = useState<{ text: string; templateId: string } | null>(null);
+  const [currentContinuity, setCurrentContinuity] = useState<{ text: string; templateId: string } | null>(null);
+  const [currentGreeting, setCurrentGreeting] = useState<{ displayText: string; templateId: string } | null>(null);
 
   // ─── Status select ─────────────────────────────────────────────────────────
 
@@ -237,9 +243,14 @@ export default function CheckinScreen() {
           severity: result.severity || 'medium',
           recommendation: result.recommendation || '',
           needsDoctor: result.needsDoctor ?? false,
+          _progress: result._progress,
         });
         setScreen('done');
       } else {
+        // Illusion layer fields
+        setCurrentEmpathy(result._empathy || null);
+        setCurrentContinuity(result._continuity || null);
+        setCurrentGreeting(result._greeting || null);
         setCurrentQ(result.question || '');
         setCurrentOpts(result.options || []);
         // If AI specifies multiSelect, use it. Otherwise auto-detect:
@@ -381,6 +392,9 @@ export default function CheckinScreen() {
             answers={answers}
             loading={loading}
             onAnswer={handleAnswer}
+            empathy={currentEmpathy}
+            continuity={currentContinuity}
+            greeting={currentGreeting}
           />
         )}
         {screen === 'done' && (
@@ -483,6 +497,9 @@ function TriageScreen({
   answers,
   loading,
   onAnswer,
+  empathy,
+  continuity,
+  greeting,
 }: {
   styles: Styles;
   question: string;
@@ -492,6 +509,9 @@ function TriageScreen({
   answers: Array<{ question: string; answer: string }>;
   loading: boolean;
   onAnswer: (a: string) => void;
+  empathy?: { text: string; templateId: string } | null;
+  continuity?: { text: string; templateId: string } | null;
+  greeting?: { displayText: string; templateId: string } | null;
 }) {
   const { t } = useTranslation('home');
   const { t: tc } = useTranslation('common');
@@ -644,6 +664,38 @@ function TriageScreen({
           </Animated.View>
         ) : (
           <>
+            {/* Greeting (first question only) */}
+            {greeting && answers.length === 0 && (
+              <Animated.View entering={FadeInLeft.duration(300)} style={styles.aiMsgRow}>
+                <View style={styles.aiAvatarSmall}>
+                  <Ionicons name="heart" size={12} color="#fff" />
+                </View>
+                <View style={[styles.aiBubble, { backgroundColor: '#e0f2f1' }]}>
+                  <Text style={[styles.aiBubbleText, { color: '#00695c' }]}>{greeting.displayText}</Text>
+                </View>
+              </Animated.View>
+            )}
+
+            {/* Continuity prefix (first question only) */}
+            {continuity && answers.length === 0 && (
+              <Animated.View entering={FadeInLeft.delay(100).duration(300)} style={styles.aiMsgRow}>
+                <View style={{ width: 28 }} />
+                <View style={[styles.aiBubble, { backgroundColor: '#e3f2fd', paddingVertical: 8 }]}>
+                  <Text style={[styles.aiBubbleText, { color: '#1565c0', fontStyle: 'italic', fontSize: 13 }]}>{continuity.text}</Text>
+                </View>
+              </Animated.View>
+            )}
+
+            {/* Empathy response (after first answer) */}
+            {empathy && answers.length > 0 && (
+              <Animated.View entering={FadeInLeft.delay(50).duration(300)} style={styles.aiMsgRow}>
+                <View style={{ width: 28 }} />
+                <View style={[styles.aiBubble, { backgroundColor: '#fce4ec', paddingVertical: 8 }]}>
+                  <Text style={[styles.aiBubbleText, { color: '#c62828', fontSize: 13 }]}>{empathy.text}</Text>
+                </View>
+              </Animated.View>
+            )}
+
             {/* Current AI question */}
             <Animated.View entering={FadeInLeft.duration(400)} style={styles.aiMsgRow}>
               <View style={styles.aiAvatar}>
@@ -802,7 +854,7 @@ function DoneScreen({
 }: {
   styles: Styles;
   session: CheckinSession | null;
-  triageSummary: { summary: string; severity: string; recommendation: string; needsDoctor: boolean } | null;
+  triageSummary: { summary: string; severity: string; recommendation: string; needsDoctor: boolean; _progress?: { text: string; templateId: string } } | null;
   isFollowUp: boolean;
   onClose: () => void;
 }) {
@@ -868,6 +920,17 @@ function DoneScreen({
                   <Text style={styles.adviceText}>{triageSummary.recommendation}</Text>
                 </View>
               ) : null}
+
+              {/* Progress feedback (Illusion Layer Phase 4) */}
+              {triageSummary._progress && (
+                <View style={{ backgroundColor: '#e8f5e9', borderRadius: 12, padding: 12, marginTop: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <Ionicons name="trending-up" size={16} color="#2e7d32" />
+                    <Text style={{ color: '#2e7d32', fontWeight: '700', fontSize: 13 }}>Tiến triển</Text>
+                  </View>
+                  <Text style={{ color: '#1b5e20', fontSize: 14, lineHeight: 20 }}>{triageSummary._progress.text}</Text>
+                </View>
+              )}
 
               {/* Doctor banner */}
               {triageSummary.needsDoctor && (
