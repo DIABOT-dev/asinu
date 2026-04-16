@@ -18,9 +18,11 @@ export default function AiChatScreen() {
   const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
-    apiClient<{ isPremium: boolean }>('/api/subscriptions/status')
+    const controller = new AbortController();
+    apiClient<{ isPremium: boolean }>('/api/subscriptions/status', { signal: controller.signal })
       .then((res) => setIsPremium(res.isPremium))
       .catch(() => {});
+    return () => controller.abort();
   }, []);
 
   const greetingMessage: ChatBubble = useMemo(() => ({
@@ -34,6 +36,8 @@ export default function AiChatScreen() {
   const [isTyping, setIsTyping] = useState(false);
 
   // Fetch chat history on mount
+  const greetingRef = useRef(greetingMessage);
+  greetingRef.current = greetingMessage;
   useEffect(() => {
     chatApi.fetchHistory()
       .then((history) => {
@@ -44,11 +48,11 @@ export default function AiChatScreen() {
             text: m.text,
             timestamp: m.timestamp || new Date().toISOString(),
           }));
-          setMessages([greetingMessage, ...mapped]);
+          setMessages([greetingRef.current, ...mapped]);
         }
       })
       .catch(() => {});
-  }, [greetingMessage]);
+  }, []);
 
   const [showMedicalDisclaimer, setShowMedicalDisclaimer] = useState(false);
   const medicalDisclaimerShown = useRef(false);
@@ -131,7 +135,7 @@ export default function AiChatScreen() {
       <Stack.Screen options={screenOptions} />
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
       >
         <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>

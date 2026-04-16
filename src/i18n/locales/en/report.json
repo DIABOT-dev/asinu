@@ -30,5 +30,6 @@
   "habitTitle": "Habits",
   "responseRate": "Response rate",
   "avgCheckinTime": "Usual check-in time",
-  "morningLabel": "AM"
+  "morningLabel": "AM",
+  "daysUnit": "days"
 }

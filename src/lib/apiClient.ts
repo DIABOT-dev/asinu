@@ -3,6 +3,8 @@ import { env } from './env';
 import { logError, logWarn } from './logger';
 import { tokenStore } from './tokenStore';
 
+let isLoggingOut = false;
+
 export class ApiError extends Error {
   statusCode: number;
   constructor(message: string, statusCode: number) {
@@ -94,9 +96,10 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
 
       if (!response.ok) {
         // Auto-logout khi JWT hết hạn (401)
-        if (response.status === 401 && token && !path.includes('/auth/')) {
+        if (response.status === 401 && token && !path.includes('/auth/') && !isLoggingOut) {
+          isLoggingOut = true;
           const { useAuthStore } = require('../features/auth/auth.store');
-          useAuthStore.getState().logout();
+          useAuthStore.getState().logout().finally(() => { isLoggingOut = false; });
         }
 
         if (shouldRetry(method, null, response) && attempt < attempts) {

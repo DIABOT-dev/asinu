@@ -150,8 +150,10 @@ export default function CheckinScreen() {
   // Random mode: bỏ qua check, luôn cho check-in
   useEffect(() => {
     if (isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
+    let mounted = true;
     checkinApi.getToday()
       .then(res => {
+        if (!mounted) return;
         if (res.session) {
           const s = res.session;
           if (s.initial_status === 'fine' || s.flow_state === 'resolved') {
@@ -165,7 +167,8 @@ export default function CheckinScreen() {
         }
         setLoading(false);
       })
-      .catch(() => { setLoading(false); });
+      .catch(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
   }, []);
 
   // Auto-start nếu có preset_status từ FAB
@@ -528,6 +531,15 @@ function TriageScreen({
   const recordingRef = useRef<any>(null);
   const recordingStartRef = useRef<number>(0);
   const maxMeteringRef = useRef<number>(-160);
+
+  useEffect(() => {
+    return () => {
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current = null;
+      }
+    };
+  }, []);
 
   const handleMicPress = async () => {
     if (!isPremium) {

@@ -30,5 +30,6 @@
   "habitTitle": "Thói quen",
   "responseRate": "Tỉ lệ phản hồi",
   "avgCheckinTime": "Giờ hay check-in",
-  "morningLabel": "sáng"
+  "morningLabel": "sáng",
+  "daysUnit": "ngày"
 }

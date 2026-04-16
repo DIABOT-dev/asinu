@@ -5,6 +5,7 @@ import { Animated, Image, InteractionManager, StyleSheet, View } from 'react-nat
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { DataConsentModal, hasDataConsent } from '../src/components/DataConsentModal';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { spacing } from '../src/styles';
 
@@ -25,6 +26,7 @@ function LoadingDot({ delay }: { delay: number }) {
 }
 
 export default function Index() {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const navigationState = useRootNavigationState();
   const profile = useAuthStore((state) => state.profile);
@@ -101,7 +103,7 @@ export default function Index() {
             <Text style={styles.liteText}>Lite</Text>
           </View>
         </View>
-        <Text style={styles.tagline}>Sức khoẻ của bạn, mỗi ngày</Text>
+        <Text style={styles.tagline}>{t('tagline')}</Text>
       </Animated.View>
 
       {/* Loading dots */}

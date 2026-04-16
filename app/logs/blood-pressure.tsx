@@ -53,7 +53,7 @@ function getBPStatus(sys: number, dia: number): BPStatus {
     return { key: 'normal', color: colors.emerald, bgColor: colors.emeraldLight, icon: 'checkmark-circle' };
   if (sys < 130 && dia < 80)
     return { key: 'elevated', color: colors.warning, bgColor: colors.premiumLight, icon: 'alert' };
-  if (sys < 140 || dia < 90)
+  if (sys < 140 && dia < 90)
     return { key: 'stage1', color: '#f97316', bgColor: '#fff7ed', icon: 'alert-circle' };
   return { key: 'stage2', color: colors.danger, bgColor: '#fef2f2', icon: 'alert-circle' };
 }

@@ -210,5 +210,7 @@
   "notifWeeklyRecap": "Weekly recap",
   "notifWeeklyRecapDesc": "Weekly activity report",
   "notifEngagement": "Re-engagement",
-  "notifEngagementDesc": "AI reminder when inactive"
+  "notifEngagementDesc": "AI reminder when inactive",
+  "info": "Information",
+  "tagline": "Your health, every day"
 }

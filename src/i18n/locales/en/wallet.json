@@ -26,5 +26,6 @@
   "quick100": "100K",
   "quick200": "200K",
   "quick500": "500K",
-  "balanceUnit": "₫"
+  "balanceUnit": "₫",
+  "orEnterAmount": "or enter amount"
 }

@@ -337,7 +337,7 @@ export default function WalletScreen() {
             {/* Divider */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <ScaledText style={styles.dividerText}>hoặc nhập số tiền</ScaledText>
+              <ScaledText style={styles.dividerText}>{t('orEnterAmount')}</ScaledText>
               <View style={styles.dividerLine} />
             </View>
 

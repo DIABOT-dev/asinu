@@ -156,7 +156,7 @@ export default function ReportScreen() {
                 <View style={styles.trendStat}>
                   <MaterialCommunityIcons name="calendar-check" size={18} color={colors.primary} />
                   <Text style={styles.trendStatValue}>{report.checkinDays}</Text>
-                  <Text style={styles.trendStatLabel}>/{report.totalDays} {t('weekTab') === 'Tuần' ? 'ngày' : 'days'}</Text>
+                  <Text style={styles.trendStatLabel}>/{report.totalDays} {t('daysUnit')}</Text>
                 </View>
                 <View style={styles.trendStatDivider} />
                 <View style={styles.trendStat}>

@@ -141,5 +141,6 @@
   "statStatus": "Trạng thái",
   "checkinReminder": "Mình chưa nghe tin bạn hôm nay — cho mình biết bạn thế nào nhé!",
   "alreadyCheckedIn": "Hôm nay mình đã nắm tình hình của bạn rồi",
-  "alreadyCheckedInSub": "Mình sẽ ghé hỏi thăm lại khi cần nhé"
+  "alreadyCheckedInSub": "Mình sẽ ghé hỏi thăm lại khi cần nhé",
+  "emergencyAlertError": "Không thể gửi cảnh báo. Vui lòng thử lại."
 }

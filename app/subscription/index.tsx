@@ -112,6 +112,7 @@ const featureRowStyle = StyleSheet.create({
 function PlanOption({
   plan, selected, onSelect, isXLarge,
 }: { plan: typeof PLANS[0]; selected: boolean; onSelect: () => void; isXLarge?: boolean }) {
+  const { t } = useTranslation('subscription');
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
@@ -132,13 +133,13 @@ function PlanOption({
           </View>
         )}
         <Text style={[planOptionStyle.label, selected && planOptionStyle.labelSelected]}>
-          {plan.months === 1 ? '1 tháng' : plan.months === 3 ? '3 tháng' : plan.months === 6 ? '6 tháng' : '12 tháng'}
+          {t('planMonth', { months: plan.months })}
         </Text>
         <Text style={[planOptionStyle.price, selected && planOptionStyle.priceSelected]}>
           {formatVND(plan.price)}đ
         </Text>
         <Text style={[planOptionStyle.perMonth, selected && planOptionStyle.perMonthSelected]}>
-          ~{formatVND(pricePerMonth(plan))}đ/tháng
+          ~{formatVND(pricePerMonth(plan))}đ{t('perMonth')}
         </Text>
       </Pressable>
     </Animated.View>
@@ -323,14 +324,14 @@ export default function SubscriptionScreen() {
         fetchHistory();
       } else {
         setWalletPayResult('failed');
-        setWalletPayError(res.message ?? 'Thanh toán thất bại. Vui lòng thử lại.');
+        setWalletPayError(res.message ?? t('paymentFailed'));
       }
     } catch (err) {
       setWalletPayResult('failed');
       if (err instanceof ApiError) {
-        setWalletPayError(err.message || 'Thanh toán thất bại. Vui lòng thử lại.');
+        setWalletPayError(err.message || t('paymentFailed'));
       } else {
-        setWalletPayError('Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.');
+        setWalletPayError(t('paymentNetworkError'));
       }
     }
   }, [selectedPlan, fetchStatus, fetchHistory]);
@@ -593,7 +594,7 @@ export default function SubscriptionScreen() {
       <Modal visible={showPayMethodModal} transparent animationType="fade" onRequestClose={() => setShowPayMethodModal(false)}>
         <Pressable style={styles.payModalOverlay} onPress={() => setShowPayMethodModal(false)}>
           <Pressable style={styles.payModalBox} onPress={() => {}}>
-            <Text style={styles.payModalTitle}>Chọn phương thức</Text>
+            <Text style={styles.payModalTitle}>{t('chooseMethod')}</Text>
 
             <Pressable
               style={styles.payMethodBtn}
@@ -603,8 +604,8 @@ export default function SubscriptionScreen() {
                 <MaterialCommunityIcons name="wallet" size={24} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.payMethodLabel}>Trừ số dư ví</Text>
-                <Text style={styles.payMethodSub}>Số dư: {formatVND(walletBalance)}đ</Text>
+                <Text style={styles.payMethodLabel}>{t('walletDeduct')}</Text>
+                <Text style={styles.payMethodSub}>{t('walletBalance', { amount: formatVND(walletBalance) })}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
             </Pressable>
@@ -617,14 +618,14 @@ export default function SubscriptionScreen() {
                 <MaterialCommunityIcons name="qrcode-scan" size={24} color={colors.premium} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.payMethodLabel}>Quét mã QR</Text>
-                <Text style={styles.payMethodSub}>Chuyển khoản ngân hàng</Text>
+                <Text style={styles.payMethodLabel}>{t('scanQR')}</Text>
+                <Text style={styles.payMethodSub}>{t('bankTransfer')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
             </Pressable>
 
             <Pressable style={styles.payCancelBtn} onPress={() => setShowPayMethodModal(false)}>
-              <Text style={styles.payCancelText}>Huỷ</Text>
+              <Text style={styles.payCancelText}>{t('cancel')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -658,30 +659,26 @@ export default function SubscriptionScreen() {
               /* ── Thành công ── */
               <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.walletResultBox}>
                 <Ionicons name="checkmark-circle" size={56} color={colors.success} />
-                <Text style={styles.walletResultTitle}>Đăng ký thành công!</Text>
-                <Text style={styles.walletResultDesc}>Gói {activePlan.months} tháng đã được kích hoạt.</Text>
+                <Text style={styles.walletResultTitle}>{t('subscriptionSuccess')}</Text>
+                <Text style={styles.walletResultDesc}>{t('planActivated', { months: activePlan.months })}</Text>
                 <Pressable
                   style={styles.confirmOkBtn}
                   onPress={() => { setShowWalletConfirm(false); setWalletPayResult('idle'); }}
                 >
-                  <Text style={styles.confirmOkText}>Đóng</Text>
+                  <Text style={styles.confirmOkText}>{t('close')}</Text>
                 </Pressable>
               </Animated.View>
             ) : (
               /* ── Form xác nhận ── */
               <>
                 <MaterialCommunityIcons name="wallet-outline" size={36} color={colors.primary} style={{ alignSelf: 'center', marginBottom: spacing.sm }} />
-                <Text style={styles.payModalTitle}>Xác nhận đăng ký</Text>
+                <Text style={styles.payModalTitle}>{t('confirmSubscription')}</Text>
                 <Text style={styles.confirmDesc}>
-                  Bạn có chắc chắn muốn đăng ký{'\n'}
-                  <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
-                    gói {activePlan.months} tháng · {formatVND(activePlan.price)}đ
-                  </Text>
-                  {'\n'}bằng số dư ví không?
+                  {t('confirmSubscriptionMsg', { months: activePlan.months, price: formatVND(activePlan.price) })}
                 </Text>
                 <View style={styles.confirmBalanceRow}>
-                  <Text style={styles.confirmBalanceLabel}>Số dư hiện tại</Text>
-                  <Text style={styles.confirmBalanceValue}>{formatVND(walletBalance)}đ</Text>
+                  <Text style={styles.confirmBalanceLabel}>{t('currentBalance')}</Text>
+                  <Text style={styles.confirmBalanceValue}>{formatVND(walletBalance)}{t('currency')}</Text>
                 </View>
                 {walletPayResult === 'failed' && (
                   <Animated.View entering={FadeInDown.duration(300)} style={styles.walletErrorBox}>
@@ -700,7 +697,7 @@ export default function SubscriptionScreen() {
                     }}
                     disabled={walletPayResult === 'loading'}
                   >
-                    <Text style={styles.confirmCancelText}>Quay lại</Text>
+                    <Text style={styles.confirmCancelText}>{t('goBack')}</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.confirmOkBtn, walletPayResult === 'failed' && styles.confirmRetryBtn]}
@@ -710,7 +707,7 @@ export default function SubscriptionScreen() {
                     {walletPayResult === 'loading'
                       ? <ActivityIndicator size="small" color="#fff" />
                       : <Text style={styles.confirmOkText}>
-                          {walletPayResult === 'failed' ? 'Thử lại' : 'Xác nhận'}
+                          {walletPayResult === 'failed' ? t('retry') : t('confirm')}
                         </Text>
                     }
                   </Pressable>

@@ -34,6 +34,7 @@ const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRi
 
 function InfoButton({ text, styles }: { text: string; styles: any }) {
   const [open, setOpen] = useState(false);
+  const { t: tc } = useTranslation('common');
   return (
     <>
       <Pressable onPress={() => setOpen(true)} hitSlop={10} style={styles.infoBtn}>
@@ -44,7 +45,7 @@ function InfoButton({ text, styles }: { text: string; styles: any }) {
           <Pressable style={styles.infoModalBox} onPress={() => {}}>
             <View style={styles.infoModalHeader}>
               <Ionicons name="information-circle" size={20} color={colors.primary} />
-              <Text style={styles.infoModalTitle}>Thông tin</Text>
+              <Text style={styles.infoModalTitle}>{tc('info')}</Text>
             </View>
             <Text style={styles.infoModalText}>{text}</Text>
           </Pressable>

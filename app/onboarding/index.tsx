@@ -60,6 +60,8 @@ const DISEASE_FOOTER = [
   { value: 'Không có', labelKey: 'diseaseNone' },
   { value: 'Khác', labelKey: 'diseaseOther' },
 ];
+const DISEASE_NONE_VALUE = DISEASE_FOOTER.find(d => d.labelKey === 'diseaseNone')!.value;
+const DISEASE_OTHER_VALUE = DISEASE_FOOTER.find(d => d.labelKey === 'diseaseOther')!.value;
 
 const MEDICATION_OPTIONS = [
   { value: 'Có', labelKey: 'medYes' },
@@ -301,14 +303,14 @@ export default function OnboardingScreen() {
     setDiseases(prev => {
       if (prev.includes(value)) {
         const next = prev.filter(v => v !== value);
-        if (value === 'Khác') setOtherDisease('');
+        if (value === DISEASE_OTHER_VALUE) setOtherDisease('');
         return next;
       }
-      if (value === 'Không có') {
+      if (value === DISEASE_NONE_VALUE) {
         setOtherDisease('');
-        return ['Không có'];
+        return [DISEASE_NONE_VALUE];
       }
-      return [...prev.filter(v => v !== 'Không có'), value];
+      return [...prev.filter(v => v !== DISEASE_NONE_VALUE), value];
     });
   }
 
@@ -335,7 +337,7 @@ export default function OnboardingScreen() {
     setSaving(true);
     try {
       const medicalConditions = diseases
-        .filter(d => d !== 'Không có')
+        .filter(d => d !== DISEASE_NONE_VALUE)
         .concat(
           otherDisease
             ? otherDisease
@@ -761,7 +763,7 @@ function Step2({
   medication, setMedication,
 }: Step2Props) {
   const { t } = useTranslation('onboarding');
-  const hasOther = diseases.includes('Khác');
+  const hasOther = diseases.includes(DISEASE_OTHER_VALUE);
 
   return (
     <View style={styles.stepContainer}>

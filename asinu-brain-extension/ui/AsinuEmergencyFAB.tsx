@@ -104,7 +104,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
       const res = await checkinApi.emergency();
       setAlertResult({ ok: true, message: res.message });
     } catch {
-      setAlertResult({ ok: false, message: 'Không thể gửi cảnh báo. Vui lòng thử lại.' });
+      setAlertResult({ ok: false, message: t('emergencyAlertError') });
     }
     setAlerting(false);
   };

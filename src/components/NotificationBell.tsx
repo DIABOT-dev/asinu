@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScaledTypography } from '../hooks/useScaledTypography';
-import { colors, spacing, typography } from '../styles';
+import { colors, spacing, typography, radius } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -162,16 +162,30 @@ export function NotificationBell({
       flexDirection: 'row',
       padding: spacing.md,
       paddingHorizontal: spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      marginHorizontal: spacing.sm,
+      marginVertical: spacing.xs / 2,
+      borderRadius: radius.lg,
       backgroundColor: colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06,
+      shadowRadius: 3,
+      elevation: 1,
     },
     notificationItemUnread: {
       backgroundColor: colors.primary + '08',
+      shadowOpacity: 0.1,
+      elevation: 2,
     },
     notificationIcon: {
       marginRight: spacing.md,
       paddingTop: spacing.xs,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary + '10',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     notificationContent: {
       flex: 1,
@@ -356,20 +370,30 @@ export function NotificationBell({
 
     const priorityStyle = getPriorityStyle(item.priority);
 
+    const iconBgColor = (() => {
+      if (notifType === 'emergency' || item.priority === 'critical') return '#fecaca';
+      if (notifType === 'health_alert' || notifType === 'caregiver_alert') return '#fef3c7';
+      if (notifType === 'reengagement') return '#dbeafe';
+      if (notifType === 'care_circle_invitation' || notifType === 'care_circle_accepted') return '#dbeafe';
+      if (notifType === 'morning_checkin' || notifType.startsWith('checkin')) return '#dcfce7';
+      if (notifType.startsWith('reminder')) return '#e0f2f1';
+      if (notifType === 'milestone' || notifType.startsWith('streak') || notifType === 'weekly_recap') return '#fef3c7';
+      return colors.primary + '12';
+    })();
+
     return (
       <TouchableOpacity
         style={[
           styles.notificationItem,
           !item.read && styles.notificationItemUnread,
-          { borderLeftWidth: 3, borderLeftColor: priorityStyle.borderColor },
-          item.priority === 'critical' && { backgroundColor: priorityStyle.bgTint },
+          item.priority === 'critical' && { backgroundColor: '#fef2f2' },
         ]}
         onPress={() => handleNotificationPress(item)}
       >
-        <View style={styles.notificationIcon}>
+        <View style={[styles.notificationIcon, { backgroundColor: iconBgColor }]}>
           <Ionicons
             name={getNotificationIcon()}
-            size={24}
+            size={20}
             color={getIconColor()}
           />
         </View>

@@ -4,7 +4,7 @@ async function getAudio() {
   if (!_Audio) { _Audio = (await import('expo-av')).Audio; }
   return _Audio;
 }
-import { Clipboard } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -243,6 +243,16 @@ export const AiChatLayout = ({
   const recordingRef = useRef<any>(null);
   const recordingStartRef = useRef<number>(0);
   const maxMeteringRef = useRef<number>(-160);
+
+  useEffect(() => {
+    return () => {
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current = null;
+      }
+    };
+  }, []);
+
   const scaledTypography = useScaledTypography();
   const { language } = useLanguageStore();
   const flatListRef = useRef<FlatList>(null);
@@ -283,7 +293,7 @@ export const AiChatLayout = ({
   };
 
   const handleCopy = async (msg: ChatBubble) => {
-    Clipboard.setString(msg.text);
+    Clipboard.setStringAsync(msg.text);
     setCopiedId(msg.id);
     setTimeout(() => setCopiedId(null), 1500);
   };

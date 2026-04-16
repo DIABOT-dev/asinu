@@ -180,6 +180,9 @@ export const useAuthStore = create<AuthState>()(
       async loginWithSocial(provider) {
         set({ loading: true, error: undefined });
         try {
+          // token and rawProfile are empty placeholders — submitSocialAuth
+          // internally calls authenticateWithProvider() which performs the real
+          // OAuth flow and obtains the actual token/profile from the provider.
           const response = await authService.submitSocialAuth({
             provider,
             token: '',
