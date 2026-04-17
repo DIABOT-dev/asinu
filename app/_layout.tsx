@@ -8,6 +8,7 @@ import { Appearance, Pressable, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
+import { AsinuEmergencyFAB } from '../asinu-brain-extension/ui/AsinuEmergencyFAB';
 import { GlobalToastHost } from '../src/components/GlobalToastHost';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { CarePulseProvider } from '../src/features/care-pulse';
@@ -95,6 +96,7 @@ export default function RootLayout() {
               </Stack>
               <GlobalToastHost />
               <AsinuBrainOverlayHost />
+              <AsinuEmergencyFAB />
             </CarePulseProvider>
           </WellnessProvider>
         </SafeAreaProvider>

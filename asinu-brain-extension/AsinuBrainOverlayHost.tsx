@@ -313,7 +313,7 @@ export const AsinuBrainOverlayHost = () => {
       </Modal>
       */}
 
-      {isAuthenticated && !pathname.startsWith('/onboarding') && <AsinuEmergencyFAB onInteraction={markInteraction} />}
+      {/* FAB moved to _layout.tsx — rendered outside OverlayHost for Android touch compatibility */}
     </View>
   );
 };
