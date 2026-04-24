@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
 import { AsinuEmergencyFAB } from '../asinu-brain-extension/ui/AsinuEmergencyFAB';
+import { useAuthStore } from '../src/features/auth/auth.store';
 import { GlobalToastHost } from '../src/components/GlobalToastHost';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { CarePulseProvider } from '../src/features/care-pulse';
@@ -96,7 +97,7 @@ export default function RootLayout() {
               </Stack>
               <GlobalToastHost />
               <AsinuBrainOverlayHost />
-              <AsinuEmergencyFAB />
+              <EmergencyFABGate />
             </CarePulseProvider>
           </WellnessProvider>
         </SafeAreaProvider>
@@ -105,6 +106,15 @@ export default function RootLayout() {
     </ErrorBoundary>
     </GestureHandlerRootView>
   );
+}
+
+function EmergencyFABGate() {
+  const token = useAuthStore((s) => s.token);
+  const profile = useAuthStore((s) => s.profile);
+  const hydrated = useAuthStore((s) => s.hydrated);
+  if (!hydrated) return null;
+  if (!token || !profile?.onboardingCompleted) return null;
+  return <AsinuEmergencyFAB />;
 }
 
 const styles = StyleSheet.create({
