@@ -35,6 +35,13 @@ export interface TriageResult {
   recommendation?: string;
   needsDoctor?: boolean;
   needsFamilyAlert?: boolean;
+  // Server actually attempted to alert family (severity=high). Used by FE
+  // to render banner: notified vs no-caregiver.
+  familyAlertResult?: {
+    attempted: boolean;
+    caregiversNotified: number;
+    alreadyAlerted?: boolean;
+  };
   allowFreeText?: boolean;
   // set when AI was unavailable and fallback questions were used
   _fallback?: boolean;

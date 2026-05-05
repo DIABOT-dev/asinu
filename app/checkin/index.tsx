@@ -953,6 +953,41 @@ function DoneScreen({
                   <Text style={styles.doctorText}>{t('checkinSeeDoctor')}</Text>
                 </View>
               )}
+
+              {/* Family-alert banner — chỉ hiện khi server thực sự đã thử
+                  alert (severity=high). Phân biệt 3 case: đã notify N người,
+                  chưa có caregiver, hoặc đã notify lần trước rồi. */}
+              {triageSummary.familyAlertResult?.attempted && (
+                triageSummary.familyAlertResult.caregiversNotified > 0 ? (
+                  <View style={[styles.doctorBanner, { backgroundColor: '#dcfce7' }]}>
+                    <View style={[styles.doctorIcon, { backgroundColor: '#16a34a' }]}>
+                      <Ionicons name="checkmark-circle" size={14} color="#fff" />
+                    </View>
+                    <Text style={[styles.doctorText, { color: '#166534' }]}>
+                      {t('checkinFamilyNotified', { count: triageSummary.familyAlertResult.caregiversNotified })}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={[styles.doctorBanner, { backgroundColor: '#fef3c7' }]}>
+                    <View style={[styles.doctorIcon, { backgroundColor: '#d97706' }]}>
+                      <Ionicons name="warning" size={14} color="#fff" />
+                    </View>
+                    <Text style={[styles.doctorText, { color: '#92400e' }]}>
+                      {t('checkinFamilyNoCaregiver')}
+                    </Text>
+                  </View>
+                )
+              )}
+              {triageSummary.familyAlertResult?.alreadyAlerted && (
+                <View style={[styles.doctorBanner, { backgroundColor: '#e0f2fe' }]}>
+                  <View style={[styles.doctorIcon, { backgroundColor: '#0284c7' }]}>
+                    <Ionicons name="information-circle" size={14} color="#fff" />
+                  </View>
+                  <Text style={[styles.doctorText, { color: '#075985' }]}>
+                    {t('checkinFamilyAlreadyNotified')}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </Animated.View>

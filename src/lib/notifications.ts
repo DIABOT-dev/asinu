@@ -349,14 +349,47 @@ export function routeFromNotificationData(data: Record<string, unknown> | null |
     return '/logs/medication';
   }
 
-  // Care circle (invitation, accepted, rejected, removed)
+  // Care circle (invitation, accepted, rejected, removed, permission_changed)
   if (
     type === 'care_circle_invitation' ||
     type === 'care_circle_accepted' ||
     type === 'care_circle_rejected' ||
-    type === 'care_circle_removed'
+    type === 'care_circle_removed' ||
+    type === 'care_circle_permission_changed' ||
+    type === 'caregiver_viewed_logs'
   ) {
     return '/care-circle';
+  }
+
+  // Subscription / Premium lifecycle
+  if (
+    type === 'subscription_activated' ||
+    type === 'subscription_expiring_soon' ||
+    type === 'subscription_expired'
+  ) {
+    return '/subscription';
+  }
+
+  // Payment / Wallet
+  if (
+    type === 'payment_failed' ||
+    type === 'wallet_topup_success' ||
+    type === 'wallet_low_balance'
+  ) {
+    return '/wallet';
+  }
+
+  // Security
+  if (type === 'new_device_login' || type === 'password_changed') {
+    return '/(tabs)/profile';
+  }
+
+  // Engagement
+  if (type === 'weekly_wellness_summary') {
+    return '/(tabs)/home';
+  }
+  if (type === 'profile_incomplete') {
+    return '/onboarding';
   }
 
   // Emergency / Caregiver → vào home, modal sẽ tự fetch và hiện

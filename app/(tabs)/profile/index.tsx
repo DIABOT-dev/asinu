@@ -439,9 +439,9 @@ export default function ProfileScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingTop: insets.top + spacing.md }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t('editProfileTitle')}</Text>
+              <Text style={styles.modalTitle}>{t('editProfileTitle')}</Text>
             </View>
             
             <ScrollView 
