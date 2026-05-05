@@ -47,6 +47,8 @@
   "relGrandmotherPaternal": "Paternal Grandmother",
   "relGrandfatherMaternal": "Maternal Grandfather",
   "relGrandmotherMaternal": "Maternal Grandmother",
+  "relGrandson": "Grandson",
+  "relGranddaughter": "Granddaughter",
   "relBestFriend": "Best Friend",
   "relPartner": "Partner",
   "relSpouse": "Spouse",

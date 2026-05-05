@@ -296,6 +296,83 @@ export function addNotificationResponseReceivedListener(
 }
 
 /**
+ * Map notification payload (data) → app route. Used by:
+ *  - Push notification tap handler (SessionProvider)
+ *  - In-app notification card tap handler (NotificationBell list)
+ *
+ * Returns either a string path or { pathname, params } for router.push.
+ * Returns null when the notification has no specific destination (caller
+ * decides default).
+ */
+export type NotificationRoute = string | { pathname: string; params?: Record<string, string> };
+
+export function routeFromNotificationData(data: Record<string, unknown> | null | undefined): NotificationRoute | null {
+  const type = data?.type as string | undefined;
+  if (!type) return null;
+
+  // Check-in
+  if (type === 'morning_checkin') return '/checkin';
+  if (type === 'checkin_followup' || type === 'checkin_followup_urgent') {
+    const checkinId = data?.checkinId as string;
+    if (checkinId) return { pathname: '/checkin', params: { checkin_id: checkinId, mode: 'followup' } };
+    return '/checkin';
+  }
+  if (type === 'health_alert') {
+    const alertType = (data?.alertType as string) || '';
+    if (alertType.includes('glucose')) return '/logs/glucose';
+    if (alertType.includes('blood_pressure')) return '/logs/blood-pressure';
+    return '/checkin';
+  }
+
+  // Reminders → trang ghi log tương ứng
+  if (type === 'reminder_morning_summary' || type === 'reminder_log_morning') {
+    const firstMissing = data?.firstMissing as string;
+    if (firstMissing === 'glucose') return '/logs/glucose';
+    if (firstMissing === 'blood_pressure') return '/logs/blood-pressure';
+    if (firstMissing === 'medication') return '/logs/medication';
+    return '/checkin';
+  }
+  if (type === 'reminder_afternoon') {
+    const target = data?.target as string;
+    if (target === 'glucose') return '/logs/glucose';
+    if (target === 'blood_pressure') return '/logs/blood-pressure';
+    return '/(tabs)/home';
+  }
+  if (type === 'reminder_evening_summary' || type === 'reminder_log_evening') {
+    const firstMissing = data?.firstMissing as string;
+    if (firstMissing === 'medication') return '/logs/medication';
+    return '/(tabs)/home';
+  }
+  if (type === 'reminder_glucose') return '/logs/glucose';
+  if (type === 'reminder_bp') return '/logs/blood-pressure';
+  if (type === 'reminder_medication' || type === 'reminder_medication_morning' || type === 'reminder_medication_evening') {
+    return '/logs/medication';
+  }
+
+  // Care circle (invitation, accepted, rejected, removed)
+  if (
+    type === 'care_circle_invitation' ||
+    type === 'care_circle_accepted' ||
+    type === 'care_circle_rejected' ||
+    type === 'care_circle_removed'
+  ) {
+    return '/care-circle';
+  }
+
+  // Emergency / Caregiver → vào home, modal sẽ tự fetch và hiện
+  if (type === 'caregiver_alert' || type === 'emergency' || type === 'caregiver_confirmed') {
+    return '/(tabs)/home';
+  }
+
+  // Milestones / streaks
+  if (type === 'streak_7' || type === 'streak_14' || type === 'streak_30' || type === 'weekly_recap' || type === 'milestone' || type === 'streak_start' || type === 'streak_milestone') {
+    return '/(tabs)/missions';
+  }
+
+  return null;
+}
+
+/**
  * Get the number of pending notifications
  */
 export async function getBadgeCount(): Promise<number> {

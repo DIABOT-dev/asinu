@@ -176,9 +176,6 @@ export function RippleRefreshScrollView({
     <ScrollView
       {...scrollProps}
       contentContainerStyle={contentContainerStyle}
-      bounces={false}
-      alwaysBounceVertical={false}
-      overScrollMode="never"
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl

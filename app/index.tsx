@@ -3,10 +3,12 @@ import { useRootNavigationState, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Image, InteractionManager, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { DataConsentModal, hasDataConsent } from '../src/components/DataConsentModal';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../src/features/auth/auth.store';
+import { routeFromNotificationData } from '../src/lib/notifications';
 import { spacing } from '../src/styles';
 
 function LoadingDot({ delay }: { delay: number }) {
@@ -62,7 +64,27 @@ export default function Index() {
 
   useEffect(() => {
     if (!isNavReady || loading || !consentReady || showConsent) return;
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = InteractionManager.runAfterInteractions(async () => {
+      // Cold-start deep link: nếu user mở app bằng cách tap notification,
+      // ưu tiên route đó thay vì replace về home (nếu không sẽ ghi đè).
+      if (profile?.onboardingCompleted) {
+        try {
+          const response = await Notifications.getLastNotificationResponseAsync();
+          if (response) {
+            const ageSec = Date.now() / 1000 - response.notification.date;
+            if (ageSec < 60) {
+              const data = response.notification.request.content.data as Record<string, unknown>;
+              const route = routeFromNotificationData(data);
+              if (route) {
+                if (typeof route === 'string') router.replace(route as any);
+                else router.replace(route as any);
+                return;
+              }
+            }
+          }
+        } catch {}
+      }
+
       if (profile) {
         router.replace(profile.onboardingCompleted ? '/(tabs)/home' : '/onboarding');
       } else {

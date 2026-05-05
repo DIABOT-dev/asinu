@@ -1,7 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
@@ -53,7 +54,9 @@ export default function CareCircleScreen() {
     deleteConnection,
     updateConnection,
     updatePermissions,
-    refresh
+    refresh,
+    fetchInvitations,
+    fetchConnections,
   } = useCareCircle();
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -105,55 +108,63 @@ export default function CareCircleScreen() {
     { id: 'tu-van-tam-ly', label: t('roleCounselor'), subtitle: t('roleCounselorDesc') },
   ];
 
-  // Hàm đảo ngược mối quan hệ: nếu người khác gọi mình là "Bố" thì mình gọi họ là "Con"
-  const reverseRelationship = (relationshipType: string | undefined): string => {
+  // Đảo ngược quan hệ. Sender chọn label X mô tả người được mời (B);
+  // hàm này trả về label tương ứng từ POV của B (nhìn về sender A).
+  // Một số inverse cần biết giới tính của A (= bên kia khi B đang xem) để
+  // chọn term cụ thể (Con trai vs Con gái, Bố vs Mẹ ...). Nếu thiếu giới
+  // tính → fallback về label gốc, KHÔNG dùng group chung.
+  const reverseRelationship = (relationshipType: string | undefined, otherGender?: string): string => {
     if (!relationshipType) return '';
-    
-    const reverseMap: Record<string, string> = {
-      // Cha mẹ <-> Con cái
-      'bo': t('reverseChild'),
-      'Bố': t('reverseChild'),
-      'me': t('reverseChild'),
-      'Mẹ': t('reverseChild'),
-      'con-trai': t('reverseParent'),
-      'Con trai': t('reverseParent'),
-      'con-gai': t('reverseParent'),
-      'Con gái': t('reverseParent'),
 
-      // Vợ chồng (đối xứng)
-      'vo': t('relHusband'),
-      'Vợ': t('relHusband'),
-      'chong': t('relWife'),
-      'Chồng': t('relWife'),
+    const isMale = otherGender === 'Nam';
+    const isFemale = otherGender === 'Nữ';
 
-      // Anh chị em
-      'anh-trai': t('reverseYoungerSibling'),
-      'Anh trai': t('reverseYoungerSibling'),
-      'chi-gai': t('reverseYoungerSibling'),
-      'Chị gái': t('reverseYoungerSibling'),
-      'em-trai': t('reverseOlderSibling'),
-      'Em trai': t('reverseOlderSibling'),
-      'em-gai': t('reverseOlderSibling'),
-      'Em gái': t('reverseOlderSibling'),
-
-      // Ông bà <-> Cháu
-      'ong-noi': t('reverseGrandchild'),
-      'Ông nội': t('reverseGrandchild'),
-      'ba-noi': t('reverseGrandchild'),
-      'Bà nội': t('reverseGrandchild'),
-      'ong-ngoai': t('reverseGrandchild'),
-      'Ông ngoại': t('reverseGrandchild'),
-      'ba-ngoai': t('reverseGrandchild'),
-      'Bà ngoại': t('reverseGrandchild'),
-
-      // Bạn bè, người yêu (đối xứng)
-      'ban-than': t('relBestFriend'),
-      'Bạn thân': t('relBestFriend'),
-      'nguoi-yeu': t('relPartner'),
-      'Người yêu': t('relPartner'),
+    // Symmetric / không cần giới tính
+    const symmetric: Record<string, string> = {
+      'vo': t('relHusband'), 'Vợ': t('relHusband'),
+      'chong': t('relWife'), 'Chồng': t('relWife'),
+      'ban-than': t('relBestFriend'), 'Bạn thân': t('relBestFriend'),
+      'nguoi-yeu': t('relPartner'), 'Người yêu': t('relPartner'),
     };
-    
-    return reverseMap[relationshipType] || relationshipType;
+    if (symmetric[relationshipType]) return symmetric[relationshipType];
+
+    // Cha/Mẹ ↔ Con trai/Con gái
+    const parentSet = new Set(['bo', 'Bố', 'me', 'Mẹ']);
+    const childSet = new Set(['con-trai', 'Con trai', 'con-gai', 'Con gái']);
+    if (parentSet.has(relationshipType)) {
+      if (isMale) return t('relSon');
+      if (isFemale) return t('relDaughter');
+      return relationshipType;
+    }
+    if (childSet.has(relationshipType)) {
+      if (isMale) return t('relFather');
+      if (isFemale) return t('relMother');
+      return relationshipType;
+    }
+
+    // Anh/Chị ↔ Em trai/Em gái
+    const olderSet = new Set(['anh-trai', 'Anh trai', 'chi-gai', 'Chị gái']);
+    const youngerSet = new Set(['em-trai', 'Em trai', 'em-gai', 'Em gái']);
+    if (olderSet.has(relationshipType)) {
+      if (isMale) return t('relYoungerBrother');
+      if (isFemale) return t('relYoungerSister');
+      return relationshipType;
+    }
+    if (youngerSet.has(relationshipType)) {
+      if (isMale) return t('relOlderBrother');
+      if (isFemale) return t('relOlderSister');
+      return relationshipType;
+    }
+
+    // Ông/Bà → Cháu trai/Cháu gái (không có specific cháu nội/ngoại theo giới tính)
+    const grandparentSet = new Set(['ong-noi', 'Ông nội', 'ba-noi', 'Bà nội', 'ong-ngoai', 'Ông ngoại', 'ba-ngoai', 'Bà ngoại']);
+    if (grandparentSet.has(relationshipType)) {
+      if (isMale) return t('relGrandson');
+      if (isFemale) return t('relGranddaughter');
+      return relationshipType;
+    }
+
+    return relationshipType;
   };
 
   // Lấy label hiển thị của relationship
@@ -166,9 +177,15 @@ export default function CareCircleScreen() {
     return option?.label || relationshipType;
   };
 
-  useEffect(() => {
-    refresh();
-  }, []);
+  // Optimistic update từ store (zustand) đảm bảo invite mới hiện ngay.
+  // useFocusEffect chỉ fetch SILENT background để bắt thay đổi từ server
+  // (vd. user khác gửi invite mới) — không hiện spinner gây nháy UI.
+  useFocusEffect(
+    useCallback(() => {
+      fetchInvitations(true);
+      fetchConnections(true);
+    }, [fetchInvitations, fetchConnections])
+  );
 
   const handleAccept = async (id: string) => {
     try {
@@ -376,7 +393,7 @@ export default function CareCircleScreen() {
                   name: requesterName,
                   email: invitation.requester_email,
                   phone: invitation.requester_phone,
-                  relationship: reverseRelationship(invitation.relationship_type) || invitation.relationship_type,
+                  relationship: reverseRelationship(invitation.relationship_type, invitation.requester_gender) || invitation.relationship_type,
                   role: invitation.role,
                 })}
                 activeOpacity={0.75}
@@ -395,7 +412,7 @@ export default function CareCircleScreen() {
                     <View style={styles.cardBadge}>
                       <Ionicons name="link" size={12} color={iconColors.primary} />
                       <Text style={styles.cardRelation}>
-                        {reverseRelationship(invitation.relationship_type) || invitation.role || t('connection')}
+                        {reverseRelationship(invitation.relationship_type, invitation.requester_gender) || invitation.role || t('connection')}
                       </Text>
                     </View>
                   </View>
@@ -508,11 +525,11 @@ export default function CareCircleScreen() {
               const otherUserPhone = isRequester ? connection.addressee_phone : connection.requester_phone;
               
               // Xác định mối quan hệ hiển thị:
-              // - Nếu mình là requester: hiển thị relationship_type như đã đặt
-              // - Nếu mình là addressee: đảo ngược relationship_type
-              const displayRelationship = isRequester 
+              // - Nếu mình là requester: hiển thị relationship_type như đã đặt (B là gì với mình)
+              // - Nếu mình là addressee: đảo ngược, dùng giới tính của requester để chọn term cụ thể
+              const displayRelationship = isRequester
                 ? getRelationshipLabel(connection.relationship_type)
-                : reverseRelationship(connection.relationship_type);
+                : reverseRelationship(connection.relationship_type, connection.requester_gender);
 
               const otherName = otherUserFullName || otherUserEmail || `#${otherUserId}`;
               return (

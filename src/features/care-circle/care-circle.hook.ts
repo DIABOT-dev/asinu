@@ -1,181 +1,196 @@
-import { useCallback, useState } from 'react';
+import { create } from 'zustand';
 import i18n from '../../i18n';
-import { careCircleApi, CareCircleConnection, CareCircleInvitation, CreateInvitationPayload } from './care-circle.api';
+import {
+  careCircleApi,
+  CareCircleConnection,
+  CareCircleInvitation,
+  CreateInvitationPayload,
+} from './care-circle.api';
 
 const t = (key: string) => i18n.t(key, { ns: 'careCircle' });
 
-export function useCareCircle() {
-  const [invitations, setInvitations] = useState<CareCircleInvitation[]>([]);
-  const [connections, setConnections] = useState<CareCircleConnection[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+interface CareCircleStore {
+  invitations: CareCircleInvitation[];
+  connections: CareCircleConnection[];
+  loading: boolean;
+  refreshing: boolean;
+  error: string | null;
 
-  const fetchInvitations = useCallback(async (silent = false) => {
+  fetchInvitations: (silent?: boolean) => Promise<void>;
+  fetchConnections: (silent?: boolean) => Promise<void>;
+  createInvitation: (payload: CreateInvitationPayload) => Promise<CareCircleInvitation>;
+  cancelInvitation: (invitationId: string) => Promise<void>;
+  acceptInvitation: (invitationId: string) => Promise<CareCircleConnection>;
+  rejectInvitation: (invitationId: string) => Promise<void>;
+  deleteConnection: (connectionId: string) => Promise<void>;
+  updateConnection: (
+    connectionId: string,
+    updates: { relationship_type?: string; role?: string }
+  ) => Promise<CareCircleConnection>;
+  updatePermissions: (
+    connectionId: string,
+    permissions: { can_view_logs: boolean; can_receive_alerts: boolean; can_ack_escalation: boolean }
+  ) => Promise<CareCircleConnection>;
+  refresh: () => Promise<void>;
+}
+
+// Shared zustand store — mọi screen gọi useCareCircle() cùng đọc/ghi 1
+// nguồn dữ liệu, optimistic update từ invite hiển thị ngay ở care-circle.
+export const useCareCircle = create<CareCircleStore>((set, get) => ({
+  invitations: [],
+  connections: [],
+  loading: false,
+  refreshing: false,
+  error: null,
+
+  fetchInvitations: async (silent = false) => {
     try {
-      if (!silent) { setLoading(true); setError(null); }
+      if (!silent) set({ loading: true, error: null });
       const [received, sent] = await Promise.all([
         careCircleApi.getInvitations('received'),
-        careCircleApi.getInvitations('sent')
+        careCircleApi.getInvitations('sent'),
       ]);
-      const allInvitations = [...received, ...sent.filter(s => !received.find(r => r.id === s.id))];
-      setInvitations(allInvitations);
+      const allInvitations = [
+        ...received,
+        ...sent.filter((s) => !received.find((r) => r.id === s.id)),
+      ];
+      set({ invitations: allInvitations });
     } catch (err: any) {
-      setError(err.message || t('cannotLoadInvitations'));
+      set({ error: err?.message || t('cannotLoadInvitations') });
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent) set({ loading: false });
     }
-  }, []);
+  },
 
-  const fetchConnections = useCallback(async (silent = false) => {
+  fetchConnections: async (silent = false) => {
     try {
-      if (!silent) { setLoading(true); setError(null); }
+      if (!silent) set({ loading: true, error: null });
       const data = await careCircleApi.getConnections();
-      setConnections(data);
+      set({ connections: data });
     } catch (err: any) {
-      setError(err.message || t('cannotLoadConnections'));
+      set({ error: err?.message || t('cannotLoadConnections') });
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent) set({ loading: false });
     }
-  }, []);
+  },
 
-  const createInvitation = useCallback(async (payload: CreateInvitationPayload) => {
+  createInvitation: async (payload) => {
     try {
-
-      setLoading(true);
-      setError(null);
+      set({ loading: true, error: null });
       const invitation = await careCircleApi.createInvitation(payload);
-
-      setInvitations((prev) => [invitation, ...prev]);
+      // Optimistic insert — bất kỳ screen nào đang subscribe state này đều
+      // thấy lời mời mới ngay lập tức, không cần refetch.
+      set({ invitations: [invitation, ...get().invitations] });
       return invitation;
     } catch (err: any) {
-
-      setError(err.message || t('cannotCreateInvitation'));
+      set({ error: err?.message || t('cannotCreateInvitation') });
       throw err;
     } finally {
-      setLoading(false);
+      set({ loading: false });
     }
-  }, []);
+  },
 
-  const cancelInvitation = useCallback(async (invitationId: string) => {
+  cancelInvitation: async (invitationId) => {
     try {
-      setLoading(true);
-      setError(null);
+      set({ loading: true, error: null });
       await careCircleApi.cancelInvitation(invitationId);
-      setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
+      set({ invitations: get().invitations.filter((inv) => inv.id !== invitationId) });
     } catch (err: any) {
-      setError(err.message || t('cannotCancelInvitation'));
+      set({ error: err?.message || t('cannotCancelInvitation') });
       throw err;
     } finally {
-      setLoading(false);
+      set({ loading: false });
     }
-  }, []);
+  },
 
-  const acceptInvitation = useCallback(async (invitationId: string) => {
+  acceptInvitation: async (invitationId) => {
     try {
-      setLoading(true);
-      setError(null);
+      set({ loading: true, error: null });
       const connection = await careCircleApi.acceptInvitation(invitationId);
-      // Remove from invitations and add to connections
-      setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
-      setConnections((prev) => [connection, ...prev]);
+      set({
+        invitations: get().invitations.filter((inv) => inv.id !== invitationId),
+        connections: [connection, ...get().connections],
+      });
       return connection;
     } catch (err: any) {
-
-      setError(err.message || t('cannotAcceptInvitation'));
+      set({ error: err?.message || t('cannotAcceptInvitation') });
       throw err;
     } finally {
-      setLoading(false);
+      set({ loading: false });
     }
-  }, []);
+  },
 
-  const rejectInvitation = useCallback(async (invitationId: string) => {
+  rejectInvitation: async (invitationId) => {
     try {
-      setLoading(true);
-      setError(null);
+      set({ loading: true, error: null });
       await careCircleApi.rejectInvitation(invitationId);
-      // Remove from invitations
-      setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
+      set({ invitations: get().invitations.filter((inv) => inv.id !== invitationId) });
     } catch (err: any) {
-
-      setError(err.message || t('cannotRejectInvitation'));
+      set({ error: err?.message || t('cannotRejectInvitation') });
       throw err;
     } finally {
-      setLoading(false);
+      set({ loading: false });
     }
-  }, []);
+  },
 
-  const deleteConnection = useCallback(async (connectionId: string) => {
+  deleteConnection: async (connectionId) => {
     try {
-      setLoading(true);
-      setError(null);
+      set({ loading: true, error: null });
       await careCircleApi.deleteConnection(connectionId);
-      // Remove from connections
-      setConnections((prev) => prev.filter((conn) => conn.id !== connectionId));
+      set({ connections: get().connections.filter((conn) => conn.id !== connectionId) });
     } catch (err: any) {
-
-      setError(err.message || t('cannotDeleteConnection'));
+      set({ error: err?.message || t('cannotDeleteConnection') });
       throw err;
     } finally {
-      setLoading(false);
+      set({ loading: false });
     }
-  }, []);
+  },
 
-  const updatePermissions = useCallback(async (connectionId: string, permissions: { can_view_logs: boolean; can_receive_alerts: boolean; can_ack_escalation: boolean }) => {
+  updatePermissions: async (connectionId, permissions) => {
     try {
-      setLoading(true);
-      setError(null);
+      set({ loading: true, error: null });
       const updatedConnection = await careCircleApi.updatePermissions(connectionId, permissions);
-      setConnections((prev) => prev.map((conn) => conn.id === connectionId ? { ...conn, ...updatedConnection } : conn));
+      set({
+        connections: get().connections.map((conn) =>
+          conn.id === connectionId ? { ...conn, ...updatedConnection } : conn
+        ),
+      });
       return updatedConnection;
     } catch (err: any) {
-      setError(err.message || t('cannotUpdateConnection'));
+      set({ error: err?.message || t('cannotUpdateConnection') });
       throw err;
     } finally {
-      setLoading(false);
+      set({ loading: false });
     }
-  }, []);
+  },
 
-  const updateConnection = useCallback(async (connectionId: string, updates: { relationship_type?: string; role?: string }) => {
+  updateConnection: async (connectionId, updates) => {
     try {
-      setLoading(true);
-      setError(null);
+      set({ loading: true, error: null });
       const updatedConnection = await careCircleApi.updateConnection(connectionId, updates);
-      setConnections((prev) => prev.map((conn) => conn.id === connectionId ? { ...conn, ...updatedConnection } : conn));
+      set({
+        connections: get().connections.map((conn) =>
+          conn.id === connectionId ? { ...conn, ...updatedConnection } : conn
+        ),
+      });
       return updatedConnection;
     } catch (err: any) {
-
-      setError(err.message || t('cannotUpdateConnection'));
+      set({ error: err?.message || t('cannotUpdateConnection') });
       throw err;
     } finally {
-      setLoading(false);
+      set({ loading: false });
     }
-  }, []);
+  },
 
-  const refresh = useCallback(async () => {
-    setRefreshing(true);
+  refresh: async () => {
+    set({ refreshing: true });
     try {
-      await Promise.all([fetchInvitations(true), fetchConnections(true)]);
+      await Promise.all([
+        get().fetchInvitations(true),
+        get().fetchConnections(true),
+      ]);
     } finally {
-      setRefreshing(false);
+      set({ refreshing: false });
     }
-  }, [fetchInvitations, fetchConnections]);
-
-  return {
-    invitations,
-    connections,
-    loading,
-    refreshing,
-    error,
-    fetchInvitations,
-    fetchConnections,
-    createInvitation,
-    cancelInvitation,
-    acceptInvitation,
-    rejectInvitation,
-    deleteConnection,
-    updateConnection,
-    updatePermissions,
-    refresh
-  };
-}
+  },
+}));

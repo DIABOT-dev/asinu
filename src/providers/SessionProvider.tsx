@@ -13,6 +13,7 @@ import {
   getExpoPushToken,
   reNotifyAsLocal,
   requestNotificationPermissions,
+  routeFromNotificationData,
   setupNotificationHandler,
 } from '../lib/notifications';
 import { checkinApi } from '../features/checkin/checkin.api';
@@ -115,68 +116,16 @@ export const SessionProvider = ({ children }: Props) => {
   }, []);
 
   // ── Notification deep link routing ──
+  // Logic dùng chung ở src/lib/notifications.ts (routeFromNotificationData)
+  // để in-app NotificationBell và push handler luôn route nhất quán.
   const handleNotificationRoute = useCallback((data: Record<string, unknown>) => {
-    const type = data?.type as string | undefined;
-    if (!type) return;
-
-    // Check-in
-    if (type === 'morning_checkin') {
-      router.push('/checkin');
-    } else if (type === 'checkin_followup' || type === 'checkin_followup_urgent') {
-      const checkinId = data?.checkinId as string;
-      if (checkinId) {
-        router.push({ pathname: '/checkin', params: { checkin_id: checkinId, mode: 'followup' } });
-      } else {
-        router.push('/checkin');
-      }
-    } else if (type === 'health_alert') {
-      const alertType = data?.alertType as string;
-      if (alertType?.includes('glucose')) router.push('/logs/glucose');
-      else if (alertType?.includes('blood_pressure')) router.push('/logs/blood-pressure');
-      else router.push('/checkin');
-
-    // Reminders → trang ghi log tương ứng
-    } else if (type === 'reminder_morning_summary' || type === 'reminder_log_morning') {
-      const firstMissing = data?.firstMissing as string;
-      if (firstMissing === 'glucose') router.push('/logs/glucose');
-      else if (firstMissing === 'blood_pressure') router.push('/logs/blood-pressure');
-      else if (firstMissing === 'medication') router.push('/logs/medication');
-      else router.push('/checkin');
-    } else if (type === 'reminder_afternoon') {
-      const target = data?.target as string;
-      if (target === 'glucose') router.push('/logs/glucose');
-      else if (target === 'blood_pressure') router.push('/logs/blood-pressure');
-      else router.push('/(tabs)/home');
-    } else if (type === 'reminder_evening_summary' || type === 'reminder_log_evening') {
-      const firstMissing = data?.firstMissing as string;
-      if (firstMissing === 'medication') router.push('/logs/medication');
-      else router.push('/(tabs)/home');
-    } else if (type === 'reminder_glucose') {
-      router.push('/logs/glucose');
-    } else if (type === 'reminder_bp') {
-      router.push('/logs/blood-pressure');
-    } else if (type === 'reminder_medication' || type === 'reminder_medication_morning' || type === 'reminder_medication_evening') {
-      router.push('/logs/medication');
-
-    // Care circle
-    } else if (type === 'care_circle_invitation' || type === 'care_circle_accepted') {
-      router.push('/care-circle');
-
-    // Emergency / Caregiver → vào home, CaregiverAlertModal sẽ tự fetch và hiện
-    } else if (type === 'caregiver_alert' || type === 'emergency') {
-      // Force app state change để CaregiverAlertModal re-fetch pending alerts
+    const route = routeFromNotificationData(data);
+    if (!route) {
       router.push('/(tabs)/home');
-    } else if (type === 'caregiver_confirmed') {
-      router.push('/(tabs)/home');
-
-    // Milestones
-    } else if (type === 'streak_7' || type === 'streak_14' || type === 'streak_30' || type === 'weekly_recap') {
-      router.push('/(tabs)/missions');
-
-    // Default
-    } else {
-      router.push('/(tabs)/home');
+      return;
     }
+    if (typeof route === 'string') router.push(route as any);
+    else router.push(route as any);
   }, []);
 
   // Handle notification taps: deep link + action buttons (warm start)
@@ -212,29 +161,9 @@ export const SessionProvider = ({ children }: Props) => {
     return () => sub.remove();
   }, [handleNotificationRoute]);
 
-  // Handle cold start: app was killed, user tapped notification to open it
-  // Only process if notification was received within the last 5 seconds (fresh tap)
-  useEffect(() => {
-    let mounted = true;
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (!mounted || !response) return;
-
-      // Check if this notification response is fresh (within 5 seconds)
-      const responseTime = response.notification.date;
-      const now = Date.now() / 1000; // date is in seconds
-      if (now - responseTime > 5) return; // stale notification, ignore
-
-      const { actionIdentifier, notification } = response;
-      const data = notification.request.content.data as Record<string, unknown>;
-
-      if (actionIdentifier === 'expo.modules.notifications.actions.DEFAULT') {
-        setTimeout(() => {
-          if (mounted) handleNotificationRoute(data);
-        }, 1000);
-      }
-    });
-    return () => { mounted = false; };
-  }, [handleNotificationRoute]);
+  // Cold-start deep link is handled in app/index.tsx (splash) — splash đã đợi
+  // bootstrap xong rồi mới redirect, nên check notification ở đó tránh
+  // race-condition với router.replace('/(tabs)/home') của splash.
 
   // Re-check when user returns from Settings
   useEffect(() => {

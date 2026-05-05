@@ -24,6 +24,7 @@ import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useNotificationStore } from '../../../src/stores/notification.store';
+import { routeFromNotificationData } from '../../../src/lib/notifications';
 import { useToastStore } from '../../../src/stores/toast.store';
 import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
@@ -152,17 +153,10 @@ export default function HomeScreen() {
   }, []);
 
   const handleNotificationPress = useCallback((notification: any) => {
-    if (notification.data?.type === 'care_circle_invitation') {
-      router.push('/care-circle');
-    } else if (notification.data?.type === 'health_alert') {
-      if (notification.data?.alertType?.includes('glucose')) {
-        router.push('/logs/glucose');
-      } else if (notification.data?.alertType?.includes('blood_pressure')) {
-        router.push('/logs/blood-pressure');
-      } else {
-        router.push('/care-circle');
-      }
-    }
+    const route = routeFromNotificationData(notification?.data);
+    if (!route) return;
+    if (typeof route === 'string') router.push(route as any);
+    else router.push(route as any);
   }, []);
 
   const [refreshing, setRefreshing] = useState(false);

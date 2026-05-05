@@ -712,15 +712,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     cancelBtn: {
       alignItems: 'center',
-      paddingVertical: spacing.md,
-      borderRadius: 12,
+      justifyContent: 'center',
+      paddingVertical: spacing.lg,
+      borderRadius: 14,
       borderWidth: 1.5,
       borderColor: colors.danger + '60',
       backgroundColor: colors.danger + '0d',
     },
     cancelBtnText: {
-      fontSize: typography.size.sm,
-      fontWeight: '600',
+      fontSize: typography.size.md,
+      fontWeight: '700',
       color: colors.danger,
     },
     optionalBadge: {

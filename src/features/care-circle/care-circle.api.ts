@@ -21,6 +21,8 @@ export type CareCircleInvitation = {
   addressee_email?: string;
   requester_phone?: string;
   addressee_phone?: string;
+  requester_gender?: string;
+  addressee_gender?: string;
   created_at: string;
   updated_at: string;
 };
@@ -45,6 +47,8 @@ export type CareCircleConnection = {
   addressee_email?: string;
   requester_phone?: string;
   addressee_phone?: string;
+  requester_gender?: string;
+  addressee_gender?: string;
   created_at: string;
   updated_at: string;
 };
