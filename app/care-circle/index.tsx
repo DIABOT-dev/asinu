@@ -176,7 +176,8 @@ export default function CareCircleScreen() {
       await acceptInvitation(id);
       showToast(t('acceptSuccess'), 'success');
     } catch (error) {
-      showToast(t('acceptError'), 'error');
+      const msg = (error as Error)?.message?.trim();
+      showToast(msg || t('acceptError'), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -213,7 +214,8 @@ export default function CareCircleScreen() {
       await rejectInvitation(id);
       showToast(t('rejectSuccess'), 'success');
     } catch (error) {
-      showToast(t('rejectError'), 'error');
+      const msg = (error as Error)?.message?.trim();
+      showToast(msg || t('rejectError'), 'error');
     } finally {
       setActionLoading(null);
     }
