@@ -11,6 +11,7 @@ const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
 const homeIcon = require('../../src/assets/tab-icons/home.png');
 const missionIcon = require('../../src/assets/tab-icons/mission.png');
 const profileIcon = require('../../src/assets/tab-icons/profile.png');
+const careCircleIcon = require('../../src/assets/tab-icons/care-circle.png');
 
 function TabIcon({ source, focused }: { source: any; focused: boolean }) {
   const { colors } = useThemeColors();
@@ -65,8 +66,10 @@ export default function TabsLayout() {
 
   const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIcon} focused={focused} />, []);
   const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIcon} focused={focused} />, []);
-  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={healthcheckIcon} focused={focused} />, []);
   const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIcon} focused={focused} />, []);
+  // Swap icons: Kết nối dùng healthcheckIcon, Tổng quan dùng careCircleIcon.
+  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={careCircleIcon} focused={focused} />, []);
+  const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={healthcheckIcon} focused={focused} />, []);
 
   return (
     <Tabs screenOptions={screenOptions}>
@@ -78,12 +81,14 @@ export default function TabsLayout() {
           tabBarIcon: renderHomeIcon
         }}
       />
+      {/* Tab "Kết nối" — thay vị trí Nhiệm vụ. Care Circle screen re-export
+          từ /app/care-circle/index qua wrapper (tabs)/care-circle/index.tsx. */}
       <Tabs.Screen
-        name="missions/index"
+        name="care-circle/index"
         options={{
-          title: t('tabMissions'),
-          tabBarLabel: t('tabMissions'),
-          tabBarIcon: renderMissionIcon
+          title: t('tabConnect'),
+          tabBarLabel: t('tabConnect'),
+          tabBarIcon: renderCareCircleIcon
         }}
       />
       <Tabs.Screen
@@ -100,6 +105,16 @@ export default function TabsLayout() {
           title: t('tabProfile'),
           tabBarLabel: t('tabProfile'),
           tabBarIcon: renderProfileIcon
+        }}
+      />
+      {/* Missions screen vẫn giữ route — accessible từ home (section "Nhiệm vụ
+          hôm nay") + push deep link. KHÔNG hiển thị trong tab bar (href: null). */}
+      <Tabs.Screen
+        name="missions/index"
+        options={{
+          title: t('tabMissions'),
+          href: null,
+          tabBarIcon: renderMissionIcon,
         }}
       />
     </Tabs>

@@ -22,12 +22,20 @@ export interface CheckinSession {
   created_at: string;
 }
 
+export interface TriageOptionGroup {
+  key: string;
+  label: string;
+  icon: string;        // backend trả emoji, FE map sang vector icon nếu cần
+  items: string[];
+}
+
 export interface TriageResult {
   ok: boolean;
   isDone: boolean;
   // when not done
   question?: string;
   options?: string[];
+  optionsGrouped?: TriageOptionGroup[] | null; // T3 group theo body location
   multiSelect?: boolean;
   // when done
   summary?: string;
@@ -93,10 +101,18 @@ export const checkinApi = {
   getToday: () =>
     apiClient<{ ok: boolean; session: CheckinSession | null }>('/api/mobile/checkin/today'),
 
-  start: (status: CheckinStatus) =>
+  start: (
+    status: CheckinStatus,
+    bodyLocations?: string[] | null,
+    bodyLocationOther?: string | null
+  ) =>
     apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/start', {
       method: 'POST',
-      body: { status },
+      body: {
+        status,
+        body_locations: bodyLocations && bodyLocations.length > 0 ? bodyLocations : null,
+        body_location_other: bodyLocationOther || null,
+      },
     }),
 
   followUp: (checkin_id: number, status: CheckinStatus) =>

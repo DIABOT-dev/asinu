@@ -18,6 +18,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -31,7 +32,8 @@ import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimate
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
-import { checkinApi, type CheckinStatus, type CheckinSession, type TriageSummaryView } from '../../src/features/checkin/checkin.api';
+import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
+import { checkinApi, type CheckinStatus, type CheckinSession, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { usePremium } from '../../src/hooks/usePremium';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
@@ -125,7 +127,23 @@ const STATUS_OPTIONS: Array<{
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
-type Screen = 'status' | 'triage' | 'done';
+type Screen = 'status' | 'location' | 'triage' | 'done';
+
+// T2 Body Location options — match backend body-location.js BODY_LOCATIONS enum
+type BodyLocation = 'head' | 'chest' | 'abdomen' | 'limbs' | 'skin' | 'whole_body' | 'mental';
+
+// MaterialCommunityIcons vector — outline style, không có background filled.
+// Mỗi icon match ngữ nghĩa vùng cơ thể.
+type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+const BODY_LOCATION_OPTIONS: Array<{ key: BodyLocation; icon: MciName; vi: { label: string; desc: string }; en: { label: string; desc: string } }> = [
+  { key: 'head',       icon: 'head-outline',          vi: { label: 'Đầu',       desc: 'Đau đầu, chóng mặt, hoa mắt' },     en: { label: 'Head',       desc: 'Headache, dizziness, vision' } },
+  { key: 'chest',      icon: 'heart-pulse',           vi: { label: 'Ngực',      desc: 'Khó thở, đau ngực, hồi hộp' },      en: { label: 'Chest',      desc: 'Breathing, chest pain, palpitations' } },
+  { key: 'abdomen',    icon: 'stomach',               vi: { label: 'Bụng',      desc: 'Đau bụng, buồn nôn, tiêu hoá' },    en: { label: 'Abdomen',    desc: 'Stomach pain, nausea, digestion' } },
+  { key: 'limbs',      icon: 'arm-flex-outline',      vi: { label: 'Tay chân',  desc: 'Tê, đau khớp, yếu cơ' },            en: { label: 'Limbs',      desc: 'Numbness, joint pain, weakness' } },
+  { key: 'skin',       icon: 'hand-back-right-outline', vi: { label: 'Da',      desc: 'Ngứa, phát ban, vết bầm' },         en: { label: 'Skin',       desc: 'Itching, rash, bruising' } },
+  { key: 'whole_body', icon: 'human',                 vi: { label: 'Toàn thân', desc: 'Sốt, mệt mỏi, ớn lạnh' },           en: { label: 'Whole body', desc: 'Fever, fatigue, chills' } },
+  { key: 'mental',     icon: 'brain',                 vi: { label: 'Tinh thần', desc: 'Lo âu, mất ngủ, buồn bã' },         en: { label: 'Mental',     desc: 'Anxiety, insomnia, sadness' } },
+];
 
 export default function CheckinScreen() {
   const router = useRouter();
@@ -183,11 +201,21 @@ export default function CheckinScreen() {
   const [answers, setAnswers]      = useState<Array<{ question: string; answer: string }>>([]);
   const [currentQ, setCurrentQ]    = useState<string>('');
   const [currentOpts, setCurrentOpts] = useState<string[]>([]);
+  const [currentOptsGrouped, setCurrentOptsGrouped] = useState<TriageOptionGroup[] | null>(null);
   const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
   const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
   const [customAnswer, setCustomAnswer] = useState('');
   const mainScrollRef = useRef<ScrollView>(null);
   const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(null);
+  // Track user scroll position để chỉ auto scrollToEnd khi user đang ở bottom
+  // (vd: tin AI mới về). KHÔNG đẩy xuống nếu user đang đọc options ở giữa list.
+  const userAtBottomRef = useRef(true);
+  const lastQuestionIdRef = useRef<string>('');
+  const handleMainScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    userAtBottomRef.current = distanceFromBottom < 80;
+  };
 
   // Illusion layer state
   const [currentEmpathy, setCurrentEmpathy] = useState<{ text: string; templateId: string } | null>(null);
@@ -196,36 +224,72 @@ export default function CheckinScreen() {
 
   // ─── Status select ─────────────────────────────────────────────────────────
 
+  // T1 status pick — không INSERT DB ngay, chỉ giữ pending để T2 location quyết
+  // định body_location trước khi commit. Trừ trường hợp 'fine' (skip T2) hoặc
+  // followup (đã có session).
+  const [pendingStatus, setPendingStatus] = useState<CheckinStatus | null>(null);
+
   const handleStatusSelect = useCallback(async (status: CheckinStatus) => {
-    setLoading(true);
-    try {
-      let sess: CheckinSession;
-
-      if (isFollowUp && existingCheckinId) {
+    // Followup: vẫn flow cũ (đã có session)
+    if (isFollowUp && existingCheckinId) {
+      setLoading(true);
+      try {
         const res = await checkinApi.followUp(existingCheckinId, status);
-        sess = res.session;
-      } else {
-        const res = await checkinApi.start(status);
-        sess = res.session;
+        setSession(res.session);
+        if (status === 'fine') {
+          setScreen('done');
+          setLoading(false);
+          return;
+        }
+        setScreen('triage');
+        await fetchNextQuestion(res.session, [], true);
+      } catch (err: any) {
+        if (__DEV__) console.warn('[Checkin] handleStatusSelect followup:', err?.message || err);
+        showAlert(t('error', { ns: 'common' }), t('checkinError'));
+        setLoading(false);
       }
+      return;
+    }
 
-      setSession(sess);
-
-      if (status === 'fine') {
+    // Initial: 'fine' → start ngay, skip T2 location
+    if (status === 'fine') {
+      setLoading(true);
+      try {
+        const res = await checkinApi.start(status);
+        setSession(res.session);
         setScreen('done');
         setLoading(false);
-        return;
+      } catch (err: any) {
+        if (__DEV__) console.warn('[Checkin] handleStatusSelect fine:', err?.message || err);
+        showAlert(t('error', { ns: 'common' }), t('checkinError'));
+        setLoading(false);
       }
+      return;
+    }
 
-      // Switch to triage screen first, then fetch question (loading already true)
+    // Initial 'tired' / 'very_tired' → đi sang T2 Location, KHÔNG INSERT DB ngay
+    setPendingStatus(status);
+    setScreen('location');
+  }, [isFollowUp, existingCheckinId]);
+
+  const handleLocationsConfirm = useCallback(async (locs: BodyLocation[], other: string) => {
+    if (!pendingStatus) return;
+    if (locs.length === 0 && !other.trim()) {
+      showAlert(t('error', { ns: 'common' }), language === 'vi' ? 'Chọn ít nhất 1 vùng hoặc gõ mô tả' : 'Pick at least 1 area or describe');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await checkinApi.start(pendingStatus, locs, other.trim() || null);
+      setSession(res.session);
       setScreen('triage');
-      await fetchNextQuestion(sess, [], true);
+      await fetchNextQuestion(res.session, [], true);
     } catch (err: any) {
-      if (__DEV__) console.warn('[Checkin] handleStatusSelect:', err?.message || err);
+      if (__DEV__) console.warn('[Checkin] handleLocationsConfirm:', err?.message || err);
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
       setLoading(false);
     }
-  }, [isFollowUp, existingCheckinId]);
+  }, [pendingStatus, language]);
 
   // ─── Triage ────────────────────────────────────────────────────────────────
 
@@ -251,8 +315,16 @@ export default function CheckinScreen() {
         setCurrentEmpathy(result._empathy || null);
         setCurrentContinuity(result._continuity || null);
         setCurrentGreeting(result._greeting || null);
-        setCurrentQ(result.question || '');
+        const newQ = result.question || '';
+        // Khi câu hỏi MỚI về (khác câu trước) → reset userAtBottom=true để
+        // onContentSizeChange tự scroll xuống tin mới (user thường muốn xem).
+        if (newQ !== lastQuestionIdRef.current) {
+          userAtBottomRef.current = true;
+          lastQuestionIdRef.current = newQ;
+        }
+        setCurrentQ(newQ);
         setCurrentOpts(result.options || []);
+        setCurrentOptsGrouped(result.optionsGrouped || null);
         // If AI specifies multiSelect, use it. Otherwise auto-detect:
         // Single-select: severity/frequency/yes-no type questions (few exclusive options)
         // Multi-select: symptom lists, activities, body areas (many combinable options)
@@ -296,6 +368,7 @@ export default function CheckinScreen() {
       } else {
         setCurrentQ(fallback.question || '');
         setCurrentOpts(fallback.options || []);
+        setCurrentOptsGrouped(null);
         setCurrentMultiSelect(fallback.multiSelect ?? false);
         setCustomAnswer('');
       }
@@ -383,18 +456,34 @@ export default function CheckinScreen() {
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         bounces={false}
         overScrollMode="never"
+        onScroll={handleMainScroll}
+        scrollEventThrottle={120}
         onContentSizeChange={() => {
-          if (screen === 'triage') {
+          // CHỈ auto scrollToEnd khi:
+          //   - đang ở triage screen, VÀ
+          //   - user đang ở gần bottom (vd: AI vừa trả tin mới)
+          // Nếu user đang scroll lên đọc options ở giữa → KHÔNG đẩy xuống.
+          if (screen === 'triage' && userAtBottomRef.current) {
             mainScrollRef.current?.scrollToEnd({ animated: true });
           }
         }}
       >
         {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
+        {screen === 'location' && (
+          <LocationScreen
+            styles={styles}
+            language={language}
+            onConfirm={handleLocationsConfirm}
+            onBack={() => { setPendingStatus(null); setScreen('status'); }}
+            loading={loading}
+          />
+        )}
         {screen === 'triage' && (
           <TriageScreen
             styles={styles}
             question={currentQ}
             options={currentOpts}
+            optionsGrouped={currentOptsGrouped}
             multiSelect={currentMultiSelect}
             allowFreeText={currentAllowFreeText}
             answers={answers}
@@ -494,12 +583,166 @@ function StatusScreen({
   );
 }
 
+// ─── T2 Location screen ──────────────────────────────────────────────────────
+
+function LocationScreen({
+  styles,
+  language,
+  onConfirm,
+  onBack,
+  loading,
+}: {
+  styles: Styles;
+  language: string;
+  onConfirm: (locs: BodyLocation[], other: string) => void;
+  onBack: () => void;
+  loading: boolean;
+}) {
+  const isVi = language === 'vi';
+  const [selected, setSelected] = useState<Set<BodyLocation>>(new Set());
+  const [other, setOther] = useState('');
+
+  const toggle = (key: BodyLocation) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const count = selected.size + (other.trim() ? 1 : 0);
+  const canConfirm = count > 0 && !loading;
+  const confirmLabel = isVi
+    ? (count > 0 ? `Tiếp tục (${count} mục đã chọn)` : 'Tiếp tục')
+    : (count > 0 ? `Continue (${count} selected)` : 'Continue');
+
+  return (
+    <View style={styles.section}>
+      <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.xs }}>
+          {isVi ? 'Khó chịu ở đâu?' : 'Where is the discomfort?'}
+        </Text>
+        <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+          {isVi
+            ? 'Chọn 1 hoặc nhiều vùng. Có thể gõ thêm nếu chưa thấy mục phù hợp.'
+            : 'Pick one or more areas. You can also type a custom one below.'}
+        </Text>
+      </View>
+
+      <View style={{ gap: spacing.sm }}>
+        {BODY_LOCATION_OPTIONS.map((opt) => {
+          const meta = isVi ? opt.vi : opt.en;
+          const isSelected = selected.has(opt.key);
+          return (
+            <Pressable
+              key={opt.key}
+              onPress={() => !loading && toggle(opt.key)}
+              disabled={loading}
+              style={({ pressed }) => [
+                {
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: spacing.md,
+                  borderRadius: 16,
+                  backgroundColor: isSelected ? colors.primaryLight : colors.surface,
+                  borderWidth: 1.5,
+                  borderColor: isSelected ? colors.primary : colors.border,
+                  gap: spacing.md,
+                  opacity: pressed || loading ? 0.7 : 1,
+                },
+              ]}
+            >
+              <View style={{
+                width: 22, height: 22, borderRadius: 6,
+                borderWidth: 2,
+                borderColor: isSelected ? colors.primary : colors.border,
+                backgroundColor: isSelected ? colors.primary : 'transparent',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+              {/* Vector icon từ MaterialCommunityIcons — outline, không background. */}
+              <MaterialCommunityIcons
+                name={opt.icon}
+                size={28}
+                color={isSelected ? colors.primary : colors.textSecondary}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 }}>
+                  {meta.label}
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                  {meta.desc}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Free-text "Khác" — user gõ vùng tự do */}
+      <View style={{ marginTop: spacing.lg }}>
+        <Text style={{ color: colors.textSecondary, marginBottom: spacing.xs, fontSize: 13 }}>
+          {isVi ? 'Hoặc gõ vùng khác (vd: lưng dưới, môi, gối...)' : 'Or type other area (e.g. lower back, lips, knee...)'}
+        </Text>
+        <TextInput
+          value={other}
+          onChangeText={setOther}
+          placeholder={isVi ? 'Vùng khác...' : 'Other area...'}
+          placeholderTextColor={colors.textSecondary}
+          editable={!loading}
+          maxLength={200}
+          style={{
+            borderWidth: 1.5,
+            borderColor: other.trim() ? colors.primary : colors.border,
+            borderRadius: 12,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            fontSize: 15,
+            color: colors.textPrimary,
+            backgroundColor: colors.surface,
+          }}
+        />
+      </View>
+
+      <Pressable
+        onPress={() => onConfirm(Array.from(selected), other)}
+        disabled={!canConfirm}
+        style={({ pressed }) => [{
+          marginTop: spacing.lg,
+          backgroundColor: canConfirm ? colors.primary : colors.border,
+          paddingVertical: spacing.md,
+          borderRadius: 14,
+          alignItems: 'center',
+          opacity: pressed ? 0.85 : 1,
+        }]}
+      >
+        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
+          {confirmLabel}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        onPress={onBack}
+        disabled={loading}
+        style={{ marginTop: spacing.sm, alignItems: 'center', paddingVertical: spacing.sm }}
+      >
+        <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
+          {isVi ? '← Quay lại' : '← Back'}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 // ─── Triage screen ────────────────────────────────────────────────────────────
 
 function TriageScreen({
   styles,
   question,
   options,
+  optionsGrouped,
   multiSelect,
   allowFreeText,
   answers,
@@ -512,6 +755,7 @@ function TriageScreen({
   styles: Styles;
   question: string;
   options: string[];
+  optionsGrouped?: TriageOptionGroup[] | null;
   multiSelect: boolean;
   allowFreeText?: boolean;
   answers: Array<{ question: string; answer: string }>;
@@ -731,36 +975,74 @@ function TriageScreen({
               </Animated.View>
             )}
 
-            {/* Option cards — only when options exist */}
-            {options.length > 0 && <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
-              {options.map((opt) => {
-                const isSelected = selected.has(opt);
-                return (
-                  <Pressable
-                    key={opt}
-                    style={[
-                      styles.optionCard,
-                      isSelected && styles.optionCardSelected,
-                    ]}
-                    onPress={() => handleOptionTap(opt)}
-                  >
-                    {multiSelect ? (
-                      <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
-                        {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
-                      </View>
-                    ) : (
-                      <View style={[styles.optionRadio, isSelected && styles.optionRadioSelected]}>
-                        {isSelected && <View style={styles.optionRadioDot} />}
-                      </View>
-                    )}
-                    <Text style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
-                    {!multiSelect && (
-                      <Ionicons name="chevron-forward" size={16} color={colors.primary + '66'} />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </Animated.View>}
+            {/* Option cards — render grouped theo location nếu có optionsGrouped (T3
+                aware T2). Else render flat list như cũ. */}
+            {optionsGrouped && optionsGrouped.length > 0 ? (
+              <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
+                {optionsGrouped.map((group) => (
+                  <View key={group.key} style={{ marginBottom: spacing.md }}>
+                    {/* Section header — vùng cơ thể */}
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.xs,
+                      paddingHorizontal: spacing.sm,
+                      marginBottom: spacing.xs,
+                    }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.primary }}>
+                        {group.label}
+                      </Text>
+                      <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+                    </View>
+                    {group.items.map((opt) => {
+                      const isSelected = selected.has(opt);
+                      return (
+                        <Pressable
+                          key={`${group.key}-${opt}`}
+                          style={[styles.optionCard, isSelected && styles.optionCardSelected]}
+                          onPress={() => handleOptionTap(opt)}
+                        >
+                          <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
+                            {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                          </View>
+                          <Text style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </Animated.View>
+            ) : options.length > 0 && (
+              <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
+                {options.map((opt) => {
+                  const isSelected = selected.has(opt);
+                  return (
+                    <Pressable
+                      key={opt}
+                      style={[
+                        styles.optionCard,
+                        isSelected && styles.optionCardSelected,
+                      ]}
+                      onPress={() => handleOptionTap(opt)}
+                    >
+                      {multiSelect ? (
+                        <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
+                          {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                        </View>
+                      ) : (
+                        <View style={[styles.optionRadio, isSelected && styles.optionRadioSelected]}>
+                          {isSelected && <View style={styles.optionRadioDot} />}
+                        </View>
+                      )}
+                      <Text style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
+                      {!multiSelect && (
+                        <Ionicons name="chevron-forward" size={16} color={colors.primary + '66'} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </Animated.View>
+            )}
 
             {/* Custom text input + mic — show when multi-select, allowFreeText, or no options */}
             {(multiSelect || allowFreeText || options.length === 0) && <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
@@ -878,10 +1160,20 @@ function DoneScreen({
   const { t } = useTranslation('home');
   const isFine = session?.current_status === 'fine';
 
-  const severityColor = triageSummary?.severity === 'high' ? '#dc2626'
+  const isEmergency = triageSummary?.severity === 'emergency';
+  const severityColor = isEmergency ? '#991b1b'
+    : triageSummary?.severity === 'high' ? '#dc2626'
     : triageSummary?.severity === 'medium' ? '#d97706' : '#16a34a';
-  const severityIcon = triageSummary?.severity === 'high' ? 'alert-circle' : triageSummary?.severity === 'medium' ? 'information-circle' : 'checkmark-circle';
-  const severityBg = triageSummary?.severity === 'high' ? '#fef2f2' : triageSummary?.severity === 'medium' ? '#fffbeb' : '#f0fdf4';
+  const severityIcon = isEmergency ? 'warning'
+    : triageSummary?.severity === 'high' ? 'alert-circle'
+    : triageSummary?.severity === 'medium' ? 'information-circle' : 'checkmark-circle';
+  const severityBg = isEmergency ? '#fee2e2'
+    : triageSummary?.severity === 'high' ? '#fef2f2'
+    : triageSummary?.severity === 'medium' ? '#fffbeb' : '#f0fdf4';
+
+  const handleCall115 = () => {
+    Linking.openURL('tel:115').catch(() => {});
+  };
 
   return (
     <View style={styles.section}>
@@ -917,10 +1209,42 @@ function DoneScreen({
               <View style={[styles.severityBadge, { backgroundColor: severityBg }]}>
                 <Ionicons name={severityIcon as any} size={14} color={severityColor} />
                 <Text style={[styles.severityBadgeText, { color: severityColor }]}>
-                  {triageSummary.severity === 'high' ? t('checkinSeverityHigh')
+                  {isEmergency ? '🚨 KHẨN CẤP'
+                    : triageSummary.severity === 'high' ? t('checkinSeverityHigh')
                     : triageSummary.severity === 'medium' ? t('checkinSeverityMedium') : t('checkinSeverityLow')}
                 </Text>
               </View>
+
+              {/* Emergency call-to-action: nút gọi 115 nổi bật */}
+              {isEmergency && (
+                <Pressable
+                  onPress={handleCall115}
+                  style={({ pressed }) => [
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#dc2626',
+                      paddingVertical: spacing.lg,
+                      paddingHorizontal: spacing.xl,
+                      borderRadius: 16,
+                      gap: spacing.sm,
+                      marginTop: spacing.md,
+                      shadowColor: '#dc2626',
+                      shadowOpacity: 0.3,
+                      shadowRadius: 8,
+                      shadowOffset: { width: 0, height: 4 },
+                      elevation: 6,
+                      opacity: pressed ? 0.85 : 1,
+                    },
+                  ]}
+                >
+                  <Ionicons name="call" size={24} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>
+                    GỌI 115 NGAY
+                  </Text>
+                </Pressable>
+              )}
 
               {/* Summary */}
               {triageSummary.summary ? (
@@ -956,6 +1280,21 @@ function DoneScreen({
                     <Ionicons name="medical" size={14} color="#fff" />
                   </View>
                   <Text style={styles.doctorText}>{t('checkinSeeDoctor')}</Text>
+                </View>
+              )}
+
+              {/* Connect doctor CTA — animated pulse + glow giống AsinuChatSticker để hút mắt.
+                  Hiện cho mọi severity != 'low' (medium / high / emergency).
+                  TODO(future): wire onPress mở booking screen. */}
+              {triageSummary.severity && triageSummary.severity !== 'low' && (
+                <View style={{ marginTop: spacing.md }}>
+                  <DoctorConnectButton
+                    variant={isEmergency || triageSummary.severity === 'high' ? 'urgent' : 'default'}
+                    text="Bạn có muốn kết nối với bác sĩ không?"
+                    onPress={() => {
+                      // Placeholder cho tính năng tương lai.
+                    }}
+                  />
                 </View>
               )}
 
@@ -998,13 +1337,16 @@ function DoneScreen({
         </Animated.View>
       )}
 
-      {!isFine && (
+      {/* Follow-up hint — drive text theo severity (consistent với backend timing).
+          Emergency: KHÔNG show hint "đợi N tiếng" vì user phải gọi 115 NGAY,
+          context đã có nút "GỌI 115" rồi. Show hint "đợi" sẽ confuse user. */}
+      {!isFine && triageSummary?.severity !== 'emergency' && (
         <Animated.View entering={FadeInDown.delay(350).duration(400)} style={styles.followCard}>
           <Ionicons name="notifications-outline" size={18} color={colors.primary} />
           <Text style={styles.followText}>
-            {session?.flow_state === 'high_alert'
-              ? t('checkinFollowUpHigh')
-              : t('checkinFollowUpNormal')}
+            {triageSummary?.severity === 'high'
+              ? t('checkinFollowUpHigh')        // 1-2 tiếng
+              : t('checkinFollowUpNormal')}     // 3-6 tiếng
           </Text>
         </Animated.View>
       )}

@@ -16,6 +16,10 @@
 		96905EF65AED1B983A6B3ABC /* libPods-Asinu.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-Asinu.a */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		26C1435BA626490795B2E2C0 /* asinu_reminder.wav in Resources */ = {isa = PBXBuildFile; fileRef = 5885E2339D804107934AE34D /* asinu_reminder.wav */; };
+		E8AD1673A82B44F9A1237E6D /* asinu_alert.wav in Resources */ = {isa = PBXBuildFile; fileRef = C6C0FDFE3C2840398E264B1F /* asinu_alert.wav */; };
+		27288E4880394D5687CB1853 /* asinu_care.wav in Resources */ = {isa = PBXBuildFile; fileRef = 3453DE98833B49C0B286A4EC /* asinu_care.wav */; };
+		58043F31751942C6978E8320 /* asinu_milestone.wav in Resources */ = {isa = PBXBuildFile; fileRef = 3D1DDBE25A74424AA7B6D1E3 /* asinu_milestone.wav */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +39,10 @@
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Asinu/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		5885E2339D804107934AE34D /* asinu_reminder.wav */ = {isa = PBXFileReference; name = "asinu_reminder.wav"; path = "Asinu/asinu_reminder.wav"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		C6C0FDFE3C2840398E264B1F /* asinu_alert.wav */ = {isa = PBXFileReference; name = "asinu_alert.wav"; path = "Asinu/asinu_alert.wav"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		3453DE98833B49C0B286A4EC /* asinu_care.wav */ = {isa = PBXFileReference; name = "asinu_care.wav"; path = "Asinu/asinu_care.wav"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		3D1DDBE25A74424AA7B6D1E3 /* asinu_milestone.wav */ = {isa = PBXFileReference; name = "asinu_milestone.wav"; path = "Asinu/asinu_milestone.wav"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +70,10 @@
 				A3C2B3E6C7254C2E896FC1BB /* noop-file.swift */,
 				0636D33015754828A63E99B1 /* Asinu-Bridging-Header.h */,
 				7D167877DD0A9244685F48F2 /* PrivacyInfo.xcprivacy */,
+				5885E2339D804107934AE34D /* asinu_reminder.wav */,
+				C6C0FDFE3C2840398E264B1F /* asinu_alert.wav */,
+				3453DE98833B49C0B286A4EC /* asinu_care.wav */,
+				3D1DDBE25A74424AA7B6D1E3 /* asinu_milestone.wav */,
 			);
 			name = Asinu;
 			sourceTree = "<group>";
@@ -204,6 +216,10 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				05CF51A731897560095C3720 /* PrivacyInfo.xcprivacy in Resources */,
+				26C1435BA626490795B2E2C0 /* asinu_reminder.wav in Resources */,
+				E8AD1673A82B44F9A1237E6D /* asinu_alert.wav in Resources */,
+				27288E4880394D5687CB1853 /* asinu_care.wav in Resources */,
+				58043F31751942C6978E8320 /* asinu_milestone.wav in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -371,7 +387,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.asinu.lite;
-				PRODUCT_NAME = Asinu;
+				PRODUCT_NAME = "Asinu";
 				SWIFT_OBJC_BRIDGING_HEADER = "Asinu/Asinu-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -399,7 +415,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.asinu.lite;
-				PRODUCT_NAME = Asinu;
+				PRODUCT_NAME = "Asinu";
 				SWIFT_OBJC_BRIDGING_HEADER = "Asinu/Asinu-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

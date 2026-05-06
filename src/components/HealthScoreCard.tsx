@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
+import { DoctorConnectButton } from './DoctorConnectButton';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, radius } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
@@ -53,6 +54,7 @@ const FACTOR_LABELS: Record<string, { vi: string; en: string; icon: keyof typeof
   status_tired:          { vi: 'Bạn báo hơi mệt hôm nay', en: 'You reported feeling tired', icon: 'bed-outline', color: '#d97706' },
   triage_severity_medium:{ vi: 'Mức độ sức khoẻ cần theo dõi', en: 'Health severity needs monitoring', icon: 'eye-outline', color: '#d97706' },
   triage_severity_high:  { vi: 'Mức độ sức khoẻ nghiêm trọng', en: 'Serious health severity', icon: 'alert-circle-outline', color: '#dc2626' },
+  triage_severity_emergency: { vi: '🚨 KHẨN CẤP — Gọi cấp cứu ngay', en: '🚨 EMERGENCY — Call emergency now', icon: 'warning', color: '#991b1b' },
   glucose_high:          { vi: 'Đường huyết cao hơn bình thường', en: 'Blood glucose above normal', icon: 'water-outline', color: '#d97706' },
   glucose_very_high:     { vi: 'Đường huyết rất cao — cần chú ý', en: 'Very high blood glucose — attention needed', icon: 'water', color: '#dc2626' },
   glucose_very_low:      { vi: 'Đường huyết thấp — nguy cơ hạ đường huyết', en: 'Low blood glucose — hypoglycemia risk', icon: 'water', color: '#dc2626' },
@@ -154,6 +156,20 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
               </View>
             );
           })}
+        </View>
+      )}
+
+      {/* Connect doctor CTA — chỉ hiển thị khi level=danger (Cần chú ý).
+          DoctorConnectButton có pulse + glow animation để hút mắt user. */}
+      {level === 'danger' && checkinDone && (
+        <View style={{ marginTop: spacing.sm }}>
+          <DoctorConnectButton
+            variant="urgent"
+            text={isVi ? 'Bạn có muốn kết nối với bác sĩ không?' : 'Connect with a doctor?'}
+            onPress={() => {
+              // TODO(future): navigate to doctor connect screen.
+            }}
+          />
         </View>
       )}
     </Pressable>

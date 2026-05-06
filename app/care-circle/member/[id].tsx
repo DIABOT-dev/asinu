@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { DoctorConnectButton } from '../../../src/components/DoctorConnectButton';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -308,6 +309,31 @@ export default function MemberLogsScreen() {
                       </Text>
                     </View>
                   )}
+
+                  {/* Connect doctor CTA — animated pulse + glow giống AsinuChatSticker.
+                      Compact size cho session card. Context header đã hiển thị tên
+                      patient → button không cần personalize.
+                      TODO(future): wire onPress mở booking screen. */}
+                  {(session.emergency_triggered
+                    || session.triage_severity === 'high'
+                    || session.triage_severity === 'medium') && (() => {
+                    const isUrgent = session.emergency_triggered || session.triage_severity === 'high';
+                    const ctaText = session.emergency_triggered
+                      ? 'Liên hệ bác sĩ ngay'
+                      : 'Đặt khám bác sĩ';
+                    return (
+                      <View style={{ marginTop: spacing.sm }}>
+                        <DoctorConnectButton
+                          variant={isUrgent ? 'urgent' : 'default'}
+                          text={ctaText}
+                          compact
+                          onPress={() => {
+                            // Placeholder cho tính năng tương lai.
+                          }}
+                        />
+                      </View>
+                    );
+                  })()}
                 </View>
               );
             })}

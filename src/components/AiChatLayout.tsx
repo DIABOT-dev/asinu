@@ -260,8 +260,14 @@ export const AiChatLayout = ({
   // Track xem user đang ở gần bottom không. Chỉ auto-scroll xuống cuối khi
   // user đã ở bottom (vd: tin mới về). Nếu user kéo lên đọc lịch sử → KHÔNG
   // được force scroll xuống.
+  // initialLoadRef=true cho lần load đầu (khi mở modal, messages từ server load
+  // dần) → LUÔN scroll xuống cuối bất kể ref. Sau đó set false → respect user.
   const userAtBottomRef = useRef(true);
+  const initialLoadRef = useRef(true);
   const handleScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
+    // Bỏ qua scroll events trong initial load — tránh setting userAtBottom=false
+    // do scroll position chưa stabilize.
+    if (initialLoadRef.current) return;
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
     const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
     userAtBottomRef.current = distanceFromBottom < 60;
@@ -284,6 +290,19 @@ export const AiChatLayout = ({
 
   useEffect(() => {
     if (messages.length === 0) return;
+    // Initial load (lần đầu messages về sau khi mở modal) → LUÔN scroll xuống
+    // cuối, không phụ thuộc ref. Đây là behavior expected: mở chat → thấy
+    // tin mới nhất ở dưới.
+    if (initialLoadRef.current) {
+      const timer = setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+        // Đợi scroll ổn định (~600ms) rồi mới enable tracking user scroll.
+        // Tránh handleScroll chạy giữa lúc scroll programmatic và set
+        // userAtBottomRef sai.
+        setTimeout(() => { initialLoadRef.current = false; }, 600);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
     if (!userAtBottomRef.current) return; // Tôn trọng user nếu họ đang đọc lịch sử
     const timer = setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
@@ -486,9 +505,10 @@ export const AiChatLayout = ({
         scrollEventThrottle={100}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
         onContentSizeChange={() => {
-          // Chỉ auto-scroll xuống nếu user đang ở bottom (tin mới đến).
-          // Nếu user kéo lên đọc lịch sử → giữ nguyên vị trí scroll.
-          if (userAtBottomRef.current) {
+          // Initial load: luôn scroll xuống cuối (xem tin mới nhất khi mở chat).
+          // Sau đó: chỉ scroll khi user đang ở bottom (tin mới đến). Nếu user
+          // kéo lên đọc lịch sử → giữ nguyên vị trí.
+          if (initialLoadRef.current || userAtBottomRef.current) {
             flatListRef.current?.scrollToEnd({ animated: false });
           }
         }}

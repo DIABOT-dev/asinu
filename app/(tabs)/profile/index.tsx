@@ -368,7 +368,7 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.quickActionsGrid}>
           {([
-            { icon: 'people-outline',    color: iconColors.emerald,  label: t('careCircle'),      onPress: () => router.push('/care-circle') },
+            { icon: 'flag-outline',      color: iconColors.emerald,  label: t('tabMissions', { ns: 'common' }), onPress: () => router.push('/(tabs)/missions' as any) },
             { icon: 'settings-outline',  color: iconColors.primary,  label: t('settings'),        onPress: () => router.push('/settings') },
             { icon: 'create-outline',    color: iconColors.indigo,   label: t('editProfile'),     onPress: handleEditProfile },
             { icon: 'journal-outline',   color: iconColors.pink,     label: t('logEntry'),        onPress: () => router.push('/logs') },

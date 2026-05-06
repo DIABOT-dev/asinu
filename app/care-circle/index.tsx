@@ -36,12 +36,11 @@ export default function CareCircleScreen() {
     headerStyle: { backgroundColor: colors.background },
     headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
     headerShadowVisible: false,
-    headerLeft: () => (
-      <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, marginLeft: 0 }}>
-        <Ionicons name="arrow-back" size={26} color={iconColors.primary} />
-      </TouchableOpacity>
-    ),
-  }), [router, t]);
+    // Bỏ back button vì giờ care-circle là tab chính (không phải push từ
+    // screen khác). Header chỉ giữ title + actions phải.
+    headerLeft: () => null,
+    headerBackVisible: false,
+  }), [t]);
   
   const {
     invitations,

@@ -178,10 +178,8 @@ export function NotificationBell({
     notificationIcon: {
       marginRight: spacing.md,
       paddingTop: spacing.xs,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.primary + '10',
+      width: 32,
+      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -368,17 +366,6 @@ export function NotificationBell({
 
     const priorityStyle = getPriorityStyle(item.priority);
 
-    const iconBgColor = (() => {
-      if (notifType === 'emergency' || item.priority === 'critical') return '#fecaca';
-      if (notifType === 'health_alert' || notifType === 'caregiver_alert') return '#fef3c7';
-      if (notifType === 'reengagement') return '#dbeafe';
-      if (notifType === 'care_circle_invitation' || notifType === 'care_circle_accepted') return '#dbeafe';
-      if (notifType === 'morning_checkin' || notifType.startsWith('checkin')) return '#dcfce7';
-      if (notifType.startsWith('reminder')) return '#e0f2f1';
-      if (notifType === 'milestone' || notifType.startsWith('streak') || notifType === 'weekly_recap') return '#fef3c7';
-      return colors.primary + '12';
-    })();
-
     return (
       <TouchableOpacity
         style={[
@@ -388,10 +375,11 @@ export function NotificationBell({
         ]}
         onPress={() => handleNotificationPress(item)}
       >
-        <View style={[styles.notificationIcon, { backgroundColor: iconBgColor }]}>
+        {/* Icon: vector outline, KHÔNG background, color theo type. */}
+        <View style={styles.notificationIcon}>
           <Ionicons
             name={getNotificationIcon()}
-            size={20}
+            size={22}
             color={getIconColor()}
           />
         </View>
