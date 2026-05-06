@@ -221,7 +221,7 @@ export default function CheckinScreen() {
       setScreen('triage');
       await fetchNextQuestion(sess, [], true);
     } catch (err: any) {
-      console.error('[Checkin] handleStatusSelect error:', err?.message || err);
+      if (__DEV__) console.warn('[Checkin] handleStatusSelect:', err?.message || err);
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
       setLoading(false);
     }
@@ -256,11 +256,19 @@ export default function CheckinScreen() {
         // If AI specifies multiSelect, use it. Otherwise auto-detect:
         // Single-select: severity/frequency/yes-no type questions (few exclusive options)
         // Multi-select: symptom lists, activities, body areas (many combinable options)
-        if (result.multiSelect !== undefined) {
+        const opts = result.options || [];
+        const q = (result.question || '').toLowerCase();
+        // Override: câu hỏi gom triệu chứng phải luôn multi-select bất kể BE trả gì.
+        // User thường gặp nhiều triệu chứng cùng lúc, ép multi để khớp UX thực tế.
+        const isSymptomCollect =
+          opts.length > 4 &&
+          (/triệu chứng.*(gì|nào)|gặp.*triệu chứng|đang.*bị/.test(q) ||
+            /symptom.*(what|which)|experiencing/.test(q));
+        if (isSymptomCollect) {
+          setCurrentMultiSelect(true);
+        } else if (result.multiSelect !== undefined) {
           setCurrentMultiSelect(result.multiSelect);
         } else {
-          const opts = result.options || [];
-          const q = (result.question || '').toLowerCase();
           const isSingleSelect =
             opts.length <= 4 && (
               q.includes('mức độ') || q.includes('severity') ||
@@ -275,7 +283,7 @@ export default function CheckinScreen() {
         setCustomAnswer('');
       }
     } catch (err: any) {
-      console.error('[Checkin] fetchNextQuestion error, using local fallback:', err?.message || err);
+      if (__DEV__) console.warn('[Checkin] triage fallback:', err?.message || err);
       const fallback = getLocalFallbackQuestion(prevAnswers.length, isFollowUp, language);
       if (fallback.isDone) {
         setTriageSummary({

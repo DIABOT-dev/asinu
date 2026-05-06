@@ -1,6 +1,6 @@
 import type { ParamListBase, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -112,8 +112,21 @@ function EmergencyFABGate() {
   const token = useAuthStore((s) => s.token);
   const profile = useAuthStore((s) => s.profile);
   const hydrated = useAuthStore((s) => s.hydrated);
+  const pathname = usePathname();
   if (!hydrated) return null;
   if (!token || !profile?.onboardingCompleted) return null;
+  // Ẩn FAB trên các route có flow riêng để tránh conflict (mất state triage,
+  // race 2 cuộc gọi /checkin/start, modal đè modal):
+  // /checkin: pure check-in flow đang chạy
+  // /onboarding, /login, /register: flow setup, FAB không có ngữ nghĩa
+  // /legal: trang xem điều khoản
+  if (
+    pathname.startsWith('/checkin')
+    || pathname.startsWith('/onboarding')
+    || pathname.startsWith('/login')
+    || pathname.startsWith('/register')
+    || pathname.startsWith('/legal')
+  ) return null;
   return <AsinuEmergencyFAB />;
 }
 

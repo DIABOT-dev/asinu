@@ -4,6 +4,7 @@
  * Cho phep chon: "Da biet" | "Dang den" | "Da goi dien"
  */
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
@@ -71,6 +72,18 @@ export function CaregiverAlertModal() {
     return () => sub.remove();
   }, [fetchPendingAlerts]);
 
+  // Khi đang foreground mà nhận push caregiver_alert/emergency → fetch ngay để
+  // modal tự popup, không cần user tap noti.
+  useEffect(() => {
+    const sub = Notifications.addNotificationReceivedListener((notification) => {
+      const t = (notification.request.content.data as Record<string, unknown>)?.type;
+      if (t === 'caregiver_alert' || t === 'emergency') {
+        fetchPendingAlerts();
+      }
+    });
+    return () => sub.remove();
+  }, [fetchPendingAlerts]);
+
   const alert = alerts[current];
   if (!alert) return null;
 
@@ -83,6 +96,13 @@ export function CaregiverAlertModal() {
         method: 'POST',
         body: { alert_id: alert.alertId, action },
       });
+      // Toast feedback để caregiver biết hành động đã được ghi nhận
+      const FEEDBACK: Record<string, string> = {
+        seen:      `✓ Đã ghi nhận. ${alert.patientName} sẽ thấy bạn đã xem.`,
+        on_my_way: `🚶 Đã báo ${alert.patientName} bạn đang đến.`,
+        called:    `📞 Đã ghi nhận. ${alert.patientName} biết bạn đã gọi.`,
+      };
+      showToast(FEEDBACK[action] || t('careAlertConfirmed') || '✓', 'success', 3500);
       // Move to next alert or close
       if (current + 1 < alerts.length) {
         setCurrent(c => c + 1);

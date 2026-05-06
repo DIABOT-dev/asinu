@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { colors, spacing, typography } from '../../src/styles';
 import { checkinApi } from '../../src/features/checkin/checkin.api';
@@ -18,6 +18,7 @@ const DRAG_THRESHOLD = 10;
 
 export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   const { t } = useTranslation('home');
+  const pathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [todaySessionId, setTodaySessionId] = useState<number | null>(null);
   const [alerting, setAlerting] = useState(false);
@@ -104,10 +105,12 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
 
   const handleFabCheckin = (status: 'tired' | 'very_tired') => {
     close();
+    // Nếu đang ở /checkin → replace để tránh stack 2 instance /checkin (mất state)
+    const navigate = pathname.startsWith('/checkin') ? router.replace : router.push;
     if (todaySessionId) {
-      router.push({ pathname: '/checkin', params: { checkin_id: String(todaySessionId), mode: 'followup' } });
+      navigate({ pathname: '/checkin', params: { checkin_id: String(todaySessionId), mode: 'followup' } });
     } else {
-      router.push({ pathname: '/checkin', params: { preset_status: status } });
+      navigate({ pathname: '/checkin', params: { preset_status: status } });
     }
   };
 

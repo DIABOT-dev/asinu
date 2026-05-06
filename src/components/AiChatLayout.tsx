@@ -257,6 +257,15 @@ export const AiChatLayout = ({
   const { language } = useLanguageStore();
   const flatListRef = useRef<FlatList>(null);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
+  // Track xem user đang ở gần bottom không. Chỉ auto-scroll xuống cuối khi
+  // user đã ở bottom (vd: tin mới về). Nếu user kéo lên đọc lịch sử → KHÔNG
+  // được force scroll xuống.
+  const userAtBottomRef = useRef(true);
+  const handleScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    userAtBottomRef.current = distanceFromBottom < 60;
+  };
 
   // Feedback state: messageId → 'like' | 'dislike' | null
   const [feedbacks, setFeedbacks] = useState<Record<string, 'like' | 'dislike' | null>>({});
@@ -275,6 +284,7 @@ export const AiChatLayout = ({
 
   useEffect(() => {
     if (messages.length === 0) return;
+    if (!userAtBottomRef.current) return; // Tôn trọng user nếu họ đang đọc lịch sử
     const timer = setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 300);
@@ -472,8 +482,16 @@ export const AiChatLayout = ({
         contentContainerStyle={styles.list}
         data={messages}
         keyExtractor={(item) => item.id}
+        onScroll={handleScroll}
+        scrollEventThrottle={100}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        onContentSizeChange={() => {
+          // Chỉ auto-scroll xuống nếu user đang ở bottom (tin mới đến).
+          // Nếu user kéo lên đọc lịch sử → giữ nguyên vị trí scroll.
+          if (userAtBottomRef.current) {
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
         renderItem={renderMessage}
         ListFooterComponent={
           isTyping ? (

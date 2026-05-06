@@ -11,7 +11,6 @@ import {
   addNotificationResponseReceivedListener,
   checkNotificationPermission,
   getExpoPushToken,
-  reNotifyAsLocal,
   requestNotificationPermissions,
   routeFromNotificationData,
   setBadgeCount,
@@ -114,13 +113,10 @@ export const SessionProvider = ({ children }: Props) => {
       const title = notification.request.content.title || '';
       const body = notification.request.content.body || '';
 
-      // Caregiver alert / emergency: re-emit local để có action buttons.
-      // Phải check flag `_isLocalReemit` để chống infinite loop:
-      // scheduleNotificationAsync sinh notification mới → trigger lại listener
-      // này → match type → re-emit lần nữa → loop ~100 lần đến khi OS chặn.
-      if ((type === 'caregiver_alert' || type === 'emergency') && !data?._isLocalReemit) {
-        reNotifyAsLocal(title, body, { ...data, _isLocalReemit: true });
-      }
+      // KHÔNG re-emit local cho caregiver_alert/emergency — backend đã gửi push
+      // với categoryIdentifier='health_alert' (push.notification.service.js)
+      // → action buttons "Đã xem" tự xuất hiện ngay trên server push. Re-emit
+      // sẽ tạo notification thứ 2 trùng nội dung trong tray.
 
       // ── REAL-TIME SYNC ──
       // Mọi notification → dispatch refresh các store liên quan.

@@ -173,9 +173,7 @@ export function NotificationBell({
       elevation: 1,
     },
     notificationItemUnread: {
-      backgroundColor: colors.primary + '08',
-      shadowOpacity: 0.1,
-      elevation: 2,
+      backgroundColor: colors.primaryLight,
     },
     notificationIcon: {
       marginRight: spacing.md,
