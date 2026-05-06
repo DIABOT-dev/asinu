@@ -31,7 +31,9 @@ const REFRESH_BY_TYPE: Record<string, string[]> = {
   health_alert:    ['logs', 'wellness', 'notifications'],
 
   // ── Caregiver alert (caregiver phía bên kia) ──
-  caregiver_alert:     ['notifications'],
+  // FIX W2: caregiver_alert phải refresh wellness store để caregiver thấy
+  // wellness state mới ngay khi nhận push (không chỉ list alerts).
+  caregiver_alert:     ['notifications', 'wellness'],
   caregiver_confirmed: ['notifications', 'wellness'], // patient nhận confirm → wellness state có thể đổi
   emergency:           ['notifications', 'wellness'],
 
@@ -114,8 +116,12 @@ export function dispatchRealtimeRefresh(type: string | undefined): void {
         }
         case 'wellness': {
           const { useWellnessStore } = require('../features/wellness/store/wellness.store');
-          // Wellness có nhiều fetch khác nhau — fetchAlerts là nhẹ nhất + đủ cho real-time
-          useWellnessStore.getState().fetchAlerts();
+          // FIX W2: Refresh CẢ alerts list LẪN wellness state (score + status).
+          // Trước đây chỉ fetchAlerts → state có thể stale (vd. caregiver
+          // nhận push DANGER nhưng app vẫn hiển thị OK).
+          const store = useWellnessStore.getState();
+          store.fetchAlerts();
+          store.syncState();
           break;
         }
         case 'carePulse': {
