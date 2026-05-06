@@ -109,7 +109,7 @@
   "checkinFamilyAlreadyNotified": "Người thân đã được thông báo từ trước, đang chờ phản hồi.",
   "checkinAnalyzing": "Asinu đang phân tích...",
   "checkinQuestionCount": "Câu {{current}} / tối đa {{max}}",
-  "checkinCustomPlaceholder": "Nhập thêm triệu chứng...",
+  "checkinCustomPlaceholder": "Hoặc gõ triệu chứng khác (vd. tê môi, ngứa khắp người)...",
   "checkinConfirmSelection": "Xác nhận",
   "checkinSelectHint": "Chọn một hoặc nhiều mục bên dưới",
   "checkinClose": "Đóng",

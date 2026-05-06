@@ -16,6 +16,7 @@
   "logTitle": "Ghi nhật ký",
   "logSubtitle": "Chọn loại ghi",
   "quickLog": "Ghi nhanh",
+  "waterTodayTotal": "Hôm nay đã uống: {{ml}} ml",
   "heroSub": "Chọn chỉ số bạn muốn ghi hôm nay",
   "savingLog": "Đang ghi nhật ký...",
   "successTitle": "Thành công!",

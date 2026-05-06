@@ -5,7 +5,7 @@ import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { radius, spacing } from '../styles';
 
-export type ToastType = 'success' | 'error';
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 export type ToastProps = {
   visible: boolean;
@@ -27,6 +27,18 @@ const CONFIG = {
     color: '#e05252',
     bg: '#fef2f2',
     border: '#e05252',
+  },
+  info: {
+    icon: 'information' as const,
+    color: '#0284c7',
+    bg: '#e0f2fe',
+    border: '#0284c7',
+  },
+  warning: {
+    icon: 'alert' as const,
+    color: '#d97706',
+    bg: '#fef3c7',
+    border: '#d97706',
   },
 };
 
@@ -56,7 +68,8 @@ export const Toast = ({ visible, message, type = 'success', duration = 2500, onH
     }
   }, [visible, duration]);
 
-  const cfg = CONFIG[type];
+  // Defensive: nếu caller pass type lạ → fallback về success thay vì crash
+  const cfg = CONFIG[type] || CONFIG.success;
 
   return (
     <Animated.View

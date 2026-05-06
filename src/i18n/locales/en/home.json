@@ -109,7 +109,7 @@
   "checkinFamilyAlreadyNotified": "Caregivers were already notified — waiting for their response.",
   "checkinAnalyzing": "Asinu is analyzing...",
   "checkinQuestionCount": "Question {{current}} / max {{max}}",
-  "checkinCustomPlaceholder": "Add more symptoms...",
+  "checkinCustomPlaceholder": "Or type another symptom (e.g. lip numbness, itchy skin)...",
   "checkinConfirmSelection": "Confirm",
   "checkinSelectHint": "Select one or more options below",
   "checkinClose": "Close",

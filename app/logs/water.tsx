@@ -49,6 +49,10 @@ export default function WaterLogScreen() {
   const [volumeError, setVolumeError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  // Tổng nước đã uống TRONG NGÀY HÔM NAY (sum của water logs hôm nay).
+  // Tách riêng khỏi `volume` (lượng vừa uống lần này) để tránh cộng dồn
+  // qua ngày — bug cũ: pre-fill input bằng latest log của ngày trước.
+  const [todayTotalMl, setTodayTotalMl] = useState(0);
 
   const createWater = useLogsStore((state) => state.createWater);
 
@@ -62,8 +66,15 @@ export default function WaterLogScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const latest = await logsApi.fetchLatestByType('water');
-        if (latest?.volume_ml) setVolume(String(latest.volume_ml));
+        // Lấy TẤT CẢ water logs HÔM NAY (VN timezone) → SUM volume_ml.
+        // KHÔNG pre-fill input — input để trống cho user nhập "lượng vừa
+        // uống lần này", tránh cộng dồn từ ngày cũ.
+        const todayLogs = await logsApi.fetchTodayByType('water');
+        const total = (todayLogs || []).reduce((sum, log: any) => {
+          const v = Number(log?.volume_ml || 0);
+          return sum + (isFinite(v) ? v : 0);
+        }, 0);
+        setTodayTotalMl(total);
       } catch { /* ignore */ } finally {
         setIsLoading(false);
       }
@@ -136,7 +147,11 @@ export default function WaterLogScreen() {
                   <Ionicons name="water" size={30} color={iconColors.water} />
                   <View style={styles.heroText}>
                     <Text style={styles.heroTitle}>{t('water')}</Text>
-                    <Text style={styles.heroSub}>{t('quickLog')}</Text>
+                    <Text style={styles.heroSub}>
+                      {todayTotalMl > 0
+                        ? t('waterTodayTotal', { ml: todayTotalMl })
+                        : t('quickLog')}
+                    </Text>
                   </View>
                   <View style={styles.heroBadge}>
                     <Text style={styles.heroBadgeText}>ml</Text>

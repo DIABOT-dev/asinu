@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type ToastType = 'success' | 'error';
+type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastState {
   visible: boolean;

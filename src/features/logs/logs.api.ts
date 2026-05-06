@@ -262,6 +262,21 @@ export const logsApi = {
       return null;
     }
   },
+  /**
+   * Lấy logs HÔM NAY theo VN timezone (filter ở backend qua /logs/today).
+   * Dùng cho các screen cần tính tổng theo ngày (vd. nước uống tổng hôm nay).
+   */
+  async fetchTodayByType(logType: string, options?: { signal?: AbortSignal }): Promise<LogEntry[]> {
+    try {
+      const response = await apiClient<LogsResponse>(`/api/mobile/logs/today?type=${logType}`, {
+        retry: { attempts: 1, initialDelayMs: 300 },
+        signal: options?.signal
+      });
+      return transformToFrontendLogs(response.logs || []);
+    } catch {
+      return [];
+    }
+  },
   createGlucose(payload: GlucoseLogPayload) {
     const backendPayload = transformToBackendPayload('glucose', payload);
     return apiClient<CreateLogResponse>('/api/mobile/logs', {

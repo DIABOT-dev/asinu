@@ -18,13 +18,21 @@ import { useNotificationStore } from '../stores/notification.store';
 export function setupNotificationHandler(): void {
   try {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
+      handleNotification: async (notification) => {
+        const data = (notification?.request?.content?.data || {}) as any;
+        // Local re-emit (đã alert ở lần đầu) → KHÔNG show banner/sound nữa,
+        // chỉ giữ trong notification list. Tránh double-banner trong foreground.
+        const isLocalReemit = !!data?._isLocalReemit;
+        return {
+          shouldShowAlert: !isLocalReemit,
+          shouldPlaySound: !isLocalReemit,
+          // false để badge KHÔNG tự +1 mỗi push (badge clear bằng
+          // setBadgeCount() khi app focus).
+          shouldSetBadge: false,
+          shouldShowBanner: !isLocalReemit,
+          shouldShowList: true,
+        };
+      },
     });
     // Đăng ký action buttons sớm nhất có thể (trước khi nhận notification)
     registerNotificationCategories();
@@ -355,8 +363,7 @@ export function routeFromNotificationData(data: Record<string, unknown> | null |
     type === 'care_circle_accepted' ||
     type === 'care_circle_rejected' ||
     type === 'care_circle_removed' ||
-    type === 'care_circle_permission_changed' ||
-    type === 'caregiver_viewed_logs'
+    type === 'care_circle_permission_changed'
   ) {
     return '/care-circle';
   }
@@ -377,11 +384,6 @@ export function routeFromNotificationData(data: Record<string, unknown> | null |
     type === 'wallet_low_balance'
   ) {
     return '/wallet';
-  }
-
-  // Security
-  if (type === 'new_device_login' || type === 'password_changed') {
-    return '/(tabs)/profile';
   }
 
   // Engagement

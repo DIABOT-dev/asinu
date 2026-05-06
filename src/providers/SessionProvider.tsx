@@ -14,9 +14,12 @@ import {
   reNotifyAsLocal,
   requestNotificationPermissions,
   routeFromNotificationData,
+  setBadgeCount,
   setupNotificationHandler,
 } from '../lib/notifications';
 import { checkinApi } from '../features/checkin/checkin.api';
+import { showToast } from '../stores/toast.store';
+import { dispatchRealtimeRefresh } from '../lib/realtimeSync';
 import { CaregiverAlertModal } from '../components/CaregiverAlertModal';
 import { colors, radius, spacing } from '../styles';
 
@@ -102,14 +105,49 @@ export const SessionProvider = ({ children }: Props) => {
 
   // When a caregiver_alert / emergency push arrives in foreground, re-display it
   // as a local notification so that ACKNOWLEDGE / CALL action buttons appear.
+  // Đồng thời: tự refresh các store + show toast cho care-circle / payment events
+  // → user thấy update real-time mà không phải pull-refresh.
   useEffect(() => {
     const sub = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification.request.content.data as Record<string, unknown>;
       const type = data?.type as string | undefined;
-      if (type === 'caregiver_alert' || type === 'emergency') {
-        const title = notification.request.content.title || '';
-        const body = notification.request.content.body || '';
-        reNotifyAsLocal(title, body, data);
+      const title = notification.request.content.title || '';
+      const body = notification.request.content.body || '';
+
+      // Caregiver alert / emergency: re-emit local để có action buttons.
+      // Phải check flag `_isLocalReemit` để chống infinite loop:
+      // scheduleNotificationAsync sinh notification mới → trigger lại listener
+      // này → match type → re-emit lần nữa → loop ~100 lần đến khi OS chặn.
+      if ((type === 'caregiver_alert' || type === 'emergency') && !data?._isLocalReemit) {
+        reNotifyAsLocal(title, body, { ...data, _isLocalReemit: true });
+      }
+
+      // ── REAL-TIME SYNC ──
+      // Mọi notification → dispatch refresh các store liên quan.
+      // Map type → stores ở src/lib/realtimeSync.ts (cover 30+ types).
+      // App tự cập nhật mà không cần reload / pull-refresh.
+      dispatchRealtimeRefresh(type);
+
+      // ── TOAST in-app cho events quan trọng (không phải mọi type đều show
+      // toast — tránh spam reminder routines).
+      if (
+        type === 'care_circle_invitation' ||
+        type === 'care_circle_accepted' ||
+        type === 'care_circle_rejected' ||
+        type === 'care_circle_removed' ||
+        type === 'care_circle_permission_changed' ||
+        type === 'subscription_activated' ||
+        type === 'wallet_topup_success' ||
+        type === 'payment_failed' ||
+        type === 'wallet_low_balance' ||
+        type === 'caregiver_confirmed' ||
+        type === 'health_alert'
+      ) {
+        const toastType: 'success' | 'info' | 'error' =
+          type === 'payment_failed' || type === 'health_alert' ? 'error'
+          : type === 'care_circle_accepted' || type === 'subscription_activated' || type === 'wallet_topup_success' || type === 'caregiver_confirmed' ? 'success'
+          : 'info';
+        showToast(body || title, toastType, 4000);
       }
     });
     return () => sub.remove();
@@ -177,6 +215,16 @@ export const SessionProvider = ({ children }: Props) => {
     });
     return () => sub.remove();
   }, [notificationGranted]);
+
+  // Clear app icon badge mỗi khi app vào foreground hoặc start.
+  // Tránh tích luỹ badge counter (đã từng thấy 100+ do shouldSetBadge=true cũ).
+  useEffect(() => {
+    setBadgeCount(0);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setBadgeCount(0);
+    });
+    return () => sub.remove();
+  }, []);
 
   const profile = useAuthStore((state) => state.profile);
   const value = useMemo(() => ({ ready: !loading && hydrated }), [loading, hydrated]);
