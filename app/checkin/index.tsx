@@ -31,7 +31,7 @@ import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimate
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
-import { checkinApi, type CheckinStatus, type CheckinSession } from '../../src/features/checkin/checkin.api';
+import { checkinApi, type CheckinStatus, type CheckinSession, type TriageSummaryView } from '../../src/features/checkin/checkin.api';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { usePremium } from '../../src/hooks/usePremium';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
@@ -187,10 +187,7 @@ export default function CheckinScreen() {
   const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
   const [customAnswer, setCustomAnswer] = useState('');
   const mainScrollRef = useRef<ScrollView>(null);
-  const [triageSummary, setTriageSummary] = useState<{
-    summary: string; severity: string; recommendation: string; needsDoctor: boolean;
-    _progress?: { text: string; templateId: string };
-  } | null>(null);
+  const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(null);
 
   // Illusion layer state
   const [currentEmpathy, setCurrentEmpathy] = useState<{ text: string; templateId: string } | null>(null);
@@ -866,7 +863,7 @@ function DoneScreen({
 }: {
   styles: Styles;
   session: CheckinSession | null;
-  triageSummary: { summary: string; severity: string; recommendation: string; needsDoctor: boolean; _progress?: { text: string; templateId: string } } | null;
+  triageSummary: TriageSummaryView | null;
   isFollowUp: boolean;
   onClose: () => void;
 }) {

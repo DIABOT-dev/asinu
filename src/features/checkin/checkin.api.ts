@@ -52,6 +52,21 @@ export interface TriageResult {
   _greeting?: { displayText: string; templateId: string };
 }
 
+/**
+ * UI-side type cho summary view sau khi triage hoàn tất (isDone=true).
+ * Các field core (summary, severity, recommendation, needsDoctor) được BE
+ * đảm bảo có khi isDone=true → required ở UI để TS không cần optional check.
+ * Dùng ở app/checkin/index.tsx (state + props).
+ */
+export type TriageSummaryView = {
+  summary: string;
+  severity: 'low' | 'medium' | 'high' | string;
+  recommendation: string;
+  needsDoctor: boolean;
+  _progress?: { text: string; templateId: string };
+  familyAlertResult?: TriageResult['familyAlertResult'];
+};
+
 export interface HealthReportData {
   period: 'week' | 'month';
   totalDays: number;
