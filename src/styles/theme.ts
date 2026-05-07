@@ -1,11 +1,12 @@
 // ── Light mode colors ─────────────────────────────────
 export const lightColors = {
-  background: '#f4f1e9',
-  surface: '#ffffff',
-  surfaceMuted: '#f6f2ec',
-  textPrimary: '#111827',
-  textSecondary: '#4b5563',
-  border: '#e5e7eb',
+  background: '#fbfbfb',     // Clean off-white (match design system reference)
+  surface: '#ffffff',         // Cards / panels — pure white để contrast với bg
+  surfaceMuted: '#f3f4f6',    // Subtle muted (vd: pressed state)
+  textPrimary: '#221f1f',     // Near-black per design
+  textSecondary: '#656565',   // Medium gray
+  border: '#ececec',          // Soft border
+
   primary: '#08b8a2',
   primaryDark: '#0ea18f',
   primaryLight: '#e6faf8',

@@ -130,6 +130,7 @@
   "healthScoreDanger": "Needs attention",
   "healthScoreDangerSub": "Abnormal metrics detected",
   "healthScoreNoCheckin": "No check-in today",
+  "healthScoreNoCheckinSub": "Tap to let Asinu know how you feel today",
   "checkinFallbackRecommendation": "Please rest and monitor. Asinu will check back later.",
 
   "glucoseLow":    "Low",

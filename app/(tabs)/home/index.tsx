@@ -4,12 +4,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppState, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
+import { HomeBackground } from '../../../src/components/HomeBackground';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 const ChatModal = React.lazy(() => import('../../../src/components/ChatModal'));
@@ -175,6 +176,9 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      {/* Animated background — gradient + 2 breathing blobs (teal + gold).
+          Render đầu tiên để layer dưới cùng; pointerEvents=none, không chặn scroll. */}
+      <HomeBackground />
       {/* Modal: Đã check-in rồi */}
       <Modal visible={showAlreadyDoneModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowAlreadyDoneModal(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setShowAlreadyDoneModal(false)}>
@@ -217,61 +221,153 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Banner */}
+        {/* Header row — KHÔNG nằm trong hero gradient. Avatar + greeting + bell. */}
         <Animated.View entering={FadeIn.delay(0).duration(400)}>
+          <View style={styles.designHeaderRow}>
+            <Image
+              source={require('../../../assets/asinu_chat_sticker.png')}
+              style={styles.designAvatar}
+              resizeMode="contain"
+            />
+            <View style={{ flex: 1, marginLeft: spacing.md, minWidth: 0 }}>
+              <Text style={styles.designGreeting} numberOfLines={1}>{t('greeting')}</Text>
+              <Text style={styles.designName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {profile?.name || t('defaultName')}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                <MaterialCommunityIcons name="heart" size={12} color={colors.success} />
+                <Text style={styles.designTagline} numberOfLines={2}>{t('heroSummary')}</Text>
+              </View>
+            </View>
+            {/* Bell rendered ngoài header trong NotificationBell — đã có ở line ~190+ */}
+          </View>
+        </Animated.View>
+
+        {/* Mascot floating right — overlap giữa header & hero (z-index trên gradient) */}
+        <View pointerEvents="none" style={styles.designMascot}>
+          <Image
+            source={require('../../../assets/asinu_chat_sticker.png')}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* HERO green gradient — score + ring + 3 metric cards */}
+        <Animated.View entering={FadeIn.delay(80).duration(400)}>
         <LinearGradient
           colors={[colors.primary, colors.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
+          style={styles.heroNewBanner}
         >
-          <View style={styles.heroContent}>
-            <Text style={styles.heroGreeting}>{t('greeting')}</Text>
-            <Text style={styles.heroName}>{profile?.name || t('defaultName')}</Text>
-            <Text style={styles.heroSummary}>{t('heroSummary')}</Text>
+          {/* Top row */}
+          <View style={styles.heroTopRow}>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.heroScoreLabel}>{t('healthScoreOverall')}</Text>
+                <Ionicons name="information-circle-outline" size={14} color="rgba(255,255,255,0.85)" />
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
+                <Text style={styles.heroScoreValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {Math.round((treeSummary?.score ?? 0.78) * 100)}
+                </Text>
+                <Text style={styles.heroScoreMax}>/100</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                <Text style={{ fontSize: 14 }}>😊</Text>
+                <Text style={styles.heroScoreCaption}>{t('healthScoreOverallSub')}</Text>
+              </View>
+            </View>
+            {/* Heart pulse với decorative circle ring */}
+            <View style={styles.heroRingWrap}>
+              <View style={styles.heroRingArc} />
+              <View style={styles.heroRingInner}>
+                <MaterialCommunityIcons name="heart-pulse" size={36} color="rgba(255,255,255,0.95)" />
+              </View>
+            </View>
+          </View>
+
+          {/* Bottom row: 3 mini cards */}
+          <View style={styles.heroMetricsRow}>
+            <Pressable style={styles.heroMetricCard} onPress={() => router.push('/logs/glucose')}>
+              <View style={styles.heroMetricHeader}>
+                <View style={[styles.heroMetricDot, { backgroundColor: '#dbeafe' }]}>
+                  <MaterialCommunityIcons name="water" size={12} color="#3b82f6" />
+                </View>
+                <Text style={styles.heroMetricTitle} numberOfLines={1}>{t('glucose')}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                <Text style={styles.heroMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {quickMetrics.glucose ?? '--'}
+                </Text>
+                <Text style={styles.heroMetricUnit} numberOfLines={1}>{tc('unitMgdl')}</Text>
+              </View>
+              <View style={styles.heroStatusPill}>
+                <Text style={styles.heroStatusPillText}>{tc('normal') || 'Bình thường'}</Text>
+              </View>
+            </Pressable>
+
+            <Pressable style={styles.heroMetricCard} onPress={() => router.push('/logs/blood-pressure')}>
+              <View style={styles.heroMetricHeader}>
+                <View style={[styles.heroMetricDot, { backgroundColor: '#fee2e2' }]}>
+                  <MaterialCommunityIcons name="heart-pulse" size={12} color="#ef4444" />
+                </View>
+                <Text style={styles.heroMetricTitle} numberOfLines={1}>{t('bloodPressure')}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                <Text style={styles.heroMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {quickMetrics.bloodPressure ?? '--'}
+                </Text>
+                <Text style={styles.heroMetricUnit} numberOfLines={1}>{tc('unitMmhg')}</Text>
+              </View>
+              <View style={styles.heroStatusPill}>
+                <Text style={styles.heroStatusPillText}>{tc('normal') || 'Bình thường'}</Text>
+              </View>
+            </Pressable>
+
+            <Pressable style={styles.heroCheckinBtn} onPress={goToCheckin}>
+              <MaterialCommunityIcons name="calendar-check" size={26} color={colors.primary} />
+              <Text style={styles.heroCheckinText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {t('checkinNow') || 'Check-in ngay'}
+              </Text>
+            </Pressable>
           </View>
         </LinearGradient>
         </Animated.View>
 
-        {/* Check-in reminder banner */}
-        {showCheckinBanner && (
-          <Animated.View entering={FadeIn.delay(100).duration(300)}>
-            <Pressable
-              style={styles.checkinBanner}
-              onPress={() => { setShowCheckinBanner(false); goToCheckin(); }}
-            >
-              <MaterialCommunityIcons name="emoticon-happy-outline" size={22} color={colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.checkinBannerText}>{t('checkinReminder')}</Text>
+        {/* Quick Actions section */}
+        <Animated.View entering={FadeIn.delay(120).duration(350)}>
+          <View style={styles.quickSectionHeader}>
+            <Text style={styles.quickSectionTitle}>{t('quickActions') || 'Thao tác nhanh'}</Text>
+          </View>
+          <View style={styles.quickActionsRow}>
+            <Pressable style={styles.quickActionCard} onPress={() => router.push('/logs/glucose')}>
+              <View style={[styles.quickActionIcon, { backgroundColor: '#dbeafe' }]}>
+                <MaterialCommunityIcons name="water" size={22} color="#3b82f6" />
               </View>
-              <Pressable hitSlop={12} onPress={() => setShowCheckinBanner(false)}>
-                <MaterialCommunityIcons name="close" size={18} color={colors.textSecondary} />
-              </Pressable>
+              <Text style={styles.quickActionLabel} numberOfLines={2}>{t('measureGlucose') || 'Đo\nđường huyết'}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </Pressable>
-          </Animated.View>
-        )}
-
-        {/* Metrics Row */}
-        <Animated.View entering={FadeIn.delay(80).duration(350)}>
-        <View style={styles.metricsRow}>
-          <Pressable style={[styles.metricCard, styles.metricCardGlucose]} onPress={() => router.push('/logs/glucose')}>
-            <MaterialCommunityIcons name="water" size={22} color={iconColors.glucose} />
-            <Text style={styles.metricTitle}>{t('glucose')}</Text>
-            <Text style={styles.metricValue}>{quickMetrics.glucose ?? '--'}</Text>
-            <Text style={styles.metricUnit}>{tc('unitMgdl')}</Text>
-          </Pressable>
-          <Pressable style={[styles.metricCard, styles.metricCardBP]} onPress={() => router.push('/logs/blood-pressure')}>
-            <MaterialCommunityIcons name="heart-pulse" size={22} color={iconColors.bp} />
-            <Text style={styles.metricTitle}>{t('bloodPressure')}</Text>
-            <Text style={styles.metricValue}>{quickMetrics.bloodPressure ?? '--'}</Text>
-            <Text style={styles.metricUnit}>{tc('unitMmhg')}</Text>
-          </Pressable>
-        </View>
+            <Pressable style={styles.quickActionCard} onPress={() => router.push('/logs/blood-pressure')}>
+              <View style={[styles.quickActionIcon, { backgroundColor: '#fee2e2' }]}>
+                <MaterialCommunityIcons name="heart-pulse" size={22} color="#ef4444" />
+              </View>
+              <Text style={styles.quickActionLabel} numberOfLines={2}>{t('measureBP') || 'Đo\nhuyết áp'}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+            </Pressable>
+            <Pressable style={styles.quickActionCard} onPress={() => router.push('/logs/water')}>
+              <View style={[styles.quickActionIcon, { backgroundColor: '#e0f2fe' }]}>
+                <MaterialCommunityIcons name="cup-water" size={22} color="#0ea5e9" />
+              </View>
+              <Text style={styles.quickActionLabel} numberOfLines={2}>{t('drinkWater') || 'Uống\nnước'}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+            </Pressable>
+          </View>
         </Animated.View>
 
-        {/* Health Score Card */}
-        {healthScore && (
-          <Animated.View entering={FadeIn.delay(120).duration(350)}>
+        {/* Health Score Card — chỉ hiện khi cần (warning hoặc chưa check-in) */}
+        {healthScore && (healthScore.level !== 'ok' || !healthScore.checkinDone) && (
+          <Animated.View entering={FadeIn.delay(160).duration(350)}>
             <HealthScoreCard
               level={healthScore.level}
               factors={healthScore.factors}
@@ -279,15 +375,6 @@ export default function HomeScreen() {
             />
           </Animated.View>
         )}
-
-        <Animated.View entering={FadeIn.delay(150).duration(350)}>
-        <DailyCheckinCard />
-        </Animated.View>
-
-
-        <Animated.View entering={FadeIn.delay(190).duration(350)}>
-        <AsinuChatSticker onPress={() => setChatOpen(true)} />
-        </Animated.View>
 
         {/* Section Header */}
         <Animated.View entering={FadeIn.delay(210).duration(350)}>
@@ -565,6 +652,214 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.sm,
     color: colors.textSecondary,
   },
+
+  // ─── DESIGN MATCH (mockup) ────────────────────────────────────────────────
+  // Header row: avatar + greeting + tagline + bell
+  designHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  designAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surface,
+  },
+  designGreeting: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+  },
+  designName: {
+    fontSize: typography.size.xl,
+    fontWeight: '800' as const,
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
+  designTagline: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  designMascot: {
+    position: 'absolute',
+    top: 60,
+    right: 70,
+    width: 130,
+    height: 130,
+    zIndex: 5,
+  },
+  // Hero gradient combined card
+  heroNewBanner: {
+    borderRadius: 24,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: 110,
+  },
+  heroScoreLabel: {
+    fontSize: typography.size.sm,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600' as const,
+  },
+  heroScoreValue: {
+    fontSize: typography.size.xl + 18,
+    fontWeight: '800' as const,
+    color: '#fff',
+    lineHeight: typography.size.xl + 26,
+  },
+  heroScoreMax: {
+    fontSize: typography.size.lg,
+    color: 'rgba(255,255,255,0.85)',
+    marginLeft: 2,
+  },
+  heroScoreCaption: {
+    fontSize: typography.size.sm,
+    color: 'rgba(255,255,255,0.92)',
+    flexShrink: 1,
+  },
+  heroRingWrap: {
+    width: 110,
+    height: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroRingArc: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.55)',
+    borderTopColor: 'transparent',
+    borderRightColor: 'rgba(255,255,255,0.92)',
+    transform: [{ rotate: '-45deg' }],
+  },
+  heroRingInner: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroMetricsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  heroMetricCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: spacing.sm,
+    gap: 4,
+    minWidth: 0,
+  },
+  heroMetricHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroMetricDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroMetricTitle: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    fontWeight: '600' as const,
+    flexShrink: 1,
+  },
+  heroMetricValue: {
+    fontSize: typography.size.md,
+    fontWeight: '800' as const,
+    color: colors.textPrimary,
+  },
+  heroMetricUnit: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+  },
+  heroStatusPill: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  heroStatusPillText: {
+    fontSize: typography.size.xs,
+    color: '#16a34a',
+    fontWeight: '700' as const,
+  },
+  heroCheckinBtn: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    minWidth: 0,
+  },
+  heroCheckinText: {
+    fontSize: typography.size.xs,
+    fontWeight: '700' as const,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  // Quick Actions
+  quickSectionHeader: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  quickSectionTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: '800' as const,
+    color: colors.textPrimary,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  quickActionCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  quickActionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: {
+    flex: 1,
+    fontSize: typography.size.xs,
+    fontWeight: '700' as const,
+    color: colors.textPrimary,
+    lineHeight: typography.size.xs + 4,
+  },
+
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',

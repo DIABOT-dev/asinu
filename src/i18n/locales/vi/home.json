@@ -130,6 +130,7 @@
   "healthScoreDanger": "Cần chú ý",
   "healthScoreDangerSub": "Phát hiện chỉ số bất thường",
   "healthScoreNoCheckin": "Chưa check-in hôm nay",
+  "healthScoreNoCheckinSub": "Chạm để báo Asinu biết hôm nay bạn thế nào",
   "checkinFallbackRecommendation": "Hãy nghỉ ngơi và theo dõi thêm. Asinu sẽ hỏi lại sau nhé.",
 
   "glucoseLow":    "Thấp",

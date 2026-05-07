@@ -128,8 +128,10 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
             {!checkinDone ? t('healthScoreNoCheckin' as any) : t(config.titleKey as any)}
           </Text>
           <Text style={[styles.subtitle, { fontSize: scaledTypography.size.sm }]}>
+            {/* "Chưa check-in" → subtitle riêng (CTA), KHÔNG dùng "Mọi chỉ số bình
+                thường" vì context contradictory (chưa có data sao biết bình thường). */}
             {!checkinDone
-              ? t('healthScoreOkSub' as any)
+              ? t('healthScoreNoCheckinSub' as any)
               : t(config.subKey as any)
             }
           </Text>

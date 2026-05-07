@@ -71,24 +71,36 @@ export function NotificationBell({
   const styles = useMemo(() => StyleSheet.create({
     bellButton: {
       position: 'relative',
-      padding: spacing.sm,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 3,
     },
     badge: {
       position: 'absolute',
-      top: 4,
-      right: 4,
+      top: 6,
+      right: 6,
       backgroundColor: colors.danger,
-      borderRadius: 10,
-      minWidth: 20,
-      height: 20,
+      borderRadius: 11,
+      minWidth: 22,
+      height: 22,
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: 4,
+      paddingHorizontal: 5,
+      borderWidth: 2,
+      borderColor: colors.surface,
     },
     badgeText: {
-      color: colors.surface,
-      fontSize: typography.size.xxs,
-      fontWeight: '700',
+      color: '#fff',
+      fontSize: typography.size.xs,
+      fontWeight: '800',
     },
     modalOverlay: {
       flex: 1,
@@ -416,7 +428,11 @@ export function NotificationBell({
         style={styles.bellButton}
         onPress={() => { setIsOpen(true); onOpen?.(); }}
       >
-        <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
+        <Ionicons
+          name={unreadCount > 0 ? 'notifications' : 'notifications-outline'}
+          size={28}
+          color={unreadCount > 0 ? colors.primary : colors.textPrimary}
+        />
         {unreadCount > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
