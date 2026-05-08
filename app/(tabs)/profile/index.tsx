@@ -1,20 +1,30 @@
 ﻿import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeIn, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { AppAlertModal, useAppAlert } from '../../../src/components/AppAlertModal';
+
+const STORAGE_KEY_NOTIFICATIONS = '@app/notifications_enabled';
+const STORAGE_KEY_REMINDERS = '@app/reminders_enabled';
+
+const DeleteAccountModal = React.lazy(() => import('../../../src/components/DeleteAccountModal'));
+const ChangePasswordModal = React.lazy(() => import('../../../src/components/ChangePasswordModal'));
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { authApi } from '../../../src/features/auth/auth.api';
-import { showToast } from '../../../src/stores/toast.store';
+import { showToast, setPendingToast } from '../../../src/stores/toast.store';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useMissionsStore } from '../../../src/features/missions/missions.store';
+import { FontSizeScale, useFontSizeStore } from '../../../src/stores/font-size.store';
+import { AppLanguage, useLanguageStore } from '../../../src/stores/language.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { ApiError, apiClient } from '../../../src/lib/apiClient';
 import { brandColors, categoryColors, colors, iconColors, spacing } from '../../../src/styles';
@@ -39,9 +49,26 @@ export default function ProfileScreen() {
   const missions = useMissionsStore((state) => state.missions);
   const fetchMissions = useMissionsStore((state) => state.fetchMissions);
 
+  const logout = useAuthStore((state) => state.logout);
+  const { scale: fontScale, setScale: setFontScale } = useFontSizeStore();
+  const { language, setLanguage } = useLanguageStore();
+  const { t: ts } = useTranslation('settings');
+
   // Edit profile state
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [showPlanInfoModal, setShowPlanInfoModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showFontPicker, setShowFontPicker] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
+
+  const fontLabel = fontScale === 'small' ? ts('fontSmall')
+    : fontScale === 'normal' ? ts('fontNormal')
+    : fontScale === 'large' ? ts('fontLarge')
+    : ts('fontXLarge');
+  const langLabel = language === 'vi' ? ts('languageVi') : ts('languageEn');
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAge, setEditAge] = useState('');
@@ -135,6 +162,38 @@ export default function ProfileScreen() {
       ? t('newCustomer')
       : t('notLoggedIn');
   const statusText = hasProfile ? t('active') : t('notLoggedIn');
+
+  const handleShareApp = useCallback(async () => {
+    try {
+      await Share.share({ message: t('shareMessage'), title: 'Asinu' });
+    } catch {
+      // ignore — user cancelled
+    }
+  }, [t]);
+
+  const handleLogout = useCallback(async () => {
+    setShowLogoutModal(false);
+    await logout();
+    setPendingToast(t('logoutSuccess'), 'success');
+    router.replace('/login');
+  }, [logout, t, router]);
+
+  const handleDeleteAccount = useCallback(async () => {
+    try {
+      const result = await authApi.deleteAccount();
+      if (result.ok) {
+        await AsyncStorage.multiRemove([STORAGE_KEY_NOTIFICATIONS, STORAGE_KEY_REMINDERS, '@app/font_size_scale']);
+        await logout();
+        setShowDeleteModal(false);
+        router.replace('/login');
+        setPendingToast(ts('accountDeleted'), 'success');
+      } else {
+        showAlert(tc('error'), ts('deleteError'));
+      }
+    } catch {
+      showAlert(tc('error'), ts('deleteErrorGeneric'));
+    }
+  }, [logout, router, showAlert, ts, tc]);
 
   const handleEditProfile = () => {
     setPhoneError('');
@@ -471,34 +530,109 @@ export default function ProfileScreen() {
         </View>
         </Animated.View>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — grouped by purpose */}
         <Animated.View entering={FadeIn.delay(160).duration(350)}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="flash-outline" size={22} color={iconColors.warning} />
+          <Ionicons name="apps-outline" size={22} color={iconColors.warning} />
           <Text style={styles.sectionTitle}>{t('quickActions')}</Text>
         </View>
-        <View style={styles.quickActionsGrid}>
-          {([
-            { icon: 'flag-outline',      color: iconColors.emerald,  label: t('tabMissions', { ns: 'common' }), onPress: () => router.push('/(tabs)/missions' as any) },
-            { icon: 'settings-outline',  color: iconColors.primary,  label: t('settings'),        onPress: () => router.push('/settings') },
-            { icon: 'create-outline',    color: iconColors.indigo,   label: t('editProfile'),     onPress: handleEditProfile },
-            { icon: 'journal-outline',   color: iconColors.pink,     label: t('logEntry'),        onPress: () => router.push('/logs') },
-            { icon: 'wallet-outline',    color: iconColors.cyan,     label: t('wallet'),          onPress: () => router.push('/wallet') },
-            { icon: 'star-outline',      color: iconColors.premium,  label: t('subscription'),    onPress: () => router.push('/subscription') },
-            { icon: 'bookmark-outline',  color: iconColors.violet,   label: tc('aiNotes'),        onPress: () => router.push('/chat-notes') },
-            { icon: 'alarm-outline',     color: iconColors.orange,   label: tc('reminderConfig'), onPress: () => router.push('/reminder-config') },
-          ] as const).map((item, i) => (
-            <Pressable key={i} style={({ pressed }) => [styles.actionCard, pressed && styles.actionCardPressed]} onPress={item.onPress}>
-              <Ionicons name={item.icon as any} size={22} color={item.color} style={styles.actionIcon} />
-              <Text style={styles.actionLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
-            </Pressable>
-          ))}
-        </View>
+        {([
+          {
+            title: t('sectionPersonal'),
+            items: [
+              { icon: 'create-outline', color: iconColors.indigo, label: t('editProfile'),     onPress: handleEditProfile },
+              { icon: 'alarm-outline',  color: iconColors.orange, label: tc('reminderConfig'), onPress: () => router.push('/reminder-config') },
+            ],
+          },
+          {
+            title: t('sectionHealth'),
+            items: [
+              { icon: 'journal-outline',   color: iconColors.pink,    label: t('logEntry'),                       onPress: () => router.push('/logs') },
+              { icon: 'bookmark-outline',  color: iconColors.violet,  label: tc('aiNotes'),                       onPress: () => router.push('/chat-notes') },
+              { icon: 'flag-outline',      color: iconColors.emerald, label: t('tabMissions', { ns: 'common' }),  onPress: () => router.push('/(tabs)/missions' as any) },
+            ],
+          },
+          {
+            title: t('sectionAccount'),
+            items: [
+              { icon: 'star-outline',      color: iconColors.premium, label: t('subscription'), onPress: () => router.push('/subscription') },
+              { icon: 'wallet-outline',    color: iconColors.cyan,    label: t('wallet'),       onPress: () => router.push('/wallet') },
+            ],
+          },
+          {
+            title: ts('title'),
+            items: [
+              { icon: 'text-outline',     color: iconColors.cyan,    label: ts('fontSize'), meta: fontLabel, onPress: () => setShowFontPicker(true) },
+              { icon: 'language-outline', color: iconColors.emerald, label: ts('language'), meta: langLabel, onPress: () => setShowLangPicker(true) },
+            ],
+          },
+          {
+            title: t('sectionSystem'),
+            items: [
+              { icon: 'chatbubble-ellipses-outline', color: iconColors.primary, label: ts('helpSupport'),
+                onPress: () => Linking.openURL('https://zalo.me/0898888917') },
+              ...(profile?.hasPassword ? [{
+                icon: 'key-outline', color: iconColors.indigo, label: t('changePassword'),
+                onPress: () => setShowChangePasswordModal(true),
+              }] : []),
+              { icon: 'share-social-outline', color: iconColors.primary, label: t('shareApp'),
+                onPress: handleShareApp },
+              { icon: 'document-text-outline', color: iconColors.violet,  label: ts('termsPrivacy'),
+                onPress: () => router.push({ pathname: '/legal/content', params: { type: 'terms' } } as any) },
+              { icon: 'trash-outline',         color: '#dc2626',          label: ts('deleteAccountForever'), destructive: true,
+                onPress: () => setShowDeleteModal(true) },
+            ],
+          },
+        ] as Array<{ title: string; items: Array<{ icon: string; color: string; label: string; meta?: string; onPress?: () => void; destructive?: boolean }> }>).map((group) => (
+          <View key={group.title} style={styles.actionGroup}>
+            <Text style={styles.subSectionTitle}>{group.title}</Text>
+            <View style={styles.quickActionsGrid}>
+              {group.items.map((item, i) => (
+                <Pressable
+                  key={i}
+                  style={({ pressed }) => [
+                    styles.actionCard,
+                    item.destructive && styles.actionCardDestructive,
+                    pressed && styles.actionCardPressed,
+                  ]}
+                  onPress={item.onPress}
+                >
+                  <Ionicons
+                    name={item.icon as any}
+                    size={22}
+                    color={item.color}
+                    style={styles.actionIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.actionLabel,
+                      item.destructive && { color: '#dc2626', fontWeight: '700' },
+                    ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.meta ? <Text style={styles.actionMeta} numberOfLines={1}>{item.meta}</Text> : null}
+                  <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} style={styles.actionChevron} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ))}
         </Animated.View>
 
-        {/* Health Overview section bỏ — đã có tab "Tổng quan" hiển thị data
-            chi tiết hơn (chart, history, trend). Tránh duplicate. */}
+        {/* Đăng xuất — destructive action ở cuối Profile (pattern Facebook/Zalo) */}
+        <Animated.View entering={FadeIn.delay(220).duration(350)}>
+          <Pressable
+            style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.85 }]}
+            onPress={() => setShowLogoutModal(true)}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#dc2626" />
+            <Text style={styles.logoutBtnText}>{t('logout')}</Text>
+          </Pressable>
+        </Animated.View>
       </RippleRefreshScrollView>
 
       {/* Edit Profile Modal */}
@@ -688,6 +822,119 @@ export default function ProfileScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Font Size Picker */}
+      <Modal visible={showFontPicker} transparent animationType="fade" onRequestClose={() => setShowFontPicker(false)}>
+        <Pressable style={styles.logoutModalOverlay} onPress={() => setShowFontPicker(false)}>
+          <Pressable style={styles.logoutModalCard} onPress={() => {}}>
+            <Text style={styles.logoutModalTitle}>{ts('fontSize')}</Text>
+            <View style={{ width: '100%', gap: spacing.sm, marginTop: spacing.md }}>
+              {(['small', 'normal', 'large', 'xlarge'] as FontSizeScale[]).map((size) => {
+                const label = size === 'small' ? ts('fontSmall') : size === 'normal' ? ts('fontNormal') : size === 'large' ? ts('fontLarge') : ts('fontXLarge');
+                const active = fontScale === size;
+                return (
+                  <Pressable
+                    key={size}
+                    style={[styles.pickerRow, active && styles.pickerRowActive]}
+                    onPress={() => { setFontScale(size); setShowFontPicker(false); }}
+                  >
+                    <Text style={[styles.pickerRowText, active && styles.pickerRowTextActive]}>{label}</Text>
+                    {active ? <Ionicons name="checkmark" size={20} color="#ffffff" /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Language Picker */}
+      <Modal visible={showLangPicker} transparent animationType="fade" onRequestClose={() => setShowLangPicker(false)}>
+        <Pressable style={styles.logoutModalOverlay} onPress={() => setShowLangPicker(false)}>
+          <Pressable style={styles.logoutModalCard} onPress={() => {}}>
+            <Text style={styles.logoutModalTitle}>{ts('language')}</Text>
+            <View style={{ width: '100%', gap: spacing.sm, marginTop: spacing.md }}>
+              {(['vi', 'en'] as AppLanguage[]).map((lang) => {
+                const active = language === lang;
+                return (
+                  <Pressable
+                    key={lang}
+                    style={[styles.pickerRow, active && styles.pickerRowActive]}
+                    onPress={() => { setLanguage(lang); setShowLangPicker(false); }}
+                  >
+                    <Text style={{ fontSize: 18, marginRight: 6 }}>{lang === 'vi' ? '🇻🇳' : '🇬🇧'}</Text>
+                    <Text style={[styles.pickerRowText, active && styles.pickerRowTextActive, { flex: 1 }]}>
+                      {lang === 'vi' ? ts('languageVi') : ts('languageEn')}
+                    </Text>
+                    {active ? <Ionicons name="checkmark" size={20} color="#ffffff" /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Delete Account Modal — lazy load, only renders when user opens it */}
+      {showDeleteModal && (
+        <Suspense fallback={null}>
+          <DeleteAccountModal
+            visible={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={handleDeleteAccount}
+          />
+        </Suspense>
+      )}
+
+      {/* Change Password Modal — lazy load */}
+      {showChangePasswordModal && (
+        <Suspense fallback={null}>
+          <ChangePasswordModal
+            visible={showChangePasswordModal}
+            onClose={() => setShowChangePasswordModal(false)}
+          />
+        </Suspense>
+      )}
+
+      <AppAlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={alertState.buttons}
+        onDismiss={dismissAlert}
+      />
+
+      {/* Logout Confirm Modal */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <Pressable style={styles.logoutModalOverlay} onPress={() => setShowLogoutModal(false)}>
+          <Pressable style={styles.logoutModalCard} onPress={() => {}}>
+            <View style={styles.logoutModalIconWrap}>
+              <Ionicons name="log-out-outline" size={32} color="#dc2626" />
+            </View>
+            <Text style={styles.logoutModalTitle}>{t('logoutConfirmTitle')}</Text>
+            <Text style={styles.logoutModalMessage}>{t('logoutConfirmMessage')}</Text>
+            <View style={styles.logoutModalActions}>
+              <Pressable
+                style={[styles.logoutModalBtn, styles.logoutModalBtnCancel]}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={styles.logoutModalBtnCancelText}>{tc('cancel')}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.logoutModalBtn, styles.logoutModalBtnConfirm]}
+                onPress={handleLogout}
+              >
+                <Text style={styles.logoutModalBtnConfirmText}>{t('logout')}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -838,7 +1085,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: spacing.sm
+    marginTop: spacing.xxl,
+    marginBottom: spacing.md
   },
   sectionTitle: {
     fontSize: typography.size.md,
@@ -883,7 +1131,137 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
     color: colors.textPrimary
   },
+  // Action meta (current value next to chevron)
+  actionMeta: {
+    fontSize: typography.size.xs,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginRight: spacing.xs,
+    flexShrink: 0,
+  },
+  // Picker rows (inside font/lang modal)
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  pickerRowActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  pickerRowText: {
+    fontSize: typography.size.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  pickerRowTextActive: {
+    color: '#ffffff',
+  },
+  // Logout
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: spacing.md + 2,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+    borderWidth: 1.5,
+    borderColor: '#dc2626',
+  },
+  logoutBtnText: {
+    fontSize: typography.size.md,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+  logoutModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  logoutModalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+  },
+  logoutModalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fee2e2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  logoutModalTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  logoutModalMessage: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  logoutModalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    width: '100%',
+  },
+  logoutModalBtn: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  logoutModalBtnCancel: {
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  logoutModalBtnConfirm: {
+    backgroundColor: '#dc2626',
+  },
+  logoutModalBtnCancelText: {
+    fontSize: typography.size.sm,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  logoutModalBtnConfirmText: {
+    fontSize: typography.size.sm,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
   // Quick Actions
+  actionGroup: {
+    marginBottom: spacing.lg,
+  },
+  subSectionTitle: {
+    fontSize: typography.size.xs,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
   quickActionsGrid: {
     gap: spacing.sm
   },
@@ -905,6 +1283,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   actionCardPressed: {
     opacity: 0.75,
+  },
+  actionCardDestructive: {
+    borderColor: '#fca5a5',
+    backgroundColor: '#fef2f2',
   },
   actionIcon: {
     flexShrink: 0,

@@ -344,14 +344,22 @@ export default function SubscriptionScreen() {
   }
 
   const freeFeatures = [
-    { icon: <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />, text: t('features.history7d') },
-    { icon: <Ionicons name="people-outline" size={16} color={colors.textSecondary} />, text: t('features.connections3') },
-    { icon: <Ionicons name="mic-off-outline" size={16} color={colors.textSecondary} />, text: t('features.voiceNo'), dim: true },
+    { icon: <Ionicons name="calendar-outline"      size={16} color={colors.textSecondary} />, text: t('features.history7d') },
+    { icon: <Ionicons name="chatbubble-outline"    size={16} color={colors.textSecondary} />, text: t('features.chatHistory7d') },
+    { icon: <Ionicons name="layers-outline"        size={16} color={colors.textSecondary} />, text: t('features.chatContext50') },
+    { icon: <Ionicons name="people-outline"        size={16} color={colors.textSecondary} />, text: t('features.connectionsFree') },
+    { icon: <Ionicons name="mic-off-outline"       size={16} color={colors.textSecondary} />, text: t('features.voiceChatNo'),       dim: true },
+    { icon: <Ionicons name="mic-off-outline"       size={16} color={colors.textSecondary} />, text: t('features.voiceLogNo'),        dim: true },
+    { icon: <Ionicons name="mic-off-outline"       size={16} color={colors.textSecondary} />, text: t('features.voiceTranscribeNo'), dim: true },
   ];
   const premiumFeatures = [
     { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.history365d') },
+    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.chatHistory365d') },
+    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.chatContext300') },
     { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.connections50') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.voice5k') },
+    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.voiceChat5k') },
+    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.voiceLogYes') },
+    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.voiceTranscribeYes') },
   ];
 
   const activePlan = PLANS.find(p => p.months === selectedPlan) ?? PLANS[0];

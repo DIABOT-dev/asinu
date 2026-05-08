@@ -45,6 +45,7 @@ export type Profile = {
     status: string;
   }>;
   languagePreference?: string;
+  hasPassword?: boolean;
 };
 
 type AuthState = {

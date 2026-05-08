@@ -81,5 +81,11 @@ export const authApi = {
   },
   deleteAccount() {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/profile', { method: 'DELETE' });
+  },
+  changePassword(currentPassword: string, newPassword: string) {
+    return apiClient<{ ok: boolean; message?: string; error?: string }>('/api/mobile/auth/change-password', {
+      method: 'POST',
+      body: { currentPassword, newPassword },
+    });
   }
 };

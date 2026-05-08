@@ -7,9 +7,6 @@ export const navigation = {
   goToHome() {
     router.replace('/(tabs)/home' as Href);
   },
-  goToSettings() {
-    router.push('/settings' as Href);
-  },
   goToLogs(type?: 'glucose' | 'blood-pressure' | 'medication' | 'weight' | 'water' | 'meal' | 'insulin') {
     if (!type) {
       router.push('/logs' as Href);
