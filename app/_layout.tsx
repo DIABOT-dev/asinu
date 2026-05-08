@@ -1,6 +1,14 @@
 import type { ParamListBase, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Stack, usePathname } from 'expo-router';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +43,15 @@ export default function RootLayout() {
   const { t } = useTranslation('auth');
   const { colors, isDark } = useThemeColors();
   const setSystemScheme = useThemeStore((s) => s.setSystemScheme);
+  // Load Inter font weights — chuẩn typography cho healthcare app.
+  // Render null cho đến khi font ready (~200ms first launch, sau đó cached).
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
 
   // Apply theme colors globally when resolved theme changes
   const resolved = useThemeStore((s) => s.resolved);
@@ -79,6 +96,9 @@ export default function RootLayout() {
     }),
     [t, colors]
   );
+
+  // Block render đến khi font load xong → tránh flash of unstyled text
+  if (!fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

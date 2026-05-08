@@ -1,4 +1,5 @@
 {
+  "greeting": "Hello,",
   "personalInfo": "Personal Information",
   "fullName": "Full Name",
   "phone": "Phone Number",
@@ -49,5 +50,9 @@
   "wallet": "Wallet",
   "subscription": "Subscription",
   "planPremium": "Premium",
-  "planFree": "Free"
+  "planFree": "Free",
+  "accountType": "Account",
+  "planFreeDesc": "You're on the free plan with basic features",
+  "planPremiumDesc": "You have full access to premium features",
+  "upgradePremium": "Upgrade to Premium"
 }

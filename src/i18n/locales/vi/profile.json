@@ -1,4 +1,5 @@
 {
+  "greeting": "Xin chào,",
   "personalInfo": "Thông tin cá nhân",
   "fullName": "Họ tên",
   "phone": "Số điện thoại",
@@ -49,5 +50,9 @@
   "wallet": "Ví tiền",
   "subscription": "Gói cước",
   "planPremium": "Premium",
-  "planFree": "Miễn phí"
+  "planFree": "Miễn phí",
+  "accountType": "Tài khoản",
+  "planFreeDesc": "Bạn đang dùng bản miễn phí với các tính năng cơ bản",
+  "planPremiumDesc": "Bạn đang sử dụng đầy đủ tính năng cao cấp",
+  "upgradePremium": "Nâng cấp Premium"
 }

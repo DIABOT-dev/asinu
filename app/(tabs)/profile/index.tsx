@@ -41,6 +41,7 @@ export default function ProfileScreen() {
 
   // Edit profile state
   const [isEditModalVisible, setEditModalVisible] = useState(false);
+  const [showPlanInfoModal, setShowPlanInfoModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAge, setEditAge] = useState('');
@@ -220,7 +221,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const { glucoseText, bpText, todayTasksText, glucoseStatus } = healthOverview;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { glucoseText, bpText, todayTasksText, glucoseStatus } = healthOverview; // (deprecated — health overview section đã bỏ)
 
   return (
     <Screen>
@@ -238,25 +240,139 @@ export default function ProfileScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.profileHeaderCard}
         >
-          <Text style={styles.profileName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{identityTitle}</Text>
-          <Text style={styles.profileStatus}>{statusText}</Text>
-          <TouchableOpacity
-            style={[styles.planChip, subStatus?.isPremium ? styles.planChipPremium : styles.planChipFree, !subStatus && { opacity: 0 }]}
-            onPress={() => router.push('/subscription')}
-            activeOpacity={0.8}
-            disabled={!subStatus}
-          >
-            <MaterialCommunityIcons
-              name={subStatus?.isPremium ? 'crown' : 'account-outline'}
-              size={13}
-              color={subStatus?.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.9)'}
-            />
-            <Text style={[styles.planChipText, subStatus?.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
-              {subStatus?.isPremium ? t('planPremium') : t('planFree')}
-            </Text>
-          </TouchableOpacity>
+          {/* Decorative blob top-right cho depth */}
+          <View pointerEvents="none" style={styles.profileDecorBlob} />
+
+          {/* Top row: avatar + greeting + name + status */}
+          <View style={styles.profileTopRow}>
+            <View style={styles.profileAvatarBig}>
+              <MaterialCommunityIcons name="account-circle" size={62} color="rgba(255,255,255,0.95)" />
+              {/* Live status dot ở góc dưới phải avatar */}
+              <View style={styles.profileLiveDot} />
+            </View>
+            <View style={{ flex: 1, marginLeft: spacing.md, minWidth: 0 }}>
+              <Text style={styles.profileGreetingTop}>{t('greeting')}</Text>
+              <Text style={styles.profileName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{identityTitle}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                <View style={styles.profileLiveTextDot} />
+                <Text style={styles.profileStatus}>{statusText}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Bottom row: plan pill (left) + member-since stat (right) */}
+          <View style={styles.profileBottomRow}>
+            <TouchableOpacity
+              style={[styles.planChipNew, subStatus?.isPremium ? styles.planChipPremium : styles.planChipFree, !subStatus && { opacity: 0 }]}
+              onPress={() => setShowPlanInfoModal(true)}
+              activeOpacity={0.8}
+              disabled={!subStatus}
+            >
+              <MaterialCommunityIcons
+                name={subStatus?.isPremium ? 'crown' : 'shield-account-outline'}
+                size={14}
+                color={subStatus?.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.95)'}
+              />
+              <Text style={[styles.planChipText, subStatus?.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
+                {(t('accountType') || 'Tài khoản') + ': '}{subStatus?.isPremium ? t('planPremium') : t('planFree')}
+              </Text>
+              <Ionicons
+                name="information-circle-outline"
+                size={14}
+                color={subStatus?.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.85)'}
+              />
+            </TouchableOpacity>
+          </View>
         </LinearGradient>
         </Animated.View>
+
+        {/* Plan Info Modal — quyền lợi free / premium */}
+        <Modal
+          visible={showPlanInfoModal}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setShowPlanInfoModal(false)}
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}
+            onPress={() => setShowPlanInfoModal(false)}
+          >
+            <Pressable
+              style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 360, gap: spacing.md }}
+              onPress={() => {}}
+            >
+              <View style={{ alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: subStatus?.isPremium ? colors.premiumLight : colors.primaryLight, alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons
+                    name={subStatus?.isPremium ? 'crown' : 'shield-account-outline'}
+                    size={28}
+                    color={subStatus?.isPremium ? colors.premiumDark : colors.primary}
+                  />
+                </View>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>
+                  {subStatus?.isPremium ? (t('planPremium') || 'Premium') : (t('planFree') || 'Miễn phí')}
+                </Text>
+                <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center' }}>
+                  {subStatus?.isPremium
+                    ? (t('planPremiumDesc') || 'Bạn đang sử dụng đầy đủ tính năng cao cấp')
+                    : (t('planFreeDesc') || 'Bạn đang dùng bản miễn phí với các tính năng cơ bản')}
+                </Text>
+              </View>
+
+              {/* Benefit list — actual spec từ product team */}
+              <View style={{ gap: 8, marginTop: 4 }}>
+                {(subStatus?.isPremium
+                  ? [
+                      { icon: 'check-circle', text: 'Vòng kết nối: tối đa 50 người' },
+                      { icon: 'check-circle', text: 'Chat AI Asinu: không giới hạn' },
+                      { icon: 'check-circle', text: 'Lịch sử log: 30 ngày' },
+                      { icon: 'check-circle', text: 'Check-in sức khoẻ hàng ngày' },
+                      { icon: 'check-circle', text: 'Cảnh báo khẩn cấp 115 (SOS)' },
+                      { icon: 'check-circle', text: 'Ghi log đường huyết, huyết áp, cân nặng' },
+                    ]
+                  : [
+                      { icon: 'check', text: 'Vòng kết nối: 1 người' },
+                      { icon: 'check', text: 'Chat AI Asinu: 1.000 tin nhắn / tháng' },
+                      { icon: 'check', text: 'Lịch sử log: 7 ngày' },
+                      { icon: 'check', text: 'Check-in sức khoẻ hàng ngày' },
+                      { icon: 'check', text: 'Cảnh báo khẩn cấp 115 (SOS)' },
+                      { icon: 'check', text: 'Ghi log đường huyết, huyết áp, cân nặng' },
+                    ]
+                ).map((b, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
+                    <MaterialCommunityIcons
+                      name={b.icon as any}
+                      size={18}
+                      color={subStatus?.isPremium ? colors.premium : colors.success}
+                    />
+                    <Text style={{ flex: 1, fontSize: 14, color: colors.textPrimary, fontWeight: '600' }}>
+                      {b.text}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* CTA buttons */}
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <Pressable
+                  style={{ flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: colors.surfaceMuted }}
+                  onPress={() => setShowPlanInfoModal(false)}
+                >
+                  <Text style={{ color: colors.textPrimary, fontWeight: '600', fontSize: 14 }}>{tc('close') || 'Đóng'}</Text>
+                </Pressable>
+                {!subStatus?.isPremium && (
+                  <Pressable
+                    style={{ flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: colors.premium }}
+                    onPress={() => { setShowPlanInfoModal(false); router.push('/subscription'); }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{t('upgradePremium') || 'Nâng cấp Premium'}</Text>
+                  </Pressable>
+                )}
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* User Info Card */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
@@ -267,13 +383,8 @@ export default function ProfileScreen() {
         <View style={styles.infoList}>
           {hasProfile ? (
             <>
-              <View style={styles.infoItemCard}>
-                <Ionicons name="person-outline" size={22} color={iconColors.primary} style={styles.infoIcon} />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>{t('fullName')}</Text>
-                  <Text style={styles.infoValue}>{name || tc('notUpdated')}</Text>
-                </View>
-              </View>
+              {/* "Họ tên" field bỏ — đã hiển thị to trong hero card phía trên,
+                  tránh duplicate. Nếu cần edit tên → vào edit profile screen. */}
 
               <View style={styles.infoItemCard}>
                 <Ionicons name="call-outline" size={22} color={iconColors.emerald} style={styles.infoIcon} />
@@ -386,46 +497,8 @@ export default function ProfileScreen() {
         </View>
         </Animated.View>
 
-        {/* Health Overview */}
-        <Animated.View entering={FadeIn.delay(240).duration(350)}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="heart-circle-outline" size={22} color={iconColors.danger} />
-          <Text style={styles.sectionTitle}>{t('healthOverview')}</Text>
-        </View>
-        <View style={styles.healthCardsGrid}>
-          <View style={[styles.healthCard, styles.healthCardGlucose]}>
-            <View style={styles.healthCardHeader}>
-              <MaterialCommunityIcons name="water" size={20} color={iconColors.glucose} />
-              <Text style={styles.healthCardTitle}>{t('glucose')}</Text>
-            </View>
-            <Text style={[styles.healthCardValue, glucoseStatus === 'warning' && styles.healthValueWarning, glucoseStatus === 'danger' && styles.healthValueDanger]}>{glucoseText}</Text>
-            {glucoseStatus !== 'normal' && (
-              <View style={styles.healthAlert}>
-                <Ionicons name="alert-circle" size={16} color={glucoseStatus === 'danger' ? iconColors.danger : iconColors.premium} />
-                <Text style={[styles.healthAlertText, { color: glucoseStatus === 'danger' ? colors.danger : colors.premium }]}>
-                  {glucoseStatus === 'danger' ? t('needsAttention') : t('slightlyHigh')}
-                </Text>
-              </View>
-            )}
-          </View>
-          
-          <View style={[styles.healthCard, styles.healthCardBP]}>
-            <View style={styles.healthCardHeader}>
-              <MaterialCommunityIcons name="heart-pulse" size={20} color={iconColors.bp} />
-              <Text style={styles.healthCardTitle}>{t('bloodPressure')}</Text>
-            </View>
-            <Text style={styles.healthCardValue}>{bpText}</Text>
-          </View>
-          
-          <View style={[styles.healthCard, styles.healthCardMissions]}>
-            <View style={styles.healthCardHeader}>
-              <Ionicons name="checkbox-outline" size={20} color={iconColors.emerald} />
-              <Text style={styles.healthCardTitle}>{t('missions')}</Text>
-            </View>
-            <Text style={styles.healthCardValue}>{todayTasksText}</Text>
-          </View>
-        </View>
-        </Animated.View>
+        {/* Health Overview section bỏ — đã có tab "Tổng quan" hiển thị data
+            chi tiết hơn (chart, history, trend). Tránh duplicate. */}
       </RippleRefreshScrollView>
 
       {/* Edit Profile Modal */}
@@ -628,14 +701,74 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   // Profile Header
   profileHeaderCard: {
-    borderRadius: 24,
-    padding: spacing.xl,
-    alignItems: 'center',
+    borderRadius: 28,
+    padding: spacing.lg,
+    overflow: 'hidden',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  profileDecorBlob: {
+    position: 'absolute',
+    top: -40,
+    right: -50,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  profileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileAvatarBig: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  profileLiveDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#22c55e',
+    borderWidth: 2.5,
+    borderColor: colors.primary,
+  },
+  profileLiveTextDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4ade80',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
+  profileGreetingTop: {
+    fontSize: typography.size.xs,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500' as const,
+  },
+  profileBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: spacing.md,
+  },
+  planChipNew: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   avatarContainer: {
     position: 'relative',
@@ -664,15 +797,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   profileName: {
     fontSize: typography.size.xl,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#fff',
-    marginBottom: spacing.xs,
-    width: '100%',
-    textAlign: 'center',
+    marginTop: 2,
   },
   profileStatus: {
-    fontSize: typography.size.sm,
-    color: 'rgba(255,255,255,0.9)'
+    fontSize: typography.size.xs,
+    color: 'rgba(255,255,255,0.92)',
+    fontWeight: '500' as const,
   },
   planChip: {
     marginTop: spacing.sm,

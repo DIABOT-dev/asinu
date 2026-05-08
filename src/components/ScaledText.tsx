@@ -9,6 +9,43 @@ import { useScaledFontSize } from '../hooks/useScaledTypography';
  * // Thay vì: <Text style={{ fontSize: 16 }}>Hello</Text>
  * // Sử dụng: <ScaledText style={{ fontSize: 16 }}>Hello</ScaledText>
  */
+/**
+ * Map fontWeight (string/number) → Inter font weight family.
+ * fontWeight numeric scale: 400/500/600/700/800. Inter ko có 100-300 và 900 trong app này.
+ */
+function pickInterFamily(fontWeight: TextStyle['fontWeight']): string {
+  if (!fontWeight) return 'Inter_400Regular';
+  const w = typeof fontWeight === 'number' ? fontWeight : parseInt(String(fontWeight), 10);
+  if (!isNaN(w)) {
+    if (w >= 800) return 'Inter_800ExtraBold';
+    if (w >= 700) return 'Inter_700Bold';
+    if (w >= 600) return 'Inter_600SemiBold';
+    if (w >= 500) return 'Inter_500Medium';
+    return 'Inter_400Regular';
+  }
+  if (fontWeight === 'bold') return 'Inter_700Bold';
+  return 'Inter_400Regular';
+}
+
+/**
+ * Extract aggregate fontWeight từ style (last wins).
+ */
+function extractFontWeight(style: any): TextStyle['fontWeight'] | undefined {
+  if (!style) return undefined;
+  if (typeof style === 'object' && !Array.isArray(style)) {
+    return (style as TextStyle).fontWeight;
+  }
+  if (Array.isArray(style)) {
+    for (let i = style.length - 1; i >= 0; i--) {
+      const s = style[i];
+      if (s && typeof s === 'object' && 'fontWeight' in s) {
+        return (s as TextStyle).fontWeight;
+      }
+    }
+  }
+  return undefined;
+}
+
 export const ScaledText = ({ style, ...props }: RNTextProps) => {
   const getBaseValues = (): { fontSize: number; lineHeight?: number } => {
     if (!style) return { fontSize: 16 };
@@ -45,7 +82,17 @@ export const ScaledText = ({ style, ...props }: RNTextProps) => {
     ? Math.max(Math.round(baseLineHeight * ratio), Math.round(scaledFontSize * lineHeightMultiplier))
     : Math.round(scaledFontSize * lineHeightMultiplier);
 
-  const overrides: TextStyle = { fontSize: scaledFontSize, lineHeight: scaledLineHeight };
+  // Pick Inter family theo fontWeight aggregate. Override fontWeight=normal
+  // vì Inter family đã encode weight rồi (tránh fake bold trên Android).
+  const fontWeight = extractFontWeight(style);
+  const fontFamily = pickInterFamily(fontWeight);
+
+  const overrides: TextStyle = {
+    fontSize: scaledFontSize,
+    lineHeight: scaledLineHeight,
+    fontFamily,
+    fontWeight: 'normal',  // Reset vì Inter_XXX_Bold đã đủ weight
+  };
 
   const finalStyle: TextStyle[] = Array.isArray(style)
     ? [...(style as TextStyle[]), overrides]

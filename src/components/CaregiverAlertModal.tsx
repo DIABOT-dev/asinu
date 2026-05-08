@@ -22,6 +22,7 @@ interface PendingAlert {
   currentStatus: string;
   flowState: string;
   sentAt: string;
+  state?: 'active' | 'missed';  // backend trả: active=urgent, missed=soft
 }
 
 export function CaregiverAlertModal() {
@@ -50,10 +51,32 @@ export function CaregiverAlertModal() {
   const fetchPendingAlerts = useCallback(() => {
     apiClient<{ ok: boolean; alerts: PendingAlert[] }>('/api/mobile/checkin/pending-alerts')
       .then(res => {
-        if (res.alerts?.length) {
-          setAlerts(res.alerts);
+        if (!res.alerts?.length) return;
+        // Tách 'active' (modal urgent) vs 'missed' (toast soft).
+        const activeAlerts = res.alerts.filter(a => a.state !== 'missed');
+        const missedAlerts = res.alerts.filter(a => a.state === 'missed');
+
+        if (activeAlerts.length > 0) {
+          setAlerts(activeAlerts);
           setCurrent(0);
         }
+        // Missed alerts → toast nhẹ, không popup modal alarming
+        for (const m of missedAlerts) {
+          showToast(
+            `📭 Bạn đã lỡ thông báo từ ${m.patientName}`,
+            'info',
+            5000,
+          );
+        }
+        // Auto-confirm missed alerts để không show toast lặp lại lần fetch tiếp
+        Promise.all(
+          missedAlerts.map(m =>
+            apiClient('/api/mobile/checkin/confirm-alert', {
+              method: 'POST',
+              body: { alert_id: m.alertId, action: 'seen' },
+            }).catch(() => {})
+          )
+        );
       })
       .catch(() => {});
   }, []);
