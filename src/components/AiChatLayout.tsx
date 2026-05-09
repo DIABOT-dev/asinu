@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 let _Audio: typeof import('expo-av').Audio | null = null;
 async function getAudio() {
   if (!_Audio) { _Audio = (await import('expo-av')).Audio; }
@@ -19,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { AppAlertModal, useAppAlert } from './AppAlertModal';
+import { TypingIndicator } from './TypingIndicator';
 import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useLanguageStore } from '../stores/language.store';
@@ -56,7 +58,28 @@ export const AiChatLayout = ({
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: '#faf9f5',
+      overflow: 'hidden',
+    },
+    bgBlobTopRight: {
+      position: 'absolute',
+      top: -160,
+      right: -120,
+      width: 360,
+      height: 360,
+      borderRadius: 180,
+      backgroundColor: colors.primary,
+      opacity: 0.07,
+    },
+    bgBlobBottomLeft: {
+      position: 'absolute',
+      bottom: 80,
+      left: -140,
+      width: 280,
+      height: 280,
+      borderRadius: 140,
+      backgroundColor: colors.primary,
+      opacity: 0.04,
     },
     list: {
       padding: spacing.xl,
@@ -99,11 +122,6 @@ export const AiChatLayout = ({
     },
     timestamp: {
       color: colors.textSecondary,
-    },
-    typing: {
-      textAlign: 'center',
-      color: colors.textSecondary,
-      marginBottom: spacing.md,
     },
     actionBar: {
       flexDirection: 'row',
@@ -495,6 +513,16 @@ export const AiChatLayout = ({
 
   return (
     <View style={styles.container}>
+      {/* Background: ấm cream → sage gradient + 2 brand-tint blobs để feel premium */}
+      <LinearGradient
+        colors={['#faf9f5', '#f5f8f4', '#eff5ef']}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={styles.bgBlobTopRight} pointerEvents="none" />
+      <View style={styles.bgBlobBottomLeft} pointerEvents="none" />
+
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <FlatList
         ref={flatListRef}
@@ -515,9 +543,7 @@ export const AiChatLayout = ({
         renderItem={renderMessage}
         ListFooterComponent={
           isTyping ? (
-            <Text style={[styles.typing, { fontSize: scaledTypography.size.sm }]}>
-              {t('chat:typing')}
-            </Text>
+            <TypingIndicator avatar={assistantAvatar} />
           ) : null
         }
       />

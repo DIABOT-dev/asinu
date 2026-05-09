@@ -3,7 +3,7 @@
   "errorReply": "Sorry, I can't answer right now.",
   "systemBusy": "Sorry, the system is busy. Please try again later.",
   "title": "Chat with Asinu",
-  "typing": "Asinu is typing...",
+  "typing": "Asinu is responding, please wait a moment",
   "placeholder": "Enter message",
   "mascotGreeting": "Hi, I'm Asinu!",
   "stickerText": "Chat with Asinu!",
