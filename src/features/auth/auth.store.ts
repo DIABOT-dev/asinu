@@ -265,8 +265,10 @@ export const useAuthStore = create<AuthState>()(
         useWellnessStore.getState().reset();
         useCarePulseStore.getState().reset();
 
-        // Clear persisted user-scoped data from AsyncStorage
-        AsyncStorage.multiRemove(['wellness-store', 'care_pulse_v1', '@asinu/data_consent_v1']).catch(() => {});
+        // Clear persisted user-scoped data from AsyncStorage.
+        // KHÔNG xoá '@asinu/data_consent_v1' — consent là per-device, chỉ hiện 1 lần
+        // suốt đời cài đặt app (cho đến khi user uninstall). Logout không reset consent.
+        AsyncStorage.multiRemove(['wellness-store', 'care_pulse_v1']).catch(() => {});
 
         set({ profile: null, token: null });
       }
