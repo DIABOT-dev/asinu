@@ -439,11 +439,22 @@ export default function CheckinScreen() {
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
         headerShadowVisible: false,
-        headerLeft: () => (
-          <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-            <Ionicons name="close" size={24} color={colors.primary} />
-          </TouchableOpacity>
-        ),
+        headerLeft: () => {
+          // Adaptive: ở step 'location' show ← để back về status; các step khác show ✕ để đóng
+          const canGoBackStep = screen === 'location';
+          const handlePress = canGoBackStep
+            ? () => { setPendingStatus(null); setScreen('status'); }
+            : () => router.back();
+          return (
+            <TouchableOpacity onPress={handlePress} style={{ padding: 10 }}>
+              <Ionicons
+                name={canGoBackStep ? 'arrow-back' : 'close'}
+                size={24}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          );
+        },
       }} />
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
 
@@ -681,29 +692,48 @@ function LocationScreen({
         })}
       </View>
 
-      {/* Free-text "Khác" — user gõ vùng tự do */}
+      {/* Free-text "Khác" — user gõ vùng tự do (đồng bộ kích thước với card body location ở trên) */}
       <View style={{ marginTop: spacing.lg }}>
-        <Text style={{ color: colors.textSecondary, marginBottom: spacing.xs, fontSize: 13 }}>
+        <Text style={{ color: colors.textSecondary, marginBottom: spacing.sm, fontSize: 13 }}>
           {isVi ? 'Hoặc gõ vùng khác (vd: lưng dưới, môi, gối...)' : 'Or type other area (e.g. lower back, lips, knee...)'}
         </Text>
-        <TextInput
-          value={other}
-          onChangeText={setOther}
-          placeholder={isVi ? 'Vùng khác...' : 'Other area...'}
-          placeholderTextColor={colors.textSecondary}
-          editable={!loading}
-          maxLength={200}
+        <View
           style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: spacing.md,
+            borderRadius: 16,
+            backgroundColor: colors.surface,
             borderWidth: 1.5,
             borderColor: other.trim() ? colors.primary : colors.border,
-            borderRadius: 12,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
-            fontSize: 15,
-            color: colors.textPrimary,
-            backgroundColor: colors.surface,
+            gap: spacing.md,
           }}
-        />
+        >
+          {/* Spacer 22px = chỗ checkbox của các card phía trên (giữ alignment) */}
+          <View style={{ width: 22 }} />
+          {/* Icon pencil — parallel với icon body location của các card */}
+          <MaterialCommunityIcons
+            name="pencil-outline"
+            size={28}
+            color={other.trim() ? colors.primary : colors.textSecondary}
+          />
+          <TextInput
+            value={other}
+            onChangeText={setOther}
+            placeholder={isVi ? 'Vùng khác...' : 'Other area...'}
+            placeholderTextColor={colors.textSecondary}
+            editable={!loading}
+            maxLength={200}
+            style={{
+              flex: 1,
+              fontSize: 17,
+              fontWeight: '600',
+              color: colors.textPrimary,
+              padding: 0,
+              minHeight: 24,
+            }}
+          />
+        </View>
       </View>
 
       <Pressable
@@ -720,16 +750,6 @@ function LocationScreen({
       >
         <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
           {confirmLabel}
-        </Text>
-      </Pressable>
-
-      <Pressable
-        onPress={onBack}
-        disabled={loading}
-        style={{ marginTop: spacing.sm, alignItems: 'center', paddingVertical: spacing.sm }}
-      >
-        <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
-          {isVi ? '← Quay lại' : '← Back'}
         </Text>
       </Pressable>
     </View>
