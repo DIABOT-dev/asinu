@@ -39,6 +39,22 @@
           <string>exp+asinu-lite</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>zalo</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>zalo-1807041944337139731</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>facebook</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>fb1498953168498253</string>
+        </array>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
@@ -54,6 +70,8 @@
       <string>zaloshareext</string>
       <string>fbapi</string>
       <string>fb-messenger-share-api</string>
+      <string>fbauth2</string>
+      <string>fbshareextension</string>
     </array>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>

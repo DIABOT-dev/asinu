@@ -1,4 +1,7 @@
 {
+  "exitOnboardingTitle": "Quay về màn đăng nhập?",
+  "exitOnboardingMessage": "Tài khoản của bạn vẫn được giữ. Khi đăng nhập lại bạn sẽ phải làm lại khảo sát từ đầu. Tiếp tục?",
+  "exitOnboardingConfirm": "Quay về",
   "title": "Khảo sát sức khoẻ",
   "subtitle": "Asinu sẽ hỏi một vài câu để hiểu và đồng hành cùng bạn tốt hơn",
   "questionLabel": "Câu {{n}}",

@@ -1,4 +1,7 @@
 {
+  "exitOnboardingTitle": "Back to login screen?",
+  "exitOnboardingMessage": "Your account stays active. You'll need to log in again and restart the survey from the beginning. Continue?",
+  "exitOnboardingConfirm": "Go back",
   "title": "Health Survey",
   "subtitle": "Asinu will ask a few questions to better understand and support you",
   "questionLabel": "Question {{n}}",

@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -214,6 +214,27 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bootstrap = useAuthStore((s) => s.bootstrap);
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleExit = () => {
+    showAlert(
+      t('exitOnboardingTitle') || 'Quay về màn đăng nhập?',
+      t('exitOnboardingMessage') || 'Tài khoản của bạn vẫn được giữ. Khi đăng nhập lại bạn sẽ phải làm lại khảo sát từ đầu. Tiếp tục?',
+      [
+        { text: tc('cancel') || 'Huỷ', style: 'cancel' },
+        {
+          text: t('exitOnboardingConfirm') || 'Quay về',
+          // Logout để clear token → đẩy về login. Account vẫn còn trên BE,
+          // user đăng nhập lại → vì onboarding chưa completed → app tự route
+          // lại onboarding từ step 1.
+          onPress: async () => {
+            try { await logout(); } catch {}
+            router.replace('/login');
+          },
+        },
+      ],
+    );
+  };
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -446,14 +467,23 @@ export default function OnboardingScreen() {
         </Pressable>
       )}
 
-      {/* Top bar: font size + language toggle */}
+      {/* Top bar: exit + font size (left group) + language toggle (right) */}
       <View style={styles.topBar}>
-        <Pressable style={styles.fontSizeTopBtn} onPress={() => setShowFontModal(true)}>
-          <MaterialCommunityIcons name="format-size" size={18} color={colors.primary} />
-          <Text style={[styles.fontSizeTopLabel, { fontSize: scaledTypography.size.xs }]}>
-            {getFontSizeLabel(scale)}
-          </Text>
-        </Pressable>
+        <View style={styles.topBarLeft}>
+          <Pressable
+            onPress={handleExit}
+            hitSlop={10}
+            style={({ pressed }) => [styles.exitBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="close" size={22} color={colors.textSecondary} />
+          </Pressable>
+          <Pressable style={styles.fontSizeTopBtn} onPress={() => setShowFontModal(true)}>
+            <MaterialCommunityIcons name="format-size" size={18} color={colors.primary} />
+            <Text style={[styles.fontSizeTopLabel, { fontSize: scaledTypography.size.xs }]}>
+              {getFontSizeLabel(scale)}
+            </Text>
+          </Pressable>
+        </View>
         <View style={styles.languageToggle}>
           {(['vi', 'en'] as const).map(lang => (
             <Pressable
@@ -1052,6 +1082,21 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingHorizontal: spacing.xl,
       paddingTop: spacing.sm,
       paddingBottom: spacing.xs,
+    },
+    topBarLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    exitBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     languageToggle: {
       flexDirection: 'row',
