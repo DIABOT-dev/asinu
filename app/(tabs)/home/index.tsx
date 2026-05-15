@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppState, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInUp, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
@@ -53,6 +53,77 @@ function InfoButton({ text, styles }: { text: string; styles: any }) {
         </Pressable>
       </Modal>
     </>
+  );
+}
+
+function FloatingLeaf({ x, y, rotate, size, color, delay = 0 }: any) {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    setTimeout(() => {
+      translateY.value = withRepeat(
+        withSequence(
+          withTiming(-8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+      opacity.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    }, delay);
+  }, [delay]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate }, { translateY: translateY.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  return (
+    <Animated.View style={[{ position: 'absolute', ...(y.top !== undefined ? { top: y.top } : {}), ...(y.bottom !== undefined ? { bottom: y.bottom } : {}), ...(x.left !== undefined ? { left: x.left } : {}), ...(x.right !== undefined ? { right: x.right } : {}) }, animatedStyle]}>
+      <Ionicons name="leaf" size={size} color={color} />
+    </Animated.View>
+  );
+}
+
+function AnimatedBorderLight({ color }: { color: string }) {
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 8000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${rotation.value}deg` }],
+    };
+  });
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 20 }]}>
+      <Animated.View style={[{ width: '200%', height: '200%', position: 'absolute', top: '-50%', left: '-50%' }, animatedStyle]}>
+        <LinearGradient
+          colors={['transparent', color, 'transparent']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+      <View style={{ position: 'absolute', top: 2, left: 2, right: 2, bottom: 2, backgroundColor: 'rgba(255, 255, 255, 0.75)', borderRadius: 18 }} />
+    </View>
   );
 }
 
@@ -175,6 +246,11 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      <LinearGradient
+        colors={['#0d9488', '#2dd4bf', '#ccfbf1', '#f8fafc']}
+        locations={[0, 0.2, 0.4, 0.8]}
+        style={StyleSheet.absoluteFillObject}
+      />
       {/* Modal: Đã check-in rồi */}
       <Modal visible={showAlreadyDoneModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowAlreadyDoneModal(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setShowAlreadyDoneModal(false)}>
@@ -219,18 +295,13 @@ export default function HomeScreen() {
       >
         {/* Hero Banner */}
         <Animated.View entering={FadeIn.delay(0).duration(400)}>
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
-        >
+        <View style={styles.heroBanner}>
           <View style={styles.heroContent}>
             <Text style={styles.heroGreeting}>{t('greeting')}</Text>
             <Text style={styles.heroName}>{profile?.name || t('defaultName')}</Text>
             <Text style={styles.heroSummary}>{t('heroSummary')}</Text>
           </View>
-        </LinearGradient>
+        </View>
         </Animated.View>
 
         {/* Check-in reminder banner */}
@@ -254,16 +325,20 @@ export default function HomeScreen() {
         {/* Metrics Row */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
         <View style={styles.metricsRow}>
-          <Pressable style={[styles.metricCard, styles.metricCardGlucose]} onPress={() => router.push('/logs/glucose')}>
+          <Pressable style={[styles.metricCard, styles.metricCardGlucose, { borderWidth: 0, backgroundColor: 'transparent' }]} onPress={() => router.push('/logs/glucose')}>
+            <AnimatedBorderLight color="#0ea5e9" />
+            
             <MaterialCommunityIcons name="water" size={22} color={iconColors.glucose} />
             <Text style={styles.metricTitle}>{t('glucose')}</Text>
-            <Text style={styles.metricValue}>{quickMetrics.glucose ?? '--'}</Text>
+            <Text style={[styles.metricValue, { textShadowColor: '#2dd4bf', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10, color: '#0d9488' }]}>{quickMetrics.glucose ?? '--'}</Text>
             <Text style={styles.metricUnit}>{tc('unitMgdl')}</Text>
           </Pressable>
-          <Pressable style={[styles.metricCard, styles.metricCardBP]} onPress={() => router.push('/logs/blood-pressure')}>
+          <Pressable style={[styles.metricCard, styles.metricCardBP, { borderWidth: 0, backgroundColor: 'transparent' }]} onPress={() => router.push('/logs/blood-pressure')}>
+            <AnimatedBorderLight color="#fb923c" />
+            
             <MaterialCommunityIcons name="heart-pulse" size={22} color={iconColors.bp} />
             <Text style={styles.metricTitle}>{t('bloodPressure')}</Text>
-            <Text style={styles.metricValue}>{quickMetrics.bloodPressure ?? '--'}</Text>
+            <Text style={[styles.metricValue, { textShadowColor: '#fb923c', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10, color: '#ea580c' }]}>{quickMetrics.bloodPressure ?? '--'}</Text>
             <Text style={styles.metricUnit}>{tc('unitMmhg')}</Text>
           </Pressable>
         </View>
@@ -362,9 +437,23 @@ export default function HomeScreen() {
         </View>
         <View style={styles.treeCards}>
           <View style={styles.treeCard}>
-            <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
-              <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
-            </Suspense>
+            <View style={{ position: 'relative', width: 160, height: 140, justifyContent: 'center', alignItems: 'center' }}>
+              {/* Background Glow */}
+              <View style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(52, 211, 153, 0.3)', shadowColor: '#34d399', shadowOpacity: 1, shadowRadius: 35, shadowOffset: { width: 0, height: 0 }, elevation: 20 }} />
+              
+              {/* Decorative Leaves */}
+              <FloatingLeaf size={14} color="#6ee7b7" x={{ left: 25 }} y={{ top: 15 }} rotate="-35deg" delay={0} />
+              <FloatingLeaf size={22} color="#34d399" x={{ left: 0 }} y={{ top: 50 }} rotate="-75deg" delay={400} />
+              <FloatingLeaf size={12} color="#6ee7b7" x={{ left: 20 }} y={{ bottom: 30 }} rotate="-110deg" delay={800} />
+              
+              <FloatingLeaf size={14} color="#6ee7b7" x={{ right: 25 }} y={{ top: 25 }} rotate="45deg" delay={200} />
+              <FloatingLeaf size={20} color="#34d399" x={{ right: 5 }} y={{ top: 60 }} rotate="80deg" delay={600} />
+              <FloatingLeaf size={18} color="#34d399" x={{ right: 15 }} y={{ bottom: 25 }} rotate="120deg" delay={1000} />
+              
+              <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
+                <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label={t('score')} accentColor="#34d399" />
+              </Suspense>
+            </View>
             <Text style={styles.treeStatLabel}>
               {Math.round((treeSummary?.score ?? 0) * 100)}% - {(treeSummary?.score ?? 0) >= 0.7 ? tt('good') : (treeSummary?.score ?? 0) >= 0.4 ? tt('average') : tt('needsImprovement')}
             </Text>
@@ -505,8 +594,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.primary,
   },
   heroBanner: {
-    borderRadius: 20,
-    padding: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
@@ -539,17 +629,27 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCard: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderRadius: 20,
+    padding: spacing.lg,
   },
   metricCardGlucose: {
     borderWidth: 1.5,
-    borderColor: categoryColors.glucose,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    shadowColor: categoryColors.glucose,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   metricCardBP: {
     borderWidth: 1.5,
-    borderColor: categoryColors.bloodPressure,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    shadowColor: categoryColors.bloodPressure,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   metricTitle: {
     fontSize: typography.size.sm,
@@ -619,10 +719,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   missionCard: {
     padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
     gap: spacing.sm
   },
   missionCardCompleted: {
@@ -719,11 +824,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.md,
   },
   treeCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderRadius: 20,
     padding: spacing.lg,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
     alignItems: 'center',
     gap: spacing.sm,
   },
@@ -763,9 +873,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: spacing.md,
     borderWidth: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   emptyLogsContainer: {
     alignItems: 'center',

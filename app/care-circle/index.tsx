@@ -33,7 +33,7 @@ export default function CareCircleScreen() {
   const screenOptions = useMemo(() => ({
     headerShown: true,
     title: t('title'),
-    headerStyle: { backgroundColor: colors.background },
+    headerStyle: { backgroundColor: '#e0f2fe' },
     headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
     headerShadowVisible: false,
     // Bỏ back button vì giờ care-circle là tab chính (không phải push từ
@@ -317,6 +317,12 @@ export default function CareCircleScreen() {
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>
+      <LinearGradient
+        colors={['#e0f2fe', '#ccfbf1', '#99f6e4']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={refresh}
@@ -541,48 +547,60 @@ export default function CareCircleScreen() {
                   })}
                   activeOpacity={0.75}
                 >
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.cardName} numberOfLines={2}>{otherName}</Text>
+                  <View style={[styles.cardHeader, { alignItems: 'flex-start' }]}>
+                    <LinearGradient colors={['#10b981', '#059669']} style={styles.avatar}>
+                      <Text style={styles.avatarText}>{otherName[0]?.toUpperCase() || '?'}</Text>
+                    </LinearGradient>
+                    
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardName} numberOfLines={1}>{otherName}</Text>
+                      
+                      {(displayRelationship || connection.role) && (
+                        <View style={[styles.cardBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)', marginTop: 4, marginBottom: 4 }]}>
+                          <Ionicons name="heart" size={12} color={iconColors.emerald} />
+                          <Text style={[styles.cardRelation, { color: iconColors.emerald }]}>
+                            {displayRelationship || connection.role}
+                          </Text>
+                        </View>
+                      )}
+                      
+                      {otherUserEmail && (
+                        <View style={styles.contactRow}>
+                          <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
+                          <Text style={styles.cardContact}>{otherUserEmail}</Text>
+                        </View>
+                      )}
+                      {otherUserPhone && (
+                        <View style={styles.contactRow}>
+                          <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
+                          <Text style={styles.cardContact}>{otherUserPhone}</Text>
+                        </View>
+                      )}
+                    </View>
+
                     <View style={styles.cardActionsSmall}>
                       <TouchableOpacity
-                        onPress={() => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` })}
-                        style={styles.iconBtn}
-                      >
-                        <Ionicons name="pencil" size={18} color={iconColors.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteConnection(connection.id, otherName)}
-                        disabled={actionLoading === connection.id}
-                        style={styles.iconBtn}
+                        onPress={() => {
+                          showAlert(
+                            'Tùy chọn',
+                            `Thao tác với ${otherName}`,
+                            [
+                              { text: t('editConnection') || 'Chỉnh sửa kết nối', onPress: () => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` }) },
+                              { text: tc('delete') || 'Xóa', style: 'destructive', onPress: () => handleDeleteConnection(connection.id, otherName) },
+                              { text: tc('cancel') || 'Hủy', style: 'cancel' }
+                            ]
+                          );
+                        }}
+                        style={[styles.iconBtn, { backgroundColor: 'transparent', width: 32, height: 32 }]}
                       >
                         {actionLoading === connection.id ? (
-                          <ActivityIndicator size="small" color={iconColors.danger} />
+                          <ActivityIndicator size="small" color={colors.textSecondary} />
                         ) : (
-                          <Ionicons name="trash" size={18} color={iconColors.danger} />
+                          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
                         )}
                       </TouchableOpacity>
                     </View>
                   </View>
-                  {otherUserEmail && (
-                    <View style={styles.contactRow}>
-                      <Ionicons name="mail-outline" size={14} color={colors.textSecondary} />
-                      <Text style={styles.cardContact}>{otherUserEmail}</Text>
-                    </View>
-                  )}
-                  {otherUserPhone && (
-                    <View style={styles.contactRow}>
-                      <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
-                      <Text style={styles.cardContact}>{otherUserPhone}</Text>
-                    </View>
-                  )}
-                  {(displayRelationship || connection.role) && (
-                    <View style={styles.cardBadge}>
-                      <Ionicons name="heart" size={12} color={iconColors.primary} />
-                      <Text style={styles.cardRelation}>
-                        {displayRelationship || connection.role}
-                      </Text>
-                    </View>
-                  )}
                 </TouchableOpacity>
               );
             })
@@ -747,7 +765,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background
+    backgroundColor: 'transparent'
   },
   heroBanner: {
     paddingTop: spacing.lg,
@@ -756,9 +774,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     marginHorizontal: spacing.lg,
     borderRadius: 20,
-    backgroundColor: colors.emeraldLight,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 5,
     gap: spacing.sm,
   },
   statsContainer: {
@@ -781,17 +804,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderRadius: 16,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
   statValue: {
     fontSize: 22,
@@ -844,17 +867,22 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '700',
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
     gap: spacing.xs,
   },
   cardPending: {
-    borderColor: colors.premium,
-    backgroundColor: colors.premiumLight,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
   },
   cardHeader: {
     flexDirection: 'row',

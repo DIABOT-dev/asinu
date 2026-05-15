@@ -38,12 +38,12 @@ export function AppAlertModal({ visible, title, message, buttons, onDismiss }: P
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
+      <Pressable style={styles.overlay} onPress={onDismiss}>
+        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.title}>{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
 
-          <View style={styles.buttonRow}>
+          <View style={[styles.buttonRow, resolvedButtons.length > 2 && { flexDirection: 'column' }]}>
             {resolvedButtons.map((btn, i) => {
               const isCancel = btn.style === 'cancel';
               const isDestructive = btn.style === 'destructive';
@@ -52,6 +52,7 @@ export function AppAlertModal({ visible, title, message, buttons, onDismiss }: P
                   key={i}
                   style={({ pressed }) => [
                     styles.button,
+                    resolvedButtons.length > 2 ? { width: '100%' } : { flex: 1 },
                     isCancel && styles.buttonCancel,
                     isDestructive && styles.buttonDestructive,
                     !isCancel && !isDestructive && styles.buttonDefault,
@@ -72,8 +73,8 @@ export function AppAlertModal({ visible, title, message, buttons, onDismiss }: P
               );
             })}
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -132,7 +133,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       marginTop: spacing.sm,
     },
     button: {
-      flex: 1,
       paddingVertical: spacing.md,
       borderRadius: radius.md,
       alignItems: 'center',

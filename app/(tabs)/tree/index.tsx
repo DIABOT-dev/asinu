@@ -2,9 +2,10 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState, Suspense } from 'react';
+import { useCallback, useMemo, useRef, useState, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, interpolateColor } from 'react-native-reanimated';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
@@ -16,12 +17,138 @@ import { StateLoading } from '../../../src/components/state/StateLoading';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useTreeStore } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
-import i18n from '../../../src/i18n';
 import { colors, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
+
 const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
+
+function FloatingSnow({ x, delay = 0, size = 16, duration = 3000 }: any) {
+  const translateY = useSharedValue(-20);
+  const translateX = useSharedValue(0);
+  const opacity = useSharedValue(0);
+  const rotate = useSharedValue(0);
+
+  useEffect(() => {
+    setTimeout(() => {
+      translateY.value = withRepeat(
+        withTiming(150, { duration, easing: Easing.linear }),
+        -1,
+        false
+      );
+      translateX.value = withRepeat(
+        withSequence(
+          withTiming(15, { duration: duration / 2, easing: Easing.inOut(Easing.ease) }),
+          withTiming(-15, { duration: duration / 2, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+      rotate.value = withRepeat(
+        withTiming(360, { duration: duration * 1.2, easing: Easing.linear }),
+        -1,
+        false
+      );
+      opacity.value = withRepeat(
+        withSequence(
+          withTiming(0.8, { duration: duration * 0.2 }),
+          withTiming(0.8, { duration: duration * 0.6 }),
+          withTiming(0, { duration: duration * 0.2 })
+        ),
+        -1,
+        false
+      );
+    }, delay);
+  }, [delay, duration]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: translateY.value },
+        { translateX: translateX.value },
+        { rotate: `${rotate.value}deg` }
+      ],
+      opacity: opacity.value,
+    };
+  });
+
+  return (
+    <Animated.View style={[{ position: 'absolute', top: -10, left: x, zIndex: 5 }, animatedStyle]}>
+      <Ionicons name="snow" size={size} color="#60a5fa" />
+    </Animated.View>
+  );
+}
+
+function FlashingScoreCard({ children, style }: any) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withRepeat(
+      withTiming(1, { duration: 1500 }),
+      -1,
+      true
+    );
+  }, []);
+  
+  const animatedStyle = useAnimatedStyle(() => {
+    const bgColor = interpolateColor(
+      progress.value,
+      [0, 0.5, 1],
+      ['#ffffff', '#ecfdf5', '#ffffff']
+    );
+    const borderColor = interpolateColor(
+      progress.value,
+      [0, 0.5, 1],
+      ['rgba(16,185,129,0.1)', 'rgba(16,185,129,0.6)', 'rgba(16,185,129,0.1)']
+    );
+    return {
+      backgroundColor: bgColor,
+      borderColor: borderColor,
+    };
+  });
+
+  return (
+    <Animated.View style={[style, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function AnimatedBorderCard({ color, innerColors, style, children }: { color: string; innerColors: readonly string[]; style?: any; children: React.ReactNode }) {
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 6000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${rotation.value}deg` }],
+    };
+  });
+
+  return (
+    <View style={[style, { overflow: 'hidden', position: 'relative' }]}>
+      <Animated.View style={[{ width: '250%', height: '250%', position: 'absolute', top: '-75%', left: '-75%', opacity: 0.7 }, animatedStyle]}>
+        <LinearGradient
+          colors={['transparent', color, color, 'transparent']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+      <LinearGradient
+        colors={innerColors}
+        style={[StyleSheet.absoluteFill, { top: 2, left: 2, right: 2, bottom: 2, borderRadius: (style?.borderRadius || 24) - 2 }]}
+      />
+      {children}
+    </View>
+  );
+}
 
 export default function TreeScreen() {
   const { t } = useTranslation('tree');
@@ -31,7 +158,6 @@ export default function TreeScreen() {
   const history = useTreeStore((state) => state.history);
   const fetchTree = useTreeStore((state) => state.fetchTree);
   const status = useTreeStore((state) => state.status);
-  const isStale = useTreeStore((state) => state.isStale);
   const errorState = useTreeStore((state) => state.errorState);
   const recentLogs = useLogsStore((state) => state.recent);
   const fetchLogs = useLogsStore((state) => state.fetchRecent);
@@ -44,20 +170,15 @@ export default function TreeScreen() {
   const [chartTooltip, setChartTooltip] = useState(false);
 
   const formatTime = (iso?: string) => {
-    if (!iso) {
-      return '';
-    }
+    if (!iso) return '';
     const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
+    if (Number.isNaN(date.getTime())) return '';
     const hh = String(date.getHours()).padStart(2, '0');
     const mm = String(date.getMinutes()).padStart(2, '0');
-    const ss = String(date.getSeconds()).padStart(2, '0');
     const dd = String(date.getDate()).padStart(2, '0');
     const MM = String(date.getMonth() + 1).padStart(2, '0');
     const yyyy = date.getFullYear();
-    return `${hh}:${mm}:${ss} ${dd}/${MM}/${yyyy}`;
+    return `${hh}:${mm} ${dd}/${MM}/${yyyy}`;
   };
 
   const latestLogByType = (type: string) =>
@@ -74,14 +195,12 @@ export default function TreeScreen() {
       title: t('glucose'),
       value: typeof glucoseLog?.value === 'number' ? `${glucoseLog.value}` : '--',
       unit: tc('unitMgdl'),
-      meta: glucoseLog?.recordedAt
-        ? t('latest', { time: formatTime(glucoseLog.recordedAt) })
-        : t('noDataYet'),
-      trend: undefined,
+      meta: glucoseLog?.recordedAt ? t('latest', { time: formatTime(glucoseLog.recordedAt) }) : t('noDataYet'),
       icon: 'water' as const,
-      iconColor: '#3b82f6',
-      bgColor: '#eff6ff',
-      borderColor: '#bfdbfe'
+      bgIcon: 'sprout' as const,
+      colors: ['#eff6ff', '#dbeafe'] as const,
+      textColor: '#2563eb',
+      bgIconColor: 'rgba(59,130,246,0.1)'
     },
     {
       key: 'blood-pressure',
@@ -92,11 +211,11 @@ export default function TreeScreen() {
           : '--',
       unit: tc('unitMmhg'),
       meta: bpLog?.recordedAt ? t('latest', { time: formatTime(bpLog.recordedAt) }) : t('noDataYet'),
-      trend: undefined,
       icon: 'heart-pulse' as const,
-      iconColor: '#ef4444',
-      bgColor: '#fef2f2',
-      borderColor: '#fecaca'
+      bgIcon: 'heart-pulse' as const,
+      colors: ['#fdf2f8', '#fce7f3'] as const,
+      textColor: '#e11d48',
+      bgIconColor: 'rgba(225,29,72,0.1)'
     },
     {
       key: 'weight',
@@ -104,11 +223,11 @@ export default function TreeScreen() {
       value: typeof weightLog?.weight_kg === 'number' ? `${weightLog.weight_kg}` : '--',
       unit: tc('unitKg'),
       meta: weightLog?.recordedAt ? t('latest', { time: formatTime(weightLog.recordedAt) }) : t('noDataYet'),
-      trend: undefined,
       icon: 'scale-bathroom' as const,
-      iconColor: '#8b5cf6',
-      bgColor: '#f5f3ff',
-      borderColor: '#ddd6fe'
+      bgIcon: 'scale-bathroom' as const,
+      colors: ['#faf5ff', '#f3e8ff'] as const,
+      textColor: '#7e22ce',
+      bgIconColor: 'rgba(126,34,206,0.1)'
     },
     {
       key: 'water',
@@ -116,11 +235,11 @@ export default function TreeScreen() {
       value: typeof waterLog?.volume_ml === 'number' ? `${waterLog.volume_ml}` : '--',
       unit: tc('unitMl'),
       meta: waterLog?.volume_ml ? t('todayLabel') : t('noDataYet'),
-      trend: undefined,
       icon: 'cup-water' as const,
-      iconColor: '#06b6d4',
-      bgColor: '#ecfeff',
-      borderColor: '#a5f3fc'
+      bgIcon: 'cup-water' as const,
+      colors: ['#f0fdfa', '#ccfbf1'] as const,
+      textColor: '#0f766e',
+      bgIconColor: 'rgba(15,118,110,0.1)'
     }
   ], [glucoseLog, bpLog, weightLog, waterLog, t, tc]);
 
@@ -149,13 +268,20 @@ export default function TreeScreen() {
     await Promise.all([fetchTree(controller.signal), fetchLogs(controller.signal)]);
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - fetchTree and fetchLogs are stable in Zustand
+  }, []);
 
   return (
     <Screen>
+      <LinearGradient
+        colors={['#f0fdf4', '#e0f2fe']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
       {errorState === 'remote-failed' ? <OfflineBanner /> : null}
       {status === 'loading' && !summary ? <StateLoading /> : null}
       {errorState === 'no-data' && !summary ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
+      
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={handleRefresh}
@@ -164,19 +290,24 @@ export default function TreeScreen() {
       >
         {status === 'success' && !summary ? <StateEmpty /> : null}
         
-        {/* Header Card */}
-        <LinearGradient
-          colors={[colors.emerald, colors.emeraldDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerCard}
-        >
-          <FontAwesome5 name="tree" size={28} color="#fff" />
-          <Text style={styles.headerTitle}>{t('healthTree')}</Text>
-          <Text style={styles.headerSubtitle}>{t('summaryFromLogs')}</Text>
-        </LinearGradient>
-        
-        {/* Giải thích cách tính điểm */}
+        {/* Header Section */}
+        <View style={styles.headerRow}>
+          <FloatingSnow x="10%" delay={0} size={14} duration={3500} />
+          <FloatingSnow x="30%" delay={1000} size={20} duration={4000} />
+          <FloatingSnow x="50%" delay={500} size={12} duration={3000} />
+          <FloatingSnow x="70%" delay={1500} size={18} duration={4500} />
+          <FloatingSnow x="85%" delay={200} size={16} duration={3200} />
+          
+          <View style={{ flex: 1, zIndex: 10 }}>
+            <Text style={styles.headerTitle}>{t('healthTree')}</Text>
+            <Text style={styles.headerSubtitle}>{t('summaryFromLogs')}</Text>
+          </View>
+          <Animated.View style={{ zIndex: 10 }}>
+            <FontAwesome5 name="tree" size={72} color="#10b981" />
+          </Animated.View>
+        </View>
+
+        {/* Giải thích cách tính điểm (Info Box) */}
         <View style={styles.infoBox}>
           <View style={styles.infoTitleRow}>
             <Ionicons name="bar-chart" size={16} color={colors.textSecondary} />
@@ -196,50 +327,38 @@ export default function TreeScreen() {
           </View>
         </View>
 
-        {/* Score Section */}
-        <View style={styles.scoreSection}>
-          <View style={styles.scoreCard}>
-            <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
-              <T1ProgressRing percentage={summary?.score ?? 0.6} label={t('score')} accentColor={colors.warning} />
-            </Suspense>
-            <Text style={styles.scoreCaption}>
-              {Math.round((summary?.score ?? 0) * 100)}% - {(summary?.score ?? 0) >= 0.7 ? t('good') : (summary?.score ?? 0) >= 0.4 ? t('average') : t('needsImprovement')}
-            </Text>
-          </View>
-          <View style={styles.streakCard}>
-            <View style={styles.streakItem}>
-              <Ionicons name="flame" size={20} color={colors.premium} />
-              <View style={styles.streakContent}>
-                <Text style={styles.streakValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{summary?.streakDays ?? 0}</Text>
-                <Text style={styles.streakLabel} numberOfLines={1}>{t('consecutiveDays')}</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.streakCard}>
-            <View style={styles.streakItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
-              <View style={styles.streakContent}>
-                <Text style={styles.streakValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
-                <Text style={styles.streakLabel} numberOfLines={1}>{t('todayMissions')}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
+        {/* Progress Score (Ring) */}
+        <FlashingScoreCard style={styles.scoreCardContainer}>
+          <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
+            <T1ProgressRing percentage={summary?.score ?? 0} label={t('score')} accentColor={colors.emerald} />
+          </Suspense>
+          <Text style={styles.scoreCaption}>
+            {Math.round((summary?.score ?? 0) * 100)}% - {(summary?.score ?? 0) >= 0.7 ? t('good') : (summary?.score ?? 0) >= 0.4 ? t('average') : t('needsImprovement')}
+          </Text>
+        </FlashingScoreCard>
 
-        {/* Health Report Card — ngay dưới cây sức khoẻ */}
-        <Pressable
-          style={({ pressed }) => [styles.reportCard, pressed && { opacity: 0.9 }]}
-          onPress={() => router.push('/report')}
-        >
-          <View style={styles.reportRow}>
-            <Ionicons name="document-text" size={22} color="#6366f1" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.reportTitle}>{th('healthReport')}</Text>
-              <Text style={styles.reportSub}>{th('healthReportSub')}</Text>
+        {/* Streak & Missions Row */}
+        <View style={styles.scoreRow}>
+          <LinearGradient colors={['#f59e0b', '#fbbf24']} style={styles.scoreCard}>
+            <View style={styles.scoreIconWrap}>
+              <Ionicons name="flame" size={24} color="#f59e0b" />
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#6366f1" />
-          </View>
-        </Pressable>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.scoreValue} numberOfLines={1} adjustsFontSizeToFit>{summary?.streakDays ?? 0}</Text>
+              <Text style={styles.scoreLabel} numberOfLines={1}>{t('consecutiveDays')}</Text>
+            </View>
+          </LinearGradient>
+
+          <LinearGradient colors={['#8b5cf6', '#a78bfa']} style={styles.scoreCard}>
+            <View style={styles.scoreIconWrap}>
+              <Ionicons name="checkmark-circle" size={24} color="#8b5cf6" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.scoreValue} numberOfLines={1} adjustsFontSizeToFit>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
+              <Text style={styles.scoreLabel} numberOfLines={1}>{t('todayMissions')}</Text>
+            </View>
+          </LinearGradient>
+        </View>
 
         {/* Section Header */}
         <View style={styles.sectionHeader}>
@@ -247,36 +366,47 @@ export default function TreeScreen() {
           <Text style={styles.sectionTitle}>{t('healthMetrics')}</Text>
         </View>
 
+        {/* Metrics Grid 2x2 */}
         <View style={styles.metricGrid}>
           {metrics.map((metric) => (
-            <View key={metric.key} style={[styles.metricCard, { backgroundColor: metric.bgColor, borderColor: metric.borderColor }]}>
-              <View style={styles.metricTopRow}>
-                <MaterialCommunityIcons name={metric.icon} size={20} color={metric.iconColor} />
-                <Text style={styles.metricTitle}>{metric.title}</Text>
+            <AnimatedBorderCard
+              key={metric.key}
+              innerColors={metric.colors}
+              color={metric.textColor}
+              style={styles.metricItem}
+            >
+              <View style={styles.metricContent}>
+                <View style={styles.metricTop}>
+                  <MaterialCommunityIcons name={metric.icon} size={20} color={metric.textColor} />
+                  <Text style={[styles.metricTitle, { color: metric.textColor }]}>{metric.title}</Text>
+                </View>
+                
+                <Text style={[styles.metricValue, { color: metric.textColor }]} numberOfLines={1} adjustsFontSizeToFit>{metric.value}</Text>
+                <Text style={[styles.metricUnit, { color: metric.textColor, opacity: 0.7 }]}>{metric.unit}</Text>
+                
+                <MaterialCommunityIcons 
+                  name={metric.bgIcon} 
+                  size={70} 
+                  color={metric.bgIconColor} 
+                  style={styles.metricBgIcon} 
+                />
               </View>
-              <View style={styles.metricValueRow}>
-                <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metric.value}</Text>
-                <Text style={styles.metricUnit}>{metric.unit}</Text>
-              </View>
-              {metric.meta ? <Text style={styles.metricMeta}>{metric.meta}</Text> : null}
-            </View>
+            </AnimatedBorderCard>
           ))}
         </View>
-        {!hasAnyMetric ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="information-circle" size={24} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>
-              {t('noDataPrompt')}
-            </Text>
-          </View>
-        ) : null}
         
-        <Pressable style={styles.quickLogButton} onPress={() => router.push('/logs')}>
-          <Text style={styles.quickLogText}>{tc('quickLog')}</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+        {/* Health Report Button */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.actionBtn,
+            pressed && { opacity: 0.85 }
+          ]}
+          onPress={() => router.push('/report')}
+        >
+          <Text style={styles.actionBtnText}>{th('healthReport')}</Text>
         </Pressable>
         
-        {/* Biểu đồ 7 ngày với giải thích */}
+        {/* Activity Chart */}
         <View style={styles.chartSection}>
           <View style={styles.chartHeader}>
             <View style={styles.chartTitleRow}>
@@ -304,6 +434,18 @@ export default function TreeScreen() {
           )}
         </View>
 
+        {/* Quick Log Button */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.actionBtn,
+            { backgroundColor: '#0ea5e9', marginTop: 0 },
+            pressed && { opacity: 0.85 }
+          ]}
+          onPress={() => router.push('/logs')}
+        >
+          <Text style={styles.actionBtnText}>{tc('quickLog')}</Text>
+        </Pressable>
+
       </RippleRefreshScrollView>
     </Screen>
   );
@@ -311,253 +453,245 @@ export default function TreeScreen() {
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
-  container: {
-    padding: spacing.lg,
-    gap: spacing.lg
-  },
-  // Header Card
-  headerCard: {
-    borderRadius: 20,
-    padding: spacing.xl,
-    alignItems: 'center',
-    shadowColor: colors.emerald,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8
-  },
-  headerTitle: {
-    fontSize: typography.size.xl,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: spacing.xs
-  },
-  headerSubtitle: {
-    fontSize: typography.size.sm,
-    color: 'rgba(255,255,255,0.85)'
-  },
-  // Info Box
-  infoBox: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: colors.primary + '30',
-    gap: spacing.sm
-  },
-  infoTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs
-  },
-  infoTitle: {
-    fontSize: typography.size.md,
-    fontWeight: '600',
-    color: colors.textPrimary
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm
-  },
-  infoText: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    flex: 1
-  },
-  // Score Section
-  scoreSection: {
-    gap: spacing.md,
-  },
-  scoreCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    gap: spacing.sm,
-  },
-  scoreCaption: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    textAlign: 'center'
-  },
-  streakCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    justifyContent: 'center',
-  },
-  streakItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm
-  },
-  streakContent: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  streakValue: {
-    fontSize: typography.size.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  streakLabel: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-  },
-  // Section Header
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm
-  },
-  sectionTitle: {
-    fontSize: typography.size.md,
-    fontWeight: '600',
-    color: colors.textPrimary
-  },
-  // Metric Grid
-  metricGrid: {
-    gap: spacing.md
-  },
-  metricCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    gap: spacing.xs
-  },
-  metricTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  metricTitle: {
-    fontSize: typography.size.md,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  metricValueRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.xs,
-  },
-  metricValue: {
-    fontSize: typography.size.xl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  metricUnit: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    marginBottom: 3,
-  },
-  metricMeta: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-  },
-  // Empty Card
-  emptyCard: {
-    padding: spacing.xl,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md
-  },
-  emptyText: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    flex: 1
-  },
-  // Quick Log Button
-  quickLogButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 10,
-  },
-  quickLogText: {
-    color: colors.primary,
-    fontWeight: '600',
-    fontSize: typography.size.md,
-  },
-  // Chart Section
-  chartSection: {
-    gap: spacing.md
-  },
-  chartHeader: {
-    gap: spacing.xs
-  },
-  chartTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm
-  },
-  chartLabel: {
-    flex: 1,
-    fontSize: typography.size.md,
-    fontWeight: '600',
-    color: colors.textPrimary
-  },
-  chartTooltip: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chartTooltipText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  placeholderCard: {
-    padding: spacing.xxl,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    gap: spacing.sm
-  },
-  placeholderText: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary
-  },
-  reportCard: {
-    borderRadius: 16,
-    padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: '#6366f144',
-    backgroundColor: '#6366f118',
-  },
-  reportRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.md,
-  },
-  reportTitle: {
-    fontSize: typography.size.sm,
-    fontWeight: '700' as const,
-    color: colors.textPrimary,
-  },
-  reportSub: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-});
+    container: {
+      padding: spacing.lg,
+      gap: spacing.lg
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.sm,
+      marginBottom: spacing.xs,
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: '#065f46',
+      marginBottom: 4,
+    },
+    headerSubtitle: {
+      fontSize: typography.size.sm,
+      color: '#047857',
+    },
+    infoBox: {
+      padding: spacing.lg,
+      backgroundColor: '#ffffff',
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.05)',
+      gap: spacing.sm,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    infoTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.xs
+    },
+    infoTitle: {
+      fontSize: typography.size.md,
+      fontWeight: '600',
+      color: colors.textPrimary
+    },
+    infoItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm
+    },
+    infoText: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      flex: 1
+    },
+    scoreCardContainer: {
+      backgroundColor: '#ffffff',
+      borderRadius: 24,
+      padding: spacing.xl,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.05)',
+      gap: spacing.md,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      elevation: 3,
+    },
+    scoreCaption: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      fontWeight: '500'
+    },
+    scoreRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    scoreCard: {
+      flex: 1,
+      borderRadius: 20,
+      padding: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    scoreIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: '#fff',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    scoreValue: {
+      color: '#fff',
+      fontSize: 22,
+      fontWeight: '700',
+    },
+    scoreLabel: {
+      color: 'rgba(255,255,255,0.9)',
+      fontSize: typography.size.xs,
+      marginTop: 2,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    sectionTitle: {
+      fontSize: typography.size.md,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    metricGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.md,
+      justifyContent: 'space-between'
+    },
+    metricItem: {
+      width: '47.5%',
+      borderRadius: 24,
+      minHeight: 140,
+      position: 'relative',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 5,
+    },
+    metricContent: {
+      flex: 1,
+      padding: spacing.lg,
+      zIndex: 2,
+    },
+    metricTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: spacing.md,
+    },
+    metricTitle: {
+      fontWeight: '600',
+      fontSize: typography.size.sm,
+    },
+    metricValue: {
+      fontSize: 26,
+      fontWeight: '800',
+      marginTop: 'auto',
+    },
+    metricUnit: {
+      fontSize: typography.size.xs,
+    },
+    metricBgIcon: {
+      position: 'absolute',
+      bottom: -15,
+      right: -10,
+      transform: [{ rotate: '-10deg' }],
+      zIndex: -1,
+    },
+    actionBtn: {
+      backgroundColor: '#10b981',
+      borderRadius: 100,
+      paddingVertical: spacing.lg,
+      alignItems: 'center',
+      marginTop: spacing.xs,
+      shadowColor: '#10b981',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    actionBtnText: {
+      color: '#fff',
+      fontWeight: '700',
+      fontSize: typography.size.md,
+    },
+    chartSection: {
+      backgroundColor: '#ffffff',
+      borderRadius: 24,
+      padding: spacing.lg,
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.05)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 3,
+    },
+    chartHeader: {
+      gap: spacing.xs,
+      marginBottom: spacing.md,
+    },
+    chartTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    chartLabel: {
+      flex: 1,
+      fontSize: typography.size.md,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    chartTooltip: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 8,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    chartTooltipText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    placeholderCard: {
+      padding: spacing.xxl,
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    placeholderText: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+    },
+  });
 }
