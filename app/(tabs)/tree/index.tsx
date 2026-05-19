@@ -114,7 +114,7 @@ function FlashingScoreCard({ children, style }: any) {
   );
 }
 
-function AnimatedBorderCard({ color, innerColors, style, children }: { color: string; innerColors: readonly string[]; style?: any; children: React.ReactNode }) {
+function AnimatedBorderCard({ color, innerColors, style, children }: { color: string; innerColors: readonly [string, string, ...string[]]; style?: any; children: React.ReactNode }) {
   const rotation = useSharedValue(0);
 
   useEffect(() => {
