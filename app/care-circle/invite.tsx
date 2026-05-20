@@ -138,8 +138,15 @@ export default function InviteScreen() {
       } else {
         setSearchedUser(users[0]);
       }
-    } catch {
-      setSearchError(t('cannotLoadUsers'));
+    } catch (err: any) {
+      // Backend now caps phone search per user/day (FIX #5). Surface a
+      // specific error for the limit hit so users know to come back later
+      // instead of thinking the network is broken.
+      if (err?.code === 'PHONE_SEARCH_LIMIT' || err?.statusCode === 429) {
+        setSearchError(t('phoneSearchLimit'));
+      } else {
+        setSearchError(t('cannotLoadUsers'));
+      }
     } finally {
       setSearchLoading(false);
     }

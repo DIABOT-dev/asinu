@@ -119,6 +119,7 @@
   "selectThisUser": "Chọn người này",
   "phoneQueryTooShort": "Vui lòng nhập đúng số điện thoại (10 số, bắt đầu bằng 0)",
   "noUserFoundByPhone": "Không tìm thấy người dùng với số điện thoại này",
+  "phoneSearchLimit": "Bạn đã đạt giới hạn tìm kiếm trong ngày. Hãy thử lại vào ngày mai.",
   "alreadyConnected": "Bạn đã có kết nối hoặc lời mời với người này",
   "cannotInviteSelf": "Bạn không thể kết nối với chính mình",
   "cancelInvite": "Huỷ lời mời",
