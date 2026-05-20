@@ -87,5 +87,28 @@
   "giftErrorGenericTitle": "Could not create QR",
   "giftErrorGenericBody": "Please try again in a few minutes.",
   "monthShort": "month(s)",
-  "generatingQR": "Generating QR…"
+  "generatingQR": "Generating QR…",
+  "faqTitle": "Frequently asked questions",
+  "faq": {
+    "q1": "Why should I check in daily?",
+    "a1": "Health rarely deteriorates in a single day. It usually starts with small signs we tend to ignore: extra fatigue, dizziness, poor sleep, thirst, hand tremor, palpitations, or simply feeling \"off\". A daily check-in records those signals, surfaces unusual trends earlier, and lets caregivers know when to pay attention.",
+    "q2": "What is the daily AI Check-in?",
+    "a2": "It's a short conversation Asinu starts every day to capture how you're feeling. For example: are you tired, dizzy, short of breath, having chest pain, hand tremor, or anything unusual today? The goal is to make sure you don't miss small day-to-day changes.",
+    "q3": "What does \"based on your health profile\" mean?",
+    "a3": "Asinu uses the information you've shared — age, conditions, vitals, lifestyle, recent check-ins — to ask more relevant questions. For example, if you have a history of high blood sugar, the assistant pays closer attention to fatigue, thirst, hand tremor, sweating, and unusual feelings after meals.",
+    "q4": "The Free plan already has AI Check-in. Why upgrade to Premium?",
+    "a4": "Free lets you start a daily health routine and receive alerts when something looks risky. Premium is the better fit if you want long-term tracking, full history, multiple caregivers, and voice input.",
+    "q5": "What's the difference between 30-day history and full history?",
+    "a5": "Free lets you see the last 30 days — good for short-term tracking. Premium keeps the full history so you can look back across months, compare changes, and arrive at a doctor visit with clearer context.",
+    "q6": "Why connect multiple caregivers?",
+    "a6": "One caregiver is enough to start, but they aren't always online. Premium lets you connect up to 3 caregivers so several people can receive alerts at once — especially useful for older adults, people living alone, or families with adult children far from home.",
+    "q7": "What's the benefit of voice check-in and voice logging?",
+    "a7": "Voice lets you record information faster with fewer taps. You can say \"I feel a bit tired today, post-meal glucose is 9.2\" or \"I've been dizzy since morning\" and Asinu will capture it for you.",
+    "q8": "What does \"doctor connection — coming soon\" mean?",
+    "a8": "It's a feature in development so users have more options when they need to talk to a clinician. Free users will queue up when it launches; Premium users will be prioritized. It does not replace emergency services or in-person care.",
+    "q9": "Does Asinu replace doctors?",
+    "a9": "No. Asinu does not replace doctors, does not diagnose conditions, and does not prescribe treatment. It helps you track health day-to-day, capture abnormal signs, remind you earlier, and prepare clearer information when you talk to a doctor or caregiver.",
+    "q10": "When should I upgrade to Premium?",
+    "a10": "Consider Premium if you want long-term tracking, full history, multiple caregivers, or voice input for faster logging. It's especially useful for older adults, people with chronic conditions, people living alone, or families with adult children caring from far away."
+  }
 }

@@ -27,6 +27,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
+import { SubscriptionFAQ } from '../../src/components/SubscriptionFAQ';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { apiClient, ApiError } from '../../src/lib/apiClient';
@@ -622,6 +623,11 @@ export default function SubscriptionScreen() {
                 </Animated.View>
               ))
           }
+        </Animated.View>
+
+        {/* ── FAQ (MVP audit FIX F8) ── */}
+        <Animated.View entering={FadeInDown.delay(600).duration(400).springify()}>
+          <SubscriptionFAQ />
         </Animated.View>
 
       </ScrollView>

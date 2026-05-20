@@ -87,5 +87,28 @@
   "giftErrorGenericTitle": "Không thể tạo QR",
   "giftErrorGenericBody": "Hãy thử lại sau ít phút.",
   "monthShort": "tháng",
-  "generatingQR": "Đang tạo QR…"
+  "generatingQR": "Đang tạo QR…",
+  "faqTitle": "Câu hỏi thường gặp",
+  "faq": {
+    "q1": "Vì sao tôi nên check-in sức khỏe hằng ngày?",
+    "a1": "Sức khỏe thường không xấu đi trong một ngày. Nó hay bắt đầu bằng những dấu hiệu nhỏ mà ta dễ bỏ qua: mệt hơn, chóng mặt, ngủ kém, khát nước, run tay, hồi hộp hoặc thấy “không ổn”. Check-in hằng ngày giúp bạn ghi lại những tín hiệu đó, phát hiện xu hướng bất thường sớm hơn và giúp người thân biết khi cần chú ý.",
+    "q2": "AI Check-in sức khỏe hằng ngày là gì?",
+    "a2": "AI Check-in là cách Asinu hỏi bạn vài câu ngắn mỗi ngày để nắm tình trạng sức khỏe hiện tại. Ví dụ: hôm nay bạn có mệt không, có chóng mặt, khó thở, đau ngực, run tay hay dấu hiệu lạ nào không. Mục tiêu là giúp bạn không bỏ sót những thay đổi nhỏ trong sức khỏe hằng ngày.",
+    "q3": "“Theo hồ sơ sức khỏe của bạn” nghĩa là gì?",
+    "a3": "Asinu dựa trên thông tin bạn đã khai báo như tuổi, bệnh nền, chỉ số sức khỏe, thói quen sinh hoạt và các lần check-in trước đó để hỏi phù hợp hơn. Ví dụ: nếu bạn có tiền sử đường huyết cao, hệ thống sẽ chú ý hơn đến mệt lả, khát nước nhiều, run tay, vã mồ hôi hoặc bất thường sau bữa ăn.",
+    "q4": "Gói Miễn phí đã có AI Check-in, vậy tại sao cần gói Cao cấp?",
+    "a4": "Gói Miễn phí giúp bạn bắt đầu theo dõi sức khỏe hằng ngày và nhận cảnh báo khi có dấu hiệu nguy hiểm. Gói Cao cấp phù hợp hơn nếu bạn muốn theo dõi dài hạn, lưu toàn bộ lịch sử, kết nối nhiều người thân và thao tác nhanh hơn bằng giọng nói.",
+    "q5": "Nhật ký 30 ngày và lưu toàn bộ lịch sử khác nhau thế nào?",
+    "a5": "Gói Miễn phí cho phép xem dữ liệu trong 30 ngày gần nhất, phù hợp để theo dõi ngắn hạn. Gói Cao cấp lưu toàn bộ lịch sử sức khỏe, giúp bạn nhìn lại xu hướng nhiều tháng, so sánh thay đổi và chuẩn bị thông tin khi cần trao đổi với bác sĩ hoặc người thân.",
+    "q6": "Vì sao nên kết nối nhiều người thân?",
+    "a6": "Một người thân là đủ để bắt đầu, nhưng không phải lúc nào họ cũng online hoặc phản hồi kịp. Gói Cao cấp cho phép kết nối tối đa 3 người thân, giúp nhiều người cùng nhận cảnh báo khi có dấu hiệu nguy hiểm — đặc biệt hữu ích với người lớn tuổi, người sống một mình hoặc con cái ở xa.",
+    "q7": "Check-in và nhập chỉ số bằng giọng nói có lợi gì?",
+    "a7": "Giọng nói giúp bạn ghi nhận sức khỏe nhanh hơn, không cần bấm nhiều nút. Ví dụ: bạn có thể nói “Hôm nay tôi hơi mệt, đường huyết sau ăn là 9.2” hoặc “Tôi bị chóng mặt từ sáng”. Asinu sẽ hỗ trợ ghi lại dễ dàng hơn.",
+    "q8": "Kết nối với bác sĩ “sắp ra mắt” nghĩa là gì?",
+    "a8": "Đây là tính năng đang được phát triển để giúp người dùng có thêm lựa chọn khi cần trao đổi với chuyên môn y tế. Gói Miễn phí sẽ được xếp hàng khi tính năng mở. Gói Cao cấp sẽ được ưu tiên hơn trong hàng chờ. Tính năng này không thay thế cấp cứu hoặc khám trực tiếp.",
+    "q9": "Asinu có thay thế bác sĩ không?",
+    "a9": "Không. Asinu không thay thế bác sĩ, không tự chẩn đoán bệnh và không tự kê đơn điều trị. Asinu giúp bạn theo dõi sức khỏe hằng ngày, ghi nhận dấu hiệu bất thường, nhắc bạn chú ý sớm hơn và chuẩn bị thông tin rõ ràng hơn khi cần trao đổi với bác sĩ hoặc người thân.",
+    "q10": "Khi nào tôi nên nâng cấp lên gói Cao cấp?",
+    "a10": "Bạn nên cân nhắc gói Cao cấp nếu muốn theo dõi sức khỏe lâu dài, lưu toàn bộ lịch sử, kết nối nhiều người thân hoặc dùng giọng nói để thao tác nhanh hơn. Gói Cao cấp đặc biệt phù hợp với người lớn tuổi, người có bệnh nền, người sống một mình hoặc gia đình có con cái ở xa muốn chăm sóc bố mẹ tốt hơn."
+  }
 }
