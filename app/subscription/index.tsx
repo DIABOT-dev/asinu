@@ -466,6 +466,18 @@ export default function SubscriptionScreen() {
           </View>
         </View>
 
+        {/* ── FAQ — placed before the plan selector so users can read the
+            "what / why / when to upgrade" questions BEFORE deciding to pay.
+            (MVP audit FIX F8 + product feedback to move it from the bottom.) */}
+        {!status?.isPremium && (
+          <Animated.View
+            entering={FadeInDown.delay(350).duration(400).springify()}
+            style={{ marginHorizontal: spacing.lg, marginTop: spacing.lg }}
+          >
+            <SubscriptionFAQ />
+          </Animated.View>
+        )}
+
         {/* ── Plan selector ── */}
         {!status?.isPremium && (
           <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.card}>
@@ -623,11 +635,6 @@ export default function SubscriptionScreen() {
                 </Animated.View>
               ))
           }
-        </Animated.View>
-
-        {/* ── FAQ (MVP audit FIX F8) ── */}
-        <Animated.View entering={FadeInDown.delay(600).duration(400).springify()}>
-          <SubscriptionFAQ />
         </Animated.View>
 
       </ScrollView>

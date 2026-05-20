@@ -12,6 +12,7 @@
  */
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -45,6 +46,32 @@ type GiftQR = {
 };
 
 const formatVND = (n: number) => n.toLocaleString('vi-VN');
+
+/**
+ * Gradient header with a back button. Root layout has headerShown: false,
+ * so every full-screen route in this app renders its own header in-content.
+ */
+function GiftHeader({ title, topInset }: { title: string; topInset: number }) {
+  return (
+    <LinearGradient
+      colors={[colors.premium, colors.premiumDark]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.header, { paddingTop: topInset + spacing.md }]}
+    >
+      <Pressable
+        accessibilityLabel="Quay lại"
+        accessibilityRole="button"
+        hitSlop={12}
+        onPress={() => router.back()}
+        style={[styles.backBtn, { top: topInset + spacing.md }]}
+      >
+        <Ionicons name="arrow-back" size={22} color="#fff" />
+      </Pressable>
+      <Text style={styles.headerTitle}>{title}</Text>
+    </LinearGradient>
+  );
+}
 
 export default function GiftSubscriptionScreen() {
   const insets = useSafeAreaInsets();
@@ -119,7 +146,8 @@ export default function GiftSubscriptionScreen() {
   if (qr) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: t('giftTitle') }} />
+        <Stack.Screen options={{ title: t('giftTitle'), headerShown: false }} />
+        <GiftHeader title={t('giftTitle')} topInset={insets.top} />
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.xxl }]}>
           <View style={styles.card}>
             <Text style={styles.qrHeader}>{t('giftQRHeader', { name: recipientName })}</Text>
@@ -149,7 +177,8 @@ export default function GiftSubscriptionScreen() {
   if (!loadingConnections && connectionPeers.length === 0) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: t('giftTitle') }} />
+        <Stack.Screen options={{ title: t('giftTitle'), headerShown: false }} />
+        <GiftHeader title={t('giftTitle')} topInset={insets.top} />
         <View style={styles.emptyWrap}>
           <Ionicons name="people-outline" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyTitle}>{t('giftEmptyTitle')}</Text>
@@ -165,7 +194,8 @@ export default function GiftSubscriptionScreen() {
   // ─── Picker ─────────────────────────────────────────────────────────
   return (
     <Screen>
-      <Stack.Screen options={{ title: t('giftTitle') }} />
+      <Stack.Screen options={{ title: t('giftTitle'), headerShown: false }} />
+      <GiftHeader title={t('giftTitle')} topInset={insets.top} />
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.xxl }]}>
         <Text style={styles.intro}>{t('giftIntro')}</Text>
 
@@ -249,6 +279,14 @@ export default function GiftSubscriptionScreen() {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+  },
+  backBtn: { position: 'absolute', left: spacing.lg, padding: spacing.xs },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
+
   scroll: { padding: spacing.lg, gap: spacing.md },
   intro: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
   card: {
