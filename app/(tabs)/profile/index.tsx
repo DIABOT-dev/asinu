@@ -285,6 +285,13 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
+      {/* Match the home screen's signature gradient backdrop so the two
+          tabs feel like the same product surface. */}
+      <LinearGradient
+        colors={['#0d9488', '#2dd4bf', '#ccfbf1', '#f8fafc']}
+        locations={[0, 0.2, 0.4, 0.8]}
+        style={StyleSheet.absoluteFillObject}
+      />
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={handleRefresh}
@@ -944,7 +951,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   container: {
     padding: spacing.lg,
     gap: spacing.lg,
-    backgroundColor: colors.background
+    // Background lives on the LinearGradient overlay (matches home/index).
   },
   // Profile Header
   profileHeaderCard: {
