@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "build:android": "cd android && ./gradlew bundleRelease",
+    "build:android:release": "npm run build:android",
     "lint:assets": "node scripts/check-assets.js",
     "postinstall": "patch-package"
   },
