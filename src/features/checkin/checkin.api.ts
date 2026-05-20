@@ -50,6 +50,10 @@ export interface TriageResult {
     caregiversNotified: number;
     alreadyAlerted?: boolean;
   };
+  // Backend FIX #4 — surfaces care-circle status alongside the verdict.
+  caregiver_status?: 'connected' | 'no_caregiver_connected';
+  needs_caregiver_cta?: boolean;
+  show_urgent_caregiver_warning?: boolean;
   allowFreeText?: boolean;
   // set when AI was unavailable and fallback questions were used
   _fallback?: boolean;
@@ -73,6 +77,11 @@ export type TriageSummaryView = {
   needsDoctor: boolean;
   _progress?: { text: string; templateId: string };
   familyAlertResult?: TriageResult['familyAlertResult'];
+  // Pass-through of the backend FIX #4 caregiver fields so the done screen
+  // can decide whether to render the "invite a caregiver" CTA/banner.
+  caregiver_status?: 'connected' | 'no_caregiver_connected';
+  needs_caregiver_cta?: boolean;
+  show_urgent_caregiver_warning?: boolean;
 };
 
 export interface HealthReportData {

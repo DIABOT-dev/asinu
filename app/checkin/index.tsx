@@ -308,6 +308,9 @@ export default function CheckinScreen() {
           recommendation: result.recommendation || '',
           needsDoctor: result.needsDoctor ?? false,
           _progress: result._progress,
+          caregiver_status: result.caregiver_status,
+          needs_caregiver_cta: result.needs_caregiver_cta,
+          show_urgent_caregiver_warning: result.show_urgent_caregiver_warning,
         });
         setScreen('done');
       } else {
@@ -1178,6 +1181,7 @@ function DoneScreen({
   onClose: () => void;
 }) {
   const { t } = useTranslation('home');
+  const router = useRouter();
   const isFine = session?.current_status === 'fine';
 
   const isEmergency = triageSummary?.severity === 'emergency';
@@ -1301,6 +1305,33 @@ function DoneScreen({
                   </View>
                   <Text style={styles.doctorText}>{t('checkinSeeDoctor')}</Text>
                 </View>
+              )}
+
+              {/* Caregiver CTA — backend FIX #4.
+                  Urgent variant only when risk = high/emergency AND user has
+                  no caregiver wired up to receive alerts. Soft CTA shown when
+                  risk is lower but caregiver still missing. */}
+              {triageSummary.show_urgent_caregiver_warning && (
+                <Pressable
+                  onPress={() => router.push('/care-circle/invite')}
+                  style={({ pressed }) => [styles.caregiverUrgentBanner, pressed && { opacity: 0.9 }]}
+                >
+                  <Ionicons name="warning" size={20} color="#fff" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.caregiverUrgentTitle}>{t('checkinCaregiverUrgentTitle')}</Text>
+                    <Text style={styles.caregiverUrgentBody}>{t('checkinCaregiverUrgentBody')}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#fff" />
+                </Pressable>
+              )}
+              {!triageSummary.show_urgent_caregiver_warning && triageSummary.needs_caregiver_cta && (
+                <Pressable
+                  onPress={() => router.push('/care-circle/invite')}
+                  style={({ pressed }) => [styles.caregiverSoftCTA, pressed && { opacity: 0.9 }]}
+                >
+                  <Ionicons name="people-outline" size={18} color={colors.primary} />
+                  <Text style={styles.caregiverSoftCTAText}>{t('checkinCaregiverSoftCTA')}</Text>
+                </Pressable>
               )}
 
               {/* Connect doctor CTA — animated pulse + glow giống AsinuChatSticker để hút mắt.
@@ -1875,6 +1906,46 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       justifyContent: 'center',
     },
     doctorText: { fontSize: typography.size.xs, color: '#991b1b', fontWeight: '700', flex: 1 },
+
+    // Caregiver CTAs (backend FIX #4) — urgent variant uses brand red so it
+    // doesn't get lost next to the doctor banner; soft variant matches the
+    // existing advice block.
+    caregiverUrgentBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      backgroundColor: '#dc2626',
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      marginTop: spacing.sm,
+    },
+    caregiverUrgentTitle: {
+      color: '#fff',
+      fontWeight: '800',
+      fontSize: typography.size.sm,
+      marginBottom: 2,
+    },
+    caregiverUrgentBody: {
+      color: '#fff',
+      fontSize: typography.size.xs,
+      opacity: 0.95,
+      lineHeight: 18,
+    },
+    caregiverSoftCTA: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.primary + '12',
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginTop: spacing.sm,
+    },
+    caregiverSoftCTAText: {
+      flex: 1,
+      color: colors.primary,
+      fontSize: typography.size.xs,
+      fontWeight: '600',
+    },
 
     followCard: {
       flexDirection: 'row',
