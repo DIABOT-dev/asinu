@@ -86,6 +86,8 @@
   "giftErrorInvalidBody": "Hãy chọn lại người thân và thử lại.",
   "giftErrorGenericTitle": "Không thể tạo QR",
   "giftErrorGenericBody": "Hãy thử lại sau ít phút.",
+  "giftSuccessTitle": "Đã tặng Premium thành công",
+  "giftSuccessBody": "Bạn vừa tặng gói {{plan}} cho {{name}}. Asinu sẽ thông báo cho họ ngay bây giờ.",
   "monthShort": "tháng",
   "generatingQR": "Đang tạo QR…",
   "faqTitle": "Câu hỏi thường gặp",

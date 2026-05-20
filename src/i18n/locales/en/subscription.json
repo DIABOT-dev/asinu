@@ -86,6 +86,8 @@
   "giftErrorInvalidBody": "Please pick a different recipient and try again.",
   "giftErrorGenericTitle": "Could not create QR",
   "giftErrorGenericBody": "Please try again in a few minutes.",
+  "giftSuccessTitle": "Premium gift sent",
+  "giftSuccessBody": "You gifted the {{plan}} plan to {{name}}. Asinu will notify them now.",
   "monthShort": "month(s)",
   "generatingQR": "Generating QR…",
   "faqTitle": "Frequently asked questions",

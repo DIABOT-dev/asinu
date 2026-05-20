@@ -64,19 +64,11 @@ type SubRecord = {
   created_at: string;
 };
 
-// ── Plans ─────────────────────────────────────────────────────────
-const PLANS = [
-  { months: 1,  price: 199000,   discount: 0  },
-  { months: 3,  price: 567000,   discount: 5  },
-  { months: 6,  price: 1075000,  discount: 10 },
-  { months: 12, price: 1910000,  discount: 20 },
-];
+// Plans + PlanOption tile live in src/features/subscription/plans so the
+// /subscription/gift screen renders the exact same picker UI as this one.
+import { PLANS, PlanOption, formatVND, pricePerMonth, type Plan } from '../../src/features/subscription/plans';
 
 // ── Helpers ─────────────────────────────────────────────────────────
-function formatVND(val: number | string) {
-  const n = typeof val === 'string' ? parseFloat(val) : val;
-  return isNaN(n) ? '0' : n.toLocaleString('vi-VN');
-}
 function formatDate(d: string | null) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -84,9 +76,6 @@ function formatDate(d: string | null) {
 function formatCountdown(s: number) {
   const m = Math.floor(s / 60);
   return `${m}:${(s % 60).toString().padStart(2, '0')}`;
-}
-function pricePerMonth(plan: typeof PLANS[0]) {
-  return Math.round(plan.price / plan.months);
 }
 
 // ── Feature row ──────────────────────────────────────────────────────
@@ -110,62 +99,6 @@ const featureRowStyle = StyleSheet.create({
 });
 
 // ── Animated Plan Option ──────────────────────────────────────────────
-function PlanOption({
-  plan, selected, onSelect, isXLarge,
-}: { plan: typeof PLANS[0]; selected: boolean; onSelect: () => void; isXLarge?: boolean }) {
-  const { t } = useTranslation('subscription');
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  const handlePress = () => {
-    scale.value = withSequence(withSpring(0.93), withSpring(1, { damping: 10 }));
-    onSelect();
-  };
-
-  return (
-    <Animated.View style={[animStyle, { width: isXLarge ? '100%' : '47%' }]}>
-      <Pressable
-        style={[planOptionStyle.option, selected && planOptionStyle.selected]}
-        onPress={handlePress}
-      >
-        {plan.discount > 0 && (
-          <View style={planOptionStyle.discountBadge}>
-            <Text style={planOptionStyle.discountText}>-{plan.discount}%</Text>
-          </View>
-        )}
-        <Text style={[planOptionStyle.label, selected && planOptionStyle.labelSelected]}>
-          {t('planMonth', { months: plan.months })}
-        </Text>
-        <Text style={[planOptionStyle.price, selected && planOptionStyle.priceSelected]}>
-          {formatVND(plan.price)}đ
-        </Text>
-        <Text style={[planOptionStyle.perMonth, selected && planOptionStyle.perMonthSelected]}>
-          ~{formatVND(pricePerMonth(plan))}đ{t('perMonth')}
-        </Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
-const planOptionStyle = StyleSheet.create({
-  option: {
-    borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted, padding: spacing.md, alignItems: 'center',
-    position: 'relative', overflow: 'hidden',
-  },
-  selected: { borderColor: colors.premium, backgroundColor: colors.premiumLight },
-  discountBadge: {
-    position: 'absolute', top: 0, right: 0, backgroundColor: colors.premium,
-    paddingHorizontal: 6, paddingVertical: 2, borderBottomLeftRadius: radius.sm,
-  },
-  discountText: { fontSize: typography.size.xxs, fontWeight: '800', color: '#fff' },
-  label: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
-  labelSelected: { color: colors.premiumDark },
-  price: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
-  priceSelected: { color: colors.premiumDark },
-  perMonth: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2 },
-  perMonthSelected: { color: '#a16207' },
-});
-
 // ── Status badge color ────────────────────────────────────────────────
 function statusColor(s: SubRecord['status']) {
   if (s === 'completed') return colors.success;
