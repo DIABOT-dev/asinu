@@ -20,6 +20,7 @@ import { Screen } from '../../../src/components/Screen';
 import { StateError } from '../../../src/components/state/StateError';
 import { StateLoading } from '../../../src/components/state/StateLoading';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
+import { useFlagsStore, selectIsChatbotAvailable } from '../../../src/features/app-config/flags.store';
 import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
@@ -135,6 +136,11 @@ export default function HomeScreen() {
   const { t: tc } = useTranslation('common');
   const { t: tt } = useTranslation('tree');
   const [isChatOpen, setChatOpen] = useState(false);
+  const isChatbotAvailable = useFlagsStore(selectIsChatbotAvailable);
+  const fetchFlags = useFlagsStore((s) => s.fetchFlags);
+  // Pull the latest flags whenever home screen is focused so a server-side
+  // change to CHATBOT_ENABLED reaches users without an app restart.
+  useFocusEffect(useCallback(() => { fetchFlags().catch(() => {}); }, [fetchFlags]));
   const router = useRouter();
   const {
     quickMetrics,
@@ -360,9 +366,11 @@ export default function HomeScreen() {
         </Animated.View>
 
 
-        <Animated.View entering={FadeIn.delay(190).duration(350)}>
-        <AsinuChatSticker onPress={() => setChatOpen(true)} />
-        </Animated.View>
+        {isChatbotAvailable && (
+          <Animated.View entering={FadeIn.delay(190).duration(350)}>
+            <AsinuChatSticker onPress={() => setChatOpen(true)} />
+          </Animated.View>
+        )}
 
         {/* Section Header */}
         <Animated.View entering={FadeIn.delay(210).duration(350)}>

@@ -7,9 +7,15 @@ let isLoggingOut = false;
 
 export class ApiError extends Error {
   statusCode: number;
-  constructor(message: string, statusCode: number) {
+  /** Stable machine-readable code from the server response body, when present. */
+  code?: string;
+  /** Full error response body so callers can read tier-specific fields (limit, used, ...). */
+  data?: Record<string, any>;
+  constructor(message: string, statusCode: number, opts: { code?: string; data?: Record<string, any> } = {}) {
     super(message);
     this.statusCode = statusCode;
+    this.code = opts.code;
+    this.data = opts.data;
   }
 }
 
@@ -119,9 +125,14 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
           url,
           method,
           status: response.status,
+          code: errorData.code,
           details: errorData.details
         });
-        throw new ApiError(errorData.error || errorText || `Request failed: ${response.status}`, response.status);
+        throw new ApiError(
+          errorData.error || errorText || `Request failed: ${response.status}`,
+          response.status,
+          { code: typeof errorData.code === 'string' ? errorData.code : undefined, data: errorData }
+        );
       }
 
       if (response.status === 204) {

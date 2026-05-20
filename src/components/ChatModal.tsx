@@ -4,9 +4,10 @@ import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, StatusBar
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, ApiError } from '../lib/apiClient';
 import { router } from 'expo-router';
 import { navigation } from '../lib/navigation';
+import { useFlagsStore } from '../features/app-config/flags.store';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
@@ -25,6 +26,31 @@ const isUnauthorized = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes('401') || message.toLowerCase().includes('missing token');
 };
+
+/**
+ * Translate a server-emitted chatbot error code into the message we should
+ * show as the assistant's reply. Returns null when the error doesn't have
+ * one of our recognised codes (caller should fall back to the generic
+ * "service is busy" copy).
+ */
+function chatbotErrorMessage(err: unknown, t: (k: string) => string): string | null {
+  if (!(err instanceof ApiError) || !err.code) return null;
+  switch (err.code) {
+    case 'CHATBOT_DISABLED':
+      return t('chat:errorDisabled');
+    case 'SUBSCRIPTION_REQUIRED':
+      return t('chat:errorPremiumOnly');
+    case 'CHATBOT_DAILY_LIMIT_EXCEEDED': {
+      const limit = err.data?.daily_limit;
+      const tpl = t('chat:errorDailyLimit');
+      return typeof limit === 'number' ? tpl.replace('{{limit}}', String(limit)) : tpl;
+    }
+    case 'CHATBOT_TOKEN_LIMIT_EXCEEDED':
+      return t('chat:errorTokenLimit');
+    default:
+      return null;
+  }
+}
 
 export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const insets = useSafeAreaInsets();
@@ -160,10 +186,17 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
         setIsTyping(false);
         return;
       }
+      // If the chatbot gate fired (disabled / out of quota / etc), surface
+      // the right user-facing copy and also refresh the flags store so the
+      // entry sticker disappears if the global kill switch flipped.
+      const gateMessage = chatbotErrorMessage(error, t);
+      if (gateMessage && error instanceof ApiError && error.code === 'CHATBOT_DISABLED') {
+        useFlagsStore.getState().fetchFlags().catch(() => {});
+      }
       const assistantMessage: ChatBubble = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        text: t('chat:systemBusy'),
+        text: gateMessage || t('chat:systemBusy'),
         timestamp: new Date().toISOString()
       };
       setMessages((prev) => [...prev, assistantMessage]);

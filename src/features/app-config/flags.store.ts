@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { flagsApi, FeatureFlags } from './flags.api';
+import { flagsApi, FeatureFlags, ChatbotFlags, CareCircleFlags } from './flags.api';
 
 type LockedFlags = {
   ENABLE_REWARDS_WALLET: boolean;
@@ -16,7 +16,10 @@ const defaultFlags: FeatureFlags & LockedFlags = {
   FEATURE_AI_CHAT: false,
   ENABLE_REWARDS_WALLET: false,
   ENABLE_FAMILY_MODE: false,
-  ENABLE_ADVANCED_AI: false
+  ENABLE_ADVANCED_AI: false,
+  chatbot: undefined,
+  care_circle: undefined,
+  tier: undefined,
 };
 
 const hardDisabledFlags: LockedFlags = {
@@ -47,3 +50,14 @@ export const useFlagsStore = create<FlagState>((set) => ({
     }
   }
 }));
+
+/**
+ * Convenience selector: returns true when the chatbot entry point should
+ * be rendered. Backed by the precomputed `chatbot.available` from the
+ * server; falls back to the legacy FEATURE_AI_CHAT boolean when the
+ * structured payload is missing (older backend build).
+ */
+export const selectIsChatbotAvailable = (s: FlagState): boolean =>
+  s.chatbot?.available ?? s.FEATURE_AI_CHAT;
+
+export type { ChatbotFlags, CareCircleFlags };
