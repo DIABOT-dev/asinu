@@ -561,6 +561,34 @@ export default function SubscriptionScreen() {
           </Animated.View>
         )}
 
+        {/* ── Buy Premium for someone in Care Circle (MVP audit FIX #10) ── */}
+        <Animated.View entering={FadeInDown.delay(450).duration(400).springify()} style={styles.card}>
+          <Pressable
+            onPress={() => router.push('/subscription/gift' as any)}
+            style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: colors.premium + '22',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Ionicons name="gift" size={22} color={colors.premiumDark} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { marginBottom: 2 }]}>{t('giftEntry')}</Text>
+                <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+                  {t('giftEntryDesc')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </View>
+          </Pressable>
+        </Animated.View>
+
         {/* ── History ── */}
         <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} style={styles.card}>
           <Text style={styles.cardTitle}>{t('historyTitle')}</Text>
