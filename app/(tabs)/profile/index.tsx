@@ -383,9 +383,9 @@ export default function ProfileScreen() {
               <View style={{ gap: 8, marginTop: 4 }}>
                 {(subStatus?.isPremium
                   ? [
-                      { icon: 'check-circle', text: 'Vòng kết nối: tối đa 50 người' },
+                      { icon: 'check-circle', text: 'Vòng kết nối: tối đa 3 người' },
                       { icon: 'check-circle', text: 'Chat AI Asinu: không giới hạn' },
-                      { icon: 'check-circle', text: 'Lịch sử log: 30 ngày' },
+                      { icon: 'check-circle', text: 'Lịch sử log: lưu toàn bộ' },
                       { icon: 'check-circle', text: 'Check-in sức khoẻ hàng ngày' },
                       { icon: 'check-circle', text: 'Cảnh báo khẩn cấp 115 (SOS)' },
                       { icon: 'check-circle', text: 'Ghi log đường huyết, huyết áp, cân nặng' },
@@ -393,7 +393,7 @@ export default function ProfileScreen() {
                   : [
                       { icon: 'check', text: 'Vòng kết nối: 1 người' },
                       { icon: 'check', text: 'Chat AI Asinu: 1.000 tin nhắn / tháng' },
-                      { icon: 'check', text: 'Lịch sử log: 7 ngày' },
+                      { icon: 'check', text: 'Lịch sử log: 30 ngày' },
                       { icon: 'check', text: 'Check-in sức khoẻ hàng ngày' },
                       { icon: 'check', text: 'Cảnh báo khẩn cấp 115 (SOS)' },
                       { icon: 'check', text: 'Ghi log đường huyết, huyết áp, cân nặng' },
