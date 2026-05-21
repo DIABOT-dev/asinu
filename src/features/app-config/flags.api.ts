@@ -29,6 +29,10 @@ export type FeatureFlags = {
   // Marked optional so older backend builds without these fields still load.
   chatbot?: ChatbotFlags;
   care_circle?: CareCircleFlags;
+  // Check-in flow selector (audit lỗi 7). 'ai' = today's /checkin/start +
+  // /checkin/triage flow; 'script' = the cached script-driven flow under
+  // /checkin/script/*. Default to 'ai' if missing so older backends behave.
+  checkin?: { mode: 'ai' | 'script' };
   tier?: 'free' | 'premium';
 };
 
