@@ -581,15 +581,23 @@ export default function CareCircleScreen() {
                     <View style={styles.cardActionsSmall}>
                       <TouchableOpacity
                         onPress={() => {
-                          showAlert(
-                            'Tùy chọn',
-                            `Thao tác với ${otherName}`,
-                            [
-                              { text: t('editConnection') || 'Chỉnh sửa kết nối', onPress: () => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` }) },
-                              { text: tc('delete') || 'Xóa', style: 'destructive', onPress: () => handleDeleteConnection(connection.id, otherName) },
-                              { text: tc('cancel') || 'Hủy', style: 'cancel' }
-                            ]
+                          // Only the original requester (data owner) is
+                          // allowed by the backend to update permissions —
+                          // tapping "edit" as the addressee would just
+                          // 404 with a confusing toast. Hide the option
+                          // for non-requesters; they can still delete.
+                          const options: any[] = [];
+                          if (isRequester) {
+                            options.push({
+                              text: t('editConnection') || 'Chỉnh sửa kết nối',
+                              onPress: () => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` }),
+                            });
+                          }
+                          options.push(
+                            { text: tc('delete') || 'Xóa', style: 'destructive', onPress: () => handleDeleteConnection(connection.id, otherName) },
+                            { text: tc('cancel') || 'Hủy', style: 'cancel' },
                           );
+                          showAlert('Tùy chọn', `Thao tác với ${otherName}`, options);
                         }}
                         style={[styles.iconBtn, { backgroundColor: 'transparent', width: 32, height: 32 }]}
                       >
