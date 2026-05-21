@@ -31,6 +31,7 @@ import { SubscriptionFAQ } from '../../src/components/SubscriptionFAQ';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { apiClient, ApiError } from '../../src/lib/apiClient';
+import { env } from '../../src/lib/env';
 import { colors, radius, spacing, typography } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -411,8 +412,37 @@ export default function SubscriptionScreen() {
           </Animated.View>
         )}
 
-        {/* ── Plan selector ── */}
-        {!status?.isPremium && (
+        {/* ── Payment surface khi PAYMENT_METHOD != 'sepay' ───────────────
+            Mobile app submit lên store: phải dùng Apple IAP + Play Billing.
+            SePay flow chỉ giữ trên web. Trong khi IAP còn đang scaffold,
+            hiển thị placeholder để user biết và submit Apple Review không
+            thấy UI thanh toán ngoài. */}
+        {!status?.isPremium && env.paymentMethod === 'hidden' && (
+          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.card}>
+            <View style={{ alignItems: 'center', padding: spacing.lg, gap: spacing.sm }}>
+              <MaterialCommunityIcons name="hammer-wrench" size={40} color={colors.textSecondary} />
+              <Text style={[styles.cardTitle, { textAlign: 'center' }]}>
+                {t('upgradeComingSoonTitle') || 'Tính năng nâng cấp sắp ra mắt'}
+              </Text>
+              <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
+                {t('upgradeComingSoonBody') || 'Asinu đang hoàn thiện kênh thanh toán an toàn qua App Store / Google Play. Hãy quay lại trong phiên bản tới.'}
+              </Text>
+            </View>
+          </Animated.View>
+        )}
+        {!status?.isPremium && env.paymentMethod === 'iap' && (
+          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.card}>
+            <View style={{ alignItems: 'center', padding: spacing.lg, gap: spacing.sm }}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={[styles.cardTitle, { textAlign: 'center' }]}>
+                {t('upgradeIapPending') || 'Đang tích hợp Apple / Google Pay'}
+              </Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ── Plan selector — chỉ hiển thị khi mode = 'sepay' ── */}
+        {!status?.isPremium && env.paymentMethod === 'sepay' && (
           <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.card}>
             <Text style={styles.cardTitle}>{t('planSelector')}</Text>
             <View style={isXLarge ? styles.planGridColumn : styles.planGrid}>
@@ -451,8 +481,8 @@ export default function SubscriptionScreen() {
           </Animated.View>
         )}
 
-        {/* ── QR Payment section ── */}
-        {qr && !status?.isPremium && (
+        {/* ── QR Payment section (chỉ khi sepay mode) ── */}
+        {qr && !status?.isPremium && env.paymentMethod === 'sepay' && (
           <Animated.View entering={FadeInDown.duration(400).springify()} style={styles.card}>
             {pollStatus === 'success' ? (
               <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.successBox}>
@@ -507,7 +537,10 @@ export default function SubscriptionScreen() {
           </Animated.View>
         )}
 
-        {/* ── Buy Premium for someone in Care Circle (MVP audit FIX #10) ── */}
+        {/* ── Buy Premium for someone in Care Circle (MVP audit FIX #10) ──
+            Cũng dùng SePay nên ẩn khi mode != sepay. Apple/Google review sẽ
+            không thấy bất kỳ link checkout ngoài store nào. */}
+        {env.paymentMethod === 'sepay' && (
         <Animated.View entering={FadeInDown.delay(450).duration(400).springify()} style={styles.card}>
           <Pressable
             onPress={() => router.push('/subscription/gift' as any)}
@@ -534,6 +567,7 @@ export default function SubscriptionScreen() {
             </View>
           </Pressable>
         </Animated.View>
+        )}
 
         {/* ── History ── */}
         <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} style={styles.card}>

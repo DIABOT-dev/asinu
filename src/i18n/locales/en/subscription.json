@@ -92,6 +92,9 @@
   "generatingQR": "Generating QR…",
   "faqTitle": "Frequently asked questions",
   "faqTapHint": "Tap to see details",
+  "upgradeComingSoonTitle": "Premium upgrade coming soon",
+  "upgradeComingSoonBody": "Asinu is finalising secure payment via App Store / Google Play. Please check back in the next release.",
+  "upgradeIapPending": "Integrating Apple Pay / Google Pay…",
   "faq": {
     "q1": "Why should I check in daily?",
     "a1": "Health rarely deteriorates in a single day. It usually starts with small signs we tend to ignore: extra fatigue, dizziness, poor sleep, thirst, hand tremor, palpitations, or simply feeling \"off\". A daily check-in records those signals, surfaces unusual trends earlier, and lets caregivers know when to pay attention.",
