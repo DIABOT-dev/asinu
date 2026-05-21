@@ -86,7 +86,7 @@ export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
  * Start a subscription purchase for the given product. Returns the
  * verification result so the upgrade screen can show success / failure.
  */
-export async function purchaseSubscription(productId: string): Promise<PurchaseResult> {
+export async function purchaseSubscription(_productId: string): Promise<PurchaseResult> {
   if (env.paymentMethod !== 'iap') {
     return { kind: 'failed', error: 'IAP mode is not enabled' };
   }
