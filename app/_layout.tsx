@@ -28,6 +28,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
 import '../src/i18n';
 import '../src/lib/initErrorHandler';
+import { initializeIap, teardownIap } from '../src/features/iap/iap.service';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SessionProvider } from '../src/providers/SessionProvider';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
@@ -68,6 +69,14 @@ export default function RootLayout() {
     });
     return () => sub.remove();
   }, [setSystemScheme]);
+
+  // IAP listeners must live for the whole app lifetime — pending purchases
+  // (renewals, deferred actions) are delivered through purchaseUpdatedListener,
+  // and finishTransaction has to fire from the same listener that started it.
+  useEffect(() => {
+    initializeIap();
+    return () => { teardownIap(); };
+  }, []);
 
   const screenOptions = useMemo(
     () => ({

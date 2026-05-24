@@ -28,6 +28,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { SubscriptionFAQ } from '../../src/components/SubscriptionFAQ';
+import { IapPurchaseCard } from '../../src/features/iap/IapPurchaseCard';
+import { RestoreLink } from '../../src/features/iap/RestoreLink';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { apiClient, ApiError } from '../../src/lib/apiClient';
@@ -354,6 +356,11 @@ export default function SubscriptionScreen() {
               </View>
             </View>
           )}
+          {/* Apple Guideline 3.1.1 — Restore must be reachable for premium
+              users too (different App Store account / re-installed app). */}
+          {status?.isPremium && (
+            <RestoreLink onRestored={() => { fetchStatus(); fetchHistory(); }} />
+          )}
         </View>
 
         {/* ── Two-column feature comparison ── */}
@@ -431,13 +438,13 @@ export default function SubscriptionScreen() {
           </Animated.View>
         )}
         {!status?.isPremium && env.paymentMethod === 'iap' && (
-          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.card}>
-            <View style={{ alignItems: 'center', padding: spacing.lg, gap: spacing.sm }}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={[styles.cardTitle, { textAlign: 'center' }]}>
-                {t('upgradeIapPending') || 'Đang tích hợp Apple / Google Pay'}
-              </Text>
-            </View>
+          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+            <IapPurchaseCard
+              onPurchased={() => {
+                fetchStatus();
+                fetchHistory();
+              }}
+            />
           </Animated.View>
         )}
 

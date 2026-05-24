@@ -29,6 +29,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.asinu.lite",
       "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png",
+      "deploymentTarget": "15.0",
       "urlSchemes": [
         "com.googleusercontent.apps.726570048913-oq7rk69ronarv55lucd7it29t8ti0c32"
       ],
@@ -52,7 +53,8 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.WAKE_LOCK",
-        "android.permission.SCHEDULE_EXACT_ALARM"
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "com.android.vending.BILLING"
       ],
       "intentFilters": [
         {
@@ -99,13 +101,17 @@
       [
         "expo-build-properties",
         {
+          "ios": {
+            "deploymentTarget": "15.0"
+          },
           "android": {
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
             "buildToolsVersion": "35.0.0"
           }
         }
-      ]
+      ],
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true
