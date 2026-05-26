@@ -151,7 +151,7 @@ export default function RegisterScreen() {
     try {
       await authApi.register({
         email: email.trim(),
-        phone_number: phone.trim(),
+        phone_number: phone.trim() || undefined,
         password: password.trim(),
         full_name: name.trim() || undefined,
       });
@@ -182,7 +182,7 @@ export default function RegisterScreen() {
     }
   };
 
-  const canSubmit = isAgreed && email.trim() && phone.trim() && password.trim() && !loading;
+  const canSubmit = isAgreed && email.trim() && password.trim() && !loading;
 
   return (
     <KeyboardAvoidingView

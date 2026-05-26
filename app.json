@@ -31,7 +31,7 @@
       "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png",
       "deploymentTarget": "15.0",
       "urlSchemes": [
-        "com.googleusercontent.apps.726570048913-oq7rk69ronarv55lucd7it29t8ti0c32"
+        "com.googleusercontent.apps.416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21"
       ],
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Asinu cần microphone để nhận lệnh giọng nói",
@@ -62,7 +62,7 @@
           "autoVerify": true,
           "data": [
             {
-              "scheme": "com.googleusercontent.apps.726570048913-0oj1afglacg0h4p77toi6kvr6buh46j8"
+              "scheme": "com.googleusercontent.apps.416338225523-vs42boe39psg5k927thrhuq8doobb29h"
             }
           ],
           "category": [

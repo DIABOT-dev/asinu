@@ -18,7 +18,7 @@ export const validateEmail = (email: string): string | null => {
 
 export const validatePhone = (phone: string): string | null => {
   if (!phone || !phone.trim()) {
-    return t('phoneEmpty');
+    return null; // Số điện thoại là không bắt buộc (Optional)
   }
   
   // Remove spaces, dashes, parentheses
