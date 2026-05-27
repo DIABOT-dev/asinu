@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppState, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInUp, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
@@ -12,6 +12,9 @@ import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
+import { apiClient } from '../../../src/lib/apiClient';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+import * as Haptics from 'expo-haptics';
 const ChatModal = React.lazy(() => import('../../../src/components/ChatModal'));
 import { NotificationBell } from '../../../src/components/NotificationBell';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
@@ -229,6 +232,28 @@ export default function HomeScreen() {
     router.push('/checkin');
   }, []);
 
+  // PHFNE Personalized Health Feed Engine states and effects
+  const [phfneEnabled, setPhfneEnabled] = useState(false);
+  const [phfneFeed, setPhfneFeed] = useState<any[]>([]);
+  const unreadPhfneFeed = phfneFeed.filter(item => !item.read_at);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (process.env.EXPO_PUBLIC_ENABLE_PHFNE === 'true' && profile) {
+        apiClient<any>('/api/phfne/feed')
+          .then(res => {
+            if (res.ok && res.enabled) {
+              setPhfneEnabled(true);
+              setPhfneFeed(res.feed || []);
+            } else {
+              setPhfneEnabled(false);
+            }
+          })
+          .catch(() => {});
+      }
+    }, [profile])
+  );
+
   const handleNotificationPress = useCallback((notification: any) => {
     const route = routeFromNotificationData(notification?.data);
     if (!route) return;
@@ -241,9 +266,20 @@ export default function HomeScreen() {
     setRefreshing(true);
     refreshAll();
     await fetchFromBackend();
+    if (process.env.EXPO_PUBLIC_ENABLE_PHFNE === 'true' && profile) {
+      try {
+        const res = await apiClient<any>('/api/phfne/feed');
+        if (res.ok && res.enabled) {
+          setPhfneEnabled(true);
+          setPhfneFeed(res.feed || []);
+        } else {
+          setPhfneEnabled(false);
+        }
+      } catch {}
+    }
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - refreshAll is stable
+  }, [profile]); // Empty deps - refreshAll is stable
 
   const hasData = Boolean(treeSummary || missions.length || logs.length);
   const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
@@ -328,6 +364,8 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+
+
         {/* Metrics Row */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
         <View style={styles.metricsRow}>
@@ -358,6 +396,129 @@ export default function HomeScreen() {
               factors={healthScore.factors}
               checkinDone={healthScore.checkinDone}
             />
+          </Animated.View>
+        )}
+
+        {/* PHFNE "Asinu nhắc bạn" block */}
+        {phfneEnabled && (
+          <Animated.View entering={FadeIn.delay(135).duration(350)} style={styles.phfneContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="sparkles" size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Asinu nhắc bạn</Text>
+              <View style={{ flex: 1 }} />
+              <Pressable onPress={() => router.push('/feed' as any)} hitSlop={12}>
+                <Text style={styles.phfneSeeAllText}>Xem tất cả ({phfneFeed.length})</Text>
+              </Pressable>
+            </View>
+
+            {unreadPhfneFeed.length > 0 ? (
+              <View style={styles.phfneList}>
+                {unreadPhfneFeed.slice(0, 2).map((item) => {
+                  const isRead = !!item.read_at;
+                  const isWarning = item.severity_level === 'warning' || item.priority >= 100;
+                  
+                  const getIcon = (type: string) => {
+                    switch (type) {
+                      case 'checklist':
+                        return <Ionicons name="checkbox" size={20} color={colors.primary} />;
+                      case 'warning':
+                        return <Ionicons name="warning" size={20} color="#ef4444" />;
+                      case 'family_note':
+                        return <Ionicons name="people" size={20} color="#f97316" />;
+                      case 'weekly_summary':
+                        return <Ionicons name="stats-chart" size={20} color="#8b5cf6" />;
+                      default:
+                        return <Ionicons name="book" size={20} color="#06b6d4" />;
+                    }
+                  };
+
+                  const handleHomeDismiss = async (itemId: string) => {
+                    try {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      await apiClient(`/api/phfne/feed/${itemId}/dismiss`, { method: 'POST' });
+                      setPhfneFeed(prev => prev.filter(i => i.id !== itemId));
+                    } catch (err) {
+                      console.error('[Home PHFNE] Failed to dismiss:', err);
+                    }
+                  };
+
+                  const handleHomePress = async (i: any) => {
+                    try {
+                      await apiClient(`/api/phfne/feed/${i.id}/read`, { method: 'POST' });
+                      setPhfneFeed(prev =>
+                        prev.map(item => (item.id === i.id ? { ...item, read_at: new Date().toISOString() } : item))
+                      );
+                      apiClient(`/api/phfne/event`, {
+                        method: 'POST',
+                        body: { content_id: i.content_id, event_type: 'viewed' }
+                      }).catch(() => {});
+                    } catch {}
+                    router.push(`/feed/${i.content_id}` as any);
+                  };
+
+                  const renderRightAction = () => (
+                    <Pressable
+                      style={styles.phfneDismissBtn}
+                      onPress={() => handleHomeDismiss(item.id)}
+                    >
+                      <Ionicons name="eye-off-outline" size={20} color="#fff" />
+                    </Pressable>
+                  );
+
+                  return (
+                    <Swipeable
+                      key={item.id}
+                      renderRightActions={renderRightAction}
+                      onSwipeableOpen={(direction) => {
+                        if (direction === 'right') {
+                          handleHomeDismiss(item.id);
+                        }
+                      }}
+                    >
+                      <Pressable
+                        style={[
+                          styles.phfneCard,
+                          isRead && styles.phfneCardRead,
+                          isWarning && styles.phfneCardWarning,
+                        ]}
+                        onPress={() => handleHomePress(item)}
+                      >
+                        <View style={styles.phfneIconWrapper}>
+                          {getIcon(item.feed_type)}
+                        </View>
+                        
+                        <View style={styles.phfneCardContent}>
+                          <Text style={[styles.phfneCardTitle, isRead && styles.phfneCardTitleRead]} numberOfLines={1}>
+                            {item.title}
+                          </Text>
+                          <Text style={[styles.phfneCardMessage, isRead && styles.phfneCardMessageRead]} numberOfLines={1}>
+                            {item.message}
+                          </Text>
+                        </View>
+
+                        {isWarning && !isRead && <View style={styles.phfneWarningDot} />}
+                        
+                        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} style={styles.phfneChevron} />
+                      </Pressable>
+                    </Swipeable>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.phfneEmptyCard}>
+                <Image
+                  source={require('../../../assets/asinu_chat_sticker.png')}
+                  style={styles.phfneEmptyMascot}
+                  resizeMode="contain"
+                />
+                <View style={styles.phfneEmptyTextContainer}>
+                  <Text style={styles.phfneEmptyTitle}>Đã đọc hết nhắc nhở!</Text>
+                  <Text style={styles.phfneEmptyMessage}>
+                    Tuyệt vời! Bác đã đọc hết các nhắc nhở hôm nay. Chúc bác một ngày tràn đầy năng lượng!
+                  </Text>
+                </View>
+              </View>
+            )}
           </Animated.View>
         )}
 
@@ -948,6 +1109,137 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.xs,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  phfneContainer: {
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  phfneSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  phfneSectionTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  phfneSeeAllText: {
+    fontSize: typography.size.sm,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  phfneList: {
+    gap: spacing.sm,
+  },
+  phfneCard: {
+    height: 80,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 2,
+  },
+  phfneCardRead: {
+    opacity: 0.65,
+    backgroundColor: '#f8fafc',
+  },
+  phfneCardWarning: {
+    borderColor: '#fee2e2',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ef4444',
+  },
+  phfneIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  phfneCardContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  phfneCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  phfneCardTitleRead: {
+    fontWeight: '600',
+  },
+  phfneCardMessage: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  phfneCardMessageRead: {
+    fontStyle: 'italic',
+  },
+  phfneWarningDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
+    marginHorizontal: spacing.sm,
+  },
+  phfneChevron: {
+    marginLeft: spacing.xs,
+  },
+  phfneDismissBtn: {
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 60,
+    borderRadius: 16,
+    height: 80,
+    marginLeft: 10,
+  },
+  phfneEmptyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    minHeight: 90,
+  },
+  phfneEmptyMascot: {
+    width: 56,
+    height: 56,
+    marginRight: spacing.sm,
+  },
+  phfneEmptyTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  phfneEmptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  phfneEmptyMessage: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
 });
 }

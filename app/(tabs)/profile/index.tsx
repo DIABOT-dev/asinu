@@ -1,4 +1,4 @@
-﻿import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -555,7 +555,7 @@ export default function ProfileScreen() {
             title: t('sectionHealth'),
             items: [
               { icon: 'journal-outline',   color: iconColors.pink,    label: t('logEntry'),                       onPress: () => router.push('/logs') },
-              { icon: 'bookmark-outline',  color: iconColors.violet,  label: tc('aiNotes'),                       onPress: () => router.push('/chat-notes') },
+              { icon: 'bookmark-outline',  color: iconColors.violet,  label: tc('aiNotes'),                       onPress: () => router.push('/feed' as any) },
               { icon: 'flag-outline',      color: iconColors.emerald, label: t('tabMissions', { ns: 'common' }),  onPress: () => router.push('/(tabs)/missions' as any) },
             ],
           },

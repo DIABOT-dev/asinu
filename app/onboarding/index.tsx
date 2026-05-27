@@ -9,6 +9,7 @@ import {
   StyleSheet,
   TextInput as RNTextInput,
   View,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
@@ -18,6 +19,7 @@ import { useAuthStore } from '../../src/features/auth/auth.store';
 import { authApi } from '../../src/features/auth/auth.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { apiClient } from '../../src/lib/apiClient';
+import { TERMS_URL, PRIVACY_URL } from '../../src/lib/links';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
@@ -258,6 +260,7 @@ export default function OnboardingScreen() {
   const [weight, setWeight] = useState('');
   const [phone, setPhone] = useState('');
   const [bloodType, setBloodType] = useState('');
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   // ── Step 2 state ─────────────────────────────────────────────────
   const [diseases, setDiseases] = useState<string[]>([]);
@@ -302,7 +305,7 @@ export default function OnboardingScreen() {
   const phoneValid = /^0\d{9}$/.test(phone.trim());
   const phoneError = phone.length > 0 && !phoneValid ? t('phoneError') : '';
 
-  const step1Valid = fullName.trim().length >= 2 && birthYearValid && gender !== '' && heightValid && weightValid && phoneValid;
+  const step1Valid = fullName.trim().length >= 2 && birthYearValid && gender !== '' && heightValid && weightValid && phoneValid && consentAccepted;
   const step2Valid = diseases.length > 0 && medication !== '';
   const step3Valid = checkupFreq !== '' && exerciseFreq !== '' && sleepHours !== '';
   const step4Valid =
@@ -535,6 +538,8 @@ export default function OnboardingScreen() {
             phoneError={phoneError}
             bloodType={bloodType}
             setBloodType={setBloodType}
+            consentAccepted={consentAccepted}
+            setConsentAccepted={setConsentAccepted}
           />
         )}
         {step === 2 && (
@@ -629,6 +634,8 @@ interface Step1Props {
   phoneError: string;
   bloodType: string;
   setBloodType: (v: string) => void;
+  consentAccepted: boolean;
+  setConsentAccepted: (v: boolean) => void;
 }
 
 function Step1({
@@ -640,6 +647,7 @@ function Step1({
   weight, setWeight, weightError,
   phone, setPhone, phoneError,
   bloodType, setBloodType,
+  consentAccepted, setConsentAccepted,
 }: Step1Props) {
   const { t } = useTranslation('onboarding');
   const GENDER_OPTIONS = [
@@ -769,6 +777,22 @@ function Step1({
             {t('bloodTypeUnknown')}
           </Text>
         </Pressable>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, paddingHorizontal: 4 }}>
+        <Pressable onPress={() => setConsentAccepted(!consentAccepted)} hitSlop={8}>
+          <Ionicons 
+            name={consentAccepted ? "checkbox" : "square-outline"} 
+            size={24} 
+            color={consentAccepted ? colors.primary : colors.textSecondary} 
+          />
+        </Pressable>
+        <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: colors.textSecondary }}>
+          Tôi đồng ý với các{" "}
+          <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => Linking.openURL(TERMS_URL)}>Điều khoản dịch vụ</Text>
+          {" "}và{" "}
+          <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => Linking.openURL(PRIVACY_URL)}>Chính sách bảo mật</Text>
+          {" "}của Asinu, cho phép thu thập và xử lý các thông tin y tế để cá nhân hóa lộ trình chăm sóc sức khỏe.
+        </Text>
       </View>
     </View>
   );

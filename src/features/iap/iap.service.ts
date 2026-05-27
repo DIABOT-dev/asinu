@@ -125,7 +125,7 @@ export async function initializeIap(): Promise<void> {
       }
     });
 
-    errorSub = purchaseErrorListener((error) => {
+    errorSub = purchaseErrorListener((error: any) => {
       const result: PurchaseResult =
         error.code === ErrorCode.UserCancelled
           ? { kind: 'cancelled' }

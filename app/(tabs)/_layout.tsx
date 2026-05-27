@@ -51,7 +51,7 @@ export default function TabsLayout() {
       lazy: true,
       tabBarActiveTintColor: colors.primary,
       tabBarInactiveTintColor: colors.textSecondary,
-      tabBarHideOnKeyboard: true,
+      tabBarHideOnKeyboard: false,
       tabBarLabelStyle: [styles.tabBarLabel, { fontSize: scaledTypography.size.xs }],
       tabBarStyle: {
         ...styles.tabBar,
