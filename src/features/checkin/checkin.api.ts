@@ -138,7 +138,14 @@ export const checkinApi = {
     }),
 
   emergency: (location?: { lat: number; lng: number; accuracy?: number }) =>
-    apiClient<{ ok: boolean; caregiversAlerted: number; message: string }>(
+    apiClient<{
+      ok: boolean;
+      caregiversAlerted: number;
+      message: string;
+      caregiver_status?: 'connected' | 'no_caregiver_connected';
+      needs_caregiver_cta?: boolean;
+      show_urgent_caregiver_warning?: boolean;
+    }>(
       '/api/mobile/checkin/emergency',
       { method: 'POST', body: { location } }
     ),

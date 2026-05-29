@@ -29,7 +29,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.asinu.lite",
       "icon": "./assets/ios/AppIcon.appiconset/AppIcon-1024x1024.png",
-      "deploymentTarget": "15.0",
+      "deploymentTarget": "15.1",
       "urlSchemes": [
         "com.googleusercontent.apps.416338225523-4ooh8cr3hd7r2skotlkohj40ppsm6s21"
       ],
@@ -102,7 +102,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.0"
+            "deploymentTarget": "15.1"
           },
           "android": {
             "compileSdkVersion": 35,

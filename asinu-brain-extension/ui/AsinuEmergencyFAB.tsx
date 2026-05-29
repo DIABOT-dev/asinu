@@ -22,7 +22,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
   const [visible, setVisible] = useState(false);
   const [todaySessionId, setTodaySessionId] = useState<number | null>(null);
   const [alerting, setAlerting] = useState(false);
-  const [alertResult, setAlertResult] = useState<{ ok: boolean; message?: string } | null>(null);
+  const [alertResult, setAlertResult] = useState<{ ok: boolean; message?: string; noCaregiver?: boolean } | null>(null);
 
   // Drag state
   const pan = useRef(new Animated.ValueXY()).current;
@@ -118,11 +118,21 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
     setAlerting(true);
     try {
       const res = await checkinApi.emergency();
-      setAlertResult({ ok: true, message: res.message });
+      const noCaregiver = res.caregiver_status === 'no_caregiver_connected' || res.caregiversAlerted <= 0;
+      setAlertResult({
+        ok: !noCaregiver,
+        noCaregiver,
+        message: noCaregiver ? t('emergencyNoCaregiverDesc') : res.message,
+      });
     } catch {
       setAlertResult({ ok: false, message: t('emergencyAlertError') });
     }
     setAlerting(false);
+  };
+
+  const goToInviteCaregiver = () => {
+    close();
+    router.push('/care-circle/invite');
   };
 
   return (
@@ -144,16 +154,38 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
                 {alertResult ? (
                   <>
                     <View style={{ alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md }}>
-                      <Text style={{ fontSize: 40 }}>{alertResult.ok ? '✓' : '✗'}</Text>
+                      <View
+                        style={[
+                          styles.resultIcon,
+                          alertResult.ok ? styles.resultIconSuccess : styles.resultIconWarning,
+                        ]}
+                      >
+                        <Ionicons
+                          name={alertResult.ok ? 'checkmark-circle' : alertResult.noCaregiver ? 'people-circle-outline' : 'alert-circle'}
+                          size={34}
+                          color={alertResult.ok ? colors.primary : colors.danger}
+                        />
+                      </View>
                       <Text style={[styles.sheetTitle, { textAlign: 'center' }]}>
-                        {alertResult.ok ? t('emergencyNotifiedTitle') : t('emergencyNoCaregiverTitle')}
+                        {alertResult.ok
+                          ? t('emergencyNotifiedTitle')
+                          : alertResult.noCaregiver
+                            ? t('emergencyNoCaregiverTitle')
+                            : t('common:error')}
                       </Text>
                       <Text style={[styles.sheetSubtitle, { textAlign: 'center' }]}>
-                        {alertResult.message || (alertResult.ok ? t('emergencyNotifiedAdvice') : t('emergencyNoCaregiverDesc'))}
+                        {alertResult.message || (alertResult.ok ? t('emergencyNotifiedAdvice') : t('emergencyAlertError'))}
                       </Text>
                     </View>
-                    <Pressable onPress={close} style={styles.confirmButton}>
-                      <Text style={styles.confirmText}>{t('common:understood') || t('common:ok')}</Text>
+                    {alertResult.noCaregiver ? (
+                      <Pressable onPress={goToInviteCaregiver} style={styles.confirmButton}>
+                        <Text style={styles.confirmText}>{t('careCircle:inviteNew')}</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable onPress={close} style={alertResult.noCaregiver ? styles.cancelButton : styles.confirmButton}>
+                      <Text style={alertResult.noCaregiver ? styles.cancelText : styles.confirmText}>
+                        {t('common:understood') || t('common:ok')}
+                      </Text>
                     </Pressable>
                   </>
                 ) : (
@@ -241,4 +273,17 @@ const styles = StyleSheet.create({
   cancelText: { color: colors.textSecondary, fontWeight: '600' },
   confirmButton: { marginTop: spacing.md, backgroundColor: colors.primary, paddingVertical: spacing.md, borderRadius: 12, alignItems: 'center' },
   confirmText: { color: '#ffffff', fontWeight: '700', fontSize: typography.size.md },
+  resultIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultIconSuccess: {
+    backgroundColor: '#ecfdf5',
+  },
+  resultIconWarning: {
+    backgroundColor: '#fef2f2',
+  },
 });
