@@ -14,33 +14,31 @@ interface LoadingOverlayProps {
 export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
-  const displayMessage = message ?? t('processing');
+  const displayMessage = message ?? t('loading');
   const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: colors.overlay,
+      backgroundColor: isDark ? 'rgba(8, 13, 17, 0.72)' : 'rgba(24, 28, 32, 0.56)',
       justifyContent: 'center',
       alignItems: 'center',
     },
     loadingCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: spacing.xl,
       alignItems: 'center',
-      minWidth: 200,
-      gap: spacing.md,
+      justifyContent: 'center',
+      gap: spacing.sm,
     },
     loadingText: {
-      color: colors.textPrimary,
-      fontWeight: '600',
+      color: '#f8fafc',
+      fontWeight: '700',
+      textAlign: 'center',
     },
   }), [isDark]);
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color="#d1d5db" />
           <Text style={[styles.loadingText, { fontSize: scaledTypography.size.md }]}>{displayMessage}</Text>
         </View>
       </View>
