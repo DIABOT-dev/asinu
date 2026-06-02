@@ -7,7 +7,8 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { AppAlertModal, useAppAlert } from '../../components/AppAlertModal';
 import { ScaledText as Text } from '../../components/ScaledText';
 import { colors, spacing, typography } from '../../styles';
 import { env } from '../../lib/env';
@@ -19,6 +20,7 @@ type Props = {
 
 export function RestoreLink({ onRestored }: Props) {
   const { t } = useTranslation('subscription');
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [busy, setBusy] = useState(false);
 
   if (env.paymentMethod !== 'iap') return null;
@@ -28,13 +30,13 @@ export function RestoreLink({ onRestored }: Props) {
     try {
       const res = await restorePurchases();
       if (res.restored > 0) {
-        Alert.alert(
+        showAlert(
           t('restoreSuccess'),
           t('restoreSuccessDesc', { count: res.restored }),
+          [{ text: t('close'), onPress: onRestored }],
         );
-        onRestored?.();
       } else {
-        Alert.alert(t('restoreNoneTitle'), t('restoreNoneBody'));
+        showAlert(t('restoreNoneTitle'), t('restoreNoneBody'));
       }
     } finally {
       setBusy(false);
@@ -42,13 +44,16 @@ export function RestoreLink({ onRestored }: Props) {
   };
 
   return (
-    <Pressable style={styles.btn} onPress={handlePress} disabled={busy}>
-      {busy ? (
-        <ActivityIndicator size="small" color={colors.textSecondary} />
-      ) : (
-        <Text style={styles.text}>{t('restorePurchases')}</Text>
-      )}
-    </Pressable>
+    <>
+      <Pressable style={styles.btn} onPress={handlePress} disabled={busy}>
+        {busy ? (
+          <ActivityIndicator size="small" color={colors.textSecondary} />
+        ) : (
+          <Text style={styles.text}>{t('restorePurchases')}</Text>
+        )}
+      </Pressable>
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+    </>
   );
 }
 

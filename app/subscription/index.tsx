@@ -75,7 +75,11 @@ import { PLANS, PlanOption, formatVND, pricePerMonth, type Plan } from '../../sr
 // ── Helpers ─────────────────────────────────────────────────────────
 function formatDate(d: string | null) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${date.getFullYear()}`;
 }
 function formatCountdown(s: number) {
   const m = Math.floor(s / 60);
@@ -597,7 +601,7 @@ export default function SubscriptionScreen() {
                     <View style={styles.historyInfo}>
                       <Text style={styles.historyAmount}>{formatVND(sub.amount)}đ · {t('planMonth', { months: sub.plan_months })}</Text>
                       <Text style={styles.historyDate}>
-                        {new Date(sub.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        {formatDate(sub.created_at)}
                       </Text>
                       {sub.subscription_end
                         ? <Text style={styles.historyValidity}>{t('validUntil', { date: formatDate(sub.subscription_end) })}</Text>
