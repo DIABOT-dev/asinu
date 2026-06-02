@@ -16,6 +16,8 @@
   "success": "Success",
   "error": "Error",
   "viewDetails": "View details",
+  "notificationDetails": "Notification details",
+  "goTo": "Go to",
   "viewMore": "View more",
   "noData": "No data yet",
   "cannotLoadData": "Cannot load data",

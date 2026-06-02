@@ -261,6 +261,10 @@ export default function HomeScreen() {
     else router.push(route as any);
   }, []);
 
+  const canNavigateNotification = useCallback((notification: any) => {
+    return Boolean(routeFromNotificationData(notification?.data));
+  }, []);
+
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -322,6 +326,7 @@ export default function HomeScreen() {
             onDelete={removeNotification}
             onDeleteAll={clearAll}
             onNotificationPress={handleNotificationPress}
+            canNavigateNotification={canNavigateNotification}
           />
         </View>
       )}

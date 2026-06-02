@@ -103,6 +103,8 @@
   "sending": "Đang gửi...",
   "sendInvite": "Gửi lời mời",
   "pleaseSelectRecipient": "Vui lòng chọn người nhận",
+  "pleaseEnterPhoneToInvite": "Vui lòng nhập số điện thoại người cần mời",
+  "pleaseSearchAndSelectRecipient": "Vui lòng tìm và chọn người nhận trước khi gửi lời mời",
   "inviteSentSuccess": "Lời mời đã được gửi thành công!",
   "cannotSendInvite": "Không thể gửi lời mời",
   "cannotLoadUsers": "Không thể tải danh sách người dùng",

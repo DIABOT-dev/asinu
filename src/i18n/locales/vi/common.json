@@ -16,6 +16,8 @@
   "success": "Thành công",
   "error": "Lỗi",
   "viewDetails": "Xem chi tiết",
+  "notificationDetails": "Chi tiết thông báo",
+  "goTo": "Đi đến",
   "viewMore": "Xem thêm",
   "noData": "Chưa có dữ liệu",
   "cannotLoadData": "Không tải dữ liệu được",

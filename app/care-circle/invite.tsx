@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -181,7 +182,11 @@ export default function InviteScreen() {
 
   const handleSend = async () => {
     if (!selectedUser) {
-      showToast(t('pleaseSelectRecipient'), 'error');
+      const message = phoneQuery.trim()
+        ? t('pleaseSearchAndSelectRecipient')
+        : t('pleaseEnterPhoneToInvite');
+      setSearchError(message);
+      showToast(message, 'error');
       return;
     }
     try {
@@ -203,15 +208,13 @@ export default function InviteScreen() {
     }
   };
 
-  const canSend = !!selectedUser && !loading;
-
   return (
     <>
       <Stack.Screen
         options={{
           headerShown: true,
           title: t('inviteTitle'),
-          headerStyle: { backgroundColor: colors.background },
+          headerStyle: { backgroundColor: '#e0f2fe' },
           headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
           headerShadowVisible: false,
           headerLeft: () => (
@@ -221,11 +224,18 @@ export default function InviteScreen() {
           ),
         }}
       />
-      <ScrollView
-        style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={{ flex: 1 }}>
+        <LinearGradient
+          colors={['#e0f2fe', '#ccfbf1', '#99f6e4']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <ScrollView
+          style={{ flex: 1, backgroundColor: 'transparent' }}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
+          keyboardShouldPersistTaps="handled"
+        >
         <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.md }}>
         {/* ─── Hero ─── */}
         <View style={styles.heroCard}>
@@ -426,15 +436,12 @@ export default function InviteScreen() {
               pressed && { opacity: 0.85 },
             ]}
             onPress={handleSend}
-            disabled={!canSend || loading}
+            disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <>
-                <Text style={styles.sendBtnText}>{t('sendInvite')}</Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-              </>
+              <Text style={styles.sendBtnText}>{t('sendInvite')}</Text>
             )}
           </Pressable>
 
@@ -447,6 +454,7 @@ export default function InviteScreen() {
           </View>
         </Animated.View>
       </ScrollView>
+      </View>
 
       {/* Premium upgrade modal — connection limit */}
       <Modal visible={showUpgradeModal} transparent animationType="fade" onRequestClose={() => setShowUpgradeModal(false)}>
@@ -702,8 +710,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.sm,
       paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xl,
       backgroundColor: colors.primary,
       borderRadius: 14,
       shadowColor: colors.primary,
@@ -716,6 +724,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: '#ffffff',
       fontSize: typography.size.md,
       fontWeight: '700',
+      textAlign: 'center',
     },
     cancelBtn: {
       alignItems: 'center',

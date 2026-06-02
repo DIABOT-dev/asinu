@@ -103,6 +103,8 @@
   "sending": "Sending...",
   "sendInvite": "Send invitation",
   "pleaseSelectRecipient": "Please select a recipient",
+  "pleaseEnterPhoneToInvite": "Please enter the phone number of the person you want to invite",
+  "pleaseSearchAndSelectRecipient": "Please search and select a recipient before sending the invitation",
   "inviteSentSuccess": "Invitation sent successfully!",
   "cannotSendInvite": "Cannot send invitation",
   "cannotLoadUsers": "Cannot load user list",

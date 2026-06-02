@@ -7,6 +7,7 @@ import {
     FlatList,
     Modal,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -50,6 +51,7 @@ interface NotificationBellProps {
   onDelete?: (notificationId: string) => void;
   onDeleteAll?: () => void;
   onOpen?: () => void;
+  canNavigateNotification?: (notification: Notification) => boolean;
   loading?: boolean;
 }
 
@@ -62,9 +64,11 @@ export function NotificationBell({
   onDelete,
   onDeleteAll,
   onOpen,
+  canNavigateNotification,
   loading = false
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -166,6 +170,87 @@ export function NotificationBell({
       fontSize: typography.size.md,
       color: colors.textSecondary,
       marginTop: spacing.md,
+    },
+    detailPane: {
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    detailHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    detailIconWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primaryLight,
+    },
+    detailEyebrow: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      fontWeight: '600',
+      marginBottom: 2,
+    },
+    detailTitle: {
+      flexShrink: 1,
+      fontSize: typography.size.lg,
+      lineHeight: typography.size.lg * 1.22,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    detailBodyBox: {
+      maxHeight: 280,
+      borderRadius: radius.lg,
+      backgroundColor: colors.background,
+      padding: spacing.md,
+    },
+    detailBody: {
+      fontSize: typography.size.md,
+      lineHeight: 24,
+      color: colors.textSecondary,
+    },
+    detailDate: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+    },
+    detailActions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      paddingTop: spacing.xs,
+    },
+    detailCancelBtn: {
+      flex: 1,
+      paddingVertical: 13,
+      borderRadius: 14,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    detailCancelText: {
+      color: colors.textPrimary,
+      fontSize: typography.size.md,
+      fontWeight: '700',
+    },
+    detailGoBtn: {
+      flex: 1,
+      paddingVertical: 13,
+      borderRadius: 14,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 6,
+    },
+    detailGoBtnDisabled: {
+      opacity: 0.45,
+    },
+    detailGoText: {
+      color: '#fff',
+      fontSize: typography.size.md,
+      fontWeight: '800',
     },
     listContent: {
       paddingVertical: spacing.sm,
@@ -302,6 +387,11 @@ export function NotificationBell({
 
   const handleDeleteOne = (id: string) => setConfirmTarget(id);
   const handleDeleteAll = () => setConfirmTarget('all');
+  const closeModal = () => {
+    setSelectedNotification(null);
+    setConfirmTarget(null);
+    setIsOpen(false);
+  };
 
   const confirmDelete = () => {
     if (confirmTarget === 'all') {
@@ -309,6 +399,9 @@ export function NotificationBell({
       showToast(t('allNotifsDeleted'), 'success');
     } else if (confirmTarget) {
       onDelete?.(confirmTarget);
+      if (selectedNotification?.id === confirmTarget) {
+        setSelectedNotification(null);
+      }
       showToast(t('notifDeleted'), 'success');
     }
     setConfirmTarget(null);
@@ -318,10 +411,14 @@ export function NotificationBell({
     if (!notification.read && onMarkAsRead) {
       onMarkAsRead(notification.id);
     }
-    if (onNotificationPress) {
-      onNotificationPress(notification);
-    }
-    setIsOpen(false);
+    setSelectedNotification(notification);
+  };
+
+  const handleGoToNotification = () => {
+    if (!selectedNotification || !onNotificationPress) return;
+    const target = selectedNotification;
+    closeModal();
+    onNotificationPress(target);
   };
 
   const formatTimestamp = (date: Date) => {
@@ -422,6 +519,10 @@ export function NotificationBell({
     );
   };
 
+  const canGoToSelected = selectedNotification
+    ? canNavigateNotification?.(selectedNotification) ?? Boolean(onNotificationPress)
+    : false;
+
   return (
     <>
       <TouchableOpacity
@@ -446,9 +547,9 @@ export function NotificationBell({
         visible={isOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsOpen(false)}
+        onRequestClose={closeModal}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setIsOpen(false)}>
+        <Pressable style={styles.modalOverlay} onPress={closeModal}>
           <Pressable style={styles.modalWrapper} onPress={e => e.stopPropagation()}>
             <View style={styles.modalContent}>
               <View style={styles.header}>
@@ -464,7 +565,7 @@ export function NotificationBell({
                       <Ionicons name="trash-outline" size={16} color={colors.danger} />
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
+                  <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
                     <Ionicons name="close" size={24} color={colors.primary} />
                   </TouchableOpacity>
                 </View>
@@ -493,7 +594,47 @@ export function NotificationBell({
                 </View>
               )}
 
-              {loading ? (
+              {selectedNotification ? (
+                <View style={styles.detailPane}>
+                  <View style={styles.detailHeader}>
+                    <View style={styles.detailIconWrap}>
+                      <Ionicons name="mail-open-outline" size={22} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.detailEyebrow, { fontSize: scaledTypography.size.sm }]}>
+                        {t('notificationDetails')}
+                      </Text>
+                      <Text style={[styles.detailTitle, { fontSize: scaledTypography.size.lg }]}>
+                        {selectedNotification.title}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <ScrollView style={styles.detailBodyBox} bounces={false}>
+                    <Text style={[styles.detailBody, { fontSize: scaledTypography.size.md }]}>
+                      {selectedNotification.body}
+                    </Text>
+                  </ScrollView>
+
+                  <Text style={[styles.detailDate, { fontSize: scaledTypography.size.sm }]}>
+                    {formatTimestamp(selectedNotification.timestamp)}
+                  </Text>
+
+                  <View style={styles.detailActions}>
+                    <Pressable style={styles.detailCancelBtn} onPress={() => setSelectedNotification(null)}>
+                      <Text style={styles.detailCancelText}>{t('cancel')}</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.detailGoBtn, !canGoToSelected && styles.detailGoBtnDisabled]}
+                      onPress={handleGoToNotification}
+                      disabled={!canGoToSelected}
+                    >
+                      <Text style={styles.detailGoText}>{t('goTo')}</Text>
+                      <Ionicons name="arrow-forward" size={16} color="#fff" />
+                    </Pressable>
+                  </View>
+                </View>
+              ) : loading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color={colors.primary} />
                 </View>
