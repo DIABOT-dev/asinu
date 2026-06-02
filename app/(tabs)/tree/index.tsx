@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, interpolateColor } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, interpolateColor, withDelay } from 'react-native-reanimated';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
@@ -150,6 +150,101 @@ function AnimatedBorderCard({ color, innerColors, style, children }: { color: st
   );
 }
 
+function AnimatedLightningSparks() {
+  const opacity1 = useSharedValue(0);
+  const opacity2 = useSharedValue(0);
+
+  useEffect(() => {
+    opacity1.value = withRepeat(
+      withSequence(
+        withTiming(0.35, { duration: 100, easing: Easing.linear }),
+        withTiming(0, { duration: 120, easing: Easing.linear }),
+        withTiming(0.25, { duration: 80, easing: Easing.linear }),
+        withTiming(0, { duration: 150, easing: Easing.linear }),
+        withDelay(3000, withTiming(0, { duration: 100 }))
+      ),
+      -1,
+      false
+    );
+
+    opacity2.value = withRepeat(
+      withSequence(
+        withDelay(200, withTiming(0.3, { duration: 120, easing: Easing.linear })),
+        withTiming(0, { duration: 100, easing: Easing.linear }),
+        withTiming(0.2, { duration: 90, easing: Easing.linear }),
+        withTiming(0, { duration: 160, easing: Easing.linear }),
+        withDelay(2800, withTiming(0, { duration: 100 }))
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const animStyle1 = useAnimatedStyle(() => {
+    return {
+      opacity: opacity1.value,
+    };
+  });
+
+  const animStyle2 = useAnimatedStyle(() => {
+    return {
+      opacity: opacity2.value,
+    };
+  });
+
+  return (
+    <>
+      <Animated.View style={[{ position: 'absolute', top: -4, right: 8, transform: [{ rotate: '-15deg' }] }, animStyle1]}>
+        <Ionicons name="flash" size={36} color="#fbbf24" />
+      </Animated.View>
+
+      <Animated.View style={[{ position: 'absolute', bottom: -6, left: 32, transform: [{ rotate: '35deg' }] }, animStyle2]}>
+        <Ionicons name="flash" size={24} color="#fbbf24" />
+      </Animated.View>
+    </>
+  );
+}
+
+function FloatingLeaf({ x, y, rotate, size, color, delay = 0 }: any) {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => {
+      translateY.value = withRepeat(
+        withSequence(
+          withTiming(-8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+      opacity.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    }, delay);
+    return () => clearTimeout(t1);
+  }, [delay]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate }, { translateY: translateY.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  return (
+    <Animated.View style={[{ position: 'absolute', ...(y.top !== undefined ? { top: y.top } : {}), ...(y.bottom !== undefined ? { bottom: y.bottom } : {}), ...(x.left !== undefined ? { left: x.left } : {}), ...(x.right !== undefined ? { right: x.right } : {}) }, animatedStyle]}>
+      <Ionicons name="leaf" size={size} color={color} />
+    </Animated.View>
+  );
+}
+
 export default function TreeScreen() {
   const { t } = useTranslation('tree');
   const { t: tc } = useTranslation('common');
@@ -166,6 +261,23 @@ export default function TreeScreen() {
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  
+  const orangeColors = isDark 
+    ? (['#271c06', '#1d1403'] as const) 
+    : (['#fffbeb', '#fef3c7'] as const);
+  const orangeBorder = isDark ? 'rgba(245, 158, 11, 0.25)' : '#fde68a';
+  const orangeText = isDark ? '#fbbf24' : '#b45309';
+  const orangeValue = isDark ? '#fbbf24' : '#d97706';
+  const orangeIconBg = isDark ? 'rgba(245, 158, 11, 0.15)' : '#fff';
+
+  const purpleColors = isDark 
+    ? (['#1c142c', '#150d22'] as const) 
+    : (['#faf5ff', '#f3e8ff'] as const);
+  const purpleBorder = isDark ? 'rgba(139, 92, 246, 0.25)' : '#ddd6fe';
+  const purpleText = isDark ? '#a78bfa' : '#6d28d9';
+  const purpleValue = isDark ? '#a78bfa' : '#7c3aed';
+  const purpleIconBg = isDark ? 'rgba(139, 92, 246, 0.15)' : '#fff';
+
   const padTop = insets.top + spacing.lg;
   const [chartTooltip, setChartTooltip] = useState(false);
 
@@ -329,9 +441,23 @@ export default function TreeScreen() {
 
         {/* Progress Score (Ring) */}
         <FlashingScoreCard style={styles.scoreCardContainer}>
-          <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
-            <T1ProgressRing percentage={summary?.score ?? 0} label={t('score')} accentColor={colors.emerald} />
-          </Suspense>
+          <View style={{ position: 'relative', width: 160, height: 140, justifyContent: 'center', alignItems: 'center' }}>
+            {/* Background Glow */}
+            <View style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(52, 211, 153, 0.3)', shadowColor: '#34d399', shadowOpacity: 1, shadowRadius: 35, shadowOffset: { width: 0, height: 0 }, elevation: 20 }} />
+            
+            {/* Decorative Leaves */}
+            <FloatingLeaf size={14} color="#6ee7b7" x={{ left: 25 }} y={{ top: 15 }} rotate="-35deg" delay={0} />
+            <FloatingLeaf size={22} color="#34d399" x={{ left: 0 }} y={{ top: 50 }} rotate="-75deg" delay={400} />
+            <FloatingLeaf size={12} color="#6ee7b7" x={{ left: 20 }} y={{ bottom: 30 }} rotate="-110deg" delay={800} />
+            
+            <FloatingLeaf size={14} color="#6ee7b7" x={{ right: 25 }} y={{ top: 25 }} rotate="45deg" delay={200} />
+            <FloatingLeaf size={20} color="#34d399" x={{ right: 5 }} y={{ top: 60 }} rotate="80deg" delay={600} />
+            <FloatingLeaf size={18} color="#34d399" x={{ right: 15 }} y={{ bottom: 25 }} rotate="120deg" delay={1000} />
+            
+            <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
+              <T1ProgressRing percentage={summary?.score ?? 0} label={t('score')} accentColor="#34d399" />
+            </Suspense>
+          </View>
           <Text style={styles.scoreCaption}>
             {Math.round((summary?.score ?? 0) * 100)}% - {(summary?.score ?? 0) >= 0.7 ? t('good') : (summary?.score ?? 0) >= 0.4 ? t('average') : t('needsImprovement')}
           </Text>
@@ -339,23 +465,24 @@ export default function TreeScreen() {
 
         {/* Streak & Missions Row */}
         <View style={styles.scoreRow}>
-          <LinearGradient colors={['#f59e0b', '#fbbf24']} style={styles.scoreCard}>
-            <View style={styles.scoreIconWrap}>
-              <Ionicons name="flame" size={24} color="#f59e0b" />
+          <LinearGradient colors={orangeColors} style={[styles.scoreCard, { borderColor: orangeBorder, borderWidth: 1.5, position: 'relative', overflow: 'hidden' }]}>
+            <AnimatedLightningSparks />
+            <View style={[styles.scoreIconWrap, { backgroundColor: orangeIconBg, zIndex: 2 }]}>
+              <Ionicons name="flame" size={20} color="#f59e0b" />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.scoreValue} numberOfLines={1} adjustsFontSizeToFit>{summary?.streakDays ?? 0}</Text>
-              <Text style={styles.scoreLabel} numberOfLines={1}>{t('consecutiveDays')}</Text>
+            <View style={{ flex: 1, zIndex: 2 }}>
+              <Text style={[styles.scoreValue, { color: orangeValue }]} numberOfLines={1} adjustsFontSizeToFit>{summary?.streakDays ?? 0}</Text>
+              <Text style={[styles.scoreLabel, { color: orangeText }]} numberOfLines={1}>{t('consecutiveDays')}</Text>
             </View>
           </LinearGradient>
 
-          <LinearGradient colors={['#8b5cf6', '#a78bfa']} style={styles.scoreCard}>
-            <View style={styles.scoreIconWrap}>
-              <Ionicons name="checkmark-circle" size={24} color="#8b5cf6" />
+          <LinearGradient colors={purpleColors} style={[styles.scoreCard, { borderColor: purpleBorder, borderWidth: 1.5 }]}>
+            <View style={[styles.scoreIconWrap, { backgroundColor: purpleIconBg }]}>
+              <Ionicons name="checkmark-circle" size={20} color="#8b5cf6" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.scoreValue} numberOfLines={1} adjustsFontSizeToFit>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
-              <Text style={styles.scoreLabel} numberOfLines={1}>{t('todayMissions')}</Text>
+              <Text style={[styles.scoreValue, { color: purpleValue }]} numberOfLines={1} adjustsFontSizeToFit>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
+              <Text style={[styles.scoreLabel, { color: purpleText }]} numberOfLines={1}>{t('todayMissions')}</Text>
             </View>
           </LinearGradient>
         </View>
@@ -541,32 +668,25 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.sm,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
+      shadowOpacity: 0.04,
       shadowRadius: 8,
-      elevation: 4,
-    },
-    scoreIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: '#fff',
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
       elevation: 2,
     },
+    scoreIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     scoreValue: {
-      color: '#fff',
-      fontSize: 22,
-      fontWeight: '700',
+      fontSize: 20,
+      fontWeight: '800',
     },
     scoreLabel: {
-      color: 'rgba(255,255,255,0.9)',
       fontSize: typography.size.xs,
-      marginTop: 2,
+      fontWeight: '600',
+      marginTop: 1,
     },
     sectionHeader: {
       flexDirection: 'row',

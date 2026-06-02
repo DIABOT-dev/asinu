@@ -41,6 +41,7 @@ export default function ProfileScreen() {
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  
   const padTop = insets.top + spacing.lg;
 
   // Fetch real data from stores
