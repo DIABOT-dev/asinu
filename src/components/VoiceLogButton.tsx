@@ -1,3 +1,4 @@
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
  * VoiceLogButton — Premium feature
  * Ghi am → Whisper transcribe → AI parse → dien form tu dong
@@ -14,7 +15,7 @@ async function getAudio() {
   if (!_Audio) { _Audio = (await import('expo-av')).Audio; }
   return _Audio;
 }
-import { useRouter } from 'expo-router';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import {

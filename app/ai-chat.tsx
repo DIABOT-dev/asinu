@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from '../src/components/MedicalDisclaimerModal';
 import { chatApi } from '../src/features/chat/chat.api';
@@ -11,6 +11,7 @@ import { apiClient } from '../src/lib/apiClient';
 import { navigation } from '../src/lib/navigation';
 import { colors } from '../src/styles';
 import { useThemeColors } from '../src/hooks/useThemeColors';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 export default function AiChatScreen() {
   const { t } = useTranslation('chat');

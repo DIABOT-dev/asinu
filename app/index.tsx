@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRootNavigationState, useRouter } from 'expo-router';
+import { useRootNavigationState } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Image, InteractionManager, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { routeFromNotificationData } from '../src/lib/notifications';
 import { spacing } from '../src/styles';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 function LoadingDot({ delay }: { delay: number }) {
   const anim = useRef(new Animated.Value(0.3)).current;

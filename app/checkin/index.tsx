@@ -1,3 +1,4 @@
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
  * Daily Health Check-in Screen
  * Flows:
@@ -13,7 +14,7 @@ async function getAudio() {
   return _Audio;
 }
 import { LinearGradient } from 'expo-linear-gradient';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {

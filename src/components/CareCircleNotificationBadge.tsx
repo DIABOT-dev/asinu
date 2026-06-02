@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -7,6 +7,7 @@ import { useCareCircle } from '../features/care-circle';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 export function CareCircleNotificationBadge() {
   const router = useRouter();

@@ -1,9 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+
 import { Image } from 'react-native';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   KeyboardAvoidingView,
   Platform,

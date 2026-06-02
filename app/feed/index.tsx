@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, View, Pressable, ScrollView, RefreshControl, Animated as RNAnimated } from 'react-native';
-import { useRouter } from 'expo-router';
+
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../src/components/Screen';
@@ -10,6 +10,7 @@ import { colors, spacing } from '../../src/styles';
 import { useFocusEffect } from '@react-navigation/native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 export default function FeedListScreen() {
   const router = useRouter();

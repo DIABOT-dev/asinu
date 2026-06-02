@@ -2,12 +2,13 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeIn, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { AppAlertModal, useAppAlert } from '../../../src/components/AppAlertModal';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 const STORAGE_KEY_NOTIFICATIONS = '@app/notifications_enabled';
 const STORAGE_KEY_REMINDERS = '@app/reminders_enabled';

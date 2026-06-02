@@ -1,8 +1,9 @@
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
  * Chat Notes — AI chat notes history with pagination
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,

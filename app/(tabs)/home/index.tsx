@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppState, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -15,6 +15,7 @@ import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import { apiClient } from '../../../src/lib/apiClient';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 const ChatModal = React.lazy(() => import('../../../src/components/ChatModal'));
 import { NotificationBell } from '../../../src/components/NotificationBell';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';

@@ -1,10 +1,11 @@
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
  * Emergency SOS Button
  * Press-and-hold 2 seconds to confirm → alerts care circle + sends location.
  */
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+
 import * as Location from 'expo-location';
 import { useMemo, useRef, useState } from 'react';
 import {

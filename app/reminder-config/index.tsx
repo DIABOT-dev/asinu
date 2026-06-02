@@ -1,9 +1,10 @@
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
  * Reminder Config Screen — HH:MM time picker for morning/afternoon/evening
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {

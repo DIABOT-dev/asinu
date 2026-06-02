@@ -1,3 +1,4 @@
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 ﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -5,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';

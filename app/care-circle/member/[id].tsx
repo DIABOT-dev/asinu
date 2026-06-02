@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DoctorConnectButton } from '../../../src/components/DoctorConnectButton';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -8,6 +8,7 @@ import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { careCircleApi } from '../../../src/features/care-circle';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { colors, spacing } from '../../../src/styles';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 // ── Log type config ──────────────────────────────────────────────
 const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {

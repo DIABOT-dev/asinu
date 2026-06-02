@@ -1,3 +1,4 @@
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
  * DailyCheckinCard
  * - No session today → show morning prompt
@@ -6,7 +7,7 @@
  * - Session resolved → hide
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+
 import React, { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
