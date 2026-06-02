@@ -40,4 +40,13 @@ allprojects {
         maven { url 'https://www.jitpack.io' }
     }
 
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.jetbrains.kotlin' &&
+                details.requested.name.startsWith('kotlin-stdlib')) {
+                details.useVersion rootProject.ext.kotlinVersion
+                details.because "Expo SDK 52 uses Kotlin ${rootProject.ext.kotlinVersion}; newer stdlib metadata breaks Kotlin compilation."
+            }
+        }
+    }
 }

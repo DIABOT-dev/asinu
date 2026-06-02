@@ -4,7 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
@@ -770,6 +770,17 @@ export default function CareCircleScreen() {
 }
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  const androidCardSurface = Platform.select({
+    android: {
+      backgroundColor: '#F7FFFC',
+      shadowOpacity: 0.025,
+      elevation: 1,
+    },
+    default: {
+      backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    },
+  })!;
+
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -782,7 +793,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     marginHorizontal: spacing.lg,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.9)',
     shadowColor: '#000',
@@ -790,6 +800,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     shadowOpacity: 0.1,
     shadowRadius: 15,
     elevation: 5,
+    ...androidCardSurface,
     gap: spacing.sm,
   },
   statsContainer: {
@@ -812,7 +823,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     borderRadius: 16,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -823,6 +833,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 3,
+    ...androidCardSurface,
   },
   statValue: {
     fontSize: 22,
@@ -875,7 +886,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '700',
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -886,11 +896,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 3,
+    ...androidCardSurface,
     gap: spacing.xs,
   },
   cardPending: {
     borderColor: 'rgba(255, 255, 255, 0.9)',
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    backgroundColor: Platform.OS === 'android' ? '#F0FBF8' : 'rgba(255, 255, 255, 0.45)',
   },
   cardHeader: {
     flexDirection: 'row',

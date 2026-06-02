@@ -15,6 +15,9 @@
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "dev",
+        "EXPO_PUBLIC_PAYMENT_METHOD": "iap",
+        "EXPO_PUBLIC_IAP_PRODUCT_MONTHLY": "asinu.premium.monthly",
+        "EXPO_PUBLIC_IAP_PRODUCT_YEARLY": "asinu.premium.yearly",
         "NODE_ENV": "development"
       }
     },
@@ -26,6 +29,9 @@
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "dev",
+        "EXPO_PUBLIC_PAYMENT_METHOD": "iap",
+        "EXPO_PUBLIC_IAP_PRODUCT_MONTHLY": "asinu.premium.monthly",
+        "EXPO_PUBLIC_IAP_PRODUCT_YEARLY": "asinu.premium.yearly",
         "NODE_ENV": "development"
       }
     },

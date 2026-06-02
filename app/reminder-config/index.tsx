@@ -629,7 +629,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
 
     scheduleBottom: {
       flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-      backgroundColor: 'rgba(255,255,255,0.7)',
+      backgroundColor: Platform.OS === 'android' ? '#F7FFFC' : 'rgba(255,255,255,0.7)',
       borderRadius: radius.lg, padding: spacing.md,
     },
     timeDisplaySmall: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -654,7 +654,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     editBtnWrap: {
       marginLeft: 'auto',
       width: 32, height: 32, borderRadius: 12,
-      backgroundColor: 'rgba(255,255,255,0.8)',
+      backgroundColor: Platform.OS === 'android' ? '#F9FFFD' : 'rgba(255,255,255,0.8)',
       alignItems: 'center', justifyContent: 'center',
       borderWidth: 1.5, borderColor: colors.border,
     },

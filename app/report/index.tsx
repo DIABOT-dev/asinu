@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -524,7 +525,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       flexDirection: 'row',
       alignItems: 'center',
       marginTop: spacing.lg,
-      backgroundColor: 'rgba(255,255,255,0.7)',
+      backgroundColor: Platform.OS === 'android' ? '#F7FFFC' : 'rgba(255,255,255,0.7)',
       borderRadius: radius.lg,
       paddingVertical: spacing.md,
       paddingHorizontal: spacing.lg,

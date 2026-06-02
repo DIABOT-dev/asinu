@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppState, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInUp, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
@@ -737,6 +737,32 @@ export default function HomeScreen() {
 }
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+  const translucentCardSurface = Platform.select({
+    android: {
+      backgroundColor: '#F7FFFC',
+      shadowOpacity: 0.025,
+      elevation: 1,
+    },
+    default: {
+      backgroundColor: 'rgba(255, 255, 255, 0.75)',
+      shadowOpacity: 0.05,
+      elevation: 2,
+    },
+  })!;
+
+  const brightCardSurface = Platform.select({
+    android: {
+      backgroundColor: '#F9FFFD',
+      shadowOpacity: 0.02,
+      elevation: 1,
+    },
+    default: {
+      backgroundColor: 'rgba(255, 255, 255, 0.85)',
+      shadowOpacity: 0.03,
+      elevation: 2,
+    },
+  })!;
+
   return StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
@@ -798,7 +824,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCard: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    backgroundColor: Platform.OS === 'android' ? '#F7FFFC' : 'rgba(255, 255, 255, 0.65)',
     borderRadius: 20,
     padding: spacing.lg,
   },
@@ -888,15 +914,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   missionCard: {
     padding: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
     borderRadius: 20,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 2,
+    ...translucentCardSurface,
     gap: spacing.sm
   },
   missionCardCompleted: {
@@ -993,16 +1017,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.md,
   },
   treeCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
     borderRadius: 20,
     padding: spacing.lg,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 2,
+    ...translucentCardSurface,
     alignItems: 'center',
     gap: spacing.sm,
   },
@@ -1045,13 +1067,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 20,
     padding: spacing.md,
     borderWidth: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
     borderColor: 'rgba(255, 255, 255, 1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 2,
+    ...translucentCardSurface,
   },
   emptyLogsContainer: {
     alignItems: 'center',
@@ -1137,16 +1157,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     height: 80,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderRadius: 16,
     paddingHorizontal: spacing.md,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
     shadowRadius: 8,
-    elevation: 2,
+    ...brightCardSurface,
     marginBottom: 2,
   },
   phfneCardRead: {
@@ -1209,16 +1227,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   phfneEmptyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
     shadowRadius: 8,
-    elevation: 2,
+    ...brightCardSurface,
     minHeight: 90,
   },
   phfneEmptyMascot: {

@@ -29,7 +29,7 @@ import {
   purchaseErrorListener,
   ErrorCode,
   type Purchase,
-  type ProductSubscription,
+  type SubscriptionProduct,
 } from 'expo-iap';
 import { env } from '../../lib/env';
 import { iapApi } from './iap.api';
@@ -41,7 +41,7 @@ export type LocalProduct = IapProduct & {
   // when the native lib is unavailable.
   localizedPrice?: string;
   // Kept so Android subscription purchase can pass the right offerToken.
-  nativeProduct?: ProductSubscription;
+  nativeProduct?: SubscriptionProduct;
 };
 
 export type PurchaseResult =
@@ -52,6 +52,7 @@ export type PurchaseResult =
 // ─── Connection state ─────────────────────────────────────────────────
 
 let connected = false;
+let initError: string | null = null;
 let purchaseSub: { remove: () => void } | null = null;
 let errorSub: { remove: () => void } | null = null;
 
@@ -65,6 +66,29 @@ type Pending = {
   resolve: (r: PurchaseResult) => void;
 };
 const pending: Pending[] = [];
+
+function describeIapError(err: any): Record<string, unknown> {
+  return {
+    name: err?.name,
+    code: err?.code,
+    responseCode: err?.responseCode,
+    debugMessage: err?.debugMessage,
+    message: err?.message,
+    productId: err?.productId,
+    platform: Platform.OS,
+    raw: err ? String(err) : undefined,
+  };
+}
+
+function logIap(stage: string, details: Record<string, unknown> = {}) {
+  console.warn('[iap]', stage, {
+    platform: Platform.OS,
+    paymentMethod: env.paymentMethod,
+    connected,
+    initError,
+    ...details,
+  });
+}
 
 function popPending(productId: string): Pending | undefined {
   const idx = pending.findIndex(p => p.productId === productId);
@@ -86,16 +110,30 @@ function resolveAllPending(result: PurchaseResult) {
  * upgrade UI is shown.
  */
 export async function initializeIap(): Promise<void> {
-  if (env.paymentMethod !== 'iap') return;
-  if (connected) return;
+  if (env.paymentMethod !== 'iap') {
+    logIap('init skipped: payment method disabled');
+    return;
+  }
+  if (connected) {
+    logIap('init skipped: already connected');
+    return;
+  }
 
   try {
+    logIap('init start');
     await initConnection();
     connected = true;
+    initError = null;
+    logIap('init success');
 
     purchaseSub = purchaseUpdatedListener(async (purchase: Purchase) => {
       const productId = purchase.productId;
       const slot = popPending(productId);
+      logIap('purchase updated', {
+        productId,
+        transactionId: purchase.transactionId,
+        hasPurchaseToken: Boolean(purchase.purchaseToken),
+      });
 
       try {
         const verify = await iapApi.verifyReceipt({
@@ -116,18 +154,22 @@ export async function initializeIap(): Promise<void> {
             // backend will mark it `alreadyProcessed`.
             console.warn('[iap] finishTransaction failed:', e);
           }
+          logIap('verify success', { productId });
           slot?.resolve({ kind: 'success', verify });
         } else {
+          logIap('verify failed', { productId, verify });
           slot?.resolve({ kind: 'failed', error: verify.error });
         }
       } catch (err: any) {
+        logIap('verify exception', { productId, error: describeIapError(err) });
         slot?.resolve({ kind: 'failed', error: err?.message || String(err) });
       }
     });
 
     errorSub = purchaseErrorListener((error: any) => {
+      logIap('purchase error event', { error: describeIapError(error) });
       const result: PurchaseResult =
-        error.code === ErrorCode.UserCancelled
+        error.code === ErrorCode.E_USER_CANCELLED
           ? { kind: 'cancelled' }
           : { kind: 'failed', error: error.message || String(error.code) };
 
@@ -141,8 +183,9 @@ export async function initializeIap(): Promise<void> {
         resolveAllPending(result);
       }
     });
-  } catch (err) {
-    console.warn('[iap] init failed:', err);
+  } catch (err: any) {
+    initError = err?.message || String(err);
+    logIap('init failed', { error: describeIapError(err) });
   }
 }
 
@@ -156,6 +199,7 @@ export async function teardownIap(): Promise<void> {
     purchaseSub = null;
     errorSub = null;
     connected = false;
+    initError = null;
   }
 }
 
@@ -171,23 +215,31 @@ export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
   const backendCatalog = await iapApi.fetchProducts();
 
   if (env.paymentMethod !== 'iap' || !connected) {
+    logIap('fetch products skipped: using backend catalog', {
+      productIds: backendCatalog.products.map(p => p.id),
+    });
     return backendCatalog.products;
   }
 
   try {
     const skus = backendCatalog.products.map(p => p.id);
+    logIap('fetch products start', { skus });
     const native = (await fetchProducts({ skus, type: 'subs' })) ?? [];
+    logIap('fetch products success', {
+      requestedSkus: skus,
+      returnedProducts: native.map((n: any) => n.id ?? n.productId),
+    });
 
     return backendCatalog.products.map(bp => {
       const match = native.find((n: any) => n.id === bp.id || n.productId === bp.id);
       return {
         ...bp,
         localizedPrice: (match as any)?.displayPrice ?? (match as any)?.localizedPrice,
-        nativeProduct: match as ProductSubscription | undefined,
+        nativeProduct: match as SubscriptionProduct | undefined,
       };
     });
   } catch (err) {
-    console.warn('[iap] fetchProducts failed, falling back to backend prices:', err);
+    logIap('fetch products failed: falling back to backend prices', { error: describeIapError(err) });
     return backendCatalog.products;
   }
 }
@@ -206,11 +258,25 @@ export async function purchaseSubscription(
   productId: string,
   product?: LocalProduct,
 ): Promise<PurchaseResult> {
+  logIap('purchase requested', {
+    productId,
+    hasNativeProduct: Boolean(product?.nativeProduct),
+  });
+
   if (env.paymentMethod !== 'iap') {
+    logIap('purchase blocked: payment method disabled', { productId });
     return { kind: 'failed', error: 'IAP mode is not enabled' };
   }
   if (!connected) {
-    return { kind: 'failed', error: 'IAP not initialised — restart the app' };
+    logIap('purchase retrying init', { productId });
+    await initializeIap();
+  }
+  if (!connected) {
+    logIap('purchase blocked: init unavailable', { productId });
+    return {
+      kind: 'failed',
+      error: initError ? `IAP not initialised: ${initError}` : 'IAP not initialised — restart the app',
+    };
   }
 
   // Android subscription requires the offerToken from the product's
@@ -222,12 +288,17 @@ export async function purchaseSubscription(
     if (!np) {
       try {
         const native = (await fetchProducts({ skus: [productId], type: 'subs' })) ?? [];
-        np = native[0] as ProductSubscription | undefined;
+        np = native[0] as SubscriptionProduct | undefined;
       } catch {}
     }
     const offers = (np as any)?.subscriptionOfferDetailsAndroid;
     androidOfferToken = offers?.[0]?.offerToken;
     if (!androidOfferToken) {
+      logIap('purchase blocked: missing Android offer token', {
+        productId,
+        nativeProductKeys: np ? Object.keys(np as any) : [],
+        offerCount: Array.isArray(offers) ? offers.length : 0,
+      });
       return {
         kind: 'failed',
         error: 'Missing Play Billing offerToken — check the subscription has a base plan published.',
@@ -238,23 +309,27 @@ export async function purchaseSubscription(
   return new Promise<PurchaseResult>(async (resolve) => {
     pending.push({ productId, resolve });
     try {
+      logIap('requestPurchase start', {
+        productId,
+        androidOfferToken: androidOfferToken ? `${androidOfferToken.slice(0, 6)}...` : undefined,
+      });
       await requestPurchase({
         type: 'subs',
         request: {
           ios: { sku: productId },
           android: {
             skus: [productId],
-            subscriptionOffers: androidOfferToken
-              ? [{ sku: productId, offerToken: androidOfferToken }]
-              : undefined,
+            subscriptionOffers: androidOfferToken ? [{ sku: productId, offerToken: androidOfferToken }] : [],
           },
         },
       });
+      logIap('requestPurchase returned', { productId });
       // Result will arrive via purchaseUpdatedListener / purchaseErrorListener.
     } catch (err: any) {
       // requestPurchase rejected synchronously (e.g. validation), so the
       // listeners won't fire — resolve here ourselves.
       popPending(productId);
+      logIap('requestPurchase exception', { productId, error: describeIapError(err) });
       if (String(err?.code || '').toLowerCase().includes('cancel')) {
         resolve({ kind: 'cancelled' });
       } else {
@@ -314,4 +389,5 @@ export const _iapInternals = {
     return Platform.OS === 'ios' ? 'apple' : 'google';
   },
   isConnected: () => connected,
+  initError: () => initError,
 };
