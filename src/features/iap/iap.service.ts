@@ -90,6 +90,31 @@ function logIap(stage: string, details: Record<string, unknown> = {}) {
   });
 }
 
+function describeNativeProduct(product: any): Record<string, unknown> | null {
+  if (!product) return null;
+  const offers = product?.subscriptionOfferDetailsAndroid;
+  return {
+    id: product.id ?? product.productId,
+    type: product.type,
+    platform: product.platform,
+    displayPrice: product.displayPrice ?? product.localizedPrice,
+    offerCount: Array.isArray(offers) ? offers.length : 0,
+    offers: Array.isArray(offers)
+      ? offers.map((offer: any) => ({
+          basePlanId: offer?.basePlanId,
+          offerId: offer?.offerId,
+          hasOfferToken: Boolean(offer?.offerToken),
+          pricingPhases: offer?.pricingPhases?.pricingPhaseList?.map((phase: any) => ({
+            billingPeriod: phase?.billingPeriod,
+            formattedPrice: phase?.formattedPrice,
+            recurrenceMode: phase?.recurrenceMode,
+          })),
+        }))
+      : [],
+    keys: Object.keys(product),
+  };
+}
+
 function popPending(productId: string): Pending | undefined {
   const idx = pending.findIndex(p => p.productId === productId);
   if (idx === -1) return undefined;
@@ -228,6 +253,7 @@ export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
     logIap('fetch products success', {
       requestedSkus: skus,
       returnedProducts: native.map((n: any) => n.id ?? n.productId),
+      nativeProducts: native.map(describeNativeProduct),
     });
 
     return backendCatalog.products.map(bp => {
@@ -289,6 +315,10 @@ export async function purchaseSubscription(
       try {
         const native = (await fetchProducts({ skus: [productId], type: 'subs' })) ?? [];
         np = native[0] as SubscriptionProduct | undefined;
+        logIap('purchase fresh Android product fetch', {
+          productId,
+          nativeProducts: native.map(describeNativeProduct),
+        });
       } catch {}
     }
     const offers = (np as any)?.subscriptionOfferDetailsAndroid;
@@ -296,7 +326,7 @@ export async function purchaseSubscription(
     if (!androidOfferToken) {
       logIap('purchase blocked: missing Android offer token', {
         productId,
-        nativeProductKeys: np ? Object.keys(np as any) : [],
+        nativeProduct: describeNativeProduct(np),
         offerCount: Array.isArray(offers) ? offers.length : 0,
       });
       return {
