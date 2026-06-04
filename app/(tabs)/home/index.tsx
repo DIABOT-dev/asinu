@@ -21,6 +21,7 @@ import { NotificationBell } from '../../../src/components/NotificationBell';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
+import { ScreenReadyGate } from '../../../src/components/ScreenReadyGate';
 import { StateError } from '../../../src/components/state/StateError';
 import { StateLoading } from '../../../src/components/state/StateLoading';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
@@ -288,11 +289,30 @@ export default function HomeScreen() {
 
   const hasData = Boolean(treeSummary || missions.length || logs.length);
   const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
+  const initialHomePending =
+    !profile ||
+    loading ||
+    logsStatus === 'idle' ||
+    missionsStatus === 'idle' ||
+    treeStatus === 'idle';
   const noDataError =
     (logsError === 'no-data' || missionsError === 'no-data' || treeError === 'no-data') && !hasData;
 
   return (
-    <Screen>
+    <ScreenReadyGate
+      ready={!initialHomePending}
+      fallback={
+        <Screen deferRender={false}>
+          <LinearGradient
+            colors={['#0d9488', '#2dd4bf', '#ccfbf1', '#f8fafc']}
+            locations={[0, 0.2, 0.4, 0.8]}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <StateLoading overlay={false} />
+        </Screen>
+      }
+    >
+      <Screen deferRender={false}>
       <LinearGradient
         colors={['#0d9488', '#2dd4bf', '#ccfbf1', '#f8fafc']}
         locations={[0, 0.2, 0.4, 0.8]}
@@ -739,6 +759,7 @@ export default function HomeScreen() {
         </Suspense>
       )}
     </Screen>
+    </ScreenReadyGate>
   );
 }
 
