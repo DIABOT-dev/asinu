@@ -1,15 +1,11 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { ScaledText as Text } from './ScaledText';
 import { AppLanguage, useLanguageStore } from '../stores/language.store';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
-
-const FLAG: Record<AppLanguage, string> = {
-  vi: '\u{1F1FB}\u{1F1F3}',
-  en: '\u{1F1EC}\u{1F1E7}',
-};
 
 export function LanguageToggle() {
   const { language, setLanguage } = useLanguageStore();
@@ -25,13 +21,37 @@ export function LanguageToggle() {
           onPress={() => setLanguage(lang)}
           style={[styles.btn, language === lang && styles.btnActive]}
         >
-          <Text style={styles.flag}>{FLAG[lang]}</Text>
+          <FlagIcon language={lang} />
           <Text style={[styles.text, language === lang && styles.textActive]}>
             {lang.toUpperCase()}
           </Text>
         </Pressable>
       ))}
     </View>
+  );
+}
+
+function FlagIcon({ language }: { language: AppLanguage }) {
+  if (language === 'vi') {
+    return (
+      <Svg width={18} height={12} viewBox="0 0 18 12" style={stylesStatic.flag}>
+        <Rect width="18" height="12" rx="1.5" fill="#DA251D" />
+        <Path
+          d="M9 2.1l.75 2.3h2.42l-1.96 1.42.75 2.3L9 6.7 7.04 8.12l.75-2.3L5.83 4.4h2.42L9 2.1z"
+          fill="#FFCD00"
+        />
+      </Svg>
+    );
+  }
+
+  return (
+    <Svg width={18} height={12} viewBox="0 0 18 12" style={stylesStatic.flag}>
+      <Rect width="18" height="12" rx="1.5" fill="#012169" />
+      <Path d="M0 0l18 12M18 0L0 12" stroke="#fff" strokeWidth="2.4" />
+      <Path d="M0 0l18 12M18 0L0 12" stroke="#C8102E" strokeWidth="1.2" />
+      <Path d="M9 0v12M0 6h18" stroke="#fff" strokeWidth="4" />
+      <Path d="M9 0v12M0 6h18" stroke="#C8102E" strokeWidth="2.4" />
+    </Svg>
   );
 }
 
@@ -54,9 +74,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingHorizontal: spacing.md,
       height: '100%',
     },
-    flag: {
-      fontSize: typography.size.sm,
-    },
     btnActive: {
       backgroundColor: colors.primary,
     },
@@ -70,3 +87,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
   });
 }
+
+const stylesStatic = StyleSheet.create({
+  flag: {
+    borderRadius: 1.5,
+  },
+});

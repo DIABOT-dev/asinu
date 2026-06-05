@@ -1,10 +1,18 @@
 #import "AppDelegate.h"
 
+#import "Expo-Swift.h"
+#import "ExpoModulesCore-Swift.h"
+#import "Asinu-Swift.h"
+#import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
 #import <ZaloSDK/ZaloSDK.h>
 
 @implementation AppDelegate
+
+@synthesize window = _window;
+@synthesize reactNativeFactory = _reactNativeFactory;
+@synthesize reactNativeDelegate = _reactNativeDelegate;
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
@@ -12,6 +20,17 @@
   self.initialProps = @{};
 
   [[ZaloSDK sharedInstance] initializeWithAppId:@"1807041944337139731"];
+
+  self.reactNativeDelegate = [ReactNativeDelegate new];
+  self.reactNativeDelegate.dependencyProvider = [RCTAppDependencyProvider new];
+  self.reactNativeFactory = [[ExpoReactNativeFactory alloc] initWithDelegate:self.reactNativeDelegate];
+  [self setValue:self.reactNativeFactory forKeyPath:@"_expoAppDelegate.factory"];
+
+  self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+  [self.reactNativeFactory startReactNativeWithModuleName:self.moduleName
+                                                inWindow:self.window
+                                       initialProperties:self.initialProps
+                                           launchOptions:launchOptions];
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
 }

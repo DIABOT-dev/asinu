@@ -265,69 +265,7 @@ function generateCodeVerifier(): string {
   return result;
 }
 
-/**
- * Authenticate with Zalo (native SDK first, fallback to server-side web flow)
- */
-export async function authenticateWithZalo(): Promise<OAuthResult> {
-  // --- Native ZaloKit (iOS & Android) ---
-  try {
-    const ZaloKit = require('react-native-zalo-kit');
-    const loginFn = ZaloKit?.login ?? ZaloKit?.default?.login;
-    // Log hash key thực tế đang dùng để verify với Zalo Developer Console
-    if (Platform.OS === 'android') {
-      const getHashKey = ZaloKit?.getApplicationHashKey ?? ZaloKit?.default?.getApplicationHashKey;
-      if (getHashKey) {
-        try {
-          const hashKey = await getHashKey();
-          console.log('[Zalo] Android hash key (dùng key này điền vào Zalo Console):', hashKey);
-        } catch (e) {}
-      }
-    }
-
-    if (loginFn) {
-      console.log('[Zalo] flow=native_sdk, loginFn:', typeof loginFn);
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('zalo_timeout')), 8000)
-      );
-      let data: any;
-      try {
-        console.log('[Zalo] calling loginFn AUTH_VIA_APP_OR_WEB...');
-        data = await Promise.race([loginFn('AUTH_VIA_APP_OR_WEB'), timeout]);
-        console.log('[Zalo] loginFn resolved:', JSON.stringify(data));
-      } catch (loginErr: any) {
-        console.log('[Zalo] loginFn rejected:', loginErr?.message, 'code:', loginErr?.code, 'full:', JSON.stringify(loginErr));
-        throw loginErr;
-      }
-      const accessToken: string = (data as any).accessToken;
-      console.log('[Zalo] accessToken:', accessToken ? accessToken.slice(0, 20) + '...' : 'null');
-
-      const profileRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
-        headers: { access_token: accessToken },
-      });
-      const profileJson = await profileRes.json();
-      console.log('[Zalo] profile:', JSON.stringify(profileJson));
-
-      if (profileJson?.id) {
-        console.log('[Zalo] native_sdk success, userId:', profileJson.id);
-        return {
-          type: 'success',
-          token: accessToken,
-          profile: {
-            sub: profileJson.id,
-            name: profileJson.name,
-            picture: profileJson.picture?.data?.url,
-          },
-        };
-      }
-      console.log('[Zalo] native_sdk: no profile id, falling through to web');
-    } else {
-      console.log('[Zalo] native_sdk unavailable, falling through to web');
-    }
-  } catch (err: any) {
-    console.log('[Zalo] native_sdk error — message:', err?.message, 'code:', err?.code, 'full:', JSON.stringify(err));
-  }
-
-  // --- Web / server-side callback flow (fallback for both iOS & Android) ---
+async function authenticateWithZaloWeb(): Promise<OAuthResult> {
   console.log('[Zalo] flow=web_callback, platform:', Platform.OS);
   try {
     const appId = process.env.EXPO_PUBLIC_ZALO_APP_ID;
@@ -374,6 +312,67 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
       error: error instanceof Error ? error.message : t('unknownError')
     };
   }
+}
+
+/**
+ * Authenticate with Zalo.
+ * Android uses web OAuth directly to avoid Zalo SDK compatibility dialogs on emulators/devices.
+ * iOS tries native SDK first, then falls back to server-side web flow.
+ */
+export async function authenticateWithZalo(): Promise<OAuthResult> {
+  if (Platform.OS === 'android') {
+    return authenticateWithZaloWeb();
+  }
+
+  // --- Native ZaloKit (iOS) ---
+  try {
+    const ZaloKit = require('react-native-zalo-kit');
+    const loginFn = ZaloKit?.login ?? ZaloKit?.default?.login;
+
+    if (loginFn) {
+      console.log('[Zalo] flow=native_sdk, loginFn:', typeof loginFn);
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('zalo_timeout')), 8000)
+      );
+      let data: any;
+      try {
+        console.log('[Zalo] calling loginFn AUTH_VIA_APP_OR_WEB...');
+        data = await Promise.race([loginFn('AUTH_VIA_APP_OR_WEB'), timeout]);
+        console.log('[Zalo] loginFn resolved:', JSON.stringify(data));
+      } catch (loginErr: any) {
+        console.log('[Zalo] loginFn rejected:', loginErr?.message, 'code:', loginErr?.code, 'full:', JSON.stringify(loginErr));
+        throw loginErr;
+      }
+      const accessToken: string = (data as any).accessToken;
+      console.log('[Zalo] accessToken:', accessToken ? accessToken.slice(0, 20) + '...' : 'null');
+
+      const profileRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
+        headers: { access_token: accessToken },
+      });
+      const profileJson = await profileRes.json();
+      console.log('[Zalo] profile:', JSON.stringify(profileJson));
+
+      if (profileJson?.id) {
+        console.log('[Zalo] native_sdk success, userId:', profileJson.id);
+        return {
+          type: 'success',
+          token: accessToken,
+          profile: {
+            sub: profileJson.id,
+            name: profileJson.name,
+            picture: profileJson.picture?.data?.url,
+          },
+        };
+      }
+      console.log('[Zalo] native_sdk: no profile id, falling through to web');
+    } else {
+      console.log('[Zalo] native_sdk unavailable, falling through to web');
+    }
+  } catch (err: any) {
+    console.log('[Zalo] native_sdk error — message:', err?.message, 'code:', err?.code, 'full:', JSON.stringify(err));
+  }
+
+  return authenticateWithZaloWeb();
 }
 
 /**
