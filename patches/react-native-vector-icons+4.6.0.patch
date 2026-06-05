@@ -1,0 +1,38 @@
+diff --git a/node_modules/react-native-vector-icons/android/build.gradle b/node_modules/react-native-vector-icons/android/build.gradle
+index 28e2fcc..731e870 100644
+--- a/node_modules/react-native-vector-icons/android/build.gradle
++++ b/node_modules/react-native-vector-icons/android/build.gradle
+@@ -1,22 +1,12 @@
+-buildscript {
+-  repositories {
+-    jcenter()
+-  }
+-
+-  dependencies {
+-    classpath 'com.android.tools.build:gradle:2.3.+'
+-  }
+-}
+-
+ apply plugin: 'com.android.library'
+ 
+ android {
+-  compileSdkVersion 26
+-  buildToolsVersion "26.0.1"
++  compileSdkVersion 35
++  buildToolsVersion "35.0.0"
+ 
+   defaultConfig {
+-    minSdkVersion 16
+-    targetSdkVersion 26
++    minSdkVersion 24
++    targetSdkVersion 35
+     versionCode 1
+     versionName "1.0"
+   }
+@@ -30,5 +20,5 @@ repositories {
+ }
+ 
+ dependencies {
+-  compile "com.facebook.react:react-native:+"
++  implementation "com.facebook.react:react-android"
+ }
