@@ -30,6 +30,14 @@ export type MissionRecord = {
 
 type ErrorState = 'none' | 'remote-failed' | 'no-data';
 
+const VISIBLE_MISSION_KEYS = new Set([
+  'daily_checkin',
+  'log_glucose',
+  'log_bp',
+  'log_weight',
+  'log_water',
+]);
+
 type MissionsState = {
   missions: Mission[];
   status: 'idle' | 'loading' | 'success' | 'error';
@@ -60,23 +68,10 @@ const getMissionMeta = (): Record<string, { title: string; description?: string 
     title: i18n.t('missions:waterIntake'),
     description: i18n.t('missions:waterIntakeDesc')
   },
-  log_meal: {
-    title: i18n.t('missions:logMeal'),
-    description: i18n.t('missions:logMealDesc')
-  },
-  log_insulin: {
-    title: i18n.t('missions:logInsulin'),
-    description: i18n.t('missions:logInsulinDesc')
-  },
-  log_medication: {
-    title: i18n.t('missions:logMedication'),
-    description: i18n.t('missions:logMedicationDesc')
-  },
-  connect_caregiver: {
-    title: i18n.t('missions:connectFamily'),
-    description: i18n.t('missions:connectFamilyDesc')
-  }
 });
+
+const filterVisibleMissions = (missions: MissionRecord[]) =>
+  missions.filter((mission) => VISIBLE_MISSION_KEYS.has(mission.mission_key));
 
 const mapMission = (mission: MissionRecord): Mission => {
   // Always prefer local i18n (follows user's language), backend title only as last fallback
@@ -126,26 +121,6 @@ const getFallbackMissions = (): Mission[] => {
       progress: 0,
       goal: 4,
       updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'log_meal',
-      missionKey: 'log_meal',
-      title: meta.log_meal.title,
-      description: meta.log_meal.description,
-      status: 'active',
-      progress: 0,
-      goal: 3,
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'daily_checkin',
-      missionKey: 'daily_checkin',
-      title: meta.daily_checkin.title,
-      description: meta.daily_checkin.description,
-      status: 'active',
-      progress: 0,
-      goal: 1,
-      updatedAt: new Date().toISOString()
     }
   ];
 };
@@ -168,7 +143,7 @@ export const useMissionsStore = create<MissionsState>((set) => ({
     const cachedRecords = await localCache.getCached<MissionRecord[]>(CACHE_KEYS.MISSIONS, todayKey);
     if (cachedRecords) {
       // Re-map with current language on every read (don't use cached title strings)
-      set({ missions: cachedRecords.map(mapMission), status: 'success', isStale: true, errorState: 'none' });
+      set({ missions: filterVisibleMissions(cachedRecords).map(mapMission), status: 'success', isStale: true, errorState: 'none' });
       usedCache = true;
     } else {
       set({ status: 'loading', errorState: 'none', isStale: false });
@@ -176,7 +151,7 @@ export const useMissionsStore = create<MissionsState>((set) => ({
     try {
       const missionRecords = await missionsApi.fetchMissions({ signal });
 
-      const missions = missionRecords.map(mapMission);
+      const missions = filterVisibleMissions(missionRecords).map(mapMission);
 
       set({ missions, status: 'success', isStale: false, errorState: 'none' });
       // Cache raw records (not mapped) so re-mapping always uses current language

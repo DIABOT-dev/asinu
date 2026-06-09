@@ -8,8 +8,8 @@ import { colors, spacing } from '../../src/styles';
 
 export default function LegalContentScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();
-  const contentKey = type === 'privacy' ? 'privacy' : 'terms';
-  const content = getLegalText()[contentKey];
+  const contentKey = type === 'privacy' ? 'privacy' : type === 'dataDeletion' ? 'dataDeletion' : 'terms';
+  const content = getLegalText('vi')[contentKey];
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 

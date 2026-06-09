@@ -26,10 +26,6 @@ const MISSION_ROUTES: Record<string, string> = {
   log_bp: '/logs/blood-pressure',
   log_weight: '/logs/weight',
   log_water: '/logs/water',
-  log_meal: '/logs/meal',
-  log_insulin: '/logs/insulin',
-  log_medication: '/logs/medication',
-  connect_caregiver: '/care-circle',
 };
 
 export default function MissionsScreen() {
