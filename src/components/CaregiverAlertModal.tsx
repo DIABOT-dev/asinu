@@ -120,10 +120,11 @@ export function CaregiverAlertModal() {
         body: { alert_id: alert.alertId, action },
       });
       // Toast feedback để caregiver biết hành động đã được ghi nhận
+      const patientName = alert.patientName || 'Người thân';
       const FEEDBACK: Record<string, string> = {
-        seen:      `✓ Đã ghi nhận. ${alert.patientName} sẽ thấy bạn đã xem.`,
-        on_my_way: `🚶 Đã báo ${alert.patientName} bạn đang đến.`,
-        called:    `📞 Đã ghi nhận. ${alert.patientName} biết bạn đã gọi.`,
+        seen:      `✓ Đã ghi nhận. ${patientName} sẽ thấy bạn đã xem.`,
+        on_my_way: `🚶 Đã báo ${patientName} bạn đang đến.`,
+        called:    `📞 Đã ghi nhận. ${patientName} biết bạn đã gọi.`,
       };
       showToast(FEEDBACK[action] || t('careAlertConfirmed') || '✓', 'success', 3500);
       // Move to next alert or close

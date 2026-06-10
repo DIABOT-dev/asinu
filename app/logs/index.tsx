@@ -55,7 +55,7 @@ export default function LogsIndexScreen() {
     fetchLogs(c.signal);
   }, [fetchLogs]);
 
-  const visibleLogCards = useMemo(() => [
+  const visibleLogCards = useMemo<LogCard[]>(() => [
     { key: 'glucose',          route: '/logs/glucose',       icon: 'water',          bg: '#e8f4fd', iconColor: iconColors.glucose,    desc: t('glucoseValue') },
     { key: 'bloodPressure',    route: '/logs/blood-pressure',icon: 'heart-pulse',    bg: '#fde8e8', iconColor: iconColors.bp,         desc: t('systolic') + ' / ' + t('diastolic') },
     { key: 'water',            route: '/logs/water',         icon: 'cup-water',      bg: '#e8f8fc', iconColor: iconColors.water,      desc: t('volumeMl') },
