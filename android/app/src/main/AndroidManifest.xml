@@ -1,19 +1,13 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
   <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.VIBRATE"/>
+  <!-- OPTIONAL PERMISSIONS, REMOVE WHATEVER YOU DO NOT NEED -->
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-  <!-- Push notifications (bắt buộc Android 13+) -->
-  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-  <!-- Khôi phục lịch thông báo sau reboot -->
-  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-  <!-- SOS khẩn cấp -->
-  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-  <!-- Ảnh đại diện: Android 13+ dùng READ_MEDIA_IMAGES, cũ hơn dùng READ_EXTERNAL_STORAGE -->
-  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:targetApi="33"/>
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+  <uses-permission android:name="android.permission.VIBRATE"/>
+  <!-- These require runtime permissions on M -->
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <!-- END OPTIONAL PERMISSIONS -->
 
   <queries>
     <!-- Support checking for http(s) links via the Linking API -->
@@ -22,52 +16,13 @@
       <category android:name="android.intent.category.BROWSABLE" />
       <data android:scheme="https" />
     </intent>
-    <!-- Zalo app -->
-    <package android:name="com.zing.zalo" />
-    <!-- Facebook app -->
-    <package android:name="com.facebook.katana" />
   </queries>
 
   <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@style/AppTheme" android:supportsRtl="true">
-    <meta-data android:name="com.zing.zalo.zalosdk.appID" android:value="@string/appID"/>
-    <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
-    <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>
-
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
-      </intent-filter>
-      <!-- Deep link: asinu-lite://auth/*/callback — dùng cho Facebook, Zalo, Google OAuth -->
-      <intent-filter>
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="asinu-lite"/>
-      </intent-filter>
-    </activity>
-
-    <activity android:name="com.facebook.FacebookActivity"
-      android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|smallestScreenSize|uiMode"
-      android:label="@string/app_name"
-      tools:replace="android:configChanges"/>
-    <activity android:name="com.facebook.CustomTabActivity" android:exported="true">
-      <intent-filter>
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="fb1498953168498253"/>
-      </intent-filter>
-    </activity>
-
-    <activity
-      android:name="com.zing.zalo.zalosdk.oauth.BrowserLoginActivity"
-      android:exported="true">
-      <intent-filter>
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="zalo-1807041944337139731"/>
       </intent-filter>
     </activity>
   </application>

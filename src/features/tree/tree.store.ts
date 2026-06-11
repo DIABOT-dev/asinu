@@ -1,7 +1,5 @@
 import { create } from 'zustand';
-import i18n from '../../i18n';
 import { CACHE_KEYS } from '../../lib/cacheKeys';
-import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
 import { logError } from '../../lib/logger';
 import { treeApi } from './tree.api';
@@ -30,26 +28,6 @@ type TreeState = {
   reset: () => void;
 };
 
-const fallbackSummary: TreeSummary = {
-  score: 0.68,
-  streakDays: 6,
-  completedToday: 9,
-  totalMissions: 12
-};
-
-const getFallbackHistory = (): TreeHistoryPoint[] => {
-  const t = (key: string) => i18n.t(key, { ns: 'tree' });
-  return [
-    { label: t('dayMon'), value: 62 },
-    { label: t('dayTue'), value: 68 },
-    { label: t('dayWed'), value: 70 },
-    { label: t('dayThu'), value: 66 },
-    { label: t('dayFri'), value: 74 },
-    { label: t('daySat'), value: 72 },
-    { label: t('daySun'), value: 75 }
-  ];
-};
-
 export const useTreeStore = create<TreeState>((set) => ({
   summary: null,
   history: [],
@@ -60,11 +38,6 @@ export const useTreeStore = create<TreeState>((set) => ({
     set({ summary: null, history: [], status: 'idle', isStale: false, errorState: 'none' });
   },
   async fetchTree(signal) {
-    if (featureFlags.devBypassAuth) {
-      set({ summary: fallbackSummary, history: getFallbackHistory(), status: 'success', isStale: false, errorState: 'none' });
-      return;
-    }
-
     const todayKey = new Date().toISOString().slice(0, 10);
     let usedCache = false;
     const cached = await localCache.getCached<{ summary: TreeSummary; history: TreeHistoryPoint[] }>(CACHE_KEYS.TREE, todayKey);
@@ -92,7 +65,7 @@ export const useTreeStore = create<TreeState>((set) => ({
       if (usedCache) {
         set({ status: 'success', isStale: true, errorState: 'remote-failed' });
       } else {
-        set({ summary: fallbackSummary, history: getFallbackHistory(), status: 'error', isStale: false, errorState: 'no-data' });
+        set({ summary: null, history: [], status: 'error', isStale: false, errorState: 'no-data' });
       }
       logError(error, { store: 'tree', action: 'fetchTree', usedCache });
     }

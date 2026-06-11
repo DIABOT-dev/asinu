@@ -11,6 +11,10 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
+async function healthFeedApi<T>(path: string, options?: any) {
+  return apiClient<T>(`/api/health-feed${path}`, options);
+}
+
 export default function ArticleDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
@@ -20,25 +24,18 @@ export default function ArticleDetailScreen() {
   const [saving, setSaving] = useState(false);
 
   const fetchArticle = async () => {
-    if (process.env.EXPO_PUBLIC_ENABLE_PHFNE !== 'true') return;
     try {
-      const res = await apiClient<any>(`/api/phfne/content/${id}`);
+      const res = await healthFeedApi<any>(`/content/${id}`);
       if (res.ok && res.content) {
         setContent(res.content);
+        healthFeedApi('/event', {
+          method: 'POST',
+          body: { content_id: String(id), event_type: 'viewed' }
+        }).catch(() => {});
       }
     } catch (err) {
       console.error('[ArticleDetail] Failed to load:', err);
     } finally {
-      setContent((prev: any) => {
-        // Track viewed event
-        if (prev) {
-          apiClient('/api/phfne/event', {
-            method: 'POST',
-            body: { content_id: String(id), event_type: 'viewed' }
-          }).catch(() => {});
-        }
-        return prev;
-      });
       setLoading(false);
     }
   };
@@ -53,7 +50,7 @@ export default function ArticleDetailScreen() {
     const action = content.is_saved ? 'unsave' : 'save';
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const res = await apiClient<any>(`/api/phfne/content/${id}/${action}`, { method: 'POST' });
+      const res = await healthFeedApi<any>(`/content/${id}/${action}`, { method: 'POST' });
       if (res.ok) {
         setContent((prev: any) => ({ ...prev, is_saved: !prev.is_saved }));
         Alert.alert(
@@ -88,7 +85,7 @@ export default function ArticleDetailScreen() {
       await Clipboard.setStringAsync(text);
       Alert.alert('Thành công', 'Đã sao chép nội dung gửi gia đình!');
       // Track copy event
-      await apiClient('/api/phfne/event', {
+      await healthFeedApi('/event', {
         method: 'POST',
         body: { content_id: String(id), event_type: 'copied' }
       });
@@ -116,7 +113,7 @@ export default function ArticleDetailScreen() {
       if (result.action === Share.sharedAction) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         // Track share event
-        await apiClient('/api/phfne/event', {
+        await healthFeedApi('/event', {
           method: 'POST',
           body: { content_id: String(id), event_type: 'shared' }
         });
@@ -214,7 +211,7 @@ export default function ArticleDetailScreen() {
             style={styles.ctaButton} 
             onPress={() => {
               // Track CTA click
-              apiClient('/api/phfne/event', {
+              healthFeedApi('/event', {
                 method: 'POST',
                 body: { content_id: String(id), event_type: 'cta_clicked' }
               }).catch(() => {});

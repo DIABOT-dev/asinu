@@ -14,7 +14,7 @@ interface OptimizedImageProps extends Omit<ImageProps, 'source'> {
 }
 
 export function OptimizedImage({ source, placeholder, style, ...props }: OptimizedImageProps) {
-  const isRemote = typeof source === 'object' && 'uri' in source;
+  const isRemote = typeof source === 'object' && source !== null && 'uri' in source;
 
   return (
     <Image
@@ -22,7 +22,7 @@ export function OptimizedImage({ source, placeholder, style, ...props }: Optimiz
       placeholder={isRemote ? (placeholder || blurhash) : undefined}
       transition={isRemote ? 200 : 0}
       cachePolicy="memory-disk"
-      recyclingKey={typeof source === 'object' && 'uri' in source ? source.uri : undefined}
+      recyclingKey={typeof source === 'object' && source !== null && 'uri' in source ? source.uri : undefined}
       style={style}
       {...props}
     />

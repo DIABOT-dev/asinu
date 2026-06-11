@@ -1,7 +1,6 @@
 ﻿import { create } from 'zustand';
 import i18n from '../../i18n';
 import { CACHE_KEYS } from '../../lib/cacheKeys';
-import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
 import { logError } from '../../lib/logger';
 import { missionsApi } from './missions.api';
@@ -89,42 +88,6 @@ const mapMission = (mission: MissionRecord): Mission => {
   };
 };
 
-const getFallbackMissions = (): Mission[] => {
-  const meta = getMissionMeta();
-  return [
-    {
-      id: 'log_glucose',
-      missionKey: 'log_glucose',
-      title: meta.log_glucose.title,
-      description: meta.log_glucose.description,
-      status: 'active',
-      progress: 0,
-      goal: 2,
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'log_bp',
-      missionKey: 'log_bp',
-      title: meta.log_bp.title,
-      description: meta.log_bp.description,
-      status: 'active',
-      progress: 0,
-      goal: 2,
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'log_water',
-      missionKey: 'log_water',
-      title: meta.log_water.title,
-      description: meta.log_water.description,
-      status: 'active',
-      progress: 0,
-      goal: 4,
-      updatedAt: new Date().toISOString()
-    }
-  ];
-};
-
 export const useMissionsStore = create<MissionsState>((set) => ({
   missions: [],
   status: 'idle',
@@ -134,10 +97,6 @@ export const useMissionsStore = create<MissionsState>((set) => ({
     set({ missions: [], status: 'idle', isStale: false, errorState: 'none' });
   },
   async fetchMissions(signal) {
-    if (featureFlags.devBypassAuth) {
-      set({ missions: getFallbackMissions(), status: 'success', isStale: false, errorState: 'none' });
-      return;
-    }
     const todayKey = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' — cache hết hạn khi sang ngày mới
     let usedCache = false;
     const cachedRecords = await localCache.getCached<MissionRecord[]>(CACHE_KEYS.MISSIONS, todayKey);

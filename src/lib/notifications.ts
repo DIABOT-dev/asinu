@@ -83,7 +83,7 @@ export async function registerNotificationCategories(): Promise<void> {
 }
 
 export interface NotificationData {
-  type: 'care_circle_invitation' | 'care_circle_accepted' | 'alert' | 'message' | 'engagement';
+  type: 'care_circle_invitation' | 'care_circle_accepted' | 'alert' | 'message' | 'engagement' | 'health_feed';
   invitationId?: string;
   senderId?: string;
   senderName?: string;
@@ -392,6 +392,11 @@ export function routeFromNotificationData(data: Record<string, unknown> | null |
   }
   if (type === 'profile_incomplete') {
     return '/onboarding';
+  }
+  if (type === 'health_feed') {
+    const contentId = (data?.contentId as string) || (data?.content_id as string);
+    if (contentId) return `/feed/${contentId}`;
+    return '/feed';
   }
 
   // Emergency / Caregiver → vào home, modal sẽ tự fetch và hiện
