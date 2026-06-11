@@ -35,7 +35,7 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const SOCIAL_PROVIDERS_BY_PLATFORM: Record<string, SocialProvider[]> = {
   ios: ['google', 'facebook', 'zalo', 'apple'],
-  android: ['google'],
+  android: ['google', 'zalo'],
   default: ['google'],
 };
 

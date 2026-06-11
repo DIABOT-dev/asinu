@@ -2,6 +2,8 @@ package com.asinu.lite
 
 import android.app.Application
 import android.content.res.Configuration
+import com.asinu.lite.zalo.AsinuZaloAuthPackage
+import com.zing.zalo.zalosdk.oauth.ZaloSDKApplication
 
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
@@ -25,6 +27,7 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
+              add(AsinuZaloAuthPackage())
             }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"
@@ -47,6 +50,7 @@ class MainApplication : Application(), ReactApplication {
     }
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+    ZaloSDKApplication.wrap(this)
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

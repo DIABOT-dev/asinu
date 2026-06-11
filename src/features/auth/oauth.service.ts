@@ -5,7 +5,7 @@
 
 import { AuthRequest, DiscoveryDocument, ResponseType, exchangeCodeAsync, makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import i18n from '../../i18n';
 
 const t = (key: string) => i18n.t(key, { ns: 'auth' });
@@ -314,17 +314,61 @@ async function authenticateWithZaloWeb(): Promise<OAuthResult> {
   }
 }
 
+async function authenticateWithZaloNativeAndroid(): Promise<OAuthResult> {
+  const nativeZaloAuth = NativeModules.AsinuZaloAuth as
+    | { login?: (authType: string) => Promise<{ accessToken?: string; refreshToken?: string }> }
+    | undefined;
+
+  if (!nativeZaloAuth?.login) {
+    throw new Error('asinu_zalo_auth_unavailable');
+  }
+
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('zalo_native_timeout')), 8000)
+  );
+
+  const data = await Promise.race([
+    nativeZaloAuth.login('AUTH_VIA_APP_OR_WEB'),
+    timeout
+  ]);
+  const accessToken = data?.accessToken;
+  if (!accessToken) {
+    throw new Error('zalo_native_no_access_token');
+  }
+
+  const profileRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
+    headers: { access_token: accessToken },
+  });
+  const profileJson = await profileRes.json();
+
+  return {
+    type: 'success',
+    token: accessToken,
+    profile: {
+      sub: profileJson?.id,
+      name: profileJson?.name,
+      picture: profileJson?.picture?.data?.url,
+    },
+  };
+}
+
 /**
  * Authenticate with Zalo.
- * Android uses web OAuth directly to avoid Zalo SDK compatibility dialogs on emulators/devices.
+ * Android uses the app-owned native Zalo bridge first, then falls back to web OAuth.
  * iOS tries native SDK first, then falls back to server-side web flow.
  */
 export async function authenticateWithZalo(): Promise<OAuthResult> {
   if (Platform.OS === 'android') {
-    return {
-      type: 'error',
-      error: 'Zalo login is temporarily unavailable on Android',
-    };
+    try {
+      console.log('[Zalo] flow=android_native_bridge');
+      return await authenticateWithZaloNativeAndroid();
+    } catch (err: any) {
+      console.log('[Zalo] android_native_bridge failed, falling back to web:', {
+        code: err?.code,
+        message: err?.message || String(err),
+      });
+      return authenticateWithZaloWeb();
+    }
   }
 
   // --- Native ZaloKit (iOS) ---
