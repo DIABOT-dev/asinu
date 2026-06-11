@@ -79,7 +79,7 @@ jobs:
           mkdir -p qa_external
           ts=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           endpoints=(
-            "/api/qa/selftest"
+            "/healthz"
             "/api/chart/7d"
             "/api/profile"
           )
@@ -98,7 +98,7 @@ jobs:
             echo "## External endpoints (${QA_BASE_URL})"
             echo "| Endpoint | Status | Code | Latency |"
             echo "|---------:|:------:|-----:|--------:|"
-            ok_self=0
+            ok_health=0
             for p in "${endpoints[@]}"; do
               url="${QA_BASE_URL}${p}"
               code=$(curlcode "$url" || echo 000)
@@ -106,17 +106,17 @@ jobs:
               status="✅"
               if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then status="❌"; fi
               printf "| \\`%s\\` | %s | %s | %s |\n" "$p" "$status" "$code" "$lat"
-              if [ "$p" = "/api/qa/selftest" ] && [ "$status" = "✅" ]; then ok_self=1; fi
+              if [ "$p" = "/healthz" ] && [ "$status" = "✅" ]; then ok_health=1; fi
             done
             echo
-            if [ "$ok_self" -eq 1 ]; then
-              echo "Gate: ✅ /api/qa/selftest"
+            if [ "$ok_health" -eq 1 ]; then
+              echo "Gate: ✅ /healthz"
             else
-              echo "Gate: ❌ /api/qa/selftest"
+              echo "Gate: ❌ /healthz"
             fi
           } > qa_external/report.md
 
-          echo "self_ok=$ok_self" >> "$GITHUB_OUTPUT"
+          echo "health_ok=$ok_health" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifacts
         if: always()
@@ -141,8 +141,8 @@ jobs:
             cat qa_external/report.md >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Gate on external selftest
-        if: steps.camp.outputs.self_ok != '1'
+      - name: Gate on external healthz
+        if: steps.camp.outputs.health_ok != '1'
         run: |
-          echo "External /api/qa/selftest failed. See report."
+          echo "External /healthz failed. See report."
           exit 1

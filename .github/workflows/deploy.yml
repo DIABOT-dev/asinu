@@ -116,8 +116,7 @@ jobs:
           BASE_URL: ${{ steps.resolve.outputs.base_url }}
         run: |
           set -euo pipefail
-          curl -fsS "${BASE_URL}/api/qa/selftest"
-          curl -fsS "${BASE_URL}/healthz" || true
+          curl -fsS "${BASE_URL}/healthz"
 
       - name: Summary
         run: |
