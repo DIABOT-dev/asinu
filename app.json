@@ -43,7 +43,7 @@
       "googleServicesFile": "./android/app/google-services.json",
       "icon": "./assets/icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/android/adaptive-foreground.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#47BFEA"
       },
       "permissions": [
