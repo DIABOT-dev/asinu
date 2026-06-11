@@ -1,4 +1,4 @@
-﻿import { apiClient } from '../../../lib/apiClient';
+import { apiClient } from '../../../lib/apiClient';
 import { EngineState, PulseStatus } from '../types';
 
 type CarePulseEventType = 'CHECK_IN' | 'POPUP_SHOWN' | 'POPUP_DISMISSED' | 'APP_OPENED';
@@ -21,7 +21,7 @@ type CarePulseStateResponse = {
 };
 
 const generateEventId = () => {
-  const cryptoObj = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  const cryptoObj = (globalThis as any).crypto as { randomUUID?: () => string } | undefined;
   if (cryptoObj?.randomUUID) {
     return cryptoObj.randomUUID();
   }

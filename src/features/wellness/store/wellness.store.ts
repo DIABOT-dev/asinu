@@ -76,8 +76,9 @@ interface WellnessStore {
 // =====================================================
 
 const createSessionId = (): string => {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
+  const globalAny = globalThis as any;
+  if (typeof globalAny.crypto?.randomUUID === 'function') {
+    return globalAny.crypto.randomUUID();
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;

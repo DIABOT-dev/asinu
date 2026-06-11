@@ -35,7 +35,7 @@ type RequestOptions = Omit<RequestInit, 'body'> & {
 };
 
 const DEFAULT_TIMEOUT_MS = 12000;
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+const sleep = (ms: number) => new Promise<void>((res) => setTimeout(() => res(), ms));
 
 const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: number) => {
   const controller = new AbortController();

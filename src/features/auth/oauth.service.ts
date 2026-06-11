@@ -277,7 +277,7 @@ async function authenticateWithZaloWeb(): Promise<OAuthResult> {
     // Backend HTTPS endpoint — Zalo redirects here with ?code=
     const redirectUri = `${apiBase}/api/auth/zalo/callback`;
 
-    const statePayload = btoa(JSON.stringify({ n: Date.now() }));
+    const statePayload = 'zalo_auth_' + Date.now();
 
     const authUrl = `https://oauth.zaloapp.com/v4/permission?${new URLSearchParams({
       app_id: appId,
