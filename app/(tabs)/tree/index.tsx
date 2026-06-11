@@ -9,6 +9,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, wit
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
+import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
@@ -249,7 +250,6 @@ function FloatingLeaf({ x, y, rotate, size, color, delay = 0 }: any) {
 export default function TreeScreen() {
   const { t } = useTranslation('tree');
   const { t: tc } = useTranslation('common');
-  const { t: th } = useTranslation('home');
   const summary = useTreeStore((state) => state.summary);
   const history = useTreeStore((state) => state.history);
   const fetchTree = useTreeStore((state) => state.fetchTree);
@@ -488,6 +488,9 @@ export default function TreeScreen() {
           </LinearGradient>
         </View>
 
+        {/* Báo cáo sức khoẻ - nhúng nguyên khối */}
+        <HealthReportPanel embedded />
+
         {/* Section Header */}
         <View style={styles.sectionHeader}>
           <Ionicons name="stats-chart" size={20} color={colors.textPrimary} />
@@ -522,17 +525,6 @@ export default function TreeScreen() {
             </AnimatedBorderCard>
           ))}
         </View>
-        
-        {/* Health Report Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionBtn,
-            pressed && { opacity: 0.85 }
-          ]}
-          onPress={() => router.push('/report')}
-        >
-          <Text style={styles.actionBtnText}>{th('healthReport')}</Text>
-        </Pressable>
         
         {/* Activity Chart */}
         <View style={styles.chartSection}>
@@ -614,6 +606,45 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       shadowOpacity: 0.05,
       shadowRadius: 6,
       elevation: 2,
+    },
+    reportCard: {
+      backgroundColor: '#ecfdf5',
+      borderRadius: 18,
+      padding: spacing.lg,
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: 'rgba(16, 185, 129, 0.18)',
+      shadowColor: '#10b981',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 14,
+      elevation: 4,
+    },
+    reportRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    reportIconWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: '#d1fae5',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    reportTextWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    reportTitle: {
+      fontSize: typography.size.md,
+      fontWeight: '800',
+      color: '#065f46',
+    },
+    reportSub: {
+      fontSize: typography.size.sm,
+      color: '#047857',
     },
     infoTitleRow: {
       flexDirection: 'row',

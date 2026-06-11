@@ -1,12 +1,4 @@
-const devBypassAuthRaw = process.env.EXPO_PUBLIC_DEV_BYPASS_AUTH === '1';
 const disableChartsRaw = process.env.EXPO_PUBLIC_DISABLE_CHARTS === '1';
-const isProdRuntime = process.env.NODE_ENV === 'production';
-
-const devBypassAuth = isProdRuntime ? false : devBypassAuthRaw;
-
-if (isProdRuntime && devBypassAuthRaw) {
-
-}
 
 // Mobile payment routing — App Store / Play Store cấm dùng QR/wallet ngoài
 // platform billing để bán dịch vụ số. 3 mode:
@@ -27,8 +19,6 @@ const iapProductYearly = process.env.EXPO_PUBLIC_IAP_PRODUCT_YEARLY ?? 'asinu.pr
 
 export const env = {
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000',
-  devBypassAuthRaw,
-  devBypassAuth,
   disableChartsRaw,
   paymentMethod,
   iapProductMonthly,

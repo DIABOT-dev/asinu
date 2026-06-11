@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
-import { careCircleApi } from '../../../src/features/care-circle';
+import { careCircleApi, type MemberHealthSummary } from '../../../src/features/care-circle';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { colors, spacing } from '../../../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
@@ -35,6 +35,17 @@ const SEVERITY_CONFIG: Record<string, { color: string; labelKey: string }> = {
   medium: { color: '#f59e0b', labelKey: 'checkinSeverityMedium' },
   high:   { color: '#ef4444', labelKey: 'checkinSeverityHigh' },
 };
+const SEVERITY_LABEL: Record<string, string> = {
+  low: 'Nhẹ',
+  medium: 'Vừa',
+  high: 'Nghiêm trọng',
+};
+const REPORT_STATUS_META: Record<string, { label: string; icon: string; color: string; bg: string }> = {
+  fine: { label: 'Ổn', icon: 'emoticon-happy-outline', color: '#16a34a', bg: '#dcfce7' },
+  tired: { label: 'Hơi mệt', icon: 'emoticon-neutral-outline', color: '#f59e0b', bg: '#fef3c7' },
+  very_tired: { label: 'Rất mệt', icon: 'emoticon-sad-outline', color: '#ef4444', bg: '#fee2e2' },
+  specific_concern: { label: 'Có lo ngại', icon: 'stethoscope', color: '#8b5cf6', bg: '#f5f3ff' },
+};
 
 // ── Helpers ──────────────────────────────────────────────────────
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -62,7 +73,7 @@ const getLogValue = (log: { log_type: string; metadata: any }): string => {
   }
 };
 
-type Tab = 'logs' | 'checkins';
+type Tab = 'overview' | 'logs' | 'checkins';
 
 type CheckinSession = {
   id: number;
@@ -86,8 +97,13 @@ export default function MemberLogsScreen() {
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
-  const [activeTab, setActiveTab] = useState<Tab>('logs');
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [patientName, setPatientName] = useState(name || '');
+
+  // Shared dashboard state
+  const [summary, setSummary] = useState<MemberHealthSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState('');
 
   // Logs state
   const [logs, setLogs] = useState<any[]>([]);
@@ -101,6 +117,19 @@ export default function MemberLogsScreen() {
 
   useEffect(() => {
     if (!id) return;
+    setSummaryLoading(true);
+    careCircleApi.getMemberHealthSummary(Number(id))
+      .then(res => {
+        if (res.ok) {
+          setSummary(res);
+          if (res.patientName) setPatientName(res.patientName);
+        } else {
+          setSummaryError(t('noPermissionViewLogs'));
+        }
+      })
+      .catch(() => setSummaryError(t('cannotLoadLogs')))
+      .finally(() => setSummaryLoading(false));
+
     // Load logs
     careCircleApi.getPatientLogs(id)
       .then(res => {
@@ -139,7 +168,13 @@ export default function MemberLogsScreen() {
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
   }, [logs]);
 
-  const isLoading = activeTab === 'logs' ? logsLoading : checkinsLoading;
+  const isLoading = activeTab === 'overview' ? summaryLoading : activeTab === 'logs' ? logsLoading : checkinsLoading;
+  const report = summary?.report;
+  const severityDistribution = report?.severityDistribution || { low: 0, medium: 0, high: 0 };
+  const severityTotal = Object.values(severityDistribution).reduce((sum: number, count: any) => sum + Number(count || 0), 0);
+  const statusDistribution = report?.statusDistribution || {};
+  const statusTotal = Object.values(statusDistribution).reduce((sum: number, count: any) => sum + Number(count || 0), 0);
+  const recentSessions = report?.sessions || report?.recentSessions || [];
 
   return (
     <>
@@ -160,6 +195,19 @@ export default function MemberLogsScreen() {
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
+        <Pressable
+          style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
+          onPress={() => setActiveTab('overview')}
+        >
+          <MaterialCommunityIcons
+            name="view-dashboard-outline"
+            size={16}
+            color={activeTab === 'overview' ? colors.primary : colors.textSecondary}
+          />
+          <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>
+            Tổng quan
+          </Text>
+        </Pressable>
         <Pressable
           style={[styles.tab, activeTab === 'logs' && styles.tabActive]}
           onPress={() => setActiveTab('logs')}
@@ -193,6 +241,187 @@ export default function MemberLogsScreen() {
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
+        )}
+
+        {/* ── OVERVIEW TAB ── */}
+        {activeTab === 'overview' && !summaryLoading && (
+          <>
+            {summaryError !== '' && (
+              <View style={styles.center}>
+                <MaterialCommunityIcons name="lock-outline" size={48} color={colors.textSecondary} />
+                <Text style={styles.emptyText}>{summaryError}</Text>
+              </View>
+            )}
+            {summaryError === '' && !summary && (
+              <View style={styles.center}>
+                <MaterialCommunityIcons name="view-dashboard-outline" size={48} color={colors.textSecondary} />
+                <Text style={styles.emptyText}>Chưa có dữ liệu tổng quan</Text>
+              </View>
+            )}
+            {summaryError === '' && summary && (
+              <View style={styles.overviewWrap}>
+                <View style={styles.dashboardCard}>
+                  <View style={styles.sectionInlineHeader}>
+                    <MaterialCommunityIcons name="clipboard-pulse-outline" size={18} color={colors.primary} />
+                    <Text style={styles.cardTitle}>Tổng quan check-in</Text>
+                  </View>
+                  <View style={styles.summaryStats}>
+                    <View style={styles.summaryStat}>
+                      <Text style={styles.summaryValue}>{report?.checkinDays ?? 0}</Text>
+                      <Text style={styles.summaryLabel}>/{report?.totalDays ?? 7} ngày</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+                    <View style={styles.summaryStat}>
+                      <Text style={styles.summaryValue}>{report?.responseRate ?? 0}%</Text>
+                      <Text style={styles.summaryLabel}>phản hồi</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+                    <View style={styles.summaryStat}>
+                      <Text style={[
+                        styles.summaryValue,
+                        report?.trend === 'worsening' && { color: '#ef4444' },
+                        report?.trend === 'improving' && { color: '#16a34a' },
+                      ]}>
+                        {report?.trend === 'worsening' ? 'Xấu hơn' : report?.trend === 'improving' ? 'Tốt hơn' : 'Ổn định'}
+                      </Text>
+                      <Text style={styles.summaryLabel}>xu hướng</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.dashboardCard}>
+                  <View style={styles.sectionInlineHeader}>
+                    <MaterialCommunityIcons name="chart-bar" size={18} color="#f59e0b" />
+                    <Text style={styles.cardTitle}>Phân bố mức độ</Text>
+                  </View>
+                  <View style={styles.severityBars}>
+                    {(['low', 'medium', 'high'] as const).map((sev) => {
+                      const count = Number(severityDistribution[sev] || 0);
+                      const pct = severityTotal > 0 ? (count / severityTotal) * 100 : 0;
+                      const cfg = SEVERITY_CONFIG[sev];
+                      return (
+                        <View key={sev} style={styles.severityItem}>
+                          <View style={styles.verticalBarTrack}>
+                            <View style={[styles.verticalBarFill, { height: `${Math.max(pct, count > 0 ? 8 : 2)}%`, backgroundColor: cfg.color }]} />
+                          </View>
+                          <Text style={[styles.severityCount, { color: cfg.color }]}>{count}</Text>
+                          <View style={styles.severityIconWrap}>
+                            <MaterialCommunityIcons name={sev === 'low' ? 'shield-check' : sev === 'medium' ? 'alert-circle-outline' : 'alert-octagon'} size={14} color={cfg.color} />
+                          </View>
+                          <Text style={styles.severityLabel}>{SEVERITY_LABEL[sev]}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.dashboardCard}>
+                  <View style={styles.sectionInlineHeader}>
+                    <MaterialCommunityIcons name="emoticon-outline" size={18} color={colors.primary} />
+                    <Text style={styles.cardTitle}>Trạng thái báo cáo</Text>
+                  </View>
+                  {(['fine', 'tired', 'very_tired', 'specific_concern'] as const).map((status) => {
+                    const count = Number(statusDistribution[status] || 0);
+                    if (count === 0) return null;
+                    const pct = statusTotal > 0 ? (count / statusTotal) * 100 : 0;
+                    const meta = REPORT_STATUS_META[status];
+                    return (
+                      <View key={status} style={styles.reportStatusRow}>
+                        <View style={[styles.reportStatusIcon, { backgroundColor: meta.bg }]}>
+                          <MaterialCommunityIcons name={meta.icon as any} size={17} color={meta.color} />
+                        </View>
+                        <Text style={styles.reportStatusLabel}>{meta.label}</Text>
+                        <View style={styles.reportStatusTrack}>
+                          <View style={[styles.reportStatusFill, { width: `${pct}%`, backgroundColor: meta.color }]} />
+                        </View>
+                        <View style={[styles.reportStatusBadge, { backgroundColor: meta.bg }]}>
+                          <Text style={[styles.reportStatusCount, { color: meta.color }]}>{count}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {(report?.commonSymptoms || []).length > 0 && (
+                  <View style={styles.dashboardCard}>
+                    <View style={styles.sectionInlineHeader}>
+                      <MaterialCommunityIcons name="stethoscope" size={18} color="#8b5cf6" />
+                      <Text style={styles.cardTitle}>Triệu chứng phổ biến</Text>
+                    </View>
+                    {report.commonSymptoms.map((symptom: any, index: number) => (
+                      <View key={`${symptom.symptom}-${index}`} style={styles.symptomRow}>
+                        <View style={styles.symptomRank}>
+                          <Text style={styles.symptomRankText}>{index + 1}</Text>
+                        </View>
+                        <Text style={styles.symptomName}>{symptom.symptom}</Text>
+                        <View style={styles.symptomCountBadge}>
+                          <MaterialCommunityIcons name="repeat" size={12} color={colors.textSecondary} />
+                          <Text style={styles.symptomCount}>{symptom.count}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {((report?.alerts?.familyAlerted || 0) > 0 || (report?.alerts?.emergencyTriggered || 0) > 0 || (summary.alerts || []).length > 0) && (
+                  <View style={styles.dashboardCard}>
+                    <View style={styles.sectionInlineHeader}>
+                      <MaterialCommunityIcons name="bell-ring-outline" size={18} color="#ef4444" />
+                      <Text style={styles.cardTitle}>Cảnh báo</Text>
+                    </View>
+                    {(report?.alerts?.familyAlerted || 0) > 0 && (
+                      <View style={styles.alertItem}>
+                        <Text style={styles.alertTitle}>Đã báo người thân {report.alerts.familyAlerted} lần</Text>
+                        <Text style={styles.overviewBody}>Có check-in mức độ vừa hoặc cao cần người thân theo dõi.</Text>
+                      </View>
+                    )}
+                    {(report?.alerts?.emergencyTriggered || 0) > 0 && (
+                      <View style={[styles.alertItem, styles.alertItemDanger]}>
+                        <Text style={styles.alertTitle}>Có {report.alerts.emergencyTriggered} cảnh báo khẩn cấp</Text>
+                        <Text style={styles.overviewBody}>Nên kiểm tra lại lịch sử check-in và liên hệ bác sĩ nếu cần.</Text>
+                      </View>
+                    )}
+                    {(summary.alerts || []).map((alert) => (
+                      <View key={alert.id} style={styles.alertItem}>
+                        <Text style={styles.alertTitle}>{alert.title}</Text>
+                        {alert.message ? <Text style={styles.overviewBody}>{alert.message}</Text> : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {recentSessions.length > 0 && (
+                  <View style={styles.dashboardCard}>
+                    <View style={styles.sectionInlineHeader}>
+                      <MaterialCommunityIcons name="history" size={18} color="#3b82f6" />
+                      <Text style={styles.cardTitle}>Check-in gần đây</Text>
+                    </View>
+                    {recentSessions.slice(0, 4).map((session: any, index: number) => {
+                      const statusMeta = REPORT_STATUS_META[session.status || session.initial_status] || REPORT_STATUS_META.fine;
+                      const severityCfg = session.severity ? SEVERITY_CONFIG[session.severity] : null;
+                      const dateValue = session.date || session.session_date || session.created_at;
+                      return (
+                        <View key={`${dateValue}-${index}`} style={styles.historyItem}>
+                          <View style={[styles.reportStatusIcon, { backgroundColor: statusMeta.bg }]}>
+                            <MaterialCommunityIcons name={statusMeta.icon as any} size={16} color={statusMeta.color} />
+                          </View>
+                          <View style={styles.historyInfo}>
+                            <Text style={styles.historyDate}>{dateValue ? formatDate(dateValue) : 'Gần đây'}</Text>
+                            {session.summary ? <Text style={styles.historySummary} numberOfLines={2}>{session.summary}</Text> : null}
+                          </View>
+                          {severityCfg && (
+                            <View style={[styles.historySeverityBadge, { backgroundColor: `${severityCfg.color}18` }]}>
+                              <Text style={[styles.historySeverityText, { color: severityCfg.color }]}>{SEVERITY_LABEL[session.severity]}</Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
+          </>
         )}
 
         {/* ── LOGS TAB ── */}
@@ -351,6 +580,266 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
     center: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: spacing.md },
     emptyText: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center' },
+
+    // ── Overview ──
+    overviewWrap: {
+      gap: spacing.md,
+    },
+    metricGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    metricCard: {
+      width: '48%',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.md,
+      gap: 5,
+    },
+    metricLabel: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+    },
+    metricValue: {
+      fontSize: typography.size.md,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    dashboardCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    sectionInlineHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    cardTitle: {
+      fontSize: typography.size.sm,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    summaryStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 12,
+      padding: spacing.md,
+    },
+    summaryStat: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 2,
+    },
+    summaryValue: {
+      fontSize: typography.size.md,
+      fontWeight: '900',
+      color: colors.textPrimary,
+    },
+    summaryLabel: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+    },
+    summaryDivider: {
+      width: 1,
+      height: 34,
+      backgroundColor: colors.border,
+    },
+    severityBars: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+      paddingTop: spacing.xs,
+    },
+    severityItem: {
+      flex: 1,
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    verticalBarTrack: {
+      width: '100%',
+      height: 110,
+      justifyContent: 'flex-end',
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+    verticalBarFill: {
+      width: '100%',
+      borderRadius: 14,
+    },
+    severityCount: {
+      fontSize: typography.size.lg,
+      fontWeight: '900',
+    },
+    severityIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    severityLabel: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    reportStatusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    reportStatusIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    reportStatusLabel: {
+      width: 78,
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    reportStatusTrack: {
+      flex: 1,
+      height: 12,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceMuted,
+      overflow: 'hidden',
+    },
+    reportStatusFill: {
+      height: '100%',
+      borderRadius: 8,
+    },
+    reportStatusBadge: {
+      minWidth: 40,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+      borderRadius: 999,
+      alignItems: 'center',
+    },
+    reportStatusCount: {
+      fontSize: typography.size.sm,
+      fontWeight: '900',
+    },
+    symptomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    symptomRank: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    symptomRankText: {
+      fontSize: typography.size.sm,
+      fontWeight: '900',
+      color: colors.textPrimary,
+    },
+    symptomName: {
+      flex: 1,
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    symptomCountBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceMuted,
+    },
+    symptomCount: {
+      fontSize: typography.size.xs,
+      fontWeight: '800',
+      color: colors.textSecondary,
+    },
+    scoreRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.lg,
+    },
+    scoreFacts: {
+      flex: 1,
+      gap: 3,
+    },
+    factValue: {
+      fontSize: typography.size.md,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    factLabel: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      marginBottom: spacing.xs,
+    },
+    overviewBody: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      lineHeight: 20,
+    },
+    alertItem: {
+      borderLeftWidth: 3,
+      borderLeftColor: '#f59e0b',
+      paddingLeft: spacing.sm,
+      gap: 2,
+    },
+    alertItemDanger: {
+      borderLeftColor: '#ef4444',
+    },
+    alertTitle: {
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    historyItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    historyInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    historyDate: {
+      fontSize: typography.size.xs,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    historySummary: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      lineHeight: 17,
+    },
+    historySeverityBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+      borderRadius: 999,
+    },
+    historySeverityText: {
+      fontSize: typography.size.xxs,
+      fontWeight: '800',
+    },
 
     // ── Tab bar ──
     tabBar: {

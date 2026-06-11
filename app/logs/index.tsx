@@ -55,15 +55,16 @@ export default function LogsIndexScreen() {
     fetchLogs(c.signal);
   }, [fetchLogs]);
 
-  const LOG_CARDS: LogCard[] = useMemo(() => [
+  const visibleLogCards = useMemo<LogCard[]>(() => [
     { key: 'glucose',          route: '/logs/glucose',       icon: 'water',          bg: '#e8f4fd', iconColor: iconColors.glucose,    desc: t('glucoseValue') },
     { key: 'bloodPressure',    route: '/logs/blood-pressure',icon: 'heart-pulse',    bg: '#fde8e8', iconColor: iconColors.bp,         desc: t('systolic') + ' / ' + t('diastolic') },
-    { key: 'medicationInsulin',route: '/logs/medication',    icon: 'pill',           bg: '#e8faf2', iconColor: iconColors.medication, desc: t('medicationName') },
-    { key: 'insulin',          route: '/logs/insulin',       icon: 'needle',         bg: '#eceefe', iconColor: iconColors.insulin,    desc: t('insulinDose') },
-    { key: 'meal',             route: '/logs/meal',          icon: 'food',           bg: '#fef6e8', iconColor: iconColors.meal,       desc: t('kcal') },
     { key: 'water',            route: '/logs/water',         icon: 'cup-water',      bg: '#e8f8fc', iconColor: iconColors.water,      desc: t('volumeMl') },
     { key: 'weight',           route: '/logs/weight',        icon: 'scale-bathroom', bg: '#ede8fd', iconColor: iconColors.weight,     desc: t('weightKg') },
   ], [t]);
+
+  const LOG_CARDS: LogCard[] = useMemo(() => [
+    ...visibleLogCards,
+  ], [visibleLogCards]);
 
   return (
     <>

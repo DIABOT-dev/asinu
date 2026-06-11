@@ -233,26 +233,31 @@ export default function HomeScreen() {
     router.push('/checkin');
   }, []);
 
-  // PHFNE Personalized Health Feed Engine states and effects
-  const [phfneEnabled, setPhfneEnabled] = useState(false);
-  const [phfneFeed, setPhfneFeed] = useState<any[]>([]);
-  const unreadPhfneFeed = phfneFeed.filter(item => !item.read_at);
+  const healthFeedApi = useCallback(async <T,>(path: string, options?: any) => {
+    return apiClient<T>(`/api/health-feed${path}`, options);
+  }, []);
+
+  // Health Feed states and effects
+  const [healthFeedEnabled, setHealthFeedEnabled] = useState(false);
+  const [healthFeedItems, setHealthFeedItems] = useState<any[]>([]);
+  const unreadHealthFeedItems = healthFeedItems.filter(item => !item.read_at);
+  const hasPriorityHealthFeed = unreadHealthFeedItems.some((item) => item.priority >= 100);
 
   useFocusEffect(
     useCallback(() => {
-      if (process.env.EXPO_PUBLIC_ENABLE_PHFNE === 'true' && profile) {
-        apiClient<any>('/api/phfne/feed')
+      if (profile) {
+        healthFeedApi<any>('/feed')
           .then(res => {
             if (res.ok && res.enabled) {
-              setPhfneEnabled(true);
-              setPhfneFeed(res.feed || []);
+              setHealthFeedEnabled(true);
+              setHealthFeedItems(res.feed || []);
             } else {
-              setPhfneEnabled(false);
+              setHealthFeedEnabled(false);
             }
           })
           .catch(() => {});
       }
-    }, [profile])
+    }, [healthFeedApi, profile])
   );
 
   const handleNotificationPress = useCallback((notification: any) => {
@@ -271,25 +276,151 @@ export default function HomeScreen() {
     setRefreshing(true);
     refreshAll();
     await fetchFromBackend();
-    if (process.env.EXPO_PUBLIC_ENABLE_PHFNE === 'true' && profile) {
+    if (profile) {
       try {
-        const res = await apiClient<any>('/api/phfne/feed');
+        const res = await healthFeedApi<any>('/feed');
         if (res.ok && res.enabled) {
-          setPhfneEnabled(true);
-          setPhfneFeed(res.feed || []);
+          setHealthFeedEnabled(true);
+          setHealthFeedItems(res.feed || []);
         } else {
-          setPhfneEnabled(false);
+          setHealthFeedEnabled(false);
         }
       } catch {}
     }
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile]); // Empty deps - refreshAll is stable
+  }, [healthFeedApi, profile]); // Empty deps - refreshAll is stable
 
   const hasData = Boolean(treeSummary || missions.length || logs.length);
   const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
   const noDataError =
     (logsError === 'no-data' || missionsError === 'no-data' || treeError === 'no-data') && !hasData;
+
+  const renderHealthFeedBlock = () => {
+    if (!healthFeedEnabled) return null;
+
+    return (
+      <Animated.View entering={FadeIn.delay(135).duration(350)} style={styles.healthFeedContainer}>
+        <View style={styles.sectionHeaderRow}>
+          <Ionicons name="sparkles" size={20} color={colors.primary} />
+          <Text style={styles.sectionTitle}>Asinu nhắc bạn</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => router.push('/feed' as any)} hitSlop={12}>
+            <Text style={styles.healthFeedSeeAllText}>Xem tất cả ({healthFeedItems.length})</Text>
+          </Pressable>
+        </View>
+
+        {unreadHealthFeedItems.length > 0 ? (
+          <View style={styles.healthFeedList}>
+            {unreadHealthFeedItems.slice(0, 2).map((item) => {
+              const isRead = !!item.read_at;
+              const isWarning = item.severity_level === 'warning' || item.priority >= 100;
+
+              const getIcon = (type: string) => {
+                switch (type) {
+                  case 'checklist':
+                    return <Ionicons name="checkbox" size={20} color={colors.primary} />;
+                  case 'warning':
+                    return <Ionicons name="warning" size={20} color="#ef4444" />;
+                  case 'family_note':
+                    return <Ionicons name="people" size={20} color="#f97316" />;
+                  case 'weekly_summary':
+                    return <Ionicons name="stats-chart" size={20} color="#8b5cf6" />;
+                  default:
+                    return <Ionicons name="book" size={20} color="#06b6d4" />;
+                }
+              };
+
+              const handleHomeDismiss = async (itemId: string) => {
+                try {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  await healthFeedApi(`/feed/${itemId}/dismiss`, { method: 'POST' });
+                  setHealthFeedItems(prev => prev.filter(i => i.id !== itemId));
+                } catch (err) {
+                  console.error('[Home Health Feed] Failed to dismiss:', err);
+                }
+              };
+
+              const handleHomePress = async (i: any) => {
+                try {
+                  await healthFeedApi(`/feed/${i.id}/read`, { method: 'POST' });
+                  setHealthFeedItems(prev =>
+                    prev.map(item => (item.id === i.id ? { ...item, read_at: new Date().toISOString() } : item))
+                  );
+                  healthFeedApi(`/event`, {
+                    method: 'POST',
+                    body: { content_id: i.content_id, event_type: 'viewed' }
+                  }).catch(() => {});
+                } catch {}
+                router.push(`/feed/${i.content_id}` as any);
+              };
+
+              const renderRightAction = () => (
+                <Pressable
+                  style={styles.healthFeedDismissBtn}
+                  onPress={() => handleHomeDismiss(item.id)}
+                >
+                  <Ionicons name="eye-off-outline" size={20} color="#fff" />
+                </Pressable>
+              );
+
+              return (
+                <Swipeable
+                  key={item.id}
+                  renderRightActions={renderRightAction}
+                  onSwipeableOpen={(direction) => {
+                    if (direction === 'right') {
+                      handleHomeDismiss(item.id);
+                    }
+                  }}
+                >
+                  <Pressable
+                    style={[
+                      styles.healthFeedCard,
+                      isRead && styles.healthFeedCardRead,
+                      isWarning && styles.healthFeedCardWarning,
+                    ]}
+                    onPress={() => handleHomePress(item)}
+                  >
+                    <View style={styles.healthFeedIconWrapper}>
+                      {getIcon(item.feed_type)}
+                    </View>
+
+                    <View style={styles.healthFeedCardContent}>
+                      <Text style={[styles.healthFeedCardTitle, isRead && styles.healthFeedCardTitleRead]} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={[styles.healthFeedCardMessage, isRead && styles.healthFeedCardMessageRead]} numberOfLines={1}>
+                        {item.message}
+                      </Text>
+                    </View>
+
+                    {isWarning && !isRead && <View style={styles.healthFeedWarningDot} />}
+
+                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} style={styles.healthFeedChevron} />
+                  </Pressable>
+                </Swipeable>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.healthFeedEmptyCard}>
+            <Image
+              source={require('../../../assets/asinu_chat_sticker.png')}
+              style={styles.healthFeedEmptyMascot}
+              resizeMode="contain"
+            />
+            <View style={styles.healthFeedEmptyTextContainer}>
+              <Text style={styles.healthFeedEmptyTitle}>Đã đọc hết nhắc nhở!</Text>
+              <Text style={styles.healthFeedEmptyMessage}>
+                Tuyệt vời! Bác đã đọc hết các nhắc nhở hôm nay. Chúc bác một ngày tràn đầy năng lượng!
+              </Text>
+            </View>
+          </View>
+        )}
+      </Animated.View>
+    );
+  };
 
   return (
     <Screen>
@@ -370,6 +501,8 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {hasPriorityHealthFeed && renderHealthFeedBlock()}
+
 
 
         {/* Metrics Row */}
@@ -405,128 +538,7 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {/* PHFNE "Asinu nhắc bạn" block */}
-        {phfneEnabled && (
-          <Animated.View entering={FadeIn.delay(135).duration(350)} style={styles.phfneContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <Ionicons name="sparkles" size={20} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Asinu nhắc bạn</Text>
-              <View style={{ flex: 1 }} />
-              <Pressable onPress={() => router.push('/feed' as any)} hitSlop={12}>
-                <Text style={styles.phfneSeeAllText}>Xem tất cả ({phfneFeed.length})</Text>
-              </Pressable>
-            </View>
-
-            {unreadPhfneFeed.length > 0 ? (
-              <View style={styles.phfneList}>
-                {unreadPhfneFeed.slice(0, 2).map((item) => {
-                  const isRead = !!item.read_at;
-                  const isWarning = item.severity_level === 'warning' || item.priority >= 100;
-                  
-                  const getIcon = (type: string) => {
-                    switch (type) {
-                      case 'checklist':
-                        return <Ionicons name="checkbox" size={20} color={colors.primary} />;
-                      case 'warning':
-                        return <Ionicons name="warning" size={20} color="#ef4444" />;
-                      case 'family_note':
-                        return <Ionicons name="people" size={20} color="#f97316" />;
-                      case 'weekly_summary':
-                        return <Ionicons name="stats-chart" size={20} color="#8b5cf6" />;
-                      default:
-                        return <Ionicons name="book" size={20} color="#06b6d4" />;
-                    }
-                  };
-
-                  const handleHomeDismiss = async (itemId: string) => {
-                    try {
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      await apiClient(`/api/phfne/feed/${itemId}/dismiss`, { method: 'POST' });
-                      setPhfneFeed(prev => prev.filter(i => i.id !== itemId));
-                    } catch (err) {
-                      console.error('[Home PHFNE] Failed to dismiss:', err);
-                    }
-                  };
-
-                  const handleHomePress = async (i: any) => {
-                    try {
-                      await apiClient(`/api/phfne/feed/${i.id}/read`, { method: 'POST' });
-                      setPhfneFeed(prev =>
-                        prev.map(item => (item.id === i.id ? { ...item, read_at: new Date().toISOString() } : item))
-                      );
-                      apiClient(`/api/phfne/event`, {
-                        method: 'POST',
-                        body: { content_id: i.content_id, event_type: 'viewed' }
-                      }).catch(() => {});
-                    } catch {}
-                    router.push(`/feed/${i.content_id}` as any);
-                  };
-
-                  const renderRightAction = () => (
-                    <Pressable
-                      style={styles.phfneDismissBtn}
-                      onPress={() => handleHomeDismiss(item.id)}
-                    >
-                      <Ionicons name="eye-off-outline" size={20} color="#fff" />
-                    </Pressable>
-                  );
-
-                  return (
-                    <Swipeable
-                      key={item.id}
-                      renderRightActions={renderRightAction}
-                      onSwipeableOpen={(direction) => {
-                        if (direction === 'right') {
-                          handleHomeDismiss(item.id);
-                        }
-                      }}
-                    >
-                      <Pressable
-                        style={[
-                          styles.phfneCard,
-                          isRead && styles.phfneCardRead,
-                          isWarning && styles.phfneCardWarning,
-                        ]}
-                        onPress={() => handleHomePress(item)}
-                      >
-                        <View style={styles.phfneIconWrapper}>
-                          {getIcon(item.feed_type)}
-                        </View>
-                        
-                        <View style={styles.phfneCardContent}>
-                          <Text style={[styles.phfneCardTitle, isRead && styles.phfneCardTitleRead]} numberOfLines={1}>
-                            {item.title}
-                          </Text>
-                          <Text style={[styles.phfneCardMessage, isRead && styles.phfneCardMessageRead]} numberOfLines={1}>
-                            {item.message}
-                          </Text>
-                        </View>
-
-                        {isWarning && !isRead && <View style={styles.phfneWarningDot} />}
-                        
-                        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} style={styles.phfneChevron} />
-                      </Pressable>
-                    </Swipeable>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={styles.phfneEmptyCard}>
-                <Image
-                  source={require('../../../assets/asinu_chat_sticker.png')}
-                  style={styles.phfneEmptyMascot}
-                  resizeMode="contain"
-                />
-                <View style={styles.phfneEmptyTextContainer}>
-                  <Text style={styles.phfneEmptyTitle}>Đã đọc hết nhắc nhở!</Text>
-                  <Text style={styles.phfneEmptyMessage}>
-                    Tuyệt vời! Bác đã đọc hết các nhắc nhở hôm nay. Chúc bác một ngày tràn đầy năng lượng!
-                  </Text>
-                </View>
-              </View>
-            )}
-          </Animated.View>
-        )}
+        {!hasPriorityHealthFeed && renderHealthFeedBlock()}
 
         <Animated.View entering={FadeIn.delay(150).duration(350)}>
         <DailyCheckinCard />
@@ -561,10 +573,7 @@ export default function HomeScreen() {
                 log_glucose: '/logs/glucose',
                 log_bp: '/logs/blood-pressure',
                 log_water: '/logs/water',
-                log_meal: '/logs/meal',
                 log_weight: '/logs/weight',
-                log_medication: '/logs/medication',
-                log_insulin: '/logs/insulin',
               };
               router.push((routes[mission.missionKey] || '/(tabs)/missions') as any);
             }}>
@@ -678,7 +687,7 @@ export default function HomeScreen() {
             <Ionicons name="journal" size={20} color={iconColors.pink} />
           <Text style={styles.sectionTitle}>{t('recentLogs')}</Text>
         </View>
-        {logs.length === 0 ? (
+        {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water', 'weight'].includes(log.type)).length === 0 ? (
           <View style={styles.emptyLogsContainer}>
             <Ionicons name="document-text-outline" size={40} color={iconColors.primary} />
             <Text style={styles.emptyLogsTitle}>{t('noLogsYet')}</Text>
@@ -686,15 +695,12 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.logsGrid}>
-            {logs.slice(0, 3).map((log: LogEntry) => {
+            {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water', 'weight'].includes(log.type)).slice(0, 3).map((log: LogEntry) => {
               const logMeta: Record<string, { bg: string; iconBg: string; color: string; icon: string }> = {
                 'glucose':        { bg: '#e8f4fd', iconBg: '#bfdbfe', color: iconColors.glucose,    icon: 'water' },
                 'blood-pressure': { bg: '#fde8e8', iconBg: '#fecaca', color: iconColors.bp,         icon: 'heart-pulse' },
                 'weight':         { bg: '#ede8fd', iconBg: '#ddd6fe', color: iconColors.weight,     icon: 'scale-bathroom' },
                 'water':          { bg: '#e8f8fc', iconBg: '#a5f3fc', color: iconColors.water,      icon: 'cup-water' },
-                'medication':     { bg: '#e8faf2', iconBg: '#a7f3d0', color: iconColors.medication, icon: 'pill' },
-                'meal':           { bg: '#fef6e8', iconBg: '#fde68a', color: iconColors.meal,       icon: 'food' },
-                'insulin':        { bg: '#eceefe', iconBg: '#c7d2fe', color: iconColors.insulin,    icon: 'needle' },
               };
               const meta = logMeta[log.type] ?? { bg: colors.surfaceMuted, iconBg: colors.border, color: colors.textSecondary, icon: 'dots-horizontal' };
               return (
@@ -707,9 +713,6 @@ export default function HomeScreen() {
                     {log.type === 'blood-pressure' && (log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} ${tc('unitMmhg')}` : tc('noData'))}
                     {log.type === 'weight' && (log.weight_kg ? `${log.weight_kg} ${tc('unitKg')}` : tc('noData'))}
                     {log.type === 'water' && (log.volume_ml ? `${log.volume_ml} ${tc('unitMl')}` : tc('noData'))}
-                    {log.type === 'medication' && (log.medication || tc('noData'))}
-                    {log.type === 'meal' && (log.title || tc('noData'))}
-                    {log.type === 'insulin' && (log.insulin_type ? `${log.dose_units} ${tc('unitInsulin')}` : tc('noData'))}
                   </Text>
                   {log.recordedAt ? (
                     <Text style={styles.logTime}>
@@ -1136,30 +1139,30 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textSecondary,
     marginTop: 2,
   },
-  phfneContainer: {
+  healthFeedContainer: {
     gap: spacing.sm,
     marginTop: spacing.md,
   },
-  phfneSectionHeader: {
+  healthFeedSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.xs,
   },
-  phfneSectionTitle: {
+  healthFeedSectionTitle: {
     fontSize: typography.size.lg,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  phfneSeeAllText: {
+  healthFeedSeeAllText: {
     fontSize: typography.size.sm,
     color: colors.primary,
     fontWeight: '700',
   },
-  phfneList: {
+  healthFeedList: {
     gap: spacing.sm,
   },
-  phfneCard: {
+  healthFeedCard: {
     height: 80,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1173,16 +1176,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     ...brightCardSurface,
     marginBottom: 2,
   },
-  phfneCardRead: {
+  healthFeedCardRead: {
     opacity: 0.65,
     backgroundColor: '#f8fafc',
   },
-  phfneCardWarning: {
+  healthFeedCardWarning: {
     borderColor: '#fee2e2',
     borderLeftWidth: 4,
     borderLeftColor: '#ef4444',
   },
-  phfneIconWrapper: {
+  healthFeedIconWrapper: {
     width: 40,
     height: 40,
     borderRadius: 10,
@@ -1191,37 +1194,37 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     justifyContent: 'center',
     marginRight: spacing.sm,
   },
-  phfneCardContent: {
+  healthFeedCardContent: {
     flex: 1,
     justifyContent: 'center',
   },
-  phfneCardTitle: {
+  healthFeedCardTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 4,
   },
-  phfneCardTitleRead: {
+  healthFeedCardTitleRead: {
     fontWeight: '600',
   },
-  phfneCardMessage: {
+  healthFeedCardMessage: {
     fontSize: 12,
     color: colors.textSecondary,
   },
-  phfneCardMessageRead: {
+  healthFeedCardMessageRead: {
     fontStyle: 'italic',
   },
-  phfneWarningDot: {
+  healthFeedWarningDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#ef4444',
     marginHorizontal: spacing.sm,
   },
-  phfneChevron: {
+  healthFeedChevron: {
     marginLeft: spacing.xs,
   },
-  phfneDismissBtn: {
+  healthFeedDismissBtn: {
     backgroundColor: '#ef4444',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1230,7 +1233,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     height: 80,
     marginLeft: 10,
   },
-  phfneEmptyCard: {
+  healthFeedEmptyCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
@@ -1243,22 +1246,22 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     ...brightCardSurface,
     minHeight: 90,
   },
-  phfneEmptyMascot: {
+  healthFeedEmptyMascot: {
     width: 56,
     height: 56,
     marginRight: spacing.sm,
   },
-  phfneEmptyTextContainer: {
+  healthFeedEmptyTextContainer: {
     flex: 1,
     justifyContent: 'center',
   },
-  phfneEmptyTitle: {
+  healthFeedEmptyTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.primary,
     marginBottom: 2,
   },
-  phfneEmptyMessage: {
+  healthFeedEmptyMessage: {
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 16,

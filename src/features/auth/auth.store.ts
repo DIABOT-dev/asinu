@@ -74,7 +74,6 @@ export const useAuthStore = create<AuthState>()(
       setHydrated: (value: boolean) => set({ hydrated: value }),
 
       async bootstrap() {
-
         set({ loading: true, error: undefined });
 
         try {

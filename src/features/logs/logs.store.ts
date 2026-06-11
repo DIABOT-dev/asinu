@@ -1,7 +1,5 @@
 import { create } from 'zustand';
-import i18n from '../../i18n';
 import { CACHE_KEYS } from '../../lib/cacheKeys';
-import { featureFlags } from '../../lib/featureFlags';
 import { localCache } from '../../lib/localCache';
 import { logError } from '../../lib/logger';
 import { logActivity } from '../wellness/api/wellness.api';
@@ -96,30 +94,6 @@ type LogsState = {
   createInsulin: (payload: InsulinLogPayload) => Promise<LogEntry>;
 };
 
-const fallbackRecent: LogEntry[] = [
-  {
-    id: 'log-1',
-    type: 'glucose',
-    value: 125,
-    tags: [i18n.t('ctxPreMeal', { ns: 'logs' })],
-    recordedAt: new Date().toISOString()
-  },
-  {
-    id: 'log-2',
-    type: 'blood-pressure',
-    systolic: 125,
-    diastolic: 78,
-    tags: [i18n.t('bpMorning', { ns: 'logs' })],
-    recordedAt: new Date().toISOString()
-  },
-  {
-    id: 'log-3',
-    type: 'water',
-    volume_ml: 250,
-    recordedAt: new Date().toISOString()
-  }
-];
-
 export const useLogsStore = create<LogsState>((set, get) => ({
   recent: [],
   status: 'idle',
@@ -130,11 +104,6 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ recent: [], status: 'idle', isStale: false, errorState: 'none' });
   },
   async fetchRecent(signal) {
-    if (featureFlags.devBypassAuth) {
-      set({ recent: fallbackRecent, status: 'success', isStale: false, errorState: 'none' });
-      return;
-    }
-
     const todayKey = new Date().toISOString().slice(0, 10);
     let usedCache = false;
     const cached = await localCache.getCached<LogEntry[]>(CACHE_KEYS.RECENT_LOGS, todayKey);

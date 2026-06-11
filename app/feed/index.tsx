@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { StyleSheet, View, Pressable, ScrollView, RefreshControl, Animated as RNAnimated } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { StyleSheet, View, Pressable, ScrollView, RefreshControl } from 'react-native';
 
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../src/components/Screen';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -12,6 +12,10 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
+async function healthFeedApi<T>(path: string, options?: any) {
+  return apiClient<T>(`/api/health-feed${path}`, options);
+}
+
 export default function FeedListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -20,18 +24,25 @@ export default function FeedListScreen() {
   const [savedItems, setSavedItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [enabled, setEnabled] = useState(true);
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const loadData = async () => {
-    if (process.env.EXPO_PUBLIC_ENABLE_PHFNE !== 'true') return;
     setLoading(true);
     try {
-      const feedRes = await apiClient<any>('/api/phfne/feed');
+      const feedRes = await healthFeedApi<any>('/feed');
+      if (feedRes.ok && feedRes.enabled === false) {
+        setEnabled(false);
+        setFeedItems([]);
+        setSavedItems([]);
+        return;
+      }
+      setEnabled(true);
       if (feedRes.ok && feedRes.feed) {
         // Feed is already sorted by priority DESC, created_at DESC in backend service
         setFeedItems(feedRes.feed);
       }
-      const savedRes = await apiClient<any>('/api/phfne/saved');
+      const savedRes = await healthFeedApi<any>('/saved');
       if (savedRes.ok && savedRes.saved) {
         setSavedItems(savedRes.saved);
       }
@@ -57,7 +68,7 @@ export default function FeedListScreen() {
   const handleDismiss = async (itemId: string) => {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await apiClient(`/api/phfne/feed/${itemId}/dismiss`, { method: 'POST' });
+      await healthFeedApi(`/feed/${itemId}/dismiss`, { method: 'POST' });
       setFeedItems(prev => prev.filter(item => item.id !== itemId));
       swipeableRefs.current.delete(itemId);
     } catch (err) {
@@ -68,13 +79,13 @@ export default function FeedListScreen() {
   const handleItemPress = async (item: any) => {
     try {
       // Mark as read in backend
-      await apiClient(`/api/phfne/feed/${item.id}/read`, { method: 'POST' });
+      await healthFeedApi(`/feed/${item.id}/read`, { method: 'POST' });
       // Update local state to show read (opacity 60%)
       setFeedItems(prev =>
         prev.map(i => (i.id === item.id ? { ...i, read_at: new Date().toISOString() } : i))
       );
       // Track event
-      apiClient(`/api/phfne/event`, {
+      healthFeedApi(`/event`, {
         method: 'POST',
         body: { content_id: item.content_id, event_type: 'viewed' }
       }).catch(() => {});
@@ -145,7 +156,15 @@ export default function FeedListScreen() {
         refreshControl={<RefreshControl refreshing={refreshing || loading} onRefresh={handleRefresh} colors={[colors.primary]} />}
         showsVerticalScrollIndicator={false}
       >
-        {activeTab !== 'saved' ? (
+        {!enabled ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="newspaper-outline" size={48} color={colors.textSecondary} />
+            </View>
+            <Text style={styles.emptyTitle}>Health Feed đang tắt</Text>
+            <Text style={styles.emptySub}>Khi backend bật lại tính năng này, các bản tin sức khỏe sẽ xuất hiện tại đây.</Text>
+          </View>
+        ) : activeTab !== 'saved' ? (
           filteredFeed.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconContainer}>

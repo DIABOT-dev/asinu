@@ -43,6 +43,7 @@
   "weightError": "Cân nặng phải từ 10–300 kg",
   "phone": "Số điện thoại",
   "phonePlaceholder": "VD: 0912345678",
+  "phoneOptional": "Không bắt buộc. Bạn có thể để trống nếu chưa muốn cung cấp.",
   "phoneError": "Số điện thoại phải đúng định dạng 0xxxxxxxxx",
 
   "bloodType": "Nhóm máu (nếu biết)",

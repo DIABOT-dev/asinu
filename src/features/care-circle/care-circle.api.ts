@@ -53,6 +53,71 @@ export type CareCircleConnection = {
   updated_at: string;
 };
 
+export type MemberHealthSummary = {
+  ok: boolean;
+  patientName?: string;
+  permission?: {
+    can_view_logs: boolean;
+    can_receive_alerts: boolean;
+    can_ack_escalation: boolean;
+  };
+  healthScore?: {
+    level: 'ok' | 'monitor' | 'danger';
+    factors: string[];
+    checkinDone: boolean;
+  };
+  quickMetrics?: {
+    glucose?: string | number | null;
+    bloodPressure?: string | null;
+    weight?: string | number | null;
+    water?: string | number | null;
+  };
+  treeSummary?: {
+    ok?: boolean;
+    score?: number;
+    streakDays?: number;
+    completedToday?: number;
+    totalMissions?: number;
+  };
+  treeHistory?: Array<{ label: string; value: number }>;
+  glucoseTrendData?: Array<{ label: string; value: number }>;
+  recentLogs?: Array<{
+    id: string | number;
+    log_type: string;
+    occurred_at: string;
+    note?: string | null;
+    metadata?: any;
+    detail?: any;
+  }>;
+  recentCheckin?: {
+    id: number;
+    session_date: string;
+    initial_status: string | null;
+    current_status: string | null;
+    flow_state: string | null;
+    triage_summary: string | null;
+    triage_severity: 'low' | 'medium' | 'high' | null;
+    family_alerted: boolean;
+    emergency_triggered: boolean;
+    created_at: string;
+  } | null;
+  missions?: Array<{
+    id: string | number;
+    title: string;
+    status?: string;
+    progress?: number;
+    target?: number;
+  }>;
+  alerts?: Array<{
+    id: string | number;
+    severity: 'low' | 'medium' | 'high' | 'danger' | string;
+    title: string;
+    message?: string;
+    created_at?: string;
+  }>;
+  report?: any;
+};
+
 export type CreateInvitationPayload = {
   addressee_id: string;
   relationship_type?: string;
@@ -190,7 +255,7 @@ export const careCircleApi = {
 
   // Care Circle Dashboard — caregiver views member's health summary
   async getMemberHealthSummary(memberId: number) {
-    return apiClient<{ ok: boolean; healthScore: any; report: any }>(
+    return apiClient<MemberHealthSummary>(
       `/api/mobile/care-circle/member/${memberId}/health-summary`
     );
   },

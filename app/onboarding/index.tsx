@@ -303,8 +303,8 @@ export default function OnboardingScreen() {
   const weightValid = weight.length > 0 && !isNaN(weightNum) && weightNum >= 10 && weightNum <= 300;
   const weightError = weight.length > 0 && !weightValid ? t('weightError') : '';
 
-  const phoneValid = /^0\d{9}$/.test(phone.trim());
-  const phoneError = phone.length > 0 && !phoneValid ? t('phoneError') : '';
+  const phoneValid = phone.trim() === '' || /^0\d{9}$/.test(phone.trim());
+  const phoneError = phone.trim().length > 0 && !phoneValid ? t('phoneError') : '';
 
   const step1Valid = fullName.trim().length >= 2 && birthYearValid && gender !== '' && heightValid && weightValid && phoneValid && consentAccepted;
   const step2Valid = diseases.length > 0 && medication !== '';
@@ -380,7 +380,7 @@ export default function OnboardingScreen() {
           gender,
           height_cm: parseFloat(height),
           weight_kg: parseFloat(weight),
-          phone: phone.trim(),
+          phone: phone.trim() || null,
           blood_type: BLOOD_TYPE_OPTIONS.some(o => o.value === bloodType) ? bloodType : null,
           medical_conditions: medicalConditions,
           daily_medication: medication,
@@ -743,6 +743,7 @@ function Step1({
           maxLength={11}
           returnKeyType="done"
         />
+        <Text style={styles.helperText}>{t('phoneOptional')}</Text>
         {!!phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
       </View>
 
@@ -1257,6 +1258,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     errorText: {
       fontSize: typography.size.sm,
       color: colors.danger,
+    },
+    helperText: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      lineHeight: Math.round(typography.size.xs * 1.5),
     },
     loadingText: {
       color: colors.textSecondary,
