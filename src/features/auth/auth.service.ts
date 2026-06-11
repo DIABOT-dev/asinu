@@ -2,6 +2,7 @@ import i18n from '../../i18n';
 import { apiClient } from '../../lib/apiClient';
 import { Profile } from './auth.store';
 import { authenticateWithProvider, OAuthProvider } from './oauth.service';
+import { Platform } from 'react-native';
 
 export type SocialProvider = 'google' | 'apple' | 'zalo' | 'facebook';
 
@@ -49,6 +50,10 @@ export const authService = {
   },
   async submitSocialAuth(payload: SocialAuthPayload): Promise<ZeroOtpResponse> {
     try {
+      if (payload.provider === 'zalo' && Platform.OS === 'android') {
+        throw new Error('Zalo login is temporarily unavailable on Android');
+      }
+
       // Step 1: Perform real OAuth authentication to get token and profile
 
       const oauthResult = await authenticateWithProvider(payload.provider as OAuthProvider);

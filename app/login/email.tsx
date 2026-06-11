@@ -33,6 +33,12 @@ import { showToast, setPendingToast, useToastStore } from '../../src/stores/toas
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
+const SOCIAL_PROVIDERS_BY_PLATFORM: Record<string, SocialProvider[]> = {
+  ios: ['google', 'facebook', 'zalo', 'apple'],
+  android: ['google'],
+  default: ['google'],
+};
+
 // Floating decorative orbs
 function FloatingOrbs() {
   const y1 = useSharedValue(0);
@@ -348,10 +354,7 @@ export default function LoginEmailScreen() {
 
         {/* Social Login */}
         <Animated.View entering={FadeInUp.delay(500).duration(500)} style={styles.socialGroup}>
-          {(Platform.OS === 'ios'
-            ? (['google', 'facebook', 'zalo', 'apple'] as SocialProvider[])
-            : (['google', 'zalo'] as SocialProvider[])
-          ).map((provider, idx) => {
+          {(SOCIAL_PROVIDERS_BY_PLATFORM[Platform.OS] ?? SOCIAL_PROVIDERS_BY_PLATFORM.default).map((provider, idx) => {
             const isButtonLoading = isSubmitting && pendingAction === provider;
             const label =
               provider === 'google' ? t('continueWithGoogle') :

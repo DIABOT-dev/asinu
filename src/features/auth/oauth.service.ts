@@ -321,7 +321,10 @@ async function authenticateWithZaloWeb(): Promise<OAuthResult> {
  */
 export async function authenticateWithZalo(): Promise<OAuthResult> {
   if (Platform.OS === 'android') {
-    return authenticateWithZaloWeb();
+    return {
+      type: 'error',
+      error: 'Zalo login is temporarily unavailable on Android',
+    };
   }
 
   // --- Native ZaloKit (iOS) ---
