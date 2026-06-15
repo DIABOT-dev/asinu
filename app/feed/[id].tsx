@@ -15,6 +15,20 @@ async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
 }
 
+function buildShareText(content: any) {
+  let text = `📢 ${content.title}\n\n`;
+  if (content.summary) text += `${content.summary}\n\n`;
+  if (content.checklist && content.checklist.length > 0) {
+    text += `📝 Những việc cần lưu ý:\n`;
+    content.checklist.forEach((item: string) => {
+      text += `- ${item}\n`;
+    });
+    text += `\n`;
+  }
+  text += `(Chia sẻ từ ứng dụng sức khỏe Asinu)`;
+  return text;
+}
+
 export default function ArticleDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
@@ -67,18 +81,7 @@ export default function ArticleDetailScreen() {
 
   const handleCopy = async () => {
     if (!content) return;
-    
-    // Construct nice text template to share
-    let text = `📢 ${content.title}\n\n`;
-    if (content.summary) text += `${content.summary}\n\n`;
-    if (content.checklist && content.checklist.length > 0) {
-      text += `📝 Những việc cần lưu ý:\n`;
-      content.checklist.forEach((item: string, idx: number) => {
-        text += `- ${item}\n`;
-      });
-      text += `\n`;
-    }
-    text += `(Chia sẻ từ ứng dụng sức khỏe Asinu)`;
+    const text = buildShareText(content);
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -96,17 +99,8 @@ export default function ArticleDetailScreen() {
 
   const handleShare = async () => {
     if (!content) return;
-    
-    let text = `📢 ${content.title}\n\n`;
-    if (content.summary) text += `${content.summary}\n\n`;
-    if (content.checklist && content.checklist.length > 0) {
-      text += `📝 Những việc cần lưu ý:\n`;
-      content.checklist.forEach((item: string, idx: number) => {
-        text += `- ${item}\n`;
-      });
-      text += `\n`;
-    }
-    text += `Tìm hiểu thêm trên Asinu: https://asinu.vn/`;
+    let text = buildShareText(content);
+    text += `\nTìm hiểu thêm trên Asinu: https://asinu.vn/`;
 
     try {
       const result = await Share.share({ message: text });
@@ -205,23 +199,6 @@ export default function ArticleDetailScreen() {
           </Pressable>
         </View>
 
-        {/* Dynamic CTA at the bottom */}
-        {content.cta_target && (
-          <Pressable 
-            style={styles.ctaButton} 
-            onPress={() => {
-              // Track CTA click
-              healthFeedApi('/event', {
-                method: 'POST',
-                body: { content_id: String(id), event_type: 'cta_clicked' }
-              }).catch(() => {});
-              router.push(content.cta_target as any);
-            }}
-          >
-            <Text style={styles.ctaBtnText}>{content.cta_label || 'Thực hiện ngay'}</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </Pressable>
-        )}
       </ScrollView>
     </Screen>
   );
@@ -364,24 +341,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.primary,
-  },
-  ctaButton: {
-    backgroundColor: '#0f172a', // Deep navy
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 16,
-    paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  ctaBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
   },
 });
