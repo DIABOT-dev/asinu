@@ -10,7 +10,7 @@ import {
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Appearance, Pressable, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -33,6 +33,7 @@ import { QueryProvider } from '../src/providers/QueryProvider';
 import { SessionProvider } from '../src/providers/SessionProvider';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { applyTheme, spacing, typography } from '../src/styles';
+import { trackScreenViewed } from '../src/lib/screenTracking';
 
 type NavigationProp = NativeStackNavigationProp<ParamListBase>;
 type ScreenOptionsProps = { 
@@ -114,6 +115,7 @@ export default function RootLayout() {
     <ErrorBoundary>
     <QueryProvider>
       <SessionProvider>
+        <ScreenViewTracker />
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <WellnessProvider>
             <CarePulseProvider>
@@ -135,6 +137,26 @@ export default function RootLayout() {
     </ErrorBoundary>
     </GestureHandlerRootView>
   );
+}
+
+function ScreenViewTracker() {
+  const pathname = usePathname();
+  const token = useAuthStore((s) => s.token);
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const lastTrackedPath = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!hydrated || !token || !pathname || pathname === '/login' || pathname === '/register') return;
+    if (lastTrackedPath.current === pathname) return;
+
+    lastTrackedPath.current = pathname;
+    const screenName = pathname.replace(/^\/+/, '').trim() || 'home';
+    trackScreenViewed(screenName).catch(() => {
+      // Telemetry must never interrupt navigation or show an error to users.
+    });
+  }, [hydrated, pathname, token]);
+
+  return null;
 }
 
 function EmergencyFABGate() {
