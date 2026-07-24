@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.border,
   },
   backBtn: {
     padding: 4,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03,
@@ -357,9 +357,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   feedCardWarning: {
-    borderColor: '#fee2e2',
-    borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
+    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -416,7 +414,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.border,
     paddingTop: 10,
   },
   ctaText: {
@@ -447,10 +445,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#e2e8f0',
+    width: 48,
+    height: 48,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,

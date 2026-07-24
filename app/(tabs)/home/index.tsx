@@ -63,45 +63,6 @@ function InfoButton({ text, styles }: { text: string; styles: any }) {
   );
 }
 
-function FloatingLeaf({ x, y, rotate, size, color, delay = 0 }: any) {
-  const translateY = useSharedValue(0);
-  const opacity = useSharedValue(0.4);
-
-  useEffect(() => {
-    setTimeout(() => {
-      translateY.value = withRepeat(
-        withSequence(
-          withTiming(-8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
-    }, delay);
-  }, [delay]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate }, { translateY: translateY.value }],
-      opacity: opacity.value,
-    };
-  });
-
-  return (
-    <Animated.View style={[{ position: 'absolute', ...(y.top !== undefined ? { top: y.top } : {}), ...(y.bottom !== undefined ? { bottom: y.bottom } : {}), ...(x.left !== undefined ? { left: x.left } : {}), ...(x.right !== undefined ? { right: x.right } : {}) }, animatedStyle]}>
-      <Ionicons name="leaf" size={size} color={color} />
-    </Animated.View>
-  );
-}
-
 function AnimatedBorderLight({ color }: { color: string }) {
   const rotation = useSharedValue(0);
 
@@ -826,47 +787,46 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }} />
           <InfoButton text={t('treeFormula')} styles={styles} />
         </View>
-        <View style={styles.treeCards}>
-          <View style={styles.treeCard}>
-            <View style={{ position: 'relative', width: 160, height: 140, justifyContent: 'center', alignItems: 'center' }}>
-              {/* Background Glow */}
-              <View style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(52, 211, 153, 0.12)' }} />
-              
-              {/* Decorative Leaves */}
-              <FloatingLeaf size={14} color="#6ee7b7" x={{ left: 25 }} y={{ top: 15 }} rotate="-35deg" delay={0} />
-              <FloatingLeaf size={22} color="#34d399" x={{ left: 0 }} y={{ top: 50 }} rotate="-75deg" delay={400} />
-              <FloatingLeaf size={12} color="#6ee7b7" x={{ left: 20 }} y={{ bottom: 30 }} rotate="-110deg" delay={800} />
-              
-              <FloatingLeaf size={14} color="#6ee7b7" x={{ right: 25 }} y={{ top: 25 }} rotate="45deg" delay={200} />
-              <FloatingLeaf size={20} color="#34d399" x={{ right: 5 }} y={{ top: 60 }} rotate="80deg" delay={600} />
-              <FloatingLeaf size={18} color="#34d399" x={{ right: 15 }} y={{ bottom: 25 }} rotate="120deg" delay={1000} />
-              
-              <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
-                <T1ProgressRing percentage={treeSummary?.score ?? 0.6} label={t('score')} accentColor="#34d399" />
-              </Suspense>
-            </View>
-            <Text style={styles.treeStatLabel}>
-              {Math.round((treeSummary?.score ?? 0) * 100)}% - {(treeSummary?.score ?? 0) >= 0.7 ? tt('good') : (treeSummary?.score ?? 0) >= 0.4 ? tt('average') : tt('needsImprovement')}
-            </Text>
-          </View>
-          <View style={styles.treeCard}>
-            <View style={styles.treeStatItem}>
-              <Ionicons name="flame" size={18} color={iconColors.premium} />
-              <View style={{ flex: 1, overflow: 'hidden' }}>
-                <Text style={styles.treeStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{treeSummary?.streakDays ?? 0} {t('days')}</Text>
-                <Text style={styles.treeStatLabel} numberOfLines={1}>{t('streak')}</Text>
+        <View style={styles.healthTreeCard}>
+          <View style={styles.healthTreeOverview}>
+            <Suspense fallback={<View style={styles.healthTreeRingFallback} />}>
+              <T1ProgressRing
+                percentage={treeSummary?.score ?? 0}
+                label={t('score')}
+                size={112}
+                strokeWidth={9}
+                accentColor={colors.primary}
+              />
+            </Suspense>
+            <View style={styles.healthTreeOverviewCopy}>
+              <View style={styles.healthTreeStatusRow}>
+                <MaterialCommunityIcons name="sprout-outline" size={18} color={iconColors.emerald} />
+                <Text style={styles.healthTreeStatusLabel}>
+                  {(treeSummary?.score ?? 0) >= 0.7 ? tt('good') : (treeSummary?.score ?? 0) >= 0.4 ? tt('average') : tt('needsImprovement')}
+                </Text>
               </View>
+              <Text style={styles.healthTreeStatusText}>{t('treeFormula')}</Text>
             </View>
           </View>
-          <View style={styles.treeCard}>
-            <View style={styles.treeStatItem}>
-              <Ionicons name="checkmark-circle" size={18} color={iconColors.emerald} />
-              <View style={{ flex: 1, overflow: 'hidden' }}>
-                <Text style={styles.treeStatValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}</Text>
-                <Text style={styles.treeStatLabel} numberOfLines={1}>{t('todayMissions')}</Text>
-              </View>
+
+          <View style={styles.healthTreeMetricsRow}>
+            <View style={styles.healthTreeMetric}>
+              <Ionicons name="flame-outline" size={18} color={iconColors.premium} />
+              <Text style={styles.healthTreeMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {treeSummary?.streakDays ?? 0} {t('days')}
+              </Text>
+              <Text style={styles.healthTreeMetricLabel} numberOfLines={1}>{t('streak')}</Text>
+            </View>
+            <View style={styles.healthTreeMetricDivider} />
+            <View style={styles.healthTreeMetric}>
+              <Ionicons name="checkmark-circle-outline" size={18} color={iconColors.emerald} />
+              <Text style={styles.healthTreeMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}
+              </Text>
+              <Text style={styles.healthTreeMetricLabel} numberOfLines={1}>{t('todayMissions')}</Text>
             </View>
           </View>
+
           <Pressable style={styles.treeBtn} onPress={() => router.push('/tree')}>
             <Text style={styles.treeBtnText}>{tc('viewDetails')}</Text>
             <Ionicons name="chevron-forward" size={18} color={iconColors.primary} />
@@ -1261,34 +1221,77 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
     fontSize: typography.size.md,
   },
-  treeCards: {
-    gap: spacing.md,
-  },
-  treeCard: {
+  healthTreeCard: {
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: spacing.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    ...translucentCardSurface,
+    elevation: 2,
+    gap: spacing.lg,
+  },
+  healthTreeOverview: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.lg,
+  },
+  healthTreeRingFallback: {
+    width: 112,
+    height: 112,
+  },
+  healthTreeOverviewCopy: {
+    flex: 1,
+    minWidth: 0,
     gap: spacing.sm,
   },
-  treeStatItem: {
+  healthTreeStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  treeStatValue: {
+  healthTreeStatusLabel: {
     fontSize: typography.size.md,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  treeStatLabel: {
-    fontSize: typography.size.sm,
+  healthTreeStatusText: {
+    fontSize: typography.size.xs,
     color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  healthTreeMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  healthTreeMetric: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+    minWidth: 0,
+  },
+  healthTreeMetricValue: {
+    fontSize: typography.size.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  healthTreeMetricLabel: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  healthTreeMetricDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 34,
+    backgroundColor: colors.border,
   },
   treeBtn: {
     flexDirection: 'row',
