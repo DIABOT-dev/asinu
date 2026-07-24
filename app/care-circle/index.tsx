@@ -129,7 +129,7 @@ export default function CareCircleScreen() {
     };
     if (symmetric[relationshipType]) return symmetric[relationshipType];
 
-    // Cha/Mẹ ↔ Con trai/Con gái
+    // Cha/Mẹ hai chiều với Con trai/Con gái
     const parentSet = new Set(['bo', 'Bố', 'me', 'Mẹ']);
     const childSet = new Set(['con-trai', 'Con trai', 'con-gai', 'Con gái']);
     if (parentSet.has(relationshipType)) {
@@ -143,7 +143,7 @@ export default function CareCircleScreen() {
       return relationshipType;
     }
 
-    // Anh/Chị ↔ Em trai/Em gái
+    // Anh/Chị hai chiều với Em trai/Em gái
     const olderSet = new Set(['anh-trai', 'Anh trai', 'chi-gai', 'Chị gái']);
     const youngerSet = new Set(['em-trai', 'Em trai', 'em-gai', 'Em gái']);
     if (olderSet.has(relationshipType)) {

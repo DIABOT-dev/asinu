@@ -16,10 +16,10 @@ async function healthFeedApi<T>(path: string, options?: any) {
 }
 
 function buildShareText(content: any) {
-  let text = `📢 ${content.title}\n\n`;
+  let text = `${content.title}\n\n`;
   if (content.summary) text += `${content.summary}\n\n`;
   if (content.checklist && content.checklist.length > 0) {
-    text += `📝 Những việc cần lưu ý:\n`;
+    text += `Những việc cần lưu ý:\n`;
     content.checklist.forEach((item: string) => {
       text += `- ${item}\n`;
     });
@@ -156,8 +156,13 @@ export default function ArticleDetailScreen() {
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + spacing.xl }]} showsVerticalScrollIndicator={false}>
         {/* Article Type Badge */}
         <View style={[styles.badge, content.severity_level === 'warning' && styles.badgeHigh]}>
+          <MaterialCommunityIcons
+            name={content.content_type === 'warning' ? 'alert-circle-outline' : 'stethoscope'}
+            size={16}
+            color={content.content_type === 'warning' ? colors.danger : colors.primary}
+          />
           <Text style={[styles.badgeText, content.severity_level === 'warning' && styles.badgeTextHigh]}>
-            {content.content_type === 'warning' ? '⚠️ Cảnh báo khẩn' : '🩺 Lời khuyên sức khỏe'}
+            {content.content_type === 'warning' ? 'Cảnh báo khẩn' : 'Lời khuyên sức khỏe'}
           </Text>
         </View>
 
@@ -248,6 +253,9 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: '#f1f5f9',
     borderRadius: 8,
     paddingHorizontal: 10,

@@ -142,7 +142,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
         {...panResponder.panHandlers}
       >
         <View style={styles.fab}>
-          <Ionicons name="medkit" size={24} color="#fff" />
+          <Ionicons name="medkit" size={28} color={colors.danger} />
         </View>
       </Animated.View>
 
@@ -242,14 +242,14 @@ const styles = StyleSheet.create({
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.12,
     shadowRadius: 6,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 20,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   backdrop: {
     flex: 1,

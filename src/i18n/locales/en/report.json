@@ -1,5 +1,6 @@
 {
   "title": "Health Report",
+  "healthReportSub": "View weekly / monthly summary",
   "weekTab": "Week",
   "monthTab": "Month",
   "checkinConsistency": "Check-in Frequency",

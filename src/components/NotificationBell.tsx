@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { showToast } from '../stores/toast.store';
 import {
     ActivityIndicator,
     FlatList,
@@ -396,13 +395,11 @@ export function NotificationBell({
   const confirmDelete = () => {
     if (confirmTarget === 'all') {
       onDeleteAll?.();
-      showToast(t('allNotifsDeleted'), 'success');
     } else if (confirmTarget) {
       onDelete?.(confirmTarget);
       if (selectedNotification?.id === confirmTarget) {
         setSelectedNotification(null);
       }
-      showToast(t('notifDeleted'), 'success');
     }
     setConfirmTarget(null);
   };

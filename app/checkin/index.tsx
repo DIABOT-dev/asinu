@@ -444,7 +444,7 @@ export default function CheckinScreen() {
         headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
         headerShadowVisible: false,
         headerLeft: () => {
-          // Adaptive: ở step 'location' show ← để back về status; các step khác show ✕ để đóng
+          // Adaptive: ở step 'location' show back về status; các step khác show nút đóng
           const canGoBackStep = screen === 'location';
           const handlePress = canGoBackStep
             ? () => { setPendingStatus(null); setScreen('status'); }

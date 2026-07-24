@@ -8,8 +8,8 @@ import { colors, spacing } from '../styles';
  * Animated CTA button for "Connect with Doctor" feature.
  *
  * Effects (giống AsinuChatSticker — float + pulse):
- *   1. Pulse scale: 1.0 ↔ 1.04 loop ~1.2s easing sin
- *   2. Glow shadow opacity: 0.25 ↔ 0.55 loop sync với pulse
+ *   1. Pulse scale: 1.0 to 1.04 loop ~1.2s easing sin
+ *   2. Glow shadow opacity: 0.25 to 0.55 loop sync với pulse
  *
  * → Hút mắt user, distinguish khỏi action buttons khác trong session card.
  */

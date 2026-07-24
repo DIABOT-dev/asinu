@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { StyleSheet, View, Pressable, ScrollView, RefreshControl } from 'react-native';
 
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../src/components/Screen';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { apiClient } from '../../src/lib/apiClient';
-import { colors, spacing } from '../../src/styles';
+import { colors, iconColors, spacing } from '../../src/styles';
 import { useFocusEffect } from '@react-navigation/native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -98,16 +98,26 @@ export default function FeedListScreen() {
   const getFeedIcon = (type: string) => {
     switch (type) {
       case 'checklist':
-        return <Ionicons name="checkbox" size={24} color={colors.primary} />;
+        return <MaterialCommunityIcons name="clipboard-check-outline" size={24} color={iconColors.primary} />;
       case 'warning':
-        return <Ionicons name="warning" size={24} color="#ef4444" />;
+        return <MaterialCommunityIcons name="alert-circle-outline" size={24} color={iconColors.danger} />;
       case 'family_note':
-        return <Ionicons name="people" size={24} color="#f97316" />;
+        return <MaterialCommunityIcons name="account-group-outline" size={24} color={iconColors.orange} />;
       case 'weekly_summary':
-        return <Ionicons name="stats-chart" size={24} color="#8b5cf6" />;
+        return <MaterialCommunityIcons name="chart-line" size={24} color={iconColors.indigo} />;
       case 'article':
       default:
-        return <Ionicons name="book" size={24} color="#06b6d4" />;
+        return <MaterialCommunityIcons name="book-open-variant" size={24} color={iconColors.cyan} />;
+    }
+  };
+
+  const getFeedTypeLabel = (type: string) => {
+    switch (type) {
+      case 'checklist': return 'Checklist tự chăm sóc';
+      case 'warning': return 'Cảnh báo quan trọng';
+      case 'family_note': return 'Ghi chú gửi gia đình';
+      case 'weekly_summary': return 'Báo cáo tuần';
+      default: return 'Lời khuyên sức khỏe';
     }
   };
 
@@ -209,11 +219,7 @@ export default function FeedListScreen() {
                             {item.title}
                           </Text>
                           <Text style={styles.cardTypeLabel}>
-                            {item.feed_type === 'checklist' && '✅ Checklist tự chăm sóc'}
-                            {item.feed_type === 'warning' && '⚠️ Cảnh báo quan trọng'}
-                            {item.feed_type === 'family_note' && '👨‍👩‍👧 Ghi chú gửi gia đình'}
-                            {item.feed_type === 'weekly_summary' && '📊 Báo cáo tuần'}
-                            {item.feed_type === 'article' && '📖 Lời khuyên sức khỏe'}
+                            {getFeedTypeLabel(item.feed_type)}
                           </Text>
                         </View>
                       </View>
@@ -259,7 +265,7 @@ export default function FeedListScreen() {
                       <Text style={styles.cardTitle} numberOfLines={1}>
                         {item.title}
                       </Text>
-                      <Text style={styles.cardTypeLabel}>⭐ Đã lưu vào ghi nhớ</Text>
+                      <Text style={styles.cardTypeLabel}>Đã lưu vào ghi nhớ</Text>
                     </View>
                   </View>
                 </View>
@@ -363,10 +369,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconWrapper: {
-    width: 40,
+    width: 32,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
   },

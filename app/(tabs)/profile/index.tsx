@@ -308,8 +308,8 @@ export default function ProfileScreen() {
       {/* Match the home screen's signature gradient backdrop so the two
           tabs feel like the same product surface. */}
       <LinearGradient
-        colors={['#0d9488', '#2dd4bf', '#ccfbf1', '#f8fafc']}
-        locations={[0, 0.2, 0.4, 0.8]}
+        colors={['#e0f7f4', '#edfbf8', '#f8fafc', '#f8fafc']}
+        locations={[0, 0.25, 0.5, 1]}
         style={StyleSheet.absoluteFillObject}
       />
       <RippleRefreshScrollView

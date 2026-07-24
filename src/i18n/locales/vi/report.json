@@ -1,5 +1,6 @@
 {
   "title": "Báo cáo sức khoẻ",
+  "healthReportSub": "Xem tổng hợp tuần / tháng",
   "weekTab": "Tuần",
   "monthTab": "Tháng",
   "checkinConsistency": "Tần suất check-in",

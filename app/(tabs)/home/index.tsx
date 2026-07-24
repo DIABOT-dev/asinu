@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, G, Rect } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
@@ -129,6 +130,43 @@ function AnimatedBorderLight({ color }: { color: string }) {
       </Animated.View>
       <View style={{ position: 'absolute', top: 2, left: 2, right: 2, bottom: 2, backgroundColor: 'rgba(255, 255, 255, 0.75)', borderRadius: 18 }} />
     </View>
+  );
+}
+
+function AnimatedHeartbeatPulse() {
+  const pulseOpacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    pulseOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.9, { duration: 1600, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.35, { duration: 1600, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: pulseOpacity.value,
+    };
+  });
+
+  return (
+    <Animated.View style={[{ position: 'absolute', top: 0, right: 0, width: 240, height: 200 }, animatedStyle]} pointerEvents="none">
+      <Svg height="200" width="240" style={{ position: 'absolute', top: 0, right: 0 }}>
+        {/* EKG / Pulse line — Positioned on the RIGHT of the (+) cross */}
+        <Path
+          d="M 135 78 L 155 78 L 163 60 L 173 96 L 181 68 L 189 78 L 235 78"
+          stroke="rgba(45, 212, 191, 0.65)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </Svg>
+    </Animated.View>
   );
 }
 
@@ -319,15 +357,15 @@ export default function HomeScreen() {
               const getIcon = (type: string) => {
                 switch (type) {
                   case 'checklist':
-                    return <Ionicons name="checkbox" size={20} color={colors.primary} />;
+                    return <MaterialCommunityIcons name="clipboard-check-outline" size={22} color={iconColors.primary} />;
                   case 'warning':
-                    return <Ionicons name="warning" size={20} color="#ef4444" />;
+                    return <MaterialCommunityIcons name="alert-circle-outline" size={22} color={iconColors.danger} />;
                   case 'family_note':
-                    return <Ionicons name="people" size={20} color="#f97316" />;
+                    return <MaterialCommunityIcons name="account-group-outline" size={22} color={iconColors.orange} />;
                   case 'weekly_summary':
-                    return <Ionicons name="stats-chart" size={20} color="#8b5cf6" />;
+                    return <MaterialCommunityIcons name="chart-line" size={22} color={iconColors.indigo} />;
                   default:
-                    return <Ionicons name="book" size={20} color="#06b6d4" />;
+                    return <MaterialCommunityIcons name="book-open-variant" size={22} color={iconColors.cyan} />;
                 }
               };
 
@@ -424,9 +462,10 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      {/* Background Gradient */}
       <LinearGradient
-        colors={['#0d9488', '#2dd4bf', '#ccfbf1', '#f8fafc']}
-        locations={[0, 0.2, 0.4, 0.8]}
+        colors={['#e0f7f4', '#f0fbf9', '#f8fafc', '#f8fafc']}
+        locations={[0, 0.2, 0.45, 1]}
         style={StyleSheet.absoluteFillObject}
       />
       {/* Modal: Đã check-in rồi */}
@@ -478,6 +517,41 @@ export default function HomeScreen() {
         {/* Hero Banner */}
         <Animated.View entering={FadeIn.delay(0).duration(400)}>
         <View style={styles.heroBanner}>
+          {/* Header Graphic (White Cross on LEFT, Leaf Petals + Animated EKG Pulse Line on RIGHT) */}
+          <View style={{ position: 'absolute', top: -20, right: -spacing.lg, width: 240, height: 200 }} pointerEvents="none">
+            <Svg height="200" width="240" style={{ position: 'absolute', top: 0, right: 0 }}>
+              <Defs>
+                <SvgGradient id="leafTint" x1="0" y1="0" x2="1" y2="1">
+                  <Stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.18" />
+                  <Stop offset="100%" stopColor="#0d9488" stopOpacity="0.04" />
+                </SvgGradient>
+              </Defs>
+
+              {/* Leaf Petals fanning towards top right */}
+              <Path
+                d="M 170 120 C 170 70, 210 20, 240 10 C 225 50, 210 90, 170 120 Z"
+                fill="url(#leafTint)"
+              />
+              <Path
+                d="M 160 130 C 180 90, 225 55, 240 50 C 215 80, 190 115, 160 130 Z"
+                fill="url(#leafTint)"
+              />
+              <Path
+                d="M 155 140 C 190 110, 235 90, 240 95 C 205 120, 175 140, 155 140 Z"
+                fill="url(#leafTint)"
+              />
+
+              {/* Solid White Medical Cross (+) — Positioned on the LEFT of the heartbeat line */}
+              <G transform="translate(72, 28)">
+                <Rect x="0" y="21" width="58" height="20" rx="7" fill="#ffffff" fillOpacity="0.88" />
+                <Rect x="19" y="0" width="20" height="58" rx="7" fill="#ffffff" fillOpacity="0.88" />
+              </G>
+            </Svg>
+
+            {/* Animated EKG / Pulse line — Gently pulsing on the RIGHT of the (+) cross */}
+            <AnimatedHeartbeatPulse />
+          </View>
+
           <View style={styles.heroContent}>
             <Text style={styles.heroGreeting}>{t('greeting')}</Text>
             <Text style={styles.heroName}>{profile?.name || t('defaultName')}</Text>
@@ -511,20 +585,16 @@ export default function HomeScreen() {
         {/* Metrics Row */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
         <View style={styles.metricsRow}>
-          <Pressable style={[styles.metricCard, styles.metricCardGlucose, { borderWidth: 0, backgroundColor: 'transparent' }]} onPress={() => router.push('/logs/glucose')}>
-            <AnimatedBorderLight color="#0ea5e9" />
-            
+          <Pressable style={[styles.metricCard, styles.metricCardGlucose]} onPress={() => router.push('/logs/glucose')}>
             <MaterialCommunityIcons name="water" size={22} color={iconColors.glucose} />
             <Text style={styles.metricTitle}>{t('glucose')}</Text>
-            <Text style={[styles.metricValue, { textShadowColor: '#2dd4bf', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10, color: '#0d9488' }]}>{quickMetrics.glucose ?? '--'}</Text>
+            <Text style={[styles.metricValue, { color: '#0d9488' }]}>{quickMetrics.glucose ?? '--'}</Text>
             <Text style={styles.metricUnit}>{tc('unitMgdl')}</Text>
           </Pressable>
-          <Pressable style={[styles.metricCard, styles.metricCardBP, { borderWidth: 0, backgroundColor: 'transparent' }]} onPress={() => router.push('/logs/blood-pressure')}>
-            <AnimatedBorderLight color="#fb923c" />
-            
+          <Pressable style={[styles.metricCard, styles.metricCardBP]} onPress={() => router.push('/logs/blood-pressure')}>
             <MaterialCommunityIcons name="heart-pulse" size={22} color={iconColors.bp} />
             <Text style={styles.metricTitle}>{t('bloodPressure')}</Text>
-            <Text style={[styles.metricValue, { textShadowColor: '#fb923c', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10, color: '#ea580c' }]}>{quickMetrics.bloodPressure ?? '--'}</Text>
+            <Text style={[styles.metricValue, { color: '#ea580c' }]}>{quickMetrics.bloodPressure ?? '--'}</Text>
             <Text style={styles.metricUnit}>{tc('unitMmhg')}</Text>
           </Pressable>
         </View>
@@ -626,7 +696,7 @@ export default function HomeScreen() {
           <View style={styles.treeCard}>
             <View style={{ position: 'relative', width: 160, height: 140, justifyContent: 'center', alignItems: 'center' }}>
               {/* Background Glow */}
-              <View style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(52, 211, 153, 0.3)', shadowColor: '#34d399', shadowOpacity: 1, shadowRadius: 35, shadowOffset: { width: 0, height: 0 }, elevation: 20 }} />
+              <View style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(52, 211, 153, 0.12)' }} />
               
               {/* Decorative Leaves */}
               <FloatingLeaf size={14} color="#6ee7b7" x={{ left: 25 }} y={{ top: 15 }} rotate="-35deg" delay={0} />
@@ -792,40 +862,45 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 14,
+    backgroundColor: '#e6faf8',
+    borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: '#b2f5ea',
   },
   checkinBannerText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: colors.primary,
+    color: '#0f766e',
   },
   heroBanner: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    position: 'relative',
+    overflow: 'visible',
   },
   heroContent: {
     flex: 1,
   },
   heroGreeting: {
-    fontSize: typography.size.md,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
   },
   heroName: {
-    fontSize: typography.size.lg,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0d9488',
+    marginTop: 2,
     marginBottom: 4,
   },
   heroSummary: {
-    fontSize: typography.size.md,
-    color: 'rgba(255,255,255,0.85)',
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
   },
   heroSettingsBtn: {
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -838,27 +913,27 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCard: {
     flex: 1,
-    backgroundColor: Platform.OS === 'android' ? '#F7FFFC' : 'rgba(255, 255, 255, 0.65)',
+    backgroundColor: '#ffffff',
     borderRadius: 20,
     padding: spacing.lg,
   },
   metricCardGlucose: {
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: categoryColors.glucose,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1.2,
+    borderColor: '#e0f2fe',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   metricCardBP: {
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: categoryColors.bloodPressure,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1.2,
+    borderColor: '#ffedd5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   metricTitle: {
     fontSize: typography.size.sm,
@@ -1191,10 +1266,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderLeftColor: '#ef4444',
   },
   healthFeedIconWrapper: {
-    width: 40,
+    width: 32,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,

@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -39,10 +38,10 @@ const STATUS_META: Record<string, { color: string; bg: string; icon: React.Compo
   specific_concern: { color: '#6366f1', bg: '#eef2ff', icon: 'stethoscope' },
 };
 
-const TREND_META: Record<string, { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string; gradient: [string, string] }> = {
-  improving: { icon: 'trending-up', color: '#16a34a', gradient: ['#dcfce7', '#f0fdf4'] },
-  stable: { icon: 'minus', color: colors.primary, gradient: [colors.primaryLight, '#fff'] },
-  worsening: { icon: 'trending-down', color: '#dc2626', gradient: ['#fee2e2', '#fef2f2'] },
+const TREND_META: Record<string, { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string; bg: string }> = {
+  improving: { icon: 'trending-up', color: '#16a34a', bg: '#f0fdf4' },
+  stable: { icon: 'minus', color: colors.primary, bg: colors.primaryLight },
+  worsening: { icon: 'trending-down', color: '#dc2626', bg: '#fef2f2' },
 };
 
 type Props = {
@@ -119,13 +118,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeIn.duration(500)}>
-            <View style={styles.trendCard}>
-              <LinearGradient
-                colors={TREND_META[report.trend]?.gradient ?? [colors.primaryLight, '#fff']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
+            <View style={[styles.trendCard, { backgroundColor: TREND_META[report.trend]?.bg ?? colors.primaryLight }]}>
               <View style={styles.trendTop}>
                 <View style={styles.trendIconWrap}>
                   <MaterialCommunityIcons
@@ -172,9 +165,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
                   return (
                     <View key={sev} style={styles.barItem}>
                       <View style={styles.barTrack}>
-                        <View style={[styles.barFill, { height: `${Math.max(pct, 6)}%`, backgroundColor: SEVERITY_COLORS[sev] }]}>
-                          <LinearGradient colors={[SEVERITY_COLORS[sev], SEVERITY_COLORS[sev] + 'cc']} style={StyleSheet.absoluteFill} />
-                        </View>
+                        <View style={[styles.barFill, { height: `${Math.max(pct, 6)}%`, backgroundColor: SEVERITY_COLORS[sev] }]} />
                       </View>
                       <Text style={[styles.barCount, { color: SEVERITY_COLORS[sev] }]}>{report.severityDistribution[sev]}</Text>
                       <View style={styles.barIconWrap}>
@@ -256,8 +247,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
                   <Text style={styles.cardTitle}>{t('alertsTitle')}</Text>
                 </View>
                 {report.alerts.familyAlerted > 0 && (
-                  <View style={styles.alertCard}>
-                    <LinearGradient colors={['#fffbeb', '#fff']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+                  <View style={[styles.alertCard, { backgroundColor: '#fffbeb' }]}>
                     <View style={styles.alertIconWrap}>
                       <MaterialCommunityIcons name="account-group-outline" size={20} color="#f59e0b" />
                     </View>
@@ -268,8 +258,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
                   </View>
                 )}
                 {report.alerts.emergencyTriggered > 0 && (
-                  <View style={[styles.alertCard, { marginTop: spacing.sm }]}>
-                    <LinearGradient colors={['#fef2f2', '#fff']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+                  <View style={[styles.alertCard, { marginTop: spacing.sm, backgroundColor: '#fef2f2' }]}>
                     <View style={styles.alertIconWrap}>
                       <MaterialCommunityIcons name="hospital-box-outline" size={20} color="#dc2626" />
                     </View>
