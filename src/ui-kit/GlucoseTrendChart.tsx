@@ -51,6 +51,7 @@ export const GlucoseTrendChart = ({ data, height = 280 }: Props) => {
   const typography = useScaledTypography();
   const { isDark } = useThemeColors();
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [cardWidth, setCardWidth] = useState(0);
 
   const cardBg   = isDark ? '#111f1e' : '#ffffff';
   const gridCol  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
@@ -121,7 +122,7 @@ export const GlucoseTrendChart = ({ data, height = 280 }: Props) => {
     );
   }
 
-  const screenW = Dimensions.get('window').width - 48;
+  const screenW = Math.max(280, cardWidth || Dimensions.get('window').width - spacing.lg * 2);
   const svgH    = height - 52 - 44; // trừ stats + legend
   const chartW  = screenW - PAD.left - PAD.right;
   const chartH  = svgH - PAD.top - PAD.bottom;
@@ -171,7 +172,13 @@ export const GlucoseTrendChart = ({ data, height = 280 }: Props) => {
   const lastStatus = validValues.length > 0 ? getStatusLabel(validValues[validValues.length - 1], t) : null;
 
   return (
-    <View style={styles.card}>
+    <View
+      style={styles.card}
+      onLayout={(event) => {
+        const nextWidth = Math.round(event.nativeEvent.layout.width);
+        if (nextWidth !== cardWidth) setCardWidth(nextWidth);
+      }}
+    >
       {/* Legend */}
       <View style={styles.legendRow}>
         {[

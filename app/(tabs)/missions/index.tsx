@@ -268,11 +268,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   statCardActive: {
     backgroundColor: colors.premiumLight,
-    borderColor: colors.premium + '60',
+    borderColor: colors.border,
   },
   statCardCompleted: {
     backgroundColor: colors.emeraldLight,
-    borderColor: colors.emerald + '60',
+    borderColor: colors.border,
   },
   statValue: {
     fontSize: typography.size.xl,
@@ -290,7 +290,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: colors.primary + '30',
+    borderColor: colors.border,
     gap: spacing.sm
   },
   infoTitleRow: {
@@ -342,7 +342,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     elevation: 2
   },
   cardCompleted: {
-    borderColor: colors.emerald + '60',
+    borderColor: colors.border,
     backgroundColor: colors.emeraldLight,
   },
   cardHeader: {

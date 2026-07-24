@@ -11,6 +11,7 @@
   "expiresIn": "{{minutes}} phút {{seconds}} giây",
   "expired": "QR đã hết hạn",
   "paymentSuccess": "Thanh toán thành công!",
+  "qrCreated": "Đã tạo mã QR thanh toán",
   "paymentPending": "Đang chờ thanh toán...",
   "history": "Lịch sử giao dịch",
   "noHistory": "Chưa có giao dịch nào",

@@ -10,29 +10,50 @@ const getLogValue = (log: LogEntry, field: 'value' | 'systolic' | 'diastolic' | 
   return log[field];
 };
 
-const getDayLabel = (date: Date): string => {
-  const locale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
-  return date.toLocaleDateString(locale, { weekday: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
+const VN_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+
+const getDateKey = (date: Date): string => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: VN_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 };
 
-// Helper to create trend data from logs — luôn trả về đủ 7 ngày, ngày không đo = 0
+const getDayLabel = (date: Date): string => {
+  const locale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
+  return date.toLocaleDateString(locale, { weekday: 'short', timeZone: VN_TIME_ZONE });
+};
+
+// Build one point per VN calendar day, using the latest valid glucose reading.
 const createGlucoseTrendFromLogs = (logs: LogEntry[]): TreeHistoryPoint[] => {
-  const today = new Date();
+  const todayKey = getDateKey(new Date());
+  const today = new Date(`${todayKey}T12:00:00.000Z`);
+  const latestByDay = new Map<string, LogEntry>();
+
+  logs.forEach((log) => {
+    if (log.type !== 'glucose' || !log.recordedAt) return;
+    const value = Number(log.value);
+    const recordedAt = new Date(log.recordedAt);
+    if (!Number.isFinite(value) || value <= 0 || Number.isNaN(recordedAt.getTime())) return;
+
+    const dateKey = getDateKey(recordedAt);
+    const previous = latestByDay.get(dateKey);
+    if (!previous || new Date(previous.recordedAt || 0).getTime() < recordedAt.getTime()) {
+      latestByDay.set(dateKey, { ...log, value });
+    }
+  });
+
   const days: TreeHistoryPoint[] = [];
 
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // YYYY-MM-DD
-
-    // Lấy log đường huyết mới nhất trong ngày đó
-    const log = logs.find(l => {
-      if (l.type !== 'glucose' || l.value === undefined) return false;
-      const logDate = l.recordedAt
-        ? new Date(l.recordedAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })
-        : null;
-      return logDate === dateStr;
-    });
+    d.setUTCDate(today.getUTCDate() - i);
+    const dateKey = getDateKey(d);
+    const log = latestByDay.get(dateKey);
 
     days.push({
       label: getDayLabel(d),

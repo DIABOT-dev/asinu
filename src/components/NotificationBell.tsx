@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, typography, radius } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { showToast } from '../stores/toast.store';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -45,10 +46,10 @@ interface NotificationBellProps {
   notifications: Notification[];
   unreadCount: number;
   onNotificationPress?: (notification: Notification) => void;
-  onMarkAsRead?: (notificationId: string) => void;
-  onMarkAllAsRead?: () => void;
-  onDelete?: (notificationId: string) => void;
-  onDeleteAll?: () => void;
+  onMarkAsRead?: (notificationId: string) => void | Promise<boolean>;
+  onMarkAllAsRead?: () => void | Promise<boolean>;
+  onDelete?: (notificationId: string) => void | Promise<boolean>;
+  onDeleteAll?: () => void | Promise<boolean>;
   onOpen?: () => void;
   canNavigateNotification?: (notification: Notification) => boolean;
   loading?: boolean;
@@ -392,21 +393,63 @@ export function NotificationBell({
     setIsOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (confirmTarget === 'all') {
-      onDeleteAll?.();
-    } else if (confirmTarget) {
-      onDelete?.(confirmTarget);
-      if (selectedNotification?.id === confirmTarget) {
+  const handleMarkAsRead = async (notificationId: string) => {
+    if (!onMarkAsRead) return;
+    try {
+      const result = await onMarkAsRead(notificationId);
+      showToast(result === false ? t('notificationActionFailed') : t('notificationMarkedRead'), result === false ? 'error' : 'success');
+    } catch {
+      showToast(t('notificationActionFailed'), 'error');
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!onMarkAllAsRead) return;
+    try {
+      const result = await onMarkAllAsRead();
+      showToast(result === false ? t('notificationActionFailed') : t('allNotificationsMarkedRead'), result === false ? 'error' : 'success');
+    } catch {
+      showToast(t('notificationActionFailed'), 'error');
+    }
+  };
+
+  const handleDeleteConfirmed = async (notificationId: string) => {
+    if (!onDelete) return;
+    try {
+      const result = await onDelete(notificationId);
+      showToast(result === false ? t('notificationActionFailed') : t('notifDeleted'), result === false ? 'error' : 'success');
+      if (result !== false && selectedNotification?.id === notificationId) {
         setSelectedNotification(null);
       }
+    } catch {
+      showToast(t('notificationActionFailed'), 'error');
     }
+  };
+
+  const handleDeleteAllConfirmed = async () => {
+    if (!onDeleteAll) return;
+    try {
+      const result = await onDeleteAll();
+      showToast(result === false ? t('notificationActionFailed') : t('allNotifsDeleted'), result === false ? 'error' : 'success');
+      if (result !== false) setSelectedNotification(null);
+    } catch {
+      showToast(t('notificationActionFailed'), 'error');
+    }
+  };
+
+  const confirmDelete = () => {
+    const target = confirmTarget;
     setConfirmTarget(null);
+    if (target === 'all') {
+      void handleDeleteAllConfirmed();
+    } else if (target) {
+      void handleDeleteConfirmed(target);
+    }
   };
 
   const handleNotificationPress = (notification: Notification) => {
     if (!notification.read && onMarkAsRead) {
-      onMarkAsRead(notification.id);
+      void handleMarkAsRead(notification.id);
     }
     setSelectedNotification(notification);
   };
@@ -553,7 +596,7 @@ export function NotificationBell({
                 <Text style={[styles.headerTitle, { fontSize: scaledTypography.size.xl }]}>{tLogs('notifications')}</Text>
                 <View style={styles.headerActions}>
                   {unreadCount > 0 && onMarkAllAsRead && (
-                    <TouchableOpacity onPress={onMarkAllAsRead} style={styles.markAllButton}>
+                    <TouchableOpacity onPress={() => void handleMarkAllAsRead()} style={styles.markAllButton}>
                       <Ionicons name="checkmark-done" size={16} color={colors.primary} />
                     </TouchableOpacity>
                   )}

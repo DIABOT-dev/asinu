@@ -36,6 +36,7 @@ import { Screen } from '../../src/components/Screen';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { apiClient } from '../../src/lib/apiClient';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
+import { showToast } from '../../src/stores/toast.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 // ---- types ----
@@ -218,6 +219,7 @@ export default function WalletScreen() {
             setPollStatus('success');
             if (pollRef.current) clearInterval(pollRef.current);
             fetchBalance();
+            showToast(t('paymentSuccess'), 'success');
           }
         }
       } catch {}
@@ -238,8 +240,15 @@ export default function WalletScreen() {
         setQr({ order_code: res.order_code, qr_url: res.qr_url, amount: res.amount, description: res.description, expires_at: res.expires_at });
         startCountdown(res.expires_at);
         startPolling(res.order_code);
+        showToast(t('qrCreated'), 'success');
+      } else {
+        setError(t('createQRError'));
+        showToast(t('createQRError'), 'error');
       }
-    } catch { setError(t('createQRError')); } finally { setCreatingQR(false); }
+    } catch {
+      setError(t('createQRError'));
+      showToast(t('createQRError'), 'error');
+    } finally { setCreatingQR(false); }
   }, [amount, t, clearTimers, startCountdown, startPolling]);
 
   const isExpired = qr ? countdown <= 0 : false;

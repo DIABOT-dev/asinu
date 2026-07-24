@@ -25,7 +25,6 @@ type LogCard = {
   key: string;
   route: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  bg: string;
   iconColor: string;
   desc: string;
 };
@@ -56,10 +55,10 @@ export default function LogsIndexScreen() {
   }, [fetchLogs]);
 
   const visibleLogCards = useMemo<LogCard[]>(() => [
-    { key: 'glucose',          route: '/logs/glucose',       icon: 'water',          bg: '#e8f4fd', iconColor: iconColors.glucose,    desc: t('glucoseValue') },
-    { key: 'bloodPressure',    route: '/logs/blood-pressure',icon: 'heart-pulse',    bg: '#fde8e8', iconColor: iconColors.bp,         desc: t('systolic') + ' / ' + t('diastolic') },
-    { key: 'water',            route: '/logs/water',         icon: 'cup-water',      bg: '#e8f8fc', iconColor: iconColors.water,      desc: t('volumeMl') },
-    { key: 'weight',           route: '/logs/weight',        icon: 'scale-bathroom', bg: '#ede8fd', iconColor: iconColors.weight,     desc: t('weightKg') },
+    { key: 'glucose',          route: '/logs/glucose',       icon: 'water',          iconColor: iconColors.glucose,    desc: t('glucoseValue') },
+    { key: 'bloodPressure',    route: '/logs/blood-pressure',icon: 'heart-pulse',    iconColor: iconColors.bp,         desc: t('systolic') + ' / ' + t('diastolic') },
+    { key: 'water',            route: '/logs/water',         icon: 'cup-water',      iconColor: iconColors.water,      desc: t('volumeMl') },
+    { key: 'weight',           route: '/logs/weight',        icon: 'scale-bathroom', iconColor: iconColors.weight,     desc: t('weightKg') },
   ], [t]);
 
   const LOG_CARDS: LogCard[] = useMemo(() => [
@@ -97,7 +96,7 @@ export default function LogsIndexScreen() {
               >
                 <Pressable
                   onPress={() => router.push(card.route as any)}
-                  style={({ pressed }) => [styles.card, { backgroundColor: card.bg }, pressed && styles.cardPressed]}
+                  style={({ pressed }) => [styles.card, { borderLeftColor: card.iconColor }, pressed && styles.cardPressed]}
                 >
                   <MaterialCommunityIcons name={card.icon} size={26} color={card.iconColor} />
                   <View style={styles.cardBody}>
@@ -122,7 +121,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     container: {
       paddingHorizontal: spacing.lg,
       gap: spacing.lg,
-      backgroundColor: colors.background,
     },
     // Header
     headerRow: {
@@ -154,6 +152,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingVertical: spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
+      borderLeftWidth: 3,
       shadowColor: '#000',
       shadowOpacity: 0.04,
       shadowRadius: 4,

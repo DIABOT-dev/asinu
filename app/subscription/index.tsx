@@ -36,6 +36,7 @@ import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { apiClient, ApiError } from '../../src/lib/apiClient';
 import { env } from '../../src/lib/env';
 import { colors, radius, spacing, typography } from '../../src/styles';
+import { showToast } from '../../src/stores/toast.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -225,11 +226,17 @@ export default function SubscriptionScreen() {
         const res = await apiClient<{ ok: boolean; subscriptions: SubRecord[] }>('/api/subscriptions/history?limit=5');
         if (res.ok) {
           const found = res.subscriptions.find(s => s.order_code === orderCode && s.status === 'completed');
-          if (found) { clearTimers(); setPollStatus('success'); setHistory(res.subscriptions); fetchStatus(); }
+          if (found) {
+            clearTimers();
+            setPollStatus('success');
+            setHistory(res.subscriptions);
+            fetchStatus();
+            showToast(t('subscriptionSuccess'), 'success');
+          }
         }
       } catch { /* silent */ }
     }, 5000);
-  }, [clearTimers, fetchStatus]);
+  }, [clearTimers, fetchStatus, t]);
 
   const handleCreateQR = useCallback(async () => {
     setCreatingQR(true);
@@ -239,8 +246,11 @@ export default function SubscriptionScreen() {
       setPollStatus('idle');
       startCountdown(res.expires_at);
       startPolling(res.order_code);
-    } catch { /* silent */ } finally { setCreatingQR(false); }
-  }, [selectedPlan, startCountdown, startPolling]);
+      showToast(t('qrCreated'), 'success');
+    } catch {
+      showToast(t('paymentNetworkError'), 'error');
+    } finally { setCreatingQR(false); }
+  }, [selectedPlan, startCountdown, startPolling, t]);
 
   const handleCancelQR = useCallback(() => { clearTimers(); setQr(null); setPollStatus('idle'); }, [clearTimers]);
 
@@ -264,19 +274,23 @@ export default function SubscriptionScreen() {
         setWalletPayResult('success');
         fetchStatus();
         fetchHistory();
+        showToast(t('subscriptionSuccess'), 'success');
       } else {
         setWalletPayResult('failed');
         setWalletPayError(res.message ?? t('paymentFailed'));
+        showToast(res.message ?? t('paymentFailed'), 'error');
       }
     } catch (err) {
       setWalletPayResult('failed');
       if (err instanceof ApiError) {
         setWalletPayError(err.message || t('paymentFailed'));
+        showToast(err.message || t('paymentFailed'), 'error');
       } else {
         setWalletPayError(t('paymentNetworkError'));
+        showToast(t('paymentNetworkError'), 'error');
       }
     }
-  }, [selectedPlan, fetchStatus, fetchHistory]);
+  }, [selectedPlan, fetchStatus, fetchHistory, t]);
   const isQrExpired = qr ? countdown <= 0 && pollStatus !== 'success' : false;
 
   function statusLabel(s: SubRecord['status']) {

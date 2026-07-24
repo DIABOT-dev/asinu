@@ -374,7 +374,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     container: {
       paddingHorizontal: spacing.lg,
       gap: spacing.md,
-      backgroundColor: colors.background,
     },
     loadingContainer: {
       flex: 1,

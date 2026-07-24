@@ -29,6 +29,7 @@
     "voiceTranscribeYes": "Voice transcribe trong chat"
   },
   "paymentQR": "Quét QR để thanh toán",
+  "qrCreated": "Đã tạo mã QR thanh toán",
   "transferNote": "Nội dung chuyển khoản:",
   "countdown": "Hết hạn sau {{time}}",
   "polling": "Đang chờ thanh toán...",
@@ -73,6 +74,7 @@
   "giftPickRecipient": "Chọn người thân muốn tặng",
   "giftPickPlan": "Chọn gói",
   "giftCreateQR": "Tạo mã QR thanh toán",
+  "giftQrCreated": "Đã tạo mã QR tặng Premium",
   "giftConfirmTitle": "Xác nhận tặng Premium",
   "giftConfirmBody": "Bạn sẽ thanh toán {{price}}đ cho gói {{plan}} của {{name}}.\nSau khi chuyển khoản thành công, người này sẽ nhận được thông báo.",
   "giftQRHeader": "Quét QR để tặng Premium cho {{name}}",

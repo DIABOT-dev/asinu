@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { StyleSheet, View, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
+import { showToast } from '../../src/stores/toast.store';
 
 async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
@@ -19,6 +21,7 @@ async function healthFeedApi<T>(path: string, options?: any) {
 export default function FeedListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t: tc } = useTranslation('common');
   const [activeTab, setActiveTab] = useState<'feed' | 'saved'>('feed');
   const [feedItems, setFeedItems] = useState<any[]>([]);
   const [savedItems, setSavedItems] = useState<any[]>([]);
@@ -71,8 +74,10 @@ export default function FeedListScreen() {
       await healthFeedApi(`/feed/${itemId}/dismiss`, { method: 'POST' });
       setFeedItems(prev => prev.filter(item => item.id !== itemId));
       swipeableRefs.current.delete(itemId);
+      showToast(tc('feedDismissed'), 'success');
     } catch (err) {
       console.error('[Feed] Failed to dismiss item:', err);
+      showToast(tc('feedActionFailed'), 'error');
     }
   };
 
@@ -134,7 +139,7 @@ export default function FeedListScreen() {
   };
 
   return (
-    <Screen style={{ backgroundColor: '#f8fafc' }}>
+    <Screen>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>

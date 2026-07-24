@@ -17,10 +17,10 @@ interface NotificationStore {
   _fetching: boolean;
   fetchFromBackend: () => Promise<void>;
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
-  markAsRead: (notificationId: string) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
-  removeNotification: (notificationId: string) => Promise<void>;
-  clearAll: () => Promise<void>;
+  markAsRead: (notificationId: string) => Promise<boolean>;
+  markAllAsRead: () => Promise<boolean>;
+  removeNotification: (notificationId: string) => Promise<boolean>;
+  clearAll: () => Promise<boolean>;
 }
 
 // Convert backend notification to UI notification
@@ -105,11 +105,15 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     const numericId = parseInt(notificationId);
     if (!isNaN(numericId)) {
       try {
-        await markNotificationAsRead(numericId);
+        const response = await markNotificationAsRead(numericId);
+        if (!response.ok) throw new Error(response.error || 'Could not mark notification as read');
+        return true;
       } catch {
         set({ notifications: prev, unreadCount: prev.filter(n => !n.read).length });
+        return false;
       }
     }
+    return true;
   },
 
   markAllAsRead: async () => {
@@ -123,26 +127,47 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
     // Sync to backend — rollback on failure
     try {
-      await markAllNotificationsAsRead();
+      const response = await markAllNotificationsAsRead();
+      if (!response.ok) throw new Error(response.error || 'Could not mark notifications as read');
+      return true;
     } catch {
       set({ notifications: prev, unreadCount: prevUnread });
+      return false;
     }
   },
 
   removeNotification: async (notificationId) => {
+    const prev = get().notifications;
+    const prevUnread = get().unreadCount;
     set((state) => ({
       notifications: state.notifications.filter((n) => n.id !== notificationId),
       unreadCount: state.notifications.filter((n) => n.id !== notificationId && !n.read).length,
     }));
     const numericId = parseInt(notificationId);
     if (!isNaN(numericId)) {
-      await deleteNotification(numericId).catch(() => {});
+      try {
+        const response = await deleteNotification(numericId);
+        if (!response.ok) throw new Error(response.error || 'Could not delete notification');
+        return true;
+      } catch {
+        set({ notifications: prev, unreadCount: prevUnread });
+        return false;
+      }
     }
+    return true;
   },
 
   clearAll: async () => {
+    const prev = get().notifications;
+    const prevUnread = get().unreadCount;
     set({ notifications: [], unreadCount: 0 });
-    await deleteAllNotifications().catch(() => {});
+    try {
+      const response = await deleteAllNotifications();
+      if (!response.ok) throw new Error(response.error || 'Could not delete notifications');
+      return true;
+    } catch {
+      set({ notifications: prev, unreadCount: prevUnread });
+      return false;
+    }
   },
 }));
-

@@ -11,6 +11,7 @@
   "expiresIn": "{{minutes}}m {{seconds}}s",
   "expired": "QR code expired",
   "paymentSuccess": "Payment successful!",
+  "qrCreated": "Payment QR code created",
   "paymentPending": "Waiting for payment...",
   "history": "Transaction History",
   "noHistory": "No transactions yet",

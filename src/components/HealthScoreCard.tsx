@@ -118,7 +118,7 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
 
   return (
     <Pressable
-      style={[styles.card, { backgroundColor: config.bg, borderColor: config.border }]}
+      style={[styles.card, { backgroundColor: config.bg, borderColor: colors.border }]}
       onPress={hasFactors ? () => setExpanded(v => !v) : undefined}
     >
       <View style={styles.headerRow}>

@@ -51,45 +51,45 @@ export const colors = { ...lightColors };
 
 // ── Brand accent colors ───────────────────────────────
 export const lightBrandColors = {
-  indigo: '#6366f1',
-  indigoDark: '#4f46e5',
-  violet: '#8b5cf6',
-  violetDark: '#7c3aed',
-  pink: '#ec4899',
-  pinkDark: '#db2777',
-  cyan: '#06b6d4',
-  orange: '#f97316',
+  indigo: '#60758c',
+  indigoDark: '#4c6278',
+  violet: '#796e98',
+  violetDark: '#665b82',
+  pink: '#aa7180',
+  pinkDark: '#925e6d',
+  cyan: '#468f94',
+  orange: '#ad794d',
 };
 
 export const darkBrandColors: typeof lightBrandColors = {
-  indigo: '#818cf8',
-  indigoDark: '#6366f1',
-  violet: '#a78bfa',
-  violetDark: '#8b5cf6',
-  pink: '#f472b6',
-  pinkDark: '#ec4899',
-  cyan: '#22d3ee',
-  orange: '#fb923c',
+  indigo: '#9aafc2',
+  indigoDark: '#7f96ac',
+  violet: '#b2a8c4',
+  violetDark: '#998eae',
+  pink: '#d2a0ac',
+  pinkDark: '#b98593',
+  cyan: '#8bc3c4',
+  orange: '#d0a27d',
 };
 
 export const brandColors = { ...lightBrandColors };
 
 // ── Health metric category colors ─────────────────────
 export const lightCategoryColors = {
-  glucose: '#3b82f6',
-  glucoseBg: '#eff6ff',
-  bloodPressure: '#ef4444',
-  bloodPressureBg: '#fef2f2',
-  weight: '#8b5cf6',
-  weightBg: '#f5f3ff',
-  water: '#06b6d4',
-  waterBg: '#ecfeff',
-  insulin: '#6366f1',
-  insulinBg: '#eef2ff',
-  meal: '#f59e0b',
-  mealBg: '#fffbeb',
-  medication: '#10b981',
-  medicationBg: '#ecfdf5',
+  glucose: '#4f7fa6',
+  glucoseBg: '#eef4f8',
+  bloodPressure: '#b85c60',
+  bloodPressureBg: '#fbf0f1',
+  weight: '#796e98',
+  weightBg: '#f3f1f8',
+  water: '#4c9597',
+  waterBg: '#edf7f7',
+  insulin: '#687b9f',
+  insulinBg: '#f0f3f8',
+  meal: '#b68445',
+  mealBg: '#faf5ea',
+  medication: '#4d8d70',
+  medicationBg: '#eef7f2',
 };
 
 export const darkCategoryColors: typeof lightCategoryColors = {
@@ -113,24 +113,24 @@ export const categoryColors = { ...lightCategoryColors };
 
 // ── Soft icon colors (lighter, less saturated — for icon tints) ───
 export const lightIconColors = {
-  primary:    '#2dd4bf',  // teal-400
-  danger:     '#f87171',  // red-400
-  warning:    '#fbbf24',  // amber-400
-  emerald:    '#34d399',  // emerald-400
-  premium:    '#fcd34d',  // amber-300
-  indigo:     '#818cf8',  // indigo-400
-  violet:     '#a78bfa',  // violet-400
-  pink:       '#f472b6',  // pink-400
-  cyan:       '#22d3ee',  // cyan-400
-  orange:     '#fb923c',  // orange-400
+  primary:    '#238f82',
+  danger:     '#c85b5f',
+  warning:    '#b47a17',
+  emerald:    '#468f70',
+  premium:    '#b47a17',
+  indigo:     '#60758c',
+  violet:     '#796e98',
+  pink:       '#aa7180',
+  cyan:       '#468f94',
+  orange:     '#ad794d',
   // Health metric icon tints
-  glucose:    '#60a5fa',  // blue-400
-  bp:         '#f87171',  // red-400
-  weight:     '#a78bfa',  // violet-400
-  water:      '#22d3ee',  // cyan-400
-  insulin:    '#818cf8',  // indigo-400
-  meal:       '#fbbf24',  // amber-400
-  medication: '#34d399',  // emerald-400
+  glucose:    '#4f7fa6',
+  bp:         '#b85c60',
+  weight:     '#796e98',
+  water:      '#4c9597',
+  insulin:    '#687b9f',
+  meal:       '#b68445',
+  medication: '#4d8d70',
 };
 
 export const darkIconColors: typeof lightIconColors = {

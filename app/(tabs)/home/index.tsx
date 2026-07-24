@@ -5,8 +5,8 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppState, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInUp, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
+import { AppState, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, useAnimatedScrollHandler, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
@@ -31,9 +31,10 @@ import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useNotificationStore } from '../../../src/stores/notification.store';
 import { routeFromNotificationData } from '../../../src/lib/notifications';
-import { useToastStore } from '../../../src/stores/toast.store';
+import { showToast, useToastStore } from '../../../src/stores/toast.store';
 import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
+import type { Mission } from '../../../src/features/missions/missions.store';
 import React from 'react';
 const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
@@ -170,6 +171,164 @@ function AnimatedHeartbeatPulse() {
   );
 }
 
+type HomeMissionCarouselProps = {
+  missions: Mission[];
+  styles: ReturnType<typeof createStyles>;
+  onOpen: (mission: Mission) => void;
+};
+
+function HomeMissionCarousel({ missions, styles, onOpen }: HomeMissionCarouselProps) {
+  const { width } = useWindowDimensions();
+  const cardWidth = Math.max(240, Math.min(width - spacing.lg * 3 - spacing.md, 360));
+  const snapInterval = cardWidth + spacing.md;
+  const scrollX = useSharedValue(0);
+  const listRef = useRef<Animated.FlatList<Mission>>(null);
+  const activePositionRef = useRef(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const carouselData = missions.length > 1 ? [...missions, ...missions] : missions;
+
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollX.value = event.contentOffset.x;
+    },
+  });
+
+  useEffect(() => {
+    activePositionRef.current = 0;
+    setActiveIndex(0);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [missions.length, snapInterval]);
+
+  useEffect(() => {
+    if (missions.length < 2) return;
+    const timer = setInterval(() => {
+      const nextPosition = activePositionRef.current + 1;
+      activePositionRef.current = nextPosition;
+      setActiveIndex(nextPosition % missions.length);
+      listRef.current?.scrollToOffset({ offset: nextPosition * snapInterval, animated: true });
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [missions.length, snapInterval]);
+
+  const handleMomentumEnd = (offset: number) => {
+    const position = Math.round(offset / snapInterval);
+    const normalizedIndex = position % missions.length;
+    activePositionRef.current = position;
+    setActiveIndex(normalizedIndex);
+
+    // The duplicated first card makes the loop move forward continuously.
+    // Reset to the real first item after it settles without a visible jump.
+    if (missions.length > 1 && position >= missions.length) {
+      activePositionRef.current = 0;
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      scrollX.value = 0;
+    }
+  };
+
+  if (missions.length === 0) return null;
+
+  return (
+    <View style={styles.homeMissionCarousel}>
+      <Animated.FlatList
+        ref={listRef}
+        data={carouselData}
+        horizontal
+        keyExtractor={(mission, index) => `${mission.id}-${index}`}
+        renderItem={({ item, index }) => (
+          <HomeMissionSlide
+            mission={item}
+            index={index}
+            displayIndex={index % missions.length}
+            cardWidth={cardWidth}
+            snapInterval={snapInterval}
+            scrollX={scrollX}
+            styles={styles}
+            onOpen={onOpen}
+          />
+        )}
+        contentContainerStyle={styles.homeMissionCarouselContent}
+        ItemSeparatorComponent={() => <View style={{ width: spacing.md }} />}
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={snapInterval}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        disableIntervalMomentum
+        nestedScrollEnabled
+        onScroll={onScroll}
+        onMomentumScrollEnd={(event) => handleMomentumEnd(event.nativeEvent.contentOffset.x)}
+        scrollEventThrottle={16}
+      />
+      <View style={styles.homeMissionPagination}>
+        {missions.map((mission, index) => (
+          <View
+            key={mission.id}
+            style={[styles.homeMissionDot, index === activeIndex && styles.homeMissionDotActive]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+type HomeMissionSlideProps = {
+  mission: Mission;
+  index: number;
+  displayIndex: number;
+  cardWidth: number;
+  snapInterval: number;
+  scrollX: SharedValue<number>;
+  styles: ReturnType<typeof createStyles>;
+  onOpen: (mission: Mission) => void;
+};
+
+function HomeMissionSlide({ mission, index, displayIndex, cardWidth, snapInterval, scrollX, styles, onOpen }: HomeMissionSlideProps) {
+  const ratio = mission.goal > 0 ? mission.progress / mission.goal : 0;
+  const isCompleted = mission.status === 'completed';
+  const slideStyle = useAnimatedStyle(() => {
+    const inputRange = [
+      (index - 1) * snapInterval,
+      index * snapInterval,
+      (index + 1) * snapInterval,
+    ];
+    return {
+      opacity: interpolate(scrollX.value, inputRange, [0.78, 1, 0.78], Extrapolation.CLAMP),
+      transform: [{ scale: interpolate(scrollX.value, inputRange, [0.96, 1, 0.96], Extrapolation.CLAMP) }],
+    };
+  }, [index, snapInterval]);
+
+  return (
+    <Animated.View style={[styles.homeMissionSlide, { width: cardWidth }, slideStyle]}>
+      <Pressable
+        style={({ pressed }) => [styles.missionCard, isCompleted && styles.missionCardCompleted, pressed && { opacity: 0.85 }]}
+        onPress={() => onOpen(mission)}
+      >
+        <View style={styles.missionTitleRow}>
+          <View style={[styles.missionBadge, isCompleted && styles.missionBadgeCompleted]}>
+            {isCompleted ? (
+              <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
+            ) : (
+              <Text style={styles.missionBadgeText}>{displayIndex + 1}</Text>
+            )}
+          </View>
+          <Text style={[styles.missionTitle, isCompleted && styles.missionTitleCompleted, { flex: 1 }]}>{mission.title}</Text>
+        </View>
+        {mission.description ? <Text style={styles.missionDesc}>{mission.description}</Text> : null}
+        <View style={styles.missionProgressRow}>
+          <View style={styles.missionProgressTrack}>
+            <LinearGradient
+              colors={isCompleted ? [colors.emerald, colors.emeraldDark] : [colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.missionProgressFill, { width: `${Math.min(ratio * 100, 100)}%` }]}
+            />
+          </View>
+          <Text style={styles.missionProgressText}>{mission.progress}/{mission.goal}</Text>
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function HomeScreen() {
   const flushPending = useToastStore((s) => s.flushPending);
   useEffect(() => { flushPending(); }, []);
@@ -270,6 +429,20 @@ export default function HomeScreen() {
     } catch {}
     router.push('/checkin');
   }, []);
+
+  const handleMissionOpen = useCallback((mission: Mission) => {
+    if (mission.missionKey === 'daily_checkin') {
+      goToCheckin();
+      return;
+    }
+    const routes: Record<string, string> = {
+      log_glucose: '/logs/glucose',
+      log_bp: '/logs/blood-pressure',
+      log_water: '/logs/water',
+      log_weight: '/logs/weight',
+    };
+    router.push((routes[mission.missionKey] || '/(tabs)/missions') as any);
+  }, [goToCheckin, router]);
 
   const healthFeedApi = useCallback(async <T,>(path: string, options?: any) => {
     return apiClient<T>(`/api/health-feed${path}`, options);
@@ -374,8 +547,10 @@ export default function HomeScreen() {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   await healthFeedApi(`/feed/${itemId}/dismiss`, { method: 'POST' });
                   setHealthFeedItems(prev => prev.filter(i => i.id !== itemId));
+                  showToast(tc('feedDismissed'), 'success');
                 } catch (err) {
                   console.error('[Home Health Feed] Failed to dismiss:', err);
+                  showToast(tc('feedActionFailed'), 'error');
                 }
               };
 
@@ -633,48 +808,7 @@ export default function HomeScreen() {
           <InfoButton text={t('missionsRefreshDaily')} styles={styles} />
         </View>
         <View style={styles.cardList}>
-        {missions.slice(0, 3).map((mission, index) => {
-          const ratio = mission.goal > 0 ? mission.progress / mission.goal : 0;
-          const isCompleted = mission.status === 'completed';
-          return (
-            <Pressable key={mission.id} style={({ pressed }) => [styles.missionCard, isCompleted && styles.missionCardCompleted, pressed && { opacity: 0.85 }]} onPress={() => {
-              if (mission.missionKey === 'daily_checkin') {
-                goToCheckin();
-                return;
-              }
-              const routes: Record<string, string> = {
-                log_glucose: '/logs/glucose',
-                log_bp: '/logs/blood-pressure',
-                log_water: '/logs/water',
-                log_weight: '/logs/weight',
-              };
-              router.push((routes[mission.missionKey] || '/(tabs)/missions') as any);
-            }}>
-              <View style={styles.missionTitleRow}>
-                <View style={[styles.missionBadge, isCompleted && styles.missionBadgeCompleted]}>
-                  {isCompleted ? (
-                    <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
-                  ) : (
-                    <Text style={styles.missionBadgeText}>{index + 1}</Text>
-                  )}
-                </View>
-                <Text style={[styles.missionTitle, isCompleted && styles.missionTitleCompleted, { flex: 1 }]}>{mission.title}</Text>
-              </View>
-              {mission.description ? <Text style={styles.missionDesc}>{mission.description}</Text> : null}
-              <View style={styles.missionProgressRow}>
-                <View style={styles.missionProgressTrack}>
-                  <LinearGradient
-                    colors={isCompleted ? [colors.emerald, colors.emeraldDark] : [colors.primary, colors.primaryDark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.missionProgressFill, { width: `${Math.min(ratio * 100, 100)}%` }]}
-                  />
-                </View>
-                <Text style={styles.missionProgressText}>{mission.progress}/{mission.goal}</Text>
-              </View>
-            </Pressable>
-          );
-        })}
+        <HomeMissionCarousel missions={missions} styles={styles} onOpen={handleMissionOpen} />
         {missions.length > 0 && (
           <Pressable style={styles.seeMoreBtn} onPress={() => router.push('/missions')}>
             <Text style={styles.seeMoreText}>{tc('viewMore')}</Text>
@@ -777,7 +911,7 @@ export default function HomeScreen() {
               };
               const meta = logMeta[log.type] ?? { bg: colors.surfaceMuted, iconBg: colors.border, color: colors.textSecondary, icon: 'dots-horizontal' };
               return (
-              <View key={log.id} style={[styles.logCard, { backgroundColor: meta.bg, borderColor: meta.iconBg }]}>
+              <View key={log.id} style={[styles.logCard, { backgroundColor: meta.bg }]}>
                 <MaterialCommunityIcons name={meta.icon as any} size={22} color={meta.color} />
                 <View style={styles.logContent}>
                   <Text style={styles.logType}>{t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}</Text>
@@ -867,7 +1001,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#b2f5ea',
+    borderColor: colors.border,
   },
   checkinBannerText: {
     fontSize: 14,
@@ -919,7 +1053,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCardGlucose: {
     borderWidth: 1.2,
-    borderColor: '#e0f2fe',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -928,7 +1062,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCardBP: {
     borderWidth: 1.2,
-    borderColor: '#ffedd5',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -1001,11 +1135,36 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   cardList: {
     gap: spacing.md
   },
+  homeMissionCarousel: {
+    gap: spacing.sm,
+  },
+  homeMissionCarouselContent: {
+    paddingRight: spacing.lg,
+  },
+  homeMissionSlide: {
+    paddingVertical: spacing.xs,
+  },
+  homeMissionPagination: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  homeMissionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+  },
+  homeMissionDotActive: {
+    width: 20,
+    backgroundColor: colors.primary,
+  },
   missionCard: {
     padding: spacing.md,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 1)',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
@@ -1013,7 +1172,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.sm
   },
   missionCardCompleted: {
-    borderColor: colors.emerald,
+    borderColor: colors.border,
     backgroundColor: colors.emeraldLight,
   },
   missionHeader: {
@@ -1109,7 +1268,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 20,
     padding: spacing.lg,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 1)',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
@@ -1156,7 +1315,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 20,
     padding: spacing.md,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 1)',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
@@ -1165,6 +1324,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   emptyLogsContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingVertical: spacing.xl,
     gap: spacing.sm,
   },
@@ -1201,7 +1364,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 16,
     padding: spacing.lg,
     borderWidth: 1.5,
-    borderColor: brandColors.indigo + '44',
+    borderColor: colors.border,
     backgroundColor: brandColors.indigo + '18',
   },
   reportRow: {
@@ -1249,7 +1412,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 16,
     paddingHorizontal: spacing.md,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 1)',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
@@ -1261,9 +1424,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: '#f8fafc',
   },
   healthFeedCardWarning: {
-    borderColor: '#fee2e2',
-    borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
+    backgroundColor: '#fffaf8',
   },
   healthFeedIconWrapper: {
     width: 32,
@@ -1317,7 +1478,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 1)',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,

@@ -25,6 +25,7 @@ import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { showToast } from '../../src/stores/toast.store';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 const DEFAULT_PAGE_SIZE = 10;
@@ -165,7 +166,10 @@ export default function ChatNotesScreen() {
             await chatApi.deleteNote(note.id);
             setNotes((prev) => prev.filter((n) => n.id !== note.id));
             setTotal((prev) => Math.max(0, prev - 1));
-          } catch {}
+            showToast(t('noteDeleted'), 'success');
+          } catch {
+            showToast(t('noteDeleteFailed'), 'error');
+          }
         },
       },
     ]);

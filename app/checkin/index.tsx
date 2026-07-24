@@ -39,6 +39,7 @@ import { chatApi } from '../../src/features/chat/chat.api';
 import { usePremium } from '../../src/hooks/usePremium';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
+import { showToast } from '../../src/stores/toast.store';
 import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -239,6 +240,7 @@ export default function CheckinScreen() {
         setSession(res.session);
         if (status === 'fine') {
           setScreen('done');
+          showToast(t('checkinSaved'), 'success');
           setLoading(false);
           return;
         }
@@ -259,6 +261,7 @@ export default function CheckinScreen() {
         const res = await checkinApi.start(status);
         setSession(res.session);
         setScreen('done');
+        showToast(t('checkinSaved'), 'success');
         setLoading(false);
       } catch (err: any) {
         if (__DEV__) console.warn('[Checkin] handleStatusSelect fine:', err?.message || err);
@@ -369,6 +372,7 @@ export default function CheckinScreen() {
           needsDoctor: (fallback as any).needsDoctor ?? false,
         });
         setScreen('done');
+        showToast(t('checkinSaved'), 'success');
       } else {
         setCurrentQ(fallback.question || '');
         setCurrentOpts(fallback.options || []);

@@ -387,9 +387,10 @@ export default function TreeScreen() {
   return (
     <Screen>
       <LinearGradient
-        colors={['#f0fdf4', '#e0f2fe']}
+        colors={[colors.primaryLight, colors.background, colors.background]}
+        locations={[0, 0.24, 1]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
       {errorState === 'remote-failed' ? <OfflineBanner /> : null}

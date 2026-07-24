@@ -215,7 +215,7 @@ export default function InviteScreen() {
         options={{
           headerShown: true,
           title: t('inviteTitle'),
-          headerStyle: { backgroundColor: '#e0f2fe' },
+          headerStyle: { backgroundColor: colors.primaryLight },
           headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
           headerShadowVisible: false,
           headerLeft: () => (
@@ -227,7 +227,8 @@ export default function InviteScreen() {
       />
       <View style={{ flex: 1 }}>
         <LinearGradient
-          colors={['#e0f2fe', '#ccfbf1', '#99f6e4']}
+          colors={['#e0f7f4', '#f0fbf9', '#f8fafc', '#f8fafc']}
+          locations={[0, 0.2, 0.45, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFillObject}
@@ -241,7 +242,6 @@ export default function InviteScreen() {
         {/* ─── Hero ─── */}
         <View style={styles.heroCard}>
             <MaterialCommunityIcons name="account-plus-outline" size={28} color={iconColors.primary} />
-            <Text style={styles.heroTitle}>{t('inviteTitle')}</Text>
             <Text style={styles.heroSubtitle}>{t('inviteSubtitle')}</Text>
           </View>
 
@@ -501,7 +501,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       backgroundColor: colors.primaryLight,
       borderWidth: 1.5,
-      borderColor: colors.primary + '22',
+      borderColor: colors.border,
       gap: spacing.sm,
     },
     heroTitle: {
@@ -589,7 +589,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       padding: spacing.md,
       borderRadius: radius.lg,
       borderWidth: 1.5,
-      borderColor: colors.primary + '33',
+      borderColor: colors.border,
       backgroundColor: colors.primaryLight,
       gap: spacing.md,
     },
@@ -637,7 +637,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       padding: spacing.md,
       borderRadius: radius.lg,
       borderWidth: 1.5,
-      borderColor: colors.primary,
+      borderColor: colors.border,
       backgroundColor: colors.primaryLight,
       gap: spacing.md,
     },

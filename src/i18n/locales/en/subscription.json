@@ -29,6 +29,7 @@
     "voiceTranscribeYes": "Voice transcribe in chat"
   },
   "paymentQR": "Scan QR to pay",
+  "qrCreated": "Payment QR code created",
   "transferNote": "Transfer note:",
   "countdown": "Expires in {{time}}",
   "polling": "Waiting for payment...",
@@ -73,6 +74,7 @@
   "giftPickRecipient": "Pick the recipient",
   "giftPickPlan": "Pick a plan",
   "giftCreateQR": "Generate payment QR",
+  "giftQrCreated": "Gift payment QR code created",
   "giftConfirmTitle": "Confirm gift",
   "giftConfirmBody": "You'll pay {{price}}đ for {{plan}} on behalf of {{name}}.\nThey will get a notification once the payment is confirmed.",
   "giftQRHeader": "Scan to gift Premium to {{name}}",

@@ -17,7 +17,7 @@ import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -27,6 +27,7 @@ import { useAuthStore } from '../../src/features/auth/auth.store';
 import { PLANS, PlanOption, formatVND, type Plan } from '../../src/features/subscription/plans';
 import { ApiError, apiClient } from '../../src/lib/apiClient';
 import { colors, radius, spacing } from '../../src/styles';
+import { showToast } from '../../src/stores/toast.store';
 
 type GiftQR = {
   order_code: string;
@@ -143,13 +144,14 @@ export default function GiftSubscriptionScreen() {
         body: { months: selectedMonths, recipient_user_id: recipientId },
       });
       setQr(res);
+      showToast(t('giftQrCreated'), 'success');
     } catch (err: any) {
       if (err instanceof ApiError && err.code === 'NOT_IN_CARE_CIRCLE') {
-        Alert.alert(t('giftErrorNotInCircleTitle'), t('giftErrorNotInCircleBody'));
+        showToast(t('giftErrorNotInCircleBody'), 'error');
       } else if (err instanceof ApiError && err.code === 'INVALID_RECIPIENT') {
-        Alert.alert(t('giftErrorInvalidTitle'), t('giftErrorInvalidBody'));
+        showToast(t('giftErrorInvalidBody'), 'error');
       } else {
-        Alert.alert(t('giftErrorGenericTitle'), err?.message || t('giftErrorGenericBody'));
+        showToast(err?.message || t('giftErrorGenericBody'), 'error');
       }
     } finally {
       setCreatingQR(false);
@@ -169,16 +171,21 @@ export default function GiftSubscriptionScreen() {
       );
       if (res.ok && res.expiresAt && res.planMonths != null) {
         setWallet({ status: 'success', expiresAt: res.expiresAt, planMonths: res.planMonths });
+        showToast(t('giftSuccessTitle'), 'success');
       } else {
         setWallet({ status: 'failed', error: res.message || t('paymentFailed') });
+        showToast(res.message || t('paymentFailed'), 'error');
       }
     } catch (err: any) {
       if (err instanceof ApiError && err.code === 'NOT_IN_CARE_CIRCLE') {
         setWallet({ status: 'failed', error: t('giftErrorNotInCircleBody') });
+        showToast(t('giftErrorNotInCircleBody'), 'error');
       } else if (err instanceof ApiError) {
         setWallet({ status: 'failed', error: err.message || t('paymentFailed') });
+        showToast(err.message || t('paymentFailed'), 'error');
       } else {
         setWallet({ status: 'failed', error: t('paymentNetworkError') });
+        showToast(t('paymentNetworkError'), 'error');
       }
     }
   }, [recipientId, selectedMonths, t]);

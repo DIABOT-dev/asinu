@@ -35,7 +35,7 @@ export default function CareCircleScreen() {
   const screenOptions = useMemo(() => ({
     headerShown: true,
     title: t('title'),
-    headerStyle: { backgroundColor: '#e0f2fe' },
+    headerStyle: { backgroundColor: colors.primaryLight },
     headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
     headerShadowVisible: false,
     // Bỏ back button vì giờ care-circle là tab chính (không phải push từ
@@ -321,9 +321,10 @@ export default function CareCircleScreen() {
       <Stack.Screen options={screenOptions} />
       <Screen>
       <LinearGradient
-        colors={['#e0f2fe', '#ccfbf1', '#99f6e4']}
+        colors={[colors.primaryLight, colors.background, colors.background]}
+        locations={[0, 0.24, 1]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
       <RippleRefreshScrollView

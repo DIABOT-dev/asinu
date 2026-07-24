@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, Share, Alert } from 'react-native';
+import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, Share } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../src/components/Screen';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -10,6 +11,7 @@ import { colors, spacing } from '../../src/styles';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
+import { showToast } from '../../src/stores/toast.store';
 
 async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
@@ -33,6 +35,7 @@ export default function ArticleDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const { t: tc } = useTranslation('common');
   const [content, setContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,13 +70,13 @@ export default function ArticleDetailScreen() {
       const res = await healthFeedApi<any>(`/content/${id}/${action}`, { method: 'POST' });
       if (res.ok) {
         setContent((prev: any) => ({ ...prev, is_saved: !prev.is_saved }));
-        Alert.alert(
-          'Thành công',
-          content.is_saved ? 'Đã bỏ lưu bản tin này!' : 'Đã lưu bản tin vào mục Ghi nhớ!'
-        );
+        showToast(content.is_saved ? tc('feedUnsaved') : tc('feedSaved'), 'success');
+      } else {
+        showToast(tc('feedActionFailed'), 'error');
       }
     } catch (err) {
       console.error('[ArticleDetail] Failed to toggle save:', err);
+      showToast(tc('feedActionFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -86,14 +89,15 @@ export default function ArticleDetailScreen() {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await Clipboard.setStringAsync(text);
-      Alert.alert('Thành công', 'Đã sao chép nội dung gửi gia đình!');
+      showToast(tc('contentCopied'), 'success');
       // Track copy event
-      await healthFeedApi('/event', {
+      healthFeedApi('/event', {
         method: 'POST',
         body: { content_id: String(id), event_type: 'copied' }
-      });
+      }).catch(() => {});
     } catch (err) {
       console.error('[ArticleDetail] Copy failed:', err);
+      showToast(tc('contentCopyFailed'), 'error');
     }
   };
 
@@ -106,14 +110,16 @@ export default function ArticleDetailScreen() {
       const result = await Share.share({ message: text });
       if (result.action === Share.sharedAction) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showToast(tc('contentShared'), 'success');
         // Track share event
-        await healthFeedApi('/event', {
+        healthFeedApi('/event', {
           method: 'POST',
           body: { content_id: String(id), event_type: 'shared' }
-        });
+        }).catch(() => {});
       }
     } catch (err) {
       console.error('[ArticleDetail] Share failed:', err);
+      showToast(tc('contentShareFailed'), 'error');
     }
   };
 
@@ -137,7 +143,7 @@ export default function ArticleDetailScreen() {
   }
 
   return (
-    <Screen style={{ backgroundColor: '#fff' }}>
+    <Screen>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable onPress={() => router.back()} style={styles.headerBtn} hitSlop={12}>

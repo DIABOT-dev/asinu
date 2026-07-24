@@ -118,11 +118,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderColor: colors.border,
     },
     cardPrompt: {
-      borderColor: colors.primary + '44',
+      borderColor: colors.border,
       backgroundColor: colors.primaryLight,
     },
     cardFollowUp: {
-      borderColor: '#d97706' + '44',
+      borderColor: colors.border,
       backgroundColor: colors.premiumLight,
     },
     row: {

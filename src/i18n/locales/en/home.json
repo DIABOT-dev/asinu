@@ -147,6 +147,7 @@
   "statMax":    "Max",
   "statStatus": "Status",
   "checkinReminder": "You haven't checked in today. Tap to start!",
+  "checkinSaved": "Health check-in completed",
   "alreadyCheckedIn": "You've already checked in today",
   "alreadyCheckedInSub": "Asinu will remind you when it's time for an update",
   "emergencyAlertError": "Could not send alert. Please try again."
