@@ -19,6 +19,7 @@ import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
+import { ProfileTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { authApi } from '../../../src/features/auth/auth.api';
 import { showToast, setPendingToast } from '../../../src/stores/toast.store';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
@@ -82,6 +83,8 @@ export default function ProfileScreen() {
   const [phoneError, setPhoneError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
+  const profileReadyRef = useRef(false);
+  const [profileReady, setProfileReady] = useState(false);
 
   // Removed dropdown - use direct input instead
 
@@ -100,14 +103,29 @@ export default function ProfileScreen() {
       if (now - lastFetchRef.current < 3000) return;
       lastFetchRef.current = now;
       const controller = new AbortController();
+      let cancelled = false;
+      if (!profileReadyRef.current) setProfileReady(false);
       fetchLogs(controller.signal);
       fetchMissions(controller.signal);
       authApi.fetchProfile().then((fullProfile) => {
+        if (cancelled) return;
         if (fullProfile) {
           useAuthStore.setState({ profile: fullProfile });
         }
-      }).catch(() => {});
-      return () => controller.abort();
+      }).catch(() => {})
+        .finally(() => {
+          if (cancelled) return;
+          profileReadyRef.current = true;
+          setProfileReady(true);
+        });
+      return () => {
+        cancelled = true;
+        controller.abort();
+        if (!profileReadyRef.current) {
+          profileReadyRef.current = true;
+          setProfileReady(true);
+        }
+      };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
@@ -300,6 +318,10 @@ export default function ProfileScreen() {
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
+        {!profileReady ? (
+          <ProfileTabSkeleton />
+        ) : (
+        <>
         {/* Profile Header Card */}
         <Animated.View entering={FadeIn.delay(0).duration(400)}>
         <LinearGradient
@@ -646,6 +668,8 @@ export default function ProfileScreen() {
             <Text style={styles.logoutBtnText}>{t('logout')}</Text>
           </Pressable>
         </Animated.View>
+        </>
+        )}
       </RippleRefreshScrollView>
 
       {/* Edit Profile Modal */}

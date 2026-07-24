@@ -12,6 +12,7 @@ import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
+import { CareCircleTabSkeleton } from '../../src/components/state/MainScreenSkeletons';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { showToast } from '../../src/stores/toast.store';
 import { useCareCircle } from '../../src/features/care-circle';
@@ -312,6 +313,7 @@ export default function CareCircleScreen() {
   const sentInvitations = invitations.filter(
     (inv) => String(inv.requester_id) === String(profile?.id) && inv.status === 'pending'
   );
+  const showInitialSkeleton = (loading || refreshing) && connections.length === 0 && invitations.length === 0;
 
   return (
     <>
@@ -334,6 +336,10 @@ export default function CareCircleScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
+        {showInitialSkeleton ? (
+          <CareCircleTabSkeleton />
+        ) : (
+        <>
         {/* Hero Header - Full Width */}
         <View style={styles.heroBanner}>
           <MaterialCommunityIcons name="account-group" size={36} color={iconColors.emerald} />
@@ -764,6 +770,8 @@ export default function CareCircleScreen() {
             </ScrollView>
           </SafeAreaView>
         </Modal>
+        </>
+        )}
       </RippleRefreshScrollView>
     </Screen>
     </>

@@ -22,7 +22,7 @@ import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateError } from '../../../src/components/state/StateError';
-import { StateLoading } from '../../../src/components/state/StateLoading';
+import { HomeTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useFlagsStore, selectIsChatbotAvailable } from '../../../src/features/app-config/flags.store';
 import { useHomeViewModel } from '../../../src/features/home/home.vm';
@@ -463,7 +463,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {loading ? <StateLoading /> : null}
       {noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
       {!hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
       <RippleRefreshScrollView
@@ -472,6 +471,10 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
+        {loading ? (
+          <HomeTabSkeleton />
+        ) : (
+        <>
         {/* Hero Banner */}
         <Animated.View entering={FadeIn.delay(0).duration(400)}>
         <View style={styles.heroBanner}>
@@ -735,6 +738,8 @@ export default function HomeScreen() {
           </View>
         )}
         </Animated.View>
+        </>
+        )}
       </RippleRefreshScrollView>
 {isChatOpen && (
         <Suspense fallback={null}>

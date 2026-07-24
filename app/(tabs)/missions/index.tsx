@@ -14,7 +14,7 @@ import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
-import { StateLoading } from '../../../src/components/state/StateLoading';
+import { MissionsTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { useMissionActions } from '../../../src/features/missions/useMissionActions';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { brandColors, colors, spacing } from '../../../src/styles';
@@ -55,6 +55,7 @@ export default function MissionsScreen() {
   const [tooltipId, setTooltipId] = useState<string | null>(null);
 
   const [refreshing, setRefreshing] = useState(false);
+  const showInitialSkeleton = status === 'loading' && missions.length === 0;
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     const controller = new AbortController();
@@ -66,8 +67,7 @@ export default function MissionsScreen() {
   return (
     <Screen>
       {errorState === 'remote-failed' ? <OfflineBanner /> : null}
-      {status === 'loading' && missions.length === 0 ? <StateLoading /> : null}
-      {errorState === 'no-data' && missions.length === 0 ? (
+      {errorState === 'no-data' && missions.length === 0 && !showInitialSkeleton ? (
         <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
       ) : null}
       <RippleRefreshScrollView
@@ -76,6 +76,10 @@ export default function MissionsScreen() {
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
+        {showInitialSkeleton ? (
+          <MissionsTabSkeleton />
+        ) : (
+        <>
         {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
         
         {/* Header Section */}
@@ -214,6 +218,8 @@ export default function MissionsScreen() {
           <View style={styles.loadingMore}>
             <Text style={styles.loadingText}>{t('loadingData')}</Text>
           </View>
+        )}
+        </>
         )}
       </RippleRefreshScrollView>
     </Screen>

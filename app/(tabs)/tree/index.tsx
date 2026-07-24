@@ -14,7 +14,7 @@ import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
-import { StateLoading } from '../../../src/components/state/StateLoading';
+import { TreeTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useTreeStore } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
@@ -375,6 +375,7 @@ export default function TreeScreen() {
   );
 
   const [refreshing, setRefreshing] = useState(false);
+  const showInitialSkeleton = status === 'loading' && !summary;
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     const controller = new AbortController();
@@ -392,8 +393,7 @@ export default function TreeScreen() {
         style={StyleSheet.absoluteFillObject}
       />
       {errorState === 'remote-failed' ? <OfflineBanner /> : null}
-      {status === 'loading' && !summary ? <StateLoading /> : null}
-      {errorState === 'no-data' && !summary ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
+      {errorState === 'no-data' && !summary && !showInitialSkeleton ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
       
       <RippleRefreshScrollView
         refreshing={refreshing}
@@ -401,6 +401,10 @@ export default function TreeScreen() {
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
+        {showInitialSkeleton ? (
+          <TreeTabSkeleton />
+        ) : (
+        <>
         {status === 'success' && !summary ? <StateEmpty /> : null}
         
         {/* Header Section */}
@@ -565,6 +569,8 @@ export default function TreeScreen() {
         >
           <Text style={styles.actionBtnText}>{tc('quickLog')}</Text>
         </Pressable>
+        </>
+        )}
 
       </RippleRefreshScrollView>
     </Screen>

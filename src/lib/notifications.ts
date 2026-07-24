@@ -105,7 +105,6 @@ export async function requestNotificationPermissions(): Promise<boolean> {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
-          allowCriticalAlerts: true,
         },
         android: {},
       });

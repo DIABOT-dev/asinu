@@ -5,11 +5,10 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -17,19 +16,25 @@ import {
   Switch,
   KeyboardAvoidingView,
   Platform,
-  TextInput as RNTextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { ReminderConfigSkeleton } from '../../src/components/state/MainScreenSkeletons';
+import { authApi } from '../../src/features/auth/auth.api';
 import { showToast } from '../../src/stores/toast.store';
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
   type NotificationPreferences,
 } from '../../src/features/notifications/notifications.api';
+import {
+  checkNotificationPermission,
+  getExpoPushToken,
+  requestNotificationPermissions,
+} from '../../src/lib/notifications';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
@@ -360,16 +365,31 @@ export default function ReminderConfigScreen() {
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [notificationPermissionGranted, setNotificationPermissionGranted] = useState(false);
 
   // Time picker state
   const [pickerSlot, setPickerSlot] = useState<TimeSlot | null>(null);
   const pickerMeta = pickerSlot ? SLOT_META.find(s => s.slot === pickerSlot) : null;
+  const remindersEnabled = Boolean(prefs?.reminders_enabled && notificationPermissionGranted);
 
   useEffect(() => {
-    getNotificationPreferences()
-      .then(setPrefs)
+    let mounted = true;
+
+    Promise.all([
+      getNotificationPreferences(),
+      checkNotificationPermission(),
+    ])
+      .then(([loadedPrefs, granted]) => {
+        if (!mounted) return;
+        setPrefs(loadedPrefs);
+        setNotificationPermissionGranted(granted);
+      })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => { mounted = false; };
   }, []);
 
   const getTimeForSlot = (slot: TimeSlot): string | null => {
@@ -436,18 +456,50 @@ export default function ReminderConfigScreen() {
     setPickerSlot(null);
   }, [pickerSlot, handleResetToAuto]);
 
+  const ensureNotificationAccess = useCallback(async () => {
+    const granted = notificationPermissionGranted || await requestNotificationPermissions();
+    setNotificationPermissionGranted(granted);
+
+    if (!granted) {
+      showToast(t('notificationPermDesc'), 'info');
+      return false;
+    }
+
+    const pushToken = await getExpoPushToken();
+    if (pushToken) {
+      authApi.updatePushToken(pushToken).catch(() => {});
+    }
+
+    return true;
+  }, [notificationPermissionGranted, t]);
+
   const handleToggleReminders = useCallback(async (enabled: boolean) => {
     if (!prefs) return;
-    setPrefs({ ...prefs, reminders_enabled: enabled });
+
+    const previous = prefs;
     setSaving(true);
+
+    if (enabled) {
+      const granted = await ensureNotificationAccess();
+      if (!granted) {
+        setPrefs({ ...previous, reminders_enabled: false });
+        updateNotificationPreferences({ reminders_enabled: false }).catch(() => {});
+        setSaving(false);
+        return;
+      }
+    }
+
+    setPrefs({ ...previous, reminders_enabled: enabled });
     try {
       const result = await updateNotificationPreferences({ reminders_enabled: enabled });
       setPrefs(result);
+      showToast(t('scheduleSaved'), 'success');
     } catch {
+      setPrefs(previous);
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs]);
+  }, [ensureNotificationAccess, prefs, t]);
 
   return (
     <>
@@ -476,9 +528,13 @@ export default function ReminderConfigScreen() {
       />
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ScrollView
+          style={{ flex: 1, backgroundColor: colors.background }}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <ReminderConfigSkeleton />
+        </ScrollView>
       ) : (
         <ScrollView
           style={{ flex: 1, backgroundColor: colors.background }}
@@ -500,17 +556,18 @@ export default function ReminderConfigScreen() {
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <View style={styles.toggleCard}>
               <MaterialCommunityIcons
-                name={prefs?.reminders_enabled ? 'bell-check' : 'bell-off-outline'}
+                name={remindersEnabled ? 'bell-check' : 'bell-off-outline'}
                 size={22}
-                color={prefs?.reminders_enabled ? iconColors.emerald : colors.textSecondary}
+                color={remindersEnabled ? iconColors.emerald : colors.textSecondary}
               />
               <View style={{ flex: 1 }}>
                 <Text style={styles.toggleTitle}>{t('taskReminders')}</Text>
                 <Text style={styles.toggleDesc}>{t('taskRemindersDesc')}</Text>
               </View>
               <Switch
-                value={prefs?.reminders_enabled ?? true}
+                value={remindersEnabled}
                 onValueChange={handleToggleReminders}
+                disabled={saving}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.surface}
               />
@@ -519,7 +576,7 @@ export default function ReminderConfigScreen() {
 
           {/* Schedule Cards */}
           {SLOT_META.map((meta, idx) => {
-            const disabled = !prefs?.reminders_enabled;
+            const disabled = !remindersEnabled;
             const userTime = getTimeForSlot(meta.slot);
             const effectiveTime = getEffectiveTime(meta.slot);
             const isAuto = isAutoTime(meta.slot);
@@ -587,7 +644,6 @@ export default function ReminderConfigScreen() {
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     scrollContent: { padding: spacing.lg, gap: spacing.md },
 
     // Hero
