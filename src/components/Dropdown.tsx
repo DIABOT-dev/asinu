@@ -6,12 +6,12 @@ import {
     Modal,
     TextInput as RNTextInput,
     StyleSheet,
-    Text,
     TouchableOpacity,
     View
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { ScaledText as Text } from './ScaledText';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, StatusBar, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -12,6 +12,7 @@ import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from './MedicalDisclaimerModal';
+import { ScaledText as Text } from './ScaledText';
 
 type ChatModalProps = {
   visible: boolean;

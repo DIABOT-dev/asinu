@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { ScaledText as Text } from './ScaledText';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
@@ -31,7 +32,7 @@ export const FloatingActionButton = React.memo(({ label, onPress, style }: Props
     label: {
       color: colors.primary,
       fontWeight: '700',
-      fontFamily: 'System'
+      fontFamily: 'Inter_600SemiBold'
     }
   }), [isDark]);
 

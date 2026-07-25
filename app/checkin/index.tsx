@@ -13,7 +13,6 @@ async function getAudio() {
   if (!_Audio) { _Audio = (await import('expo-av')).Audio; }
   return _Audio;
 }
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -40,7 +39,7 @@ import { usePremium } from '../../src/hooks/usePremium';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
-import { colors, radius, spacing } from '../../src/styles';
+import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const MAX_TRIAGE_QUESTIONS = 8;
@@ -95,35 +94,27 @@ const STATUS_OPTIONS: Array<{
   labelKey: string;
   sublabelKey: string;
   color: string;
-  bg: string;
-  gradient: [string, string];
 }> = [
   {
     status: 'fine',
     icon: 'emoticon-happy-outline',
     labelKey: 'checkinFine',
     sublabelKey: 'checkinFineSub',
-    color: '#16a34a',
-    bg: '#f0fdf4',
-    gradient: ['#dcfce7', '#f0fdf4'],
+    color: iconColors.emerald,
   },
   {
     status: 'tired',
-    icon: 'emoticon-sad-outline',
+    icon: 'emoticon-neutral-outline',
     labelKey: 'checkinTired',
     sublabelKey: 'checkinTiredSub',
-    color: '#d97706',
-    bg: '#fffbeb',
-    gradient: ['#fef3c7', '#fffbeb'],
+    color: colors.textSecondary,
   },
   {
     status: 'very_tired',
-    icon: 'emoticon-cry-outline',
+    icon: 'emoticon-sad-outline',
     labelKey: 'checkinVeryTired',
     sublabelKey: 'checkinVeryTiredSub',
-    color: '#dc2626',
-    bg: '#fef2f2',
-    gradient: ['#fee2e2', '#fef2f2'],
+    color: iconColors.danger,
   },
 ];
 
@@ -555,12 +546,9 @@ function StatusScreen({
     <View style={styles.section}>
       {/* Asinu avatar */}
       <Animated.View entering={FadeIn.duration(400)} style={styles.statusAvatarWrap}>
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          style={styles.statusAvatar}
-        >
-          <Ionicons name="heart" size={28} color="#fff" />
-        </LinearGradient>
+        <View style={styles.statusAvatar}>
+          <MaterialCommunityIcons name="heart-pulse" size={28} color={colors.primary} />
+        </View>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(100).duration(400)}>
@@ -574,26 +562,16 @@ function StatusScreen({
             <Pressable
               style={({ pressed }) => [
                 styles.statusCard,
-                { borderColor: opt.color + '44' },
                 pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
               ]}
               onPress={() => onSelect(opt.status)}
             >
-              <LinearGradient
-                colors={opt.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-                pointerEvents="none"
-              />
               <MaterialCommunityIcons name={opt.icon} size={28} color={opt.color} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.statusLabel, { color: opt.color }]}>{t(opt.labelKey)}</Text>
                 <Text style={styles.statusSub}>{t(opt.sublabelKey)}</Text>
               </View>
-              <View style={[styles.statusArrow, { backgroundColor: opt.color + '15' }]}>
-                <Ionicons name="chevron-forward" size={18} color={opt.color} />
-              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
             </Pressable>
           </Animated.View>
         ))}
@@ -1118,22 +1096,17 @@ function TriageScreen({
                 disabled={!hasSelection}
                 onPress={handleConfirm}
               >
-                <LinearGradient
-                  colors={hasSelection ? [colors.primary, colors.primaryDark] : [colors.border, colors.border]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.confirmBtnGradient}
-                >
-                  <Text style={[styles.confirmBtnText, !hasSelection && { color: colors.textSecondary }]}>
+                <View style={[styles.confirmBtnGradient, { backgroundColor: hasSelection ? colors.primaryLight : colors.surfaceMuted }]}>
+                  <Text style={[styles.confirmBtnText, { color: hasSelection ? colors.primaryDark : colors.textSecondary }]}>
                     {t('checkinConfirmSelection')}
                     {selected.size > 0 ? ` (${selected.size})` : ''}
                   </Text>
                   <Ionicons
                     name="arrow-forward"
                     size={18}
-                    color={hasSelection ? '#fff' : colors.textSecondary}
+                    color={hasSelection ? colors.primaryDark : colors.textSecondary}
                   />
-                </LinearGradient>
+                </View>
               </Pressable>
             </View>}
           </>
@@ -1238,7 +1211,7 @@ function DoneScreen({
               <View style={[styles.severityBadge, { backgroundColor: severityBg }]}>
                 <Ionicons name={severityIcon as any} size={14} color={severityColor} />
                 <Text style={[styles.severityBadgeText, { color: severityColor }]}>
-                  {isEmergency ? '🚨 KHẨN CẤP'
+                  {isEmergency ? 'KHẨN CẤP'
                     : triageSummary.severity === 'high' ? t('checkinSeverityHigh')
                     : triageSummary.severity === 'medium' ? t('checkinSeverityMedium') : t('checkinSeverityLow')}
                 </Text>
@@ -1412,14 +1385,9 @@ function DoneScreen({
           style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
           onPress={onClose}
         >
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.doneBtnGradient}
-          >
+          <View style={[styles.doneBtnGradient, { backgroundColor: colors.primaryLight }]}>
             <Text style={styles.doneBtnText}>{t('checkinClose')}</Text>
-          </LinearGradient>
+          </View>
         </Pressable>
       </Animated.View>
     </View>
@@ -1464,24 +1432,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       padding: spacing.lg,
       borderRadius: radius.xl,
-      borderWidth: 1.5,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
       gap: spacing.md,
-      overflow: 'hidden',
       shadowColor: '#000',
-      shadowOpacity: 0.06,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 3,
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 1,
     },
     statusLabel: { fontSize: typography.size.md, fontWeight: '700' },
     statusSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
-    statusArrow: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
 
     // ── Triage / chat ──
     progressTrack: {
@@ -1790,11 +1752,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     confirmBtn: {
       borderRadius: radius.full,
       overflow: 'hidden',
-      shadowColor: colors.primary,
-      shadowOpacity: 0.25,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     confirmBtnDisabled: {
       shadowOpacity: 0,
@@ -1807,7 +1766,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingVertical: spacing.md,
     },
     confirmBtnText: {
-      color: '#fff',
+      color: colors.primaryDark,
       fontSize: typography.size.sm,
       fontWeight: '700',
     },
@@ -1973,18 +1932,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: radius.full,
       overflow: 'hidden',
       marginTop: spacing.xs,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 5 },
-      elevation: 5,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     doneBtnGradient: {
       paddingVertical: spacing.md + 2,
       alignItems: 'center',
     },
     doneBtnText: {
-      color: '#fff',
+      color: colors.primaryDark,
       fontSize: typography.size.md,
       fontWeight: '700',
     },

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
+import { ScaledText as Text } from '../components/ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { featureFlags } from '../lib/featureFlags';
 import { colors, spacing } from '../styles';
@@ -153,6 +154,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 220,
             x={CHART_PADDING.left - 8}
             y={CHART_PADDING.top + getY(tick) + 4}
             fontSize={11}
+            fontFamily="Inter_400Regular"
             fill={colors.textSecondary}
             textAnchor="end"
           >
@@ -167,6 +169,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 220,
             x={CHART_PADDING.left + getX(i)}
             y={CHART_PADDING.top + chartHeight + 20}
             fontSize={11}
+            fontFamily="Inter_400Regular"
             fill={colors.textSecondary}
             textAnchor="middle"
           >
@@ -238,7 +241,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 220,
                     {/* Background */}
                     <Rect x={tipX} y={tipY} width={tipW} height={tipH} rx={8} fill="#ffffff" stroke={accentColor} strokeWidth={1.5} />
                     {/* Text */}
-                    <SvgText x={tipX + tipW / 2} y={tipY + tipH / 2 + 5} fontSize={13} fontWeight="700" fill="#1a2e2b" textAnchor="middle">
+                    <SvgText x={tipX + tipW / 2} y={tipY + tipH / 2 + 5} fontSize={13} fontWeight="700" fontFamily="Inter_700Bold" fill="#1a2e2b" textAnchor="middle">
                       {label}
                     </SvgText>
                   </G>

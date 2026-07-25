@@ -1,5 +1,6 @@
 import { ReactNode, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput as RNTextInput, TextInputProps, View } from 'react-native';
+import { StyleSheet, TextInput as RNTextInput, TextInputProps, View } from 'react-native';
+import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';

@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -230,15 +229,10 @@ export default function MedicationLogScreen() {
                     isSaving && styles.saveBtnDisabled,
                   ]}
                 >
-                  <LinearGradient
-                    colors={[categoryColors.medication, '#059669']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.saveBtnGradient}
-                  >
-                    <MaterialCommunityIcons name="content-save" size={20} color="#fff" />
+                  <View style={styles.saveBtnGradient}>
+                    <MaterialCommunityIcons name="content-save" size={20} color={colors.primaryDark} />
                     <Text style={styles.saveBtnText}>{t('save')}</Text>
-                  </LinearGradient>
+                  </View>
                 </Pressable>
               </Animated.View>
 
@@ -352,12 +346,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     saveBtn: {
       borderRadius: radius.xl,
-      overflow: 'hidden',
-      shadowColor: categoryColors.medication,
-      shadowOpacity: 0.35,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 5 },
-      elevation: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     saveBtnGradient: {
       flexDirection: 'row',
@@ -365,11 +355,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       justifyContent: 'center',
       gap: spacing.sm,
       paddingVertical: spacing.lg,
+      borderRadius: radius.xl,
+      backgroundColor: colors.primaryLight,
     },
     saveBtnText: {
       fontSize: typography.size.md,
       fontWeight: '700',
-      color: '#fff',
+      color: colors.primaryDark,
     },
     saveBtnPressed: {
       opacity: 0.88,

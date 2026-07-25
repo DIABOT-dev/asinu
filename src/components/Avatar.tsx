@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Image, ImageStyle, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Image, ImageStyle, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
@@ -26,7 +27,7 @@ export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }
     initials: {
       color: colors.textPrimary,
       fontWeight: '700',
-      fontFamily: 'System'
+      fontFamily: 'Inter_700Bold'
     }
   }), [isDark]);
   const initials = name

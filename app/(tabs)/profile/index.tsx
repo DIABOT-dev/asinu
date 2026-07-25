@@ -1,8 +1,6 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeIn, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -305,13 +303,6 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      {/* Match the home screen's signature gradient backdrop so the two
-          tabs feel like the same product surface. */}
-      <LinearGradient
-        colors={['#e0f7f4', '#edfbf8', '#f8fafc', '#f8fafc']}
-        locations={[0, 0.25, 0.5, 1]}
-        style={StyleSheet.absoluteFillObject}
-      />
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={handleRefresh}
@@ -324,19 +315,11 @@ export default function ProfileScreen() {
         <>
         {/* Profile Header Card */}
         <Animated.View entering={FadeIn.delay(0).duration(400)}>
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.profileHeaderCard}
-        >
-          {/* Decorative blob top-right cho depth */}
-          <View pointerEvents="none" style={styles.profileDecorBlob} />
-
+        <View style={styles.profileHeaderCard}>
           {/* Top row: avatar + greeting + name + status */}
           <View style={styles.profileTopRow}>
             <View style={styles.profileAvatarBig}>
-              <MaterialCommunityIcons name="account-circle" size={62} color="rgba(255,255,255,0.95)" />
+              <MaterialCommunityIcons name="account-circle" size={62} color={colors.primary} />
               {/* Live status dot ở góc dưới phải avatar */}
               <View style={styles.profileLiveDot} />
             </View>
@@ -361,7 +344,7 @@ export default function ProfileScreen() {
               <MaterialCommunityIcons
                 name={subStatus?.isPremium ? 'crown' : 'shield-account-outline'}
                 size={14}
-                color={subStatus?.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.95)'}
+                color={subStatus?.isPremium ? colors.premiumDark : colors.primary}
               />
               <Text style={[styles.planChipText, subStatus?.isPremium ? styles.planChipTextPremium : styles.planChipTextFree]}>
                 {(t('accountType') || 'Tài khoản') + ': '}{subStatus?.isPremium ? t('planPremium') : t('planFree')}
@@ -369,11 +352,11 @@ export default function ProfileScreen() {
               <Ionicons
                 name="information-circle-outline"
                 size={14}
-                color={subStatus?.isPremium ? colors.premiumDark : 'rgba(255,255,255,0.85)'}
+                color={subStatus?.isPremium ? colors.premiumDark : colors.primary}
               />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
         </Animated.View>
 
         {/* Plan Info Modal — quyền lợi free / premium */}
@@ -453,10 +436,10 @@ export default function ProfileScreen() {
                 </Pressable>
                 {!subStatus?.isPremium && (
                   <Pressable
-                    style={{ flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: colors.premium }}
+                    style={{ flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: colors.premiumLight, borderWidth: 1, borderColor: colors.border }}
                     onPress={() => { setShowPlanInfoModal(false); router.push('/subscription'); }}
                   >
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{t('upgradePremium') || 'Nâng cấp Premium'}</Text>
+                    <Text style={{ color: colors.premiumDark, fontWeight: '700', fontSize: 14 }}>{t('upgradePremium') || 'Nâng cấp Premium'}</Text>
                   </Pressable>
                 )}
               </View>
@@ -751,7 +734,7 @@ export default function ProfileScreen() {
                     <Ionicons 
                       name="male" 
                       size={20} 
-                      color={editGender === 'Nam' ? '#fff' : categoryColors.glucose}
+                      color={editGender === 'Nam' ? colors.primaryDark : categoryColors.glucose}
                     />
                     <Text style={[styles.genderButtonText, editGender === 'Nam' && styles.genderButtonTextActive]}>{tc('male')}</Text>
                   </Pressable>
@@ -762,7 +745,7 @@ export default function ProfileScreen() {
                     <Ionicons 
                       name="female" 
                       size={20} 
-                      color={editGender === 'Nữ' ? '#fff' : brandColors.pink} 
+                      color={editGender === 'Nữ' ? colors.primaryDark : brandColors.pink}
                     />
                     <Text style={[styles.genderButtonText, editGender === 'Nữ' && styles.genderButtonTextActive]}>{tc('female')}</Text>
                   </Pressable>
@@ -841,19 +824,16 @@ export default function ProfileScreen() {
                 onPress={handleSaveProfile}
                 disabled={isSaving}
               >
-                <LinearGradient
-                  colors={isSaving ? ['#9ca3af', '#9ca3af'] : [colors.primary, colors.primaryDark]}
-                  style={styles.saveButtonGradient}
-                >
+                <View style={[styles.saveButtonGradient, { backgroundColor: isSaving ? colors.surfaceMuted : colors.primaryLight }]}>
                   {isSaving ? (
-                    <Text style={styles.saveButtonText}>{tc('saving')}</Text>
+                    <Text style={[styles.saveButtonText, { color: colors.textSecondary }]}>{tc('saving')}</Text>
                   ) : (
                     <>
-                      <Ionicons name="checkmark" size={18} color="#fff" />
+                      <Ionicons name="checkmark" size={18} color={colors.primaryDark} />
                       <Text style={styles.saveButtonText}>{tc('save')}</Text>
                     </>
                   )}
-                </LinearGradient>
+                </View>
               </Pressable>
             </View>
           </View>
@@ -899,7 +879,12 @@ export default function ProfileScreen() {
                     style={[styles.pickerRow, active && styles.pickerRowActive]}
                     onPress={() => { setLanguage(lang); setShowLangPicker(false); }}
                   >
-                    <Text style={{ fontSize: 18, marginRight: 6 }}>{lang === 'vi' ? '🇻🇳' : '🇬🇧'}</Text>
+                    <MaterialCommunityIcons
+                      name="translate"
+                      size={20}
+                      color={active ? colors.primary : colors.textSecondary}
+                      style={{ marginRight: 6 }}
+                    />
                     <Text style={[styles.pickerRowText, active && styles.pickerRowTextActive, { flex: 1 }]}>
                       {lang === 'vi' ? ts('languageVi') : ts('languageEn')}
                     </Text>
@@ -981,27 +966,20 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   container: {
     padding: spacing.lg,
     gap: spacing.lg,
-    // Background lives on the LinearGradient overlay (matches home/index).
+    backgroundColor: colors.background,
   },
   // Profile Header
   profileHeaderCard: {
     borderRadius: 28,
     padding: spacing.lg,
     overflow: 'hidden',
-    shadowColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  profileDecorBlob: {
-    position: 'absolute',
-    top: -40,
-    right: -50,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   profileTopRow: {
     flexDirection: 'row',
@@ -1011,7 +989,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -1025,7 +1003,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 7,
     backgroundColor: '#22c55e',
     borderWidth: 2.5,
-    borderColor: colors.primary,
+    borderColor: colors.surface,
   },
   profileLiveTextDot: {
     width: 8,
@@ -1033,11 +1011,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 4,
     backgroundColor: '#4ade80',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.7)',
+    borderColor: colors.surface,
   },
   profileGreetingTop: {
     fontSize: typography.size.xs,
-    color: 'rgba(255,255,255,0.85)',
+    color: colors.textSecondary,
     fontWeight: '500' as const,
   },
   profileBottomRow: {
@@ -1082,12 +1060,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   profileName: {
     fontSize: typography.size.xl,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.textPrimary,
     marginTop: 2,
   },
   profileStatus: {
     fontSize: typography.size.xs,
-    color: 'rgba(255,255,255,0.92)',
+    color: colors.textSecondary,
     fontWeight: '500' as const,
   },
   planChip: {
@@ -1100,19 +1078,19 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: 4,
   },
   planChipFree: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: colors.primaryLight,
   },
   planChipPremium: {
     backgroundColor: colors.premiumLight,
-    borderWidth: 1.5,
-    borderColor: colors.premium,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   planChipText: {
     fontSize: typography.size.xs,
     fontWeight: '700',
   },
   planChipTextFree: {
-    color: 'rgba(255,255,255,0.95)',
+    color: colors.primaryDark,
   },
   planChipTextPremium: {
     color: colors.premiumDark,
@@ -1142,7 +1120,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 16,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -1184,12 +1162,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     paddingVertical: spacing.md,
     borderRadius: 12,
     backgroundColor: colors.background,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   pickerRowActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.border,
   },
   pickerRowText: {
     fontSize: typography.size.md,
@@ -1198,7 +1176,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flex: 1,
   },
   pickerRowTextActive: {
-    color: '#ffffff',
+    color: colors.primaryDark,
   },
   // Logout
   logoutBtn: {
@@ -1211,8 +1189,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     paddingVertical: spacing.md + 2,
     marginTop: spacing.lg,
     marginBottom: spacing.xl,
-    borderWidth: 1.5,
-    borderColor: '#dc2626',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   logoutBtnText: {
     fontSize: typography.size.md,
@@ -1270,7 +1248,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   logoutModalBtnCancel: {
     backgroundColor: colors.background,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   logoutModalBtnConfirm: {
@@ -1310,7 +1288,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.md,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1322,7 +1300,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     opacity: 0.75,
   },
   actionCardDestructive: {
-    borderColor: '#fca5a5',
+    borderColor: colors.border,
     backgroundColor: '#fef2f2',
   },
   actionIcon: {
@@ -1347,7 +1325,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: spacing.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -1355,15 +1333,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     elevation: 2
   },
   healthCardGlucose: {
-    borderColor: categoryColors.glucose + '40',
+    borderColor: colors.border,
     backgroundColor: categoryColors.glucoseBg,
   },
   healthCardBP: {
-    borderColor: categoryColors.bloodPressure + '30',
+    borderColor: colors.border,
     backgroundColor: categoryColors.bloodPressureBg,
   },
   healthCardMissions: {
-    borderColor: colors.emerald + '40',
+    borderColor: colors.border,
     backgroundColor: colors.emeraldLight,
   },
   healthCardHeader: {
@@ -1448,15 +1426,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     paddingVertical: spacing.md,
     backgroundColor: colors.surface
   },
   genderButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.border
   },
   genderButtonText: {
     fontSize: typography.size.md,
@@ -1464,10 +1442,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textPrimary
   },
   genderButtonTextActive: {
-    color: '#fff'
+    color: colors.primaryDark
   },
   input: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     padding: spacing.md,
@@ -1492,7 +1470,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flex: 1,
     padding: spacing.md,
     borderRadius: 12,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center'
   },
@@ -1504,7 +1482,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   saveButton: {
     flex: 1,
     borderRadius: 12,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   saveButtonDisabled: {
     opacity: 0.7
@@ -1519,7 +1499,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   saveButtonText: {
     fontSize: typography.size.md,
     fontWeight: '600',
-    color: '#fff'
+    color: colors.primaryDark,
   },
   textAreaInput: {
     minHeight: 80,

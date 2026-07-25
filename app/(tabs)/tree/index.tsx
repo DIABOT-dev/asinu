@@ -1,11 +1,10 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { useCallback, useMemo, useRef, useState, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, interpolateColor, withDelay } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, withDelay } from 'react-native-reanimated';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
@@ -18,7 +17,7 @@ import { TreeTabSkeleton } from '../../../src/components/state/MainScreenSkeleto
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useTreeStore } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
-import { colors, spacing } from '../../../src/styles';
+import { colors, iconColors, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
@@ -82,71 +81,9 @@ function FloatingSnow({ x, delay = 0, size = 16, duration = 3000 }: any) {
   );
 }
 
-function FlashingScoreCard({ children, style }: any) {
-  const progress = useSharedValue(0);
-  useEffect(() => {
-    progress.value = withRepeat(
-      withTiming(1, { duration: 1500 }),
-      -1,
-      true
-    );
-  }, []);
-  
-  const animatedStyle = useAnimatedStyle(() => {
-    const bgColor = interpolateColor(
-      progress.value,
-      [0, 0.5, 1],
-      ['#ffffff', '#ecfdf5', '#ffffff']
-    );
-    const borderColor = interpolateColor(
-      progress.value,
-      [0, 0.5, 1],
-      ['rgba(16,185,129,0.1)', 'rgba(16,185,129,0.6)', 'rgba(16,185,129,0.1)']
-    );
-    return {
-      backgroundColor: bgColor,
-      borderColor: borderColor,
-    };
-  });
-
+function AnimatedBorderCard({ style, children }: { color?: string; innerColors?: readonly [string, string, ...string[]]; style?: any; children: React.ReactNode }) {
   return (
-    <Animated.View style={[style, animatedStyle]}>
-      {children}
-    </Animated.View>
-  );
-}
-
-function AnimatedBorderCard({ color, innerColors, style, children }: { color: string; innerColors: readonly [string, string, ...string[]]; style?: any; children: React.ReactNode }) {
-  const rotation = useSharedValue(0);
-
-  useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 6000, easing: Easing.linear }),
-      -1,
-      false
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${rotation.value}deg` }],
-    };
-  });
-
-  return (
-    <View style={[style, { overflow: 'hidden', position: 'relative' }]}>
-      <Animated.View style={[{ width: '250%', height: '250%', position: 'absolute', top: '-75%', left: '-75%', opacity: 0.7 }, animatedStyle]}>
-        <LinearGradient
-          colors={['transparent', color, color, 'transparent']}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
-      <LinearGradient
-        colors={innerColors}
-        style={[StyleSheet.absoluteFill, { top: 2, left: 2, right: 2, bottom: 2, borderRadius: (style?.borderRadius || 24) - 2 }]}
-      />
+    <View style={[style, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
       {children}
     </View>
   );
@@ -263,22 +200,6 @@ export default function TreeScreen() {
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   
-  const orangeColors = isDark 
-    ? (['#271c06', '#1d1403'] as const) 
-    : (['#fffbeb', '#fef3c7'] as const);
-  const orangeBorder = isDark ? 'rgba(245, 158, 11, 0.25)' : '#fde68a';
-  const orangeText = isDark ? '#fbbf24' : '#b45309';
-  const orangeValue = isDark ? '#fbbf24' : '#d97706';
-  const orangeIconBg = isDark ? 'rgba(245, 158, 11, 0.15)' : '#fff';
-
-  const purpleColors = isDark 
-    ? (['#1c142c', '#150d22'] as const) 
-    : (['#faf5ff', '#f3e8ff'] as const);
-  const purpleBorder = isDark ? 'rgba(139, 92, 246, 0.25)' : '#ddd6fe';
-  const purpleText = isDark ? '#a78bfa' : '#6d28d9';
-  const purpleValue = isDark ? '#a78bfa' : '#7c3aed';
-  const purpleIconBg = isDark ? 'rgba(139, 92, 246, 0.15)' : '#fff';
-
   const padTop = insets.top + spacing.lg;
   const [chartTooltip, setChartTooltip] = useState(false);
 
@@ -386,13 +307,6 @@ export default function TreeScreen() {
 
   return (
     <Screen>
-      <LinearGradient
-        colors={[colors.primaryLight, colors.background, colors.background]}
-        locations={[0, 0.24, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
       {errorState === 'remote-failed' ? <OfflineBanner /> : null}
       {errorState === 'no-data' && !summary && !showInitialSkeleton ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
       
@@ -415,7 +329,6 @@ export default function TreeScreen() {
           <FloatingSnow x="50%" delay={500} size={12} duration={3000} />
           <FloatingSnow x="70%" delay={1500} size={18} duration={4500} />
           <FloatingSnow x="85%" delay={200} size={16} duration={3200} />
-          
           <View style={{ flex: 1, zIndex: 10 }}>
             <Text style={styles.headerTitle}>{t('healthTree')}</Text>
             <Text style={styles.headerSubtitle}>{t('summaryFromLogs')}</Text>
@@ -446,20 +359,8 @@ export default function TreeScreen() {
         </View>
 
         {/* Progress Score (Ring) */}
-        <FlashingScoreCard style={styles.scoreCardContainer}>
+        <View style={styles.scoreCardContainer}>
           <View style={{ position: 'relative', width: 160, height: 140, justifyContent: 'center', alignItems: 'center' }}>
-            {/* Background Glow */}
-            <View style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(52, 211, 153, 0.3)', shadowColor: '#34d399', shadowOpacity: 1, shadowRadius: 35, shadowOffset: { width: 0, height: 0 }, elevation: 20 }} />
-            
-            {/* Decorative Leaves */}
-            <FloatingLeaf size={14} color="#6ee7b7" x={{ left: 25 }} y={{ top: 15 }} rotate="-35deg" delay={0} />
-            <FloatingLeaf size={22} color="#34d399" x={{ left: 0 }} y={{ top: 50 }} rotate="-75deg" delay={400} />
-            <FloatingLeaf size={12} color="#6ee7b7" x={{ left: 20 }} y={{ bottom: 30 }} rotate="-110deg" delay={800} />
-            
-            <FloatingLeaf size={14} color="#6ee7b7" x={{ right: 25 }} y={{ top: 25 }} rotate="45deg" delay={200} />
-            <FloatingLeaf size={20} color="#34d399" x={{ right: 5 }} y={{ top: 60 }} rotate="80deg" delay={600} />
-            <FloatingLeaf size={18} color="#34d399" x={{ right: 15 }} y={{ bottom: 25 }} rotate="120deg" delay={1000} />
-            
             <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
               <T1ProgressRing percentage={summary?.score ?? 0} label={t('score')} accentColor="#34d399" />
             </Suspense>
@@ -467,30 +368,25 @@ export default function TreeScreen() {
           <Text style={styles.scoreCaption}>
             {Math.round((summary?.score ?? 0) * 100)}% - {(summary?.score ?? 0) >= 0.7 ? t('good') : (summary?.score ?? 0) >= 0.4 ? t('average') : t('needsImprovement')}
           </Text>
-        </FlashingScoreCard>
+        </View>
 
         {/* Streak & Missions Row */}
         <View style={styles.scoreRow}>
-          <LinearGradient colors={orangeColors} style={[styles.scoreCard, { borderColor: orangeBorder, borderWidth: 1.5, position: 'relative', overflow: 'hidden' }]}>
-            <AnimatedLightningSparks />
-            <View style={[styles.scoreIconWrap, { backgroundColor: orangeIconBg, zIndex: 2 }]}>
-              <Ionicons name="flame" size={20} color="#f59e0b" />
-            </View>
-            <View style={{ flex: 1, zIndex: 2 }}>
-              <Text style={[styles.scoreValue, { color: orangeValue }]} numberOfLines={1} adjustsFontSizeToFit>{summary?.streakDays ?? 0}</Text>
-              <Text style={[styles.scoreLabel, { color: orangeText }]} numberOfLines={1}>{t('consecutiveDays')}</Text>
-            </View>
-          </LinearGradient>
-
-          <LinearGradient colors={purpleColors} style={[styles.scoreCard, { borderColor: purpleBorder, borderWidth: 1.5 }]}>
-            <View style={[styles.scoreIconWrap, { backgroundColor: purpleIconBg }]}>
-              <Ionicons name="checkmark-circle" size={20} color="#8b5cf6" />
-            </View>
+          <View style={[styles.scoreCard, { borderColor: colors.border, borderWidth: 1 }]}>
+            <Ionicons name="flame" size={20} color={iconColors.warning} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.scoreValue, { color: purpleValue }]} numberOfLines={1} adjustsFontSizeToFit>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
-              <Text style={[styles.scoreLabel, { color: purpleText }]} numberOfLines={1}>{t('todayMissions')}</Text>
+              <Text style={[styles.scoreValue, { color: colors.premiumDark }]} numberOfLines={1} adjustsFontSizeToFit>{summary?.streakDays ?? 0}</Text>
+              <Text style={[styles.scoreLabel, { color: colors.premiumDark }]} numberOfLines={1}>{t('consecutiveDays')}</Text>
             </View>
-          </LinearGradient>
+          </View>
+
+          <View style={[styles.scoreCard, { borderColor: colors.border, borderWidth: 1 }]}>
+            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.scoreValue, { color: colors.primaryDark }]} numberOfLines={1} adjustsFontSizeToFit>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
+              <Text style={[styles.scoreLabel, { color: colors.primaryDark }]} numberOfLines={1}>{t('todayMissions')}</Text>
+            </View>
+          </View>
         </View>
 
         {/* Báo cáo sức khoẻ - nhúng nguyên khối */}
@@ -606,7 +502,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: '#ffffff',
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: 'rgba(0,0,0,0.05)',
+      borderColor: colors.border,
       gap: spacing.sm,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -680,7 +576,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       padding: spacing.xl,
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: 'rgba(0,0,0,0.05)',
+      borderColor: colors.border,
       gap: spacing.md,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
@@ -786,12 +682,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       zIndex: -1,
     },
     actionBtn: {
-      backgroundColor: '#10b981',
+      backgroundColor: colors.primary,
       borderRadius: 100,
       paddingVertical: spacing.lg,
       alignItems: 'center',
       marginTop: spacing.xs,
-      shadowColor: '#10b981',
+      shadowColor: colors.primaryDark,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.3,
       shadowRadius: 12,
@@ -808,7 +704,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       padding: spacing.lg,
       marginTop: spacing.sm,
       borderWidth: 1,
-      borderColor: 'rgba(0,0,0,0.05)',
+      borderColor: colors.border,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.05,

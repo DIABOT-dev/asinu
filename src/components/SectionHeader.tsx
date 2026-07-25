@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, View, ViewProps } from 'react-native';
+import { StyleSheet, View, ViewProps } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { ScaledText as Text } from './ScaledText';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
@@ -23,12 +24,12 @@ export const SectionHeader = ({ title, subtitle, action, style }: Props) => {
     title: {
       fontWeight: '700',
       color: colors.textPrimary,
-      fontFamily: 'System'
+      fontFamily: 'Inter_700Bold'
     },
     subtitle: {
       color: colors.textSecondary,
       marginTop: spacing.xs,
-      fontFamily: 'System'
+      fontFamily: 'Inter_400Regular'
     }
   }), [isDark]);
 

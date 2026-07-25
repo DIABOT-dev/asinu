@@ -3,7 +3,6 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
  * Reminder Config Screen — HH:MM time picker for morning/afternoon/evening
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -47,8 +46,6 @@ const SLOT_META: Array<{
   descKey: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   iconColor: string;
-  iconBg: string;
-  gradient: [string, string];
   defaultTime: string;
   hourRange: [number, number];
 }> = [
@@ -58,8 +55,6 @@ const SLOT_META: Array<{
     descKey: 'scheduleMorningDesc',
     icon: 'weather-sunset-up',
     iconColor: '#f59e0b',
-    iconBg: '#fffbeb',
-    gradient: ['#fef3c7', '#fffbeb'],
     defaultTime: '08:00',
     hourRange: [5, 11],
   },
@@ -69,8 +64,6 @@ const SLOT_META: Array<{
     descKey: 'scheduleAfternoonDesc',
     icon: 'weather-sunny',
     iconColor: '#f97316',
-    iconBg: '#fff7ed',
-    gradient: ['#ffedd5', '#fff7ed'],
     defaultTime: '14:00',
     hourRange: [11, 17],
   },
@@ -80,8 +73,6 @@ const SLOT_META: Array<{
     descKey: 'scheduleEveningDesc',
     icon: 'weather-night',
     iconColor: '#6366f1',
-    iconBg: '#eef2ff',
-    gradient: ['#e0e7ff', '#eef2ff'],
     defaultTime: '21:00',
     hourRange: [17, 23],
   },
@@ -210,13 +201,10 @@ function TimePickerModal({
               style={({ pressed }) => [pickerStyles.confirmBtn, pressed && { opacity: 0.9 }]}
               onPress={handleConfirm}
             >
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                style={pickerStyles.confirmGradient}
-              >
-                <MaterialCommunityIcons name="check" size={18} color="#fff" />
+              <View style={pickerStyles.confirmGradient}>
+                <MaterialCommunityIcons name="check" size={18} color={colors.primaryDark} />
                 <Text style={pickerStyles.confirmText}>{t('scheduleConfirm')}</Text>
-              </LinearGradient>
+              </View>
             </Pressable>
           </View>
         </View>
@@ -257,13 +245,13 @@ const pickerStyles = StyleSheet.create({
     borderRadius: radius.xl,
     paddingHorizontal: spacing.xxl,
     paddingVertical: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   timeText: {
     fontSize: 36,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.primaryDark,
     letterSpacing: 4,
   },
   pickerSection: {
@@ -336,7 +324,9 @@ const pickerStyles = StyleSheet.create({
   confirmBtn: {
     flex: 2,
     borderRadius: radius.full,
-    overflow: 'hidden',
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   confirmGradient: {
     flexDirection: 'row',
@@ -348,7 +338,7 @@ const pickerStyles = StyleSheet.create({
   confirmText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.primaryDark,
   },
 });
 
@@ -584,7 +574,7 @@ export default function ReminderConfigScreen() {
             return (
               <Animated.View key={meta.slot} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
                 <Pressable
-                  style={[styles.scheduleCard, { backgroundColor: meta.iconBg }, disabled && { opacity: 0.5 }]}
+                  style={[styles.scheduleCard, disabled && { opacity: 0.5 }]}
                   onPress={() => !disabled && setPickerSlot(meta.slot)}
                   disabled={disabled}
                 >
@@ -652,9 +642,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       borderRadius: radius.xl,
       padding: spacing.lg,
-      backgroundColor: '#fffbeb',
-      borderWidth: 1.5,
-      borderColor: '#f59e0b22',
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1,
+      borderColor: colors.border,
       gap: spacing.md,
     },
     heroTextWrap: { flex: 1 },
@@ -672,9 +662,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
 
     // Schedule Cards
     scheduleCard: {
+      backgroundColor: colors.surface,
       borderRadius: radius.xl,
       padding: spacing.lg,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
       gap: spacing.md,
       shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8,
@@ -704,7 +695,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row', alignItems: 'center', gap: 3,
       backgroundColor: colors.background, borderRadius: radius.full,
       paddingHorizontal: spacing.sm + 2, paddingVertical: 3,
-      marginLeft: spacing.sm, borderWidth: 1.5, borderColor: colors.border,
+      marginLeft: spacing.sm, borderWidth: 1, borderColor: colors.border,
     },
     resetBtnText: { fontSize: typography.size.xxs, fontWeight: '600', color: colors.textSecondary },
 
@@ -713,14 +704,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 32, height: 32, borderRadius: 12,
       backgroundColor: Platform.OS === 'android' ? '#F9FFFD' : 'rgba(255,255,255,0.8)',
       alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1.5, borderColor: colors.border,
+      borderWidth: 1, borderColor: colors.border,
     },
 
     // Info
     infoCard: {
       flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
       backgroundColor: colors.primaryLight, borderRadius: radius.lg,
-      padding: spacing.md, borderWidth: 1.5, borderColor: colors.primary + '22',
+      padding: spacing.md, borderWidth: 1, borderColor: colors.border,
     },
     infoText: { fontSize: typography.size.xs, color: colors.textSecondary, flex: 1, lineHeight: 18 },
   });

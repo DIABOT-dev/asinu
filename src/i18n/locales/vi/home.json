@@ -140,6 +140,7 @@
   "glucoseNormal": "Bình thường",
   "glucoseBorder": "Hơi cao",
   "glucoseHigh":   "Cao",
+  "glucoseReference": "Khoảng tham chiếu",
   "noGlucoseData": "Chưa có dữ liệu đường huyết",
   "logToSeeTrend": "Ghi log để xem xu hướng",
   "statMin":    "Thấp nhất",

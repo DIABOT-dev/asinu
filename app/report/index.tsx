@@ -393,7 +393,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     headerCenter: {
@@ -413,7 +413,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       marginBottom: spacing.md,
       backgroundColor: colors.surface,
       borderRadius: radius.xl,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
       overflow: 'hidden',
       padding: 3,
@@ -453,7 +453,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     emptyText: {
@@ -472,7 +472,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       borderRadius: radius.xl,
       padding: spacing.lg,
       overflow: 'hidden',
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     trendTop: {
@@ -532,7 +532,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       backgroundColor: colors.surface,
       borderRadius: radius.xl,
       padding: spacing.lg,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
       shadowColor: '#000',
       shadowOpacity: 0.06,
@@ -699,7 +699,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       borderRadius: radius.lg,
       padding: spacing.md,
       overflow: 'hidden',
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
     },
     alertIconWrap: {

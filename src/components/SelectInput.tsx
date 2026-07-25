@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { ScaledText as Text } from './ScaledText';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 

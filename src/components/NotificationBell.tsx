@@ -8,11 +8,11 @@ import {
     Pressable,
     ScrollView,
     StyleSheet,
-    Text,
     TouchableOpacity,
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, typography, radius } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';

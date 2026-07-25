@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { Image } from 'react-native';
 import React, { useMemo, useState } from 'react';
@@ -190,12 +189,7 @@ export default function RegisterScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-    <LinearGradient
-      colors={[colors.primaryLight, colors.background, colors.primaryLight]}
-      locations={[0, 0.5, 1]}
-      style={{ flex: 1 }}
-    >
-    <FloatingOrbs />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Font size modal */}
       {showFontModal && (
         <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
@@ -389,23 +383,18 @@ export default function RegisterScreen() {
               ]}
               onPress={handleSubmit}
             >
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.submitBtnGradient}
-              >
+              <View style={styles.submitBtnGradient}>
                 {loading ? (
-                  <MaterialCommunityIcons name="loading" size={20} color="#fff" />
+                  <MaterialCommunityIcons name="loading" size={20} color={colors.primaryDark} />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="account-plus" size={20} color="#fff" />
+                    <MaterialCommunityIcons name="account-plus" size={20} color={colors.primaryDark} />
                     <Text style={styles.submitBtnText}>
                       {loading ? tc('processing') : t('register')}
                     </Text>
                   </>
                 )}
-              </LinearGradient>
+              </View>
             </Pressable>
           </View>
         </Animated.View>
@@ -418,7 +407,7 @@ export default function RegisterScreen() {
           </Pressable>
         </Animated.View>
       </ScrollView>
-    </LinearGradient>
+    </View>
     </KeyboardAvoidingView>
   );
 }
@@ -580,7 +569,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -648,16 +636,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     // ── Submit Button ──
     submitBtn: {
       borderRadius: radius.full,
-      overflow: 'hidden',
       marginTop: spacing.xs,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 5 },
-      elevation: 5,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     submitBtnDisabled: {
-      shadowOpacity: 0,
+      opacity: 0.55,
     },
     submitBtnGradient: {
       flexDirection: 'row',
@@ -665,9 +649,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       justifyContent: 'center',
       gap: spacing.sm,
       paddingVertical: spacing.md + 2,
+      borderRadius: radius.full,
+      backgroundColor: colors.primaryLight,
     },
     submitBtnText: {
-      color: '#fff',
+      color: colors.primaryDark,
       fontSize: typography.size.md,
       fontWeight: '700',
     },

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
+import { ScaledText as Text } from '../components/ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
@@ -33,15 +33,14 @@ export const H2HeroBanner = ({ name, relationship, summary, action, supporters =
       borderWidth: 1
     },
     name: {
-      color: colors.surface,
+      color: colors.textPrimary,
       fontWeight: '800'
     },
     meta: {
-      color: colors.surface,
-      opacity: 0.85
+      color: colors.textSecondary,
     },
     summary: {
-      color: colors.surface,
+      color: colors.textSecondary,
       lineHeight: 22
     },
     supporters: {
@@ -53,21 +52,18 @@ export const H2HeroBanner = ({ name, relationship, summary, action, supporters =
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
       borderRadius: radius.lg,
-      backgroundColor: 'rgba(255,255,255,0.2)'
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border
     },
     supportText: {
-      color: colors.surface,
+      color: colors.textPrimary,
       fontWeight: '700'
     }
   }), [isDark]);
 
   return (
-    <LinearGradient
-      colors={[colors.primary + 'E0', colors.primary + 'F0']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-      style={styles.container}
-    >
+    <View style={[styles.container, { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.border }]}>
       <View style={styles.headerRow}>
         <Avatar name={name} containerStyle={styles.avatar} />
         <View style={{ flex: 1 }}>
@@ -86,6 +82,6 @@ export const H2HeroBanner = ({ name, relationship, summary, action, supporters =
           ))}
         </View>
       ) : null}
-    </LinearGradient>
+    </View>
   );
 };

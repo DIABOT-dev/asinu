@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { ScaledText as Text } from '../components/ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
@@ -90,10 +90,10 @@ export const M1MetricCard = React.memo(({
   }), [isDark]);
 
   return (
-    <Container style={[styles.card, { borderColor: accentColor }]} onPress={onPress}>
-      <LinearGradient colors={accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.accent}>
-        {icon || <Ionicons name="pulse" size={20} color={colors.surface} />}
-      </LinearGradient>
+    <Container style={[styles.card, { borderColor: colors.border }]} onPress={onPress}>
+      <View style={[styles.accent, { backgroundColor: colors.primaryLight }]}>
+        {icon || <Ionicons name="pulse" size={20} color={accentColor} />}
+      </View>
       <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{title}</Text>
       <View style={styles.valueRow}>
         <Text style={[styles.value, { fontSize: scaledTypography.size.xl }]}>{value}</Text>

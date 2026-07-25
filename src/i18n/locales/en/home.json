@@ -140,6 +140,7 @@
   "glucoseNormal": "Normal",
   "glucoseBorder": "Slightly high",
   "glucoseHigh":   "High",
+  "glucoseReference": "Reference range",
   "noGlucoseData": "No glucose data yet",
   "logToSeeTrend": "Log to see your trend",
   "statMin":    "Min",

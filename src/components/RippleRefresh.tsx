@@ -14,7 +14,8 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, RefreshControl, ScrollView, ScrollViewProps, StyleSheet, Text, View } from 'react-native';
+import { Platform, RefreshControl, ScrollView, ScrollViewProps, StyleSheet, View } from 'react-native';
+import { ScaledText as Text } from './ScaledText';
 import Animated, {
   Easing,
   Extrapolation,

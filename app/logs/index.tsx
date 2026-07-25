@@ -96,7 +96,7 @@ export default function LogsIndexScreen() {
               >
                 <Pressable
                   onPress={() => router.push(card.route as any)}
-                  style={({ pressed }) => [styles.card, { borderLeftColor: card.iconColor }, pressed && styles.cardPressed]}
+                  style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
                 >
                   <MaterialCommunityIcons name={card.icon} size={26} color={card.iconColor} />
                   <View style={styles.cardBody}>
@@ -148,11 +148,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       gap: spacing.md,
       borderRadius: radius.xl,
+      backgroundColor: colors.surface,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
-      borderLeftWidth: 3,
       shadowColor: '#000',
       shadowOpacity: 0.04,
       shadowRadius: 4,

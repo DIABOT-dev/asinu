@@ -12,7 +12,6 @@
  */
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -49,12 +48,7 @@ type WalletResult =
 
 function GiftHeader({ title, topInset }: { title: string; topInset: number }) {
   return (
-    <LinearGradient
-      colors={[colors.premium, colors.premiumDark]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.header, { paddingTop: topInset + spacing.md }]}
-    >
+    <View style={[styles.header, { paddingTop: topInset + spacing.md }]}>
       <Pressable
         accessibilityLabel="Quay lại"
         accessibilityRole="button"
@@ -62,10 +56,10 @@ function GiftHeader({ title, topInset }: { title: string; topInset: number }) {
         onPress={() => router.back()}
         style={[styles.backBtn, { top: topInset + spacing.md }]}
       >
-        <Ionicons name="arrow-back" size={22} color="#fff" />
+        <Ionicons name="arrow-back" size={22} color={colors.premiumDark} />
       </Pressable>
       <Text style={styles.headerTitle}>{title}</Text>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -399,9 +393,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
+    backgroundColor: colors.premiumLight,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   backBtn: { position: 'absolute', left: spacing.lg, padding: spacing.xs },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  headerTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '800' },
 
   scroll: { padding: spacing.lg, gap: spacing.md },
   intro: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
@@ -436,12 +433,14 @@ const styles = StyleSheet.create({
   planGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between' },
 
   primaryBtn: {
-    backgroundColor: colors.premium,
+    backgroundColor: colors.premiumLight,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingVertical: spacing.md,
     borderRadius: radius.lg,
     alignItems: 'center',
   },
-  primaryBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  primaryBtnText: { color: colors.premiumDark, fontWeight: '800', fontSize: 15 },
   secondaryBtn: {
     backgroundColor: colors.surfaceMuted,
     paddingVertical: spacing.md,

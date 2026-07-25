@@ -1,5 +1,4 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { Image } from 'react-native';
 import React, { useMemo, useRef, useState } from 'react';
@@ -184,12 +183,7 @@ export default function LoginEmailScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-    <LinearGradient
-      colors={[colors.primaryLight, colors.background, colors.primaryLight]}
-      locations={[0, 0.5, 1]}
-      style={{ flex: 1 }}
-    >
-    <FloatingOrbs />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Font size modal */}
       {showFontModal && (
         <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
@@ -324,23 +318,18 @@ export default function LoginEmailScreen() {
               ]}
               onPress={handleLogin}
             >
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.loginBtnGradient}
-              >
+              <View style={styles.loginBtnGradient}>
                 {loginButtonLoading ? (
-                  <MaterialCommunityIcons name="loading" size={20} color="#fff" />
+                  <MaterialCommunityIcons name="loading" size={20} color={colors.primaryDark} />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="login" size={20} color="#fff" />
+                    <MaterialCommunityIcons name="login" size={20} color={colors.primaryDark} />
                     <Text style={styles.loginBtnText}>
                       {loginButtonLoading ? tc('processing') : t('login')}
                     </Text>
                   </>
                 )}
-              </LinearGradient>
+              </View>
             </Pressable>
           </View>
         </Animated.View>
@@ -381,7 +370,7 @@ export default function LoginEmailScreen() {
                 ]}
               >
                 {!isButtonLoading && (
-                  <View style={[styles.socialIconCircle, { backgroundColor: meta.bg }]}>
+                  <View style={styles.socialIconCircle}>
                     {provider === 'zalo' ? (
                       <Image source={require('../../src/assets/zalo.png')} style={styles.zaloIcon} resizeMode="contain" />
                     ) : (
@@ -422,7 +411,7 @@ export default function LoginEmailScreen() {
         </Animated.View>
 
       </ScrollView>
-    </LinearGradient>
+    </View>
     </KeyboardAvoidingView>
     </>
   );
@@ -580,7 +569,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -614,16 +602,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     // ── Login Button ──
     loginBtn: {
       borderRadius: radius.full,
-      overflow: 'hidden',
       marginTop: spacing.xs,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 5 },
-      elevation: 5,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     loginBtnDisabled: {
-      shadowOpacity: 0,
+      opacity: 0.55,
     },
     loginBtnGradient: {
       flexDirection: 'row',
@@ -631,9 +615,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       justifyContent: 'center',
       gap: spacing.sm,
       paddingVertical: spacing.md + 2,
+      borderRadius: radius.full,
+      backgroundColor: colors.primaryLight,
     },
     loginBtnText: {
-      color: '#fff',
+      color: colors.primaryDark,
       fontSize: typography.size.md,
       fontWeight: '700',
     },

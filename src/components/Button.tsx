@@ -1,7 +1,8 @@
 import React from 'react';
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, TextStyle, ViewStyle } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { ScaledText as Text } from './ScaledText';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
@@ -29,22 +30,27 @@ export const Button = React.memo(({ label, onPress, variant = 'primary', disable
     },
     label: {
       fontWeight: '600',
-      fontFamily: 'System'
+      fontFamily: 'Inter_600SemiBold'
     }
   }), [isDark]);
   const variantStyles = useMemo(() => {
-    const palette =
-      variant === 'secondary'
-        ? colors.primaryDark
+    const backgroundColor =
+      variant === 'ghost'
+        ? 'transparent'
         : variant === 'warning'
-          ? colors.warning
-          : colors.primary;
-    const backgroundColor = variant === 'ghost' ? 'transparent' : palette;
-    const textColor = variant === 'ghost' ? colors.textPrimary : colors.surface;
-    const borderColor = variant === 'ghost' ? colors.border : palette;
+          ? colors.premiumLight
+          : variant === 'secondary'
+            ? colors.surfaceMuted
+            : colors.primaryLight;
+    const textColor =
+      variant === 'warning'
+        ? colors.premiumDark
+        : variant === 'ghost'
+          ? colors.textPrimary
+          : colors.primaryDark;
     
-    return { backgroundColor, textColor, borderColor };
-  }, [variant]);
+    return { backgroundColor, textColor, borderColor: colors.border };
+  }, [variant, isDark]);
 
   const getButtonStyle = useMemo(
     () => ({ pressed }: { pressed: boolean }) => [

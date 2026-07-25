@@ -191,8 +191,8 @@ export const radius = {
 // ── Typography ────────────────────────────────────────
 export const typography = {
   family: {
-    heading: 'System',
-    body: 'System'
+    heading: 'Inter_700Bold',
+    body: 'Inter_400Regular'
   },
   size: {
     xxs: 11,

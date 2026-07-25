@@ -1,7 +1,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScaledText as Text } from './ScaledText';
 import { useAuthStore } from '../features/auth/auth.store';
 import { useCareCircle } from '../features/care-circle';
 import { useScaledTypography } from '../hooks/useScaledTypography';

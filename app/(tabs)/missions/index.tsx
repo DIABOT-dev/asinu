@@ -1,7 +1,6 @@
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 ﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -84,16 +83,11 @@ export default function MissionsScreen() {
         
         {/* Header Section */}
         <Animated.View entering={FadeIn.delay(0).duration(400)}>
-        <LinearGradient
-          colors={[brandColors.indigo, brandColors.violet]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerCard}
-        >
-          <MaterialCommunityIcons name="flag-checkered" size={32} color="#fff" />
+        <View style={styles.headerCard}>
+          <MaterialCommunityIcons name="flag-checkered" size={32} color={colors.primary} />
           <Text style={styles.headerTitle}>{t('dailyMissions')}</Text>
           <Text style={styles.headerSubtitle}>{t('refreshDaily')}</Text>
-        </LinearGradient>
+        </View>
         </Animated.View>
 
         {/* Stats Row */}
@@ -176,11 +170,14 @@ export default function MissionsScreen() {
               <View style={styles.progressContainer}>
                 <View style={styles.progressRow}>
                   <View style={styles.progressTrack}>
-                    <LinearGradient
-                      colors={isCompleted ? [colors.emerald, colors.emeraldDark] : [colors.primary, colors.primaryDark]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.progressFill, { width: `${Math.min(progressRatio * 100, 100)}%` }]}
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${Math.min(progressRatio * 100, 100)}%`,
+                          backgroundColor: isCompleted ? colors.emerald : colors.primary,
+                        },
+                      ]}
                     />
                   </View>
                   <Text style={styles.progressText}>
@@ -237,21 +234,24 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 20,
     padding: spacing.xl,
     alignItems: 'center',
-    shadowColor: brandColors.indigo,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1
   },
   headerTitle: {
     fontSize: typography.size.xl,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.primaryDark,
     marginBottom: spacing.xs
   },
   headerSubtitle: {
     fontSize: typography.size.sm,
-    color: 'rgba(255,255,255,0.85)'
+    color: colors.textSecondary
   },
   // Stats Row
   statsRow: {
@@ -332,7 +332,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     padding: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: 20,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.md,
     shadowColor: '#000',

@@ -1,6 +1,7 @@
 import React, { Component, ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ScaledText as Text } from './ScaledText';
 import { colors, radius, spacing } from '../styles';
 
 interface Props {

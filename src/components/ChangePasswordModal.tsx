@@ -150,7 +150,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: '#eff6ff',
       alignItems: 'center',
       justifyContent: 'center',
     },

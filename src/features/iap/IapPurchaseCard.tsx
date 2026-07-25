@@ -10,7 +10,6 @@
  */
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
@@ -200,23 +199,18 @@ export function IapPurchaseCard({ onPurchased }: Props) {
           disabled={purchasing || !selected}
           onPress={handlePurchase}
         >
-          <LinearGradient
-            colors={[colors.premium, colors.premiumDark]}
-            start={{ x: 0, y: 1 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.ctaGradient}
-          >
+          <View style={styles.ctaGradient}>
             {purchasing ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.premiumDark} />
             ) : (
               <View style={styles.ctaRow}>
-                <MaterialCommunityIcons name="crown" size={18} color="#fff" />
+                <MaterialCommunityIcons name="crown" size={18} color={colors.premiumDark} />
                 <Text style={styles.ctaText}>
                   {t('upgradeNow') || 'Nâng cấp ngay'}
                 </Text>
               </View>
             )}
-          </LinearGradient>
+          </View>
         </Pressable>
 
         <Pressable
@@ -255,6 +249,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cardTitle: {
     fontSize: typography.size.sm,
@@ -308,10 +304,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: radius.sm,
-    backgroundColor: colors.premium,
+    backgroundColor: colors.premiumLight,
   },
   bestBadgeText: {
-    color: '#fff',
+    color: colors.premiumDark,
     fontSize: typography.size.xs,
     fontWeight: '700',
   },
@@ -326,10 +322,10 @@ const styles = StyleSheet.create({
     right: spacing.sm,
   },
 
-  cta: { borderRadius: radius.lg, overflow: 'hidden' },
-  ctaGradient: { paddingVertical: spacing.md, alignItems: 'center' },
+  cta: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+  ctaGradient: { paddingVertical: spacing.md, alignItems: 'center', borderRadius: radius.lg, backgroundColor: colors.premiumLight },
   ctaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  ctaText: { color: '#fff', fontWeight: '800', fontSize: typography.size.sm },
+  ctaText: { color: colors.premiumDark, fontWeight: '800', fontSize: typography.size.sm },
 
   restoreBtn: {
     alignItems: 'center',

@@ -1,6 +1,7 @@
 
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ScaledText as Text } from '../components/ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { featureFlags } from '../lib/featureFlags';
 import { colors, spacing } from '../styles';

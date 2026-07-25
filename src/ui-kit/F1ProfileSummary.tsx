@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { Card } from '../components/Card';
+import { ScaledText as Text } from '../components/ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';

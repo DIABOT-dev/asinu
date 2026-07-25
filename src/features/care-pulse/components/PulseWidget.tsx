@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { type ComponentProps, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
-import { colors, spacing } from '../../../styles';
+import { ScaledText as Text } from '../../../components/ScaledText';
+import { colors, iconColors, spacing } from '../../../styles';
 import { useCarePulseStore } from '../store/carePulse.store';
 import { PulseStatus, TriggerSource } from '../types';
 
@@ -17,10 +19,15 @@ export const PulseWidget = ({ triggerSource = 'HOME_WIDGET', onComplete }: Props
   const checkIn = useCarePulseStore((state) => state.checkIn);
   const scaledTypography = useScaledTypography();
 
-  const OPTIONS: { label: string; status: PulseStatus }[] = [
-    { label: t('pulseNormal'), status: 'NORMAL' },
-    { label: t('pulseTired'), status: 'TIRED' },
-    { label: t('pulseEmergency'), status: 'EMERGENCY' }
+  const OPTIONS: Array<{
+    label: string;
+    status: PulseStatus;
+    icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
+    color: string;
+  }> = [
+    { label: t('pulseNormal'), status: 'NORMAL', icon: 'emoticon-happy-outline', color: iconColors.emerald },
+    { label: t('pulseTired'), status: 'TIRED', icon: 'emoticon-neutral-outline', color: colors.textSecondary },
+    { label: t('pulseEmergency'), status: 'EMERGENCY', icon: 'account-alert-outline', color: iconColors.danger }
   ];
 
   const handlePress = async (status: PulseStatus) => {
@@ -36,7 +43,11 @@ export const PulseWidget = ({ triggerSource = 'HOME_WIDGET', onComplete }: Props
           onPress={() => handlePress(option.status)}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
-          <Text style={[styles.buttonText, { fontSize: scaledTypography.size.md }]}>{option.label}</Text>
+          <MaterialCommunityIcons name={option.icon} size={24} color={option.color} />
+          <Text style={[styles.buttonText, { color: option.color, fontSize: scaledTypography.size.md }]}>
+            {option.label}
+          </Text>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
         </Pressable>
       ))}
     </View>
@@ -46,10 +57,11 @@ export const PulseWidget = ({ triggerSource = 'HOME_WIDGET', onComplete }: Props
 function createPulseWidgetStyles() { return StyleSheet.create({
   container: { gap: spacing.md },
   button: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     paddingVertical: spacing.lg, paddingHorizontal: spacing.lg,
     borderRadius: 16, backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border, alignItems: 'center'
+    borderWidth: 1, borderColor: colors.border
   },
   buttonPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
-  buttonText: { fontWeight: '700', color: colors.textPrimary }
+  buttonText: { flex: 1, fontWeight: '700' }
 }); }

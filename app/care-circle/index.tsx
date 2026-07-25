@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
@@ -320,13 +319,6 @@ export default function CareCircleScreen() {
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <Stack.Screen options={screenOptions} />
       <Screen>
-      <LinearGradient
-        colors={[colors.primaryLight, colors.background, colors.background]}
-        locations={[0, 0.24, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={refresh}
@@ -376,16 +368,11 @@ export default function CareCircleScreen() {
             onPress={() => router.push('/care-circle/invite')}
             style={({ pressed }) => [styles.inviteButton, pressed && styles.inviteButtonPressed]}
           >
-            <LinearGradient
-              colors={['#5ba8a0', '#3d8f87']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.inviteButtonGradient}
-            >
-              <Ionicons name="person-add" size={20} color="#fff" />
+            <View style={styles.inviteButtonSurface}>
+              <Ionicons name="person-add" size={20} color={colors.primary} />
               <Text style={styles.inviteButtonText}>{t('inviteNew')}</Text>
-              <Ionicons name="arrow-forward-circle" size={22} color="rgba(255,255,255,0.8)" style={{ marginLeft: 'auto' }} />
-            </LinearGradient>
+              <Ionicons name="chevron-forward" size={20} color={colors.primary} style={{ marginLeft: 'auto' }} />
+            </View>
           </Pressable>
         </View>
 
@@ -412,14 +399,11 @@ export default function CareCircleScreen() {
                 activeOpacity={0.75}
               >
                 <View style={styles.cardHeader}>
-                  <LinearGradient
-                    colors={[colors.premium, colors.premiumDark]}
-                    style={styles.avatar}
-                  >
-                    <Text style={styles.avatarText}>
+                  <View style={[styles.avatar, { backgroundColor: colors.premiumLight }]}>
+                    <Text style={[styles.avatarText, { color: colors.premiumDark }]}>
                       {requesterName[0]?.toUpperCase() || '?'}
                     </Text>
-                  </LinearGradient>
+                  </View>
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardName}>{requesterName}</Text>
                     <View style={styles.cardBadge}>
@@ -485,9 +469,9 @@ export default function CareCircleScreen() {
                 activeOpacity={0.75}
               >
                 <View style={styles.cardHeader}>
-                  <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.avatar}>
-                    <Text style={styles.avatarText}>{name[0]?.toUpperCase() || '?'}</Text>
-                  </LinearGradient>
+                  <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.avatarText, { color: colors.primaryDark }]}>{name[0]?.toUpperCase() || '?'}</Text>
+                  </View>
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardName}>{name}</Text>
                     <View style={styles.pendingBadge}>
@@ -556,9 +540,9 @@ export default function CareCircleScreen() {
                   activeOpacity={0.75}
                 >
                   <View style={[styles.cardHeader, { alignItems: 'flex-start' }]}>
-                    <LinearGradient colors={['#10b981', '#059669']} style={styles.avatar}>
-                      <Text style={styles.avatarText}>{otherName[0]?.toUpperCase() || '?'}</Text>
-                    </LinearGradient>
+                    <View style={[styles.avatar, { backgroundColor: colors.emeraldLight }]}>
+                      <Text style={[styles.avatarText, { color: colors.emeraldDark }]}>{otherName[0]?.toUpperCase() || '?'}</Text>
+                    </View>
                     
                     <View style={styles.cardInfo}>
                       <Text style={styles.cardName} numberOfLines={1}>{otherName}</Text>
@@ -634,9 +618,9 @@ export default function CareCircleScreen() {
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setProfileTarget(null)} />
             <View style={[styles.profileSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
               <View style={styles.profileHandle} />
-              <LinearGradient colors={[colors.emerald, colors.emeraldDark]} style={styles.profileAvatar}>
-                <Text style={styles.profileAvatarText}>{profileTarget?.name?.[0]?.toUpperCase() || '?'}</Text>
-              </LinearGradient>
+              <View style={[styles.profileAvatar, { backgroundColor: colors.emeraldLight }]}>
+                <Text style={[styles.profileAvatarText, { color: colors.emeraldDark }]}>{profileTarget?.name?.[0]?.toUpperCase() || '?'}</Text>
+              </View>
               <Text style={styles.profileName}>{profileTarget?.name}</Text>
               {profileTarget?.relationship ? (
                 <View style={styles.profileBadge}>
@@ -871,19 +855,21 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textPrimary,
   },
   inviteButton: {
+    backgroundColor: colors.primaryLight,
     borderRadius: 16,
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   inviteButtonPressed: {
     opacity: 0.88,
     transform: [{ scale: 0.98 }],
   },
-  inviteButtonGradient: {
+  inviteButtonSurface: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
@@ -891,7 +877,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     paddingHorizontal: spacing.lg,
   },
   inviteButtonText: {
-    color: '#fff',
+    color: colors.primaryDark,
     fontSize: typography.size.md,
     fontWeight: '700',
   },
@@ -899,8 +885,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -910,8 +896,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.xs,
   },
   cardPending: {
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    backgroundColor: Platform.OS === 'android' ? '#F0FBF8' : 'rgba(255, 255, 255, 0.45)',
+    backgroundColor: colors.surface,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -924,11 +909,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   avatarText: {
     fontSize: typography.size.lg,
     fontWeight: '700',
-    color: '#fff'
+    color: colors.primaryDark,
   },
   cardInfo: {
     flex: 1

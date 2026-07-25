@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Animated, Dimensions, Modal, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { ScaledText as Text } from '../../src/components/ScaledText';
-import { colors, spacing, typography } from '../../src/styles';
+import { colors, iconColors, spacing, typography } from '../../src/styles';
 import { checkinApi } from '../../src/features/checkin/checkin.api';
 
 type Props = {
@@ -196,22 +196,34 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
                     </Text>
 
                     <Pressable onPress={() => handleFabCheckin('tired')} style={styles.actionButton}>
-                      <Text style={styles.actionText}>{t('checkinTired')}</Text>
-                      <Text style={styles.actionSubText}>{t('checkinTiredSub')}</Text>
+                      <Ionicons name="remove-circle-outline" size={24} color={colors.textSecondary} />
+                      <View style={styles.actionCopy}>
+                        <Text style={styles.actionText}>{t('checkinTired')}</Text>
+                        <Text style={styles.actionSubText}>{t('checkinTiredSub')}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                     </Pressable>
 
-                    <Pressable onPress={() => handleFabCheckin('very_tired')} style={[styles.actionButton, styles.actionButtonDanger]}>
-                      <Text style={[styles.actionText, styles.actionTextDanger]}>{t('checkinVeryTired')}</Text>
-                      <Text style={[styles.actionSubText, styles.actionSubTextDanger]}>{t('checkinVeryTiredSub')}</Text>
+                    <Pressable onPress={() => handleFabCheckin('very_tired')} style={styles.actionButton}>
+                      <Ionicons name="sad-outline" size={24} color={iconColors.danger} />
+                      <View style={styles.actionCopy}>
+                        <Text style={[styles.actionText, styles.actionTextDanger]}>{t('checkinVeryTired')}</Text>
+                        <Text style={[styles.actionSubText, styles.actionSubTextDanger]}>{t('checkinVeryTiredSub')}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                     </Pressable>
 
                     <Pressable
                       onPress={handleAlertFamily}
                       disabled={alerting}
-                      style={[styles.actionButton, { backgroundColor: '#fef2f2', borderWidth: 1.5, borderColor: '#f87171' }]}
+                      style={styles.actionButton}
                     >
-                      <Text style={[styles.actionText, { color: '#dc2626' }]}>{t('emergencyAlertCaregiver')}</Text>
-                      <Text style={[styles.actionSubText, { color: '#ef4444' }]}>{t('emergencyAlertCaregiverSub')}</Text>
+                      <Ionicons name="people-outline" size={24} color={iconColors.danger} />
+                      <View style={styles.actionCopy}>
+                        <Text style={[styles.actionText, styles.actionTextDanger]}>{t('emergencyAlertCaregiver')}</Text>
+                        <Text style={[styles.actionSubText, styles.actionSubTextDanger]}>{t('emergencyAlertCaregiverSub')}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                     </Pressable>
 
                     <Pressable onPress={close} style={styles.cancelButton}>
@@ -259,15 +271,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   sheetWrapper: { width: '100%', maxHeight: '85%' },
-  sheet: { backgroundColor: colors.surface, borderRadius: 20 },
+  sheet: { backgroundColor: colors.surface, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
   sheetContent: { padding: spacing.lg, gap: spacing.sm },
   sheetTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.textPrimary },
   sheetSubtitle: { fontSize: typography.size.sm, color: colors.textSecondary, marginBottom: spacing.xs },
-  actionButton: { backgroundColor: colors.surfaceMuted, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderRadius: 12 },
-  actionButtonDanger: { backgroundColor: '#fef2f2', borderWidth: 1.5, borderColor: '#fecaca' },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionCopy: { flex: 1 },
   actionSubText: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
-  actionSubTextDanger: { color: '#dc2626' },
-  actionTextDanger: { color: '#dc2626' },
+  actionSubTextDanger: { color: iconColors.danger },
+  actionTextDanger: { color: iconColors.danger },
   actionText: { fontSize: typography.size.md, fontWeight: '600', color: colors.textPrimary },
   cancelButton: { paddingVertical: spacing.sm, alignItems: 'center' },
   cancelText: { color: colors.textSecondary, fontWeight: '600' },
@@ -280,10 +302,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  resultIconSuccess: {
-    backgroundColor: '#ecfdf5',
-  },
-  resultIconWarning: {
-    backgroundColor: '#fef2f2',
-  },
+  resultIconSuccess: {},
+  resultIconWarning: {},
 });

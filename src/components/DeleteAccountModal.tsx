@@ -6,11 +6,11 @@ import {
     Modal,
     Pressable,
     StyleSheet,
-    Text,
     TextInput,
     View
 } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { ScaledText as Text } from './ScaledText';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 

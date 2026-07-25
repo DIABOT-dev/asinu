@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';

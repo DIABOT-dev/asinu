@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRootNavigationState } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, InteractionManager, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Image, InteractionManager, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { ScaledText as Text } from '../src/components/ScaledText';
@@ -40,6 +40,7 @@ export default function Index() {
 
   const logoScale   = useRef(new Animated.Value(0.75)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
+  const logoFloat   = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
 
   const [consentReady, setConsentReady] = useState(false);
@@ -53,6 +54,15 @@ export default function Index() {
     ]).start(() =>
       Animated.timing(textOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start()
     );
+
+    const floatLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoFloat, { toValue: -7, duration: 950, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(logoFloat, { toValue: 0, duration: 950, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    floatLoop.start();
+    return () => floatLoop.stop();
   }, []);
 
   useEffect(() => {
@@ -97,25 +107,18 @@ export default function Index() {
 
   return (
     <LinearGradient
-      colors={['#0dd4bc', '#08b8a2', '#076b5e']}
+      colors={['#dff7f3', '#effbf9', '#fbfbfb']}
       start={{ x: 0.2, y: 0 }}
       end={{ x: 0.8, y: 1 }}
       style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xl }]}
     >
-      {/* Decorative background circles */}
-      <View style={styles.circleTopRight} />
-      <View style={styles.circleBottomLeft} />
-      <View style={styles.circleCenter} />
-
-      {/* Logo */}
-      <Animated.View style={{ opacity: logoOpacity, transform: [{ scale: logoScale }] }}>
-        <View style={styles.logoShadow}>
-          <Image
-            source={require('../assets/icon.png')}
-            style={styles.logo}
-            resizeMode="cover"
-          />
-        </View>
+      {/* Light splash surface with the same Asinu mascot used in the app. */}
+      <Animated.View style={{ opacity: logoOpacity, transform: [{ scale: logoScale }, { translateY: logoFloat }] }}>
+        <Image
+          source={require('../assets/asinu_chat_sticker.png')}
+          style={styles.sticker}
+          resizeMode="contain"
+        />
       </Animated.View>
 
       {/* Brand */}
@@ -149,50 +152,9 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     overflow: 'hidden',
   },
-  // Decorative circles
-  circleTopRight: {
-    position: 'absolute',
-    top: -100,
-    right: -100,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  circleBottomLeft: {
-    position: 'absolute',
-    bottom: -80,
-    left: -80,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  circleCenter: {
-    position: 'absolute',
-    top: '30%',
-    left: -120,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  // Logo
-  logoShadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.28,
-    shadowRadius: 22,
-    elevation: 18,
-    borderRadius: 36,
-    backgroundColor: 'transparent',
-  },
-  logo: {
-    width: 128,
-    height: 128,
-    borderRadius: 36,
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.25)',
+  sticker: {
+    width: 156,
+    height: 156,
   },
   // Brand
   brandWrap: {
@@ -207,26 +169,26 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 44,
     fontWeight: '900',
-    color: '#ffffff',
+    color: '#155e58',
     letterSpacing: 5,
   },
   liteBadge: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.72)',
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: 'rgba(21,94,88,0.14)',
     marginTop: 8,
   },
   liteText: {
-    color: '#ffffff',
+    color: '#287b72',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
   },
   tagline: {
-    color: 'rgba(255,255,255,0.72)',
+    color: '#6b817f',
     fontSize: 15,
     fontWeight: '400',
     letterSpacing: 0.3,
@@ -241,6 +203,6 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 5,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#159f91',
   },
 });

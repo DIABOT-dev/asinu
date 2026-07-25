@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -266,21 +265,15 @@ export default function WalletScreen() {
       >
         {/* ══ Header ══ */}
         <Animated.View entering={FadeIn.duration(500)}>
-          <LinearGradient
-            colors={['#3d8b84', '#2a7870', '#1e6b63']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={styles.header}
-          >
-            <View style={styles.decorCircle1} />
-            <View style={styles.decorCircle2} />
+          <View style={styles.header}>
 
             <View style={styles.headerRow}>
               <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')} hitSlop={12} style={styles.backBtn}>
-                <Ionicons name="arrow-back" size={22} color="#fff" />
+                <Ionicons name="arrow-back" size={22} color={colors.primaryDark} />
               </Pressable>
               <ScaledText style={styles.headerTitle}>{t('title')}</ScaledText>
               <Pressable onPress={onRefresh} hitSlop={12} style={styles.backBtn}>
-                <Ionicons name="refresh" size={20} color="#fff" />
+                <Ionicons name="refresh" size={20} color={colors.primaryDark} />
               </Pressable>
             </View>
 
@@ -292,7 +285,7 @@ export default function WalletScreen() {
                   <ScaledText style={styles.balanceLabel}>{t('balance')}</ScaledText>
                   {loadingBalance ? (
                     <View style={{ marginTop: 8 }}>
-                      <RippleLoader size={32} color="rgba(255,255,255,0.8)" />
+                      <RippleLoader size={32} color={colors.primary} />
                     </View>
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 2 }}>
@@ -302,9 +295,8 @@ export default function WalletScreen() {
                   )}
                 </View>
               </View>
-              <View style={styles.balanceShine} />
             </Animated.View>
-          </LinearGradient>
+          </View>
         </Animated.View>
 
         {/* ══ Top-up section ══ */}
@@ -389,16 +381,16 @@ export default function WalletScreen() {
                 onPress={handleGenerateQR}
                 disabled={creatingQR}
               >
-                <LinearGradient colors={['#3d8b84', '#2a7870']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.generateBtnInner}>
+                <View style={styles.generateBtnInner}>
                   {creatingQR ? (
-                    <RippleLoader size={28} color="#fff" />
+                    <RippleLoader size={28} color={colors.primary} />
                   ) : (
                     <>
-                      <Ionicons name="qr-code-outline" size={22} color="#fff" />
+                      <Ionicons name="qr-code-outline" size={22} color={colors.primaryDark} />
                       <ScaledText style={styles.generateBtnText}>{t('generateQR')}</ScaledText>
                     </>
                   )}
-                </LinearGradient>
+                </View>
               </Pressable>
             </Animated.View>
           </View>
@@ -539,17 +531,9 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       paddingTop: topInset + spacing.sm,
       paddingBottom: spacing.xl,
       paddingHorizontal: spacing.lg,
-      overflow: 'hidden',
-    },
-    decorCircle1: {
-      position: 'absolute', top: -50, right: -50,
-      width: 180, height: 180, borderRadius: 90,
-      backgroundColor: 'rgba(255,255,255,0.07)',
-    },
-    decorCircle2: {
-      position: 'absolute', bottom: 10, left: -40,
-      width: 120, height: 120, borderRadius: 60,
-      backgroundColor: 'rgba(255,255,255,0.04)',
+      backgroundColor: colors.primaryLight,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
     },
     headerRow: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -557,32 +541,30 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
     },
     backBtn: {
       width: 38, height: 38, borderRadius: 19,
-      backgroundColor: 'rgba(255,255,255,0.18)',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
       alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: { color: '#fff', fontSize: scaledTypography.size.md, fontWeight: '700' },
+    headerTitle: { color: colors.textPrimary, fontSize: scaledTypography.size.md, fontWeight: '700' },
 
     // Balance card (inside header)
     balanceCard: {
-      backgroundColor: 'rgba(255,255,255,0.14)',
+      backgroundColor: colors.surface,
       borderRadius: 20,
       padding: spacing.lg,
       flexDirection: 'row',
       alignItems: 'center',
-      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     balanceCardLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
-    balanceLabel: { color: 'rgba(255,255,255,0.7)', fontSize: scaledTypography.size.xs, marginBottom: 2 },
+    balanceLabel: { color: colors.textSecondary, fontSize: scaledTypography.size.xs, marginBottom: 2 },
     balanceValue: {
-      color: '#fff', fontSize: scaledTypography.size.lg + 2, fontWeight: '800',
+      color: colors.primaryDark, fontSize: scaledTypography.size.lg + 2, fontWeight: '800',
       lineHeight: Math.round((scaledTypography.size.lg + 2) * 1.3),
     },
-    balanceUnit: { color: 'rgba(255,255,255,0.85)', fontSize: scaledTypography.size.sm, fontWeight: '600', marginBottom: 3 },
-    balanceShine: {
-      position: 'absolute', right: -20, top: -20,
-      width: 100, height: 100, borderRadius: 50,
-      backgroundColor: 'rgba(255,255,255,0.06)',
-    },
+    balanceUnit: { color: colors.textSecondary, fontSize: scaledTypography.size.sm, fontWeight: '600', marginBottom: 3 },
 
     // ── Section card ────────────────────────────────────
     section: {
@@ -657,12 +639,13 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
     errorText: { color: colors.danger, fontSize: scaledTypography.size.xs, flex: 1 },
 
     // ── Generate button ──────────────────────────────────
-    generateBtn: { borderRadius: 14, overflow: 'hidden', marginTop: spacing.xs },
+    generateBtn: { borderRadius: 14, marginTop: spacing.xs, borderWidth: 1, borderColor: colors.border },
     generateBtnInner: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       gap: spacing.sm, paddingVertical: spacing.md + 4, minHeight: 52,
+      borderRadius: 14, backgroundColor: colors.primaryLight,
     },
-    generateBtnText: { color: '#fff', fontSize: scaledTypography.size.sm, fontWeight: '700' },
+    generateBtnText: { color: colors.primaryDark, fontSize: scaledTypography.size.sm, fontWeight: '700' },
 
     // ── QR section ───────────────────────────────────────
     qrWrapper: { alignItems: 'center', marginBottom: spacing.md },

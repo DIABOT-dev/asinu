@@ -13,13 +13,13 @@ export const Card = React.memo(({ style, children, padded = true, ...rest }: Car
     card: {
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 2
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      elevation: 1
     },
     padded: {
       padding: spacing.lg

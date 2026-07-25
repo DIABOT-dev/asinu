@@ -349,7 +349,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     filterChip: {
       paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
       borderRadius: radius.full, backgroundColor: colors.surface,
-      borderWidth: 1.5, borderColor: colors.border,
+      borderWidth: 1, borderColor: colors.border,
     },
     filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     filterChipText: { fontSize: typography.size.xs, color: colors.textSecondary, fontWeight: '600' },
@@ -359,7 +359,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     dateInputWrap: { flex: 1, gap: 4 },
     dateLabel: { fontSize: typography.size.xs, color: colors.textSecondary, fontWeight: '600' },
     dateInput: {
-      backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border,
+      backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
       borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
       fontSize: typography.size.sm, color: colors.textPrimary,
     },
@@ -369,7 +369,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     emptyDesc: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: spacing.xxl },
     noteCard: {
       backgroundColor: colors.surface, borderRadius: radius.xl,
-      padding: spacing.lg, borderWidth: 1.5, borderColor: colors.border, gap: spacing.sm,
+      padding: spacing.lg, borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
     },
     noteHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     noteDate: { fontSize: typography.size.xs, color: colors.textSecondary, flex: 1 },
@@ -388,7 +388,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     pageBtn: {
       width: 30, height: 30, borderRadius: radius.sm,
       alignItems: 'center', justifyContent: 'center',
-      backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border,
+      backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
     },
     pageBtnActive: {
       backgroundColor: colors.primary, borderColor: colors.primary,
@@ -414,7 +414,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row', alignItems: 'center', gap: 4,
       paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
       borderRadius: radius.md, backgroundColor: colors.surface,
-      borderWidth: 1.5, borderColor: colors.border,
+      borderWidth: 1, borderColor: colors.border,
     },
     pageSizeDropdownText: {
       fontSize: typography.size.xs, color: colors.textSecondary, fontWeight: '600',

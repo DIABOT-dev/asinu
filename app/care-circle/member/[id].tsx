@@ -798,13 +798,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       lineHeight: 20,
     },
     alertItem: {
-      borderLeftWidth: 3,
-      borderLeftColor: '#f59e0b',
-      paddingLeft: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      padding: spacing.sm,
       gap: 2,
     },
     alertItemDanger: {
-      borderLeftColor: '#ef4444',
+      backgroundColor: '#fef2f2',
     },
     alertTitle: {
       fontSize: typography.size.sm,

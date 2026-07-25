@@ -1,6 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
@@ -225,14 +224,7 @@ export default function InviteScreen() {
           ),
         }}
       />
-      <View style={{ flex: 1 }}>
-        <LinearGradient
-          colors={['#e0f7f4', '#f0fbf9', '#f8fafc', '#f8fafc']}
-          locations={[0, 0.2, 0.45, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFillObject}
-        />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ScrollView
           style={{ flex: 1, backgroundColor: 'transparent' }}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
@@ -276,8 +268,8 @@ export default function InviteScreen() {
                 disabled={searchLoading}
               >
                 {searchLoading
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Ionicons name="search" size={20} color="#fff" />
+                  ? <ActivityIndicator size="small" color={colors.primary} />
+                  : <Ionicons name="search" size={20} color={colors.primary} />
                 }
               </Pressable>
             </View>
@@ -440,9 +432,12 @@ export default function InviteScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.primaryDark} />
             ) : (
-              <Text style={styles.sendBtnText}>{t('sendInvite')}</Text>
+              <>
+                <MaterialCommunityIcons name="send-outline" size={18} color={colors.primaryDark} />
+                <Text style={styles.sendBtnText}>{t('sendInvite')}</Text>
+              </>
             )}
           </Pressable>
 
@@ -450,6 +445,7 @@ export default function InviteScreen() {
             style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.7 }]}
             onPress={() => router.back()}
           >
+            <MaterialCommunityIcons name="close" size={18} color={colors.textSecondary} />
             <Text style={styles.cancelBtnText}>{tc('cancel')}</Text>
           </Pressable>
           </View>
@@ -570,15 +566,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     searchBtn: {
       width: 48,
       height: 48,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryLight,
       borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: colors.primary,
-      shadowOpacity: 0.3,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 3,
     },
 
     // ── Found User ──
@@ -711,35 +704,35 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: spacing.sm,
       paddingVertical: spacing.lg,
       paddingHorizontal: spacing.xl,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryLight,
       borderRadius: 14,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     sendBtnText: {
-      color: '#ffffff',
+      color: colors.primaryDark,
       fontSize: typography.size.md,
       fontWeight: '700',
       textAlign: 'center',
     },
     cancelBtn: {
+      flexDirection: 'row',
+      gap: spacing.sm,
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: spacing.lg,
       borderRadius: 14,
-      borderWidth: 1.5,
-      borderColor: colors.danger + '60',
-      backgroundColor: colors.danger + '0d',
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
     },
     cancelBtnText: {
       fontSize: typography.size.md,
       fontWeight: '700',
-      color: colors.danger,
+      color: colors.textSecondary,
     },
     optionalBadge: {
       fontSize: typography.size.xxs,
@@ -811,7 +804,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 72,
       height: 72,
       borderRadius: 36,
-      backgroundColor: colors.premiumLight,
       justifyContent: 'center',
       alignItems: 'center',
     },

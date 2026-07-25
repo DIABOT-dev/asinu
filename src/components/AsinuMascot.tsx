@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useScaledFontSize } from '../hooks/useScaledTypography';
+import { ScaledText as Text } from './ScaledText';
 
 const MASCOT_URL = 'https://github.com/DIABOT-dev/resource/blob/main/asinu-mascot.png?raw=true';
 

@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -326,19 +325,15 @@ export default function SubscriptionScreen() {
 
         {/* ── Header ── */}
         <Animated.View entering={FadeInDown.duration(400)}>
-          <LinearGradient
-            colors={[colors.premium, colors.premiumDark]}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={styles.header}
-          >
+          <View style={styles.header}>
             <Pressable style={styles.backBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={22} color="#fff" />
+              <Ionicons name="arrow-back" size={22} color={colors.premiumDark} />
             </Pressable>
             <Text style={styles.headerTitle}>{t('title')}</Text>
             <Animated.View style={crownAnimStyle}>
-              <MaterialCommunityIcons name="crown" size={44} color="#fff" style={styles.crownIcon} />
+              <MaterialCommunityIcons name="crown" size={44} color={colors.premiumDark} style={styles.crownIcon} />
             </Animated.View>
-          </LinearGradient>
+          </View>
         </Animated.View>
 
         {/* ── Current plan ── */}
@@ -405,12 +400,12 @@ export default function SubscriptionScreen() {
 
           <View style={!isXLarge ? { flex: 1 } : undefined}>
             <View style={[styles.planCard, styles.premiumPlanCard, !isXLarge && { flex: 1 }]}>
-              <LinearGradient colors={[colors.premium, colors.premiumDark]} style={styles.premiumCardHeader}>
-                <MaterialCommunityIcons name="crown" size={28} color="#fff" />
+              <View style={styles.premiumCardHeader}>
+                <MaterialCommunityIcons name="crown" size={28} color={colors.premiumDark} />
                 <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
                 <Text style={styles.premiumPlanPrice}>199K</Text>
                 <Text style={styles.premiumPlanPriceUnit}>{t('perMonth')}</Text>
-              </LinearGradient>
+              </View>
               <View style={styles.planCardBody}>
                 {premiumFeatures.map((f, i) => (
                   <FeatureRow key={i} icon={f.icon} text={f.text} premium />
@@ -486,22 +481,18 @@ export default function SubscriptionScreen() {
             {/* CTA button with pulse */}
             <Animated.View style={ctaAnimStyle}>
               <Pressable style={styles.premiumCTABtn} onPress={handleOpenPayMethod} disabled={creatingQR || !!qr || walletPayResult === 'success'}>
-                <LinearGradient
-                  colors={[colors.premium, colors.premiumDark]}
-                  start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
-                  style={styles.premiumCTAGradient}
-                >
+                <View style={styles.premiumCTAGradient}>
                   {creatingQR
-                    ? <ActivityIndicator color="#fff" size="small" />
+                    ? <ActivityIndicator color={colors.premiumDark} size="small" />
                     : (
                       <View style={styles.ctaRow}>
-                        <MaterialCommunityIcons name="crown" size={18} color="#fff" />
+                        <MaterialCommunityIcons name="crown" size={18} color={colors.premiumDark} />
                         <Text style={styles.premiumCTAText}>
                           {t('upgradeNow')} · {formatVND(activePlan.price)}đ
                         </Text>
                       </View>
                     )}
-                </LinearGradient>
+                </View>
               </Pressable>
             </Animated.View>
           </Animated.View>
@@ -773,9 +764,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       paddingHorizontal: spacing.lg,
       alignItems: 'center',
       gap: spacing.xs,
+      backgroundColor: colors.primaryLight,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
     },
     backBtn: { position: 'absolute', left: spacing.lg, top: topInset + spacing.md, padding: spacing.xs },
-    headerTitle: { color: '#fff', fontSize: typography.size.lg, fontWeight: '800' },
+    headerTitle: { color: colors.premiumDark, fontSize: typography.size.lg, fontWeight: '800' },
     crownIcon: { marginTop: spacing.xs },
     card: {
       backgroundColor: colors.surface,
@@ -785,6 +779,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       padding: spacing.lg,
       shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6,
       shadowOffset: { width: 0, height: 2 }, elevation: 2,
+      borderWidth: 1, borderColor: colors.border,
     },
     cardTitle: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.md },
     planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' },
@@ -793,7 +788,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.xl,
     },
     freeBadge: { backgroundColor: colors.border },
-    premiumBadge: { backgroundColor: colors.premiumLight, borderWidth: 1.5, borderColor: colors.premium },
+    premiumBadge: { backgroundColor: colors.premiumLight, borderWidth: 1, borderColor: colors.border },
     planBadgeText: { fontSize: typography.size.sm, fontWeight: '700' },
     freeBadgeText: { color: colors.textSecondary },
     premiumBadgeText: { color: colors.premiumDark },
@@ -820,8 +815,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       shadowOffset: { width: 0, height: 3 }, elevation: 3,
       backgroundColor: colors.surface,
     },
-    freePlanCard: { borderWidth: 1.5, borderColor: colors.border },
-    premiumPlanCard: { borderWidth: 1.5, borderColor: colors.premium },
+    freePlanCard: { borderWidth: 1, borderColor: colors.border },
+    premiumPlanCard: { borderWidth: 1, borderColor: colors.border },
     planCardHeader: {
       alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.sm,
       backgroundColor: colors.surface, gap: 4,
@@ -832,16 +827,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     planPriceUnit: { fontSize: typography.size.xs, color: colors.textSecondary },
     premiumCardHeader: {
       alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.sm, gap: 4,
+      backgroundColor: colors.premiumLight,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
     },
-    premiumPlanTitle: { fontSize: typography.size.md, fontWeight: '800', color: '#fff' },
-    premiumPlanPrice: { fontSize: typography.size.xl, fontWeight: '800', color: '#fff' },
-    premiumPlanPriceUnit: { fontSize: typography.size.xs, color: 'rgba(255,255,255,0.85)' },
+    premiumPlanTitle: { fontSize: typography.size.md, fontWeight: '800', color: colors.premiumDark },
+    premiumPlanPrice: { fontSize: typography.size.xl, fontWeight: '800', color: colors.premiumDark },
+    premiumPlanPriceUnit: { fontSize: typography.size.xs, color: colors.textSecondary },
     planCardBody: { padding: spacing.md, gap: 2 },
     planCTABtn: {
       margin: spacing.md, marginTop: 0, paddingVertical: spacing.sm,
       borderRadius: radius.lg, alignItems: 'center',
     },
-    freeCTABtn: { borderWidth: 1.5, borderColor: colors.border, backgroundColor: 'transparent' },
+    freeCTABtn: { borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' },
     freeCTAText: { fontSize: typography.size.xs, fontWeight: '700', color: colors.textSecondary },
     premiumActiveBadge: {
       flexDirection: 'row', gap: 4, justifyContent: 'center',
@@ -851,10 +848,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     planGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
     planGridColumn: { gap: spacing.sm, marginBottom: spacing.lg },
 
-    premiumCTABtn: { borderRadius: radius.lg, overflow: 'hidden' },
-    premiumCTAGradient: { paddingVertical: spacing.md, alignItems: 'center' },
+    premiumCTABtn: { borderRadius: radius.lg },
+    premiumCTAGradient: { paddingVertical: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.premiumLight },
     ctaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    premiumCTAText: { fontSize: typography.size.sm, fontWeight: '800', color: '#fff' },
+    premiumCTAText: { fontSize: typography.size.sm, fontWeight: '800', color: colors.premiumDark },
 
     qrImage: { width: '100%', height: 220, marginBottom: spacing.md },
     countdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: spacing.md },
@@ -905,7 +902,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       flexDirection: 'row', alignItems: 'center', gap: spacing.md,
       padding: spacing.lg, borderRadius: 16,
       backgroundColor: colors.surfaceMuted,
-      borderWidth: 1.5, borderColor: colors.border,
+      borderWidth: 1, borderColor: colors.border,
     },
     payMethodIcon: {
       width: 44, height: 44, borderRadius: 22,
@@ -934,7 +931,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     confirmActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
     confirmCancelBtn: {
       flex: 1, paddingVertical: spacing.md, borderRadius: 12,
-      borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
+      borderWidth: 1, borderColor: colors.border, alignItems: 'center',
     },
     confirmCancelText: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textSecondary },
     confirmOkBtn: {

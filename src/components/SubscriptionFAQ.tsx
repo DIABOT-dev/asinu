@@ -12,7 +12,6 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
@@ -44,16 +43,11 @@ export function SubscriptionFAQ() {
 
   return (
     <View style={styles.card}>
-      {/* Header is a gradient pill — tapping it expands/collapses the whole list. */}
+      {/* Header expands and collapses the question list. */}
       <Pressable onPress={toggleBlock} accessibilityRole="button">
-        <LinearGradient
-          colors={['#fef3c7', '#fde68a']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, blockOpen && styles.headerOpen]}
-        >
+        <View style={[styles.header, blockOpen && styles.headerOpen]}>
           <View style={styles.headerIconWrap}>
-            <Ionicons name="help-circle" size={22} color="#d97706" />
+            <Ionicons name="help-circle" size={22} color={colors.premiumDark} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>{t('faqTitle')}</Text>
@@ -64,9 +58,9 @@ export function SubscriptionFAQ() {
           <Ionicons
             name={blockOpen ? 'chevron-up-circle' : 'chevron-down-circle'}
             size={22}
-            color="#d97706"
+            color={colors.premiumDark}
           />
-        </LinearGradient>
+        </View>
       </Pressable>
 
       {blockOpen && (
@@ -116,7 +110,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: colors.border,
     backgroundColor: colors.surface,
   },
   header: {
@@ -128,20 +122,19 @@ const styles = StyleSheet.create({
   },
   headerOpen: {
     borderBottomWidth: 1,
-    borderBottomColor: '#fde68a',
+    borderBottomColor: colors.border,
   },
   headerIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#fffbeb',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#92400e',
+    color: colors.premiumDark,
   },
   headerHint: {
     fontSize: 12,
@@ -161,22 +154,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   qRowOpen: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: colors.premiumLight,
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: colors.border,
   },
   qNumberPill: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#fde68a',
+    backgroundColor: colors.premiumLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   qNumberText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#92400e',
+    color: colors.premiumDark,
   },
   qHead: {
     flexDirection: 'row',

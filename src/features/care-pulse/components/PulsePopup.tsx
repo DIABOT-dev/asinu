@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
+import { ScaledText as Text } from '../../../components/ScaledText';
 import { colors, spacing } from '../../../styles';
 import { useCarePulseStore } from '../store/carePulse.store';
 import { PulseWidget } from './PulseWidget';
