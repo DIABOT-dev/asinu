@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -18,6 +17,7 @@ import {
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DropdownOption } from '../../src/components/Dropdown';
+import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { showToast } from '../../src/stores/toast.store';
@@ -69,6 +69,7 @@ export default function InviteScreen() {
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
   const profile = useAuthStore(state => state.profile);
   const { createInvitation, loading, invitations, connections, fetchInvitations, fetchConnections } = useCareCircle();
 
@@ -106,7 +107,7 @@ export default function InviteScreen() {
       return;
     }
 
-    Alert.alert(t('discardInviteTitle'), t('discardInviteMessage'), [
+    showAlert(t('discardInviteTitle'), t('discardInviteMessage'), [
       { text: t('continueEditing'), style: 'cancel' },
       { text: t('leaveWithoutSaving'), style: 'destructive', onPress: () => router.back() },
     ]);
@@ -237,15 +238,14 @@ export default function InviteScreen() {
     <>
       <Stack.Screen
         options={{
-          headerShown: true,
-          title: t('inviteTitle'),
-          headerStyle: { backgroundColor: colors.primaryLight },
-          headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
-          headerTitleAlign: 'center',
-          headerShadowVisible: false,
-          headerLeft: () => <ScreenBackButton onPress={handleExit} />,
+          headerShown: false,
         }}
       />
+      <View style={[styles.screenHeader, { paddingTop: insets.top }]}>
+        <ScreenBackButton onPress={handleExit} />
+        <Text style={styles.screenHeaderTitle}>{t('inviteTitle')}</Text>
+        <View style={styles.screenHeaderSpacer} />
+      </View>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ScrollView
           style={{ flex: 1, backgroundColor: 'transparent' }}
@@ -494,6 +494,7 @@ export default function InviteScreen() {
           </View>
         </View>
       </Modal>
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
     </>
   );
 }
@@ -503,6 +504,24 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     scrollContent: {
       padding: spacing.xl,
       gap: spacing.md,
+    },
+    screenHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.md,
+      backgroundColor: colors.primaryLight,
+    },
+    screenHeaderTitle: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: typography.size.lg,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    screenHeaderSpacer: {
+      width: 40,
+      height: 40,
     },
     // ── Hero ──
     heroCard: {
