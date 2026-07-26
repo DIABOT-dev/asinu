@@ -3,12 +3,13 @@ import { DoctorConnectButton } from '../../../src/components/DoctorConnectButton
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { careCircleApi, type MemberHealthSummary } from '../../../src/features/care-circle';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { colors, spacing } from '../../../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
+import { ScreenBackButton } from '../../../src/components/ScreenHeaderButton';
 
 // ── Log type config ──────────────────────────────────────────────
 const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {
@@ -185,11 +186,7 @@ export default function MemberLogsScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
           headerShadowVisible: false,
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          ),
+          headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
         }}
       />
 

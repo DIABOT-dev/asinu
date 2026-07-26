@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from '../src/components/MedicalDisclaimerModal';
@@ -12,6 +11,7 @@ import { navigation } from '../src/lib/navigation';
 import { colors } from '../src/styles';
 import { useThemeColors } from '../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
+import { ScreenBackButton } from '../src/components/ScreenHeaderButton';
 
 export default function AiChatScreen() {
   const { t } = useTranslation('chat');
@@ -124,11 +124,7 @@ export default function AiChatScreen() {
     headerStyle: { backgroundColor: colors.background },
     headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
     headerShadowVisible: false,
-    headerLeft: () => (
-      <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, marginLeft: 0 }}>
-        <Ionicons name="arrow-back" size={26} color={colors.primary} />
-      </TouchableOpacity>
-    ),
+    headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
   }), [router, t, isDark]);
 
   return (
@@ -159,4 +155,3 @@ export default function AiChatScreen() {
     </>
   );
 }
-

@@ -25,7 +25,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
@@ -41,6 +40,7 @@ import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 const MAX_TRIAGE_QUESTIONS = 8;
 
@@ -444,15 +444,13 @@ export default function CheckinScreen() {
           const handlePress = canGoBackStep
             ? () => { setPendingStatus(null); setScreen('status'); }
             : () => router.back();
-          return (
-            <TouchableOpacity onPress={handlePress} style={{ padding: 10 }}>
-              <Ionicons
-                name={canGoBackStep ? 'arrow-back' : 'close'}
-                size={24}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
-          );
+          return canGoBackStep
+            ? <ScreenBackButton onPress={handlePress} />
+            : (
+              <Pressable onPress={handlePress} style={{ padding: 10 }}>
+                <Ionicons name="close" size={24} color={colors.primary} />
+              </Pressable>
+            );
         },
       }} />
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />

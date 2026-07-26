@@ -27,6 +27,7 @@ import { PLANS, PlanOption, formatVND, type Plan } from '../../src/features/subs
 import { ApiError, apiClient } from '../../src/lib/apiClient';
 import { colors, radius, spacing } from '../../src/styles';
 import { showToast } from '../../src/stores/toast.store';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 type GiftQR = {
   order_code: string;
@@ -49,15 +50,11 @@ type WalletResult =
 function GiftHeader({ title, topInset }: { title: string; topInset: number }) {
   return (
     <View style={[styles.header, { paddingTop: topInset + spacing.md }]}>
-      <Pressable
+      <ScreenBackButton
         accessibilityLabel="Quay lại"
-        accessibilityRole="button"
-        hitSlop={12}
         onPress={() => router.back()}
         style={[styles.backBtn, { top: topInset + spacing.md }]}
-      >
-        <Ionicons name="arrow-back" size={22} color={colors.premiumDark} />
-      </Pressable>
+      />
       <Text style={styles.headerTitle}>{title}</Text>
     </View>
   );
@@ -397,7 +394,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backBtn: { position: 'absolute', left: spacing.lg, padding: spacing.xs },
+  backBtn: { position: 'absolute', left: spacing.lg },
   headerTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '800' },
 
   scroll: { padding: spacing.lg, gap: spacing.md },

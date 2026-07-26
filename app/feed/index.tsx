@@ -13,6 +13,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { showToast } from '../../src/stores/toast.store';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
@@ -142,9 +143,7 @@ export default function FeedListScreen() {
     <Screen>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </Pressable>
+        <ScreenBackButton onPress={() => router.back()} />
         <Text style={styles.headerTitle}>Bản tin sức khỏe</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -300,9 +299,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  backBtn: {
-    padding: 4,
   },
   headerTitle: {
     fontSize: 18,

@@ -15,7 +15,6 @@ import {
   Switch,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -37,6 +36,7 @@ import {
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 type TimeSlot = 'morning' | 'afternoon' | 'evening';
 
@@ -500,11 +500,7 @@ export default function ReminderConfigScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
           headerShadowVisible: false,
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          ),
+          headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
         }}
       />
       {/* Time Picker */}

@@ -25,6 +25,7 @@ import { careCircleApi, useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing, brandColors} from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 type SearchUser = {
   id: string;
@@ -242,11 +243,7 @@ export default function InviteScreen() {
           headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
           headerTitleAlign: 'center',
           headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable onPress={handleExit} style={styles.headerBackButton} hitSlop={8}>
-              <Ionicons name="arrow-back" size={23} color={colors.primary} />
-            </Pressable>
-          ),
+          headerLeft: () => <ScreenBackButton onPress={handleExit} />,
         }}
       />
       <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -507,13 +504,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       padding: spacing.xl,
       gap: spacing.md,
     },
-    headerBackButton: {
-      width: 36,
-      height: 36,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
     // ── Hero ──
     heroCard: {
       borderRadius: radius.xl,

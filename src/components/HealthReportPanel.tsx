@@ -1,5 +1,5 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -13,36 +13,69 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { ScaledText as Text } from './ScaledText';
 import { checkinApi, type HealthReportData } from '../features/checkin/checkin.api';
+import { treeApi } from '../features/tree/tree.api';
+import type { TreeSummary } from '../features/tree/tree.store';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { ScreenBackButton } from './ScreenHeaderButton';
 
 type Period = 'week' | 'month';
+type SeverityKey = 'low' | 'medium' | 'high';
+type StatusKey = 'fine' | 'tired' | 'very_tired' | 'specific_concern';
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-const SEVERITY_COLORS = {
+const SEVERITY_COLORS: Record<SeverityKey, string> = {
   low: iconColors.emerald,
   medium: iconColors.warning,
   high: iconColors.danger,
 };
 
-const SEVERITY_ICON: Record<string, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
-  low: 'shield-check',
-  medium: 'alert-circle-outline',
-  high: 'alert-octagon',
+const SEVERITY_ICON: Record<SeverityKey, IconName> = {
+  low: 'emoticon-happy-outline',
+  medium: 'emoticon-neutral-outline',
+  high: 'emoticon-sad-outline',
 };
 
-const STATUS_META: Record<string, { color: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'] }> = {
-  fine: { color: iconColors.emerald, icon: 'emoticon-happy-outline' },
-  tired: { color: iconColors.warning, icon: 'emoticon-sad-outline' },
-  very_tired: { color: iconColors.danger, icon: 'emoticon-cry-outline' },
-  specific_concern: { color: iconColors.indigo, icon: 'stethoscope' },
+const STATUS_META: Record<StatusKey, {
+  color: string;
+  icon: IconName;
+  labelKey: string;
+  summaryKey: string;
+  position: number;
+}> = {
+  fine: {
+    color: iconColors.emerald,
+    icon: 'emoticon-happy-outline',
+    labelKey: 'statusFine',
+    summaryKey: 'statusSummaryFine',
+    position: 88,
+  },
+  tired: {
+    color: iconColors.warning,
+    icon: 'emoticon-sad-outline',
+    labelKey: 'statusTired',
+    summaryKey: 'statusSummaryTired',
+    position: 52,
+  },
+  very_tired: {
+    color: iconColors.danger,
+    icon: 'emoticon-cry-outline',
+    labelKey: 'statusVeryTired',
+    summaryKey: 'statusSummaryVeryTired',
+    position: 28,
+  },
+  specific_concern: {
+    color: iconColors.indigo,
+    icon: 'stethoscope',
+    labelKey: 'statusSpecificConcern',
+    summaryKey: 'statusSummaryConcern',
+    position: 38,
+  },
 };
 
-const TREND_META: Record<string, { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string }> = {
-  improving: { icon: 'trending-up', color: iconColors.emerald },
-  stable: { icon: 'minus', color: colors.primary },
-  worsening: { icon: 'trending-down', color: iconColors.danger },
-};
+const STATUS_KEYS: StatusKey[] = ['fine', 'tired', 'very_tired', 'specific_concern'];
+const SEVERITY_KEYS: SeverityKey[] = ['low', 'medium', 'high'];
 
 type Props = {
   embedded?: boolean;
@@ -54,57 +87,131 @@ export function HealthReportPanel({ embedded = false }: Props) {
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography, insets, embedded), [scaledTypography, insets, embedded, isDark]);
+  const styles = useMemo(
+    () => createStyles(scaledTypography, insets, embedded),
+    [scaledTypography, insets, embedded, isDark],
+  );
 
   const [period, setPeriod] = useState<Period>('week');
   const [report, setReport] = useState<HealthReportData | null>(null);
+  const [treeSummary, setTreeSummary] = useState<TreeSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    Promise.all([
+      checkinApi.getReport(period),
+      treeApi.fetchSummary().catch(() => null),
+    ])
+      .then(([reportData, summary]) => {
+        if (!active) return;
+        setReport(reportData);
+        setTreeSummary(summary);
+      })
+      .catch(() => {
+        if (active) setReport(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [period]);
+
   const severityTotal = report
     ? report.severityDistribution.low + report.severityDistribution.medium + report.severityDistribution.high
     : 0;
-
-  useEffect(() => {
-    setLoading(true);
-    checkinApi.getReport(period)
-      .then(res => setReport(res))
-      .catch(() => setReport(null))
-      .finally(() => setLoading(false));
-  }, [period]);
+  const statusTotal = report
+    ? Object.values(report.statusDistribution).reduce((total, count) => total + count, 0)
+    : 0;
+  const checkinPercent = report && report.totalDays > 0
+    ? Math.round((report.checkinDays / report.totalDays) * 100)
+    : 0;
+  const alertCount = report ? report.alerts.familyAlerted + report.alerts.emergencyTriggered : 0;
+  const alertTitle = report && report.alerts.emergencyTriggered > 0
+    ? t('emergencyTriggered')
+    : t('familyAlerted');
+  const healthScore = treeSummary ? Math.round(treeSummary.score * 100) : null;
+  const scoreColor = healthScore === null
+    ? colors.textSecondary
+    : healthScore >= 70
+      ? iconColors.emerald
+      : healthScore >= 40
+        ? iconColors.warning
+        : iconColors.danger;
+  const scoreLabel = healthScore === null
+    ? 'noData'
+    : healthScore >= 70
+      ? 'healthScoreGood'
+      : healthScore >= 40
+        ? 'healthScoreMonitor'
+        : 'healthScoreNeedsAttention';
+  const totalMissions = treeSummary?.totalMissions ?? 0;
+  const completedMissions = treeSummary?.completedToday ?? 0;
+  const habitCompletion = totalMissions > 0 ? `${completedMissions}/${totalMissions}` : '--';
+  const habitPercent = totalMissions > 0 ? Math.round((completedMissions / totalMissions) * 100) : 0;
+  const activeStatus: StatusKey = report
+    ? report.statusDistribution.specific_concern > 0
+      ? 'specific_concern'
+      : report.statusDistribution.very_tired > 0
+        ? 'very_tired'
+        : report.statusDistribution.tired > 0
+          ? 'tired'
+          : 'fine'
+    : 'fine';
+  const statusMeta = STATUS_META[activeStatus];
+  const selectPeriod = (nextPeriod: Period) => {
+    setFilterOpen(false);
+    if (nextPeriod !== period) setPeriod(nextPeriod);
+  };
 
   return (
     <View style={styles.outer}>
-      {!embedded ? (
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={colors.primary} />
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <MaterialCommunityIcons name="chart-line" size={20} color={colors.primary} />
-            <Text style={styles.headerTitle}>{t('title')}</Text>
-          </View>
-          <View style={{ width: 36 }} />
-        </View>
-      ) : (
-        <View style={styles.embeddedHeader}>
-          <View style={styles.embeddedTitleRow}>
-            <MaterialCommunityIcons name="chart-line" size={18} color={colors.primary} />
-            <Text style={styles.embeddedTitle}>{t('title')}</Text>
-          </View>
-          <Text style={styles.embeddedSub}>{t('healthReportSub')}</Text>
-        </View>
-      )}
+      <View style={embedded ? styles.embeddedHeader : styles.header}>
+        {!embedded && <ScreenBackButton onPress={() => router.back()} />}
 
-      <View style={styles.tabRow}>
-        {(['week', 'month'] as Period[]).map(p => (
-          <Pressable key={p} style={[styles.tab, period === p && styles.tabActive]} onPress={() => setPeriod(p)}>
-            <MaterialCommunityIcons
-              name={p === 'week' ? 'calendar-week' : 'calendar-month'}
-              size={16}
-              color={period === p ? colors.primaryDark : colors.textSecondary}
-            />
-            <Text style={[styles.tabText, period === p && styles.tabTextActive]}>{t(p === 'week' ? 'weekTab' : 'monthTab')}</Text>
+        <View style={embedded ? styles.embeddedTitleBlock : styles.headerTitleBlock}>
+          <View style={styles.titleRow}>
+            <MaterialCommunityIcons name="chart-line" size={embedded ? 21 : 22} color={colors.primary} />
+            <Text numberOfLines={1} style={embedded ? styles.embeddedTitle : styles.headerTitle}>{t('title')}</Text>
+          </View>
+        </View>
+
+        <View style={styles.filterWrap}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(period === 'week' ? 'weekFilter' : 'monthFilter')}
+            onPress={() => setFilterOpen(open => !open)}
+            style={styles.filterButton}
+          >
+            <MaterialCommunityIcons name="calendar-month-outline" size={19} color={colors.primary} />
+            <Text style={styles.filterText}>{t(period === 'week' ? 'weekFilter' : 'monthFilter')}</Text>
+            <MaterialCommunityIcons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={21} color={colors.primary} />
           </Pressable>
-        ))}
+          {filterOpen && (
+            <View style={styles.filterMenu}>
+              {(['week', 'month'] as Period[]).map(option => (
+                <Pressable
+                  key={option}
+                  onPress={() => selectPeriod(option)}
+                  style={[styles.filterOption, option === period && styles.filterOptionActive]}
+                >
+                  <MaterialCommunityIcons
+                    name={option === 'week' ? 'calendar-week-outline' : 'calendar-month-outline'}
+                    size={18}
+                    color={option === period ? colors.primary : colors.textSecondary}
+                  />
+                  <Text style={[styles.filterOptionText, option === period && styles.filterOptionTextActive]}>
+                    {t(option === 'week' ? 'weekFilter' : 'monthFilter')}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
 
       {loading ? (
@@ -113,95 +220,82 @@ export function HealthReportPanel({ embedded = false }: Props) {
         </View>
       ) : !report || report.checkinDays === 0 ? (
         <View style={styles.center}>
-          <View style={styles.emptyIconWrap}>
-            <MaterialCommunityIcons name="clipboard-text-outline" size={48} color={colors.border} />
-          </View>
+          <MaterialCommunityIcons name="clipboard-text-outline" size={44} color={colors.border} />
           <Text style={styles.emptyText}>{t('noData')}</Text>
         </View>
       ) : (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeIn.duration(500)}>
-            <View style={styles.trendCard}>
-              <View style={styles.trendTop}>
-                <MaterialCommunityIcons
-                  name={TREND_META[report.trend]?.icon ?? 'minus'}
-                  size={26}
-                  color={TREND_META[report.trend]?.color ?? colors.primary}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={() => filterOpen && setFilterOpen(false)}
+        >
+          <Animated.View entering={FadeIn.duration(350)} style={styles.card}>
+            <View style={styles.statusOverview}>
+              <MaterialCommunityIcons name={statusMeta.icon} size={52} color={statusMeta.color} />
+              <View style={styles.statusOverviewCopy}>
+                <Text style={[styles.statusOverviewTitle, { color: statusMeta.color }]}>{t(statusMeta.labelKey)}</Text>
+                <Text style={styles.statusOverviewSummary}>{t(statusMeta.summaryKey)}</Text>
+              </View>
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(40).duration(350)} style={styles.metricsGrid}>
+            <View style={styles.metricRow}>
+                <Metric
+                  icon="heart-pulse"
+                  color={scoreColor}
+                  value={healthScore === null ? '--' : `${healthScore}/100`}
+                  label={t('healthScore')}
+                  detail={t(scoreLabel)}
+                  styles={styles}
                 />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.trendLabel}>{t('trendTitle')}</Text>
-                  <Text style={[styles.trendValue, { color: TREND_META[report.trend]?.color }]}>
-                    {t(report.trend === 'improving' ? 'trendImproving' : report.trend === 'worsening' ? 'trendWorsening' : 'trendStable')}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.trendStats}>
-                <View style={styles.trendStat}>
-                  <MaterialCommunityIcons name="calendar-check" size={18} color={colors.primary} />
-                  <Text style={styles.trendStatValue}>{report.checkinDays}</Text>
-                  <Text style={styles.trendStatLabel}>/{report.totalDays} {t('daysUnit')}</Text>
-                </View>
-                <View style={styles.trendStatDivider} />
-                <View style={styles.trendStat}>
-                  <MaterialCommunityIcons name="percent" size={18} color={colors.primary} />
-                  <Text style={styles.trendStatValue}>{Math.round((report.checkinDays / report.totalDays) * 100)}</Text>
-                  <Text style={styles.trendStatLabel}>%</Text>
-                </View>
-              </View>
+                <Metric
+                  icon="check-circle-outline"
+                  color={iconColors.glucose}
+                  value={habitCompletion}
+                  label={t('habitCompletion')}
+                  detail={totalMissions > 0 ? `${habitPercent}%` : t('noData')}
+                  styles={styles}
+                />
+            </View>
+            <View style={styles.metricRow}>
+                <Metric
+                  icon="bell-outline"
+                  color={alertCount > 0 ? iconColors.danger : iconColors.emerald}
+                  value={String(alertCount)}
+                  label={t('alertsTitle')}
+                  detail={alertCount > 0 ? t('needsAttention') : t('noAlerts')}
+                  styles={styles}
+                />
+                <Metric
+                  icon="calendar-check-outline"
+                  color={iconColors.violet}
+                  value={`${report.checkinDays}/${report.totalDays}`}
+                  label={t('trackingDays')}
+                  detail={t(period === 'week' ? 'weekFilter' : 'monthFilter')}
+                  styles={styles}
+                />
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="chart-bar" size={19} color={colors.primary} />
-                <Text style={styles.cardTitle}>{t('severityTitle')}</Text>
-              </View>
-              <View style={styles.distributionTrack}>
-                {(['low', 'medium', 'high'] as const).map(sev => {
-                  const pct = severityTotal > 0 ? (report.severityDistribution[sev] / severityTotal) * 100 : 0;
-                  return (
-                    <View key={sev} style={[styles.distributionSegment, { width: `${pct}%`, backgroundColor: SEVERITY_COLORS[sev] }]} />
-                  );
-                })}
-              </View>
-              <View style={styles.legendList}>
-                {(['low', 'medium', 'high'] as const).map(sev => (
-                  <View key={sev} style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: SEVERITY_COLORS[sev] }]} />
-                    <Text style={styles.legendLabel}>{t(sev === 'low' ? 'severityLow' : sev === 'medium' ? 'severityMedium' : 'severityHigh')}</Text>
-                    <Text style={styles.legendValue}>{report.severityDistribution[sev]}</Text>
-                    <Text style={styles.legendPercent}>
-                      {severityTotal > 0 ? `${Math.round((report.severityDistribution[sev] / severityTotal) * 100)}%` : '0%'}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="emoticon-outline" size={19} color={colors.primary} />
-                <Text style={styles.cardTitle}>{t('statusTitle')}</Text>
-              </View>
-              {(['fine', 'tired', 'very_tired', 'specific_concern'] as const).map(st => {
-                const count = report.statusDistribution[st];
-                if (count === 0) return null;
-                const total = Object.values(report.statusDistribution).reduce((a, b) => a + b, 0);
-                const pct = total > 0 ? (count / total) * 100 : 0;
-                const meta = STATUS_META[st];
-                const labelKey = st === 'fine' ? 'statusFine' : st === 'tired' ? 'statusTired' : st === 'very_tired' ? 'statusVeryTired' : 'statusSpecificConcern';
+          <Animated.View entering={FadeInDown.delay(80).duration(350)} style={styles.sectionBlock}>
+            <SectionTitle icon="chart-bar" title={t('severityTitle')} styles={styles} />
+            <View style={styles.severityGrid}>
+              {SEVERITY_KEYS.map(severity => {
+                const count = report.severityDistribution[severity];
+                const percent = severityTotal > 0 ? Math.round((count / severityTotal) * 100) : 0;
                 return (
-                  <View key={st} style={styles.statusRow}>
-                    <MaterialCommunityIcons name={meta.icon} size={17} color={meta.color} />
-                    <Text style={styles.statusLabel}>{t(labelKey)}</Text>
-                    <View style={styles.statusBarTrack}>
-                      <View style={[styles.statusBarFill, { width: `${pct}%`, backgroundColor: meta.color }]} />
-                    </View>
-                    <View style={styles.statusCountBadge}>
-                      <Text style={[styles.statusCount, { color: meta.color }]}>{count}</Text>
+                  <View key={severity} style={styles.severityItem}>
+                    <MaterialCommunityIcons name={SEVERITY_ICON[severity]} size={28} color={SEVERITY_COLORS[severity]} />
+                    <Text style={styles.severityLabel} numberOfLines={1}>
+                      {t(severity === 'low' ? 'severityLow' : severity === 'medium' ? 'severityMedium' : 'severityHigh')}
+                    </Text>
+                    <Text style={[styles.severityValue, { color: SEVERITY_COLORS[severity] }]}>
+                      {count} <Text style={styles.severityPercent}>({percent}%)</Text>
+                    </Text>
+                    <View style={styles.severityTrack}>
+                      <View style={[styles.severityFill, { width: `${percent}%`, backgroundColor: `${SEVERITY_COLORS[severity]}99` }]} />
                     </View>
                   </View>
                 );
@@ -209,110 +303,108 @@ export function HealthReportPanel({ embedded = false }: Props) {
             </View>
           </Animated.View>
 
-          {report.commonSymptoms.length > 0 && (
-            <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <MaterialCommunityIcons name="stethoscope" size={19} color={iconColors.violet} />
-                  <Text style={styles.cardTitle}>{t('commonSymptoms')}</Text>
+          <Animated.View entering={FadeInDown.delay(160).duration(350)} style={styles.sectionBlock}>
+            <SectionTitle icon="shield-check-outline" title={t('statusTitle')} styles={styles} />
+            <View style={styles.card}>
+              <View style={styles.statusSummary}>
+                <MaterialCommunityIcons name={statusMeta.icon} size={30} color={statusMeta.color} />
+                <View style={styles.statusSummaryCopy}>
+                  <Text style={[styles.statusSummaryTitle, { color: statusMeta.color }]}>{t(statusMeta.labelKey)}</Text>
+                  <Text style={styles.statusSummaryText}>{t(statusMeta.summaryKey)}</Text>
                 </View>
-                {report.commonSymptoms.map((s, i) => (
-                  <View key={i} style={[styles.symptomRow, i === report.commonSymptoms.length - 1 && { borderBottomWidth: 0 }]}>
-                    <View style={styles.symptomRank}>
-                      <Text style={styles.symptomRankText}>{i + 1}</Text>
-                    </View>
-                    <Text style={styles.symptomText}>{s.symptom}</Text>
-                    <View style={styles.symptomCountBadge}>
-                      <MaterialCommunityIcons name="repeat" size={12} color={colors.textSecondary} />
-                      <Text style={styles.symptomCount}>{s.count}</Text>
-                    </View>
+              </View>
+              <View style={styles.statusScaleTrack}>
+                {[
+                  iconColors.danger,
+                  '#d99a5b',
+                  '#d7ba58',
+                  '#80b878',
+                  iconColors.emerald,
+                ].map((color, index) => (
+                  <View key={index} style={[styles.statusScaleSegment, { backgroundColor: `${color}bb` }]} />
+                ))}
+                <View style={[styles.statusMarker, { left: `${statusMeta.position}%`, borderColor: statusMeta.color }]} />
+              </View>
+              <View style={styles.statusScaleLabels}>
+                <Text style={[styles.statusScaleLabel, { color: iconColors.danger }]}>{t('statusScaleVeryLow')}</Text>
+                <Text style={[styles.statusScaleLabel, { color: '#c47b24' }]}>{t('statusScaleLow')}</Text>
+                <Text style={[styles.statusScaleLabel, { color: '#bd9e22' }]}>{t('statusScaleMid')}</Text>
+                <Text style={[styles.statusScaleLabel, { color: '#569a58' }]}>{t('statusScaleGood')}</Text>
+                <Text style={[styles.statusScaleLabel, { color: iconColors.emerald }]}>{t('statusScaleExcellent')}</Text>
+              </View>
+              {statusTotal > 0 && (
+                <View style={styles.statusCounts}>
+                  {STATUS_KEYS.map(status => {
+                    const count = report.statusDistribution[status];
+                    if (count === 0) return null;
+                    const meta = STATUS_META[status];
+                    return (
+                      <View key={status} style={styles.statusCountItem}>
+                        <MaterialCommunityIcons name={meta.icon} size={16} color={meta.color} />
+                        <Text style={styles.statusCountLabel}>{t(meta.labelKey)}</Text>
+                        <Text style={[styles.statusCountValue, { color: meta.color }]}>{count}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          </Animated.View>
+
+          {alertCount > 0 && (
+            <Animated.View entering={FadeInDown.delay(240).duration(350)} style={styles.sectionBlock}>
+              <SectionTitle icon="bell-alert-outline" title={t('alertsAttentionTitle')} styles={styles} color={iconColors.danger} />
+              <View style={styles.card}>
+                <View style={styles.alertCard}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={27} color={iconColors.danger} />
+                  <View style={styles.alertCopy}>
+                    <Text style={styles.alertTitle}>{alertTitle}</Text>
+                    <Text style={styles.alertDescription}>{t('alertSummary', { count: alertCount })}</Text>
+                  </View>
+                  <Pressable onPress={() => router.push('/care-circle')} style={styles.alertAction}>
+                    <Text style={styles.alertActionText}>{t('viewNow')}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </Animated.View>
+          )}
+
+          {report.commonSymptoms.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(300).duration(350)} style={styles.sectionBlock}>
+              <SectionTitle icon="stethoscope" title={t('commonSymptoms')} styles={styles} color={iconColors.violet} />
+              <View style={styles.card}>
+                {report.commonSymptoms.map((symptom, index) => (
+                  <View key={`${symptom.symptom}-${index}`} style={[styles.listRow, index === report.commonSymptoms.length - 1 && styles.listRowLast]}>
+                    <View style={styles.rankBadge}><Text style={styles.rankText}>{index + 1}</Text></View>
+                    <Text style={styles.listRowText}>{symptom.symptom}</Text>
+                    <Text style={styles.listRowValue}>{symptom.count}</Text>
                   </View>
                 ))}
               </View>
             </Animated.View>
           )}
 
-          {(report.alerts.familyAlerted > 0 || report.alerts.emergencyTriggered > 0) && (
-            <Animated.View entering={FadeInDown.delay(400).duration(400)}>
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <MaterialCommunityIcons name="bell-ring-outline" size={19} color={iconColors.danger} />
-                  <Text style={styles.cardTitle}>{t('alertsTitle')}</Text>
-                </View>
-                {report.alerts.familyAlerted > 0 && (
-                  <View style={[styles.alertCard, { backgroundColor: '#fffbeb' }]}>
-                    <MaterialCommunityIcons name="account-group-outline" size={20} color={iconColors.warning} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.alertLabel}>{t('familyAlerted')}</Text>
-                      <Text style={styles.alertValue}>{report.alerts.familyAlerted} {t('times')}</Text>
-                    </View>
-                  </View>
-                )}
-                {report.alerts.emergencyTriggered > 0 && (
-                  <View style={[styles.alertCard, { marginTop: spacing.sm, backgroundColor: colors.danger + '12' }]}>
-                    <MaterialCommunityIcons name="hospital-box-outline" size={20} color={iconColors.danger} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.alertLabel}>{t('emergencyTriggered')}</Text>
-                      <Text style={[styles.alertValue, { color: '#dc2626' }]}>{report.alerts.emergencyTriggered} {t('times')}</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            </Animated.View>
-          )}
-
-          <Animated.View entering={FadeInDown.delay(450).duration(400)}>
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <MaterialCommunityIcons name="clipboard-check-outline" size={19} color={iconColors.cyan} />
-                  <Text style={styles.cardTitle}>{t('habitTitle')}</Text>
-              </View>
-              <View style={styles.statusRow}>
-                <MaterialCommunityIcons name="check-circle-outline" size={17} color={iconColors.emerald} />
-                <Text style={styles.statusLabel}>{t('responseRate')}</Text>
-                <View style={styles.statusBarTrack}>
-                  <View style={[styles.statusBarFill, { width: `${report.responseRate ?? 0}%`, backgroundColor: iconColors.emerald }]} />
-                </View>
-                <View style={styles.statusCountBadge}>
-                  <Text style={[styles.statusCount, { color: iconColors.emerald }]}>{report.responseRate ?? 0}%</Text>
-                </View>
-              </View>
-              <View style={styles.statusRow}>
-                <MaterialCommunityIcons name="clock-outline" size={17} color={iconColors.indigo} />
-                <Text style={styles.statusLabel}>{t('avgCheckinTime')}</Text>
-                <View style={{ flex: 1 }} />
-                  <View style={styles.statusCountBadge}>
-                  <Text style={[styles.statusCount, { color: iconColors.indigo }]}>~{report.avgCheckinHour ?? 8}h {t('morningLabel')}</Text>
-                </View>
-              </View>
-            </View>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(500).duration(400)}>
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <MaterialCommunityIcons name="history" size={19} color={iconColors.indigo} />
-                  <Text style={styles.cardTitle}>{t('dailyHistory')}</Text>
-              </View>
-              {report.sessions.map((s, i) => {
-                const dateStr = new Date(s.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
-                const statusMeta = STATUS_META[s.status] || STATUS_META.fine;
+          <Animated.View entering={FadeInDown.delay(420).duration(350)} style={styles.sectionBlock}>
+            <SectionTitle icon="history" title={t('dailyHistory')} styles={styles} color={iconColors.indigo} />
+            <View style={styles.card}>
+              {report.sessions.length === 0 ? (
+                <Text style={styles.emptyHistory}>{t('noData')}</Text>
+              ) : report.sessions.map((session, index) => {
+                const dateStr = new Date(session.date).toLocaleDateString('vi-VN', {
+                  weekday: 'short',
+                  day: '2-digit',
+                  month: '2-digit',
+                });
+                const sessionStatus = STATUS_META[session.status as StatusKey] ?? STATUS_META.fine;
                 return (
-                  <View key={i} style={[styles.historyRow, i === report.sessions.length - 1 && { borderBottomWidth: 0 }]}>
-                    <View style={styles.historyLeft}>
-                      <MaterialCommunityIcons name={statusMeta.icon} size={17} color={statusMeta.color} />
-                      <View>
-                        <Text style={styles.historyDate}>{dateStr}</Text>
-                        {s.summary ? <Text style={styles.historySummary} numberOfLines={1}>{s.summary}</Text> : null}
-                      </View>
+                  <View key={`${session.date}-${index}`} style={[styles.listRow, index === report.sessions.length - 1 && styles.listRowLast]}>
+                    <MaterialCommunityIcons name={sessionStatus.icon} size={19} color={sessionStatus.color} />
+                    <View style={styles.historyCopy}>
+                      <Text style={styles.historyDate}>{dateStr}</Text>
+                      {session.summary ? <Text style={styles.historySummary} numberOfLines={1}>{session.summary}</Text> : null}
                     </View>
-                    {s.severity && (
-                      <View style={styles.historySeverityBadge}>
-                        <MaterialCommunityIcons name={SEVERITY_ICON[s.severity]} size={12} color={SEVERITY_COLORS[s.severity]} />
-                        <Text style={[styles.historySeverityText, { color: SEVERITY_COLORS[s.severity] }]}>
-                          {t(s.severity === 'low' ? 'severityLow' : s.severity === 'medium' ? 'severityMedium' : 'severityHigh')}
-                        </Text>
-                      </View>
+                    {session.severity && (
+                      <MaterialCommunityIcons name={SEVERITY_ICON[session.severity]} size={18} color={SEVERITY_COLORS[session.severity]} />
                     )}
                   </View>
                 );
@@ -320,14 +412,64 @@ export function HealthReportPanel({ embedded = false }: Props) {
             </View>
           </Animated.View>
 
-          <View style={{ height: embedded ? 0 : 40 }} />
+          <View style={{ height: embedded ? spacing.lg : 40 }} />
         </ScrollView>
       )}
     </View>
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>, insets: { top: number; bottom: number }, embedded: boolean) {
+function Metric({
+  icon,
+  color,
+  value,
+  label,
+  detail,
+  styles,
+}: {
+  icon: IconName;
+  color: string;
+  value: string;
+  label: string;
+  detail: string;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <View style={styles.metricCell}>
+      <View style={styles.metricHeading}>
+        <MaterialCommunityIcons name={icon} size={18} color={color} />
+        <Text style={styles.metricLabel} numberOfLines={2}>{label}</Text>
+      </View>
+      <Text style={[styles.metricValue, { color }]}>{value}</Text>
+      <Text style={styles.metricDetail} numberOfLines={1}>{detail}</Text>
+    </View>
+  );
+}
+
+function SectionTitle({
+  icon,
+  title,
+  styles,
+  color = colors.primary,
+}: {
+  icon: IconName;
+  title: string;
+  styles: ReturnType<typeof createStyles>;
+  color?: string;
+}) {
+  return (
+    <View style={styles.sectionTitleRow}>
+      <MaterialCommunityIcons name={icon} size={20} color={color} />
+      <Text style={styles.cardTitle}>{title}</Text>
+    </View>
+  );
+}
+
+function createStyles(
+  typography: ReturnType<typeof useScaledTypography>,
+  insets: { top: number; bottom: number },
+  embedded: boolean,
+) {
   return StyleSheet.create({
     outer: {
       flex: embedded ? undefined : 1,
@@ -336,116 +478,139 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      gap: spacing.md,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
     },
     embeddedHeader: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: embedded ? spacing.sm : spacing.lg,
       paddingBottom: spacing.sm,
-      gap: 2,
     },
-    embeddedTitleRow: {
+    headerTitleBlock: { flex: 1, minWidth: 0 },
+    embeddedTitleBlock: { flex: 1, minWidth: 0 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    headerTitle: { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
+    headerSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
+    embeddedTitle: { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
+    embeddedSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
+    filterWrap: { position: 'relative', zIndex: 10 },
+    filterButton: {
+      minHeight: 44,
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-    },
-    embeddedTitle: {
-      fontSize: typography.size.lg,
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    embeddedSub: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.full,
       backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: `${colors.primary}38`,
+    },
+    filterText: { fontSize: typography.size.xs, fontWeight: '600', color: colors.primaryDark },
+    filterMenu: {
+      position: 'absolute',
+      top: 50,
+      right: 0,
+      minWidth: 148,
+      padding: spacing.xs,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 5,
+    },
+    filterOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.sm,
+    },
+    filterOptionActive: { backgroundColor: colors.primaryLight },
+    filterOptionText: { fontSize: typography.size.xs, color: colors.textSecondary },
+    filterOptionTextActive: { color: colors.primaryDark, fontWeight: '600' },
+    center: {
+      minHeight: embedded ? 260 : 420,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1.5,
-      borderColor: colors.border,
+      gap: spacing.md,
     },
-    headerCenter: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    headerTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.textPrimary },
-    tabRow: {
-      flexDirection: 'row',
-      marginHorizontal: spacing.lg,
-      marginBottom: spacing.md,
+    emptyText: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: spacing.xl },
+    scroll: embedded ? {} : { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: embedded ? 0 : spacing.lg,
+      paddingTop: spacing.sm,
+      gap: spacing.lg,
+      paddingBottom: embedded ? insets.bottom + spacing.lg : insets.bottom + spacing.xl,
+    },
+    card: {
       backgroundColor: colors.surface,
       borderRadius: radius.xl,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.border,
-      overflow: 'hidden',
-      padding: 3,
-      gap: 4,
+      padding: spacing.lg,
     },
-    tab: {
-      flex: 1,
+    statusOverview: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      paddingVertical: spacing.sm + 2,
-      borderRadius: radius.lg,
+      gap: spacing.md,
+      paddingBottom: spacing.lg,
     },
-    tabActive: { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.border },
-    tabText: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textSecondary },
-    tabTextActive: { color: colors.primaryDark },
-    center: { minHeight: embedded ? 220 : 360, justifyContent: 'center', alignItems: 'center', gap: spacing.md },
-    emptyIconWrap: {
-      width: 48,
-      height: 48,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    emptyText: { fontSize: typography.size.sm, color: colors.textSecondary },
-    scroll: embedded ? {} : { flex: 1 },
-    scrollContent: { paddingHorizontal: embedded ? 0 : spacing.lg, gap: spacing.lg, paddingTop: spacing.sm },
-    trendCard: { backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
-    trendTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-    trendLabel: { fontSize: typography.size.xs, color: colors.textSecondary },
-    trendValue: { fontSize: typography.size.xl, fontWeight: '800' },
-    trendStats: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md },
-    trendStat: { flex: 1, alignItems: 'center', gap: 2 },
-    trendStatDivider: { width: 1, height: 36, backgroundColor: colors.border },
-    trendStatValue: { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
-    trendStatLabel: { fontSize: typography.size.xs, color: colors.textSecondary },
-    card: { backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+    statusOverviewCopy: { flex: 1 },
+    statusOverviewTitle: { fontSize: typography.size.lg, fontWeight: '700' },
+    statusOverviewSummary: { fontSize: typography.size.xs, color: colors.textSecondary, lineHeight: 18, marginTop: spacing.xs },
+    metricsGrid: { gap: spacing.md },
+    metricRow: { flexDirection: 'row', gap: spacing.md },
+    metricCell: { flex: 1, minHeight: 112, alignItems: 'center', justifyContent: 'center', padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+    metricHeading: { width: '100%', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: spacing.xs },
+    metricLabel: { flex: 1, fontSize: typography.size.xs, color: colors.textSecondary, textAlign: 'center' },
+    metricValue: { fontSize: typography.size.xl, fontWeight: '700', textAlign: 'center', marginTop: 2 },
+    metricDetail: { fontSize: typography.size.xxs, color: colors.textSecondary, textAlign: 'center', marginTop: 1 },
+    sectionBlock: { gap: spacing.sm },
+    sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
     cardTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.textPrimary },
-    distributionTrack: { flexDirection: 'row', width: '100%', height: 12, backgroundColor: colors.surfaceMuted, borderRadius: 999, overflow: 'hidden' },
-    distributionSegment: { height: '100%', minWidth: 0 },
-    legendList: { marginTop: spacing.md },
-    legendItem: { flexDirection: 'row', alignItems: 'center', minHeight: 32, gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border + '88' },
-    legendDot: { width: 8, height: 8, borderRadius: 4 },
-    legendLabel: { flex: 1, fontSize: typography.size.xs, color: colors.textSecondary },
-    legendValue: { fontSize: typography.size.xs, fontWeight: '800', color: colors.textPrimary },
-    legendPercent: { width: 38, textAlign: 'right', fontSize: typography.size.xxs, color: colors.textSecondary },
-    statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-    statusLabel: { width: 90, fontSize: typography.size.sm, color: colors.textPrimary, fontWeight: '600' },
-    statusBarTrack: { flex: 1, height: 10, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: 'hidden' },
-    statusBarFill: { height: '100%', borderRadius: 999 },
-    statusCountBadge: { minWidth: 44, paddingLeft: spacing.sm, alignItems: 'center' },
-    statusCount: { fontSize: typography.size.xs, fontWeight: '800' },
-    symptomRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-    symptomRank: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
-    symptomRankText: { fontSize: typography.size.xs, fontWeight: '800', color: colors.textPrimary },
-    symptomText: { flex: 1, fontSize: typography.size.sm, color: colors.textPrimary, fontWeight: '600' },
-    symptomCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999, backgroundColor: colors.surfaceMuted },
-    symptomCount: { fontSize: typography.size.xs, fontWeight: '700', color: colors.textSecondary },
-    alertCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: 16, padding: spacing.md, overflow: 'hidden' },
-    alertLabel: { fontSize: typography.size.sm, color: colors.textSecondary, fontWeight: '600' },
-    alertValue: { fontSize: typography.size.md, color: colors.textPrimary, fontWeight: '800' },
-    historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-    historyLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-    historyDate: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
+    severityGrid: { flexDirection: 'row', gap: spacing.md },
+    severityItem: { flex: 1, alignItems: 'center', minWidth: 0, padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+    severityLabel: { fontSize: typography.size.xs, fontWeight: '600', color: colors.textPrimary, marginTop: spacing.sm },
+    severityValue: { fontSize: typography.size.lg, fontWeight: '700', textAlign: 'center', marginTop: 2 },
+    severityPercent: { fontSize: typography.size.xxs, fontWeight: '600', color: colors.textSecondary },
+    severityTrack: { width: '100%', height: 7, borderRadius: radius.full, backgroundColor: colors.surfaceMuted, overflow: 'hidden', marginTop: spacing.md },
+    severityFill: { height: '100%', borderRadius: radius.full },
+    statusSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    statusSummaryCopy: { flex: 1 },
+    statusSummaryTitle: { fontSize: typography.size.lg, fontWeight: '700' },
+    statusSummaryText: { fontSize: typography.size.sm, color: colors.textSecondary, marginTop: 2 },
+    statusScaleTrack: { height: 13, flexDirection: 'row', alignItems: 'center', marginTop: spacing.xl, position: 'relative', gap: 2 },
+    statusScaleSegment: { flex: 1, height: 9, borderRadius: radius.full },
+    statusMarker: { position: 'absolute', top: -3, width: 19, height: 19, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 3, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+    statusScaleLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm, gap: spacing.xs },
+    statusScaleLabel: { flex: 1, fontSize: typography.size.xxs, fontWeight: '700', textAlign: 'center' },
+    statusCounts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+    statusCountItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingRight: spacing.sm },
+    statusCountLabel: { fontSize: typography.size.xxs, color: colors.textSecondary },
+    statusCountValue: { fontSize: typography.size.xs, fontWeight: '600' },
+    alertCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: `${colors.danger}0d` },
+    alertCopy: { flex: 1 },
+    alertTitle: { fontSize: typography.size.sm, fontWeight: '700', color: iconColors.danger },
+    alertDescription: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
+    alertAction: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: `${iconColors.danger}66` },
+    alertActionText: { fontSize: typography.size.xs, fontWeight: '600', color: iconColors.danger },
+    listRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+    listRowLast: { borderBottomWidth: 0 },
+    rankBadge: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+    rankText: { fontSize: typography.size.xs, fontWeight: '600', color: colors.textPrimary },
+    listRowText: { flex: 1, fontSize: typography.size.sm, color: colors.textPrimary, fontWeight: '500' },
+    listRowValue: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textSecondary },
+    historyCopy: { flex: 1 },
+    historyDate: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textPrimary },
     historySummary: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 1 },
-    historySeverityBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999, backgroundColor: colors.surfaceMuted },
-    historySeverityText: { fontSize: typography.size.xs, fontWeight: '700' },
+    emptyHistory: { fontSize: typography.size.sm, color: colors.textSecondary },
   });
 }

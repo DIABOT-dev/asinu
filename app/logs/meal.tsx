@@ -10,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, {
@@ -18,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
@@ -127,9 +127,8 @@ export default function MealLogScreen() {
               {/* Back button */}
               <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
                 <View style={styles.navRow}>
-                  <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color={iconColors.meal} />
-                  </TouchableOpacity>
+                  <ScreenBackButton onPress={handleBack} />
+                  <ScreenSaveButton onPress={handleSubmit} disabled={isSaving} />
                 </View>
               </Animated.View>
 
@@ -236,24 +235,6 @@ export default function MealLogScreen() {
                 </View>
               </Animated.View>
 
-              {/* Save button */}
-              <Animated.View entering={FadeInDown.delay(360).duration(400).springify()}>
-                <Pressable
-                  onPress={handleSubmit}
-                  disabled={isSaving}
-                  style={({ pressed }) => [
-                    styles.saveBtn,
-                    pressed && styles.saveBtnPressed,
-                    isSaving && styles.saveBtnDisabled,
-                  ]}
-                >
-                  <View style={styles.saveBtnGradient}>
-                    <MaterialCommunityIcons name="content-save" size={20} color={colors.primaryDark} />
-                    <Text style={styles.saveBtnText}>{t('save')}</Text>
-                  </View>
-                </Pressable>
-              </Animated.View>
-
               <View style={{ height: insets.bottom + spacing.xl }} />
             </ScrollView>
           )}
@@ -277,17 +258,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     navRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       paddingVertical: spacing.xs,
-    },
-    backBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1.5,
-      borderColor: colors.border,
     },
     heroCard: {
       borderRadius: radius.xl,
@@ -375,29 +347,5 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     macroInput: {
       flex: 1,
     },
-    saveBtn: {
-      borderRadius: radius.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    saveBtnGradient: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.lg,
-      borderRadius: radius.xl,
-      backgroundColor: colors.primaryLight,
-    },
-    saveBtnText: {
-      fontSize: typography.size.md,
-      fontWeight: '700',
-      color: colors.primaryDark,
-    },
-    saveBtnPressed: {
-      opacity: 0.88,
-      transform: [{ scale: 0.98 }],
-    },
-    saveBtnDisabled: { opacity: 0.6 },
   });
 }

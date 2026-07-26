@@ -12,6 +12,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { showToast } from '../../src/stores/toast.store';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
@@ -135,9 +136,7 @@ export default function ArticleDetailScreen() {
     return (
       <Screen style={styles.loadingContainer}>
         <Text style={styles.errorText}>Không tìm thấy bài viết</Text>
-        <Pressable onPress={() => router.back()} style={styles.backLink}>
-          <Text style={styles.backLinkText}>Quay lại</Text>
-        </Pressable>
+        <ScreenBackButton onPress={() => router.back()} />
       </Screen>
     );
   }
@@ -146,9 +145,7 @@ export default function ArticleDetailScreen() {
     <Screen>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => router.back()} style={styles.headerBtn} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </Pressable>
+        <ScreenBackButton onPress={() => router.back()} />
         <Text style={styles.headerTitle} numberOfLines={1}>Chi tiết bản tin</Text>
         <Pressable onPress={handleToggleSave} style={styles.headerBtn} disabled={saving} hitSlop={12}>
           <Ionicons 
@@ -225,13 +222,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
     marginBottom: spacing.md,
-  },
-  backLink: {
-    padding: spacing.sm,
-  },
-  backLinkText: {
-    color: colors.primary,
-    fontWeight: '700',
   },
   header: {
     flexDirection: 'row',

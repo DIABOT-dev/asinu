@@ -37,6 +37,7 @@ import { apiClient } from '../../src/lib/apiClient';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { showToast } from '../../src/stores/toast.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 // ---- types ----
 type QRData = { order_code: string; qr_url: string; amount: number; description: string; expires_at: string };
@@ -268,11 +269,9 @@ export default function WalletScreen() {
           <View style={styles.header}>
 
             <View style={styles.headerRow}>
-              <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')} hitSlop={12} style={styles.backBtn}>
-                <Ionicons name="arrow-back" size={22} color={colors.primaryDark} />
-              </Pressable>
+              <ScreenBackButton onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')} />
               <ScaledText style={styles.headerTitle}>{t('title')}</ScaledText>
-              <Pressable onPress={onRefresh} hitSlop={12} style={styles.backBtn}>
+              <Pressable onPress={onRefresh} hitSlop={12} style={styles.headerAction}>
                 <Ionicons name="refresh" size={20} color={colors.primaryDark} />
               </Pressable>
             </View>
@@ -539,7 +538,7 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       marginBottom: spacing.lg,
     },
-    backBtn: {
+    headerAction: {
       width: 38, height: 38, borderRadius: 19,
       backgroundColor: colors.surface,
       borderWidth: 1,

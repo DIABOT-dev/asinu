@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -19,6 +18,7 @@ import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 
 type LogCard = {
@@ -77,9 +77,7 @@ export default function LogsIndexScreen() {
           {/* Header */}
           <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
             <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-                <MaterialCommunityIcons name="arrow-left" size={24} color={iconColors.primary} />
-              </TouchableOpacity>
+              <ScreenBackButton onPress={() => router.back()} />
               <View style={styles.headerText}>
                 <Text style={styles.headerTitle}>{t('logTitle')}</Text>
                 <Text style={styles.headerSub}>{t('logSubtitle')}</Text>

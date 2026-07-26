@@ -21,7 +21,6 @@ import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate'
 import { colors, iconColors, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
-import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
@@ -195,7 +194,6 @@ export default function TreeScreen() {
   const errorState = useTreeStore((state) => state.errorState);
   const recentLogs = useLogsStore((state) => state.recent);
   const fetchLogs = useLogsStore((state) => state.fetchRecent);
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -456,17 +454,6 @@ export default function TreeScreen() {
           )}
         </View>
 
-        {/* Quick Log Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionBtn,
-            { backgroundColor: '#0ea5e9', marginTop: 0 },
-            pressed && { opacity: 0.85 }
-          ]}
-          onPress={() => router.push('/logs')}
-        >
-          <Text style={styles.actionBtnText}>{tc('quickLog')}</Text>
-        </Pressable>
         </>
         )}
 
@@ -681,23 +668,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       right: -10,
       transform: [{ rotate: '-10deg' }],
       zIndex: -1,
-    },
-    actionBtn: {
-      backgroundColor: colors.primary,
-      borderRadius: 100,
-      paddingVertical: spacing.lg,
-      alignItems: 'center',
-      marginTop: spacing.xs,
-      shadowColor: colors.primaryDark,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      elevation: 6,
-    },
-    actionBtnText: {
-      color: '#fff',
-      fontWeight: '700',
-      fontSize: typography.size.md,
     },
     chartSection: {
       backgroundColor: '#ffffff',

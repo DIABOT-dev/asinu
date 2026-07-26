@@ -37,6 +37,7 @@ import { env } from '../../src/lib/env';
 import { colors, radius, spacing, typography } from '../../src/styles';
 import { showToast } from '../../src/stores/toast.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 // ── Types ──────────────────────────────────────────────────────────
 type SubscriptionStatus = {
@@ -326,9 +327,7 @@ export default function SubscriptionScreen() {
         {/* ── Header ── */}
         <Animated.View entering={FadeInDown.duration(400)}>
           <View style={styles.header}>
-            <Pressable style={styles.backBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={22} color={colors.premiumDark} />
-            </Pressable>
+            <ScreenBackButton style={styles.backBtn} onPress={() => router.back()} />
             <Text style={styles.headerTitle}>{t('title')}</Text>
             <Animated.View style={crownAnimStyle}>
               <MaterialCommunityIcons name="crown" size={44} color={colors.premiumDark} style={styles.crownIcon} />
@@ -768,7 +767,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    backBtn: { position: 'absolute', left: spacing.lg, top: topInset + spacing.md, padding: spacing.xs },
+    backBtn: { position: 'absolute', left: spacing.lg, top: topInset + spacing.md },
     headerTitle: { color: colors.premiumDark, fontSize: typography.size.lg, fontWeight: '800' },
     crownIcon: { marginTop: spacing.xs },
     card: {
