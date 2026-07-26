@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -14,6 +15,7 @@ const careCircleIcon = require('../../src/assets/tab-icons/care-circle.png');
 const profileIcon = require('../../src/assets/tab-icons/profile.png');
 const missionIcon = require('../../src/assets/tab-icons/mission.png');
 const tabIconModules = [homeIcon, healthcheckIcon, careCircleIcon, profileIcon, missionIcon];
+type TabIconSource = number | { uri: string };
 
 function TabIconSkeleton() {
   const { colors } = useThemeColors();
@@ -30,7 +32,7 @@ function TabIconSkeleton() {
   return <Animated.View style={[styles.iconSkeleton, { backgroundColor: colors.border }, animatedStyle]} />;
 }
 
-function TabIcon({ source, focused, ready }: { source: number; focused: boolean; ready: boolean }) {
+function TabIcon({ source, focused, ready }: { source: TabIconSource; focused: boolean; ready: boolean }) {
   const { colors } = useThemeColors();
   const scale = useSharedValue(focused ? 1 : 0.9);
   const opacity = useSharedValue(focused ? 1 : 0.65);
@@ -63,18 +65,34 @@ export default function TabsLayout() {
   const scaledTypography = useScaledTypography();
   const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
-  const [tabIconsReady, setTabIconsReady] = useState(false);
+  const [tabIconSources, setTabIconSources] = useState<Array<TabIconSource | null>>(
+    () => tabIconModules.map(() => null),
+  );
 
   useEffect(() => {
     let active = true;
-    Asset.loadAsync(tabIconModules)
-      .then(() => {
-        if (active) setTabIconsReady(true);
-      })
-      .catch(() => {
-        // Render the bundled images even if the preload step is unavailable.
-        if (active) setTabIconsReady(true);
-      });
+    tabIconModules.forEach((module, index) => {
+      Asset.loadAsync(module)
+        .then(async ([asset]) => {
+          const uri = asset.localUri ?? asset.uri;
+          // Warm the native image cache before replacing the skeleton.
+          if (uri) await Image.prefetch(uri).catch(() => false);
+          return uri ? { uri } : module;
+        })
+        .catch(() => {
+          // Render the bundled image even if the preload step is unavailable.
+          return module;
+        })
+        .then((source) => {
+          if (!active) return;
+          setTabIconSources((previous) => {
+            if (previous[index]) return previous;
+            const next = [...previous];
+            next[index] = source;
+            return next;
+          });
+        });
+    });
     return () => {
       active = false;
     };
@@ -99,11 +117,22 @@ export default function TabsLayout() {
     [scaledTypography, bottom, colors]
   );
 
-  const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
-  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
-  const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
-  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={careCircleIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
-  const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={healthcheckIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
+  // Keep the whole visible tab bar in loading state until all four icons are ready.
+  // The short minimum gate also makes cached bundled assets render the skeleton
+  // consistently instead of skipping it in a single frame.
+  const allVisibleTabIconsLoaded = tabIconSources.slice(0, 4).every(Boolean);
+  const showTabBarLoading = useInitialLoadingGate(allVisibleTabIconsLoaded, 800);
+  const visibleTabIconsReady = !showTabBarLoading;
+  const homeIconSource = tabIconSources[0] ?? homeIcon;
+  const connectIconSource = tabIconSources[1] ?? healthcheckIcon;
+  const overviewIconSource = tabIconSources[2] ?? careCircleIcon;
+  const profileIconSource = tabIconSources[3] ?? profileIcon;
+  const missionIconSource = tabIconSources[4] ?? missionIcon;
+  const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIconSource} focused={focused} ready={visibleTabIconsReady} />, [homeIconSource, visibleTabIconsReady]);
+  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIconSource} focused={focused} ready={Boolean(tabIconSources[4])} />, [missionIconSource, tabIconSources[4]]);
+  const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIconSource} focused={focused} ready={visibleTabIconsReady} />, [profileIconSource, visibleTabIconsReady]);
+  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={overviewIconSource} focused={focused} ready={visibleTabIconsReady} />, [overviewIconSource, visibleTabIconsReady]);
+  const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={connectIconSource} focused={focused} ready={visibleTabIconsReady} />, [connectIconSource, visibleTabIconsReady]);
 
   return (
     <Tabs screenOptions={screenOptions}>
@@ -111,7 +140,7 @@ export default function TabsLayout() {
         name="home/index"
         options={{
           title: t('tabHome'),
-          tabBarLabel: t('tabHome'),
+          tabBarLabel: visibleTabIconsReady ? t('tabHome') : t('loading'),
           tabBarIcon: renderHomeIcon
         }}
       />
@@ -121,7 +150,7 @@ export default function TabsLayout() {
         name="care-circle/index"
         options={{
           title: t('tabConnect'),
-          tabBarLabel: t('tabConnect'),
+          tabBarLabel: visibleTabIconsReady ? t('tabConnect') : t('loading'),
           tabBarIcon: renderCareCircleIcon
         }}
       />
@@ -129,7 +158,7 @@ export default function TabsLayout() {
         name="tree/index"
         options={{
           title: t('tabOverview'),
-          tabBarLabel: t('tabOverview'),
+          tabBarLabel: visibleTabIconsReady ? t('tabOverview') : t('loading'),
           tabBarIcon: renderTreeIcon
         }}
       />
@@ -137,7 +166,7 @@ export default function TabsLayout() {
         name="profile/index"
         options={{
           title: t('tabProfile'),
-          tabBarLabel: t('tabProfile'),
+          tabBarLabel: visibleTabIconsReady ? t('tabProfile') : t('loading'),
           tabBarIcon: renderProfileIcon
         }}
       />
@@ -178,8 +207,8 @@ const styles = StyleSheet.create({
     height: 28,
   },
   iconSkeleton: {
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
     borderRadius: 8,
   },
 });
