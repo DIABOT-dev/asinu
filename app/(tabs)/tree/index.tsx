@@ -17,6 +17,7 @@ import { TreeTabSkeleton } from '../../../src/components/state/MainScreenSkeleto
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useTreeStore } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { colors, iconColors, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import React from 'react';
@@ -296,7 +297,7 @@ export default function TreeScreen() {
   );
 
   const [refreshing, setRefreshing] = useState(false);
-  const showInitialSkeleton = status === 'loading' && !summary;
+  const showInitialSkeleton = useInitialLoadingGate(status !== 'loading' || Boolean(summary));
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     const controller = new AbortController();

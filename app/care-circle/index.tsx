@@ -12,6 +12,7 @@ import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { CareCircleTabSkeleton } from '../../src/components/state/MainScreenSkeletons';
+import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { showToast } from '../../src/stores/toast.store';
 import { useCareCircle } from '../../src/features/care-circle';
@@ -312,7 +313,7 @@ export default function CareCircleScreen() {
   const sentInvitations = invitations.filter(
     (inv) => String(inv.requester_id) === String(profile?.id) && inv.status === 'pending'
   );
-  const showInitialSkeleton = (loading || refreshing) && connections.length === 0 && invitations.length === 0;
+  const showInitialSkeleton = useInitialLoadingGate(!(loading || refreshing));
 
   return (
     <>

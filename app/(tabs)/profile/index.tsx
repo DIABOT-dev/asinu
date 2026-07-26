@@ -26,8 +26,9 @@ import { useMissionsStore } from '../../../src/features/missions/missions.store'
 import { FontSizeScale, useFontSizeStore } from '../../../src/stores/font-size.store';
 import { AppLanguage, useLanguageStore } from '../../../src/stores/language.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { ApiError, apiClient } from '../../../src/lib/apiClient';
-import { brandColors, categoryColors, colors, iconColors, spacing } from '../../../src/styles';
+import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 
 type SubStatus = { tier: 'free' | 'premium'; isPremium: boolean; expiresAt: string | null };
@@ -83,6 +84,7 @@ export default function ProfileScreen() {
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
   const profileReadyRef = useRef(false);
   const [profileReady, setProfileReady] = useState(false);
+  const showInitialSkeleton = useInitialLoadingGate(profileReady);
 
   // Removed dropdown - use direct input instead
 
@@ -309,7 +311,7 @@ export default function ProfileScreen() {
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
-        {!profileReady ? (
+        {showInitialSkeleton ? (
           <ProfileTabSkeleton />
         ) : (
         <>
@@ -935,9 +937,7 @@ export default function ProfileScreen() {
       >
         <Pressable style={styles.logoutModalOverlay} onPress={() => setShowLogoutModal(false)}>
           <Pressable style={styles.logoutModalCard} onPress={() => {}}>
-            <View style={styles.logoutModalIconWrap}>
-              <Ionicons name="log-out-outline" size={32} color="#dc2626" />
-            </View>
+            <Ionicons name="log-out-outline" size={32} color={iconColors.danger} style={styles.logoutModalIcon} />
             <Text style={styles.logoutModalTitle}>{t('logoutConfirmTitle')}</Text>
             <Text style={styles.logoutModalMessage}>{t('logoutConfirmMessage')}</Text>
             <View style={styles.logoutModalActions}>
@@ -1199,26 +1199,22 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   logoutModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
   },
   logoutModalCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: spacing.xl,
     width: '100%',
     maxWidth: 360,
     alignItems: 'center',
   },
-  logoutModalIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fee2e2',
-    alignItems: 'center',
-    justifyContent: 'center',
+  logoutModalIcon: {
     marginBottom: spacing.md,
   },
   logoutModalTitle: {
@@ -1242,9 +1238,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   logoutModalBtn: {
     flex: 1,
+    minHeight: 50,
     paddingVertical: spacing.md,
-    borderRadius: 12,
+    borderRadius: radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   logoutModalBtnCancel: {
     backgroundColor: colors.background,
@@ -1252,7 +1250,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderColor: colors.border,
   },
   logoutModalBtnConfirm: {
-    backgroundColor: '#dc2626',
+    backgroundColor: colors.danger + '12',
+    borderWidth: 1,
+    borderColor: colors.danger + '35',
   },
   logoutModalBtnCancelText: {
     fontSize: typography.size.sm,
@@ -1262,7 +1262,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   logoutModalBtnConfirmText: {
     fontSize: typography.size.sm,
     fontWeight: '700',
-    color: '#ffffff',
+    color: iconColors.danger,
   },
   // Quick Actions
   actionGroup: {

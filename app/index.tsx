@@ -132,11 +132,14 @@ export default function Index() {
         <Text style={styles.tagline}>{t('tagline')}</Text>
       </Animated.View>
 
-      {/* Loading dots */}
-      <View style={styles.dotsWrap}>
-        <LoadingDot delay={0} />
-        <LoadingDot delay={220} />
-        <LoadingDot delay={440} />
+      {/* Loading state */}
+      <View style={styles.loadingWrap}>
+        <View style={styles.dotsWrap}>
+          <LoadingDot delay={0} />
+          <LoadingDot delay={220} />
+          <LoadingDot delay={440} />
+        </View>
+        <Text style={styles.loadingText}>{t('loading')}</Text>
       </View>
 
       <DataConsentModal visible={showConsent} onAgree={() => setShowConsent(false)} />
@@ -197,7 +200,16 @@ const styles = StyleSheet.create({
   dotsWrap: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  loadingWrap: {
+    alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.md,
+  },
+  loadingText: {
+    color: '#6b817f',
+    fontSize: 13,
+    fontWeight: '600',
   },
   dot: {
     width: 9,

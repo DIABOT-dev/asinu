@@ -29,6 +29,7 @@ import { useFlagsStore, selectIsChatbotAvailable } from '../../../src/features/a
 import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { useNotificationStore } from '../../../src/stores/notification.store';
 import { routeFromNotificationData } from '../../../src/lib/notifications';
 import { showToast, useToastStore } from '../../../src/stores/toast.store';
@@ -465,6 +466,7 @@ export default function HomeScreen() {
 
   const hasData = Boolean(treeSummary || missions.length || logs.length);
   const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
+  const showInitialSkeleton = useInitialLoadingGate(!loading);
   const noDataError =
     (logsError === 'no-data' || missionsError === 'no-data' || treeError === 'no-data') && !hasData;
 
@@ -638,15 +640,15 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
-      {!hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
+      {!showInitialSkeleton && noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
+      {!showInitialSkeleton && !hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
       <RippleRefreshScrollView
         refreshing={refreshing || loading}
         onRefresh={handleRefresh}
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
         showsVerticalScrollIndicator={false}
       >
-        {loading ? (
+        {showInitialSkeleton ? (
           <HomeTabSkeleton />
         ) : (
         <>

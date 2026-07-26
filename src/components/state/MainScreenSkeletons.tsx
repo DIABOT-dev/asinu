@@ -1,5 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
+import { ScaledText as Text } from '../ScaledText';
 import { colors, radius, spacing } from '../../styles';
 import { SkeletonBlock, SkeletonCard, SkeletonSectionTitle } from './Skeleton';
 
@@ -40,9 +42,21 @@ function MetricPairSkeleton() {
   );
 }
 
+function LoadingStatus() {
+  const { t } = useTranslation('common');
+
+  return (
+    <View style={styles.loadingStatus}>
+      <SkeletonBlock width={10} height={10} borderRadius={5} />
+      <Text style={styles.loadingStatusText}>{t('loading')}</Text>
+    </View>
+  );
+}
+
 export function HomeTabSkeleton() {
   return (
     <>
+      <LoadingStatus />
       <View style={styles.homeHero}>
         <SkeletonBlock width="34%" height={18} color={onPrimary} />
         <SkeletonBlock width="58%" height={24} color={onPrimary} />
@@ -90,6 +104,7 @@ export function HomeTabSkeleton() {
 export function ProfileTabSkeleton() {
   return (
     <>
+      <LoadingStatus />
       <LinearGradient
         colors={[colors.primary, colors.primaryDark]}
         start={{ x: 0, y: 0 }}
@@ -183,6 +198,7 @@ export function MissionsTabSkeleton() {
 export function TreeTabSkeleton() {
   return (
     <>
+      <LoadingStatus />
       <View style={styles.treeHeader}>
         <View style={{ flex: 1, gap: 9 }}>
           <SkeletonBlock width="58%" height={28} />
@@ -232,6 +248,7 @@ export function TreeTabSkeleton() {
 export function CareCircleTabSkeleton() {
   return (
     <>
+      <LoadingStatus />
       <SkeletonCard style={styles.careHero}>
         <View style={styles.centered}>
           <SkeletonBlock width={40} height={40} borderRadius={20} />
@@ -302,6 +319,18 @@ export function ReminderConfigSkeleton() {
 }
 
 const styles = StyleSheet.create({
+  loadingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  loadingStatusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
   homeHero: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,

@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
-import { colors, radius, spacing } from '../styles';
+import { colors, iconColors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
 export type AlertButton = {
@@ -109,6 +109,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     card: {
       backgroundColor: colors.surface,
       borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
       padding: spacing.xl,
       width: '100%',
       maxWidth: 340,
@@ -138,24 +140,30 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
     },
     buttonDefault: {
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1,
+      borderColor: colors.primary + '25',
     },
     buttonCancel: {
       backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     buttonDestructive: {
-      backgroundColor: colors.danger,
+      backgroundColor: colors.danger + '12',
+      borderWidth: 1,
+      borderColor: colors.danger + '35',
     },
     buttonText: {
       fontSize: typography.size.sm,
       fontWeight: '600',
-      color: '#ffffff',
+      color: colors.primary,
     },
     buttonTextCancel: {
       color: colors.textSecondary,
     },
     buttonTextDestructive: {
-      color: '#ffffff',
+      color: iconColors.danger,
     },
   });
 }

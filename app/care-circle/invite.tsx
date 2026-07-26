@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -86,6 +87,29 @@ export default function InviteScreen() {
     can_receive_alerts: true,
     can_ack_escalation: true,
   });
+
+  const hasFormProgress = Boolean(
+    phoneQuery.trim() ||
+    searchedUser ||
+    selectedUser ||
+    selectedRelationship ||
+    selectedRole ||
+    customRelationship.trim() ||
+    customRole.trim() ||
+    Object.values(permissions).some(value => !value)
+  );
+
+  const handleExit = () => {
+    if (!hasFormProgress) {
+      router.back();
+      return;
+    }
+
+    Alert.alert(t('discardInviteTitle'), t('discardInviteMessage'), [
+      { text: t('continueEditing'), style: 'cancel' },
+      { text: t('leaveWithoutSaving'), style: 'destructive', onPress: () => router.back() },
+    ]);
+  };
 
   const relationshipOptions: DropdownOption[] = [
     { id: 'vo', label: t('relWife'), subtitle: t('relSpouse') },
@@ -216,18 +240,19 @@ export default function InviteScreen() {
           title: t('inviteTitle'),
           headerStyle: { backgroundColor: colors.primaryLight },
           headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
+          headerTitleAlign: 'center',
           headerShadowVisible: false,
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ padding: 10 }}>
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
+            <Pressable onPress={handleExit} style={styles.headerBackButton} hitSlop={8}>
+              <Ionicons name="arrow-back" size={23} color={colors.primary} />
+            </Pressable>
           ),
         }}
       />
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ScrollView
           style={{ flex: 1, backgroundColor: 'transparent' }}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: selectedUser ? insets.bottom + 96 : spacing.xl }]}
           keyboardShouldPersistTaps="handled"
         >
         <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.md }}>
@@ -421,15 +446,18 @@ export default function InviteScreen() {
             ))}
           </View>
 
-        {/* ─── Actions ─── */}
-          <View style={styles.actionsWrap}>
+        </Animated.View>
+      </ScrollView>
+      </View>
+
+      {selectedUser && (
+        <View style={[styles.stickyActions, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
           <Pressable
-            style={({ pressed }) => [
-              styles.sendBtn,
-              pressed && { opacity: 0.85 },
-            ]}
+            style={({ pressed }) => [styles.sendBtn, pressed && { opacity: 0.85 }]}
             onPress={handleSend}
             disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel={t('sendInvite')}
           >
             {loading ? (
               <ActivityIndicator size="small" color={colors.primaryDark} />
@@ -440,18 +468,8 @@ export default function InviteScreen() {
               </>
             )}
           </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.7 }]}
-            onPress={() => router.back()}
-          >
-            <MaterialCommunityIcons name="close" size={18} color={colors.textSecondary} />
-            <Text style={styles.cancelBtnText}>{tc('cancel')}</Text>
-          </Pressable>
-          </View>
-        </Animated.View>
-      </ScrollView>
-      </View>
+        </View>
+      )}
 
       {/* Premium upgrade modal — connection limit */}
       <Modal visible={showUpgradeModal} transparent animationType="fade" onRequestClose={() => setShowUpgradeModal(false)}>
@@ -488,6 +506,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     scrollContent: {
       padding: spacing.xl,
       gap: spacing.md,
+    },
+    headerBackButton: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
     // ── Hero ──
@@ -695,20 +719,23 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       lineHeight: 16,
     },
 
-    // ── Actions ──
-    actionsWrap: {
-      gap: spacing.sm,
-      marginTop: spacing.xs,
+    // ── Sticky action ──
+    stickyActions: {
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.sm,
+      backgroundColor: colors.surface,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
     },
     sendBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.sm,
-      paddingVertical: spacing.lg,
+      minHeight: 52,
       paddingHorizontal: spacing.xl,
       backgroundColor: colors.primaryLight,
-      borderRadius: 14,
+      borderRadius: radius.lg,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -717,22 +744,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.md,
       fontWeight: '700',
       textAlign: 'center',
-    },
-    cancelBtn: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacing.lg,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    cancelBtnText: {
-      fontSize: typography.size.md,
-      fontWeight: '700',
-      color: colors.textSecondary,
     },
     optionalBadge: {
       fontSize: typography.size.xxs,

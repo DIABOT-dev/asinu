@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Appearance, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
@@ -92,15 +93,20 @@ export default function RootLayout() {
       presentation: 'modal' as const,
       headerShown: true,
       title: t('legalTitle'),
+      headerTitleAlign: 'center' as const,
       headerTitleStyle: { color: colors.textPrimary, fontSize: typography.size.md, fontWeight: '700' as const },
       headerStyle: { backgroundColor: colors.surface },
       headerShadowVisible: false,
+      headerBackVisible: false,
       headerLeft: () => (
         <Pressable
           onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('index')}
-          style={styles.headerLeft}
+          style={styles.headerCloseButton}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t('legalClose')}
         >
-          <Text style={[styles.headerLeftText, { color: colors.primary }]}>{t('legalClose')}</Text>
+          <Ionicons name="close" size={22} color={colors.primary} />
         </Pressable>
       )
     }),
@@ -121,6 +127,14 @@ export default function RootLayout() {
             <CarePulseProvider>
               <StatusBar style={isDark ? 'light' : 'dark'} translucent backgroundColor="transparent" />
               <Stack screenOptions={screenOptions}>
+                <Stack.Screen
+                  name="login"
+                  options={{ animation: 'fade', animationDuration: 240 }}
+                />
+                <Stack.Screen
+                  name="register"
+                  options={{ animation: 'fade', animationDuration: 240 }}
+                />
                 <Stack.Screen
                   name="legal/content"
                   options={legalScreenOptions}
@@ -182,12 +196,11 @@ function EmergencyFABGate() {
 }
 
 const styles = StyleSheet.create({
-  headerLeft: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  headerLeftText: {
-    fontSize: typography.size.md,
-    fontWeight: '700',
+  headerCloseButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.xs,
   },
 });

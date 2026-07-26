@@ -35,12 +35,12 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
     },
     modalContent: {
       backgroundColor: colors.surface,
-      borderRadius: 20,
+      borderRadius: 24,
       padding: spacing.xl,
       width: '100%',
       maxWidth: 400,
-      borderWidth: 1.5,
-      borderColor: colors.danger,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     iconContainer: {
       alignItems: 'center',
@@ -59,12 +59,12 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
       marginBottom: spacing.lg,
     },
     warningBox: {
-      backgroundColor: colors.surfaceMuted,
+      backgroundColor: colors.danger + '08',
       padding: spacing.md,
       borderRadius: 12,
       marginBottom: spacing.lg,
-      borderWidth: 1.5,
-      borderColor: colors.danger,
+      borderWidth: 1,
+      borderColor: colors.danger + '30',
     },
     warningItem: {
       color: colors.textSecondary,
@@ -110,9 +110,9 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
       borderColor: colors.border,
     },
     deleteButton: {
-      backgroundColor: colors.danger,
-      borderWidth: 1.5,
-      borderColor: colors.danger,
+      backgroundColor: colors.danger + '12',
+      borderWidth: 1,
+      borderColor: colors.danger + '35',
     },
     buttonDisabled: {
       opacity: 0.4,
@@ -122,7 +122,7 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
       color: colors.textPrimary,
     },
     deleteButtonText: {
-      color: '#fff',
+      color: colors.danger,
     },
   }), [isDark]);
   const { t } = useTranslation('settings');

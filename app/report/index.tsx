@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,21 +14,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { checkinApi, type HealthReportData } from '../../src/features/checkin/checkin.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, radius, spacing, brandColors} from '../../src/styles';
+import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 type Period = 'week' | 'month';
 
 const SEVERITY_COLORS = {
-  low: '#16a34a',
-  medium: '#f59e0b',
-  high: '#dc2626',
-};
-
-const SEVERITY_BG = {
-  low: '#f0fdf4',
-  medium: '#fffbeb',
-  high: '#fef2f2',
+  low: iconColors.emerald,
+  medium: iconColors.warning,
+  high: iconColors.danger,
 };
 
 const SEVERITY_ICON: Record<string, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
@@ -40,23 +33,21 @@ const SEVERITY_ICON: Record<string, React.ComponentProps<typeof MaterialCommunit
 
 const STATUS_META: Record<string, {
   color: string;
-  bg: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 }> = {
-  fine: { color: '#16a34a', bg: '#f0fdf4', icon: 'emoticon-happy-outline' },
-  tired: { color: '#f59e0b', bg: '#fffbeb', icon: 'emoticon-sad-outline' },
-  very_tired: { color: '#dc2626', bg: '#fef2f2', icon: 'emoticon-cry-outline' },
-  specific_concern: { color: '#6366f1', bg: '#eef2ff', icon: 'stethoscope' },
+  fine: { color: iconColors.emerald, icon: 'emoticon-happy-outline' },
+  tired: { color: iconColors.warning, icon: 'emoticon-sad-outline' },
+  very_tired: { color: iconColors.danger, icon: 'emoticon-cry-outline' },
+  specific_concern: { color: iconColors.indigo, icon: 'stethoscope' },
 };
 
 const TREND_META: Record<string, {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   color: string;
-  bg: string;
 }> = {
-  improving: { icon: 'trending-up', color: '#16a34a', bg: '#f0fdf4' },
-  stable: { icon: 'minus', color: colors.primary, bg: colors.primaryLight },
-  worsening: { icon: 'trending-down', color: '#dc2626', bg: '#fef2f2' },
+  improving: { icon: 'trending-up', color: iconColors.emerald },
+  stable: { icon: 'minus', color: colors.primary },
+  worsening: { icon: 'trending-down', color: iconColors.danger },
 };
 
 export default function ReportScreen() {
@@ -78,6 +69,14 @@ export default function ReportScreen() {
       .catch(() => setReport(null))
       .finally(() => setLoading(false));
   }, [period]);
+
+  const activeTrend = TREND_META[report?.trend ?? 'stable'] ?? TREND_META.stable;
+  const checkinPercent = report && report.totalDays > 0
+    ? Math.round((report.checkinDays / report.totalDays) * 100)
+    : 0;
+  const severityTotal = report
+    ? report.severityDistribution.low + report.severityDistribution.medium + report.severityDistribution.high
+    : 0;
 
   return (
     <View style={styles.container}>
@@ -104,7 +103,7 @@ export default function ReportScreen() {
             <MaterialCommunityIcons
               name={p === 'week' ? 'calendar-week' : 'calendar-month'}
               size={16}
-              color={period === p ? '#fff' : colors.textSecondary}
+              color={period === p ? colors.primaryDark : colors.textSecondary}
             />
             <Text style={[styles.tabText, period === p && styles.tabTextActive]}>
               {t(p === 'week' ? 'weekTab' : 'monthTab')}
@@ -127,37 +126,56 @@ export default function ReportScreen() {
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-          {/* ─── Trend Hero Card ─── */}
+          {/* ─── Report overview ─── */}
           <Animated.View entering={FadeIn.duration(500)}>
-            <View style={[styles.trendCard, { backgroundColor: TREND_META[report.trend]?.bg ?? colors.primaryLight }]}>
-              <View style={styles.trendTop}>
-                <View style={styles.trendIconWrap}>
-                  <MaterialCommunityIcons
-                    name={TREND_META[report.trend]?.icon ?? 'minus'}
-                    size={28}
-                    color={TREND_META[report.trend]?.color ?? colors.primary}
-                  />
+            <View style={styles.overviewCard}>
+              <View style={styles.overviewHeader}>
+                <View style={styles.overviewIcon}>
+                  <MaterialCommunityIcons name={activeTrend.icon} size={25} color={activeTrend.color} />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.trendLabel}>{t('trendTitle')}</Text>
-                  <Text style={[styles.trendValue, { color: TREND_META[report.trend]?.color }]}>
+                <View style={styles.overviewTitleWrap}>
+                  <Text style={styles.eyebrow}>{t('trendTitle')}</Text>
+                  <Text style={[styles.overviewTitle, { color: activeTrend.color }]}>
                     {t(report.trend === 'improving' ? 'trendImproving' : report.trend === 'worsening' ? 'trendWorsening' : 'trendStable')}
                   </Text>
                 </View>
-              </View>
-              <View style={styles.trendStats}>
-                <View style={styles.trendStat}>
-                  <MaterialCommunityIcons name="calendar-check" size={18} color={colors.primary} />
-                  <Text style={styles.trendStatValue}>{report.checkinDays}</Text>
-                  <Text style={styles.trendStatLabel}>/{report.totalDays} {t('daysUnit')}</Text>
-                </View>
-                <View style={styles.trendStatDivider} />
-                <View style={styles.trendStat}>
-                  <MaterialCommunityIcons name="percent" size={18} color={colors.primary} />
-                  <Text style={styles.trendStatValue}>{Math.round((report.checkinDays / report.totalDays) * 100)}</Text>
-                  <Text style={styles.trendStatLabel}>%</Text>
+                <View style={styles.periodPill}>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={14} color={colors.textSecondary} />
+                  <Text style={styles.periodPillText}>{t(period === 'week' ? 'weekTab' : 'monthTab')}</Text>
                 </View>
               </View>
+              <View style={styles.overviewDivider} />
+              <View style={styles.consistencyRow}>
+                <View>
+                  <Text style={styles.consistencyLabel}>{t('checkinConsistency')}</Text>
+                  <Text style={styles.consistencyValue}>
+                    {t('daysOutOf', { count: report.checkinDays, total: report.totalDays })}
+                  </Text>
+                </View>
+                <Text style={styles.consistencyPercent}>{checkinPercent}%</Text>
+              </View>
+              <View style={styles.consistencyTrack}>
+                <View style={[styles.consistencyFill, { width: `${checkinPercent}%` }]} />
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* ─── Key numbers ─── */}
+          <Animated.View entering={FadeInDown.delay(80).duration(400)} style={styles.quickStatsRow}>
+            <View style={styles.quickStat}>
+              <MaterialCommunityIcons name="calendar-check-outline" size={18} color={iconColors.primary} />
+              <Text style={styles.quickStatValue}>{report.checkinDays}</Text>
+              <Text style={styles.quickStatLabel}>{t('daysUnit')}</Text>
+            </View>
+            <View style={styles.quickStat}>
+              <MaterialCommunityIcons name="message-check-outline" size={18} color={iconColors.emerald} />
+              <Text style={styles.quickStatValue}>{report.responseRate ?? 0}%</Text>
+              <Text style={styles.quickStatLabel}>{t('responseRate')}</Text>
+            </View>
+            <View style={styles.quickStat}>
+              <MaterialCommunityIcons name="clock-outline" size={18} color={iconColors.indigo} />
+              <Text style={styles.quickStatValue}>~{report.avgCheckinHour ?? 8}h</Text>
+              <Text style={styles.quickStatLabel}>{t('avgCheckinTime')}</Text>
             </View>
           </Animated.View>
 
@@ -165,30 +183,30 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={styles.cardIconWrap}>
-                  <MaterialCommunityIcons name="chart-bar" size={18} color="#f59e0b" />
-                </View>
+                <MaterialCommunityIcons name="chart-bar" size={19} color={colors.primary} />
                 <Text style={styles.cardTitle}>{t('severityTitle')}</Text>
               </View>
-              <View style={styles.barRow}>
+              <View style={styles.distributionTrack}>
                 {(['low', 'medium', 'high'] as const).map(sev => {
-                  const total = report.severityDistribution.low + report.severityDistribution.medium + report.severityDistribution.high;
-                  const pct = total > 0 ? (report.severityDistribution[sev] / total) * 100 : 0;
+                  const pct = severityTotal > 0 ? (report.severityDistribution[sev] / severityTotal) * 100 : 0;
                   return (
-                    <View key={sev} style={styles.barItem}>
-                      <View style={styles.barTrack}>
-                        <View style={[styles.barFill, { height: `${Math.max(pct, 6)}%`, backgroundColor: SEVERITY_COLORS[sev] }]} />
-                      </View>
-                      <Text style={[styles.barCount, { color: SEVERITY_COLORS[sev] }]}>{report.severityDistribution[sev]}</Text>
-                      <View style={styles.barIconWrap}>
-                        <MaterialCommunityIcons name={SEVERITY_ICON[sev]} size={14} color={SEVERITY_COLORS[sev]} />
-                      </View>
-                      <Text style={styles.barLabel}>
-                        {t(sev === 'low' ? 'severityLow' : sev === 'medium' ? 'severityMedium' : 'severityHigh')}
-                      </Text>
-                    </View>
+                    <View key={sev} style={[styles.distributionSegment, { width: `${pct}%`, backgroundColor: SEVERITY_COLORS[sev] }]} />
                   );
                 })}
+              </View>
+              <View style={styles.legendList}>
+                {(['low', 'medium', 'high'] as const).map(sev => (
+                  <View key={sev} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: SEVERITY_COLORS[sev] }]} />
+                    <Text style={styles.legendLabel}>
+                      {t(sev === 'low' ? 'severityLow' : sev === 'medium' ? 'severityMedium' : 'severityHigh')}
+                    </Text>
+                    <Text style={styles.legendValue}>{report.severityDistribution[sev]}</Text>
+                    <Text style={styles.legendPercent}>
+                      {severityTotal > 0 ? `${Math.round((report.severityDistribution[sev] / severityTotal) * 100)}%` : '0%'}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
           </Animated.View>
@@ -197,9 +215,7 @@ export default function ReportScreen() {
           <Animated.View entering={FadeInDown.delay(200).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={styles.cardIconWrap}>
-                  <MaterialCommunityIcons name="emoticon-outline" size={18} color={colors.primary} />
-                </View>
+                <MaterialCommunityIcons name="emoticon-outline" size={19} color={colors.primary} />
                 <Text style={styles.cardTitle}>{t('statusTitle')}</Text>
               </View>
               {(['fine', 'tired', 'very_tired', 'specific_concern'] as const).map(st => {
@@ -211,14 +227,12 @@ export default function ReportScreen() {
                 const labelKey = st === 'fine' ? 'statusFine' : st === 'tired' ? 'statusTired' : st === 'very_tired' ? 'statusVeryTired' : 'statusSpecificConcern';
                 return (
                   <View key={st} style={styles.statusRow}>
-                    <View style={styles.statusIconWrap}>
-                      <MaterialCommunityIcons name={meta.icon} size={16} color={meta.color} />
-                    </View>
+                    <MaterialCommunityIcons name={meta.icon} size={17} color={meta.color} />
                     <Text style={styles.statusLabel}>{t(labelKey)}</Text>
                     <View style={styles.statusBarTrack}>
                       <View style={[styles.statusBarFill, { width: `${pct}%`, backgroundColor: meta.color }]} />
                     </View>
-                    <View style={[styles.statusCountBadge, { backgroundColor: meta.bg }]}>
+                    <View style={styles.statusCountBadge}>
                       <Text style={[styles.statusCount, { color: meta.color }]}>{count}</Text>
                     </View>
                   </View>
@@ -232,9 +246,7 @@ export default function ReportScreen() {
             <Animated.View entering={FadeInDown.delay(300).duration(400)}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={styles.cardIconWrap}>
-                    <MaterialCommunityIcons name="stethoscope" size={18} color="#8b5cf6" />
-                  </View>
+                  <MaterialCommunityIcons name="stethoscope" size={19} color={iconColors.violet} />
                   <Text style={styles.cardTitle}>{t('commonSymptoms')}</Text>
                 </View>
                 {report.commonSymptoms.map((s, i) => (
@@ -258,16 +270,12 @@ export default function ReportScreen() {
             <Animated.View entering={FadeInDown.delay(400).duration(400)}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={styles.cardIconWrap}>
-                    <MaterialCommunityIcons name="bell-ring-outline" size={18} color="#dc2626" />
-                  </View>
+                  <MaterialCommunityIcons name="bell-ring-outline" size={19} color={iconColors.danger} />
                   <Text style={styles.cardTitle}>{t('alertsTitle')}</Text>
                 </View>
                 {report.alerts.familyAlerted > 0 && (
-                  <View style={[styles.alertCard, { backgroundColor: '#fffbeb' }]}>
-                    <View style={styles.alertIconWrap}>
-                      <MaterialCommunityIcons name="account-group-outline" size={20} color="#f59e0b" />
-                    </View>
+                  <View style={[styles.alertCard, { backgroundColor: colors.premiumLight }]}>
+                    <MaterialCommunityIcons name="account-group-outline" size={20} color={iconColors.warning} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.alertLabel}>{t('familyAlerted')}</Text>
                       <Text style={styles.alertValue}>{report.alerts.familyAlerted} {t('times')}</Text>
@@ -275,13 +283,11 @@ export default function ReportScreen() {
                   </View>
                 )}
                 {report.alerts.emergencyTriggered > 0 && (
-                  <View style={[styles.alertCard, { marginTop: spacing.sm, backgroundColor: '#fef2f2' }]}>
-                    <View style={styles.alertIconWrap}>
-                      <MaterialCommunityIcons name="hospital-box-outline" size={20} color="#dc2626" />
-                    </View>
+                  <View style={[styles.alertCard, { marginTop: spacing.sm, backgroundColor: colors.danger + '12' }]}>
+                    <MaterialCommunityIcons name="hospital-box-outline" size={20} color={iconColors.danger} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.alertLabel}>{t('emergencyTriggered')}</Text>
-                      <Text style={[styles.alertValue, { color: '#dc2626' }]}>{report.alerts.emergencyTriggered} {t('times')}</Text>
+                      <Text style={[styles.alertValue, { color: iconColors.danger }]}>{report.alerts.emergencyTriggered} {t('times')}</Text>
                     </View>
                   </View>
                 )}
@@ -291,35 +297,29 @@ export default function ReportScreen() {
 
           {/* ─── Habit / Engagement ─── */}
           <Animated.View entering={FadeInDown.delay(450).duration(400)}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardIconWrap}>
-                  <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#0284c7" />
-                </View>
-                <Text style={styles.cardTitle}>{t('habitTitle')}</Text>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="clipboard-check-outline" size={19} color={iconColors.cyan} />
+                  <Text style={styles.cardTitle}>{t('habitTitle')}</Text>
               </View>
               {/* Response rate */}
               <View style={styles.statusRow}>
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="check-circle-outline" size={16} color="#16a34a" />
-                </View>
+                <MaterialCommunityIcons name="check-circle-outline" size={17} color={iconColors.emerald} />
                 <Text style={styles.statusLabel}>{t('responseRate')}</Text>
                 <View style={styles.statusBarTrack}>
-                  <View style={[styles.statusBarFill, { width: `${report.responseRate ?? 0}%`, backgroundColor: '#16a34a' }]} />
+                  <View style={[styles.statusBarFill, { width: `${report.responseRate ?? 0}%`, backgroundColor: iconColors.emerald }]} />
                 </View>
-                <View style={[styles.statusCountBadge, { backgroundColor: colors.emeraldLight }]}>
-                  <Text style={[styles.statusCount, { color: '#16a34a' }]}>{report.responseRate ?? 0}%</Text>
+                <View style={styles.statusCountBadge}>
+                  <Text style={[styles.statusCount, { color: iconColors.emerald }]}>{report.responseRate ?? 0}%</Text>
                 </View>
               </View>
               {/* Average check-in hour */}
               <View style={styles.statusRow}>
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="clock-outline" size={16} color="#3b82f6" />
-                </View>
+                <MaterialCommunityIcons name="clock-outline" size={17} color={iconColors.indigo} />
                 <Text style={styles.statusLabel}>{t('avgCheckinTime')}</Text>
                 <View style={{ flex: 1 }} />
-                <View style={[styles.statusCountBadge, { backgroundColor: brandColors.indigo + '18' }]}>
-                  <Text style={[styles.statusCount, { color: '#3b82f6' }]}>~{report.avgCheckinHour ?? 8}h {t('morningLabel')}</Text>
+                <View style={styles.statusCountBadge}>
+                  <Text style={[styles.statusCount, { color: iconColors.indigo }]}>~{report.avgCheckinHour ?? 8}h {t('morningLabel')}</Text>
                 </View>
               </View>
             </View>
@@ -327,12 +327,10 @@ export default function ReportScreen() {
 
           {/* ─── Daily History ─── */}
           <Animated.View entering={FadeInDown.delay(500).duration(400)}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardIconWrap}>
-                  <MaterialCommunityIcons name="history" size={18} color="#3b82f6" />
-                </View>
-                <Text style={styles.cardTitle}>{t('dailyHistory')}</Text>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="history" size={19} color={iconColors.indigo} />
+                  <Text style={styles.cardTitle}>{t('dailyHistory')}</Text>
               </View>
               {report.sessions.map((s, i) => {
                 const dateStr = new Date(s.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -340,9 +338,7 @@ export default function ReportScreen() {
                 return (
                   <View key={i} style={[styles.historyRow, i === report.sessions.length - 1 && { borderBottomWidth: 0 }]}>
                     <View style={styles.historyLeft}>
-                      <View style={styles.historyDayIcon}>
-                        <MaterialCommunityIcons name={statusMeta.icon} size={16} color={statusMeta.color} />
-                      </View>
+                      <MaterialCommunityIcons name={statusMeta.icon} size={17} color={statusMeta.color} />
                       <View>
                         <Text style={styles.historyDate}>{dateStr}</Text>
                         {s.summary ? (
@@ -411,13 +407,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       flexDirection: 'row',
       marginHorizontal: spacing.lg,
       marginBottom: spacing.md,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceMuted,
       borderRadius: radius.xl,
       borderWidth: 1,
       borderColor: colors.border,
       overflow: 'hidden',
-      padding: 3,
-      gap: 4,
+      padding: 4,
+      gap: spacing.xs,
     },
     tab: {
       flex: 1,
@@ -425,11 +421,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      paddingVertical: spacing.sm + 2,
+      paddingVertical: spacing.sm,
       borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: 'transparent',
     },
     tabActive: {
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.border,
     },
     tabText: {
       fontSize: typography.size.sm,
@@ -437,7 +436,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       color: colors.textSecondary,
     },
     tabTextActive: {
-      color: '#fff',
+      color: colors.primaryDark,
+      fontWeight: '700',
     },
     // Center / Empty
     center: {
@@ -447,14 +447,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       gap: spacing.md,
     },
     emptyIconWrap: {
-      width: 96,
-      height: 96,
-      borderRadius: 48,
-      backgroundColor: colors.surface,
+      width: 48,
+      height: 48,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     emptyText: {
       fontSize: typography.size.sm,
@@ -467,64 +463,117 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       paddingTop: spacing.sm,
     },
 
-    // ── Trend Hero Card ──
-    trendCard: {
+    // ── Overview ──
+    overviewCard: {
+      backgroundColor: colors.surface,
       borderRadius: radius.xl,
       padding: spacing.lg,
-      overflow: 'hidden',
       borderWidth: 1,
       borderColor: colors.border,
     },
-    trendTop: {
+    overviewHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
     },
-    trendIconWrap: {
+    overviewIcon: {
       width: 52,
       height: 52,
       borderRadius: 26,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    trendLabel: {
+    overviewTitleWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    eyebrow: {
       fontSize: typography.size.xs,
       color: colors.textSecondary,
+      fontWeight: '600',
     },
-    trendValue: {
+    overviewTitle: {
       fontSize: typography.size.lg,
+      fontWeight: '800',
+    },
+    periodPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: radius.lg,
+      paddingVertical: spacing.xs + 1,
+      paddingHorizontal: spacing.sm,
+      gap: 4,
+    },
+    periodPillText: {
+      fontSize: typography.size.xxs,
+      color: colors.textSecondary,
+      fontWeight: '700',
+    },
+    overviewDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: spacing.lg,
+    },
+    consistencyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    consistencyLabel: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+    consistencyValue: {
+      fontSize: typography.size.md,
+      color: colors.textPrimary,
       fontWeight: '800',
       marginTop: 2,
     },
-    trendStats: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: spacing.lg,
-      backgroundColor: Platform.OS === 'android' ? '#F7FFFC' : 'rgba(255,255,255,0.7)',
-      borderRadius: radius.lg,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.lg,
-    },
-    trendStat: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 4,
-    },
-    trendStatValue: {
+    consistencyPercent: {
       fontSize: typography.size.md,
       fontWeight: '800',
+      color: colors.primaryDark,
+    },
+    consistencyTrack: {
+      height: 8,
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: radius.full,
+      overflow: 'hidden',
+      marginTop: spacing.md,
+    },
+    consistencyFill: {
+      height: '100%',
+      backgroundColor: colors.primary,
+      borderRadius: radius.full,
+    },
+    quickStatsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    quickStat: {
+      flex: 1,
+      minHeight: 92,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.xs,
+      gap: 3,
+    },
+    quickStatValue: {
+      fontSize: typography.size.md,
       color: colors.textPrimary,
+      fontWeight: '800',
+      marginTop: 2,
     },
-    trendStatLabel: {
-      fontSize: typography.size.xs,
+    quickStatLabel: {
+      fontSize: typography.size.xxs,
       color: colors.textSecondary,
-    },
-    trendStatDivider: {
-      width: 1,
-      height: 24,
-      backgroundColor: colors.border,
+      textAlign: 'center',
     },
 
     // ── Cards ──
@@ -535,10 +584,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       borderWidth: 1,
       borderColor: colors.border,
       shadowColor: '#000',
-      shadowOpacity: 0.06,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 3,
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
     },
     cardHeader: {
       flexDirection: 'row',
@@ -546,62 +595,56 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       gap: spacing.md,
       marginBottom: spacing.lg,
     },
-    cardIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     cardTitle: {
       fontSize: typography.size.md,
       fontWeight: '700',
       color: colors.textPrimary,
     },
 
-    // ── Bar Chart ──
-    barRow: {
+    // ── Severity distribution ──
+    distributionTrack: {
       flexDirection: 'row',
-      justifyContent: 'space-around',
-      alignItems: 'flex-end',
-      height: 160,
-      paddingTop: spacing.sm,
-    },
-    barItem: {
-      alignItems: 'center',
-      flex: 1,
-      gap: 4,
-    },
-    barTrack: {
-      width: 32,
-      height: 100,
-      backgroundColor: colors.border + '22',
-      borderRadius: 16,
-      justifyContent: 'flex-end',
-      overflow: 'hidden',
-    },
-    barFill: {
       width: '100%',
-      borderRadius: 16,
+      height: 14,
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: radius.full,
       overflow: 'hidden',
-      minHeight: 6,
     },
-    barCount: {
-      fontSize: typography.size.lg,
-      fontWeight: '800',
-      marginTop: 4,
+    distributionSegment: {
+      height: '100%',
+      minWidth: 0,
     },
-    barIconWrap: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+    legendList: {
+      marginTop: spacing.md,
+    },
+    legendItem: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      minHeight: 32,
+      gap: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border + '88',
     },
-    barLabel: {
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendLabel: {
+      flex: 1,
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+    },
+    legendValue: {
+      fontSize: typography.size.xs,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    legendPercent: {
+      width: 38,
+      textAlign: 'right',
       fontSize: typography.size.xxs,
       color: colors.textSecondary,
-      fontWeight: '600',
     },
 
     // ── Status Distribution ──
@@ -610,13 +653,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       alignItems: 'center',
       paddingVertical: spacing.sm,
       gap: spacing.sm,
-    },
-    statusIconWrap: {
-      width: 34,
-      height: 34,
-      borderRadius: 11,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     statusLabel: {
       fontSize: typography.size.xs,
@@ -637,11 +673,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
     },
     statusCountBadge: {
       minWidth: 30,
-      height: 30,
-      borderRadius: 15,
+      minHeight: 28,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 6,
+      paddingLeft: 4,
     },
     statusCount: {
       fontSize: typography.size.sm,
@@ -702,13 +737,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       borderWidth: 1,
       borderColor: colors.border,
     },
-    alertIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     alertLabel: {
       fontSize: typography.size.xxs,
       color: colors.textSecondary,
@@ -716,7 +744,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
     alertValue: {
       fontSize: typography.size.sm,
       fontWeight: '700',
-      color: '#f59e0b',
+      color: iconColors.warning,
       marginTop: 1,
     },
 
@@ -735,13 +763,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       alignItems: 'center',
       gap: spacing.md,
       flex: 1,
-    },
-    historyDayIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     historyDate: {
       fontSize: typography.size.sm,

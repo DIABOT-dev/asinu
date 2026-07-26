@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  BounceIn, FadeIn, FadeInDown, FadeInLeft, FadeInUp,
+  FadeIn, FadeInDown, FadeInLeft, FadeInUp,
   useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, Easing,
 } from 'react-native-reanimated';
 
@@ -234,19 +234,17 @@ export default function RegisterScreen() {
         </Animated.View>
 
         {/* Logo + Title */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.heroSection}>
-          <Animated.View entering={FadeInDown.delay(200).duration(600).springify().damping(12)}>
-            <View style={styles.logoWrap}>
-              <Image source={appLogo} style={styles.logo} resizeMode="cover" />
-            </View>
-          </Animated.View>
+        <View style={styles.heroSection}>
+          <View style={styles.logoWrap}>
+            <Image source={appLogo} style={styles.logo} resizeMode="cover" />
+          </View>
           <Animated.View entering={FadeIn.delay(500).duration(400)} style={{ alignSelf: 'stretch' }}>
             <Text style={styles.title}>{t('createAccount')}</Text>
           </Animated.View>
           <Animated.View entering={FadeIn.delay(600).duration(400)} style={{ alignSelf: 'stretch' }}>
             <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
           </Animated.View>
-        </Animated.View>
+        </View>
 
         {/* Form Card */}
         <Animated.View entering={FadeInDown.delay(250).duration(500)}>

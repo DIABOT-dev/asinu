@@ -1,19 +1,36 @@
+import { Asset } from 'expo-asset';
 import { Tabs } from 'expo-router';
-import { useCallback, useMemo, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet } from 'react-native';
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
-const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
 const homeIcon = require('../../src/assets/tab-icons/home.png');
-const missionIcon = require('../../src/assets/tab-icons/mission.png');
-const profileIcon = require('../../src/assets/tab-icons/profile.png');
+const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
 const careCircleIcon = require('../../src/assets/tab-icons/care-circle.png');
+const profileIcon = require('../../src/assets/tab-icons/profile.png');
+const missionIcon = require('../../src/assets/tab-icons/mission.png');
+const tabIconModules = [homeIcon, healthcheckIcon, careCircleIcon, profileIcon, missionIcon];
 
-function TabIcon({ source, focused }: { source: any; focused: boolean }) {
+function TabIconSkeleton() {
+  const { colors } = useThemeColors();
+  const opacity = useSharedValue(0.35);
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  useEffect(() => {
+    opacity.value = withRepeat(withTiming(0.7, { duration: 650 }), -1, true);
+    return () => {
+      opacity.value = 0.35;
+    };
+  }, [opacity]);
+
+  return <Animated.View style={[styles.iconSkeleton, { backgroundColor: colors.border }, animatedStyle]} />;
+}
+
+function TabIcon({ source, focused, ready }: { source: number; focused: boolean; ready: boolean }) {
   const { colors } = useThemeColors();
   const scale = useSharedValue(focused ? 1 : 0.9);
   const opacity = useSharedValue(focused ? 1 : 0.65);
@@ -27,6 +44,8 @@ function TabIcon({ source, focused }: { source: any; focused: boolean }) {
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
+
+  if (!ready) return <TabIconSkeleton />;
 
   return (
     <Animated.View style={animStyle}>
@@ -44,6 +63,22 @@ export default function TabsLayout() {
   const scaledTypography = useScaledTypography();
   const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
+  const [tabIconsReady, setTabIconsReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    Asset.loadAsync(tabIconModules)
+      .then(() => {
+        if (active) setTabIconsReady(true);
+      })
+      .catch(() => {
+        // Render the bundled images even if the preload step is unavailable.
+        if (active) setTabIconsReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const screenOptions = useMemo(
     () => ({
@@ -64,12 +99,11 @@ export default function TabsLayout() {
     [scaledTypography, bottom, colors]
   );
 
-  const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIcon} focused={focused} />, []);
-  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIcon} focused={focused} />, []);
-  const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIcon} focused={focused} />, []);
-  // Swap icons: Kết nối dùng healthcheckIcon, Tổng quan dùng careCircleIcon.
-  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={careCircleIcon} focused={focused} />, []);
-  const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={healthcheckIcon} focused={focused} />, []);
+  const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
+  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
+  const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
+  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={careCircleIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
+  const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={healthcheckIcon} focused={focused} ready={tabIconsReady} />, [tabIconsReady]);
 
   return (
     <Tabs screenOptions={screenOptions}>
@@ -141,6 +175,11 @@ const styles = StyleSheet.create({
   },
   icon: {
     width: 28,
-    height: 28
-  }
+    height: 28,
+  },
+  iconSkeleton: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+  },
 });

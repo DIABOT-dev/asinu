@@ -14,15 +14,15 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { ScaledText as Text } from './ScaledText';
 import { checkinApi, type HealthReportData } from '../features/checkin/checkin.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
-import { brandColors, colors, radius, spacing } from '../styles';
+import { colors, iconColors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
 type Period = 'week' | 'month';
 
 const SEVERITY_COLORS = {
-  low: '#16a34a',
-  medium: '#f59e0b',
-  high: '#dc2626',
+  low: iconColors.emerald,
+  medium: iconColors.warning,
+  high: iconColors.danger,
 };
 
 const SEVERITY_ICON: Record<string, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
@@ -31,17 +31,17 @@ const SEVERITY_ICON: Record<string, React.ComponentProps<typeof MaterialCommunit
   high: 'alert-octagon',
 };
 
-const STATUS_META: Record<string, { color: string; bg: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'] }> = {
-  fine: { color: '#16a34a', bg: '#f0fdf4', icon: 'emoticon-happy-outline' },
-  tired: { color: '#f59e0b', bg: '#fffbeb', icon: 'emoticon-sad-outline' },
-  very_tired: { color: '#dc2626', bg: '#fef2f2', icon: 'emoticon-cry-outline' },
-  specific_concern: { color: '#6366f1', bg: '#eef2ff', icon: 'stethoscope' },
+const STATUS_META: Record<string, { color: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'] }> = {
+  fine: { color: iconColors.emerald, icon: 'emoticon-happy-outline' },
+  tired: { color: iconColors.warning, icon: 'emoticon-sad-outline' },
+  very_tired: { color: iconColors.danger, icon: 'emoticon-cry-outline' },
+  specific_concern: { color: iconColors.indigo, icon: 'stethoscope' },
 };
 
-const TREND_META: Record<string, { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string; bg: string }> = {
-  improving: { icon: 'trending-up', color: '#16a34a', bg: '#f0fdf4' },
-  stable: { icon: 'minus', color: colors.primary, bg: colors.primaryLight },
-  worsening: { icon: 'trending-down', color: '#dc2626', bg: '#fef2f2' },
+const TREND_META: Record<string, { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string }> = {
+  improving: { icon: 'trending-up', color: iconColors.emerald },
+  stable: { icon: 'minus', color: colors.primary },
+  worsening: { icon: 'trending-down', color: iconColors.danger },
 };
 
 type Props = {
@@ -59,6 +59,9 @@ export function HealthReportPanel({ embedded = false }: Props) {
   const [period, setPeriod] = useState<Period>('week');
   const [report, setReport] = useState<HealthReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const severityTotal = report
+    ? report.severityDistribution.low + report.severityDistribution.medium + report.severityDistribution.high
+    : 0;
 
   useEffect(() => {
     setLoading(true);
@@ -97,7 +100,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
             <MaterialCommunityIcons
               name={p === 'week' ? 'calendar-week' : 'calendar-month'}
               size={16}
-              color={period === p ? '#fff' : colors.textSecondary}
+              color={period === p ? colors.primaryDark : colors.textSecondary}
             />
             <Text style={[styles.tabText, period === p && styles.tabTextActive]}>{t(p === 'week' ? 'weekTab' : 'monthTab')}</Text>
           </Pressable>
@@ -118,15 +121,13 @@ export function HealthReportPanel({ embedded = false }: Props) {
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeIn.duration(500)}>
-            <View style={[styles.trendCard, { backgroundColor: TREND_META[report.trend]?.bg ?? colors.primaryLight }]}>
+            <View style={styles.trendCard}>
               <View style={styles.trendTop}>
-                <View style={styles.trendIconWrap}>
-                  <MaterialCommunityIcons
-                    name={TREND_META[report.trend]?.icon ?? 'minus'}
-                    size={28}
-                    color={TREND_META[report.trend]?.color ?? colors.primary}
-                  />
-                </View>
+                <MaterialCommunityIcons
+                  name={TREND_META[report.trend]?.icon ?? 'minus'}
+                  size={26}
+                  color={TREND_META[report.trend]?.color ?? colors.primary}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.trendLabel}>{t('trendTitle')}</Text>
                   <Text style={[styles.trendValue, { color: TREND_META[report.trend]?.color }]}>
@@ -153,28 +154,28 @@ export function HealthReportPanel({ embedded = false }: Props) {
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={styles.cardIconWrap}>
-                  <MaterialCommunityIcons name="chart-bar" size={18} color="#f59e0b" />
-                </View>
+                <MaterialCommunityIcons name="chart-bar" size={19} color={colors.primary} />
                 <Text style={styles.cardTitle}>{t('severityTitle')}</Text>
               </View>
-              <View style={styles.barRow}>
+              <View style={styles.distributionTrack}>
                 {(['low', 'medium', 'high'] as const).map(sev => {
-                  const total = report.severityDistribution.low + report.severityDistribution.medium + report.severityDistribution.high;
-                  const pct = total > 0 ? (report.severityDistribution[sev] / total) * 100 : 0;
+                  const pct = severityTotal > 0 ? (report.severityDistribution[sev] / severityTotal) * 100 : 0;
                   return (
-                    <View key={sev} style={styles.barItem}>
-                      <View style={styles.barTrack}>
-                        <View style={[styles.barFill, { height: `${Math.max(pct, 6)}%`, backgroundColor: SEVERITY_COLORS[sev] }]} />
-                      </View>
-                      <Text style={[styles.barCount, { color: SEVERITY_COLORS[sev] }]}>{report.severityDistribution[sev]}</Text>
-                      <View style={styles.barIconWrap}>
-                        <MaterialCommunityIcons name={SEVERITY_ICON[sev]} size={14} color={SEVERITY_COLORS[sev]} />
-                      </View>
-                      <Text style={styles.barLabel}>{t(sev === 'low' ? 'severityLow' : sev === 'medium' ? 'severityMedium' : 'severityHigh')}</Text>
-                    </View>
+                    <View key={sev} style={[styles.distributionSegment, { width: `${pct}%`, backgroundColor: SEVERITY_COLORS[sev] }]} />
                   );
                 })}
+              </View>
+              <View style={styles.legendList}>
+                {(['low', 'medium', 'high'] as const).map(sev => (
+                  <View key={sev} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: SEVERITY_COLORS[sev] }]} />
+                    <Text style={styles.legendLabel}>{t(sev === 'low' ? 'severityLow' : sev === 'medium' ? 'severityMedium' : 'severityHigh')}</Text>
+                    <Text style={styles.legendValue}>{report.severityDistribution[sev]}</Text>
+                    <Text style={styles.legendPercent}>
+                      {severityTotal > 0 ? `${Math.round((report.severityDistribution[sev] / severityTotal) * 100)}%` : '0%'}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
           </Animated.View>
@@ -182,9 +183,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
           <Animated.View entering={FadeInDown.delay(200).duration(400)}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={styles.cardIconWrap}>
-                  <MaterialCommunityIcons name="emoticon-outline" size={18} color={colors.primary} />
-                </View>
+                <MaterialCommunityIcons name="emoticon-outline" size={19} color={colors.primary} />
                 <Text style={styles.cardTitle}>{t('statusTitle')}</Text>
               </View>
               {(['fine', 'tired', 'very_tired', 'specific_concern'] as const).map(st => {
@@ -196,14 +195,12 @@ export function HealthReportPanel({ embedded = false }: Props) {
                 const labelKey = st === 'fine' ? 'statusFine' : st === 'tired' ? 'statusTired' : st === 'very_tired' ? 'statusVeryTired' : 'statusSpecificConcern';
                 return (
                   <View key={st} style={styles.statusRow}>
-                    <View style={styles.statusIconWrap}>
-                      <MaterialCommunityIcons name={meta.icon} size={16} color={meta.color} />
-                    </View>
+                    <MaterialCommunityIcons name={meta.icon} size={17} color={meta.color} />
                     <Text style={styles.statusLabel}>{t(labelKey)}</Text>
                     <View style={styles.statusBarTrack}>
                       <View style={[styles.statusBarFill, { width: `${pct}%`, backgroundColor: meta.color }]} />
                     </View>
-                    <View style={[styles.statusCountBadge, { backgroundColor: meta.bg }]}>
+                    <View style={styles.statusCountBadge}>
                       <Text style={[styles.statusCount, { color: meta.color }]}>{count}</Text>
                     </View>
                   </View>
@@ -216,9 +213,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
             <Animated.View entering={FadeInDown.delay(300).duration(400)}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={styles.cardIconWrap}>
-                    <MaterialCommunityIcons name="stethoscope" size={18} color="#8b5cf6" />
-                  </View>
+                  <MaterialCommunityIcons name="stethoscope" size={19} color={iconColors.violet} />
                   <Text style={styles.cardTitle}>{t('commonSymptoms')}</Text>
                 </View>
                 {report.commonSymptoms.map((s, i) => (
@@ -241,16 +236,12 @@ export function HealthReportPanel({ embedded = false }: Props) {
             <Animated.View entering={FadeInDown.delay(400).duration(400)}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={styles.cardIconWrap}>
-                    <MaterialCommunityIcons name="bell-ring-outline" size={18} color="#dc2626" />
-                  </View>
+                  <MaterialCommunityIcons name="bell-ring-outline" size={19} color={iconColors.danger} />
                   <Text style={styles.cardTitle}>{t('alertsTitle')}</Text>
                 </View>
                 {report.alerts.familyAlerted > 0 && (
                   <View style={[styles.alertCard, { backgroundColor: '#fffbeb' }]}>
-                    <View style={styles.alertIconWrap}>
-                      <MaterialCommunityIcons name="account-group-outline" size={20} color="#f59e0b" />
-                    </View>
+                    <MaterialCommunityIcons name="account-group-outline" size={20} color={iconColors.warning} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.alertLabel}>{t('familyAlerted')}</Text>
                       <Text style={styles.alertValue}>{report.alerts.familyAlerted} {t('times')}</Text>
@@ -258,10 +249,8 @@ export function HealthReportPanel({ embedded = false }: Props) {
                   </View>
                 )}
                 {report.alerts.emergencyTriggered > 0 && (
-                  <View style={[styles.alertCard, { marginTop: spacing.sm, backgroundColor: '#fef2f2' }]}>
-                    <View style={styles.alertIconWrap}>
-                      <MaterialCommunityIcons name="hospital-box-outline" size={20} color="#dc2626" />
-                    </View>
+                  <View style={[styles.alertCard, { marginTop: spacing.sm, backgroundColor: colors.danger + '12' }]}>
+                    <MaterialCommunityIcons name="hospital-box-outline" size={20} color={iconColors.danger} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.alertLabel}>{t('emergencyTriggered')}</Text>
                       <Text style={[styles.alertValue, { color: '#dc2626' }]}>{report.alerts.emergencyTriggered} {t('times')}</Text>
@@ -273,45 +262,37 @@ export function HealthReportPanel({ embedded = false }: Props) {
           )}
 
           <Animated.View entering={FadeInDown.delay(450).duration(400)}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardIconWrap}>
-                  <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#0284c7" />
-                </View>
-                <Text style={styles.cardTitle}>{t('habitTitle')}</Text>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="clipboard-check-outline" size={19} color={iconColors.cyan} />
+                  <Text style={styles.cardTitle}>{t('habitTitle')}</Text>
               </View>
               <View style={styles.statusRow}>
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="check-circle-outline" size={16} color="#16a34a" />
-                </View>
+                <MaterialCommunityIcons name="check-circle-outline" size={17} color={iconColors.emerald} />
                 <Text style={styles.statusLabel}>{t('responseRate')}</Text>
                 <View style={styles.statusBarTrack}>
-                  <View style={[styles.statusBarFill, { width: `${report.responseRate ?? 0}%`, backgroundColor: '#16a34a' }]} />
+                  <View style={[styles.statusBarFill, { width: `${report.responseRate ?? 0}%`, backgroundColor: iconColors.emerald }]} />
                 </View>
-                <View style={[styles.statusCountBadge, { backgroundColor: colors.emeraldLight }]}>
-                  <Text style={[styles.statusCount, { color: '#16a34a' }]}>{report.responseRate ?? 0}%</Text>
+                <View style={styles.statusCountBadge}>
+                  <Text style={[styles.statusCount, { color: iconColors.emerald }]}>{report.responseRate ?? 0}%</Text>
                 </View>
               </View>
               <View style={styles.statusRow}>
-                <View style={styles.statusIconWrap}>
-                  <MaterialCommunityIcons name="clock-outline" size={16} color="#3b82f6" />
-                </View>
+                <MaterialCommunityIcons name="clock-outline" size={17} color={iconColors.indigo} />
                 <Text style={styles.statusLabel}>{t('avgCheckinTime')}</Text>
                 <View style={{ flex: 1 }} />
-                <View style={[styles.statusCountBadge, { backgroundColor: brandColors.indigo + '18' }]}>
-                  <Text style={[styles.statusCount, { color: '#3b82f6' }]}>~{report.avgCheckinHour ?? 8}h {t('morningLabel')}</Text>
+                  <View style={styles.statusCountBadge}>
+                  <Text style={[styles.statusCount, { color: iconColors.indigo }]}>~{report.avgCheckinHour ?? 8}h {t('morningLabel')}</Text>
                 </View>
               </View>
             </View>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(500).duration(400)}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardIconWrap}>
-                  <MaterialCommunityIcons name="history" size={18} color="#3b82f6" />
-                </View>
-                <Text style={styles.cardTitle}>{t('dailyHistory')}</Text>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="history" size={19} color={iconColors.indigo} />
+                  <Text style={styles.cardTitle}>{t('dailyHistory')}</Text>
               </View>
               {report.sessions.map((s, i) => {
                 const dateStr = new Date(s.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -319,9 +300,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
                 return (
                   <View key={i} style={[styles.historyRow, i === report.sessions.length - 1 && { borderBottomWidth: 0 }]}>
                     <View style={styles.historyLeft}>
-                      <View style={styles.historyDayIcon}>
-                        <MaterialCommunityIcons name={statusMeta.icon} size={16} color={statusMeta.color} />
-                      </View>
+                      <MaterialCommunityIcons name={statusMeta.icon} size={17} color={statusMeta.color} />
                       <View>
                         <Text style={styles.historyDate}>{dateStr}</Text>
                         {s.summary ? <Text style={styles.historySummary} numberOfLines={1}>{s.summary}</Text> : null}
@@ -414,26 +393,21 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
       paddingVertical: spacing.sm + 2,
       borderRadius: radius.lg,
     },
-    tabActive: { backgroundColor: colors.primary },
+    tabActive: { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.border },
     tabText: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textSecondary },
-    tabTextActive: { color: '#fff' },
+    tabTextActive: { color: colors.primaryDark },
     center: { minHeight: embedded ? 220 : 360, justifyContent: 'center', alignItems: 'center', gap: spacing.md },
     emptyIconWrap: {
-      width: 96,
-      height: 96,
-      borderRadius: 48,
-      backgroundColor: colors.surface,
+      width: 48,
+      height: 48,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1.5,
-      borderColor: colors.border,
     },
     emptyText: { fontSize: typography.size.sm, color: colors.textSecondary },
     scroll: embedded ? {} : { flex: 1 },
     scrollContent: { paddingHorizontal: embedded ? 0 : spacing.lg, gap: spacing.lg, paddingTop: spacing.sm },
-    trendCard: { borderRadius: radius.xl, padding: spacing.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+    trendCard: { backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
     trendTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-    trendIconWrap: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
     trendLabel: { fontSize: typography.size.xs, color: colors.textSecondary },
     trendValue: { fontSize: typography.size.xl, fontWeight: '800' },
     trendStats: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md },
@@ -443,21 +417,20 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
     trendStatLabel: { fontSize: typography.size.xs, color: colors.textSecondary },
     card: { backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-    cardIconWrap: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
     cardTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.textPrimary },
-    barRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, alignItems: 'flex-end' },
-    barItem: { flex: 1, alignItems: 'center', gap: 6 },
-    barTrack: { width: '100%', height: 96, backgroundColor: colors.surfaceMuted, borderRadius: 12, overflow: 'hidden', justifyContent: 'flex-end' },
-    barFill: { width: '100%', borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden' },
-    barCount: { fontSize: typography.size.lg, fontWeight: '800' },
-    barIconWrap: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-    barLabel: { fontSize: typography.size.xs, color: colors.textSecondary, textAlign: 'center' },
+    distributionTrack: { flexDirection: 'row', width: '100%', height: 12, backgroundColor: colors.surfaceMuted, borderRadius: 999, overflow: 'hidden' },
+    distributionSegment: { height: '100%', minWidth: 0 },
+    legendList: { marginTop: spacing.md },
+    legendItem: { flexDirection: 'row', alignItems: 'center', minHeight: 32, gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border + '88' },
+    legendDot: { width: 8, height: 8, borderRadius: 4 },
+    legendLabel: { flex: 1, fontSize: typography.size.xs, color: colors.textSecondary },
+    legendValue: { fontSize: typography.size.xs, fontWeight: '800', color: colors.textPrimary },
+    legendPercent: { width: 38, textAlign: 'right', fontSize: typography.size.xxs, color: colors.textSecondary },
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-    statusIconWrap: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
     statusLabel: { width: 90, fontSize: typography.size.sm, color: colors.textPrimary, fontWeight: '600' },
     statusBarTrack: { flex: 1, height: 10, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: 'hidden' },
     statusBarFill: { height: '100%', borderRadius: 999 },
-    statusCountBadge: { minWidth: 44, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 2, alignItems: 'center' },
+    statusCountBadge: { minWidth: 44, paddingLeft: spacing.sm, alignItems: 'center' },
     statusCount: { fontSize: typography.size.xs, fontWeight: '800' },
     symptomRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
     symptomRank: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
@@ -466,12 +439,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, insets
     symptomCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999, backgroundColor: colors.surfaceMuted },
     symptomCount: { fontSize: typography.size.xs, fontWeight: '700', color: colors.textSecondary },
     alertCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: 16, padding: spacing.md, overflow: 'hidden' },
-    alertIconWrap: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     alertLabel: { fontSize: typography.size.sm, color: colors.textSecondary, fontWeight: '600' },
     alertValue: { fontSize: typography.size.md, color: colors.textPrimary, fontWeight: '800' },
     historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
     historyLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-    historyDayIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
     historyDate: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
     historySummary: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 1 },
     historySeverityBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999, backgroundColor: colors.surfaceMuted },
