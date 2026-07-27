@@ -1,6 +1,8 @@
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState, Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../features/auth/auth.store';
 import { authApi } from '../features/auth/auth.api';
 import * as Notifications from 'expo-notifications';
@@ -8,6 +10,7 @@ import {
   addNotificationResponseReceivedListener,
   checkNotificationPermission,
   getExpoPushToken,
+  requestNotificationPermissions,
   routeFromNotificationData,
   setBadgeCount,
   setupNotificationHandler,
@@ -16,6 +19,7 @@ import { checkinApi } from '../features/checkin/checkin.api';
 import { showToast } from '../stores/toast.store';
 import { dispatchRealtimeRefresh } from '../lib/realtimeSync';
 import { CaregiverAlertModal } from '../components/CaregiverAlertModal';
+import { AppAlertModal } from '../components/AppAlertModal';
 
 // ─── Session Context ──────────────────────────────────────────────────────────
 
@@ -26,11 +30,14 @@ export const useSession = () => useContext(SessionContext);
 type Props = { children: ReactNode };
 
 export const SessionProvider = ({ children }: Props) => {
+  const { t } = useTranslation('settings');
   const bootstrap = useAuthStore((state) => state.bootstrap);
   const loading = useAuthStore((state) => state.loading);
   const hydrated = useAuthStore((state) => state.hydrated);
   const authToken = useAuthStore((state) => state.token);
+  const profile = useAuthStore((state) => state.profile);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [notificationPromptVisible, setNotificationPromptVisible] = useState(false);
 
   const syncExistingPushToken = useCallback(async () => {
     const granted = await checkNotificationPermission();
@@ -41,6 +48,11 @@ export const SessionProvider = ({ children }: Props) => {
     if (token) setExpoPushToken(token);
     else console.warn('[Session] No push token obtained — notifications will not work remotely');
   }, []);
+
+  const enableNotifications = useCallback(async () => {
+    const granted = await requestNotificationPermissions();
+    if (granted) await syncExistingPushToken();
+  }, [syncExistingPushToken]);
 
   // Initial setup: bootstrap + non-prompting notification setup.
   useEffect(() => {
@@ -58,6 +70,38 @@ export const SessionProvider = ({ children }: Props) => {
       .then(() => { if (__DEV__) console.log('[Session] Push token saved to server'); })
       .catch(() => {});
   }, [authToken, expoPushToken]);
+
+  // Ask once after a completed sign-in, with an in-app explanation first.
+  // This keeps push registration discoverable for care-circle alerts while
+  // avoiding a native permission prompt on the login or onboarding screens.
+  useEffect(() => {
+    if (!hydrated || !authToken || !profile?.onboardingCompleted) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const promptKey = `@asinu/notification_permission_prompted:${profile.id}`;
+
+    const prepareNotificationAccess = async () => {
+      if (await checkNotificationPermission()) {
+        await syncExistingPushToken();
+        return;
+      }
+
+      if (await AsyncStorage.getItem(promptKey)) return;
+      await AsyncStorage.setItem(promptKey, '1');
+      if (cancelled) return;
+
+      timer = setTimeout(() => {
+        if (!cancelled) setNotificationPromptVisible(true);
+      }, 1800);
+    };
+
+    void prepareNotificationAccess();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [authToken, hydrated, profile?.id, profile?.onboardingCompleted, syncExistingPushToken]);
 
   // When a caregiver_alert / emergency push arrives in foreground, re-display it
   // as a local notification so that ACKNOWLEDGE / CALL action buttons appear.
@@ -176,12 +220,21 @@ export const SessionProvider = ({ children }: Props) => {
     return () => sub.remove();
   }, []);
 
-  const profile = useAuthStore((state) => state.profile);
   const value = useMemo(() => ({ ready: !loading && hydrated }), [loading, hydrated]);
 
   return (
     <SessionContext.Provider value={value}>
       {children}
+      <AppAlertModal
+        visible={notificationPromptVisible}
+        title={t('pushPermissionTitle')}
+        message={t('pushPermissionDesc')}
+        buttons={[
+          { text: t('later'), style: 'cancel' },
+          { text: t('enableNotifications'), onPress: () => { void enableNotifications(); } },
+        ]}
+        onDismiss={() => setNotificationPromptVisible(false)}
+      />
       {/* Hiện modal xác nhận alert cho người thân (chỉ khi đã đăng nhập) */}
       {profile && <CaregiverAlertModal />}
     </SessionContext.Provider>
