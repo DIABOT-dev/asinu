@@ -2,7 +2,8 @@
  * AppAlertModal — drop-in replacement for Alert.alert()
  * Renders a styled modal instead of native alert.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -15,15 +16,21 @@ export type AlertButton = {
   onPress?: () => void;
 };
 
+export type AlertIcon = {
+  name: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  color?: string;
+};
+
 type Props = {
   visible: boolean;
   title: string;
   message?: string;
   buttons?: AlertButton[];
+  icon?: AlertIcon;
   onDismiss: () => void;
 };
 
-export function AppAlertModal({ visible, title, message, buttons, onDismiss }: Props) {
+export function AppAlertModal({ visible, title, message, buttons, icon, onDismiss }: Props) {
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
@@ -40,6 +47,11 @@ export function AppAlertModal({ visible, title, message, buttons, onDismiss }: P
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <Pressable style={styles.overlay} onPress={onDismiss}>
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+          {icon ? (
+            <View style={styles.iconWrap}>
+              <MaterialCommunityIcons name={icon.name} size={30} color={icon.color ?? colors.primary} />
+            </View>
+          ) : null}
           <Text style={styles.title}>{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
 
@@ -86,10 +98,11 @@ export function useAppAlert() {
     title: '',
     message: '',
     buttons: [] as AlertButton[],
+    icon: undefined as AlertIcon | undefined,
   });
 
-  const showAlert = (title: string, message?: string, buttons?: AlertButton[]) => {
-    setState({ visible: true, title, message: message ?? '', buttons: buttons ?? [] });
+  const showAlert = (title: string, message?: string, buttons?: AlertButton[], icon?: AlertIcon) => {
+    setState({ visible: true, title, message: message ?? '', buttons: buttons ?? [], icon });
   };
 
   const dismissAlert = () => setState(prev => ({ ...prev, visible: false }));
@@ -122,6 +135,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       textAlign: 'center',
       marginBottom: spacing.sm,
     },
+    iconWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.sm,
+    },
     message: {
       fontSize: typography.size.sm,
       color: colors.textSecondary,
@@ -152,7 +170,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     buttonDestructive: {
       backgroundColor: colors.danger + '12',
       borderWidth: 1,
-      borderColor: colors.danger + '35',
+      borderColor: colors.textPrimary + '20',
     },
     buttonText: {
       fontSize: typography.size.sm,

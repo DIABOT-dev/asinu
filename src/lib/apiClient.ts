@@ -69,6 +69,9 @@ const shouldRetry = (method: HttpMethod, error: unknown, response?: Response) =>
   return true;
 };
 
+const isNetworkFailure = (error: unknown): error is Error =>
+  error instanceof Error && /network request failed|failed to fetch|network error/i.test(error.message);
+
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const url = `${env.apiBaseUrl}${path}`;
   const token = tokenStore.getToken();
@@ -141,7 +144,10 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
 
       return (await response.json()) as T;
     } catch (error) {
-      lastError = error;
+      const userFacingError = isNetworkFailure(error)
+        ? new Error(i18n.t('networkErrorUnknown', { ns: 'common' }))
+        : error;
+      lastError = userFacingError;
       const isAbortError = error instanceof Error && error.name === 'AbortError';
       const isTimeout = isAbortError;
       
@@ -160,7 +166,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
         await sleep(delay);
         continue;
       }
-      throw error;
+      throw userFacingError;
     }
   }
 

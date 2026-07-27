@@ -26,6 +26,7 @@ import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing, brandColors} from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
+import { normalizeVietnamesePhone } from '../../src/lib/validation';
 
 type SearchUser = {
   id: string;
@@ -110,7 +111,7 @@ export default function InviteScreen() {
     showAlert(t('discardInviteTitle'), t('discardInviteMessage'), [
       { text: t('continueEditing'), style: 'cancel' },
       { text: t('leaveWithoutSaving'), style: 'destructive', onPress: () => router.back() },
-    ]);
+    ], { name: 'logout-variant', color: iconColors.danger });
   };
 
   const relationshipOptions: DropdownOption[] = [
@@ -146,14 +147,22 @@ export default function InviteScreen() {
   ];
 
   const handleSearchByPhone = async () => {
-    const phone = phoneQuery.trim();
-    const isValidPhone = /^(0[0-9]{9}|\+84[0-9]{9})$/.test(phone);
-    if (!isValidPhone) {
+    const phone = normalizeVietnamesePhone(phoneQuery);
+    if (!phone) {
       setSearchError(t('phoneQueryTooShort'));
       setSearchedUser(null);
       setSelectedUser(null);
       return;
     }
+
+    const currentPhone = normalizeVietnamesePhone(profile?.phone ?? '');
+    if (currentPhone === phone) {
+      setSearchError(t('cannotInviteSelf'));
+      setSearchedUser(null);
+      setSelectedUser(null);
+      return;
+    }
+
     setSearchError('');
     setSearchLoading(true);
     setSearchedUser(null);

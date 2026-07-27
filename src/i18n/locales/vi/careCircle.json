@@ -123,7 +123,7 @@
   "enterPhoneNumber": "Nhập số điện thoại (vd: 0901234567)",
   "search": "Tìm",
   "selectThisUser": "Chọn người này",
-  "phoneQueryTooShort": "Vui lòng nhập đúng số điện thoại (10 số, bắt đầu bằng 0)",
+  "phoneQueryTooShort": "Vui lòng nhập số điện thoại hợp lệ (vd: 0901234567 hoặc +84901234567)",
   "noUserFoundByPhone": "Không tìm thấy người dùng với số điện thoại này",
   "phoneSearchLimit": "Bạn đã đạt giới hạn tìm kiếm trong ngày. Hãy thử lại vào ngày mai.",
   "alreadyConnected": "Bạn đã có kết nối hoặc lời mời với người này",

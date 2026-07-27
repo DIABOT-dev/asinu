@@ -37,6 +37,20 @@ export const validatePhone = (phone: string): string | null => {
   return null;
 };
 
+/**
+ * Convert a Vietnamese phone number to the local 10-digit form used by the
+ * search endpoint. Returns null for incomplete or invalid values.
+ */
+export const normalizeVietnamesePhone = (phone: string): string | null => {
+  const cleaned = String(phone || '').trim().replace(/[\s\-()]/g, '');
+
+  if (/^0\d{9}$/.test(cleaned)) return cleaned;
+  if (/^\+84\d{9}$/.test(cleaned)) return `0${cleaned.slice(3)}`;
+  if (/^84\d{9}$/.test(cleaned)) return `0${cleaned.slice(2)}`;
+
+  return null;
+};
+
 export const validatePassword = (password: string): string | null => {
   if (!password) {
     return t('passwordEmpty');

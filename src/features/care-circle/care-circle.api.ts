@@ -1,4 +1,5 @@
 import { apiClient } from '../../lib/apiClient';
+import { normalizeVietnamesePhone } from '../../lib/validation';
 
 export type CareCircleInvitation = {
   id: string;
@@ -262,6 +263,9 @@ export const careCircleApi = {
 
   // Search users for invitation
   async searchUsers(query: string) {
+    const phone = normalizeVietnamesePhone(query);
+    if (!phone) return [];
+
     const response = await apiClient<{ 
       ok: boolean; 
       users: Array<{
@@ -270,7 +274,7 @@ export const careCircleApi = {
         email: string | null;
         phone: string | null;
       }>;
-    }>(`/api/auth/users/search?q=${encodeURIComponent(query)}`);
-    return response.users;
+    }>(`/api/auth/users/search?q=${encodeURIComponent(phone)}`);
+    return Array.isArray(response.users) ? response.users : [];
   }
 };
