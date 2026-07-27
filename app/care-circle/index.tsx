@@ -1,9 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
@@ -66,6 +66,44 @@ export default function CareCircleScreen() {
   const [editRelationType, setEditRelationType] = useState<DropdownOption | null>(null);
   const [editRole, setEditRole] = useState<DropdownOption | null>(null);
   const [editPermissions, setEditPermissions] = useState({ can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true });
+
+  const invitePromptMessages = useMemo(() => [
+    t('invitePrompt1'),
+    t('invitePrompt2'),
+    t('invitePrompt3'),
+  ], [t]);
+  const [invitePromptIndex, setInvitePromptIndex] = useState(0);
+  const inviteMascotY = useRef(new Animated.Value(0)).current;
+  const invitePromptOpacity = useRef(new Animated.Value(1)).current;
+  const invitePromptY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const floatLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(inviteMascotY, { toValue: -3, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(inviteMascotY, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    floatLoop.start();
+    return () => floatLoop.stop();
+  }, [inviteMascotY]);
+
+  useEffect(() => {
+    const cycle = setInterval(() => {
+      Animated.parallel([
+        Animated.timing(invitePromptOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(invitePromptY, { toValue: -3, duration: 220, useNativeDriver: true }),
+      ]).start(() => {
+        setInvitePromptIndex((current) => (current + 1) % invitePromptMessages.length);
+        invitePromptY.setValue(4);
+        Animated.parallel([
+          Animated.timing(invitePromptOpacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+          Animated.timing(invitePromptY, { toValue: 0, duration: 280, useNativeDriver: true }),
+        ]).start();
+      });
+    }, 3600);
+    return () => clearInterval(cycle);
+  }, [invitePromptMessages.length, invitePromptOpacity, invitePromptY]);
 
   // Profile modal
   type ProfileTarget = {
@@ -370,8 +408,19 @@ export default function CareCircleScreen() {
             style={({ pressed }) => [styles.inviteButton, pressed && styles.inviteButtonPressed]}
           >
             <View style={styles.inviteButtonSurface}>
-              <Ionicons name="person-add" size={20} color={colors.primary} />
-              <Text style={styles.inviteButtonText}>{t('inviteNew')}</Text>
+              <Animated.Image
+                source={require('../../assets/asinu_chat_sticker.png')}
+                style={[styles.inviteMascot, { transform: [{ translateY: inviteMascotY }] }]}
+                resizeMode="contain"
+              />
+              <View style={styles.inviteButtonCopy}>
+                <Text style={styles.inviteButtonText}>{t('inviteNew')}</Text>
+                <Animated.View style={{ opacity: invitePromptOpacity, transform: [{ translateY: invitePromptY }] }}>
+                  <Text style={styles.inviteButtonHint} numberOfLines={1}>
+                    {invitePromptMessages[invitePromptIndex]}
+                  </Text>
+                </Animated.View>
+              </View>
               <Ionicons name="chevron-forward" size={20} color={colors.primary} style={{ marginLeft: 'auto' }} />
             </View>
           </Pressable>
@@ -877,10 +926,24 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     paddingVertical: spacing.md + 2,
     paddingHorizontal: spacing.lg,
   },
+  inviteMascot: {
+    width: 44,
+    height: 44,
+  },
+  inviteButtonCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   inviteButtonText: {
     color: colors.primaryDark,
     fontSize: typography.size.md,
     fontWeight: '700',
+  },
+  inviteButtonHint: {
+    color: colors.textSecondary,
+    fontSize: typography.size.xs,
+    lineHeight: Math.round(typography.size.xs * 1.35),
   },
   card: {
     borderRadius: 16,

@@ -376,8 +376,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.sm,
     },
     chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '48%',
+      minHeight: 52,
       paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: spacing.sm,
       borderRadius: radius.full,
       borderWidth: 1.5,
       borderColor: colors.border,
@@ -395,6 +400,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.xs,
       fontWeight: '600',
       color: colors.textSecondary,
+      flexShrink: 1,
+      textAlign: 'center',
     },
     chipTextActive: {
       color: '#fff',

@@ -1,6 +1,10 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Image, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../styles';
+import { ScaledText as Text } from './ScaledText';
+
+const asinuSticker = require('../../assets/asinu_chat_sticker.png');
 
 type HeaderButtonProps = {
   onPress: () => void;
@@ -25,6 +29,8 @@ export function ScreenBackButton({ onPress, accessibilityLabel = 'Quay lại', d
 }
 
 export function ScreenSaveButton({ onPress, accessibilityLabel = 'Lưu', disabled, style }: HeaderButtonProps) {
+  const { t } = useTranslation('common');
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -34,11 +40,8 @@ export function ScreenSaveButton({ onPress, accessibilityLabel = 'Lưu', disable
       onPress={onPress}
       style={({ pressed }) => [styles.saveButton, style, pressed && styles.pressed, disabled && styles.disabled]}
     >
-      {disabled ? (
-        <ActivityIndicator size="small" color={colors.primary} />
-      ) : (
-        <MaterialCommunityIcons name="content-save-outline" size={21} color={colors.primary} />
-      )}
+      {disabled ? <ActivityIndicator size="small" color={colors.primary} /> : <Image source={asinuSticker} style={styles.saveMascot} resizeMode="contain" />}
+      <Text style={styles.saveLabel}>{t('save')}</Text>
     </Pressable>
   );
 }
@@ -56,14 +59,24 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   saveButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    minWidth: 68,
+    height: 44,
+    paddingHorizontal: 2,
+    gap: 2,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
+  saveMascot: {
+    width: 36,
+    height: 36,
+  },
+  saveLabel: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   pressed: { opacity: 0.78 },
   disabled: { opacity: 0.55 },
