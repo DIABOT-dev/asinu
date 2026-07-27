@@ -1,43 +1,28 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
-import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInLeft,
-  FadeInRight,
-  FadeInUp,
-  FadeOut,
-  SlideInRight,
-  ZoomIn,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import Svg, { Circle, Defs, G, Path, Rect, Stop, LinearGradient as SvgGradient } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
+import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { ScaledText } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
-import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { apiClient } from '../../src/lib/apiClient';
-import { colors, iconColors, radius, spacing } from '../../src/styles';
-import { showToast } from '../../src/stores/toast.store';
-import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { apiClient } from '../../src/lib/apiClient';
+import { showToast } from '../../src/stores/toast.store';
+import { colors, spacing } from '../../src/styles';
 
 // ---- types ----
 type QRData = { order_code: string; qr_url: string; amount: number; description: string; expires_at: string };
@@ -45,13 +30,6 @@ type Payment = { id: number; order_code: string; amount: string; status: 'pendin
 type BalanceRes = { ok: boolean; balance: string };
 type QRRes = { ok: boolean; order_code: string; qr_url: string; amount: number; description: string; expires_at: string };
 type HistoryRes = { ok: boolean; payments: Payment[]; total: number };
-
-const QUICK_AMOUNTS: { value: number; labelKey: string; icon: string; iconColor: string }[] = [
-  { value: 50000,  labelKey: 'quick50',  icon: 'cash-fast',     iconColor: '#6BAF9C' },
-  { value: 100000, labelKey: 'quick100', icon: 'cash',          iconColor: '#5b9bd5' },
-  { value: 200000, labelKey: 'quick200', icon: 'cash-multiple', iconColor: '#8b7fd4' },
-  { value: 500000, labelKey: 'quick500', icon: 'diamond-stone', iconColor: '#c4845a' },
-];
 
 function formatVND(val: number | string): string {
   const n = typeof val === 'string' ? parseFloat(val) : val;
@@ -74,66 +52,155 @@ function statusIcon(status: Payment['status']): string {
   return 'time';
 }
 
-// ── Ripple Loader component ─────────────────────────────
-function RippleLoader({ size = 60, color = '#fff' }: { size?: number; color?: string }) {
-  const ring1 = useSharedValue(0);
-  const ring2 = useSharedValue(0);
-  const ring3 = useSharedValue(0);
-  const opacity1 = useSharedValue(1);
-  const opacity2 = useSharedValue(1);
-  const opacity3 = useSharedValue(1);
-
-  useEffect(() => {
-    const duration = 1800;
-    const animate = (sv: typeof ring1, opSv: typeof opacity1, delay: number) => {
-      sv.value = withDelay(delay, withRepeat(withTiming(1, { duration, easing: Easing.out(Easing.ease) }), -1));
-      opSv.value = withDelay(delay, withRepeat(withTiming(0, { duration, easing: Easing.out(Easing.ease) }), -1));
-    };
-    animate(ring1, opacity1, 0);
-    animate(ring2, opacity2, 400);
-    animate(ring3, opacity3, 800);
-  }, []);
-
-  const s1 = useAnimatedStyle(() => ({ transform: [{ scale: 0.3 + ring1.value * 0.7 }], opacity: opacity1.value * 0.6 }));
-  const s2 = useAnimatedStyle(() => ({ transform: [{ scale: 0.3 + ring2.value * 0.7 }], opacity: opacity2.value * 0.6 }));
-  const s3 = useAnimatedStyle(() => ({ transform: [{ scale: 0.3 + ring3.value * 0.7 }], opacity: opacity3.value * 0.6 }));
-
-  const ringBase = { position: 'absolute' as const, width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: color };
-
+// ── Exact SVG Icons for 4 Quick Amount Cards ─────────────
+function Icon50K() {
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={[ringBase, s1]} />
-      <Animated.View style={[ringBase, s2]} />
-      <Animated.View style={[ringBase, s3]} />
-      <View style={{ width: size * 0.35, height: size * 0.35, borderRadius: size * 0.175, backgroundColor: color }} />
+    <Svg width="36" height="26" viewBox="0 0 36 26" fill="none">
+      <Rect x="2" y="5" width="2.5" height="4" rx="1" fill="#059669" />
+      <Rect x="2" y="11" width="2.5" height="4" rx="1" fill="#059669" />
+      <Rect x="2" y="17" width="2.5" height="4" rx="1" fill="#059669" />
+      <Rect x="8" y="3" width="25" height="20" rx="4" stroke="#059669" strokeWidth="2" fill="none" />
+      <Circle cx="20.5" cy="13" r="4.5" stroke="#059669" strokeWidth="2" fill="none" />
+    </Svg>
+  );
+}
+
+function Icon100K() {
+  return (
+    <Svg width="36" height="26" viewBox="0 0 36 26" fill="none">
+      <Rect x="2" y="5" width="2.5" height="4" rx="1" fill="#0284C7" />
+      <Rect x="2" y="11" width="2.5" height="4" rx="1" fill="#0284C7" />
+      <Rect x="2" y="17" width="2.5" height="4" rx="1" fill="#0284C7" />
+      <Rect x="8" y="3" width="25" height="20" rx="4" stroke="#0284C7" strokeWidth="2" fill="none" />
+      <Circle cx="20.5" cy="13" r="4.5" stroke="#0284C7" strokeWidth="2" fill="none" />
+    </Svg>
+  );
+}
+
+function Icon200K() {
+  return (
+    <Svg width="36" height="26" viewBox="0 0 36 26" fill="none">
+      <Rect x="2" y="8" width="2.5" height="4" rx="1" fill="#8B5CF6" />
+      <Rect x="2" y="14" width="2.5" height="4" rx="1" fill="#8B5CF6" />
+      <Rect x="8" y="3" width="25" height="20" rx="4" stroke="#8B5CF6" strokeWidth="2" fill="none" />
+      <Rect x="13" y="8" width="8" height="10" rx="2" stroke="#8B5CF6" strokeWidth="1.5" fill="none" />
+      <Circle cx="26" cy="13" r="2.5" fill="#8B5CF6" />
+    </Svg>
+  );
+}
+
+function Icon500K() {
+  return (
+    <Svg width="32" height="26" viewBox="0 0 32 26" fill="none">
+      <Path
+        d="M16 2 L28 9 L16 24 L4 9 Z"
+        stroke="#F97316"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Path
+        d="M4 9 L28 9 M11 9 L16 24 M21 9 L16 24 M16 2 L11 9 M16 2 L21 9"
+        stroke="#F97316"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Static Wallet SVG Graphic for Header Card ───────────
+function WalletCardGraphic() {
+  return (
+    <View style={{ width: 120, height: 100, position: 'absolute', right: 8, top: 10 }}>
+      <Svg width="120" height="100" viewBox="0 0 130 110" fill="none">
+        {/* Wave lines background */}
+        <Path d="M10 30 Q 60 8, 125 40 T 140 95" stroke="#A7F3D0" strokeWidth="2.5" opacity="0.65" fill="none" />
+        <Path d="M30 12 Q 80 30, 130 20" stroke="#6EE7B7" strokeWidth="2" opacity="0.45" fill="none" />
+        <Path d="M0 50 Q 50 40, 115 75" stroke="#34D399" strokeWidth="1.5" opacity="0.35" fill="none" />
+
+        {/* 3D Wallet Body */}
+        <G transform="translate(22, 20) rotate(-5)">
+          {/* Soft Shadow */}
+          <Rect x="6" y="26" width="80" height="54" rx="16" fill="#047857" opacity="0.12" />
+
+          {/* Cards preview in back slot */}
+          <Rect x="15" y="8" width="62" height="34" rx="8" fill="#6EE7B7" opacity="0.9" />
+          <Rect x="20" y="4" width="52" height="28" rx="7" fill="#A7F3D0" />
+
+          {/* Main Wallet Base */}
+          <Rect x="4" y="18" width="82" height="56" rx="16" fill="url(#walletGrad)" />
+
+          {/* Wallet Flap */}
+          <Path d="M4 30 C 4 30, 26 40, 47 40 C 68 40, 82 30, 82 30 L 82 60 C 82 67.1766, 76.1766 73, 69 73 L 17 73 C 9.82335 73, 4 67.1766, 4 60 Z" fill="url(#flapGrad)" />
+
+          {/* Snap Button */}
+          <Circle cx="68" cy="51" r="6.5" fill="#E6F7F0" />
+          <Circle cx="68" cy="51" r="3.8" fill="#059669" />
+        </G>
+
+        <Defs>
+          <SvgGradient id="walletGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#B4F4D6" />
+            <Stop offset="50%" stopColor="#6EE7B7" />
+            <Stop offset="100%" stopColor="#34D399" />
+          </SvgGradient>
+          <SvgGradient id="flapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#D1FAE5" />
+            <Stop offset="100%" stopColor="#A7F3D0" />
+          </SvgGradient>
+        </Defs>
+      </Svg>
     </View>
   );
 }
 
-// ── Shimmer skeleton ────────────────────────────────────
-function Shimmer({ width, height, borderRadius = 8 }: { width: number | string; height: number; borderRadius?: number }) {
-  const shimmer = useSharedValue(0);
-  useEffect(() => {
-    shimmer.value = withRepeat(withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }), -1, true);
-  }, []);
-  const style = useAnimatedStyle(() => ({ opacity: 0.3 + shimmer.value * 0.4 }));
-  return <Animated.View style={[{ width: width as any, height, borderRadius, backgroundColor: 'rgba(255,255,255,0.3)' }, style]} />;
-}
-
-// ── Floating wallet icon ────────────────────────────────
-function FloatingIcon() {
-  const y = useSharedValue(0);
-  useEffect(() => {
-    y.value = withRepeat(withSequence(
-      withTiming(-6, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      withTiming(6, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-    ), -1, true);
-  }, []);
-  const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+// ── Static Wallet SVG Graphic for Empty History ──────────
+function EmptyHistoryGraphic() {
   return (
-    <Animated.View style={style}>
-      <MaterialCommunityIcons name="wallet-outline" size={28} color="#fff" />
-    </Animated.View>
+    <View style={{ width: 150, height: 115, alignItems: 'center', justifyContent: 'center', marginVertical: 10 }}>
+      <Svg width="150" height="115" viewBox="0 0 150 115" fill="none">
+        {/* Glow circle background */}
+        <Circle cx="75" cy="62" r="42" fill="#E6F7F0" />
+
+        {/* Plant leaf sprouts left */}
+        <Path d="M40 50 C 32 42, 26 44, 29 54 C 32 64, 42 62, 40 50 Z" fill="#6EE7B7" />
+        <Path d="M46 58 C 36 58, 34 68, 42 72 C 50 76, 52 64, 46 58 Z" fill="#34D399" />
+
+        {/* Flying money note right */}
+        <G transform="translate(96, 38) rotate(18)">
+          <Rect x="0" y="0" width="24" height="13" rx="3" fill="#A7F3D0" opacity="0.9" />
+          <Circle cx="12" cy="6.5" r="3" fill="#34D399" />
+          <Path d="M-4 3 Q -1 1, 0 5" stroke="#6EE7B7" strokeWidth="1.5" fill="none" />
+        </G>
+        <G transform="translate(104, 58) rotate(-10)">
+          <Rect x="0" y="0" width="18" height="10" rx="2" fill="#6EE7B7" opacity="0.75" />
+        </G>
+
+        {/* Mint Wallet Center */}
+        <G transform="translate(48, 44)">
+          {/* Shadow */}
+          <Rect x="4" y="20" width="60" height="40" rx="12" fill="#047857" opacity="0.1" />
+
+          {/* Wallet Base */}
+          <Rect x="0" y="8" width="60" height="40" rx="12" fill="url(#emptyGrad)" />
+
+          {/* Wallet Flap */}
+          <Path d="M0 17 C 0 17, 18 24, 32 24 C 46 24, 60 17, 60 17 L 60 40 C 60 44.4183, 56.4183 48, 52 48 L 8 48 C 3.58172 48, 0 44.4183, 0 40 Z" fill="#A7F3D0" />
+
+          {/* Button */}
+          <Circle cx="47" cy="33" r="5" fill="#E6F7F0" />
+          <Circle cx="47" cy="33" r="2.8" fill="#059669" />
+        </G>
+
+        <Defs>
+          <SvgGradient id="emptyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#A7F3D0" />
+            <Stop offset="100%" stopColor="#34D399" />
+          </SvgGradient>
+        </Defs>
+      </Svg>
+    </View>
   );
 }
 
@@ -146,10 +213,10 @@ export default function WalletScreen() {
   const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top, isDark]);
 
   const mountedRef = useRef(true);
-  const [balance, setBalance] = useState<string>('0');
-  const [amount, setAmount] = useState('');
+  const [balance, setBalance] = useState<string>('500000');
+  const [amount, setAmount] = useState('50000');
   const [qr, setQr] = useState<QRData | null>(null);
-  const [loadingBalance, setLoadingBalance] = useState(true);
+  const [loadingBalance, setLoadingBalance] = useState(false);
   const [creatingQR, setCreatingQR] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -224,7 +291,7 @@ export default function WalletScreen() {
         }
       } catch {}
     }, 5000);
-  }, [fetchBalance]);
+  }, [fetchBalance, t]);
 
   const handleGenerateQR = useCallback(async () => {
     const num = parseInt(amount.replace(/[^0-9]/g, ''), 10);
@@ -256,7 +323,7 @@ export default function WalletScreen() {
   const secondStr = (countdown % 60).toString().padStart(2, '0');
 
   return (
-    <Screen>
+    <Screen style={styles.screenBg}>
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={onRefresh}
@@ -265,257 +332,331 @@ export default function WalletScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ══ Header ══ */}
-        <Animated.View entering={FadeIn.duration(500)}>
-          <View style={styles.header}>
-
-            <View style={styles.headerRow}>
-              <ScreenBackButton onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')} />
-              <ScaledText style={styles.headerTitle}>{t('title')}</ScaledText>
-              <Pressable onPress={onRefresh} hitSlop={12} style={styles.headerAction}>
-                <Ionicons name="refresh" size={20} color={colors.primaryDark} />
-              </Pressable>
-            </View>
-
-            {/* Balance card inside header */}
-            <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.balanceCard}>
-              <View style={styles.balanceCardLeft}>
-                <FloatingIcon />
-                <View>
-                  <ScaledText style={styles.balanceLabel}>{t('balance')}</ScaledText>
-                  {loadingBalance ? (
-                    <View style={{ marginTop: 8 }}>
-                      <RippleLoader size={32} color={colors.primary} />
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 2 }}>
-                      <ScaledText style={styles.balanceValue}>{formatVND(balance)}</ScaledText>
-                      <ScaledText style={styles.balanceUnit}>{t('balanceUnit')}</ScaledText>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </Animated.View>
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <ScreenBackButton
+              onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')}
+            />
+            <ScaledText style={styles.headerTitle}>{t('title')}</ScaledText>
+            <Pressable onPress={onRefresh} hitSlop={12} style={styles.headerAction}>
+              <Ionicons name="refresh" size={18} color="#047857" />
+            </Pressable>
           </View>
-        </Animated.View>
+        </View>
 
-        {/* ══ Top-up section ══ */}
-        <Animated.View entering={FadeInDown.delay(200).duration(450).springify()}>
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="wallet-plus-outline" size={18} color={iconColors.primary} />
+        {/* Balance Card */}
+        <View style={styles.balanceCardWrapper}>
+          <LinearGradient
+            colors={['#EFF9F5', '#E3F5ED', '#D7F1E7']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.balanceCard}
+          >
+            <WalletCardGraphic />
+
+            <View style={styles.balanceCardContent}>
+              <ScaledText style={styles.balanceLabel}>Số dư hiện tại</ScaledText>
+              {loadingBalance ? (
+                <View style={{ marginTop: 8 }}>
+                  <ActivityIndicator size="small" color="#059669" />
+                </View>
+              ) : (
+                <View style={styles.balanceRow}>
+                  <ScaledText style={styles.balanceValue}>{formatVND(balance)}</ScaledText>
+                  <ScaledText style={styles.balanceUnit}>đ</ScaledText>
+                </View>
+              )}
+
+              <View style={styles.badgePill}>
+                <Ionicons name="shield-checkmark" size={13} color="#059669" />
+                <ScaledText style={styles.badgeText}>Ví an toàn</ScaledText>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* ══ Top-up Section ══ */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+              <MaterialCommunityIcons name="wallet-plus-outline" size={22} color="#059669" />
               <ScaledText style={styles.sectionTitle}>{t('topUp')}</ScaledText>
             </View>
-
-            {/* Amount selection */}
-            <View style={styles.quickGrid}>
-              {QUICK_AMOUNTS.map((q, idx) => {
-                const active = amount === String(q.value);
-                return (
-                  <Animated.View key={q.value} entering={FadeInDown.delay(280 + idx * 55).duration(380).springify()}>
-                    <Pressable
-                      style={({ pressed }) => [styles.quickCard, active && styles.quickCardActive, pressed && { opacity: 0.85 }]}
-                      onPress={() => setAmount(String(q.value))}
-                    >
-                      <MaterialCommunityIcons name={q.icon as any} size={20} color={q.iconColor} />
-                      <View style={styles.quickCardBody}>
-                        <ScaledText style={[styles.quickCardAmount, active && styles.quickCardAmountActive]}>
-                          {formatVND(q.value)} đ
-                        </ScaledText>
-                        <ScaledText style={styles.quickCardLabel}>{t(q.labelKey)}</ScaledText>
-                      </View>
-                      <View style={[styles.quickCardCheck, active && styles.quickCardCheckActive]}>
-                        {active
-                          ? <Ionicons name="checkmark" size={14} color="#fff" />
-                          : <View style={styles.quickCardCheckEmpty} />
-                        }
-                      </View>
-                    </Pressable>
-                  </Animated.View>
-                );
-              })}
+            <View style={styles.securityRight}>
+              <Ionicons name="shield-checkmark-outline" size={14} color="#059669" />
+              <ScaledText style={styles.securityText}>Bảo mật tuyệt đối</ScaledText>
             </View>
-
-            {/* Divider */}
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <ScaledText style={styles.dividerText}>{t('orEnterAmount')}</ScaledText>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Custom amount input */}
-            <Animated.View entering={FadeInLeft.delay(580).duration(380)}>
-              <View style={styles.inputWrap}>
-                <View style={styles.inputCurrencyBadge}>
-                  <ScaledText style={styles.inputCurrencyText}>₫</ScaledText>
-                </View>
-                <TextInput
-                  style={styles.input}
-                  placeholder={t('enterAmount')}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numeric"
-                  value={amount ? formatVND(parseInt(amount)) : ''}
-                  onChangeText={(v) => setAmount(v.replace(/[^0-9]/g, '').replace(/\./g, ''))}
-                />
-                {amount.length > 0 && (
-                  <Pressable onPress={() => setAmount('')} style={{ marginRight: spacing.md }}>
-                    <Ionicons name="close-circle" size={20} color={colors.border} />
-                  </Pressable>
-                )}
-              </View>
-            </Animated.View>
-
-            {!!error && (
-              <Animated.View entering={FadeIn.duration(250)}>
-                <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle-outline" size={15} color={iconColors.danger} />
-                  <ScaledText style={styles.errorText}>{error}</ScaledText>
-                </View>
-              </Animated.View>
-            )}
-
-            {/* Generate QR button */}
-            <Animated.View entering={FadeInDown.delay(650).duration(400).springify()}>
-              <Pressable
-                style={({ pressed }) => [styles.generateBtn, pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] }]}
-                onPress={handleGenerateQR}
-                disabled={creatingQR}
-              >
-                <View style={styles.generateBtnInner}>
-                  {creatingQR ? (
-                    <RippleLoader size={28} color={colors.primary} />
-                  ) : (
-                    <>
-                      <Ionicons name="qr-code-outline" size={22} color={colors.primaryDark} />
-                      <ScaledText style={styles.generateBtnText}>{t('generateQR')}</ScaledText>
-                    </>
-                  )}
-                </View>
-              </Pressable>
-            </Animated.View>
           </View>
-        </Animated.View>
 
-        {/* ══ QR display ══ */}
-        {qr && (
-          <Animated.View entering={FadeInDown.delay(100).duration(450).springify()}>
-            <View style={styles.section}>
-              {pollStatus === 'success' ? (
-                <Animated.View entering={ZoomIn.duration(500).springify()} style={styles.successBox}>
-                  <Ionicons name="checkmark-circle" size={72} color={iconColors.emerald} />
-                  <ScaledText style={styles.successTitle}>{t('paymentSuccess')}</ScaledText>
-                  <ScaledText style={styles.successSub}>+{formatVND(qr.amount)} đ</ScaledText>
-                </Animated.View>
+          {/* Quick Amounts Grid (2x2) */}
+          <View style={styles.quickGridWrapper}>
+            <View style={styles.quickGrid}>
+              {/* Card 1: 50.000 đ */}
+              <View style={styles.quickCardCol}>
+                <Pressable
+                  style={[styles.quickCard, amount === '50000' ? styles.quickCardActive : styles.quickCardInactive]}
+                  onPress={() => setAmount('50000')}
+                >
+                  <View style={[styles.radioCircle, amount === '50000' && styles.radioCircleActive]}>
+                    {amount === '50000' ? (
+                      <Ionicons name="checkmark" size={12} color="#fff" />
+                    ) : (
+                      <View style={styles.radioInnerEmpty} />
+                    )}
+                  </View>
+                  <View style={{ marginBottom: 6 }}><Icon50K /></View>
+                  <ScaledText style={[styles.quickCardAmount, amount === '50000' && styles.quickCardAmountActive]}>
+                    50.000 đ
+                  </ScaledText>
+                  <ScaledText style={styles.quickCardLabel}>50K</ScaledText>
+                </Pressable>
+              </View>
+
+              {/* Card 2: 100.000 đ */}
+              <View style={styles.quickCardCol}>
+                <Pressable
+                  style={[styles.quickCard, amount === '100000' ? styles.quickCardActive : styles.quickCardInactive]}
+                  onPress={() => setAmount('100000')}
+                >
+                  <View style={[styles.radioCircle, amount === '100000' && styles.radioCircleActive]}>
+                    {amount === '100000' ? (
+                      <Ionicons name="checkmark" size={12} color="#fff" />
+                    ) : (
+                      <View style={styles.radioInnerEmpty} />
+                    )}
+                  </View>
+                  <View style={{ marginBottom: 6 }}><Icon100K /></View>
+                  <ScaledText style={[styles.quickCardAmount, amount === '100000' && styles.quickCardAmountActive]}>
+                    100.000 đ
+                  </ScaledText>
+                  <ScaledText style={styles.quickCardLabel}>100K</ScaledText>
+                </Pressable>
+              </View>
+
+              {/* Card 3: 200.000 đ */}
+              <View style={styles.quickCardCol}>
+                <Pressable
+                  style={[styles.quickCard, amount === '200000' ? styles.quickCardActive : styles.quickCardInactive]}
+                  onPress={() => setAmount('200000')}
+                >
+                  <View style={[styles.radioCircle, amount === '200000' && styles.radioCircleActive]}>
+                    {amount === '200000' ? (
+                      <Ionicons name="checkmark" size={12} color="#fff" />
+                    ) : (
+                      <View style={styles.radioInnerEmpty} />
+                    )}
+                  </View>
+                  <View style={{ marginBottom: 6 }}><Icon200K /></View>
+                  <ScaledText style={[styles.quickCardAmount, amount === '200000' && styles.quickCardAmountActive]}>
+                    200.000 đ
+                  </ScaledText>
+                  <ScaledText style={styles.quickCardLabel}>200K</ScaledText>
+                </Pressable>
+              </View>
+
+              {/* Card 4: 500.000 đ */}
+              <View style={styles.quickCardCol}>
+                <Pressable
+                  style={[styles.quickCard, amount === '500000' ? styles.quickCardActive : styles.quickCardInactive]}
+                  onPress={() => setAmount('500000')}
+                >
+                  <View style={[styles.radioCircle, amount === '500000' && styles.radioCircleActive]}>
+                    {amount === '500000' ? (
+                      <Ionicons name="checkmark" size={12} color="#fff" />
+                    ) : (
+                      <View style={styles.radioInnerEmpty} />
+                    )}
+                  </View>
+                  <View style={{ marginBottom: 6 }}><Icon500K /></View>
+                  <ScaledText style={[styles.quickCardAmount, amount === '500000' && styles.quickCardAmountActive]}>
+                    500.000 đ
+                  </ScaledText>
+                  <ScaledText style={styles.quickCardLabel}>500K</ScaledText>
+                </Pressable>
+              </View>
+            </View>
+
+          </View>
+
+          {/* Divider with text */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <ScaledText style={styles.dividerText}>{t('orEnterAmount')}</ScaledText>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Custom amount input */}
+          <View style={styles.inputWrap}>
+            <View style={styles.inputCurrencyBadge}>
+              <ScaledText style={styles.inputCurrencyText}>đ</ScaledText>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder={t('enterAmount')}
+              placeholderTextColor="#9CA3AF"
+              keyboardType="numeric"
+              value={amount ? formatVND(parseInt(amount)) : ''}
+              onChangeText={(v) => setAmount(v.replace(/[^0-9]/g, ''))}
+            />
+            {amount.length > 0 && (
+              <Pressable onPress={() => setAmount('')} style={{ paddingRight: 12 }}>
+                <Ionicons name="close-circle" size={18} color="#D1D5DB" />
+              </Pressable>
+            )}
+          </View>
+
+          {!!error && (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
+              <ScaledText style={styles.errorText}>{error}</ScaledText>
+            </View>
+          )}
+
+          {/* Generate QR Action Banner */}
+          <Pressable
+            onPress={handleGenerateQR}
+            disabled={creatingQR}
+          >
+            <LinearGradient
+              colors={['#D1FAE5', '#E6F7F0']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.generateBanner}
+            >
+              <View style={styles.generateLeftIconWrap}>
+                <MaterialCommunityIcons name="view-grid-plus-outline" size={26} color="#059669" />
+              </View>
+              <View style={styles.generateTextWrap}>
+                <ScaledText style={styles.generateTitle}>Tạo mã QR</ScaledText>
+                <ScaledText style={styles.generateSub}>Quét mã để nạp tiền nhanh chóng</ScaledText>
+              </View>
+              {creatingQR ? (
+                <ActivityIndicator size="small" color="#059669" />
               ) : (
-                <>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="scan-outline" size={18} color={iconColors.warning} />
+                <Ionicons name="chevron-forward" size={20} color="#059669" />
+              )}
+            </LinearGradient>
+          </Pressable>
+        </View>
+
+        {/* ══ QR Display Section ══ */}
+        {qr && (
+          <View style={styles.sectionCard}>
+            {pollStatus === 'success' ? (
+              <View style={styles.successBox}>
+                <Ionicons name="checkmark-circle" size={68} color="#10B981" />
+                <ScaledText style={styles.successTitle}>{t('paymentSuccess')}</ScaledText>
+                <ScaledText style={styles.successSub}>+{formatVND(qr.amount)} đ</ScaledText>
+              </View>
+            ) : (
+              <>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionHeaderLeft}>
+                    <Ionicons name="scan-outline" size={20} color="#059669" />
                     <ScaledText style={styles.sectionTitle}>{t('scanQR')}</ScaledText>
                   </View>
+                </View>
 
-                  {isExpired ? (
-                    <Animated.View entering={FadeIn.duration(350)} style={styles.expiredBox}>
-                      <Ionicons name="time-outline" size={40} color={iconColors.danger} />
-                      <ScaledText style={styles.expiredText}>{t('expired')}</ScaledText>
-                      <Pressable style={styles.refreshBtn} onPress={handleGenerateQR}>
-                        <Ionicons name="refresh" size={16} color="#fff" />
-                        <ScaledText style={styles.refreshBtnText}>{t('refreshQR')}</ScaledText>
-                      </Pressable>
-                    </Animated.View>
-                  ) : (
-                    <>
-                      {/* QR code */}
-                      <Animated.View entering={ZoomIn.delay(150).duration(450).springify()} style={styles.qrWrapper}>
-                        <View style={styles.qrContainer}>
-                          <Image source={{ uri: qr.qr_url }} style={styles.qrImage} resizeMode="contain" />
-                        </View>
-                        <View style={styles.qrAmountBadge}>
-                          <ScaledText style={styles.qrAmountText}>{formatVND(qr.amount)} đ</ScaledText>
-                        </View>
-                      </Animated.View>
+                {isExpired ? (
+                  <View style={styles.expiredBox}>
+                    <Ionicons name="time-outline" size={38} color={colors.danger} />
+                    <ScaledText style={styles.expiredText}>{t('expired')}</ScaledText>
+                    <Pressable style={styles.refreshBtn} onPress={handleGenerateQR}>
+                      <Ionicons name="refresh" size={16} color="#fff" />
+                      <ScaledText style={styles.refreshBtnText}>{t('refreshQR')}</ScaledText>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    {/* QR image */}
+                    <View style={styles.qrWrapper}>
+                      <View style={styles.qrContainer}>
+                        <Image source={{ uri: qr.qr_url }} style={styles.qrImage} resizeMode="contain" />
+                      </View>
+                      <View style={styles.qrAmountBadge}>
+                        <ScaledText style={styles.qrAmountText}>{formatVND(qr.amount)} đ</ScaledText>
+                      </View>
+                    </View>
 
-                      {/* Countdown */}
-                      <Animated.View entering={FadeIn.delay(300).duration(350)} style={styles.countdownRow}>
-                        <Ionicons name="time-outline" size={15} color={countdown < 60 ? colors.danger : colors.warning} />
-                        <ScaledText style={[styles.countdownText, countdown < 60 && { color: colors.danger }]}>
-                          {t('expiresIn', { minutes: minuteStr, seconds: secondStr })}
-                        </ScaledText>
-                      </Animated.View>
+                    {/* Countdown */}
+                    <View style={styles.countdownRow}>
+                      <Ionicons name="time-outline" size={14} color={countdown < 60 ? colors.danger : '#D97706'} />
+                      <ScaledText style={[styles.countdownText, countdown < 60 && { color: colors.danger }]}>
+                        {t('expiresIn', { minutes: minuteStr, seconds: secondStr })}
+                      </ScaledText>
+                    </View>
 
-                      {/* Transfer note */}
-                      <Animated.View entering={FadeInUp.delay(400).duration(350)}>
-                        <View style={styles.noteBox}>
-                          <ScaledText style={styles.noteLabel}>{t('transferNote')}</ScaledText>
-                          <View style={styles.noteValueRow}>
-                            <ScaledText style={styles.noteValue}>{qr.description}</ScaledText>
-                            <Pressable hitSlop={8}>
-                              <Ionicons name="copy-outline" size={17} color={iconColors.primary} />
-                            </Pressable>
-                          </View>
-                        </View>
-                      </Animated.View>
+                    {/* Transfer note */}
+                    <View style={styles.noteBox}>
+                      <ScaledText style={styles.noteLabel}>{t('transferNote')}</ScaledText>
+                      <View style={styles.noteValueRow}>
+                        <ScaledText style={styles.noteValue}>{qr.description}</ScaledText>
+                        <Pressable hitSlop={8}>
+                          <Ionicons name="copy-outline" size={16} color="#059669" />
+                        </Pressable>
+                      </View>
+                    </View>
 
-                      {/* Polling indicator */}
-                      <Animated.View entering={FadeIn.delay(500).duration(350)}>
-                        <View style={styles.pendingRow}>
-                          <RippleLoader size={22} color={iconColors.primary} />
-                          <ScaledText style={styles.pendingText}>{t('paymentPending')}</ScaledText>
-                        </View>
-                      </Animated.View>
-                    </>
-                  )}
-                </>
-              )}
-            </View>
-          </Animated.View>
+                    {/* Polling */}
+                    <View style={styles.pendingRow}>
+                      <ActivityIndicator size="small" color="#059669" />
+                      <ScaledText style={styles.pendingText}>{t('paymentPending')}</ScaledText>
+                    </View>
+                  </>
+                )}
+              </>
+            )}
+          </View>
         )}
 
         {/* ══ Transaction History ══ */}
-        <Animated.View entering={FadeInDown.delay(300).duration(450).springify()}>
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="receipt-outline" size={18} color={iconColors.primary} />
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+              <MaterialCommunityIcons name="file-document-outline" size={22} color="#059669" />
               <ScaledText style={styles.sectionTitle}>{t('history')}</ScaledText>
             </View>
-
-            {loadingHistory ? (
-              <View style={styles.shimmerWrap}>
-                {[1, 2, 3].map((i) => (
-                  <View key={i} style={styles.shimmerRow}>
-                    <Shimmer width={44} height={44} borderRadius={13} />
-                    <View style={{ flex: 1, gap: 7 }}>
-                      <Shimmer width="65%" height={14} />
-                      <Shimmer width="42%" height={10} />
-                    </View>
-                    <Shimmer width={68} height={26} borderRadius={13} />
-                  </View>
-                ))}
-              </View>
-            ) : payments.length === 0 ? (
-              <Animated.View entering={FadeIn.delay(450).duration(350)} style={styles.emptyWrap}>
-                <Ionicons name="wallet-outline" size={36} color={colors.textSecondary} />
-                <ScaledText style={styles.emptyText}>{t('noHistory')}</ScaledText>
-              </Animated.View>
-            ) : (
-              payments.map((p, idx) => (
-                <Animated.View key={p.id} entering={SlideInRight.delay(400 + idx * 50).duration(380).springify()}>
-                  <View style={[styles.paymentRow, idx === payments.length - 1 && { borderBottomWidth: 0 }]}>
-                    <Ionicons name={statusIcon(p.status) as any} size={20} color={statusColor(p.status)} />
-                    <View style={styles.paymentInfo}>
-                      <ScaledText style={styles.paymentAmount}>+{formatVND(p.amount)} đ</ScaledText>
-                      <ScaledText style={styles.paymentDate}>
-                        {new Date(p.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </ScaledText>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: statusColor(p.status) + '15' }]}>
-                      <View style={[styles.statusDot, { backgroundColor: statusColor(p.status) }]} />
-                      <ScaledText style={[styles.statusText, { color: statusColor(p.status) }]}>{formatStatus(p.status, t)}</ScaledText>
-                    </View>
-                  </View>
-                </Animated.View>
-              ))
-            )}
+            <Pressable onPress={() => {}} hitSlop={8}>
+              <ScaledText style={styles.seeAllText}>Xem tất cả &gt;</ScaledText>
+            </Pressable>
           </View>
-        </Animated.View>
+
+          {loadingHistory ? (
+            <View style={styles.shimmerWrap}>
+              {[1, 2, 3].map((i) => (
+                <View key={i} style={styles.shimmerRow}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#E2E8F0' }} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <View style={{ width: '60%', height: 14, backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                    <View style={{ width: '40%', height: 10, backgroundColor: '#E2E8F0', borderRadius: 4 }} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : payments.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <EmptyHistoryGraphic />
+              <ScaledText style={styles.emptyTitle}>{t('noHistory')}</ScaledText>
+              <ScaledText style={styles.emptySub}>Các giao dịch sẽ được hiển thị tại đây</ScaledText>
+            </View>
+          ) : (
+            payments.map((p, idx) => (
+              <View key={p.id} style={[styles.paymentRow, idx === payments.length - 1 && { borderBottomWidth: 0 }]}>
+                <Ionicons name={statusIcon(p.status) as any} size={20} color={statusColor(p.status)} />
+                <View style={styles.paymentInfo}>
+                  <ScaledText style={styles.paymentAmount}>+{formatVND(p.amount)} đ</ScaledText>
+                  <ScaledText style={styles.paymentDate}>
+                    {new Date(p.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </ScaledText>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: statusColor(p.status) + '15' }]}>
+                  <View style={[styles.statusDot, { backgroundColor: statusColor(p.status) }]} />
+                  <ScaledText style={[styles.statusText, { color: statusColor(p.status) }]}>{formatStatus(p.status, t)}</ScaledText>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
       </RippleRefreshScrollView>
     </Screen>
   );
@@ -523,200 +664,496 @@ export default function WalletScreen() {
 
 function createStyles(scaledTypography: { size: { xs: number; sm: number; md: number; lg: number; xl: number } }, topInset: number) {
   return StyleSheet.create({
-    scroll: { paddingBottom: spacing.xxl + 24 },
+    screenBg: {
+      backgroundColor: '#F5FAF7',
+    },
+    scroll: {
+      paddingBottom: spacing.xxl + 24,
+    },
 
     // ── Header ──────────────────────────────────────────
     header: {
-      paddingTop: topInset + spacing.sm,
-      paddingBottom: spacing.xl,
+      paddingTop: topInset + spacing.xs,
       paddingHorizontal: spacing.lg,
-      backgroundColor: colors.primaryLight,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      paddingBottom: spacing.sm,
     },
     headerRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      marginBottom: spacing.lg,
-    },
-    headerAction: {
-      width: 38, height: 38, borderRadius: 19,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: { color: colors.textPrimary, fontSize: scaledTypography.size.md, fontWeight: '700' },
-
-    // Balance card (inside header)
-    balanceCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: spacing.lg,
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    headerTitle: {
+      color: '#064E3B',
+      fontSize: scaledTypography.size.md + 2,
+      fontWeight: '700',
+    },
+    headerAction: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#FFFFFF',
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: '#E2F1EC',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
     },
-    balanceCardLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
-    balanceLabel: { color: colors.textSecondary, fontSize: scaledTypography.size.xs, marginBottom: 2 },
-    balanceValue: {
-      color: colors.primaryDark, fontSize: scaledTypography.size.lg + 2, fontWeight: '800',
-      lineHeight: Math.round((scaledTypography.size.lg + 2) * 1.3),
-    },
-    balanceUnit: { color: colors.textSecondary, fontSize: scaledTypography.size.sm, fontWeight: '600', marginBottom: 3 },
 
-    // ── Section card ────────────────────────────────────
-    section: {
-      backgroundColor: colors.surface,
-      marginHorizontal: spacing.lg, marginTop: spacing.lg,
-      borderRadius: radius.xl, padding: spacing.lg,
-      borderWidth: 1, borderColor: colors.border,
-      shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10,
-      shadowOffset: { width: 0, height: 3 }, elevation: 2,
+    // ── Balance Card ────────────────────────────────────
+    balanceCardWrapper: {
+      marginHorizontal: 16,
+      marginTop: 8,
+      marginBottom: 16,
+      borderRadius: 24,
+      shadowColor: '#059669',
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 3,
+    },
+    balanceCard: {
+      borderRadius: 24,
+      padding: 20,
+      paddingVertical: 22,
+      borderWidth: 1,
+      borderColor: '#DCF0E9',
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    balanceCardContent: {
+      zIndex: 2,
+    },
+    balanceLabel: {
+      color: '#4B5563',
+      fontSize: scaledTypography.size.xs + 1,
+      fontWeight: '500',
+      marginBottom: 4,
+    },
+    balanceRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 4,
+      marginBottom: 10,
+    },
+    balanceValue: {
+      color: '#007A5E',
+      fontSize: scaledTypography.size.xl + 12,
+      fontWeight: '800',
+      lineHeight: Math.round((scaledTypography.size.xl + 12) * 1.15),
+    },
+    balanceUnit: {
+      color: '#007A5E',
+      fontSize: scaledTypography.size.lg,
+      fontWeight: '600',
+    },
+    badgePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: '#DDF4EC',
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: 20,
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderColor: '#C3ECE0',
+    },
+    badgeText: {
+      color: '#059669',
+      fontSize: scaledTypography.size.xs,
+      fontWeight: '600',
+    },
+
+    // ── Main Section Cards ──────────────────────────────
+    sectionCard: {
+      backgroundColor: '#FFFFFF',
+      marginHorizontal: 16,
+      marginBottom: 16,
+      borderRadius: 24,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: '#F0F4F2',
+      shadowColor: '#000',
+      shadowOpacity: 0.04,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 2,
     },
     sectionHeader: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
     },
-    sectionTitle: { fontSize: scaledTypography.size.md, fontWeight: '700', color: colors.textPrimary },
+    sectionHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    sectionTitle: {
+      fontSize: scaledTypography.size.md + 1,
+      fontWeight: '700',
+      color: '#111827',
+    },
+    securityRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    securityText: {
+      fontSize: scaledTypography.size.xs,
+      color: '#059669',
+      fontWeight: '500',
+    },
+    seeAllText: {
+      fontSize: scaledTypography.size.xs + 1,
+      color: '#059669',
+      fontWeight: '600',
+    },
 
-    // ── Quick amount cards ───────────────────────────────
-    quickGrid: { gap: spacing.sm, marginBottom: spacing.lg },
+    // ── Quick Amounts Grid (2x2) ────────────────────────
+    quickGridWrapper: {
+      position: 'relative',
+      marginBottom: 16,
+    },
+    quickGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    quickCardCol: {
+      width: '48.2%',
+    },
     quickCard: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-      paddingVertical: spacing.md, paddingHorizontal: spacing.md,
-      borderRadius: 14, borderWidth: 1.5, borderColor: colors.border,
-      backgroundColor: colors.background,
+      borderRadius: 18,
+      padding: 16,
+      paddingVertical: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
     },
     quickCardActive: {
-      borderColor: colors.primary,
-      backgroundColor: `${colors.primary}07`,
+      backgroundColor: '#EBF8F4',
+      borderWidth: 1.5,
+      borderColor: '#059669',
     },
-    quickCardBody: { flex: 1 },
+    quickCardInactive: {
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+    },
+    radioCircle: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: '#D1D5DB',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    radioCircleActive: {
+      backgroundColor: '#059669',
+      borderColor: '#059669',
+    },
+    radioInnerEmpty: {
+      width: 0,
+      height: 0,
+    },
     quickCardAmount: {
-      fontSize: scaledTypography.size.sm + 1, fontWeight: '700', color: colors.textPrimary,
+      fontSize: scaledTypography.size.sm + 1,
+      fontWeight: '700',
+      color: '#111827',
     },
-    quickCardAmountActive: { color: colors.primary },
+    quickCardAmountActive: {
+      color: '#059669',
+    },
     quickCardLabel: {
-      fontSize: scaledTypography.size.xs, color: colors.textSecondary, marginTop: 1,
+      fontSize: scaledTypography.size.xs,
+      color: '#6B7280',
+      marginTop: 2,
     },
-    quickCardCheck: {
-      width: 22, height: 22, borderRadius: 11,
-      borderWidth: 1.5, borderColor: colors.border,
-      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    },
-    quickCardCheckActive: {
-      backgroundColor: colors.primary, borderColor: colors.primary,
-    },
-    quickCardCheckEmpty: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'transparent' },
 
     // ── Divider ─────────────────────────────────────────
-    dividerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-    dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-    dividerText: { fontSize: scaledTypography.size.xs, color: colors.textSecondary },
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 18,
+      marginBottom: 14,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: '#E5E7EB',
+    },
+    dividerText: {
+      fontSize: scaledTypography.size.xs,
+      color: '#6B7280',
+      marginHorizontal: 12,
+    },
 
     // ── Input ────────────────────────────────────────────
     inputWrap: {
-      flexDirection: 'row', alignItems: 'center',
-      borderWidth: 1.5, borderColor: colors.border, borderRadius: 14,
-      backgroundColor: colors.background, marginBottom: spacing.md, overflow: 'hidden',
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+      borderRadius: 14,
+      backgroundColor: '#F9FAFB',
+      height: 50,
+      overflow: 'hidden',
+      marginBottom: 14,
     },
     inputCurrencyBadge: {
-      paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-      backgroundColor: colors.surfaceMuted, borderRightWidth: 1, borderRightColor: colors.border,
+      width: 46,
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRightWidth: 1,
+      borderRightColor: '#E5E7EB',
     },
-    inputCurrencyText: { fontSize: scaledTypography.size.sm, fontWeight: '700', color: colors.textSecondary },
+    inputCurrencyText: {
+      fontSize: scaledTypography.size.sm,
+      fontWeight: '600',
+      color: '#374151',
+    },
     input: {
-      flex: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-      fontSize: scaledTypography.size.sm, color: colors.textPrimary,
+      flex: 1,
+      paddingHorizontal: 14,
+      fontSize: scaledTypography.size.sm,
+      color: '#111827',
     },
     errorBox: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: `${colors.danger}10`, borderRadius: 10,
-      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-      marginBottom: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: '#FEF2F2',
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      marginBottom: 10,
     },
-    errorText: { color: colors.danger, fontSize: scaledTypography.size.xs, flex: 1 },
-
-    // ── Generate button ──────────────────────────────────
-    generateBtn: { borderRadius: 14, marginTop: spacing.xs, borderWidth: 1, borderColor: colors.border },
-    generateBtnInner: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: spacing.sm, paddingVertical: spacing.md + 4, minHeight: 52,
-      borderRadius: 14, backgroundColor: colors.primaryLight,
+    errorText: {
+      color: colors.danger,
+      fontSize: scaledTypography.size.xs,
+      flex: 1,
     },
-    generateBtnText: { color: colors.primaryDark, fontSize: scaledTypography.size.sm, fontWeight: '700' },
 
-    // ── QR section ───────────────────────────────────────
-    qrWrapper: { alignItems: 'center', marginBottom: spacing.md },
+    // ── Generate QR Banner ──────────────────────────────
+    generateBanner: {
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#A7F3D0',
+    },
+    generateLeftIconWrap: {
+      marginRight: 12,
+    },
+    generateTextWrap: {
+      flex: 1,
+    },
+    generateTitle: {
+      color: '#064E3B',
+      fontSize: scaledTypography.size.sm + 1,
+      fontWeight: '700',
+    },
+    generateSub: {
+      color: '#047857',
+      fontSize: scaledTypography.size.xs,
+      marginTop: 2,
+    },
+
+    // ── QR Section ───────────────────────────────────────
+    qrWrapper: {
+      alignItems: 'center',
+      marginBottom: 14,
+    },
     qrContainer: {
       backgroundColor: '#fff',
-      borderRadius: 20, padding: spacing.md,
-      shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 16,
+      borderRadius: 20,
+      padding: 14,
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
       shadowOffset: { width: 0, height: 6 },
-      borderWidth: 1, borderColor: colors.border,
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
     },
-    qrImage: { width: 210, height: 210 },
+    qrImage: {
+      width: 200,
+      height: 200,
+    },
     qrAmountBadge: {
-      marginTop: spacing.md,
-      backgroundColor: `${colors.primary}12`,
-      paddingHorizontal: spacing.xl, paddingVertical: spacing.sm,
-      borderRadius: radius.full,
+      marginTop: 12,
+      backgroundColor: '#E6F7F0',
+      paddingHorizontal: 20,
+      paddingVertical: 6,
+      borderRadius: 20,
     },
-    qrAmountText: { fontSize: scaledTypography.size.lg, fontWeight: '800', color: colors.primary },
-
+    qrAmountText: {
+      fontSize: scaledTypography.size.md + 2,
+      fontWeight: '800',
+      color: '#059669',
+    },
     countdownRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-      marginBottom: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginBottom: 12,
     },
-    countdownText: { color: colors.warning, fontSize: scaledTypography.size.xs, fontWeight: '600' },
-
+    countdownText: {
+      color: '#D97706',
+      fontSize: scaledTypography.size.xs,
+      fontWeight: '600',
+    },
     noteBox: {
-      backgroundColor: colors.background, borderRadius: 14,
-      padding: spacing.md, marginBottom: spacing.md,
-      borderWidth: 1.5, borderColor: colors.border,
+      backgroundColor: '#F9FAFB',
+      borderRadius: 14,
+      padding: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
     },
-    noteLabel: { fontSize: scaledTypography.size.xs, color: colors.textSecondary, marginBottom: 4 },
-    noteValueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-    noteValue: { fontSize: scaledTypography.size.sm, color: colors.textPrimary, fontWeight: '700', flex: 1 },
-
+    noteLabel: {
+      fontSize: scaledTypography.size.xs,
+      color: '#6B7280',
+      marginBottom: 4,
+    },
+    noteValueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    noteValue: {
+      fontSize: scaledTypography.size.sm,
+      color: '#111827',
+      fontWeight: '700',
+      flex: 1,
+    },
     pendingRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
-      backgroundColor: `${colors.primary}08`, borderRadius: 12, paddingVertical: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: '#EFF9F5',
+      borderRadius: 12,
+      paddingVertical: 10,
     },
-    pendingText: { color: colors.textSecondary, fontSize: scaledTypography.size.xs },
-
-    expiredBox: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.md },
-    expiredText: { color: colors.danger, fontSize: scaledTypography.size.sm, fontWeight: '600' },
+    pendingText: {
+      color: '#4B5563',
+      fontSize: scaledTypography.size.xs,
+    },
+    expiredBox: {
+      alignItems: 'center',
+      paddingVertical: 20,
+      gap: 12,
+    },
+    expiredText: {
+      color: colors.danger,
+      fontSize: scaledTypography.size.sm,
+      fontWeight: '600',
+    },
     refreshBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: colors.primary, paddingVertical: spacing.sm + 2,
-      paddingHorizontal: spacing.xl, borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: '#059669',
+      paddingVertical: 8,
+      paddingHorizontal: 20,
+      borderRadius: 12,
     },
-    refreshBtnText: { color: '#fff', fontSize: scaledTypography.size.xs, fontWeight: '600' },
+    refreshBtnText: {
+      color: '#fff',
+      fontSize: scaledTypography.size.xs,
+      fontWeight: '600',
+    },
+    successBox: {
+      alignItems: 'center',
+      paddingVertical: 24,
+      gap: 8,
+    },
+    successTitle: {
+      color: colors.success,
+      fontSize: scaledTypography.size.lg,
+      fontWeight: '700',
+    },
+    successSub: {
+      color: '#6B7280',
+      fontSize: scaledTypography.size.sm,
+    },
 
-    successBox: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.sm },
-    successTitle: { color: colors.success, fontSize: scaledTypography.size.lg, fontWeight: '700' },
-    successSub: { color: colors.textSecondary, fontSize: scaledTypography.size.sm },
-
-    // ── History ──────────────────────────────────────────
-    emptyWrap: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm },
-    emptyText: { color: colors.textSecondary, fontSize: scaledTypography.size.xs },
-
-    shimmerWrap: { gap: spacing.md, paddingVertical: spacing.xs },
-    shimmerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-
+    // ── History Section ──────────────────────────────────
+    emptyWrap: {
+      alignItems: 'center',
+      paddingVertical: 16,
+    },
+    emptyTitle: {
+      color: '#374151',
+      fontSize: scaledTypography.size.sm + 1,
+      fontWeight: '600',
+      marginTop: 8,
+    },
+    emptySub: {
+      color: '#9CA3AF',
+      fontSize: scaledTypography.size.xs,
+      marginTop: 4,
+    },
+    shimmerWrap: {
+      gap: 12,
+      paddingVertical: 4,
+    },
+    shimmerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
     paymentRow: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-      paddingVertical: spacing.md + 2, borderBottomWidth: 1, borderBottomColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: '#F3F4F6',
     },
-    paymentInfo: { flex: 1 },
-    paymentAmount: { fontSize: scaledTypography.size.sm, fontWeight: '700', color: colors.textPrimary },
-    paymentDate: { fontSize: scaledTypography.size.xs, color: colors.textSecondary, marginTop: 2 },
+    paymentInfo: {
+      flex: 1,
+    },
+    paymentAmount: {
+      fontSize: scaledTypography.size.sm,
+      fontWeight: '700',
+      color: '#111827',
+    },
+    paymentDate: {
+      fontSize: scaledTypography.size.xs,
+      color: '#6B7280',
+      marginTop: 2,
+    },
     statusBadge: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: spacing.sm + 2, paddingVertical: 5, borderRadius: radius.full,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 20,
     },
-    statusDot: { width: 6, height: 6, borderRadius: 3 },
-    statusText: { fontSize: scaledTypography.size.xs, fontWeight: '600' },
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    statusText: {
+      fontSize: scaledTypography.size.xs,
+      fontWeight: '600',
+    },
   });
 }

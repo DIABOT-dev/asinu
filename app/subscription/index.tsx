@@ -21,7 +21,6 @@ import Animated, {
   withDelay,
   withRepeat,
   withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -147,29 +146,6 @@ export default function SubscriptionScreen() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
   }, []);
-
-  // ── Crown bounce animation ──
-  const crownY = useSharedValue(0);
-  const crownScale = useSharedValue(1);
-  useEffect(() => {
-    crownY.value = withRepeat(
-      withSequence(
-        withTiming(-8, { duration: 600 }),
-        withTiming(0, { duration: 600 }),
-      ),
-      -1, true
-    );
-    crownScale.value = withRepeat(
-      withSequence(
-        withTiming(1.12, { duration: 600 }),
-        withTiming(1, { duration: 600 }),
-      ),
-      -1, true
-    );
-  }, []);
-  const crownAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: crownY.value }, { scale: crownScale.value }],
-  }));
 
   // ── CTA pulse animation ──
   const ctaGlow = useSharedValue(1);
@@ -329,9 +305,9 @@ export default function SubscriptionScreen() {
           <View style={styles.header}>
             <ScreenBackButton style={styles.backBtn} onPress={() => router.back()} />
             <Text style={styles.headerTitle}>{t('title')}</Text>
-            <Animated.View style={crownAnimStyle}>
+            <View>
               <MaterialCommunityIcons name="crown" size={44} color={colors.premiumDark} style={styles.crownIcon} />
-            </Animated.View>
+            </View>
           </View>
         </Animated.View>
 

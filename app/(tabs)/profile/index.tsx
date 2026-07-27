@@ -1,5 +1,4 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -235,29 +234,32 @@ export default function ProfileScreen() {
   };
 
   const handlePickAvatar = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      showToast(t('avatarUploadPermission'), 'error');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
-    if (result.canceled || !result.assets?.[0]) return;
-
-    const asset = result.assets[0];
-    setIsUploadingAvatar(true);
     try {
+      // Load the native module only when the user opens the picker. This keeps
+      // the Profile route usable in an older dev client that lacks the module.
+      const ImagePicker = await import('expo-image-picker');
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showToast(t('avatarUploadPermission'), 'error');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      setIsUploadingAvatar(true);
       const mimeType = asset.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
       const updatedProfile = await authApi.uploadAvatar(asset.uri, mimeType, asset.fileName || 'avatar.jpg');
       useAuthStore.setState({ profile: updatedProfile });
       showToast(t('avatarUpdated'), 'success');
     } catch (error) {
-      showToast((error as Error).message || t('avatarUploadFailed'), 'error');
+      showToast(t('avatarUploadFailed'), 'error');
     } finally {
       setIsUploadingAvatar(false);
     }

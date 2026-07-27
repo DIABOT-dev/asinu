@@ -1,13 +1,17 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DoctorConnectButton } from '../../../src/components/DoctorConnectButton';
+import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { careCircleApi, type MemberHealthSummary } from '../../../src/features/care-circle';
+import type { HealthReportData } from '../../../src/features/checkin/checkin.api';
+import type { TreeSummary } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
-import { colors, spacing } from '../../../src/styles';
+import { colors, spacing, typography } from '../../../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { ScreenBackButton } from '../../../src/components/ScreenHeaderButton';
 
@@ -36,18 +40,6 @@ const SEVERITY_CONFIG: Record<string, { color: string; labelKey: string }> = {
   medium: { color: '#f59e0b', labelKey: 'checkinSeverityMedium' },
   high:   { color: '#ef4444', labelKey: 'checkinSeverityHigh' },
 };
-const SEVERITY_LABEL: Record<string, string> = {
-  low: 'Nhẹ',
-  medium: 'Vừa',
-  high: 'Nghiêm trọng',
-};
-const REPORT_STATUS_META: Record<string, { label: string; icon: string; color: string; bg: string }> = {
-  fine: { label: 'Ổn', icon: 'emoticon-happy-outline', color: '#16a34a', bg: '#dcfce7' },
-  tired: { label: 'Hơi mệt', icon: 'emoticon-neutral-outline', color: '#f59e0b', bg: '#fef3c7' },
-  very_tired: { label: 'Rất mệt', icon: 'emoticon-sad-outline', color: '#ef4444', bg: '#fee2e2' },
-  specific_concern: { label: 'Có lo ngại', icon: 'stethoscope', color: '#8b5cf6', bg: '#f5f3ff' },
-};
-
 // ── Helpers ──────────────────────────────────────────────────────
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -74,6 +66,63 @@ const getLogValue = (log: { log_type: string; metadata: any }): string => {
   }
 };
 
+const normalizeMemberReport = (raw: MemberHealthSummary['report']): HealthReportData | null => {
+  if (!raw) return null;
+
+  const sessions = Array.isArray(raw.sessions)
+    ? raw.sessions
+    : Array.isArray(raw.recentSessions)
+      ? raw.recentSessions
+      : [];
+  const severityDistribution = raw.severityDistribution || {};
+  const statusDistribution = raw.statusDistribution || {};
+  const alerts = raw.alerts || {};
+
+  return {
+    period: 'week',
+    totalDays: Number(raw.totalDays ?? 7),
+    checkinDays: Number(raw.checkinDays ?? 0),
+    sessions: sessions.map((session: any) => ({
+      date: session.date || session.session_date || session.created_at,
+      status: session.status || session.initial_status || 'fine',
+      severity: session.severity || session.triage_severity || null,
+      summary: session.summary || session.triage_summary || null,
+      flowState: session.flowState || session.flow_state || 'monitoring',
+      resolved: Boolean(session.resolved ?? session.resolved_at),
+    })),
+    severityDistribution: {
+      low: Number(severityDistribution.low || 0),
+      medium: Number(severityDistribution.medium || 0),
+      high: Number(severityDistribution.high || 0),
+    },
+    statusDistribution: {
+      fine: Number(statusDistribution.fine || 0),
+      tired: Number(statusDistribution.tired || 0),
+      very_tired: Number(statusDistribution.very_tired || 0),
+      specific_concern: Number(statusDistribution.specific_concern || 0),
+    },
+    commonSymptoms: Array.isArray(raw.commonSymptoms) ? raw.commonSymptoms : [],
+    alerts: {
+      familyAlerted: Number(alerts.familyAlerted || 0),
+      emergencyTriggered: Number(alerts.emergencyTriggered || 0),
+    },
+    trend: raw.trend === 'improving' || raw.trend === 'worsening' ? raw.trend : 'stable',
+    highlights: Array.isArray(raw.highlights) ? raw.highlights : [],
+    responseRate: Number(raw.responseRate || 0),
+    avgCheckinHour: Number(raw.avgCheckinHour || 0),
+  };
+};
+
+const normalizeMemberTreeSummary = (raw: MemberHealthSummary['treeSummary']): TreeSummary | null => {
+  if (!raw) return null;
+  return {
+    score: Number(raw.score || 0),
+    streakDays: Number(raw.streakDays || 0),
+    completedToday: Number(raw.completedToday || 0),
+    totalMissions: Number(raw.totalMissions || 0),
+  };
+};
+
 type Tab = 'overview' | 'logs' | 'checkins';
 
 type CheckinSession = {
@@ -95,6 +144,7 @@ export default function MemberLogsScreen() {
   const router = useRouter();
   const { t } = useTranslation('careCircle');
   const { t: tl } = useTranslation('logs');
+  const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
@@ -170,25 +220,24 @@ export default function MemberLogsScreen() {
   }, [logs]);
 
   const isLoading = activeTab === 'overview' ? summaryLoading : activeTab === 'logs' ? logsLoading : checkinsLoading;
-  const report = summary?.report;
-  const severityDistribution = report?.severityDistribution || { low: 0, medium: 0, high: 0 };
-  const severityTotal = Object.values(severityDistribution).reduce((sum: number, count: any) => sum + Number(count || 0), 0);
-  const statusDistribution = report?.statusDistribution || {};
-  const statusTotal = Object.values(statusDistribution).reduce((sum: number, count: any) => sum + Number(count || 0), 0);
-  const recentSessions = report?.sessions || report?.recentSessions || [];
+  const report = useMemo(() => normalizeMemberReport(summary?.report), [summary?.report]);
+  const treeSummary = useMemo(() => normalizeMemberTreeSummary(summary?.treeSummary), [summary?.treeSummary]);
 
   return (
     <>
       <Stack.Screen
         options={{
-          headerShown: true,
-          title: patientName ? t('memberLogsTitle', { name: patientName }) : t('healthLogs'),
-          headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
-          headerShadowVisible: false,
-          headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
+          headerShown: false,
         }}
       />
+
+      {/* Flat in-app header: no native back-button bubble, shadow, or divider. */}
+      <View style={[styles.topHeader, { paddingTop: insets.top + spacing.xs }]}>
+        <ScreenBackButton style={styles.flatBackButton} onPress={() => router.back()} />
+        <Text style={styles.topHeaderTitle} numberOfLines={1}>
+          {patientName ? t('memberLogsTitle', { name: patientName }) : t('healthLogs')}
+        </Text>
+      </View>
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
@@ -256,167 +305,13 @@ export default function MemberLogsScreen() {
               </View>
             )}
             {summaryError === '' && summary && (
-              <View style={styles.overviewWrap}>
-                <View style={styles.dashboardCard}>
-                  <View style={styles.sectionInlineHeader}>
-                    <MaterialCommunityIcons name="clipboard-pulse-outline" size={18} color={colors.primary} />
-                    <Text style={styles.cardTitle}>Tổng quan check-in</Text>
-                  </View>
-                  <View style={styles.summaryStats}>
-                    <View style={styles.summaryStat}>
-                      <Text style={styles.summaryValue}>{report?.checkinDays ?? 0}</Text>
-                      <Text style={styles.summaryLabel}>/{report?.totalDays ?? 7} ngày</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryStat}>
-                      <Text style={styles.summaryValue}>{report?.responseRate ?? 0}%</Text>
-                      <Text style={styles.summaryLabel}>phản hồi</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryStat}>
-                      <Text style={[
-                        styles.summaryValue,
-                        report?.trend === 'worsening' && { color: '#ef4444' },
-                        report?.trend === 'improving' && { color: '#16a34a' },
-                      ]}>
-                        {report?.trend === 'worsening' ? 'Xấu hơn' : report?.trend === 'improving' ? 'Tốt hơn' : 'Ổn định'}
-                      </Text>
-                      <Text style={styles.summaryLabel}>xu hướng</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.dashboardCard}>
-                  <View style={styles.sectionInlineHeader}>
-                    <MaterialCommunityIcons name="chart-bar" size={18} color="#f59e0b" />
-                    <Text style={styles.cardTitle}>Phân bố mức độ</Text>
-                  </View>
-                  <View style={styles.severityBars}>
-                    {(['low', 'medium', 'high'] as const).map((sev) => {
-                      const count = Number(severityDistribution[sev] || 0);
-                      const pct = severityTotal > 0 ? (count / severityTotal) * 100 : 0;
-                      const cfg = SEVERITY_CONFIG[sev];
-                      return (
-                        <View key={sev} style={styles.severityItem}>
-                          <View style={styles.verticalBarTrack}>
-                            <View style={[styles.verticalBarFill, { height: `${Math.max(pct, count > 0 ? 8 : 2)}%`, backgroundColor: cfg.color }]} />
-                          </View>
-                          <Text style={[styles.severityCount, { color: cfg.color }]}>{count}</Text>
-                          <View style={styles.severityIconWrap}>
-                            <MaterialCommunityIcons name={sev === 'low' ? 'shield-check' : sev === 'medium' ? 'alert-circle-outline' : 'alert-octagon'} size={14} color={cfg.color} />
-                          </View>
-                          <Text style={styles.severityLabel}>{SEVERITY_LABEL[sev]}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.dashboardCard}>
-                  <View style={styles.sectionInlineHeader}>
-                    <MaterialCommunityIcons name="emoticon-outline" size={18} color={colors.primary} />
-                    <Text style={styles.cardTitle}>Trạng thái báo cáo</Text>
-                  </View>
-                  {(['fine', 'tired', 'very_tired', 'specific_concern'] as const).map((status) => {
-                    const count = Number(statusDistribution[status] || 0);
-                    if (count === 0) return null;
-                    const pct = statusTotal > 0 ? (count / statusTotal) * 100 : 0;
-                    const meta = REPORT_STATUS_META[status];
-                    return (
-                      <View key={status} style={styles.reportStatusRow}>
-                        <View style={[styles.reportStatusIcon, { backgroundColor: meta.bg }]}>
-                          <MaterialCommunityIcons name={meta.icon as any} size={17} color={meta.color} />
-                        </View>
-                        <Text style={styles.reportStatusLabel}>{meta.label}</Text>
-                        <View style={styles.reportStatusTrack}>
-                          <View style={[styles.reportStatusFill, { width: `${pct}%`, backgroundColor: meta.color }]} />
-                        </View>
-                        <View style={[styles.reportStatusBadge, { backgroundColor: meta.bg }]}>
-                          <Text style={[styles.reportStatusCount, { color: meta.color }]}>{count}</Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-
-                {(report?.commonSymptoms || []).length > 0 && (
-                  <View style={styles.dashboardCard}>
-                    <View style={styles.sectionInlineHeader}>
-                      <MaterialCommunityIcons name="stethoscope" size={18} color="#8b5cf6" />
-                      <Text style={styles.cardTitle}>Triệu chứng phổ biến</Text>
-                    </View>
-                    {report.commonSymptoms.map((symptom: any, index: number) => (
-                      <View key={`${symptom.symptom}-${index}`} style={styles.symptomRow}>
-                        <View style={styles.symptomRank}>
-                          <Text style={styles.symptomRankText}>{index + 1}</Text>
-                        </View>
-                        <Text style={styles.symptomName}>{symptom.symptom}</Text>
-                        <View style={styles.symptomCountBadge}>
-                          <MaterialCommunityIcons name="repeat" size={12} color={colors.textSecondary} />
-                          <Text style={styles.symptomCount}>{symptom.count}</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {((report?.alerts?.familyAlerted || 0) > 0 || (report?.alerts?.emergencyTriggered || 0) > 0 || (summary.alerts || []).length > 0) && (
-                  <View style={styles.dashboardCard}>
-                    <View style={styles.sectionInlineHeader}>
-                      <MaterialCommunityIcons name="bell-ring-outline" size={18} color="#ef4444" />
-                      <Text style={styles.cardTitle}>Cảnh báo</Text>
-                    </View>
-                    {(report?.alerts?.familyAlerted || 0) > 0 && (
-                      <View style={styles.alertItem}>
-                        <Text style={styles.alertTitle}>Đã báo người thân {report.alerts.familyAlerted} lần</Text>
-                        <Text style={styles.overviewBody}>Có check-in mức độ vừa hoặc cao cần người thân theo dõi.</Text>
-                      </View>
-                    )}
-                    {(report?.alerts?.emergencyTriggered || 0) > 0 && (
-                      <View style={[styles.alertItem, styles.alertItemDanger]}>
-                        <Text style={styles.alertTitle}>Có {report.alerts.emergencyTriggered} cảnh báo khẩn cấp</Text>
-                        <Text style={styles.overviewBody}>Nên kiểm tra lại lịch sử check-in và liên hệ bác sĩ nếu cần.</Text>
-                      </View>
-                    )}
-                    {(summary.alerts || []).map((alert) => (
-                      <View key={alert.id} style={styles.alertItem}>
-                        <Text style={styles.alertTitle}>{alert.title}</Text>
-                        {alert.message ? <Text style={styles.overviewBody}>{alert.message}</Text> : null}
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {recentSessions.length > 0 && (
-                  <View style={styles.dashboardCard}>
-                    <View style={styles.sectionInlineHeader}>
-                      <MaterialCommunityIcons name="history" size={18} color="#3b82f6" />
-                      <Text style={styles.cardTitle}>Check-in gần đây</Text>
-                    </View>
-                    {recentSessions.slice(0, 4).map((session: any, index: number) => {
-                      const statusMeta = REPORT_STATUS_META[session.status || session.initial_status] || REPORT_STATUS_META.fine;
-                      const severityCfg = session.severity ? SEVERITY_CONFIG[session.severity] : null;
-                      const dateValue = session.date || session.session_date || session.created_at;
-                      return (
-                        <View key={`${dateValue}-${index}`} style={styles.historyItem}>
-                          <View style={[styles.reportStatusIcon, { backgroundColor: statusMeta.bg }]}>
-                            <MaterialCommunityIcons name={statusMeta.icon as any} size={16} color={statusMeta.color} />
-                          </View>
-                          <View style={styles.historyInfo}>
-                            <Text style={styles.historyDate}>{dateValue ? formatDate(dateValue) : 'Gần đây'}</Text>
-                            {session.summary ? <Text style={styles.historySummary} numberOfLines={2}>{session.summary}</Text> : null}
-                          </View>
-                          {severityCfg && (
-                            <View style={[styles.historySeverityBadge, { backgroundColor: `${severityCfg.color}18` }]}>
-                              <Text style={[styles.historySeverityText, { color: severityCfg.color }]}>{SEVERITY_LABEL[session.severity]}</Text>
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
+              <HealthReportPanel
+                embedded
+                hideHeader
+                showEmptyReport
+                reportOverride={report}
+                treeSummaryOverride={treeSummary}
+              />
             )}
           </>
         )}
@@ -574,6 +469,27 @@ export default function MemberLogsScreen() {
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    topHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.sm,
+      backgroundColor: 'transparent',
+    },
+    flatBackButton: {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      shadowColor: 'transparent',
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    topHeaderTitle: {
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: typography.size.md,
+      fontWeight: '700',
+    },
     content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
     center: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: spacing.md },
     emptyText: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center' },

@@ -31,7 +31,6 @@ import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { useNotificationStore } from '../../../src/stores/notification.store';
-import { routeFromNotificationData } from '../../../src/lib/notifications';
 import { showToast, useToastStore } from '../../../src/stores/toast.store';
 import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
@@ -323,13 +322,7 @@ export default function HomeScreen() {
     refreshAll
   } = useHomeViewModel();
   const profile = useAuthStore((state) => state.profile);
-  const notifications = useNotificationStore(s => s.notifications);
   const unreadCount = useNotificationStore(s => s.unreadCount);
-  const notifLoading = useNotificationStore(s => s.loading);
-  const markAsRead = useNotificationStore(s => s.markAsRead);
-  const markAllAsRead = useNotificationStore(s => s.markAllAsRead);
-  const removeNotification = useNotificationStore(s => s.removeNotification);
-  const clearAll = useNotificationStore(s => s.clearAll);
   const fetchFromBackend = useNotificationStore(s => s.fetchFromBackend);
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
@@ -433,16 +426,10 @@ export default function HomeScreen() {
     }, [healthFeedApi, profile])
   );
 
-  const handleNotificationPress = useCallback((notification: any) => {
-    const route = routeFromNotificationData(notification?.data);
-    if (!route) return;
-    if (typeof route === 'string') router.push(route as any);
-    else router.push(route as any);
-  }, []);
-
-  const canNavigateNotification = useCallback((notification: any) => {
-    return Boolean(routeFromNotificationData(notification?.data));
-  }, []);
+  const handleOpenNotifications = useCallback(() => {
+    void fetchFromBackend();
+    router.push('/notifications');
+  }, [fetchFromBackend, router]);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -626,16 +613,8 @@ export default function HomeScreen() {
       {profile && (
         <View style={[styles.notificationContainer, { top: insets.top + spacing.sm }]}>
           <NotificationBell
-            notifications={notifications}
             unreadCount={unreadCount}
-            loading={notifLoading}
-            onOpen={fetchFromBackend}
-            onMarkAsRead={markAsRead}
-            onMarkAllAsRead={markAllAsRead}
-            onDelete={removeNotification}
-            onDeleteAll={clearAll}
-            onNotificationPress={handleNotificationPress}
-            canNavigateNotification={canNavigateNotification}
+            onOpen={handleOpenNotifications}
           />
         </View>
       )}

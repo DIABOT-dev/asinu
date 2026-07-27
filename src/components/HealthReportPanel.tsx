@@ -79,9 +79,19 @@ const SEVERITY_KEYS: SeverityKey[] = ['low', 'medium', 'high'];
 
 type Props = {
   embedded?: boolean;
+  hideHeader?: boolean;
+  showEmptyReport?: boolean;
+  reportOverride?: HealthReportData | null;
+  treeSummaryOverride?: TreeSummary | null;
 };
 
-export function HealthReportPanel({ embedded = false }: Props) {
+export function HealthReportPanel({
+  embedded = false,
+  hideHeader = false,
+  showEmptyReport = false,
+  reportOverride,
+  treeSummaryOverride,
+}: Props) {
   const router = useRouter();
   const { t } = useTranslation('report');
   const insets = useSafeAreaInsets();
@@ -100,6 +110,16 @@ export function HealthReportPanel({ embedded = false }: Props) {
 
   useEffect(() => {
     let active = true;
+
+    if (reportOverride !== undefined) {
+      setReport(reportOverride);
+      setTreeSummary(treeSummaryOverride ?? null);
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
     setLoading(true);
     Promise.all([
       checkinApi.getReport(period),
@@ -119,7 +139,7 @@ export function HealthReportPanel({ embedded = false }: Props) {
     return () => {
       active = false;
     };
-  }, [period]);
+  }, [period, reportOverride, treeSummaryOverride]);
 
   const severityTotal = report
     ? report.severityDistribution.low + report.severityDistribution.medium + report.severityDistribution.high
@@ -170,55 +190,57 @@ export function HealthReportPanel({ embedded = false }: Props) {
 
   return (
     <View style={styles.outer}>
-      <View style={embedded ? styles.embeddedHeader : styles.header}>
-        {!embedded && <ScreenBackButton onPress={() => router.back()} />}
+      {!hideHeader && (
+        <View style={embedded ? styles.embeddedHeader : styles.header}>
+          {!embedded && <ScreenBackButton onPress={() => router.back()} />}
 
-        <View style={embedded ? styles.embeddedTitleBlock : styles.headerTitleBlock}>
-          <View style={styles.titleRow}>
-            <MaterialCommunityIcons name="chart-line" size={embedded ? 21 : 22} color={colors.primary} />
-            <Text numberOfLines={1} style={embedded ? styles.embeddedTitle : styles.headerTitle}>{t('title')}</Text>
+          <View style={embedded ? styles.embeddedTitleBlock : styles.headerTitleBlock}>
+            <View style={styles.titleRow}>
+              <MaterialCommunityIcons name="chart-line" size={embedded ? 21 : 22} color={colors.primary} />
+              <Text numberOfLines={1} style={embedded ? styles.embeddedTitle : styles.headerTitle}>{t('title')}</Text>
+            </View>
+          </View>
+
+          <View style={styles.filterWrap}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(period === 'week' ? 'weekFilter' : 'monthFilter')}
+              onPress={() => setFilterOpen(open => !open)}
+              style={styles.filterButton}
+            >
+              <MaterialCommunityIcons name="calendar-month-outline" size={19} color={colors.primary} />
+              <Text style={styles.filterText}>{t(period === 'week' ? 'weekFilter' : 'monthFilter')}</Text>
+              <MaterialCommunityIcons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={21} color={colors.primary} />
+            </Pressable>
+            {filterOpen && (
+              <View style={styles.filterMenu}>
+                {(['week', 'month'] as Period[]).map(option => (
+                  <Pressable
+                    key={option}
+                    onPress={() => selectPeriod(option)}
+                    style={[styles.filterOption, option === period && styles.filterOptionActive]}
+                  >
+                    <MaterialCommunityIcons
+                      name={option === 'week' ? 'calendar-week-outline' : 'calendar-month-outline'}
+                      size={18}
+                      color={option === period ? colors.primary : colors.textSecondary}
+                    />
+                    <Text style={[styles.filterOptionText, option === period && styles.filterOptionTextActive]}>
+                      {t(option === 'week' ? 'weekFilter' : 'monthFilter')}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
         </View>
-
-        <View style={styles.filterWrap}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(period === 'week' ? 'weekFilter' : 'monthFilter')}
-            onPress={() => setFilterOpen(open => !open)}
-            style={styles.filterButton}
-          >
-            <MaterialCommunityIcons name="calendar-month-outline" size={19} color={colors.primary} />
-            <Text style={styles.filterText}>{t(period === 'week' ? 'weekFilter' : 'monthFilter')}</Text>
-            <MaterialCommunityIcons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={21} color={colors.primary} />
-          </Pressable>
-          {filterOpen && (
-            <View style={styles.filterMenu}>
-              {(['week', 'month'] as Period[]).map(option => (
-                <Pressable
-                  key={option}
-                  onPress={() => selectPeriod(option)}
-                  style={[styles.filterOption, option === period && styles.filterOptionActive]}
-                >
-                  <MaterialCommunityIcons
-                    name={option === 'week' ? 'calendar-week-outline' : 'calendar-month-outline'}
-                    size={18}
-                    color={option === period ? colors.primary : colors.textSecondary}
-                  />
-                  <Text style={[styles.filterOptionText, option === period && styles.filterOptionTextActive]}>
-                    {t(option === 'week' ? 'weekFilter' : 'monthFilter')}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
-      </View>
+      )}
 
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : !report || report.checkinDays === 0 ? (
+      ) : !report || (!showEmptyReport && report.checkinDays === 0) ? (
         <View style={styles.center}>
           <MaterialCommunityIcons name="clipboard-text-outline" size={44} color={colors.border} />
           <Text style={styles.emptyText}>{t('noData')}</Text>
