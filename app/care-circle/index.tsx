@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
@@ -21,26 +21,11 @@ import { colors, iconColors, spacing, brandColors} from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
-function formatConnectionDate(value: string, language: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const locale = language.startsWith('vi') ? 'vi-VN' : 'en-US';
-  return date.toLocaleString(locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
-
 export default function CareCircleScreen() {
   const router = useRouter();
-  const { width: viewportWidth } = useWindowDimensions();
-  const isCompactLayout = viewportWidth < 600;
   const insets = useSafeAreaInsets();
   const profile = useAuthStore((state) => state.profile);
-  const { t, i18n } = useTranslation('careCircle');
+  const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -562,16 +547,11 @@ export default function CareCircleScreen() {
 
         {/* Active Connections */}
         <View style={styles.section}>
-          <View style={styles.activeSectionHeader}>
-            <MaterialCommunityIcons name="account-group" size={44} color={iconColors.emerald} />
-            <View style={styles.activeSectionCopy}>
-              <Text style={styles.activeSectionTitle}>
-                {t('activeConnections', { count: connections.length })}
-              </Text>
-              <Text style={styles.activeSectionSubtitle}>
-                {t('activeConnectionsSubtitle')}
-              </Text>
-            </View>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="people" size={16} color={iconColors.emerald} />
+            <Text style={styles.sectionTitle}>
+              {t('activeConnections', { count: connections.length })}
+            </Text>
           </View>
           {(loading || refreshing) && connections.length === 0 ? (
             <ActivityIndicator size="large" color={iconColors.primary} style={styles.loader} />
@@ -599,116 +579,78 @@ export default function CareCircleScreen() {
                 : reverseRelationship(connection.relationship_type, connection.requester_gender);
 
               const otherName = otherUserFullName || otherUserEmail || `#${otherUserId}`;
-              const connectedAt = formatConnectionDate(connection.created_at, i18n.language);
-              const connectionStatus = connection.status === 'accepted'
-                ? t('activeStatus')
-                : connection.status;
-
-              const handleConnectionAction = () => {
-                if (!isRequester) {
-                  handleDeleteConnection(connection.id, otherName);
-                  return;
-                }
-
-                const options: any[] = [
-                  {
-                    text: t('editConnection') || 'Chỉnh sửa kết nối',
-                    onPress: () => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` }),
-                  },
-                  { text: tc('delete') || 'Xóa', style: 'destructive', onPress: () => handleDeleteConnection(connection.id, otherName) },
-                  { text: tc('cancel') || 'Hủy', style: 'cancel' },
-                ];
-                showAlert('Tùy chọn', `Thao tác với ${otherName}`, options);
-              };
 
               return (
                 <TouchableOpacity
                   key={connection.id}
-                  style={styles.activeConnectionCard}
+                  style={styles.card}
                   onPress={() => router.push({
                     pathname: '/care-circle/member/[id]',
                     params: { id: String(otherUserId), name: otherName }
                   })}
-                  activeOpacity={0.92}
+                  activeOpacity={0.75}
                 >
-                  <View style={[styles.activeCardMain, isCompactLayout && styles.activeCardMainCompact]}>
-                    <View style={[styles.activeVisual, isCompactLayout && styles.activeVisualCompact]}>
-                      <View style={styles.activeDecorArcLarge} />
-                      <View style={styles.activeDecorArcSmall} />
-                      <View style={[styles.activeAvatarRing, isCompactLayout && styles.activeAvatarRingCompact]}>
-                        <View style={[styles.activeAvatar, { backgroundColor: colors.emeraldLight }]}>
-                          <Text style={[styles.activeAvatarText, isCompactLayout && styles.activeAvatarTextCompact, { color: colors.emeraldDark }]}>
-                            {otherName[0]?.toUpperCase() || '?'}
-                          </Text>
-                        </View>
-                        <View style={[styles.activeOnlineDot, isCompactLayout && styles.activeOnlineDotCompact]} />
-                      </View>
+                  <View style={[styles.cardHeader, { alignItems: 'flex-start' }]}>
+                    <View style={[styles.avatar, { backgroundColor: colors.emeraldLight }]}>
+                      <Text style={[styles.avatarText, { color: colors.emeraldDark }]}>{otherName[0]?.toUpperCase() || '?'}</Text>
                     </View>
 
-                    <View style={[styles.activeDetails, isCompactLayout && styles.activeDetailsCompact]}>
-                      <View style={styles.activeDetailsHeader}>
-                        <Text style={[styles.activeCardName, isCompactLayout && styles.activeCardNameCompact]} numberOfLines={1}>{otherName}</Text>
-                        <TouchableOpacity
-                          accessibilityRole="button"
-                          accessibilityLabel={tc('delete')}
-                          onPress={handleConnectionAction}
-                          style={[styles.activeDeleteButton, isCompactLayout && styles.activeDeleteButtonCompact]}
-                        >
-                          {actionLoading === connection.id ? (
-                            <ActivityIndicator size="small" color={colors.danger} />
-                          ) : (
-                            <Ionicons name="trash-outline" size={26} color={colors.danger} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardName} numberOfLines={1}>{otherName}</Text>
 
                       {(displayRelationship || connection.role) && (
-                        <View style={[styles.activeRelationBadge, isCompactLayout && styles.activeRelationBadgeCompact]}>
-                          <Ionicons name="heart" size={18} color={iconColors.emerald} />
-                          <Text style={[styles.activeRelationText, isCompactLayout && styles.activeRelationTextCompact]}>
+                        <View style={[styles.cardBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)', marginTop: 4, marginBottom: 4 }]}>
+                          <Ionicons name="heart" size={12} color={iconColors.emerald} />
+                          <Text style={[styles.cardRelation, { color: iconColors.emerald }]}>
                             {displayRelationship || connection.role}
                           </Text>
                         </View>
                       )}
 
                       {otherUserEmail && (
-                        <View style={[styles.activeContactRow, isCompactLayout && styles.activeContactRowCompact]}>
-                          <View style={[styles.activeContactIcon, isCompactLayout && styles.activeContactIconCompact]}>
-                            <Ionicons name="mail" size={20} color={iconColors.emerald} />
-                          </View>
-                          <Text style={[styles.activeContactText, isCompactLayout && styles.activeContactTextCompact]} numberOfLines={1}>{otherUserEmail}</Text>
+                        <View style={styles.contactRow}>
+                          <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
+                          <Text style={styles.cardContact}>{otherUserEmail}</Text>
                         </View>
                       )}
                       {otherUserPhone && (
-                        <View style={[styles.activeContactRow, isCompactLayout && styles.activeContactRowCompact]}>
-                          <View style={[styles.activeContactIcon, isCompactLayout && styles.activeContactIconCompact]}>
-                            <Ionicons name="call" size={20} color={iconColors.emerald} />
-                          </View>
-                          <Text style={[styles.activeContactText, isCompactLayout && styles.activeContactTextCompact]} numberOfLines={1}>{otherUserPhone}</Text>
+                        <View style={styles.contactRow}>
+                          <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
+                          <Text style={styles.cardContact}>{otherUserPhone}</Text>
                         </View>
                       )}
                     </View>
-                  </View>
 
-                  <View style={[styles.activeCardFooter, isCompactLayout && styles.activeCardFooterCompact]}>
-                    <View style={[styles.activeStatusGroup, isCompactLayout && styles.activeStatusGroupCompact]}>
-                      <View style={[styles.activeStatusDot, isCompactLayout && styles.activeStatusDotCompact]} />
-                      <Text style={[styles.activeStatusText, isCompactLayout && styles.activeStatusTextCompact]}>{connectionStatus}</Text>
-                      <View style={styles.activeFooterDivider} />
-                      <Text style={[styles.activeConnectedAt, isCompactLayout && styles.activeConnectedAtCompact]} numberOfLines={1}>{t('connectedAt', { date: connectedAt })}</Text>
+                    <View style={styles.cardActionsSmall}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          // Only the original requester (data owner) is
+                          // allowed by the backend to update permissions —
+                          // tapping "edit" as the addressee would just
+                          // 404 with a confusing toast. Hide the option
+                          // for non-requesters; they can still delete.
+                          const options: any[] = [];
+                          if (isRequester) {
+                            options.push({
+                              text: t('editConnection') || 'Chỉnh sửa kết nối',
+                              onPress: () => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` }),
+                            });
+                          }
+                          options.push(
+                            { text: tc('delete') || 'Xóa', style: 'destructive', onPress: () => handleDeleteConnection(connection.id, otherName) },
+                            { text: tc('cancel') || 'Hủy', style: 'cancel' },
+                          );
+                          showAlert('Tùy chọn', `Thao tác với ${otherName}`, options);
+                        }}
+                        style={[styles.iconBtn, { backgroundColor: 'transparent', width: 32, height: 32 }]}
+                      >
+                        {actionLoading === connection.id ? (
+                          <ActivityIndicator size="small" color={colors.textSecondary} />
+                        ) : (
+                          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
+                        )}
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      accessibilityLabel={tc('viewDetails')}
-                      style={[styles.activeDetailsButton, isCompactLayout && styles.activeDetailsButtonCompact]}
-                      onPress={() => router.push({
-                        pathname: '/care-circle/member/[id]',
-                        params: { id: String(otherUserId), name: otherName },
-                      })}
-                    >
-                      <Ionicons name="arrow-forward" size={24} color={iconColors.emerald} />
-                      <Text style={[styles.activeDetailsButtonText, isCompactLayout && styles.activeDetailsButtonTextCompact]}>{tc('viewDetails')}</Text>
-                    </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
               );
@@ -958,27 +900,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  activeSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  activeSectionCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  activeSectionTitle: {
-    fontSize: typography.size.xl,
-    lineHeight: Math.round(typography.size.xl * 1.18),
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  activeSectionSubtitle: {
-    marginTop: 4,
-    fontSize: typography.size.md,
-    color: colors.textSecondary,
-  },
   sectionTitle: {
     fontSize: typography.size.md,
     fontWeight: '600',
@@ -1038,313 +959,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     elevation: 3,
     ...androidCardSurface,
     gap: spacing.xs,
-  },
-  activeConnectionCard: {
-    borderRadius: 26,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e5ecea',
-    backgroundColor: colors.surface,
-    shadowColor: '#0d6b5a',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  activeCardMain: {
-    flexDirection: 'row',
-    minHeight: 250,
-  },
-  activeCardMainCompact: {
-    minHeight: 190,
-  },
-  activeVisual: {
-    width: '34%',
-    minWidth: 110,
-    minHeight: 250,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: '#e0f8ef',
-  },
-  activeVisualCompact: {
-    width: '32%',
-    minWidth: 92,
-    minHeight: 190,
-  },
-  activeDecorArcLarge: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    borderWidth: 2,
-    borderColor: '#bceee0',
-    left: -170,
-    top: -30,
-  },
-  activeDecorArcSmall: {
-    position: 'absolute',
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    borderWidth: 2,
-    borderColor: '#c8f2e5',
-    left: -120,
-    top: 38,
-  },
-  activeAvatarRing: {
-    width: '78%',
-    maxWidth: 170,
-    aspectRatio: 1,
-    borderRadius: 100,
-    borderWidth: 2,
-    borderColor: '#bceee0',
-    padding: 8,
-    position: 'relative',
-  },
-  activeAvatarRingCompact: {
-    width: '78%',
-    padding: 6,
-  },
-  activeAvatar: {
-    flex: 1,
-    borderRadius: 100,
-    borderWidth: 4,
-    borderColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeAvatarText: {
-    fontSize: 54,
-    lineHeight: 62,
-    fontWeight: '800',
-  },
-  activeAvatarTextCompact: {
-    fontSize: 40,
-    lineHeight: 46,
-  },
-  activeOnlineDot: {
-    position: 'absolute',
-    right: -2,
-    bottom: 6,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.success,
-    borderWidth: 5,
-    borderColor: colors.surface,
-  },
-  activeOnlineDotCompact: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 4,
-    right: -1,
-    bottom: 3,
-  },
-  activeDetails: {
-    flex: 1,
-    minWidth: 0,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  activeDetailsCompact: {
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  activeDetailsHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  activeCardName: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: typography.size.xl + 4,
-    lineHeight: Math.round((typography.size.xl + 4) * 1.18),
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  activeCardNameCompact: {
-    fontSize: 24,
-    lineHeight: 28,
-  },
-  activeDeleteButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: '#e7efec',
-    shadowColor: '#0d6b5a',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  activeDeleteButtonCompact: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-  },
-  activeRelationBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#e3f7ed',
-    borderRadius: 24,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  activeRelationBadgeCompact: {
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  activeRelationText: {
-    fontSize: typography.size.md,
-    color: colors.emeraldDark,
-    fontWeight: '600',
-  },
-  activeRelationTextCompact: {
-    fontSize: 15,
-  },
-  activeContactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minWidth: 0,
-    padding: spacing.sm,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#edf1f0',
-    backgroundColor: colors.surface,
-  },
-  activeContactRowCompact: {
-    gap: 6,
-    padding: 6,
-    borderRadius: 12,
-  },
-  activeContactIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e3f7ed',
-  },
-  activeContactIconCompact: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-  },
-  activeContactText: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: typography.size.md,
-    color: colors.textPrimary,
-  },
-  activeContactTextCompact: {
-    fontSize: 15,
-  },
-  activeCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: '#edf1f0',
-    backgroundColor: '#fcfefd',
-  },
-  activeCardFooterCompact: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  activeStatusGroup: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  activeStatusGroupCompact: {
-    flex: 0,
-    width: '100%',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  activeStatusDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.success,
-    flexShrink: 0,
-  },
-  activeStatusDotCompact: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  activeStatusText: {
-    color: colors.success,
-    fontSize: typography.size.md,
-    fontWeight: '700',
-  },
-  activeStatusTextCompact: {
-    fontSize: 15,
-  },
-  activeFooterDivider: {
-    width: 1,
-    height: 26,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.xs,
-  },
-  activeConnectedAt: {
-    flex: 1,
-    minWidth: 0,
-    color: colors.textSecondary,
-    fontSize: typography.size.sm,
-  },
-  activeConnectedAtCompact: {
-    flex: 0,
-    flexShrink: 1,
-    fontSize: 13,
-  },
-  activeDetailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#dfeae6',
-    backgroundColor: colors.surface,
-  },
-  activeDetailsButtonCompact: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-  },
-  activeDetailsButtonText: {
-    color: colors.emeraldDark,
-    fontSize: typography.size.md,
-    fontWeight: '700',
-  },
-  activeDetailsButtonTextCompact: {
-    fontSize: 15,
   },
   cardPending: {
     backgroundColor: colors.surface,

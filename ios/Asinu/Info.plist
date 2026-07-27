@@ -63,6 +63,8 @@
     <string>Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Asinu cần microphone để nhận lệnh giọng nói</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

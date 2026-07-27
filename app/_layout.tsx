@@ -128,11 +128,11 @@ export default function RootLayout() {
               <StatusBar style={isDark ? 'light' : 'dark'} translucent backgroundColor="transparent" />
               <Stack screenOptions={screenOptions}>
                 <Stack.Screen
-                  name="login"
+                  name="login/index"
                   options={{ animation: 'fade', animationDuration: 240 }}
                 />
                 <Stack.Screen
-                  name="register"
+                  name="register/index"
                   options={{ animation: 'fade', animationDuration: 240 }}
                 />
                 <Stack.Screen

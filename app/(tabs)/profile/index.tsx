@@ -82,6 +82,7 @@ export default function ProfileScreen() {
   const [phoneError, setPhoneError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarPickerInFlightRef = useRef(false);
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
   const profileReadyRef = useRef(false);
   const [profileReady, setProfileReady] = useState(false);
@@ -234,6 +235,10 @@ export default function ProfileScreen() {
   };
 
   const handlePickAvatar = async () => {
+    if (avatarPickerInFlightRef.current) return;
+    avatarPickerInFlightRef.current = true;
+    setIsUploadingAvatar(true);
+
     try {
       // Load the native module only when the user opens the picker. This keeps
       // the Profile route usable in an older dev client that lacks the module.
@@ -249,18 +254,21 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.PAGE_SHEET,
       });
       if (result.canceled || !result.assets?.[0]) return;
 
       const asset = result.assets[0];
-      setIsUploadingAvatar(true);
       const mimeType = asset.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
       const updatedProfile = await authApi.uploadAvatar(asset.uri, mimeType, asset.fileName || 'avatar.jpg');
       useAuthStore.setState({ profile: updatedProfile });
       showToast(t('avatarUpdated'), 'success');
     } catch (error) {
-      showToast(t('avatarUploadFailed'), 'error');
+      console.error('[Profile] avatar upload failed', error);
+      const message = error instanceof ApiError || error instanceof Error ? error.message : '';
+      showToast(message || t('avatarUploadFailed'), 'error');
     } finally {
+      avatarPickerInFlightRef.current = false;
       setIsUploadingAvatar(false);
     }
   };
@@ -363,21 +371,18 @@ export default function ProfileScreen() {
               {profile?.avatarUrl ? (
                 <Image source={{ uri: profile.avatarUrl }} style={styles.profileAvatarImage} />
               ) : (
-                <MaterialCommunityIcons name="account-circle" size={62} color={colors.primary} />
+                <MaterialCommunityIcons name="account-outline" size={54} color={colors.primary} />
               )}
               {isUploadingAvatar && (
                 <View style={styles.profileAvatarLoading}>
                   <ActivityIndicator size="small" color={colors.surface} />
                 </View>
               )}
-              {/* Live status dot ở góc dưới phải avatar */}
-              <View style={styles.profileLiveDot} />
             </TouchableOpacity>
             <View style={{ flex: 1, marginLeft: spacing.md, minWidth: 0 }}>
               <Text style={styles.profileGreetingTop}>{t('greeting')}</Text>
               <Text style={styles.profileName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{identityTitle}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 }}>
-                <View style={styles.profileLiveTextDot} />
                 <Text style={styles.profileStatus}>{statusText}</Text>
               </View>
             </View>
@@ -720,6 +725,31 @@ export default function ProfileScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t('editProfileTitle')}</Text>
             </View>
+
+            <View style={styles.editAvatarSection}>
+              <View style={styles.editAvatarFrame}>
+                {profile?.avatarUrl ? (
+                  <Image source={{ uri: profile.avatarUrl }} style={styles.editAvatarImage} />
+                ) : (
+                  <MaterialCommunityIcons name="account-outline" size={76} color={colors.primary} />
+                )}
+                {isUploadingAvatar ? (
+                  <View style={styles.editAvatarLoading}>
+                    <ActivityIndicator size="small" color={colors.surface} />
+                  </View>
+                ) : null}
+              </View>
+              <Pressable
+                style={({ pressed }) => [styles.uploadAvatarButton, pressed && { opacity: 0.75 }]}
+                onPress={handlePickAvatar}
+                disabled={isUploadingAvatar}
+                accessibilityRole="button"
+                accessibilityLabel={t('uploadAvatar')}
+              >
+                <Ionicons name="cloud-upload-outline" size={18} color={colors.primaryDark} />
+                <Text style={styles.uploadAvatarButtonText}>{t('uploadAvatar')}</Text>
+              </Pressable>
+            </View>
             
             <ScrollView 
               showsVerticalScrollIndicator={false}
@@ -1037,10 +1067,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    overflow: 'hidden',
   },
   profileAvatarImage: {
     width: '100%',
@@ -1053,25 +1083,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.35)',
-  },
-  profileLiveDot: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#22c55e',
-    borderWidth: 2.5,
-    borderColor: colors.surface,
-  },
-  profileLiveTextDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4ade80',
-    borderWidth: 1.5,
-    borderColor: colors.surface,
   },
   profileGreetingTop: {
     fontSize: typography.size.xs,
@@ -1462,6 +1473,47 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.xl,
     fontWeight: '700',
     color: colors.textPrimary
+  },
+  editAvatarSection: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  editAvatarFrame: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: spacing.sm,
+  },
+  editAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 46,
+  },
+  editAvatarLoading: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+  },
+  uploadAvatarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: 42,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.primaryLight,
+  },
+  uploadAvatarButtonText: {
+    fontSize: typography.size.sm,
+    fontWeight: '700',
+    color: colors.primaryDark,
   },
   inputGroup: {
     marginBottom: spacing.md

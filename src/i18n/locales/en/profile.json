@@ -61,6 +61,7 @@
   "bloodTypeInvalid": "Invalid blood type",
   "profileUpdated": "Profile updated successfully",
   "changeAvatar": "Change profile picture",
+  "uploadAvatar": "Upload photo",
   "avatarUpdated": "Profile picture updated",
   "avatarUploadPermission": "Please allow access to your photo library",
   "avatarUploadFailed": "Could not upload profile picture",

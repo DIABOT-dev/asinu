@@ -5,7 +5,7 @@ async function getAudio() {
   return _Audio;
 }
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -309,28 +309,29 @@ export const AiChatLayout = ({
 
   // ─── Feedback handlers ─────────────────────────────────────────────
 
-  const handleFeedback = async (msg: ChatBubble, type: 'like' | 'dislike') => {
-    const current = feedbacks[msg.id];
-    const newType = current === type ? null : type;
-    setFeedbacks((prev) => ({ ...prev, [msg.id]: newType }));
+  const handleFeedback = useCallback(async (msg: ChatBubble, type: 'like' | 'dislike') => {
+    setFeedbacks((prev) => ({
+      ...prev,
+      [msg.id]: prev[msg.id] === type ? null : type,
+    }));
     try {
       await chatApi.sendFeedback(msg.id, msg.text, type);
     } catch {}
-  };
+  }, []);
 
-  const handleCopy = async (msg: ChatBubble) => {
+  const handleCopy = useCallback(async (msg: ChatBubble) => {
     Clipboard.setStringAsync(msg.text);
     setCopiedId(msg.id);
     setTimeout(() => setCopiedId(null), 1500);
-  };
+  }, []);
 
-  const handleNote = async (msg: ChatBubble) => {
+  const handleNote = useCallback(async (msg: ChatBubble) => {
     if (notedIds.has(msg.id)) return; // already noted — do nothing
     setNotedIds((prev) => new Set(prev).add(msg.id));
     try {
       await chatApi.sendFeedback(msg.id, msg.text, 'note');
     } catch {}
-  };
+  }, [notedIds]);
 
   // ─── Mic handler ───────────────────────────────────────────────────
 
@@ -398,7 +399,7 @@ export const AiChatLayout = ({
 
   // ─── Render ────────────────────────────────────────────────────────
 
-  const renderMessage = ({ item }: { item: ChatBubble }) => {
+  const renderMessage = useCallback(({ item }: { item: ChatBubble }) => {
     const isAssistant = item.role === 'assistant';
     const isGreeting = item.id === 'greeting';
     const fb = feedbacks[item.id];
@@ -488,7 +489,22 @@ export const AiChatLayout = ({
         )}
       </View>
     );
-  };
+  }, [
+    assistantAvatar,
+    copiedId,
+    feedbacks,
+    handleCopy,
+    handleFeedback,
+    handleNote,
+    notedIds,
+    scaledTypography.size.md,
+    scaledTypography.size.xs,
+    scaledTypography.size.xl,
+    styles,
+    userAvatar,
+  ]);
+
+  const keyExtractor = useCallback((item: ChatBubble) => item.id, []);
 
   return (
     <View style={styles.container}>
@@ -497,7 +513,11 @@ export const AiChatLayout = ({
         ref={flatListRef}
         contentContainerStyle={styles.list}
         data={messages}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
         onScroll={handleScroll}
         scrollEventThrottle={100}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}

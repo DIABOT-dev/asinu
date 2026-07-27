@@ -111,7 +111,6 @@ function resolveAllPending(result: PurchaseResult) {
  */
 export async function initializeIap(): Promise<void> {
   if (env.paymentMethod !== 'iap') {
-    logIap('init skipped: payment method disabled');
     return;
   }
   if (connected) {
