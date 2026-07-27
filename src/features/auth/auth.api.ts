@@ -70,6 +70,15 @@ export const authApi = {
   updateProfile(payload: UpdateProfilePayload) {
     return apiClient<ProfileResponse>('/api/mobile/profile', { method: 'PUT', body: payload }).then(res => res.profile);
   },
+  uploadAvatar(uri: string, mimeType = 'image/jpeg', fileName = 'avatar.jpg') {
+    const formData = new FormData();
+    formData.append('avatar', { uri, type: mimeType, name: fileName } as any);
+    return apiClient<ProfileResponse>('/api/mobile/profile/avatar', {
+      method: 'POST',
+      body: formData,
+      timeoutMs: 30000,
+    }).then(res => res.profile);
+  },
   updatePushToken(pushToken: string) {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/profile/push-token', { 
       method: 'POST', 

@@ -79,6 +79,12 @@
       "expo-secure-store",
       "expo-asset",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp"

@@ -1,10 +1,11 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeIn, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { AppAlertModal, useAppAlert } from '../../../src/components/AppAlertModal';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
@@ -81,6 +82,7 @@ export default function ProfileScreen() {
   const [editChronicDiseases, setEditChronicDiseases] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
   const profileReadyRef = useRef(false);
   const [profileReady, setProfileReady] = useState(false);
@@ -232,6 +234,35 @@ export default function ProfileScreen() {
     setEditModalVisible(false);
   };
 
+  const handlePickAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showToast(t('avatarUploadPermission'), 'error');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    setIsUploadingAvatar(true);
+    try {
+      const mimeType = asset.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+      const updatedProfile = await authApi.uploadAvatar(asset.uri, mimeType, asset.fileName || 'avatar.jpg');
+      useAuthStore.setState({ profile: updatedProfile });
+      showToast(t('avatarUpdated'), 'success');
+    } catch (error) {
+      showToast((error as Error).message || t('avatarUploadFailed'), 'error');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!editName.trim()) {
       showToast(t('nameRequired'), 'error');
@@ -320,11 +351,26 @@ export default function ProfileScreen() {
         <View style={styles.profileHeaderCard}>
           {/* Top row: avatar + greeting + name + status */}
           <View style={styles.profileTopRow}>
-            <View style={styles.profileAvatarBig}>
-              <MaterialCommunityIcons name="account-circle" size={62} color={colors.primary} />
+            <TouchableOpacity
+              style={styles.profileAvatarBig}
+              onPress={handlePickAvatar}
+              disabled={isUploadingAvatar}
+              accessibilityRole="button"
+              accessibilityLabel={t('changeAvatar')}
+            >
+              {profile?.avatarUrl ? (
+                <Image source={{ uri: profile.avatarUrl }} style={styles.profileAvatarImage} />
+              ) : (
+                <MaterialCommunityIcons name="account-circle" size={62} color={colors.primary} />
+              )}
+              {isUploadingAvatar && (
+                <View style={styles.profileAvatarLoading}>
+                  <ActivityIndicator size="small" color={colors.surface} />
+                </View>
+              )}
               {/* Live status dot ở góc dưới phải avatar */}
               <View style={styles.profileLiveDot} />
-            </View>
+            </TouchableOpacity>
             <View style={{ flex: 1, marginLeft: spacing.md, minWidth: 0 }}>
               <Text style={styles.profileGreetingTop}>{t('greeting')}</Text>
               <Text style={styles.profileName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{identityTitle}</Text>
@@ -993,6 +1039,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+  },
+  profileAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
+  },
+  profileAvatarLoading: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   profileLiveDot: {
     position: 'absolute',

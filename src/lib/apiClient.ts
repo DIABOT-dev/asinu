@@ -76,8 +76,9 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
   const url = `${env.apiBaseUrl}${path}`;
   const token = tokenStore.getToken();
   const method: HttpMethod = options.method || 'GET';
+  const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormDataBody ? {} : { 'Content-Type': 'application/json' }),
     'Accept-Language': i18n.language || 'vi',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {})
@@ -98,7 +99,9 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
           method,
           credentials: 'include',
           headers,
-          body: options.body ? JSON.stringify(options.body) : undefined
+          body: options.body
+            ? isFormDataBody ? options.body : JSON.stringify(options.body)
+            : undefined
         },
         options.timeoutMs ?? DEFAULT_TIMEOUT_MS
       );
