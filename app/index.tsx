@@ -45,6 +45,20 @@ export default function Index() {
 
   const [consentReady, setConsentReady] = useState(false);
   const [showConsent, setShowConsent]   = useState(false);
+  const [bootstrapStarted, setBootstrapStarted] = useState(false);
+  const [bootstrapComplete, setBootstrapComplete] = useState(false);
+  const [progressPercent, setProgressPercent] = useState(0);
+  const progressValue = useRef(new Animated.Value(0)).current;
+
+  const progressTarget = !bootstrapStarted
+    ? 0.08
+    : !bootstrapComplete || loading
+      ? 0.45
+      : !consentReady
+        ? 0.72
+        : !isNavReady
+          ? 0.88
+          : 1;
 
   // Entrance animation
   useEffect(() => {
@@ -66,12 +80,30 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    bootstrap();
+    setBootstrapStarted(true);
+    void bootstrap().finally(() => setBootstrapComplete(true));
     hasDataConsent().then((consented) => {
       if (!consented) setShowConsent(true);
       setConsentReady(true);
     });
   }, [bootstrap]);
+
+  useEffect(() => {
+    const listenerId = progressValue.addListener(({ value }) => {
+      setProgressPercent(Math.round(value * 100));
+    });
+
+    Animated.timing(progressValue, {
+      toValue: progressTarget,
+      duration: progressTarget >= 1 ? 320 : 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+
+    return () => {
+      progressValue.removeListener(listenerId);
+    };
+  }, [progressTarget, progressValue]);
 
   useEffect(() => {
     if (!isNavReady || loading || !consentReady || showConsent) return;
@@ -139,7 +171,15 @@ export default function Index() {
           <LoadingDot delay={220} />
           <LoadingDot delay={440} />
         </View>
-        <Text style={styles.loadingText}>{t('loading')}</Text>
+        <View style={styles.progressHeader}>
+          <Text style={styles.loadingText}>{t('loading')}</Text>
+          <Text style={styles.progressPercent}>{progressPercent}%</Text>
+        </View>
+        <View style={styles.progressTrack} accessibilityLabel={`${progressPercent}%`}>
+          <Animated.View
+            style={[styles.progressFill, { width: progressValue.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]}
+          />
+        </View>
       </View>
 
       <DataConsentModal visible={showConsent} onAgree={() => setShowConsent(false)} />
@@ -206,10 +246,34 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.md,
   },
+  progressHeader: {
+    width: 220,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   loadingText: {
     color: '#6b817f',
     fontSize: 13,
     fontWeight: '600',
+  },
+  progressPercent: {
+    color: '#287b72',
+    fontSize: 13,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  progressTrack: {
+    width: 220,
+    height: 7,
+    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: 'rgba(21, 94, 88, 0.12)',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#159f91',
   },
   dot: {
     width: 9,

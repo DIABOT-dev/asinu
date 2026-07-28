@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppState, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { AppState, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, useAnimatedScrollHandler, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
@@ -129,6 +129,108 @@ function AnimatedHeartbeatPulse() {
         />
       </Svg>
     </Animated.View>
+  );
+}
+
+type HomeMetricCard = {
+  key: string;
+  title: string;
+  value: string | number;
+  unit: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  color: string;
+  route: string;
+};
+
+type HomeMetricCarouselProps = {
+  cards: HomeMetricCard[];
+  styles: ReturnType<typeof createStyles>;
+  onOpen: (route: string) => void;
+};
+
+function HomeMetricCarousel({ cards, styles, onOpen }: HomeMetricCarouselProps) {
+  const { width } = useWindowDimensions();
+  const cardWidth = Math.max(240, Math.min(width - spacing.lg * 2 - spacing.sm, 348));
+  const snapInterval = cardWidth + spacing.md;
+  const listRef = useRef<FlatList<HomeMetricCard>>(null);
+  const activePositionRef = useRef(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const carouselData = cards.length > 1 ? [...cards, ...cards] : cards;
+
+  useEffect(() => {
+    activePositionRef.current = 0;
+    setActiveIndex(0);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [cards.length, snapInterval]);
+
+  useEffect(() => {
+    if (cards.length < 2) return;
+
+    const timer = setInterval(() => {
+      const nextPosition = activePositionRef.current + 1;
+      activePositionRef.current = nextPosition;
+      setActiveIndex(nextPosition % cards.length);
+      listRef.current?.scrollToOffset({ offset: nextPosition * snapInterval, animated: true });
+    }, 4200);
+
+    return () => clearInterval(timer);
+  }, [cards.length, snapInterval]);
+
+  return (
+    <View>
+      <FlatList
+        ref={listRef}
+        data={carouselData}
+        horizontal
+        keyExtractor={(item, index) => `${item.key}-${index}`}
+        renderItem={({ item }) => (
+          <Pressable
+            style={[styles.metricCard, styles.metricCarouselCard, { width: cardWidth }]}
+            onPress={() => onOpen(item.route)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title}: ${item.value} ${item.unit}`}
+          >
+            <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
+            <Text style={styles.metricTitle}>{item.title}</Text>
+            <Text style={[styles.metricValue, { color: item.color }]}>{item.value}</Text>
+            <Text style={styles.metricUnit}>{item.unit}</Text>
+          </Pressable>
+        )}
+        contentContainerStyle={styles.metricCarouselContent}
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={snapInterval}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        disableIntervalMomentum
+        nestedScrollEnabled
+        getItemLayout={(_, index) => ({
+          length: snapInterval,
+          offset: snapInterval * index,
+          index,
+        })}
+        onMomentumScrollEnd={(event) => {
+          const position = Math.round(event.nativeEvent.contentOffset.x / snapInterval);
+          setActiveIndex(position % cards.length);
+          activePositionRef.current = position;
+
+          // Reset to the first real item after the duplicated set settles.
+          if (cards.length > 1 && position >= cards.length) {
+            activePositionRef.current = 0;
+            listRef.current?.scrollToOffset({ offset: 0, animated: false });
+          }
+        }}
+      />
+      {cards.length > 1 && (
+        <View style={styles.metricCarouselDots} accessibilityLabel={`${activeIndex + 1}/${cards.length}`}>
+          {cards.map((card, index) => (
+            <View
+              key={card.key}
+              style={[styles.metricCarouselDot, index === activeIndex && styles.metricCarouselDotActive]}
+            />
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -398,6 +500,45 @@ export default function HomeScreen() {
     };
     router.push((routes[mission.missionKey] || '/(tabs)/missions') as any);
   }, [goToCheckin, router]);
+
+  const metricCards = useMemo<HomeMetricCard[]>(() => [
+    {
+      key: 'glucose',
+      title: t('glucose'),
+      value: quickMetrics.glucose,
+      unit: tc('unitMgdl'),
+      icon: 'water',
+      color: iconColors.glucose,
+      route: '/logs/glucose',
+    },
+    {
+      key: 'blood-pressure',
+      title: t('bloodPressure'),
+      value: quickMetrics.bloodPressure,
+      unit: tc('unitMmhg'),
+      icon: 'heart-pulse',
+      color: iconColors.bp,
+      route: '/logs/blood-pressure',
+    },
+    {
+      key: 'weight',
+      title: t('weight'),
+      value: quickMetrics.weight,
+      unit: tc('unitKg'),
+      icon: 'scale-bathroom',
+      color: iconColors.weight,
+      route: '/logs/weight',
+    },
+    {
+      key: 'water',
+      title: t('water'),
+      value: quickMetrics.water,
+      unit: tc('unitMl'),
+      icon: 'cup-water',
+      color: iconColors.water,
+      route: '/logs/water',
+    },
+  ], [quickMetrics, t, tc]);
 
   const healthFeedApi = useCallback(async <T,>(path: string, options?: any) => {
     return apiClient<T>(`/api/health-feed${path}`, options);
@@ -701,20 +842,11 @@ export default function HomeScreen() {
 
         {/* Metrics Row */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
-        <View style={styles.metricsRow}>
-          <Pressable style={[styles.metricCard, styles.metricCardGlucose]} onPress={() => router.push('/logs/glucose')}>
-            <MaterialCommunityIcons name="water" size={22} color={iconColors.glucose} />
-            <Text style={styles.metricTitle}>{t('glucose')}</Text>
-            <Text style={[styles.metricValue, { color: '#0d9488' }]}>{quickMetrics.glucose ?? '--'}</Text>
-            <Text style={styles.metricUnit}>{tc('unitMgdl')}</Text>
-          </Pressable>
-          <Pressable style={[styles.metricCard, styles.metricCardBP]} onPress={() => router.push('/logs/blood-pressure')}>
-            <MaterialCommunityIcons name="heart-pulse" size={22} color={iconColors.bp} />
-            <Text style={styles.metricTitle}>{t('bloodPressure')}</Text>
-            <Text style={[styles.metricValue, { color: '#ea580c' }]}>{quickMetrics.bloodPressure ?? '--'}</Text>
-            <Text style={styles.metricUnit}>{tc('unitMmhg')}</Text>
-          </Pressable>
-        </View>
+        <HomeMetricCarousel
+          cards={metricCards}
+          styles={styles}
+          onOpen={(route) => router.push(route as any)}
+        />
         </Animated.View>
 
         {/* Health Score Card */}
@@ -986,11 +1118,43 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     gap: spacing.md
   },
+  metricCarouselContent: {
+    paddingRight: spacing.md,
+  },
   metricCard: {
     flex: 1,
     backgroundColor: '#ffffff',
     borderRadius: 20,
     padding: spacing.lg,
+  },
+  metricCarouselCard: {
+    flex: 0,
+    minHeight: 148,
+    marginRight: spacing.md,
+    borderWidth: 1.2,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  metricCarouselDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+  },
+  metricCarouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+  },
+  metricCarouselDotActive: {
+    width: 18,
+    backgroundColor: colors.primary,
   },
   metricCardGlucose: {
     borderWidth: 1.2,

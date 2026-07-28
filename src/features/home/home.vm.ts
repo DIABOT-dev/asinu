@@ -99,16 +99,24 @@ export const useHomeViewModel = () => {
     const latestGlucose = logs.find((log) => log.type === 'glucose' && isToday(log.recordedAt));
     // Find latest blood pressure recorded TODAY only
     const latestBloodPressure = logs.find((log) => log.type === 'blood-pressure' && isToday(log.recordedAt));
+    // Find the latest weight recorded today and total today's water intake.
+    const latestWeight = logs.find((log) => log.type === 'weight' && isToday(log.recordedAt));
+    const waterTotal = logs
+      .filter((log) => log.type === 'water' && isToday(log.recordedAt))
+      .reduce((total, log) => total + (Number(log.volume_ml) || 0), 0);
     
     const glucoseValue = latestGlucose ? getLogValue(latestGlucose, 'value') : null;
     const systolicValue = latestBloodPressure ? getLogValue(latestBloodPressure, 'systolic') : null;
     const diastolicValue = latestBloodPressure ? getLogValue(latestBloodPressure, 'diastolic') : null;
+    const weightValue = latestWeight?.weight_kg;
     
     return {
-      glucose: glucoseValue !== null ? glucoseValue : '--',
-      bloodPressure: systolicValue && diastolicValue
+      glucose: typeof glucoseValue === 'number' && Number.isFinite(glucoseValue) ? glucoseValue : '--',
+      bloodPressure: typeof systolicValue === 'number' && typeof diastolicValue === 'number'
         ? `${systolicValue}/${diastolicValue}`
-        : '--'
+        : '--',
+      weight: typeof weightValue === 'number' && Number.isFinite(weightValue) ? weightValue : '--',
+      water: waterTotal > 0 ? waterTotal : '--',
     };
   }, [logs]);
 

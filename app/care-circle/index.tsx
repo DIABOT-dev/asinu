@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/Button';
@@ -24,6 +24,7 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 export default function CareCircleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: viewportWidth } = useWindowDimensions();
   const profile = useAuthStore((state) => state.profile);
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
@@ -66,6 +67,12 @@ export default function CareCircleScreen() {
   const [editRelationType, setEditRelationType] = useState<DropdownOption | null>(null);
   const [editRole, setEditRole] = useState<DropdownOption | null>(null);
   const [editPermissions, setEditPermissions] = useState({ can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true });
+  const [activeConnectionIndex, setActiveConnectionIndex] = useState(0);
+  const carouselCardWidth = Math.max(280, Math.min(360, viewportWidth - spacing.lg * 2 - spacing.sm));
+
+  useEffect(() => {
+    setActiveConnectionIndex((current) => Math.min(current, Math.max(0, connections.length - 1)));
+  }, [connections.length]);
 
   const invitePromptMessages = useMemo(() => [
     t('invitePrompt1'),
@@ -564,97 +571,123 @@ export default function CareCircleScreen() {
               <Text style={styles.emptySubtext}>{t('noConnectionsHint')}</Text>
             </View>
           ) : (
-            connections.map((connection) => {
-              const isRequester = String(connection.requester_id) === String(profile?.id);
-              const otherUserId = isRequester ? connection.addressee_id : connection.requester_id;
-              const otherUserFullName = isRequester ? connection.addressee_full_name : connection.requester_full_name;
-              const otherUserEmail = isRequester ? connection.addressee_email : connection.requester_email;
-              const otherUserPhone = isRequester ? connection.addressee_phone : connection.requester_phone;
-              
-              // Xác định mối quan hệ hiển thị:
-              // - Nếu mình là requester: hiển thị relationship_type như đã đặt (B là gì với mình)
-              // - Nếu mình là addressee: đảo ngược, dùng giới tính của requester để chọn term cụ thể
-              const displayRelationship = isRequester
-                ? getRelationshipLabel(connection.relationship_type)
-                : reverseRelationship(connection.relationship_type, connection.requester_gender);
+            <>
+              <FlatList
+                data={connections}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(connection) => String(connection.id)}
+                decelerationRate="fast"
+                snapToInterval={carouselCardWidth + spacing.sm}
+                snapToAlignment="start"
+                contentContainerStyle={styles.connectionCarouselContent}
+                getItemLayout={(_, index) => ({
+                  length: carouselCardWidth + spacing.sm,
+                  offset: (carouselCardWidth + spacing.sm) * index,
+                  index,
+                })}
+                onMomentumScrollEnd={(event) => {
+                  const index = Math.round(event.nativeEvent.contentOffset.x / (carouselCardWidth + spacing.sm));
+                  setActiveConnectionIndex(Math.min(index, connections.length - 1));
+                }}
+                renderItem={({ item: connection }) => {
+                  const isRequester = String(connection.requester_id) === String(profile?.id);
+                  const otherUserId = isRequester ? connection.addressee_id : connection.requester_id;
+                  const otherUserFullName = isRequester ? connection.addressee_full_name : connection.requester_full_name;
+                  const otherUserEmail = isRequester ? connection.addressee_email : connection.requester_email;
+                  const otherUserPhone = isRequester ? connection.addressee_phone : connection.requester_phone;
 
-              const otherName = otherUserFullName || otherUserEmail || `#${otherUserId}`;
+                  // Xác định mối quan hệ hiển thị theo phía của người dùng hiện tại.
+                  const displayRelationship = isRequester
+                    ? getRelationshipLabel(connection.relationship_type)
+                    : reverseRelationship(connection.relationship_type, connection.requester_gender);
 
-              return (
-                <TouchableOpacity
-                  key={connection.id}
-                  style={styles.card}
-                  onPress={() => router.push({
-                    pathname: '/care-circle/member/[id]',
-                    params: { id: String(otherUserId), name: otherName }
-                  })}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.cardHeader, { alignItems: 'flex-start' }]}>
-                    <View style={[styles.avatar, { backgroundColor: colors.emeraldLight }]}>
-                      <Text style={[styles.avatarText, { color: colors.emeraldDark }]}>{otherName[0]?.toUpperCase() || '?'}</Text>
-                    </View>
+                  const otherName = otherUserFullName || otherUserEmail || `#${otherUserId}`;
 
-                    <View style={styles.cardInfo}>
-                      <Text style={styles.cardName} numberOfLines={1}>{otherName}</Text>
-
-                      {(displayRelationship || connection.role) && (
-                        <View style={[styles.cardBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)', marginTop: 4, marginBottom: 4 }]}>
-                          <Ionicons name="heart" size={12} color={iconColors.emerald} />
-                          <Text style={[styles.cardRelation, { color: iconColors.emerald }]}>
-                            {displayRelationship || connection.role}
-                          </Text>
+                  return (
+                    <TouchableOpacity
+                      style={[styles.card, styles.connectionCarouselCard, { width: carouselCardWidth }]}
+                      onPress={() => router.push({
+                        pathname: '/care-circle/member/[id]',
+                        params: { id: String(otherUserId), name: otherName }
+                      })}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[styles.cardHeader, { alignItems: 'flex-start' }]}>
+                        <View style={[styles.avatar, { backgroundColor: colors.emeraldLight }]}>
+                          <Text style={[styles.avatarText, { color: colors.emeraldDark }]}>{otherName[0]?.toUpperCase() || '?'}</Text>
                         </View>
-                      )}
 
-                      {otherUserEmail && (
-                        <View style={styles.contactRow}>
-                          <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
-                          <Text style={styles.cardContact}>{otherUserEmail}</Text>
-                        </View>
-                      )}
-                      {otherUserPhone && (
-                        <View style={styles.contactRow}>
-                          <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
-                          <Text style={styles.cardContact}>{otherUserPhone}</Text>
-                        </View>
-                      )}
-                    </View>
+                        <View style={styles.cardInfo}>
+                          <Text style={styles.cardName} numberOfLines={1}>{otherName}</Text>
 
-                    <View style={styles.cardActionsSmall}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          // Only the original requester (data owner) is
-                          // allowed by the backend to update permissions —
-                          // tapping "edit" as the addressee would just
-                          // 404 with a confusing toast. Hide the option
-                          // for non-requesters; they can still delete.
-                          const options: any[] = [];
-                          if (isRequester) {
-                            options.push({
-                              text: t('editConnection') || 'Chỉnh sửa kết nối',
-                              onPress: () => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` }),
-                            });
-                          }
-                          options.push(
-                            { text: tc('delete') || 'Xóa', style: 'destructive', onPress: () => handleDeleteConnection(connection.id, otherName) },
-                            { text: tc('cancel') || 'Hủy', style: 'cancel' },
-                          );
-                          showAlert('Tùy chọn', `Thao tác với ${otherName}`, options);
-                        }}
-                        style={[styles.iconBtn, { backgroundColor: 'transparent', width: 32, height: 32 }]}
-                      >
-                        {actionLoading === connection.id ? (
-                          <ActivityIndicator size="small" color={colors.textSecondary} />
-                        ) : (
-                          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+                          {(displayRelationship || connection.role) && (
+                            <View style={[styles.cardBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)', marginTop: 4, marginBottom: 4 }]}>
+                              <Ionicons name="heart" size={12} color={iconColors.emerald} />
+                              <Text style={[styles.cardRelation, { color: iconColors.emerald }]}>
+                                {displayRelationship || connection.role}
+                              </Text>
+                            </View>
+                          )}
+
+                          {otherUserEmail && (
+                            <View style={styles.contactRow}>
+                              <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
+                              <Text style={styles.cardContact} numberOfLines={1}>{otherUserEmail}</Text>
+                            </View>
+                          )}
+                          {otherUserPhone && (
+                            <View style={styles.contactRow}>
+                              <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
+                              <Text style={styles.cardContact}>{otherUserPhone}</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={styles.cardActionsSmall}>
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={tc('notificationMoreActions')}
+                            onPress={() => {
+                              // Người nhận không có quyền sửa quyền kết nối, nhưng vẫn có thể xóa.
+                              const options: any[] = [];
+                              if (isRequester) {
+                                options.push({
+                                  text: t('editConnection') || 'Chỉnh sửa kết nối',
+                                  onPress: () => handleEditConnection({ ...connection, name: otherUserFullName || `User ${otherUserId}` }),
+                                });
+                              }
+                              options.push(
+                                { text: tc('delete') || 'Xóa', style: 'destructive', onPress: () => handleDeleteConnection(connection.id, otherName) },
+                                { text: tc('cancel') || 'Hủy', style: 'cancel' },
+                              );
+                              showAlert('Tùy chọn', `Thao tác với ${otherName}`, options);
+                            }}
+                            style={[styles.iconBtn, { backgroundColor: 'transparent', width: 32, height: 32 }]}
+                          >
+                            {actionLoading === connection.id ? (
+                              <ActivityIndicator size="small" color={colors.textSecondary} />
+                            ) : (
+                              <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+              {connections.length > 1 && (
+                <View style={styles.connectionCarouselDots} accessibilityLabel={t('activeConnections', { count: connections.length })}>
+                  {connections.map((connection, index) => (
+                    <View
+                      key={connection.id}
+                      style={[styles.connectionCarouselDot, index === activeConnectionIndex && styles.connectionCarouselDotActive]}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
           )}
         </View>
 
@@ -959,6 +992,31 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     elevation: 3,
     ...androidCardSurface,
     gap: spacing.xs,
+  },
+  connectionCarouselContent: {
+    paddingRight: spacing.sm,
+  },
+  connectionCarouselCard: {
+    marginRight: spacing.sm,
+    marginBottom: 0,
+    minHeight: 112,
+  },
+  connectionCarouselDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+  },
+  connectionCarouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+  },
+  connectionCarouselDotActive: {
+    width: 18,
+    backgroundColor: colors.primary,
   },
   cardPending: {
     backgroundColor: colors.surface,
