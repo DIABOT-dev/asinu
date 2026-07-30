@@ -20,6 +20,9 @@ export type Profile = {
   name: string;
   email?: string;
   phone?: string;
+  // Kept locally so flows that need provider-specific UX can distinguish
+  // Apple from password and other social sign-ins after profile hydration.
+  authProvider?: 'email' | 'phone' | SocialProvider;
   relationship?: string;
   avatarUrl?: string;
   // Health profile fields
@@ -97,7 +100,14 @@ export const useAuthStore = create<AuthState>()(
               useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
             }
             if (profile?.id) localCache.setUserId(profile.id);
-            set({ profile, loading: false, hydrated: true });
+            // The API profile intentionally does not expose the auth provider.
+            // Preserve it from the persisted session for provider-specific flows.
+            const authProvider = get().profile?.authProvider;
+            set({
+              profile: profile ? { ...profile, authProvider } : profile,
+              loading: false,
+              hydrated: true,
+            });
           } catch (err) {
             // If profile fetch fails but we have token, keep the token but clear profile
             set({ profile: null, loading: false, hydrated: true });
@@ -141,6 +151,7 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
+          if (profile) profile = { ...profile, authProvider: 'email' };
           if (profile?.id) localCache.setUserId(profile.id);
           set({ profile, token, loading: false });
         } catch (error) {
@@ -169,6 +180,7 @@ export const useAuthStore = create<AuthState>()(
             profile = response.profile || null;
           }
 
+          if (profile) profile = { ...profile, authProvider: 'phone' };
           if (profile?.id) localCache.setUserId(profile.id);
           set({ profile, token, loading: false });
         } catch (error) {
@@ -204,6 +216,7 @@ export const useAuthStore = create<AuthState>()(
             profile = response.profile || null;
           }
 
+          if (profile) profile = { ...profile, authProvider: provider };
           if (profile?.id) localCache.setUserId(profile.id);
           set({ profile, token, loading: false });
         } catch (error) {
@@ -237,7 +250,11 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true, error: undefined });
         try {
           const updatedProfile = await authApi.updateProfile(payload);
-          set({ profile: updatedProfile, loading: false });
+          const authProvider = get().profile?.authProvider;
+          set({
+            profile: updatedProfile ? { ...updatedProfile, authProvider } : updatedProfile,
+            loading: false,
+          });
         } catch (error) {
           set({ loading: false, error: (error as Error).message });
           throw error;

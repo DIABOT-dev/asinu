@@ -264,15 +264,20 @@ export default function OnboardingScreen() {
   const [bloodType, setBloodType] = useState('');
   const [consentAccepted, setConsentAccepted] = useState(false);
 
-  // Sign in with Apple supplies the name through Authentication Services on
-  // the first authorization. Keep it in onboarding so the user is not asked
-  // to type information Apple has already provided.
+  const isAppleSignIn = authProfile?.authProvider === 'apple';
+
+  // Apple supplies the name through Authentication Services. Keep a local
+  // value for the onboarding payload, but never require the user to type it.
   useEffect(() => {
     const providerName = authProfile?.name?.trim();
+    if (isAppleSignIn) {
+      setFullName(providerName && !/^User(?:\s+\d+)?$/i.test(providerName) ? providerName : 'User');
+      return;
+    }
     if (!fullName.trim() && providerName && !/^User\s+\d+$/i.test(providerName)) {
       setFullName(providerName);
     }
-  }, [authProfile?.name, fullName]);
+  }, [authProfile?.name, isAppleSignIn]);
 
   // ── Step 2 state ─────────────────────────────────────────────────
   const [diseases, setDiseases] = useState<string[]>([]);
@@ -534,6 +539,7 @@ export default function OnboardingScreen() {
             styles={styles}
             fullName={fullName}
             setFullName={setFullName}
+            isAppleSignIn={isAppleSignIn}
             birthYear={birthYear}
             setBirthYear={setBirthYear}
             birthYearError={birthYearError}
@@ -630,6 +636,7 @@ interface Step1Props {
   styles: ReturnType<typeof createStyles>;
   fullName: string;
   setFullName: (v: string) => void;
+  isAppleSignIn: boolean;
   birthYear: string;
   setBirthYear: (v: string) => void;
   birthYearError: string;
@@ -653,6 +660,7 @@ interface Step1Props {
 function Step1({
   styles,
   fullName, setFullName,
+  isAppleSignIn,
   birthYear, setBirthYear, birthYearError,
   gender, setGender,
   height, setHeight, heightError,
@@ -673,16 +681,27 @@ function Step1({
       <Text style={styles.stepSubtitle}>{t('step1Subtitle')}</Text>
 
       <View style={styles.questionCard}>
-        <SectionLabel label={t('fullName')} />
-        <RNTextInput
-          style={styles.textInput}
-          placeholder={t('fullNamePlaceholder')}
-          placeholderTextColor={colors.textSecondary}
-          value={fullName}
-          onChangeText={setFullName}
-          autoCapitalize="words"
-          returnKeyType="next"
-        />
+        {isAppleSignIn ? (
+          <>
+            <SectionLabel label={t('fullName')} />
+            <View style={styles.readOnlyInput} accessible accessibilityLabel={fullName}>
+              <Text style={styles.readOnlyInputText}>{fullName}</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <SectionLabel label={t('fullName')} />
+            <RNTextInput
+              style={styles.textInput}
+              placeholder={t('fullNamePlaceholder')}
+              placeholderTextColor={colors.textSecondary}
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+              returnKeyType="next"
+            />
+          </>
+        )}
       </View>
 
       <View style={styles.questionCard}>
@@ -1265,6 +1284,20 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.textPrimary,
       backgroundColor: colors.surface,
       minHeight: 48,
+    },
+    readOnlyInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      minHeight: 48,
+      justifyContent: 'center',
+      backgroundColor: colors.surfaceMuted,
+    },
+    readOnlyInputText: {
+      fontSize: typography.size.md,
+      color: colors.textPrimary,
     },
     errorText: {
       fontSize: typography.size.sm,
