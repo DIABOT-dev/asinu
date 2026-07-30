@@ -1,7 +1,7 @@
 /**
  * UI block rendered on /subscription when env.paymentMethod === 'iap'.
  *
- * Reads the backend catalogue + local StoreKit / Play Billing price,
+ * Reads the backend catalogue + local native-store price,
  * shows a picker between monthly / yearly, fires the platform purchase
  * sheet, and on success refreshes the parent screen's premium status.
  *
@@ -44,7 +44,7 @@ export function IapPurchaseCard({ onPurchased }: Props) {
   const [restoring, setRestoring] = useState(false);
 
   // Load products on mount. Falls back to backend-only when StoreKit /
-  // Play Billing isn't connected yet — UI can still show a VND price.
+  // Native store pricing may be unavailable in some environments; UI can still show a VND price.
   useEffect(() => {
     let cancelled = false;
     (async () => {

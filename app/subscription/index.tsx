@@ -409,7 +409,7 @@ export default function SubscriptionScreen() {
         )}
 
         {/* ── Payment surface khi PAYMENT_METHOD != 'sepay' ───────────────
-            Mobile app submit lên store: phải dùng Apple IAP + Play Billing.
+            Mobile app submit lên store: phải dùng thanh toán nội bộ của nền tảng.
             SePay flow chỉ giữ trên web. Trong khi IAP còn đang scaffold,
             hiển thị placeholder để user biết và submit Apple Review không
             thấy UI thanh toán ngoài. */}

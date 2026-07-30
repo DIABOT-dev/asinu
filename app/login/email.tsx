@@ -1,4 +1,9 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  AppleAuthenticationButton,
+  AppleAuthenticationButtonStyle,
+  AppleAuthenticationButtonType,
+} from 'expo-apple-authentication';
 
 import { Image } from 'react-native';
 import React, { useMemo, useRef, useState } from 'react';
@@ -361,29 +366,39 @@ export default function LoginEmailScreen() {
 
             return (
               <Animated.View key={provider} entering={FadeInRight.delay(550 + idx * 80).duration(400).springify()}>
-              <Pressable
-                onPress={() => handleSocialLogin(provider)}
-                disabled={isSubmitting}
-                style={({ pressed }) => [
-                  styles.socialButton,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-                  isSubmitting && { opacity: 0.5 },
-                ]}
-              >
-                {!isButtonLoading && (
-                  <View style={styles.socialIconCircle}>
-                    {provider === 'zalo' ? (
-                      <Image source={require('../../src/assets/zalo.png')} style={styles.zaloIcon} resizeMode="contain" />
-                    ) : (
-                      <FontAwesome5 name={meta.icon} size={18} color={meta.color} brand />
+                {provider === 'apple' ? (
+                  <AppleAuthenticationButton
+                    buttonType={AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={radius.xl}
+                    style={[styles.appleAuthButton, isSubmitting && { opacity: 0.5 }]}
+                    onPress={() => handleSocialLogin(provider)}
+                  />
+                ) : (
+                  <Pressable
+                    onPress={() => handleSocialLogin(provider)}
+                    disabled={isSubmitting}
+                    style={({ pressed }) => [
+                      styles.socialButton,
+                      pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                      isSubmitting && { opacity: 0.5 },
+                    ]}
+                  >
+                    {!isButtonLoading && (
+                      <View style={styles.socialIconCircle}>
+                        {provider === 'zalo' ? (
+                          <Image source={require('../../src/assets/zalo.png')} style={styles.zaloIcon} resizeMode="contain" />
+                        ) : (
+                          <FontAwesome5 name={meta.icon} size={18} color={meta.color} brand />
+                        )}
+                      </View>
                     )}
-                  </View>
+                    <Text style={styles.socialButtonText}>
+                      {isButtonLoading ? tc('processing') : label}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary + '66'} />
+                  </Pressable>
                 )}
-                <Text style={styles.socialButtonText}>
-                  {isButtonLoading ? tc('processing') : label}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary + '66'} />
-              </Pressable>
               </Animated.View>
             );
           })}
@@ -656,6 +671,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingVertical: spacing.md,
       paddingHorizontal: spacing.lg,
       gap: spacing.md,
+    },
+    appleAuthButton: {
+      width: '100%',
+      height: 52,
     },
     socialIconCircle: {
       width: 36,

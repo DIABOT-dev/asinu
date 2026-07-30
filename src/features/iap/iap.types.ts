@@ -1,5 +1,5 @@
 /**
- * Shared types between the StoreKit/Play Billing client and the backend
+ * Shared types between the native store client and the backend
  * verify endpoint. Keep these in sync with backend/src/services/payment/iap.service.js.
  */
 

@@ -78,6 +78,7 @@
       "expo-font",
       "expo-secure-store",
       "expo-asset",
+      "expo-apple-authentication",
       [
         "expo-image-picker",
         {

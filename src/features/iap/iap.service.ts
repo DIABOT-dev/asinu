@@ -300,7 +300,7 @@ export async function purchaseSubscription(
       });
       return {
         kind: 'failed',
-        error: 'Missing Play Billing offerToken — check the subscription has a base plan published.',
+        error: 'Missing native store offer token — check the subscription configuration.',
       };
     }
   }

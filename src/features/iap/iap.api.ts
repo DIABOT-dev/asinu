@@ -1,6 +1,6 @@
 /**
  * Backend API wrapper for IAP — only the HTTP layer. The native
- * purchasing flow (StoreKit / Play Billing client) lives in iap.service.ts.
+ * purchasing flow (native store client) lives in iap.service.ts.
  */
 
 import { apiClient } from '../../lib/apiClient';
