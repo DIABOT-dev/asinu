@@ -218,6 +218,7 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const bootstrap = useAuthStore((s) => s.bootstrap);
   const logout = useAuthStore((s) => s.logout);
+  const authProfile = useAuthStore((s) => s.profile);
 
   const handleExit = () => {
     showAlert(
@@ -262,6 +263,16 @@ export default function OnboardingScreen() {
   const [phone, setPhone] = useState('');
   const [bloodType, setBloodType] = useState('');
   const [consentAccepted, setConsentAccepted] = useState(false);
+
+  // Sign in with Apple supplies the name through Authentication Services on
+  // the first authorization. Keep it in onboarding so the user is not asked
+  // to type information Apple has already provided.
+  useEffect(() => {
+    const providerName = authProfile?.name?.trim();
+    if (!fullName.trim() && providerName && !/^User\s+\d+$/i.test(providerName)) {
+      setFullName(providerName);
+    }
+  }, [authProfile?.name, fullName]);
 
   // ── Step 2 state ─────────────────────────────────────────────────
   const [diseases, setDiseases] = useState<string[]>([]);

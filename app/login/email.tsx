@@ -90,10 +90,13 @@ export default function LoginEmailScreen() {
 
   const navigateAfterLogin = () => {
     const profile = useAuthStore.getState().profile;
-    if (profile && !profile.onboardingCompleted) {
-      router.replace('/onboarding');
-    } else {
+    if (profile?.onboardingCompleted === true) {
       router.replace('/(tabs)/home');
+    } else {
+      // Never treat a missing or incomplete profile as onboarding-complete.
+      // This prevents a new social account from bypassing setup when the
+      // lightweight profile request has not returned all fields yet.
+      router.replace('/onboarding');
     }
   };
   const insets = useSafeAreaInsets();
@@ -151,8 +154,8 @@ export default function LoginEmailScreen() {
       navigatingRef.current = true;
       setPendingToast(t('loginSuccess'), 'success');
       navigateAfterLogin();
-    } catch {
-      showToast(t('loginFailed'), 'error');
+    } catch (loginError) {
+      showToast(loginError instanceof Error ? loginError.message : t('loginFailed'), 'error');
     } finally {
       setPendingAction(null);
     }
@@ -166,8 +169,8 @@ export default function LoginEmailScreen() {
       navigatingRef.current = true;
       setPendingToast(t('loginSuccess'), 'success');
       navigateAfterLogin();
-    } catch {
-      showToast(t('loginFailed'), 'error');
+    } catch (loginError) {
+      showToast(loginError instanceof Error ? loginError.message : t('loginFailed'), 'error');
     } finally {
       setPendingAction(null);
     }

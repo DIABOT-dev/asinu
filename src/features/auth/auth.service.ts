@@ -85,10 +85,14 @@ export const authService = {
 
       const providerId = oauthResult.profile?.sub || `${payload.provider}_${Date.now()}`;
       const email = oauthResult.profile?.email || payload.rawProfile?.email as string;
+      const fullName = oauthResult.profile?.name?.trim() || undefined;
       const requestBody = {
         token: oauthResult.token || oauthResult.idToken || 'oauth-token',
         provider_id: providerId,
         email: email,
+        // Apple returns the name during the first authorization only.
+        // Persist it immediately so onboarding does not ask for it again.
+        full_name: fullName,
         phone_number: payload.phone
       };
 
