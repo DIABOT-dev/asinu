@@ -106,7 +106,7 @@ export function IapPurchaseCard({ onPurchased }: Props) {
         showAlert(
           t('restoreNoneTitle') || 'Không tìm thấy gói nào',
           t('restoreNoneBody') ||
-            'Không có giao dịch Premium nào liên kết với tài khoản App Store / Google Play này.',
+            'Không có giao dịch Premium nào liên kết với tài khoản cửa hàng ứng dụng này.',
         );
       }
     } finally {
@@ -229,7 +229,7 @@ export function IapPurchaseCard({ onPurchased }: Props) {
 
         <Text style={styles.legalNote}>
           {t('iapLegalNote') ||
-            'Thanh toán qua App Store / Google Play. Subscription tự gia hạn cho đến khi bạn hủy trong cài đặt store.'}
+            'Thanh toán qua cửa hàng ứng dụng. Subscription tự gia hạn cho đến khi bạn hủy trong cài đặt cửa hàng.'}
         </Text>
       </View>
       {alertModal}

@@ -421,7 +421,7 @@ export default function SubscriptionScreen() {
                 {t('upgradeComingSoonTitle') || 'Tính năng nâng cấp sắp ra mắt'}
               </Text>
               <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
-                {t('upgradeComingSoonBody') || 'Asinu đang hoàn thiện kênh thanh toán an toàn qua App Store / Google Play. Hãy quay lại trong phiên bản tới.'}
+                {t('upgradeComingSoonBody') || 'Asinu đang hoàn thiện kênh thanh toán an toàn qua cửa hàng ứng dụng. Hãy quay lại trong phiên bản tới.'}
               </Text>
             </View>
           </Animated.View>

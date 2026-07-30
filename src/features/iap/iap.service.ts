@@ -1,5 +1,5 @@
 /**
- * StoreKit 2 / Google Play Billing v6 client wrapper around `expo-iap`.
+ * Native store billing client wrapper around `expo-iap`.
  *
  * The library is event-based (`purchaseUpdatedListener` / `purchaseErrorListener`),
  * but our UI wants Promise-based purchase calls. The flow below uses
