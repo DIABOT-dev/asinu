@@ -134,8 +134,9 @@ export const useAuthStore = create<AuthState>()(
             if (response.user) {
               profile = {
                 id: String(response.user.id),
-                name: response.user.email?.split('@')[0],
-                email: response.user.email
+                name: response.user.full_name || response.user.email?.split('@')[0] || `User ${response.user.id}`,
+                email: response.user.email,
+                phone: response.user.phone_number ?? undefined
               };
             }
           }

@@ -64,7 +64,10 @@ export const authService = {
       
       // Zalo/Facebook/Google server-side flow: backend already handled everything, token is the JWT
       if ((payload.provider === 'zalo' || payload.provider === 'facebook' || payload.provider === 'google') && oauthResult.directToken) {
-        const meResponse = await apiClient<{ok: boolean, user: {id: string, email?: string, full_name?: string, avatar_url?: string}}>(
+        const meResponse = await apiClient<{
+          ok: boolean;
+          user: { id: string; email?: string; full_name?: string | null; phone?: string | null; avatar_url?: string | null };
+        }>(
           '/api/auth/me',
           { headers: { Authorization: `Bearer ${oauthResult.directToken}` } }
         );
@@ -74,8 +77,8 @@ export const authService = {
             id: meResponse.user.id,
             name: meResponse.user.full_name || meResponse.user.email?.split('@')[0] || 'User',
             email: meResponse.user.email,
-            phone: payload.phone,
-            avatarUrl: meResponse.user.avatar_url
+            phone: meResponse.user.phone ?? payload.phone,
+            avatarUrl: meResponse.user.avatar_url ?? undefined
           }
         };
       }
@@ -96,7 +99,11 @@ export const authService = {
         phone_number: payload.phone
       };
 
-      const response = await apiClient<{ok: boolean, token: string, user: {id: string, email?: string}}>(
+      const response = await apiClient<{
+        ok: boolean;
+        token: string;
+        user: { id: string; email?: string; full_name?: string; phone_number?: string | null; avatar_url?: string | null };
+      }>(
         endpoint,
         { method: 'POST', body: requestBody }
       );
@@ -105,10 +112,10 @@ export const authService = {
         token: response.token,
         profile: {
           id: response.user.id,
-          name: oauthResult.profile?.name || response.user.email?.split('@')[0] || 'User',
+          name: oauthResult.profile?.name || response.user.full_name || response.user.email?.split('@')[0] || 'User',
           email: response.user.email,
-          phone: payload.phone,
-          avatarUrl: oauthResult.profile?.picture
+          phone: response.user.phone_number ?? payload.phone,
+          avatarUrl: oauthResult.profile?.picture || response.user.avatar_url || undefined,
         }
       };
     } catch (error) {

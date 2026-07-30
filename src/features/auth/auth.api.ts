@@ -31,7 +31,7 @@ export type UpdateProfilePayload = {
 export type LoginResponse = {
   ok: boolean;
   token?: string;
-  user?: { id: number; email: string };
+  user?: { id: number; email: string; full_name?: string | null; phone_number?: string | null };
   profile?: Profile;
 };
 
