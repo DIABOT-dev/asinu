@@ -80,5 +80,12 @@
         "EXPO_PUBLIC_ZALO_APP_ID": "1593272240133048788"
       }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6758967197"
+      }
+    }
   }
 }
