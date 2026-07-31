@@ -52,14 +52,14 @@
         <string>facebook</string>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>fb1683275612701192</string>
+          <string>fb1498953168498253</string>
         </array>
       </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>FacebookAppID</key>
-    <string>1683275612701192</string>
+    <string>1498953168498253</string>
     <key>FacebookClientToken</key>
     <string>d079afd832d0f03ff61ca921cfea04fc</string>
     <key>FacebookDisplayName</key>
