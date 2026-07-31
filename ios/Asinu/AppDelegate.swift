@@ -1,6 +1,7 @@
 import Expo
 import React
 import ReactAppDependencyProvider
+import ZaloSDK
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -21,6 +22,8 @@ public class AppDelegate: ExpoAppDelegate {
     reactNativeFactory = factory
     bindReactNativeFactory(factory)
 
+    ZaloSDK.sharedInstance().initialize(withAppId: "1593272240133048788")
+
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
     factory.startReactNative(
@@ -38,7 +41,8 @@ public class AppDelegate: ExpoAppDelegate {
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
-    return super.application(app, open: url, options: options) || RCTLinkingManager.application(app, open: url, options: options)
+    let zaloHandled = ZDKApplicationDelegate.sharedInstance().application(app, open: url, options: options)
+    return super.application(app, open: url, options: options) || zaloHandled || RCTLinkingManager.application(app, open: url, options: options)
   }
 
   // Universal Links

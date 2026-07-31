@@ -265,55 +265,6 @@ function generateCodeVerifier(): string {
   return result;
 }
 
-async function authenticateWithZaloWeb(): Promise<OAuthResult> {
-  console.log('[Zalo] flow=web_callback, platform:', Platform.OS);
-  try {
-    const appId = process.env.EXPO_PUBLIC_ZALO_APP_ID;
-    if (!appId) return { type: 'error', error: 'Zalo App ID chưa được cấu hình' };
-
-    const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
-    if (!apiBase) return { type: 'error', error: 'API base URL chưa được cấu hình' };
-
-    // Backend HTTPS endpoint — Zalo redirects here with ?code=
-    const redirectUri = `${apiBase}/api/auth/zalo/callback`;
-
-    const statePayload = 'zalo_auth_' + Date.now();
-
-    const authUrl = `https://oauth.zaloapp.com/v4/permission?${new URLSearchParams({
-      app_id: appId,
-      redirect_uri: redirectUri,
-      state: statePayload
-    }).toString()}`;
-
-    // Watch for backend redirecting back to the app deep link
-    const appCallbackUri = 'asinu-lite://auth/zalo/callback';
-    const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUri);
-
-    if (result.type === 'cancel' || result.type === 'dismiss') {
-      return { type: 'cancel' };
-    }
-
-    if (result.type !== 'success' || !result.url) {
-      return { type: 'error', error: t('authFailed') };
-    }
-
-    const url = new URL(result.url);
-    const error = url.searchParams.get('error');
-    if (error) return { type: 'error', error: `Zalo login failed: ${error}` };
-
-    const directToken = url.searchParams.get('token');
-    if (!directToken) return { type: 'error', error: t('noAccessToken') };
-
-    return { type: 'success', directToken };
-  } catch (error) {
-
-    return {
-      type: 'error',
-      error: error instanceof Error ? error.message : t('unknownError')
-    };
-  }
-}
-
 async function authenticateWithZaloNativeAndroid(): Promise<OAuthResult> {
   const nativeZaloAuth = NativeModules.AsinuZaloAuth as
     | { login?: (authType: string) => Promise<{ accessToken?: string; refreshToken?: string }> }
@@ -328,7 +279,7 @@ async function authenticateWithZaloNativeAndroid(): Promise<OAuthResult> {
   );
 
   const data = await Promise.race([
-    nativeZaloAuth.login('AUTH_VIA_APP_OR_WEB'),
+    nativeZaloAuth.login('AUTH_VIA_APP'),
     timeout
   ]);
   const accessToken = data?.accessToken;
@@ -353,9 +304,9 @@ async function authenticateWithZaloNativeAndroid(): Promise<OAuthResult> {
 }
 
 /**
- * Authenticate with Zalo.
- * Android uses the app-owned native Zalo bridge first, then falls back to web OAuth.
- * iOS tries native SDK first, then falls back to server-side web flow.
+ * Authenticate with Zalo using the native SDK on both supported platforms.
+ * The app-owned web callback is intentionally not used here: a native failure
+ * must be shown to the user instead of silently switching authentication flows.
  */
 export async function authenticateWithZalo(): Promise<OAuthResult> {
   if (Platform.OS === 'android') {
@@ -363,11 +314,11 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
       console.log('[Zalo] flow=android_native_bridge');
       return await authenticateWithZaloNativeAndroid();
     } catch (err: any) {
-      console.log('[Zalo] android_native_bridge failed, falling back to web:', {
+      console.log('[Zalo] android_native_bridge failed:', {
         code: err?.code,
         message: err?.message || String(err),
       });
-      return authenticateWithZaloWeb();
+      return { type: 'error', error: t('authFailed') };
     }
   }
 
@@ -383,8 +334,8 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
       );
       let data: any;
       try {
-        console.log('[Zalo] calling loginFn AUTH_VIA_APP_OR_WEB...');
-        data = await Promise.race([loginFn('AUTH_VIA_APP_OR_WEB'), timeout]);
+        console.log('[Zalo] calling loginFn AUTH_VIA_APP...');
+        data = await Promise.race([loginFn('AUTH_VIA_APP'), timeout]);
         console.log('[Zalo] loginFn resolved:', JSON.stringify(data));
       } catch (loginErr: any) {
         console.log('[Zalo] loginFn rejected:', loginErr?.message, 'code:', loginErr?.code, 'full:', JSON.stringify(loginErr));
@@ -411,26 +362,54 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
           },
         };
       }
-      console.log('[Zalo] native_sdk: no profile id, falling through to web');
+      console.log('[Zalo] native_sdk: no profile id');
     } else {
-      console.log('[Zalo] native_sdk unavailable, falling through to web');
+      console.log('[Zalo] native_sdk unavailable');
+      return { type: 'error', error: t('authFailed') };
     }
   } catch (err: any) {
-    console.log('[Zalo] native_sdk error — message:', err?.message, 'code:', err?.code, 'full:', JSON.stringify(err));
+    console.log('[Zalo] native_sdk error — message:', err?.message, 'code:', err?.code);
+    if (err?.code === 'ERR_CANCELED' || err?.code === 'CANCELLED') {
+      return { type: 'cancel' };
+    }
+    return { type: 'error', error: t('authFailed') };
   }
 
-  return authenticateWithZaloWeb();
+  return { type: 'error', error: t('authFailed') };
+}
+
+/**
+ * Standard Facebook Login on iOS requires ATT authorization. If the user has
+ * not granted it, FBSDK can silently switch to Limited Login. Stop here so we
+ * never present the limited.facebook.com flow.
+ */
+async function ensureStandardFacebookLoginOnIOS(): Promise<OAuthResult | null> {
+  if (Platform.OS !== 'ios') return null;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const TrackingTransparency = require('expo-tracking-transparency');
+    const current = await TrackingTransparency.getTrackingPermissionsAsync();
+    const permission = current.status === 'undetermined'
+      ? await TrackingTransparency.requestTrackingPermissionsAsync()
+      : current;
+
+    if (permission.status !== 'granted') {
+      console.log('[Facebook] ATT permission not granted; refusing Limited Login');
+      return { type: 'error', error: t('facebookTrackingRequired') };
+    }
+  } catch (error) {
+    console.log('[Facebook] unable to verify ATT permission:', error);
+    return { type: 'error', error: t('facebookTrackingRequired') };
+  }
+
+  return null;
 }
 
 /**
  * Authenticate with Facebook (native FBSDK — opens Facebook app directly)
  */
 export async function authenticateWithFacebook(): Promise<OAuthResult> {
-  // Android: native FBSDK yêu cầu Live mode → dùng web flow (server-side callback)
-  if (Platform.OS === 'android') {
-    return authenticateWithFacebookWeb();
-  }
-
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const FBSDK = require('react-native-fbsdk-next');
@@ -438,19 +417,23 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
     const AccessToken = FBSDK?.AccessToken ?? FBSDK?.default?.AccessToken;
 
     if (!LoginManager || !AccessToken) {
-      console.log('[Facebook] FBSDK unavailable → web flow');
-      return authenticateWithFacebookWeb();
+      console.log('[Facebook] FBSDK unavailable');
+      return { type: 'error', error: t('authFailed') };
     }
 
-    console.log('[Facebook] flow=native_fbsdk');
-    LoginManager.setLoginBehavior('native_with_fallback');
+    const trackingError = await ensureStandardFacebookLoginOnIOS();
+    if (trackingError) return trackingError;
 
-    // iOS: xoá session cũ để force Limited Login mới (tránh dùng cached Standard Login token)
-    // Android: Standard Login → AccessToken (EAAG...) verify được bằng debug_token
-    if (Platform.OS === 'ios') LoginManager.logOut();
-    // API: logInWithPermissions(permissions, loginTrackingIOS, nonce) — string, không phải object
+    console.log('[Facebook] flow=native_fbsdk');
+    if (Platform.OS === 'android') {
+      LoginManager.setLoginBehavior('native_only');
+    }
+
+    // Use Standard Login on iOS so the SDK returns an OAuth access token.
+    // This also lets the native SDK hand off authorization to the Facebook app
+    // when it is installed and logged in.
     const loginResult = Platform.OS === 'ios'
-      ? await LoginManager.logInWithPermissions(['public_profile', 'email'], 'limited')
+      ? await LoginManager.logInWithPermissions(['public_profile', 'email'], 'enabled')
       : await LoginManager.logInWithPermissions(['public_profile', 'email']);
     console.log('[Facebook] isCancelled:', loginResult.isCancelled, 'granted:', loginResult.grantedPermissions);
 
@@ -461,46 +444,14 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
     const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
     if (!apiBase) return { type: 'error', error: 'API base URL chưa được cấu hình' };
 
-    if (Platform.OS === 'ios') {
-      const AuthenticationToken = FBSDK?.AuthenticationToken ?? FBSDK?.default?.AuthenticationToken;
-      const authToken = AuthenticationToken ? await AuthenticationToken.getAuthenticationTokenIOS() : null;
-      console.log('[Facebook iOS] hasAuthToken:', !!authToken?.authenticationTokenString);
-
-      const idToken = (authToken as any)?.authenticationToken ?? null;
-      // Limited Login không trả về AccessToken — lấy userID từ authToken nonce hoặc null
-      const userId = null;
-
-      if (!idToken) {
-        console.log('[Facebook iOS] no token → web fallback');
-        return authenticateWithFacebookWeb();
-      }
-
-      const res = await fetch(`${apiBase}/api/auth/facebook/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_token: idToken, user_id: userId }),
-      });
-
-      if (!res.ok) {
-        console.log('[Facebook iOS] backend failed status:', res.status, '→ web fallback');
-        return authenticateWithFacebookWeb();
-      }
-
-      const json = await res.json();
-      if (!json.token) return { type: 'error', error: t('authFailed') };
-
-      console.log('[Facebook iOS] native_fbsdk success');
-      return { type: 'success', directToken: json.token };
-    }
-
-    // Android
+    // Standard Login returns an OAuth access token on both platforms.
     const tokenData = await AccessToken.getCurrentAccessToken();
-    console.log('[Facebook Android] tokenData:', JSON.stringify(tokenData));
+    console.log(`[Facebook ${Platform.OS}] hasAccessToken:`, !!tokenData?.accessToken);
 
     const fbAccessToken = tokenData?.accessToken ? String(tokenData.accessToken) : null;
     if (!fbAccessToken) {
-      console.log('[Facebook Android] no accessToken → web fallback');
-      return authenticateWithFacebookWeb();
+      console.log(`[Facebook ${Platform.OS}] no accessToken`);
+      return { type: 'error', error: t('authFailed') };
     }
 
     const res = await fetch(`${apiBase}/api/auth/facebook/token`, {
@@ -510,56 +461,15 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
     });
 
     if (!res.ok) {
-      console.log('[Facebook] backend failed status:', res.status, '→ web fallback');
-      return authenticateWithFacebookWeb();
+      console.log(`[Facebook ${Platform.OS}] backend failed status:`, res.status);
+      return { type: 'error', error: t('authFailed') };
     }
 
     const json = await res.json();
     if (!json.token) return { type: 'error', error: t('authFailed') };
 
-    console.log('[Facebook] native_fbsdk success');
+    console.log(`[Facebook ${Platform.OS}] native_fbsdk standard login success`);
     return { type: 'success', directToken: json.token };
-  } catch (error) {
-    return {
-      type: 'error',
-      error: error instanceof Error ? error.message : t('unknownError')
-    };
-  }
-}
-
-/**
- * Fallback: Facebook web OAuth (server-side callback flow)
- */
-async function authenticateWithFacebookWeb(): Promise<OAuthResult> {
-  console.log('[Facebook] flow=web_callback');
-  try {
-    const appId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
-    if (!appId) return { type: 'error', error: 'Facebook App ID chưa được cấu hình' };
-
-    const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
-    const redirectUri = `${apiBase}/api/auth/facebook/callback`;
-    const appCallbackUri = 'asinu-lite://auth/facebook/callback';
-
-    const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?${new URLSearchParams({
-      client_id: appId,
-      redirect_uri: redirectUri,
-      scope: 'email,public_profile',
-      response_type: 'code',
-    }).toString()}`;
-
-    const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUri);
-
-    if (result.type === 'cancel' || result.type === 'dismiss') return { type: 'cancel' };
-    if (result.type !== 'success' || !result.url) return { type: 'error', error: t('authFailed') };
-
-    const url = new URL(result.url);
-    const error = url.searchParams.get('error');
-    if (error) return { type: 'error', error: `Facebook login failed: ${error}` };
-
-    const directToken = url.searchParams.get('token');
-    if (!directToken) return { type: 'error', error: t('noAccessToken') };
-
-    return { type: 'success', directToken };
   } catch (error) {
     return {
       type: 'error',

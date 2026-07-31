@@ -39,9 +39,33 @@
           <string>exp+asinu-lite</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>zalo</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>zalo-1593272240133048788</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>facebook</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>fb1683275612701192</string>
+        </array>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>FacebookAppID</key>
+    <string>1683275612701192</string>
+    <key>FacebookClientToken</key>
+    <string>d079afd832d0f03ff61ca921cfea04fc</string>
+    <key>FacebookDisplayName</key>
+    <string>Asinu</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
@@ -59,6 +83,17 @@
     <string>Asinu cần microphone để nhận lệnh giọng nói</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện</string>
+    <key>NSUserTrackingUsageDescription</key>
+    <string>Asinu cần quyền này để sử dụng đăng nhập Facebook tiêu chuẩn.</string>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+      <string>zalosdk</string>
+      <string>zaloshareext</string>
+      <string>fbapi</string>
+      <string>fb-messenger-share-api</string>
+      <string>fbauth2</string>
+      <string>fbshareextension</string>
+    </array>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
@@ -91,5 +126,7 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
+    <key>ZaloAppID</key>
+    <string>1593272240133048788</string>
   </dict>
 </plist>
