@@ -379,37 +379,16 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
 }
 
 /**
- * Standard Facebook Login on iOS requires ATT authorization. If the user has
- * not granted it, FBSDK can silently switch to Limited Login. Stop here so we
- * never present the limited.facebook.com flow.
- */
-async function ensureStandardFacebookLoginOnIOS(): Promise<OAuthResult | null> {
-  if (Platform.OS !== 'ios') return null;
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TrackingTransparency = require('expo-tracking-transparency');
-    const current = await TrackingTransparency.getTrackingPermissionsAsync();
-    const permission = current.status === 'undetermined'
-      ? await TrackingTransparency.requestTrackingPermissionsAsync()
-      : current;
-
-    if (permission.status !== 'granted') {
-      console.log('[Facebook] ATT permission not granted; refusing Limited Login');
-      return { type: 'error', error: t('facebookTrackingRequired') };
-    }
-  } catch (error) {
-    console.log('[Facebook] unable to verify ATT permission:', error);
-    return { type: 'error', error: t('facebookTrackingRequired') };
-  }
-
-  return null;
-}
-
-/**
  * Authenticate with Facebook (native FBSDK — opens Facebook app directly)
  */
 export async function authenticateWithFacebook(): Promise<OAuthResult> {
+  // Facebook is intentionally disabled on iOS until its native SDK flow is
+  // stable on the review devices. The iOS login surface only exposes Google
+  // and Apple, so this also keeps ATT/tracking declarations out of the build.
+  if (Platform.OS === 'ios') {
+    return { type: 'error', error: t('authFailed') };
+  }
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const FBSDK = require('react-native-fbsdk-next');
@@ -421,20 +400,12 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
       return { type: 'error', error: t('authFailed') };
     }
 
-    const trackingError = await ensureStandardFacebookLoginOnIOS();
-    if (trackingError) return trackingError;
-
     console.log('[Facebook] flow=native_fbsdk');
     if (Platform.OS === 'android') {
       LoginManager.setLoginBehavior('native_only');
     }
 
-    // Use Standard Login on iOS so the SDK returns an OAuth access token.
-    // This also lets the native SDK hand off authorization to the Facebook app
-    // when it is installed and logged in.
-    const loginResult = Platform.OS === 'ios'
-      ? await LoginManager.logInWithPermissions(['public_profile', 'email'], 'enabled')
-      : await LoginManager.logInWithPermissions(['public_profile', 'email']);
+    const loginResult = await LoginManager.logInWithPermissions(['public_profile', 'email']);
     console.log('[Facebook] isCancelled:', loginResult.isCancelled, 'granted:', loginResult.grantedPermissions);
 
     if (loginResult.isCancelled) {

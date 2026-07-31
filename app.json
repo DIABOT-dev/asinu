@@ -36,7 +36,6 @@
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Asinu cần microphone để nhận lệnh giọng nói",
         "NSLocationWhenInUseUsageDescription": "Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp",
-        "NSUserTrackingUsageDescription": "Asinu cần quyền này để sử dụng đăng nhập Facebook tiêu chuẩn.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -122,8 +121,7 @@
       ],
       "expo-iap",
       "expo-localization",
-      "expo-web-browser",
-      "expo-tracking-transparency"
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

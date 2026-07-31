@@ -83,8 +83,6 @@
     <string>Asinu cần microphone để nhận lệnh giọng nói</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện</string>
-    <key>NSUserTrackingUsageDescription</key>
-    <string>Asinu cần quyền này để sử dụng đăng nhập Facebook tiêu chuẩn.</string>
     <key>LSApplicationQueriesSchemes</key>
     <array>
       <string>zalosdk</string>
