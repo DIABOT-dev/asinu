@@ -30,6 +30,7 @@ import {
 import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
+import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
@@ -214,6 +215,12 @@ export default function CheckinScreen() {
   const [currentEmpathy, setCurrentEmpathy] = useState<{ text: string; templateId: string } | null>(null);
   const [currentContinuity, setCurrentContinuity] = useState<{ text: string; templateId: string } | null>(null);
   const [currentGreeting, setCurrentGreeting] = useState<{ displayText: string; templateId: string } | null>(null);
+  const [showAiConsent, setShowAiConsent] = useState(false);
+  const requestAiConsent = useCallback(async (): Promise<boolean> => {
+    if (await hasAiDataConsent()) return true;
+    setShowAiConsent(true);
+    return false;
+  }, []);
 
   // ─── Status select ─────────────────────────────────────────────────────────
 
@@ -225,6 +232,7 @@ export default function CheckinScreen() {
   const handleStatusSelect = useCallback(async (status: CheckinStatus) => {
     // Followup: vẫn flow cũ (đã có session)
     if (isFollowUp && existingCheckinId) {
+      if (status !== 'fine' && !(await requestAiConsent())) return;
       setLoading(true);
       try {
         const res = await checkinApi.followUp(existingCheckinId, status);
@@ -265,7 +273,7 @@ export default function CheckinScreen() {
     // Initial 'tired' / 'very_tired' → đi sang T2 Location, KHÔNG INSERT DB ngay
     setPendingStatus(status);
     setScreen('location');
-  }, [isFollowUp, existingCheckinId]);
+  }, [isFollowUp, existingCheckinId, requestAiConsent]);
 
   const handleLocationsConfirm = useCallback(async (locs: BodyLocation[], other: string) => {
     if (!pendingStatus) return;
@@ -273,6 +281,7 @@ export default function CheckinScreen() {
       showAlert(t('error', { ns: 'common' }), language === 'vi' ? 'Chọn ít nhất 1 vùng hoặc gõ mô tả' : 'Pick at least 1 area or describe');
       return;
     }
+    if (!(await requestAiConsent())) return;
     setLoading(true);
     try {
       const res = await checkinApi.start(pendingStatus, locs, other.trim() || null);
@@ -284,11 +293,15 @@ export default function CheckinScreen() {
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
       setLoading(false);
     }
-  }, [pendingStatus, language]);
+  }, [pendingStatus, language, requestAiConsent]);
 
   // ─── Triage ────────────────────────────────────────────────────────────────
 
   const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: typeof answers, skipLoadingStart = false) => {
+    if (!(await requestAiConsent())) {
+      setLoading(false);
+      return;
+    }
     if (!skipLoadingStart) setLoading(true);
     try {
       const result = await checkinApi.triage(sess.id, prevAnswers);
@@ -378,17 +391,22 @@ export default function CheckinScreen() {
 
   const handleAnswer = async (answer: string) => {
     if (!session || !answer.trim()) return;
-    const newAnswers = [...answers, { question: currentQ, answer: answer.trim() }];
-    setAnswers(newAnswers);
+    const trimmedAnswer = answer.trim();
 
     // Evening wrap-up: if this was the evening question for "fine" flow
     const eveningGoodAnswers = [t('checkinEveningGreat'), t('checkinEveningOk')];
     const eveningBadAnswers = [t('checkinEveningTired'), t('checkinEveningBad')];
+    const isEveningGood = currentQ === t('checkinEveningQuestion') && eveningGoodAnswers.includes(trimmedAnswer);
+    if (!isEveningGood && !(await requestAiConsent())) return;
+
+    const newAnswers = [...answers, { question: currentQ, answer: trimmedAnswer }];
+    setAnswers(newAnswers);
+
     if (currentQ === t('checkinEveningQuestion')) {
-      if (eveningGoodAnswers.includes(answer.trim())) {
+      if (isEveningGood) {
         // Good evening → done
         setTriageSummary({
-          summary: answer.trim(),
+          summary: trimmedAnswer,
           severity: 'low',
           recommendation: t('checkinDoneFineSub'),
           needsDoctor: false,
@@ -396,7 +414,7 @@ export default function CheckinScreen() {
         setScreen('done');
         return;
       }
-      if (eveningBadAnswers.includes(answer.trim())) {
+      if (eveningBadAnswers.includes(trimmedAnswer)) {
         // Not good evening → start real triage
         await fetchNextQuestion(session, newAnswers);
         return;
@@ -454,6 +472,11 @@ export default function CheckinScreen() {
         },
       }} />
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+      <AiDataConsentModal
+        visible={showAiConsent}
+        onAgree={() => setShowAiConsent(false)}
+        onDecline={() => setShowAiConsent(false)}
+      />
 
       <ScrollView
         ref={mainScrollRef}
@@ -500,6 +523,7 @@ export default function CheckinScreen() {
             empathy={currentEmpathy}
             continuity={currentContinuity}
             greeting={currentGreeting}
+            onBeforeAi={requestAiConsent}
           />
         )}
         {screen === 'done' && (
@@ -752,6 +776,7 @@ function TriageScreen({
   answers,
   loading,
   onAnswer,
+  onBeforeAi,
   empathy,
   continuity,
   greeting,
@@ -765,6 +790,7 @@ function TriageScreen({
   answers: Array<{ question: string; answer: string }>;
   loading: boolean;
   onAnswer: (a: string) => void;
+  onBeforeAi: () => Promise<boolean>;
   empathy?: { text: string; templateId: string } | null;
   continuity?: { text: string; templateId: string } | null;
   greeting?: { displayText: string; templateId: string } | null;
@@ -809,6 +835,7 @@ function TriageScreen({
         if (!uri) return;
         if (Date.now() - recordingStartRef.current < 1500) return;
         if (maxMeteringRef.current < -40) return;
+        if (!(await onBeforeAi())) return;
         setIsTranscribing(true);
         try {
           const text = await chatApi.transcribeAudio(uri, language);
@@ -821,6 +848,7 @@ function TriageScreen({
     } else {
       // Start recording
       try {
+        if (!(await onBeforeAi())) return;
         if (recordingRef.current) {
           try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
           recordingRef.current = null;

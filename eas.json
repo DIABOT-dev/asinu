@@ -84,7 +84,10 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "6758967197"
+        "ascAppId": "6758967197",
+        "ascApiKeyPath": "/Users/ducytcg123456/Downloads/AuthKey_3682LHLM96.p8",
+        "ascApiKeyIssuerId": "f1da654a-5a59-4fd6-aa48-6653455fcc48",
+        "ascApiKeyId": "3682LHLM96"
       }
     }
   }

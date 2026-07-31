@@ -11,6 +11,7 @@ import { useFlagsStore } from '../features/app-config/flags.store';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { AiChatLayout, ChatBubble } from './AiChatLayout';
+import { AiDataConsentModal, hasAiDataConsent } from './AiDataConsentModal';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from './MedicalDisclaimerModal';
 import { ScaledText as Text } from './ScaledText';
 
@@ -112,6 +113,8 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const [isPremium, setIsPremium] = useState(false);
   const [showMedicalDisclaimer, setShowMedicalDisclaimer] = useState(false);
   const medicalDisclaimerShown = useRef(false);
+  const [showAiConsent, setShowAiConsent] = useState(false);
+  const pendingMessageRef = useRef<string | null>(null);
   const scaledTypography = useScaledTypography();
   const hasFetchedPremium = useRef(false);
 
@@ -157,7 +160,7 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
       });
   }, [visible]);
 
-  const handleSend = async (text: string) => {
+  const sendMessage = async (text: string) => {
     const now = Date.now();
     const userMessage: ChatBubble = {
       id: `user-${now}`,
@@ -206,8 +209,33 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     }
   };
 
+  const requestAiConsent = async (pendingMessage?: string): Promise<boolean> => {
+    if (await hasAiDataConsent()) return true;
+    if (pendingMessage) pendingMessageRef.current = pendingMessage;
+    setShowAiConsent(true);
+    return false;
+  };
+
+  const handleSend = async (text: string) => {
+    if (!(await requestAiConsent(text))) return;
+    await sendMessage(text);
+  };
+
+  const handleAiAgree = () => {
+    setShowAiConsent(false);
+    const pendingMessage = pendingMessageRef.current;
+    pendingMessageRef.current = null;
+    if (pendingMessage) void sendMessage(pendingMessage);
+  };
+
+  const handleAiDecline = () => {
+    pendingMessageRef.current = null;
+    setShowAiConsent(false);
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <>
+      <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -227,16 +255,23 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
               isTyping={isTyping}
               isPremium={isPremium}
               onSend={handleSend}
+              onBeforeVoiceRecording={requestAiConsent}
               onUpgradePress={() => { onClose(); router.push('/subscription'); }}
             />
           </View>
         </View>
       </KeyboardAvoidingView>
 
+      </Modal>
       <MedicalDisclaimerModal
         visible={showMedicalDisclaimer}
         onClose={() => setShowMedicalDisclaimer(false)}
       />
-    </Modal>
+      <AiDataConsentModal
+        visible={showAiConsent}
+        onAgree={handleAiAgree}
+        onDecline={handleAiDecline}
+      />
+    </>
   );
 }

@@ -54,6 +54,8 @@
   "language": "Ngôn ngữ",
   "languageVi": "Tiếng Việt",
   "languageEn": "English",
+  "aiDataConsentSettings": "Quyền dùng Asinu AI",
+  "aiDataConsentRevoked": "Đã rút quyền dùng Asinu AI",
   "testNotification": "Test thông báo AI",
   "testNotificationBody": "Vào app kiểm tra sức khoẻ nhé!",
   "scheduleTitle": "Giờ nhắc nhở",

@@ -33,7 +33,11 @@ import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.stor
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const SOCIAL_PROVIDERS_BY_PLATFORM: Record<string, SocialProvider[]> = {
-  ios: ['google', 'facebook', 'zalo', 'apple'],
+  // Keep the iOS review path on native providers that are stable in the
+  // current build. Facebook/Zalo native SDKs can terminate the process on
+  // iOS before JavaScript receives an error, so they must not be exposed
+  // until both paths are verified on a real iPhone and iPad build.
+  ios: ['google', 'apple'],
   android: ['google', 'zalo'],
   default: ['google'],
 };

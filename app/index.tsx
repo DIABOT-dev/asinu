@@ -182,7 +182,11 @@ export default function Index() {
         </View>
       </View>
 
-      <DataConsentModal visible={showConsent} onAgree={() => setShowConsent(false)} />
+      <DataConsentModal
+        visible={showConsent}
+        onAgree={() => setShowConsent(false)}
+        onDecline={() => setShowConsent(false)}
+      />
     </LinearGradient>
   );
 }

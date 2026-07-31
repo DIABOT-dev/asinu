@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
+import { AiDataConsentModal, hasAiDataConsent } from '../src/components/AiDataConsentModal';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from '../src/components/MedicalDisclaimerModal';
 import { chatApi } from '../src/features/chat/chat.api';
 import { apiClient } from '../src/lib/apiClient';
@@ -57,6 +58,8 @@ export default function AiChatScreen() {
 
   const [showMedicalDisclaimer, setShowMedicalDisclaimer] = useState(false);
   const medicalDisclaimerShown = useRef(false);
+  const [showAiConsent, setShowAiConsent] = useState(false);
+  const pendingMessageRef = useRef<string | null>(null);
 
   const avatars = useMemo(
     () => ({
@@ -72,7 +75,7 @@ export default function AiChatScreen() {
     return message.includes('401') || message.toLowerCase().includes('missing token');
   };
 
-  const handleSend = async (text: string) => {
+  const sendMessage = async (text: string) => {
     const userMessage: ChatBubble = {
       id: `local-${Date.now()}`,
       role: 'user',
@@ -114,6 +117,30 @@ export default function AiChatScreen() {
     }
   };
 
+  const requestAiConsent = async (pendingMessage?: string): Promise<boolean> => {
+    if (await hasAiDataConsent()) return true;
+    if (pendingMessage) pendingMessageRef.current = pendingMessage;
+    setShowAiConsent(true);
+    return false;
+  };
+
+  const handleSend = async (text: string) => {
+    if (!(await requestAiConsent(text))) return;
+    await sendMessage(text);
+  };
+
+  const handleAiAgree = () => {
+    setShowAiConsent(false);
+    const pendingMessage = pendingMessageRef.current;
+    pendingMessageRef.current = null;
+    if (pendingMessage) void sendMessage(pendingMessage);
+  };
+
+  const handleAiDecline = () => {
+    pendingMessageRef.current = null;
+    setShowAiConsent(false);
+  };
+
   const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -143,6 +170,7 @@ export default function AiChatScreen() {
             isTyping={isTyping}
             isPremium={isPremium}
             onSend={handleSend}
+            onBeforeVoiceRecording={requestAiConsent}
             onUpgradePress={() => router.push('/subscription')}
           />
         </SafeAreaView>
@@ -151,6 +179,11 @@ export default function AiChatScreen() {
       <MedicalDisclaimerModal
         visible={showMedicalDisclaimer}
         onClose={() => setShowMedicalDisclaimer(false)}
+      />
+      <AiDataConsentModal
+        visible={showAiConsent}
+        onAgree={handleAiAgree}
+        onDecline={handleAiDecline}
       />
     </>
   );

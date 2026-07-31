@@ -40,6 +40,7 @@ export type AiChatLayoutProps = {
   isTyping?: boolean;
   isPremium?: boolean;
   onSend?: (message: string) => void;
+  onBeforeVoiceRecording: () => Promise<boolean>;
   onUpgradePress?: () => void;
 };
 
@@ -50,6 +51,7 @@ export const AiChatLayout = ({
   isTyping = false,
   isPremium = false,
   onSend,
+  onBeforeVoiceRecording,
   onUpgradePress,
 }: AiChatLayoutProps) => {
   const { t } = useTranslation(['chat', 'common']);
@@ -351,6 +353,7 @@ export const AiChatLayout = ({
         if (!uri) return;
         if (Date.now() - recordingStartRef.current < 1500) return;
         if (maxMeteringRef.current < -40) return;
+        if (!(await onBeforeVoiceRecording())) return;
         setIsTranscribing(true);
         try {
           const text = await chatApi.transcribeAudio(uri, language);
@@ -364,6 +367,7 @@ export const AiChatLayout = ({
       }
     } else {
       try {
+        if (!(await onBeforeVoiceRecording())) return;
         if (recordingRef.current) {
           try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
           recordingRef.current = null;

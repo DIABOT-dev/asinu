@@ -26,9 +26,10 @@ export async function revokeDataConsent(): Promise<void> {
 type Props = {
   visible: boolean;
   onAgree: () => void;
+  onDecline: () => void;
 };
 
-export function DataConsentModal({ visible, onAgree }: Props) {
+export function DataConsentModal({ visible, onAgree, onDecline }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -41,7 +42,7 @@ export function DataConsentModal({ visible, onAgree }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onDecline}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Ionicons name="shield-checkmark" size={36} color={colors.primary} />
@@ -71,7 +72,7 @@ export function DataConsentModal({ visible, onAgree }: Props) {
           </Text>
 
           <View style={styles.buttons}>
-            <Pressable style={[styles.btn, styles.btnSecondary]} onPress={() => {}}>
+            <Pressable style={[styles.btn, styles.btnSecondary]} onPress={onDecline}>
               <Text style={styles.btnSecondaryText}>
                 {t('decline')}
               </Text>

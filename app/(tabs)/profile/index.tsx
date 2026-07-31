@@ -6,6 +6,7 @@ import Animated, { FadeIn, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { AppAlertModal, useAppAlert } from '../../../src/components/AppAlertModal';
+import { revokeAiDataConsent } from '../../../src/components/AiDataConsentModal';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 const STORAGE_KEY_NOTIFICATIONS = '@app/notifications_enabled';
@@ -648,6 +649,8 @@ export default function ProfileScreen() {
                 onPress: handleShareApp },
               { icon: 'document-text-outline', color: iconColors.violet,  label: ts('termsOfService'),
                 onPress: () => router.push({ pathname: '/legal/content', params: { type: 'terms' } } as any) },
+              { icon: 'sparkles-outline', color: iconColors.primary, label: ts('aiDataConsentSettings'),
+                onPress: () => { void revokeAiDataConsent().then(() => showToast(ts('aiDataConsentRevoked'), 'success')); } },
               { icon: 'shield-checkmark-outline', color: iconColors.emerald, label: ts('privacyPolicy'),
                 onPress: () => router.push({ pathname: '/legal/content', params: { type: 'privacy' } } as any) },
               { icon: 'globe-outline', color: iconColors.cyan, label: ts('requestDataDeletion'),

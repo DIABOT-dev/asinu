@@ -54,6 +54,8 @@
   "language": "Language",
   "languageVi": "Tiếng Việt",
   "languageEn": "English",
+  "aiDataConsentSettings": "Asinu AI data permission",
+  "aiDataConsentRevoked": "Asinu AI permission revoked",
   "testNotification": "Test AI Notification",
   "testNotificationBody": "Come check your health in the app!",
   "scheduleTitle": "Reminder Schedule",
