@@ -139,6 +139,10 @@ export default function RootLayout() {
                   name="legal/content"
                   options={legalScreenOptions}
                 />
+                <Stack.Screen
+                  name="legal/sources"
+                  options={legalScreenOptions}
+                />
               </Stack>
               <GlobalToastHost />
               <AsinuBrainOverlayHost />

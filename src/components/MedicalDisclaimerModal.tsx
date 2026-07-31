@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -26,6 +27,7 @@ export function containsMedicalKeywords(text: string): boolean {
 }
 
 export function MedicalDisclaimerModal({ visible, onClose }: Props) {
+  const router = useRouter();
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -55,6 +57,18 @@ export function MedicalDisclaimerModal({ visible, onClose }: Props) {
               </View>
             ))}
           </View>
+
+          <Pressable
+            style={styles.sourcesLink}
+            onPress={() => {
+              onClose();
+              router.push('/legal/sources' as any);
+            }}
+          >
+            <Ionicons name="book-outline" size={18} color={colors.primary} />
+            <Text style={styles.sourcesLinkText}>{t('healthSourcesOpen')}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </Pressable>
 
           <View style={styles.buttons}>
             <Pressable
@@ -134,6 +148,19 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.md,
       alignSelf: 'stretch',
       marginTop: spacing.xs,
+    },
+    sourcesLink: {
+      alignSelf: 'stretch',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    sourcesLinkText: {
+      flex: 1,
+      fontSize: typography.size.xs,
+      fontWeight: '700',
+      color: colors.primary,
     },
     btn: {
       flex: 1,

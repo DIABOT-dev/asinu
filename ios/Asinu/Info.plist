@@ -80,7 +80,7 @@
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Asinu cần microphone để nhận lệnh giọng nói</string>
+    <string>Asinu chỉ dùng microphone khi bạn chọn nhập bằng giọng nói, ví dụ chuyển câu "đường huyết 95 lúc đói" thành bản ghi sức khỏe hoặc tin nhắn chat. Ứng dụng không ghi âm trong nền.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện</string>
     <key>LSApplicationQueriesSchemes</key>

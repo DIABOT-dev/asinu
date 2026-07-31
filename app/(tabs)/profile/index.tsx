@@ -653,6 +653,8 @@ export default function ProfileScreen() {
                 onPress: () => { void revokeAiDataConsent().then(() => showToast(ts('aiDataConsentRevoked'), 'success')); } },
               { icon: 'shield-checkmark-outline', color: iconColors.emerald, label: ts('privacyPolicy'),
                 onPress: () => router.push({ pathname: '/legal/content', params: { type: 'privacy' } } as any) },
+              { icon: 'book-outline', color: iconColors.cyan, label: ts('healthSources'),
+                onPress: () => router.push('/legal/sources' as any) },
               { icon: 'globe-outline', color: iconColors.cyan, label: ts('requestDataDeletion'),
                 onPress: () => router.push({ pathname: '/legal/content', params: { type: 'dataDeletion' } } as any) },
               { icon: 'trash-outline',         color: '#dc2626',          label: ts('deleteAccountForever'), destructive: true,

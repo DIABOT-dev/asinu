@@ -195,6 +195,18 @@ export default function ArticleDetailScreen() {
           </View>
         )}
 
+        <Pressable
+          style={styles.sourcesLink}
+          onPress={() => router.push('/legal/sources' as any)}
+        >
+          <Ionicons name="book-outline" size={20} color={colors.primary} />
+          <View style={styles.sourcesCopy}>
+            <Text style={styles.sourcesTitle}>{tc('healthSourcesOpen')}</Text>
+            <Text style={styles.sourcesHint}>{tc('healthSourcesArticleHint')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+        </Pressable>
+
         {/* Actions Row */}
         <View style={styles.actionsRow}>
           <Pressable style={styles.actionButton} onPress={handleCopy}>
@@ -317,6 +329,32 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 20,
     flex: 1,
+  },
+  sourcesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+  },
+  sourcesCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  sourcesTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  sourcesHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   actionsRow: {
     flexDirection: 'row',
