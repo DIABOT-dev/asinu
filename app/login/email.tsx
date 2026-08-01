@@ -78,7 +78,10 @@ function FloatingOrbs() {
 
 export default function LoginEmailScreen() {
   const flushPending = useToastStore((s) => s.flushPending);
-  React.useEffect(() => { flushPending(); }, []);
+  React.useEffect(() => {
+    flushPending();
+    useAuthStore.setState({ error: undefined });
+  }, []);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -131,14 +134,17 @@ export default function LoginEmailScreen() {
   };
 
   const getLoginErrorMessage = (loginError: unknown) => {
-    if (!(loginError instanceof Error)) return t('loginFailed');
-
-    const message = loginError.message.trim();
+    const message = loginError instanceof Error
+      ? loginError.message.trim()
+      : typeof loginError === 'string'
+        ? loginError.trim()
+        : '';
+    const errorName = loginError instanceof Error ? loginError.name : '';
     if (!message) return t('loginFailed');
 
     if (
-      loginError.name === 'AbortError' ||
-      loginError.name === 'RequestTimeoutError' ||
+      errorName === 'AbortError' ||
+      errorName === 'RequestTimeoutError' ||
       /aborted|aborterror|timed out|timeout|network request failed|failed to fetch|network error/i.test(message)
     ) {
       return t('loginConnectionInterrupted');
@@ -161,6 +167,7 @@ export default function LoginEmailScreen() {
 
   const handleLogin = async () => {
     if (loading || navigatingRef.current) return;
+    useAuthStore.setState({ error: undefined });
     if (!identifier.trim()) {
       setIdentifierError(t('emailOrPhoneRequired'));
       return;
@@ -184,6 +191,7 @@ export default function LoginEmailScreen() {
 
   const handleSocialLogin = async (provider: SocialProvider) => {
     if (loading || navigatingRef.current) return;
+    useAuthStore.setState({ error: undefined });
     setPendingAction(provider);
     try {
       await loginWithSocial(provider);
@@ -200,6 +208,8 @@ export default function LoginEmailScreen() {
   const isSubmitting = loading;
   const loginButtonLoading = isSubmitting && pendingAction === 'login';
   const canLogin = identifier.trim().length > 0 && password.trim().length > 0 && !isSubmitting;
+  const inlineLoginError = error ? getLoginErrorMessage(error) : undefined;
+  const visibleIdentifierError = identifier.trim() ? undefined : identifierError;
 
   return (
     <>
@@ -274,6 +284,7 @@ export default function LoginEmailScreen() {
                 onChangeText={(text) => {
                   setIdentifier(text);
                   setIdentifierError(undefined);
+                  useAuthStore.setState({ error: undefined });
                 }}
                 onBlur={handleIdentifierBlur}
                 placeholder={t('emailOrPhone')}
@@ -286,10 +297,10 @@ export default function LoginEmailScreen() {
                   </View>
                 }
               />
-              {identifierError && (
+              {visibleIdentifierError && (
                 <View style={styles.fieldErrorRow}>
                   <Ionicons name="alert-circle" size={14} color={colors.danger} />
-                  <Text style={styles.fieldError}>{identifierError}</Text>
+                  <Text style={styles.fieldError}>{visibleIdentifierError}</Text>
                 </View>
               )}
             </View>
@@ -298,7 +309,10 @@ export default function LoginEmailScreen() {
             <View style={styles.inputGroup}>
               <TextInput
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  useAuthStore.setState({ error: undefined });
+                }}
                 placeholder={t('password')}
                 secureTextEntry={!showPassword}
                 style={styles.inputRounded}
@@ -324,10 +338,10 @@ export default function LoginEmailScreen() {
             </View>
 
             {/* Error */}
-            {error ? (
+            {inlineLoginError ? (
               <View style={styles.errorRow}>
                 <Ionicons name="warning" size={16} color={colors.danger} />
-                <Text style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>{inlineLoginError}</Text>
               </View>
             ) : null}
 
