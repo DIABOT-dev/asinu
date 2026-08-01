@@ -1,6 +1,8 @@
 import { apiClient } from '../../lib/apiClient';
 import { Profile } from './auth.store';
 
+const AUTH_TIMEOUT_MS = 30000;
+
 export type LoginPayload = {
   identifier: string; // Email or phone
   password: string;
@@ -48,15 +50,24 @@ export type ProfileResponse = {
 
 export const authApi = {
   login(payload: LoginPayload) {
-    return apiClient<LoginResponse>('/api/auth/email/login', { method: 'POST', body: payload });
+    return apiClient<LoginResponse>('/api/auth/email/login', {
+      method: 'POST',
+      body: payload,
+      timeoutMs: AUTH_TIMEOUT_MS,
+    });
   },
   register(payload: RegisterPayload) {
-    return apiClient<LoginResponse>('/api/auth/email/register', { method: 'POST', body: payload });
+    return apiClient<LoginResponse>('/api/auth/email/register', {
+      method: 'POST',
+      body: payload,
+      timeoutMs: AUTH_TIMEOUT_MS,
+    });
   },
   verify() {
     return apiClient<VerifyResponse>('/api/auth/verify', {
       method: 'POST',
-      body: {}
+      body: {},
+      timeoutMs: AUTH_TIMEOUT_MS,
     });
   },
   fetchBasicProfile() {

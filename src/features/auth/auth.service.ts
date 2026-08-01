@@ -22,6 +22,8 @@ export type ZeroOtpResponse = {
   profile?: Profile;
 };
 
+const AUTH_TIMEOUT_MS = 30000;
+
 const createZeroOtpError = (message: string) =>
   Object.assign(new Error(message), {
     code: 'ZERO_OTP_UNAVAILABLE'
@@ -69,7 +71,10 @@ export const authService = {
           user: { id: string; email?: string; full_name?: string | null; phone?: string | null; avatar_url?: string | null };
         }>(
           '/api/auth/me',
-          { headers: { Authorization: `Bearer ${oauthResult.directToken}` } }
+          {
+            headers: { Authorization: `Bearer ${oauthResult.directToken}` },
+            timeoutMs: AUTH_TIMEOUT_MS,
+          }
         );
         return {
           token: oauthResult.directToken,
@@ -105,7 +110,7 @@ export const authService = {
         user: { id: string; email?: string; full_name?: string; phone_number?: string | null; avatar_url?: string | null };
       }>(
         endpoint,
-        { method: 'POST', body: requestBody }
+        { method: 'POST', body: requestBody, timeoutMs: AUTH_TIMEOUT_MS }
       );
 
       return {

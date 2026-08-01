@@ -130,6 +130,23 @@ export default function LoginEmailScreen() {
     return labels[v];
   };
 
+  const getLoginErrorMessage = (loginError: unknown) => {
+    if (!(loginError instanceof Error)) return t('loginFailed');
+
+    const message = loginError.message.trim();
+    if (!message) return t('loginFailed');
+
+    if (
+      loginError.name === 'AbortError' ||
+      loginError.name === 'RequestTimeoutError' ||
+      /aborted|aborterror|timed out|timeout|network request failed|failed to fetch|network error/i.test(message)
+    ) {
+      return t('loginConnectionInterrupted');
+    }
+
+    return message;
+  };
+
   const openLegal = (type: 'terms' | 'privacy') => {
     router.push({ pathname: '/legal/content', params: { type } });
   };
@@ -159,7 +176,7 @@ export default function LoginEmailScreen() {
       setPendingToast(t('loginSuccess'), 'success');
       navigateAfterLogin();
     } catch (loginError) {
-      showToast(loginError instanceof Error ? loginError.message : t('loginFailed'), 'error');
+      showToast(getLoginErrorMessage(loginError), 'error');
     } finally {
       setPendingAction(null);
     }
@@ -174,7 +191,7 @@ export default function LoginEmailScreen() {
       setPendingToast(t('loginSuccess'), 'success');
       navigateAfterLogin();
     } catch (loginError) {
-      showToast(loginError instanceof Error ? loginError.message : t('loginFailed'), 'error');
+      showToast(getLoginErrorMessage(loginError), 'error');
     } finally {
       setPendingAction(null);
     }

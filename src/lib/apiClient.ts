@@ -37,10 +37,21 @@ type RequestOptions = Omit<RequestInit, 'body'> & {
 const DEFAULT_TIMEOUT_MS = 12000;
 const sleep = (ms: number) => new Promise<void>((res) => setTimeout(() => res(), ms));
 
+class RequestTimeoutError extends Error {
+  constructor() {
+    super('Request timed out');
+    this.name = 'RequestTimeoutError';
+  }
+}
+
 const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: number) => {
   const controller = new AbortController();
   const userSignal = options.signal;
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let didTimeout = false;
+  const timeout = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
 
   if (userSignal) {
     if (userSignal.aborted) {
@@ -57,6 +68,9 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: nu
     return response;
   } catch (error) {
     clearTimeout(timeout);
+    if (didTimeout && error instanceof Error && error.name === 'AbortError') {
+      throw new RequestTimeoutError();
+    }
     throw error;
   }
 };
@@ -71,6 +85,18 @@ const shouldRetry = (method: HttpMethod, error: unknown, response?: Response) =>
 
 const isNetworkFailure = (error: unknown): error is Error =>
   error instanceof Error && /network request failed|failed to fetch|network error/i.test(error.message);
+
+const isAbortError = (error: unknown): error is Error =>
+  error instanceof Error && error.name === 'AbortError';
+
+const isRequestTimeout = (error: unknown): error is RequestTimeoutError =>
+  error instanceof RequestTimeoutError || (error instanceof Error && error.name === 'RequestTimeoutError');
+
+const createUserFacingTimeoutError = () => {
+  const error = new Error(i18n.t('requestTimedOut', { ns: 'common' }));
+  error.name = 'RequestTimeoutError';
+  return error;
+};
 
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const url = `${env.apiBaseUrl}${path}`;
@@ -147,16 +173,18 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
 
       return (await response.json()) as T;
     } catch (error) {
-      const userFacingError = isNetworkFailure(error)
-        ? new Error(i18n.t('networkErrorUnknown', { ns: 'common' }))
-        : error;
+      const userFacingError = isRequestTimeout(error)
+        ? createUserFacingTimeoutError()
+        : isNetworkFailure(error)
+          ? new Error(i18n.t('networkErrorUnknown', { ns: 'common' }))
+          : error;
       lastError = userFacingError;
-      const isAbortError = error instanceof Error && error.name === 'AbortError';
-      const isTimeout = isAbortError;
+      const aborted = isAbortError(error);
+      const timedOut = isRequestTimeout(error);
       
       // Don't log AbortError - it's expected when request is cancelled
-      if (!isAbortError) {
-        if (shouldRetry(method, error) && attempt < attempts && !isTimeout) {
+      if (!aborted && !timedOut) {
+        if (shouldRetry(method, error) && attempt < attempts) {
           const delay = initialDelay * Math.pow(factor, attempt - 1);
           logWarn('api retry after error', { url, method, attempt, delay, error: (error as Error)?.message });
         } else {
@@ -164,7 +192,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
         }
       }
       
-      if (shouldRetry(method, error) && attempt < attempts && !isTimeout) {
+      if (shouldRetry(method, error) && attempt < attempts && !timedOut) {
         const delay = initialDelay * Math.pow(factor, attempt - 1);
         await sleep(delay);
         continue;

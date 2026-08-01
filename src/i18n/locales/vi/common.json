@@ -56,6 +56,7 @@
   "tabProfile": "Cá nhân",
   "notification": "Thông báo",
   "networkErrorUnknown": "Lỗi mạng không xác định",
+  "requestTimedOut": "Kết nối mất quá nhiều thời gian. Vui lòng thử lại.",
   "notLoggedIn": "Chưa đăng nhập",
   "cannotSendRequest": "Không thể gửi yêu cầu",
   "connectionError": "Lỗi kết nối",
