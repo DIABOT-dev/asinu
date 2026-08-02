@@ -56,6 +56,7 @@
   "languageVi": "Tiếng Việt",
   "languageEn": "English",
   "aiDataConsentSettings": "Asinu AI data permission",
+  "aiDataConsentGranted": "Asinu AI permission granted",
   "aiDataConsentRevoked": "Asinu AI permission revoked",
   "testNotification": "Test AI Notification",
   "testNotificationBody": "Come check your health in the app!",

@@ -56,6 +56,7 @@
   "languageVi": "Tiếng Việt",
   "languageEn": "English",
   "aiDataConsentSettings": "Quyền dùng Asinu AI",
+  "aiDataConsentGranted": "Đã cho phép dùng Asinu AI",
   "aiDataConsentRevoked": "Đã rút quyền dùng Asinu AI",
   "testNotification": "Test thông báo AI",
   "testNotificationBody": "Vào app kiểm tra sức khoẻ nhé!",
