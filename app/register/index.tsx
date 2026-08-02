@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { Image } from 'react-native';
+import { Image, ImageBackground } from 'react-native';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
@@ -18,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const appLogo = require('../../assets/icon.png');
+const authBackground = require('../../assets/images/login/login_background.png');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { TextInput } from '../../src/components/TextInput';
@@ -70,7 +72,7 @@ export default function RegisterScreen() {
   const { t: ts } = useTranslation('settings');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
   const { scale, setScale } = useFontSizeStore();
   const [showFontModal, setShowFontModal] = useState(false);
 
@@ -189,7 +191,17 @@ export default function RegisterScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={styles.screen}>
+      <View pointerEvents="none" style={styles.backdrop}>
+        <ImageBackground
+          source={authBackground}
+          resizeMode="cover"
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={styles.backdropImage}
+        />
+        <View style={styles.backdropWash} />
+      </View>
+
       {/* Font size modal */}
       {showFontModal && (
         <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
@@ -225,11 +237,7 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Top bar */}
-        <Animated.View entering={FadeIn.duration(400)} style={styles.topBarRow}>
-          <Pressable style={styles.fontSizeTopBtn} onPress={() => setShowFontModal(true)}>
-            <MaterialCommunityIcons name="format-size" size={16} color={colors.primary} />
-            <Text style={styles.fontSizeTopLabel}>{getFontSizeLabel(scale)}</Text>
-          </Pressable>
+        <Animated.View entering={FadeIn.duration(400)} style={styles.topBarRowNoBack}>
           <LanguageToggle />
         </Animated.View>
 
@@ -381,20 +389,45 @@ export default function RegisterScreen() {
               ]}
               onPress={handleSubmit}
             >
-              <View style={styles.submitBtnGradient}>
+              <LinearGradient
+                colors={['#139fd0', '#25d1a2']}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.submitBtnGradient}
+              >
                 {loading ? (
-                  <MaterialCommunityIcons name="loading" size={20} color={colors.primaryDark} />
+                  <MaterialCommunityIcons name="loading" size={20} color="#ffffff" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="account-plus" size={20} color={colors.primaryDark} />
+                    <MaterialCommunityIcons name="account-plus" size={20} color="#ffffff" />
                     <Text style={styles.submitBtnText}>
                       {loading ? tc('processing') : t('register')}
                     </Text>
                   </>
                 )}
-              </View>
+              </LinearGradient>
             </Pressable>
           </View>
+        </Animated.View>
+
+        {/* Trust points */}
+        <Animated.View entering={FadeInUp.delay(350).duration(400)} style={styles.trustCard}>
+          {([
+            { icon: 'shield-checkmark-outline' as const, title: t('registerSecurityTitle'), text: t('registerSecurityText') },
+            { icon: 'lock-closed-outline' as const, title: t('registerSafetyTitle'), text: t('registerSafetyText') },
+            { icon: 'headset-outline' as const, title: t('registerSupportTitle'), text: t('registerSupportText') },
+          ]).map((item, index) => (
+            <React.Fragment key={item.title}>
+              {index > 0 && <View style={styles.trustDivider} />}
+              <View style={styles.trustItem}>
+                <Ionicons name={item.icon} size={30} color={colors.primary} />
+                <View style={styles.trustCopy}>
+                  <Text style={styles.trustTitle}>{item.title}</Text>
+                  <Text style={styles.trustText}>{item.text}</Text>
+                </View>
+              </View>
+            </React.Fragment>
+          ))}
         </Animated.View>
 
         {/* Login link */}
@@ -410,11 +443,27 @@ export default function RegisterScreen() {
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
   return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
     scrollContent: {
       paddingHorizontal: spacing.xl,
       gap: spacing.lg,
+    },
+
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      overflow: 'hidden',
+    },
+    backdropImage: {
+      opacity: isDark ? 0.12 : 0.48,
+    },
+    backdropWash: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: isDark ? `${colors.background}d9` : `${colors.background}28`,
     },
 
     // ── Top bar ──
@@ -422,6 +471,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+    },
+    topBarRowNoBack: {
+      alignItems: 'flex-end',
     },
     topBarRight: {
       flexDirection: 'row',
@@ -509,9 +561,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       marginTop: spacing.md,
     },
     logoWrap: {
-      width: 80,
-      height: 80,
-      borderRadius: 24,
+      width: 96,
+      height: 96,
+      borderRadius: 28,
       overflow: 'hidden',
       shadowColor: colors.primary,
       shadowOpacity: 0.2,
@@ -527,8 +579,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     title: {
       fontSize: typography.size.xl,
-      fontWeight: '800',
-      color: colors.textPrimary,
+      fontWeight: '700',
+      color: isDark ? colors.textPrimary : '#17243A',
       textAlign: 'center',
       marginTop: spacing.sm,
       width: '100%',
@@ -561,7 +613,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     inputRounded: {
       borderRadius: radius.xxl,
-      minHeight: 52,
+      minHeight: 58,
     },
     inputIconWrap: {
       width: 28,
@@ -651,9 +703,48 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.primaryLight,
     },
     submitBtnText: {
-      color: colors.primaryDark,
+      color: '#ffffff',
       fontSize: typography.size.md,
       fontWeight: '700',
+    },
+
+    // A quiet, horizontal reassurance row keeps the registration flow credible without adding another form card.
+    trustCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? colors.surface : '#f2fbfc',
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#d7f0f2',
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.md,
+      gap: spacing.sm,
+    },
+    trustItem: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      minWidth: 0,
+    },
+    trustDivider: {
+      width: 1,
+      height: 40,
+      backgroundColor: colors.border,
+    },
+    trustCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    trustTitle: {
+      color: colors.textPrimary,
+      fontSize: typography.size.xs,
+      fontWeight: '700',
+    },
+    trustText: {
+      color: colors.textSecondary,
+      fontSize: typography.size.xs,
+      marginTop: 2,
     },
 
     // ── Login link ──

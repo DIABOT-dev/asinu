@@ -20,9 +20,12 @@
   "stepProgress": "Step {{step}}/{{total}}",
   "savingInfo": "Saving information...",
   "complete": "Complete",
+  "nextStep": "Next",
 
   "fontSize": "Font size",
   "fontPreview": "Text will be displayed at this size",
+  "settings": "Settings",
+  "language": "Language",
   "securityNotice": "Your information is kept private and used only to support your health.",
   "consentPrefix": "I agree to the",
   "termsOfService": "Terms of Service",
@@ -64,7 +67,6 @@
   "bloodABMinus": "AB−",
   "bloodOPlus": "O+",
   "bloodOMinus": "O−",
-  "bloodTypeUnknown": "Don't remember / Don't know",
 
   "step2Title": "What conditions do you have?",
   "step2Subtitle": "Select all conditions you currently have (if any)",

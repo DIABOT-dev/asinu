@@ -1,6 +1,7 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Path, Svg } from 'react-native-svg';
 
-import { Image } from 'react-native';
+import { Image, ImageBackground } from 'react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
@@ -20,6 +21,18 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const appLogo = require('../../assets/icon.png');
+const loginBackground = require('../../assets/images/login/login_background.png');
+
+function GoogleMark({ size = 22 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Google">
+      <Path fill="#4285F4" d="M21.35 12.27c0-.79-.07-1.55-.22-2.27H12v4.3h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.69 2.91-4.18 2.91-7.42Z" />
+      <Path fill="#34A853" d="M12 22c2.63 0 4.84-.87 6.46-2.36l-3.14-2.45c-.87.58-1.98.92-3.32.92-2.55 0-4.71-1.72-5.49-4.04H3.27v2.53A9.75 9.75 0 0 0 12 22Z" />
+      <Path fill="#FBBC05" d="M6.51 14.07A5.86 5.86 0 0 1 6.2 12c0-.72.12-1.42.31-2.07V7.4H3.27A9.99 9.99 0 0 0 2 12c0 1.66.4 3.23 1.27 4.6l3.24-2.53Z" />
+      <Path fill="#EA4335" d="M12 3.88c1.43 0 2.72.49 3.74 1.45l2.8-2.8C16.84.95 14.63 0 12 0 7.27 0 3.27 2.7 1.27 7.4l3.24 2.53C5.29 5.6 7.45 3.88 12 3.88Z" />
+    </Svg>
+  );
+}
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { TextInput } from '../../src/components/TextInput';
@@ -219,17 +232,13 @@ export default function LoginEmailScreen() {
     >
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View pointerEvents="none" style={styles.backdrop}>
-        <View style={styles.backdropTopTint} />
-        <MaterialCommunityIcons name="plus" size={34} color={colors.primaryLight} style={styles.backdropPlusTop} />
-        <MaterialCommunityIcons name="plus" size={24} color={colors.primaryLight} style={styles.backdropPlusLeft} />
-        <MaterialCommunityIcons name="plus" size={24} color={colors.primaryLight} style={styles.backdropPlusRight} />
-        <View style={styles.backdropBottom}>
-          <View style={[styles.waveBand, styles.waveBandBack]} />
-          <View style={[styles.waveBand, styles.waveBandFront]} />
-          <MaterialCommunityIcons name="hospital-building" size={94} color={colors.primaryLight} style={styles.backdropHospital} />
-          <MaterialCommunityIcons name="leaf" size={78} color={colors.primaryLight} style={styles.backdropLeafLeft} />
-          <MaterialCommunityIcons name="leaf" size={64} color={colors.primaryLight} style={styles.backdropLeafRight} />
-        </View>
+        <ImageBackground
+          source={loginBackground}
+          resizeMode="cover"
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={styles.backdropImage}
+        />
+        <View style={styles.backdropWash} />
       </View>
 
       {/* Font size modal */}
@@ -428,7 +437,9 @@ export default function LoginEmailScreen() {
                 >
                   {!isButtonLoading && (
                     <View style={styles.socialIconCircle}>
-                      {provider === 'zalo' ? (
+                      {provider === 'google' ? (
+                        <GoogleMark />
+                      ) : provider === 'zalo' ? (
                         <Image source={require('../../src/assets/zalo.png')} style={styles.zaloIcon} resizeMode="contain" />
                       ) : (
                         <FontAwesome5 name={meta.icon} size={18} color={meta.color} brand={provider !== 'apple'} />
@@ -484,85 +495,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       gap: spacing.lg,
     },
 
-    // ── Light medical backdrop ──
+    // Keep the illustration behind the scroll content so it never changes layout height.
     backdrop: {
       ...StyleSheet.absoluteFillObject,
       overflow: 'hidden',
     },
-    backdropTopTint: {
-      position: 'absolute',
-      top: -180,
-      left: -150,
-      width: 500,
-      height: 330,
-      borderRadius: 220,
-      backgroundColor: colors.primaryLight,
-      opacity: isDark ? 0.15 : 0.42,
-      transform: [{ rotate: '-18deg' }],
+    backdropImage: {
+      opacity: isDark ? 0.12 : 0.48,
     },
-    backdropPlusTop: {
-      position: 'absolute',
-      top: '15%',
-      right: 26,
-      opacity: isDark ? 0.22 : 0.65,
-    },
-    backdropPlusLeft: {
-      position: 'absolute',
-      top: '40%',
-      left: 30,
-      opacity: isDark ? 0.16 : 0.42,
-    },
-    backdropPlusRight: {
-      position: 'absolute',
-      top: '31%',
-      right: 98,
-      opacity: isDark ? 0.16 : 0.42,
-    },
-    backdropBottom: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: 155,
-      overflow: 'hidden',
-      opacity: isDark ? 0.35 : 0.82,
-    },
-    waveBand: {
-      position: 'absolute',
-      left: '-20%',
-      width: '140%',
-      height: 100,
-      borderRadius: 80,
-      transform: [{ rotate: '-5deg' }],
-    },
-    waveBandBack: {
-      bottom: -54,
-      backgroundColor: '#dff3fb',
-    },
-    waveBandFront: {
-      bottom: -80,
-      backgroundColor: '#c7edf5',
-      transform: [{ rotate: '5deg' }],
-    },
-    backdropHospital: {
-      position: 'absolute',
-      right: '22%',
-      bottom: 24,
-      opacity: 0.8,
-    },
-    backdropLeafLeft: {
-      position: 'absolute',
-      left: -4,
-      bottom: -4,
-      opacity: 0.72,
-      transform: [{ rotate: '-22deg' }],
-    },
-    backdropLeafRight: {
-      position: 'absolute',
-      right: -2,
-      bottom: 0,
-      opacity: 0.62,
-      transform: [{ rotate: '22deg' }],
+    backdropWash: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: isDark ? `${colors.background}d9` : `${colors.background}28`,
     },
 
     // ── Top bar ──
@@ -670,7 +613,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     title: {
       fontSize: typography.size.xl,
-      fontWeight: '800',
+      fontWeight: '700',
       color: isDark ? colors.textPrimary : '#12335B',
       textAlign: 'center',
       marginTop: spacing.sm,

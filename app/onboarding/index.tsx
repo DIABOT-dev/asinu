@@ -544,43 +544,77 @@ export default function OnboardingScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
 
-      {/* Font size modal */}
+      {/* Preferences modal */}
       {showFontModal && (
-        <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
-          <Pressable style={styles.fontModalCard} onPress={() => {}}>
-            <Text style={[styles.fontModalTitle, { fontSize: scaledTypography.size.md }]}>
-              {t('fontSize')}
-            </Text>
-            <View style={styles.fontSizeRow}>
-              {FONT_SIZE_OPTIONS.map(opt => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => { setScale(opt.value); setShowFontModal(false); }}
-                  style={[styles.fontSizeBtn, scale === opt.value && styles.fontSizeBtnActive]}
-                >
-                  <MaterialCommunityIcons
-                    name="format-size"
-                    size={opt.iconSize}
-                    color={scale === opt.value ? '#fff' : '#008080'}
-                    style={{ width: 28, textAlign: 'center' }}
-                  />
-                  <Text
-                    style={[
-                      styles.fontSizeBtnText,
-                      { fontSize: scaledTypography.size.sm },
-                      scale === opt.value && styles.fontSizeBtnTextActive,
-                    ]}
-                  >
-                    {getFontSizeLabel(opt.value)}
-                  </Text>
+        <Modal
+          transparent
+          visible
+          animationType="fade"
+          onRequestClose={() => setShowFontModal(false)}
+        >
+          <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
+            <Pressable style={styles.fontModalCard} onPress={() => {}}>
+              <View style={styles.preferenceHeader}>
+                <Text style={[styles.fontModalTitle, { fontSize: scaledTypography.size.md }]}>
+                  {t('settings')}
+                </Text>
+                <Pressable onPress={() => setShowFontModal(false)} hitSlop={10}>
+                  <Ionicons name="close" size={22} color="#64748B" />
                 </Pressable>
-              ))}
-            </View>
-            <Text style={[styles.fontSizePreview, { fontSize: scaledTypography.size.md }]}>
-              {t('fontPreview')}
-            </Text>
+              </View>
+              <Text style={[styles.preferenceSectionLabel, { fontSize: scaledTypography.size.sm }]}>
+                {t('fontSize')}
+              </Text>
+              <View style={styles.fontSizeRow}>
+                {FONT_SIZE_OPTIONS.map(opt => (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => { setScale(opt.value); setShowFontModal(false); }}
+                    style={[styles.fontSizeBtn, scale === opt.value && styles.fontSizeBtnActive]}
+                  >
+                    <MaterialCommunityIcons
+                      name="format-size"
+                      size={opt.iconSize}
+                      color={scale === opt.value ? '#fff' : '#008080'}
+                      style={{ width: 28, textAlign: 'center' }}
+                    />
+                    <Text
+                      style={[
+                        styles.fontSizeBtnText,
+                        { fontSize: scaledTypography.size.sm },
+                        scale === opt.value && styles.fontSizeBtnTextActive,
+                      ]}
+                    >
+                      {getFontSizeLabel(opt.value)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={[styles.fontSizePreview, { fontSize: scaledTypography.size.md }]}>
+                {t('fontPreview')}
+              </Text>
+              <Text style={[styles.preferenceSectionLabel, { fontSize: scaledTypography.size.sm }]}>
+                {t('language')}
+              </Text>
+              <View style={styles.languageOptions}>
+                {(['vi', 'en'] as const).map(lang => (
+                  <Pressable
+                    key={lang}
+                    onPress={() => setLanguage(lang)}
+                    style={[styles.languageOption, language === lang && styles.languageOptionActive]}
+                  >
+                    <Text style={styles.languageFlag}>
+                      {lang === 'vi' ? '🇻🇳' : '🇬🇧'}
+                    </Text>
+                    <Text style={[styles.languageCode, language === lang && styles.languageCodeActive]}>
+                      {lang === 'vi' ? 'VI' : 'EN'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </Modal>
       )}
 
       {/* Header Top Bar */}
@@ -592,32 +626,23 @@ export default function OnboardingScreen() {
             style={({ pressed }) => [
               styles.exitBtn,
               pressed && { opacity: 0.7 },
+              pressed && styles.exitBtnPressed,
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={tc('back')}
           >
-            <Ionicons name="chevron-back" size={20} color="#008080" />
-          </Pressable>
-          <Pressable style={styles.fontSizeTopBtn} onPress={() => setShowFontModal(true)}>
-            <MaterialCommunityIcons name="format-size" size={16} color="#008080" />
-            <Text style={styles.fontSizeTopLabel}>
-              {getFontSizeLabel(scale)}
-            </Text>
+            <Ionicons name="chevron-back" size={22} color="#008080" />
           </Pressable>
         </View>
 
-        {/* Language Segmented Toggle */}
-        <View style={styles.languageToggle}>
-          {(['vi', 'en'] as const).map(lang => (
-            <Pressable
-              key={lang}
-              onPress={() => setLanguage(lang)}
-              style={[styles.langBtn, language === lang && styles.langBtnActive]}
-            >
-              <Text style={[styles.langBtnText, language === lang && styles.langBtnTextActive]}>
-                {lang.toUpperCase()}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Pressable
+          style={({ pressed }) => [styles.settingsBtn, pressed && styles.exitBtnPressed]}
+          onPress={() => setShowFontModal(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('settings')}
+        >
+          <Ionicons name="settings-outline" size={22} color="#008080" />
+        </Pressable>
       </View>
 
       {/* Step Progress Segmented Bar */}
@@ -734,7 +759,7 @@ export default function OnboardingScreen() {
         )}
       </ScrollView>
 
-      {/* Bottom Actions Footer (Stacked vertically per reference UI) */}
+      {/* Bottom action footer */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {step < TOTAL_STEPS ? (
           <Pressable
@@ -746,10 +771,8 @@ export default function OnboardingScreen() {
               pressed && { opacity: 0.85 },
             ]}
           >
-            <Text style={styles.nextBtnText}>
-              {tc('continue')}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            <Text style={styles.nextBtnText}>{t('nextStep')}</Text>
+            <Ionicons name="chevron-forward" size={26} color="#FFFFFF" />
           </Pressable>
         ) : (
           <Pressable
@@ -761,24 +784,11 @@ export default function OnboardingScreen() {
               pressed && { opacity: 0.85 },
             ]}
           >
-            <Text style={styles.nextBtnText}>
-              {t('complete')}
-            </Text>
+            <Text style={styles.nextBtnText}>{t('complete')}</Text>
             <Ionicons name="checkmark" size={18} color="#FFFFFF" />
           </Pressable>
         )}
 
-        <Pressable
-          onPress={handleBack}
-          style={({ pressed }) => [
-            styles.backBtn,
-            pressed && { opacity: 0.8 },
-          ]}
-        >
-          <Text style={styles.backBtnText}>
-            {tc('back')}
-          </Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -994,14 +1004,6 @@ function Step1({
             </View>
           ))}
         </View>
-        <Pressable
-          onPress={() => setBloodType(bloodType === 'Không biết' ? '' : 'Không biết')}
-          style={{ alignSelf: 'center', marginTop: 6 }}
-        >
-          <Text style={{ color: '#008080', fontSize: 13, fontWeight: '500' }}>
-            {t('bloodTypeUnknown')}
-          </Text>
-        </Pressable>
       </View>
 
       {/* Security Privacy Notice */}
@@ -1467,57 +1469,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   exitBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    backgroundColor: 'transparent',
   },
-  fontSizeTopBtn: {
-    flexDirection: 'row',
+  exitBtnPressed: {
+    opacity: 0.55,
+    transform: [{ scale: 0.94 }],
+  },
+  settingsBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    height: 34,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  fontSizeTopLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#008080',
-  },
-  languageToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 20,
-    padding: 3,
-  },
-  langBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  langBtnActive: {
-    backgroundColor: '#008080',
-  },
-  langBtnText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  langBtnTextActive: {
-    color: '#FFFFFF',
+    justifyContent: 'center',
   },
 
   // Segmented Progress Line Bar
@@ -1595,21 +1562,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  backBtn: {
-    width: '100%',
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#008080',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtnText: {
-    fontSize: 15.5,
-    fontWeight: '600',
-    color: '#008080',
-  },
   btnDisabled: {
     opacity: 0.4,
   },
@@ -1644,7 +1596,46 @@ const styles = StyleSheet.create({
   fontModalTitle: {
     fontWeight: '700',
     color: '#0F172A',
-    textAlign: 'center',
+  },
+  preferenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  preferenceSectionLabel: {
+    fontWeight: '700',
+    color: '#334155',
+    marginTop: 4,
+  },
+  languageOptions: {
+    gap: 8,
+  },
+  languageOption: {
+    width: '100%',
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  languageOptionActive: {
+    borderColor: '#008080',
+    backgroundColor: '#EAF8F6',
+  },
+  languageFlag: {
+    fontSize: 21,
+  },
+  languageCode: {
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  languageCodeActive: {
+    color: '#008080',
   },
   fontSizeRow: {
     flexDirection: 'column',

@@ -20,9 +20,12 @@
   "stepProgress": "Bước {{step}}/{{total}}",
   "savingInfo": "Đang lưu thông tin...",
   "complete": "Hoàn thành",
+  "nextStep": "Tiếp theo",
 
   "fontSize": "Kích cỡ chữ",
   "fontPreview": "Chữ sẽ hiển thị với kích cỡ này",
+  "settings": "Cài đặt",
+  "language": "Ngôn ngữ",
   "securityNotice": "Thông tin của bạn được bảo mật tuyệt đối và chỉ dùng để chăm sóc sức khỏe.",
   "consentPrefix": "Tôi đồng ý với các",
   "termsOfService": "Điều khoản dịch vụ",
@@ -64,7 +67,6 @@
   "bloodABMinus": "AB−",
   "bloodOPlus": "O+",
   "bloodOMinus": "O−",
-  "bloodTypeUnknown": "Không nhớ / Không biết",
 
   "step2Title": "Bạn đang mắc bệnh nào?",
   "step2Subtitle": "Chọn tất cả bệnh bạn đang có (nếu có)",
