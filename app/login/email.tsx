@@ -112,7 +112,7 @@ export default function LoginEmailScreen() {
   const { t: ts } = useTranslation('settings');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
   const { scale, setScale } = useFontSizeStore();
   const [showFontModal, setShowFontModal] = useState(false);
 
@@ -218,6 +218,20 @@ export default function LoginEmailScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View pointerEvents="none" style={styles.backdrop}>
+        <View style={styles.backdropTopTint} />
+        <MaterialCommunityIcons name="plus" size={34} color={colors.primaryLight} style={styles.backdropPlusTop} />
+        <MaterialCommunityIcons name="plus" size={24} color={colors.primaryLight} style={styles.backdropPlusLeft} />
+        <MaterialCommunityIcons name="plus" size={24} color={colors.primaryLight} style={styles.backdropPlusRight} />
+        <View style={styles.backdropBottom}>
+          <View style={[styles.waveBand, styles.waveBandBack]} />
+          <View style={[styles.waveBand, styles.waveBandFront]} />
+          <MaterialCommunityIcons name="hospital-building" size={94} color={colors.primaryLight} style={styles.backdropHospital} />
+          <MaterialCommunityIcons name="leaf" size={78} color={colors.primaryLight} style={styles.backdropLeafLeft} />
+          <MaterialCommunityIcons name="leaf" size={64} color={colors.primaryLight} style={styles.backdropLeafRight} />
+        </View>
+      </View>
+
       {/* Font size modal */}
       {showFontModal && (
         <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
@@ -267,10 +281,10 @@ export default function LoginEmailScreen() {
             <Image source={appLogo} style={styles.logo} resizeMode="cover" />
           </View>
           <Animated.View entering={FadeIn.delay(500).duration(400)} style={{ alignSelf: 'stretch' }}>
-            <Text style={styles.title}>{t('login')}</Text>
+            <Text style={styles.title}>{t('welcomeTitle')}</Text>
           </Animated.View>
           <Animated.View entering={FadeIn.delay(600).duration(400)} style={{ alignSelf: 'stretch' }}>
-            <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
+            <Text style={styles.subtitle}>{t('welcomeSubtitle')}</Text>
           </Animated.View>
         </View>
 
@@ -293,7 +307,7 @@ export default function LoginEmailScreen() {
                 style={styles.inputRounded}
                 leftIcon={
                   <View style={styles.inputIconWrap}>
-                    <Ionicons name="person-outline" size={18} color={colors.primary} />
+                    <Ionicons name="mail-outline" size={20} color={colors.primary} />
                   </View>
                 }
               />
@@ -337,6 +351,13 @@ export default function LoginEmailScreen() {
               />
             </View>
 
+            <Pressable
+              onPress={() => showToast(t('forgotPasswordHelp'), 'info')}
+              style={styles.forgotButton}
+            >
+              <Text style={styles.forgotPassword}>{t('forgotPassword')}</Text>
+            </Pressable>
+
             {/* Error */}
             {inlineLoginError ? (
               <View style={styles.errorRow}>
@@ -356,10 +377,10 @@ export default function LoginEmailScreen() {
             >
               <View style={styles.loginBtnGradient}>
                 {loginButtonLoading ? (
-                  <MaterialCommunityIcons name="loading" size={20} color={colors.primaryDark} />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="login" size={20} color={colors.primaryDark} />
+                    <MaterialCommunityIcons name="login" size={21} color="#FFFFFF" />
                     <Text style={styles.loginBtnText}>
                       {loginButtonLoading ? tc('processing') : t('login')}
                     </Text>
@@ -426,7 +447,10 @@ export default function LoginEmailScreen() {
 
         {/* Legal */}
         <Animated.View entering={FadeIn.delay(600).duration(400)} style={styles.legal}>
-          <Text style={styles.helper}>{t('agreeTerms')}</Text>
+          <View style={styles.legalHelperRow}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.textSecondary} />
+            <Text style={styles.helper}>{t('agreeTerms')}</Text>
+          </View>
           <View style={styles.linkRow}>
             <Pressable onPress={() => openLegal('terms')}>
               <Text style={styles.link}>{t('termsOfUse')}</Text>
@@ -442,7 +466,7 @@ export default function LoginEmailScreen() {
         <Animated.View entering={FadeInUp.delay(700).duration(400)} style={styles.registerPrompt}>
           <Text style={styles.registerText}>{t('noAccount')}</Text>
           <Pressable onPress={() => router.replace('/register')}>
-            <Text style={styles.registerLink}> {t('register')}</Text>
+            <Text style={styles.registerLink}> {t('registerNow')}</Text>
           </Pressable>
         </Animated.View>
 
@@ -453,11 +477,92 @@ export default function LoginEmailScreen() {
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
   return StyleSheet.create({
     scrollContent: {
       paddingHorizontal: spacing.xl,
       gap: spacing.lg,
+    },
+
+    // ── Light medical backdrop ──
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      overflow: 'hidden',
+    },
+    backdropTopTint: {
+      position: 'absolute',
+      top: -180,
+      left: -150,
+      width: 500,
+      height: 330,
+      borderRadius: 220,
+      backgroundColor: colors.primaryLight,
+      opacity: isDark ? 0.15 : 0.42,
+      transform: [{ rotate: '-18deg' }],
+    },
+    backdropPlusTop: {
+      position: 'absolute',
+      top: '15%',
+      right: 26,
+      opacity: isDark ? 0.22 : 0.65,
+    },
+    backdropPlusLeft: {
+      position: 'absolute',
+      top: '40%',
+      left: 30,
+      opacity: isDark ? 0.16 : 0.42,
+    },
+    backdropPlusRight: {
+      position: 'absolute',
+      top: '31%',
+      right: 98,
+      opacity: isDark ? 0.16 : 0.42,
+    },
+    backdropBottom: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 155,
+      overflow: 'hidden',
+      opacity: isDark ? 0.35 : 0.82,
+    },
+    waveBand: {
+      position: 'absolute',
+      left: '-20%',
+      width: '140%',
+      height: 100,
+      borderRadius: 80,
+      transform: [{ rotate: '-5deg' }],
+    },
+    waveBandBack: {
+      bottom: -54,
+      backgroundColor: '#dff3fb',
+    },
+    waveBandFront: {
+      bottom: -80,
+      backgroundColor: '#c7edf5',
+      transform: [{ rotate: '5deg' }],
+    },
+    backdropHospital: {
+      position: 'absolute',
+      right: '22%',
+      bottom: 24,
+      opacity: 0.8,
+    },
+    backdropLeafLeft: {
+      position: 'absolute',
+      left: -4,
+      bottom: -4,
+      opacity: 0.72,
+      transform: [{ rotate: '-22deg' }],
+    },
+    backdropLeafRight: {
+      position: 'absolute',
+      right: -2,
+      bottom: 0,
+      opacity: 0.62,
+      transform: [{ rotate: '22deg' }],
     },
 
     // ── Top bar ──
@@ -547,9 +652,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       marginTop: spacing.md,
     },
     logoWrap: {
-      width: 80,
-      height: 80,
-      borderRadius: 24,
+      width: 96,
+      height: 96,
+      borderRadius: 28,
       overflow: 'hidden',
       shadowColor: colors.primary,
       shadowOpacity: 0.2,
@@ -566,7 +671,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     title: {
       fontSize: typography.size.xl,
       fontWeight: '800',
-      color: colors.textPrimary,
+      color: isDark ? colors.textPrimary : '#12335B',
       textAlign: 'center',
       marginTop: spacing.sm,
       width: '100%',
@@ -578,12 +683,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       lineHeight: typography.size.sm * 1.4,
       width: '100%',
       flexShrink: 1,
+      marginTop: 2,
     },
 
     // ── Form Card ──
     formCard: {
       backgroundColor: colors.surface,
-      borderRadius: radius.xl,
+      borderRadius: 24,
       padding: spacing.xl,
       gap: spacing.md,
       borderWidth: 1.5,
@@ -598,8 +704,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.xs,
     },
     inputRounded: {
-      borderRadius: radius.xxl,
-      minHeight: 52,
+      borderRadius: radius.full,
+      minHeight: 60,
+      paddingHorizontal: spacing.lg,
     },
     inputIconWrap: {
       width: 28,
@@ -621,6 +728,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.danger,
       fontSize: typography.size.xs,
     },
+    forgotButton: {
+      alignSelf: 'flex-end',
+      marginTop: -spacing.xs,
+      paddingVertical: 2,
+      paddingHorizontal: spacing.xs,
+    },
+    forgotPassword: {
+      color: colors.primary,
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+    },
     errorRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -638,9 +756,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     // ── Login Button ──
     loginBtn: {
       borderRadius: radius.full,
-      marginTop: spacing.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
+      marginTop: spacing.sm,
+      overflow: 'hidden',
     },
     loginBtnDisabled: {
       opacity: 0.55,
@@ -650,12 +767,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.sm,
-      paddingVertical: spacing.md + 2,
+      paddingVertical: spacing.md + 4,
       borderRadius: radius.full,
-      backgroundColor: colors.primaryLight,
+      backgroundColor: colors.primary,
     },
     loginBtnText: {
-      color: colors.primaryDark,
+      color: '#FFFFFF',
       fontSize: typography.size.md,
       fontWeight: '700',
     },
@@ -685,10 +802,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surface,
-      borderRadius: radius.xl,
+      borderRadius: 18,
       borderWidth: 1.5,
       borderColor: colors.border,
-      paddingVertical: spacing.md,
+      paddingVertical: spacing.md + 2,
       paddingHorizontal: spacing.lg,
       gap: spacing.md,
     },
@@ -714,6 +831,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     legal: {
       gap: spacing.xs,
       alignItems: 'center',
+    },
+    legalHelperRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
     },
     helper: {
       color: colors.textSecondary,
