@@ -1,19 +1,19 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
+  Image,
+  Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput as RNTextInput,
   View,
-  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from '../../src/components/Button';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { useAuthStore } from '../../src/features/auth/auth.store';
@@ -23,9 +23,7 @@ import { apiClient } from '../../src/lib/apiClient';
 import { TERMS_URL, PRIVACY_URL } from '../../src/lib/links';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useLanguageStore } from '../../src/stores/language.store';
-import { colors, radius, spacing } from '../../src/styles';
-import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { setPendingToast, useToastStore } from '../../src/stores/toast.store';
+import { setPendingToast } from '../../src/stores/toast.store';
 
 const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
   { value: 'small', iconSize: 16 },
@@ -33,10 +31,6 @@ const FONT_SIZE_OPTIONS: Array<{ value: FontSizeScale; iconSize: number }> = [
   { value: 'large', iconSize: 24 },
   { value: 'xlarge', iconSize: 28 },
 ];
-
-// ─── Constants ──────────────────────────────────────────────────────
-// value = data sent to backend (Vietnamese, for backward compatibility)
-// labelKey = i18n key for display
 
 const BLOOD_TYPE_OPTIONS = [
   { value: 'A+', labelKey: 'bloodAPlus' },
@@ -50,19 +44,21 @@ const BLOOD_TYPE_OPTIONS = [
 ];
 
 const DISEASE_GRID = [
-  { value: 'Tiểu đường', labelKey: 'diseaseDiabetes' },
-  { value: 'Tiền tiểu đường', labelKey: 'diseasePrediabetes' },
-  { value: 'Cao huyết áp', labelKey: 'diseaseHypertension' },
-  { value: 'Bệnh tim', labelKey: 'diseaseHeart' },
-  { value: 'Mỡ máu', labelKey: 'diseaseDyslipidemia' },
-  { value: 'Tiền đình', labelKey: 'diseaseVertigo' },
-  { value: 'Đau dạ dày', labelKey: 'diseaseStomach' },
-  { value: 'Gout', labelKey: 'diseaseGout' },
+  { value: 'Tiểu đường', labelKey: 'diseaseDiabetes', icon: 'water-outline' },
+  { value: 'Tiền tiểu đường', labelKey: 'diseasePrediabetes', icon: 'water-outline' },
+  { value: 'Cao huyết áp', labelKey: 'diseaseHypertension', icon: 'heart-outline' },
+  { value: 'Bệnh tim', labelKey: 'diseaseHeart', icon: 'heart' },
+  { value: 'Mỡ máu', labelKey: 'diseaseDyslipidemia', icon: 'color-filter-outline' },
+  { value: 'Tiền đình', labelKey: 'diseaseVertigo', icon: 'ellipse-outline' },
+  { value: 'Đau dạ dày', labelKey: 'diseaseStomach', icon: 'fitness-outline' },
+  { value: 'Gout', labelKey: 'diseaseGout', icon: 'walk-outline' },
 ];
+
 const DISEASE_FOOTER = [
-  { value: 'Không có', labelKey: 'diseaseNone' },
-  { value: 'Khác', labelKey: 'diseaseOther' },
+  { value: 'Không có', labelKey: 'diseaseNone', icon: 'ban-outline' },
+  { value: 'Khác', labelKey: 'diseaseOther', icon: 'ellipsis-horizontal-outline' },
 ];
+
 const DISEASE_NONE_VALUE = DISEASE_FOOTER.find(d => d.labelKey === 'diseaseNone')!.value;
 const DISEASE_OTHER_VALUE = DISEASE_FOOTER.find(d => d.labelKey === 'diseaseOther')!.value;
 
@@ -71,68 +67,149 @@ const MEDICATION_OPTIONS = [
   { value: 'Không', labelKey: 'medNo' },
   { value: 'Chỉ thực phẩm chức năng', labelKey: 'medSupplementOnly' },
 ];
+
 const CHECKUP_OPTIONS = [
-  { value: 'Mỗi ngày', labelKey: 'checkupDaily' },
-  { value: 'Vài lần/tuần', labelKey: 'checkupFewWeek' },
-  { value: 'Thỉnh thoảng', labelKey: 'checkupSometimes' },
-  { value: 'Gần như không', labelKey: 'checkupRarely' },
+  { value: 'Mỗi ngày', labelKey: 'checkupDaily', icon: 'calendar-check-outline' },
+  { value: 'Vài lần/tuần', labelKey: 'checkupFewWeek', icon: 'calendar-sync-outline' },
+  { value: 'Thỉnh thoảng', labelKey: 'checkupSometimes', icon: 'clock-outline' },
+  { value: 'Gần như không', labelKey: 'checkupRarely', icon: 'eye-off-outline' },
 ];
+
 const EXERCISE_OPTIONS = [
-  { value: 'Ít vận động', labelKey: 'exerciseSedentary' },
-  { value: '30 phút', labelKey: 'exercise30min' },
-  { value: '1 giờ', labelKey: 'exercise1hr' },
-  { value: 'Trên 1 giờ', labelKey: 'exerciseOver1hr' },
+  { value: 'Ít vận động', labelKey: 'exerciseSedentary', icon: 'sofa-outline' },
+  { value: '30 phút', labelKey: 'exercise30min', icon: 'timer-outline' },
+  { value: '1 giờ', labelKey: 'exercise1hr', icon: 'walk' },
+  { value: 'Trên 1 giờ', labelKey: 'exerciseOver1hr', icon: 'run-fast' },
 ];
+
 const SLEEP_OPTIONS = [
-  { value: 'Đủ 7-8 giờ', labelKey: 'sleep7to8' },
-  { value: '6-7 giờ', labelKey: 'sleep6to7' },
-  { value: 'Ít hơn 5 giờ', labelKey: 'sleepLess5' },
+  { value: 'Đủ 7-8 giờ', labelKey: 'sleep7to8', icon: 'bed-outline' },
+  { value: '6-7 giờ', labelKey: 'sleep6to7', icon: 'bed-clock-outline' },
+  { value: 'Ít hơn 5 giờ', labelKey: 'sleepLess5', icon: 'sleep' },
 ];
+
 const MEALS_OPTIONS = [
-  { value: '2 bữa', labelKey: 'meals2' },
-  { value: '3 bữa', labelKey: 'meals3' },
-  { value: '4 bữa trở lên', labelKey: 'meals4plus' },
+  { value: '2 bữa', labelKey: 'meals2', icon: 'bowl-outline' },
+  { value: '3 bữa', labelKey: 'meals3', icon: 'bowl' },
+  { value: '4 bữa trở lên', labelKey: 'meals4plus', icon: 'bowl-mix-outline' },
 ];
+
 const DROWSY_OPTIONS = [
-  { value: 'Không', labelKey: 'drowsyNo' },
-  { value: 'Thỉnh thoảng', labelKey: 'drowsySometimes' },
-  { value: 'Thường xuyên', labelKey: 'drowsyOften' },
+  { value: 'Không', labelKey: 'drowsyNo', icon: 'emoticon-happy-outline' },
+  { value: 'Thỉnh thoảng', labelKey: 'drowsySometimes', icon: 'emoticon-neutral-outline' },
+  { value: 'Thường xuyên', labelKey: 'drowsyOften', icon: 'sleep' },
 ];
+
 const DINNER_OPTIONS = [
-  { value: 'Trước 18 giờ', labelKey: 'dinnerBefore18' },
-  { value: '18-20 giờ', labelKey: 'dinner18to20' },
-  { value: 'Sau 20 giờ', labelKey: 'dinnerAfter20' },
+  { value: 'Trước 18 giờ', labelKey: 'dinnerBefore18', icon: 'weather-sunset-up' },
+  { value: '18-20 giờ', labelKey: 'dinner18to20', icon: 'weather-sunset-down' },
+  { value: 'Sau 20 giờ', labelKey: 'dinnerAfter20', icon: 'weather-night' },
 ];
+
 const SWEET_OPTIONS = [
-  { value: 'Hiếm khi', labelKey: 'sweetRarely' },
-  { value: 'Thỉnh thoảng', labelKey: 'sweetSometimes' },
-  { value: 'Thường xuyên', labelKey: 'sweetOften' },
+  { value: 'Hiếm khi', labelKey: 'sweetRarely', icon: 'emoticon-happy-outline' },
+  { value: 'Thỉnh thoảng', labelKey: 'sweetSometimes', icon: 'emoticon-neutral-outline' },
+  { value: 'Thường xuyên', labelKey: 'sweetOften', icon: 'emoticon-sad-outline' },
 ];
+
 const GOAL_OPTIONS = [
-  { value: 'Hiểu rõ tình trạng sức khoẻ', labelKey: 'goalUnderstandHealth' },
-  { value: 'Nhắc nhở đo chỉ số mỗi ngày', labelKey: 'goalDailyReminder' },
-  { value: 'Theo dõi bệnh mãn tính', labelKey: 'goalMonitorChronic' },
-  { value: 'Lời khuyên dinh dưỡng & lối sống', labelKey: 'goalNutritionAdvice' },
+  { value: 'Hiểu rõ tình trạng sức khoẻ', labelKey: 'goalUnderstandHealth', icon: 'shield-checkmark-outline' },
+  { value: 'Nhắc nhở đo chỉ số mỗi ngày', labelKey: 'goalDailyReminder', icon: 'notifications-outline' },
+  { value: 'Theo dõi bệnh mãn tính', labelKey: 'goalMonitorChronic', icon: 'stats-chart-outline' },
+  { value: 'Lời khuyên dinh dưỡng & lối sống', labelKey: 'goalNutritionAdvice', icon: 'leaf-outline' },
 ];
 
 const TOTAL_STEPS = 5;
 const CURRENT_YEAR = new Date().getFullYear();
 
-// ─── Chip component ──────────────────────────────────────────────────
+// ─── Soft Badge Illustration Component ───────────────────────────────
 
-interface ChipProps {
+function StepBadgeIllustration({ step }: { step: number }) {
+  if (step === 1) {
+    return (
+      <View style={badgeStyles.circleBg}>
+        <Image
+          source={require('../../assets/images/onboarding/step1_badge.png')}
+          style={{ width: 80, height: 80, resizeMode: 'contain' }}
+        />
+      </View>
+    );
+  }
+  if (step === 2) {
+    return (
+      <View style={badgeStyles.circleBg}>
+        <MaterialCommunityIcons name="clipboard-pulse-outline" size={42} color="#008080" />
+      </View>
+    );
+  }
+  if (step === 3) {
+    return <MaterialCommunityIcons name="heart-pulse" size={52} color="#008080" style={badgeStyles.plainBadge} />;
+  }
+  if (step === 4) {
+    return <MaterialCommunityIcons name="silverware-fork-knife" size={48} color="#008080" style={badgeStyles.plainBadge} />;
+  }
+  return (
+    <View style={badgeStyles.circleBg}>
+      <Ionicons name="shield-checkmark-outline" size={42} color="#008080" />
+    </View>
+  );
+}
+
+const badgeStyles = StyleSheet.create({
+  circleBg: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: '#EAF8F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plainBadge: {
+    width: 86,
+    height: 86,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
+});
+
+// ─── Custom UI Helpers ───────────────────────────────────────────────
+
+function CustomCheckbox({ checked }: { checked: boolean }) {
+  return (
+    <View style={[checkboxStyles.box, checked && checkboxStyles.boxChecked]}>
+      {checked && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+    </View>
+  );
+}
+
+const checkboxStyles = StyleSheet.create({
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxChecked: {
+    backgroundColor: '#008080',
+    borderColor: '#008080',
+  },
+});
+
+interface CustomChipProps {
   label: string;
   active: boolean;
   onPress: () => void;
   fullWidth?: boolean;
 }
 
-function Chip({ label, active, onPress, fullWidth }: ChipProps) {
-  const scaledTypography = useScaledTypography();
+function CustomChip({ label, active, onPress, fullWidth }: CustomChipProps) {
   return (
     <Pressable
       onPress={onPress}
-      android_ripple={{ color: colors.primary + '22' }}
       style={({ pressed }) => [
         chipStyles.chip,
         active && chipStyles.chipActive,
@@ -140,9 +217,7 @@ function Chip({ label, active, onPress, fullWidth }: ChipProps) {
         fullWidth && chipStyles.chipFullWidth,
       ]}
     >
-      <Text
-        style={[chipStyles.chipText, { fontSize: scaledTypography.size.sm }, active && chipStyles.chipTextActive]}
-      >
+      <Text style={[chipStyles.chipText, active && chipStyles.chipTextActive]}>
         {label}
       </Text>
     </Pressable>
@@ -151,17 +226,17 @@ function Chip({ label, active, onPress, fullWidth }: ChipProps) {
 
 const chipStyles = StyleSheet.create({
   chip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     alignSelf: 'flex-start',
   },
   chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: '#EAF8F6',
+    borderColor: '#008080',
   },
   chipPressed: {
     opacity: 0.8,
@@ -170,89 +245,103 @@ const chipStyles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    minHeight: 48,
+    minHeight: 46,
   },
   chipText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: colors.textPrimary,
+    color: '#334155',
     textAlign: 'center',
   },
   chipTextActive: {
-    color: '#fff',
+    color: '#008080',
     fontWeight: '600',
   },
 });
 
-// ─── Section label ───────────────────────────────────────────────────
-
 function SectionLabel({ label }: { label: string }) {
-  const scaledTypography = useScaledTypography();
   return (
-    <Text style={{ fontSize: scaledTypography.size.sm, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 }}>
+    <Text style={sectionLabelStyles.label}>
       {label}
     </Text>
   );
 }
 
-// ─── Main component ──────────────────────────────────────────────────
+const sectionLabelStyles = StyleSheet.create({
+  label: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+  },
+});
+
+function QuestionLabel({ label, icon }: { label: string; icon: string }) {
+  return (
+    <View style={stepStyles.questionLabel}>
+      <MaterialCommunityIcons name={icon as any} size={22} color="#008080" />
+      <Text style={stepStyles.questionLabelText}>{label}</Text>
+    </View>
+  );
+}
+
+interface ChoiceCardProps {
+  label: string;
+  icon: string;
+  active: boolean;
+  onPress: () => void;
+}
+
+function ChoiceCard({ label, icon, active, onPress }: ChoiceCardProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        stepStyles.choiceCard,
+        active && stepStyles.choiceCardActive,
+        pressed && { opacity: 0.8 },
+      ]}
+    >
+      <MaterialCommunityIcons
+        name={icon as any}
+        size={30}
+        color={active ? '#008080' : '#526B84'}
+      />
+      <Text style={[stepStyles.choiceCardText, active && stepStyles.choiceCardTextActive]}>
+        {label}
+      </Text>
+      <Ionicons
+        name={active ? 'checkmark-circle' : 'ellipse-outline'}
+        size={23}
+        color={active ? '#008080' : '#C4D0DB'}
+      />
+    </Pressable>
+  );
+}
+
+// ─── Main Onboarding Screen Component ────────────────────────────────
 
 export default function OnboardingScreen() {
-  const flushPending = useToastStore((s) => s.flushPending);
-  useEffect(() => { flushPending(); }, []);
-
-  const { t } = useTranslation('onboarding');
-  const { t: tc } = useTranslation('common');
-  const { t: ts } = useTranslation('settings');
-  const { language, setLanguage } = useLanguageStore();
-  const { scale, setScale } = useFontSizeStore();
-  const scaledTypography = useScaledTypography();
-  const { alertState, showAlert, dismissAlert } = useAppAlert();
-  const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
-
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const bootstrap = useAuthStore((s) => s.bootstrap);
-  const logout = useAuthStore((s) => s.logout);
-  const authProfile = useAuthStore((s) => s.profile);
+  const { t } = useTranslation('onboarding');
+  const { t: tc } = useTranslation('common');
 
-  const handleExit = () => {
-    showAlert(
-      t('exitOnboardingTitle') || 'Quay về màn đăng nhập?',
-      t('exitOnboardingMessage') || 'Tài khoản của bạn vẫn được giữ. Khi đăng nhập lại bạn sẽ phải làm lại khảo sát từ đầu. Tiếp tục?',
-      [
-        { text: tc('cancel') || 'Huỷ', style: 'cancel' },
-        {
-          text: t('exitOnboardingConfirm') || 'Quay về',
-          // Logout để clear token → đẩy về login. Account vẫn còn trên BE,
-          // user đăng nhập lại → vì onboarding chưa completed → app tự route
-          // lại onboarding từ step 1.
-          onPress: async () => {
-            try { await logout(); } catch {}
-            router.replace('/login');
-          },
-        },
-      ],
-    );
-  };
+  const profile = useAuthStore(s => s.profile);
+  const bootstrap = useAuthStore(s => s.bootstrap);
 
+  const isAppleSignIn = useMemo(() => {
+    return profile?.authProvider === 'apple';
+  }, [profile]);
+
+  const { alertState, showAlert, dismissAlert } = useAppAlert();
+  const scaledTypography = useScaledTypography();
+  const { scale, setScale } = useFontSizeStore();
+  const { language, setLanguage } = useLanguageStore();
+
+  const [showFontModal, setShowFontModal] = useState(false);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [showFontModal, setShowFontModal] = useState(false);
-
-  const getFontSizeLabel = (value: FontSizeScale): string => {
-    const labels: Record<FontSizeScale, string> = {
-      small: ts('fontSmall'),
-      normal: ts('fontNormal'),
-      large: ts('fontLarge'),
-      xlarge: ts('fontXLarge'),
-    };
-    return labels[value];
-  };
 
   // ── Step 1 state ─────────────────────────────────────────────────
   const [fullName, setFullName] = useState('');
@@ -262,22 +351,7 @@ export default function OnboardingScreen() {
   const [weight, setWeight] = useState('');
   const [phone, setPhone] = useState('');
   const [bloodType, setBloodType] = useState('');
-  const [consentAccepted, setConsentAccepted] = useState(false);
-
-  const isAppleSignIn = authProfile?.authProvider === 'apple';
-
-  // Apple supplies the name through Authentication Services. Keep a local
-  // value for the onboarding payload, but never require the user to type it.
-  useEffect(() => {
-    const providerName = authProfile?.name?.trim();
-    if (isAppleSignIn) {
-      setFullName(providerName && !/^User(?:\s+\d+)?$/i.test(providerName) ? providerName : 'User');
-      return;
-    }
-    if (!fullName.trim() && providerName && !/^User\s+\d+$/i.test(providerName)) {
-      setFullName(providerName);
-    }
-  }, [authProfile?.name, isAppleSignIn]);
+  const [consentAccepted, setConsentAccepted] = useState(true);
 
   // ── Step 2 state ─────────────────────────────────────────────────
   const [diseases, setDiseases] = useState<string[]>([]);
@@ -297,6 +371,32 @@ export default function OnboardingScreen() {
 
   // ── Step 5 state ─────────────────────────────────────────────────
   const [goals, setGoals] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (profile?.name && !fullName) {
+      setFullName(profile.name);
+    }
+  }, [profile]);
+
+  function getFontSizeLabel(s: FontSizeScale): string {
+    switch (s) {
+      case 'small': return tc('fontSmall');
+      case 'normal': return tc('fontNormal');
+      case 'large': return tc('fontLarge');
+      case 'xlarge': return tc('fontXLarge');
+    }
+  }
+
+  function handleExit() {
+    showAlert(
+      t('exitOnboardingTitle'),
+      t('exitOnboardingMessage'),
+      [
+        { text: tc('cancel'), style: 'cancel' },
+        { text: t('exitOnboardingConfirm'), style: 'destructive', onPress: () => router.replace('/login') },
+      ]
+    );
+  }
 
   // ── Validation ───────────────────────────────────────────────────
 
@@ -323,10 +423,9 @@ export default function OnboardingScreen() {
   const phoneError = phone.trim().length > 0 && !phoneValid ? t('phoneError') : '';
 
   const step1Valid = fullName.trim().length >= 2 && birthYearValid && gender !== '' && heightValid && weightValid && phoneValid && consentAccepted;
-  const step2Valid = diseases.length > 0 && medication !== '';
-  const step3Valid = checkupFreq !== '' && exerciseFreq !== '' && sleepHours !== '';
-  const step4Valid =
-    mealsPerDay !== '' && postMealDrowsy !== '' && dinnerTime !== '' && sweetIntake !== '';
+  const step2Valid = diseases.length > 0;
+  const step3Valid = checkupFreq !== '' || exerciseFreq !== '' || sleepHours !== '';
+  const step4Valid = mealsPerDay !== '' || postMealDrowsy !== '' || dinnerTime !== '' || sweetIntake !== '';
   const step5Valid = goals.length > 0;
 
   const canGoNext = (): boolean => {
@@ -338,7 +437,7 @@ export default function OnboardingScreen() {
     return false;
   };
 
-  // ── Disease toggle ────────────────────────────────────────────────
+  // ── Disease & Goal toggle ─────────────────────────────────────────
 
   function toggleDisease(value: string) {
     setDiseases(prev => {
@@ -361,14 +460,16 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ── Navigation ────────────────────────────────────────────────────
-
   function handleNext() {
     if (step < TOTAL_STEPS) setStep(s => s + 1);
   }
 
   function handleBack() {
-    if (step > 1) setStep(s => s - 1);
+    if (step > 1) {
+      setStep(s => s - 1);
+      return;
+    }
+    handleExit();
   }
 
   // ── Submit ────────────────────────────────────────────────────────
@@ -413,7 +514,6 @@ export default function OnboardingScreen() {
 
       await bootstrap();
 
-      // Fetch full profile so health data (height, weight, age, etc.) is in store immediately
       try {
         const fullProfile = await authApi.fetchProfile();
         if (fullProfile) useAuthStore.setState({ profile: fullProfile });
@@ -431,18 +531,14 @@ export default function OnboardingScreen() {
     }
   }
 
-  // ── Saving screen ─────────────────────────────────────────────────
-
   if (saving) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="#008080" />
         <Text style={styles.loadingText}>{t('savingInfo')}</Text>
       </View>
     );
   }
-
-  // ── Render ────────────────────────────────────────────────────────
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -465,7 +561,7 @@ export default function OnboardingScreen() {
                   <MaterialCommunityIcons
                     name="format-size"
                     size={opt.iconSize}
-                    color={scale === opt.value ? '#fff' : colors.primary}
+                    color={scale === opt.value ? '#fff' : '#008080'}
                     style={{ width: 28, textAlign: 'center' }}
                   />
                   <Text
@@ -487,23 +583,28 @@ export default function OnboardingScreen() {
         </Pressable>
       )}
 
-      {/* Top bar: exit + font size (left group) + language toggle (right) */}
+      {/* Header Top Bar */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <Pressable
-            onPress={handleExit}
+            onPress={handleBack}
             hitSlop={10}
-            style={({ pressed }) => [styles.exitBtn, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [
+              styles.exitBtn,
+              pressed && { opacity: 0.7 },
+            ]}
           >
-            <Ionicons name="close" size={22} color={colors.textSecondary} />
+            <Ionicons name="chevron-back" size={20} color="#008080" />
           </Pressable>
           <Pressable style={styles.fontSizeTopBtn} onPress={() => setShowFontModal(true)}>
-            <MaterialCommunityIcons name="format-size" size={18} color={colors.primary} />
-            <Text style={[styles.fontSizeTopLabel, { fontSize: scaledTypography.size.xs }]}>
+            <MaterialCommunityIcons name="format-size" size={16} color="#008080" />
+            <Text style={styles.fontSizeTopLabel}>
               {getFontSizeLabel(scale)}
             </Text>
           </Pressable>
         </View>
+
+        {/* Language Segmented Toggle */}
         <View style={styles.languageToggle}>
           {(['vi', 'en'] as const).map(lang => (
             <Pressable
@@ -519,24 +620,53 @@ export default function OnboardingScreen() {
         </View>
       </View>
 
-      {/* Progress bar */}
-      <View style={styles.progressWrap}>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${(step / TOTAL_STEPS) * 100}%` }]} />
+      {/* Step Progress Segmented Bar */}
+      <View style={styles.progressContainer}>
+        <Text style={styles.progressText}>
+          {t('stepProgress', { step, total: TOTAL_STEPS })}
+        </Text>
+        <View style={styles.segmentedBarRow}>
+          {Array.from({ length: TOTAL_STEPS }).map((_, index) => {
+            const stepNum = index + 1;
+            const isFilled = stepNum <= step;
+
+            return (
+              <View
+                key={stepNum}
+                style={[styles.segmentLine, isFilled && styles.segmentLineActive]}
+              />
+            );
+          })}
         </View>
-        <Text style={styles.progressText}>{t('stepProgress', { step, total: TOTAL_STEPS })}</Text>
       </View>
 
-      {/* Step content */}
+      {/* Main Step Scroll Content */}
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
       >
+        {/* Header Title Card with Soft Badge Illustration */}
+        <View style={styles.headerCard}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={styles.headerTitle}>
+              {t(`step${step}Title` as any)}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {step === 1 ? 'Cung cấp thông tin để Asinu hiểu bạn tốt hơn và chăm sóc phù hợp cho bạn.' :
+               step === 2 ? 'Chọn tất cả bệnh bạn đang có (nếu có)' :
+               step === 3 ? 'Giúp chúng tôi hiểu rõ hơn về lối sống của bạn.' :
+               step === 4 ? 'Thói quen ăn uống giúp chúng tôi đưa ra đề xuất phù hợp hơn.' :
+               'Có thể chọn nhiều'}
+            </Text>
+          </View>
+          <StepBadgeIllustration step={step} />
+        </View>
+
+        {/* Step Views */}
         {step === 1 && (
           <Step1
-            styles={styles}
             fullName={fullName}
             setFullName={setFullName}
             isAppleSignIn={isAppleSignIn}
@@ -560,9 +690,9 @@ export default function OnboardingScreen() {
             setConsentAccepted={setConsentAccepted}
           />
         )}
+
         {step === 2 && (
           <Step2
-            styles={styles}
             diseases={diseases}
             toggleDisease={toggleDisease}
             otherDisease={otherDisease}
@@ -571,9 +701,9 @@ export default function OnboardingScreen() {
             setMedication={setMedication}
           />
         )}
+
         {step === 3 && (
           <Step3
-            styles={styles}
             checkupFreq={checkupFreq}
             setCheckupFreq={setCheckupFreq}
             exerciseFreq={exerciseFreq}
@@ -582,9 +712,9 @@ export default function OnboardingScreen() {
             setSleepHours={setSleepHours}
           />
         )}
+
         {step === 4 && (
           <Step4
-            styles={styles}
             mealsPerDay={mealsPerDay}
             setMealsPerDay={setMealsPerDay}
             postMealDrowsy={postMealDrowsy}
@@ -595,36 +725,60 @@ export default function OnboardingScreen() {
             setSweetIntake={setSweetIntake}
           />
         )}
+
         {step === 5 && (
           <Step5
-            styles={styles}
             goals={goals}
             toggleGoal={toggleGoal}
           />
         )}
       </ScrollView>
 
-      {/* Footer */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button
-          label={tc('back')}
-          variant="ghost"
-          onPress={handleBack}
-          disabled={step === 1}
-        />
+      {/* Bottom Actions Footer (Stacked vertically per reference UI) */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {step < TOTAL_STEPS ? (
-          <Button
-            label={tc('continue')}
+          <Pressable
             onPress={handleNext}
             disabled={!canGoNext()}
-          />
+            style={({ pressed }) => [
+              styles.nextBtn,
+              !canGoNext() && styles.btnDisabledTeal,
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <Text style={styles.nextBtnText}>
+              {tc('continue')}
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+          </Pressable>
         ) : (
-          <Button
-            label={t('complete')}
+          <Pressable
             onPress={handleSubmit}
             disabled={!canGoNext()}
-          />
+            style={({ pressed }) => [
+              styles.nextBtn,
+              !canGoNext() && styles.btnDisabledTeal,
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <Text style={styles.nextBtnText}>
+              {t('complete')}
+            </Text>
+            <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+          </Pressable>
         )}
+
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => [
+            styles.backBtn,
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text style={styles.backBtnText}>
+            {tc('back')}
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -633,7 +787,6 @@ export default function OnboardingScreen() {
 // ─── Step 1 ─────────────────────────────────────────────────────────
 
 interface Step1Props {
-  styles: ReturnType<typeof createStyles>;
   fullName: string;
   setFullName: (v: string) => void;
   isAppleSignIn: boolean;
@@ -658,7 +811,6 @@ interface Step1Props {
 }
 
 function Step1({
-  styles,
   fullName, setFullName,
   isAppleSignIn,
   birthYear, setBirthYear, birthYearError,
@@ -670,119 +822,170 @@ function Step1({
   consentAccepted, setConsentAccepted,
 }: Step1Props) {
   const { t } = useTranslation('onboarding');
-  const GENDER_OPTIONS = [
-    { value: 'Nam', labelKey: 'genderMale' },
-    { value: 'Nữ', labelKey: 'genderFemale' },
-    { value: 'Khác', labelKey: 'genderOther' },
-  ];
-  return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>{t('step1Title')}</Text>
-      <Text style={styles.stepSubtitle}>{t('step1Subtitle')}</Text>
+  const [showBirthYearPicker, setShowBirthYearPicker] = useState(false);
+  const [showHeightPicker, setShowHeightPicker] = useState(false);
+  const maxBirthYear = CURRENT_YEAR - 10;
+  const birthYears = useMemo(
+    () => Array.from({ length: maxBirthYear - 1920 + 1 }, (_, index) => String(maxBirthYear - index)),
+    [maxBirthYear],
+  );
+  const heightOptions = useMemo(
+    () => Array.from({ length: 201 }, (_, index) => String(250 - index)),
+    [],
+  );
 
-      <View style={styles.questionCard}>
-        {isAppleSignIn ? (
-          <>
-            <SectionLabel label={t('fullName')} />
-            <View style={styles.readOnlyInput} accessible accessibilityLabel={fullName}>
-              <Text style={styles.readOnlyInputText}>{fullName}</Text>
+  const GENDER_OPTIONS = [
+    { value: 'Nam', labelKey: 'genderMale', icon: 'male-outline' },
+    { value: 'Nữ', labelKey: 'genderFemale', icon: 'female-outline' },
+    { value: 'Khác', labelKey: 'genderOther', icon: 'person-outline' },
+  ];
+
+  return (
+    <View style={stepStyles.container}>
+      {/* Full Name Input */}
+      <View style={stepStyles.fieldGroup}>
+        <SectionLabel label={t('fullName')} />
+        <View style={stepStyles.inputWrapper}>
+          <Ionicons name="person-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
+          {isAppleSignIn ? (
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15.5, color: '#0F172A' }}>{fullName}</Text>
             </View>
-          </>
-        ) : (
-          <>
-            <SectionLabel label={t('fullName')} />
+          ) : (
             <RNTextInput
-              style={styles.textInput}
+              style={stepStyles.inputField}
               placeholder={t('fullNamePlaceholder')}
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={fullName}
               onChangeText={setFullName}
               autoCapitalize="words"
-              returnKeyType="next"
             />
-          </>
-        )}
-      </View>
-
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('birthYear')} />
-        <RNTextInput
-          style={styles.textInput}
-          placeholder={t('birthYearPlaceholder')}
-          placeholderTextColor={colors.textSecondary}
-          value={birthYear}
-          onChangeText={setBirthYear}
-          keyboardType="numeric"
-          maxLength={4}
-          returnKeyType="done"
-        />
-        {!!birthYearError && <Text style={styles.errorText}>{birthYearError}</Text>}
-      </View>
-
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('gender')} />
-        <View style={styles.chipRow}>
-          {GENDER_OPTIONS.map(opt => (
-            <Chip
-              key={opt.value}
-              label={t(opt.labelKey)}
-              active={gender === opt.value}
-              onPress={() => setGender(opt.value)}
-            />
-          ))}
+          )}
         </View>
       </View>
 
-      <View style={styles.questionCard}>
+      {/* Birth Year Input */}
+      <View style={stepStyles.fieldGroup}>
+        <SectionLabel label={t('birthYear')} />
+        <View style={stepStyles.inputWrapper}>
+          <Ionicons name="calendar-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
+          <RNTextInput
+            style={stepStyles.inputField}
+            placeholder={t('birthYearPlaceholder')}
+            placeholderTextColor="#94A3B8"
+            value={birthYear}
+            onChangeText={setBirthYear}
+            keyboardType="numeric"
+            maxLength={4}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('selectBirthYear')}
+            onPress={() => setShowBirthYearPicker(true)}
+            style={stepStyles.birthYearChevron}
+          >
+            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
+          </Pressable>
+        </View>
+        {!!birthYearError && <Text style={stepStyles.errorText}>{birthYearError}</Text>}
+      </View>
+
+      {/* Gender Selection */}
+      <View style={stepStyles.fieldGroup}>
+        <SectionLabel label={t('gender')} />
+        <View style={stepStyles.genderRow}>
+          {GENDER_OPTIONS.map(opt => {
+            const active = gender === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => setGender(opt.value)}
+                style={[
+                  stepStyles.genderBtn,
+                  active && stepStyles.genderBtnActive,
+                ]}
+              >
+                <Ionicons
+                  name={opt.icon as any}
+                  size={18}
+                  color={active ? '#008080' : '#64748B'}
+                />
+                <Text style={[stepStyles.genderBtnText, active && stepStyles.genderBtnTextActive]}>
+                  {t(opt.labelKey)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Height Input */}
+      <View style={stepStyles.fieldGroup}>
         <SectionLabel label={t('heightCm')} />
-        <RNTextInput
-          style={styles.textInput}
-          placeholder={t('heightPlaceholder')}
-          placeholderTextColor={colors.textSecondary}
-          value={height}
-          onChangeText={setHeight}
-          keyboardType="numeric"
-          returnKeyType="done"
-        />
-        {!!heightError && <Text style={styles.errorText}>{heightError}</Text>}
+        <View style={stepStyles.inputWrapper}>
+          <MaterialCommunityIcons name="ruler" size={20} color="#008080" style={stepStyles.inputIcon} />
+          <RNTextInput
+            style={stepStyles.inputField}
+            placeholder={t('heightPlaceholder')}
+            placeholderTextColor="#94A3B8"
+            value={height}
+            onChangeText={setHeight}
+            keyboardType="numeric"
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('selectHeight')}
+            onPress={() => setShowHeightPicker(true)}
+            style={stepStyles.birthYearChevron}
+          >
+            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
+          </Pressable>
+        </View>
+        {!!heightError && <Text style={stepStyles.errorText}>{heightError}</Text>}
       </View>
 
-      <View style={styles.questionCard}>
+      {/* Weight Input */}
+      <View style={stepStyles.fieldGroup}>
         <SectionLabel label={t('weightKg')} />
-        <RNTextInput
-          style={styles.textInput}
-          placeholder={t('weightPlaceholder')}
-          placeholderTextColor={colors.textSecondary}
-          value={weight}
-          onChangeText={setWeight}
-          keyboardType="numeric"
-          returnKeyType="done"
-        />
-        {!!weightError && <Text style={styles.errorText}>{weightError}</Text>}
+        <View style={stepStyles.inputWrapper}>
+          <Ionicons name="fitness-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
+          <RNTextInput
+            style={stepStyles.inputField}
+            placeholder={t('weightPlaceholder')}
+            placeholderTextColor="#94A3B8"
+            value={weight}
+            onChangeText={setWeight}
+            keyboardType="numeric"
+          />
+        </View>
+        {!!weightError && <Text style={stepStyles.errorText}>{weightError}</Text>}
       </View>
 
-      <View style={styles.questionCard}>
+      {/* Phone Input */}
+      <View style={stepStyles.fieldGroup}>
         <SectionLabel label={t('phone')} />
-        <RNTextInput
-          style={styles.textInput}
-          placeholder={t('phonePlaceholder')}
-          placeholderTextColor={colors.textSecondary}
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          maxLength={11}
-          returnKeyType="done"
-        />
-        <Text style={styles.helperText}>{t('phoneOptional')}</Text>
-        {!!phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
+        <View style={stepStyles.inputWrapper}>
+          <Ionicons name="call-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
+          <RNTextInput
+            style={stepStyles.inputField}
+            placeholder={t('phonePlaceholder')}
+            placeholderTextColor="#94A3B8"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            maxLength={11}
+          />
+        </View>
+        {!!phoneError && <Text style={stepStyles.errorText}>{phoneError}</Text>}
       </View>
 
-      <View style={styles.questionCard}>
+      {/* Blood Type Selector */}
+      <View style={stepStyles.fieldGroup}>
         <SectionLabel label={t('bloodType')} />
-        <View style={styles.bloodTypeGrid}>
+        <View style={stepStyles.bloodGrid}>
           {BLOOD_TYPE_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.bloodTypeItem}>
-              <Chip
+            <View key={opt.value} style={stepStyles.bloodItem}>
+              <CustomChip
                 label={opt.value}
                 active={bloodType === opt.value}
                 onPress={() => setBloodType(bloodType === opt.value ? '' : opt.value)}
@@ -793,39 +996,139 @@ function Step1({
         </View>
         <Pressable
           onPress={() => setBloodType(bloodType === 'Không biết' ? '' : 'Không biết')}
-          style={{
-            alignSelf: 'center',
-            paddingVertical: spacing.sm,
-            paddingHorizontal: spacing.md,
-          }}
+          style={{ alignSelf: 'center', marginTop: 6 }}
         >
-          <Text
-            style={{
-              color: bloodType === 'Không biết' ? colors.primary : colors.textSecondary,
-              fontWeight: bloodType === 'Không biết' ? '600' : '400',
-              textDecorationLine: 'underline',
-            }}
-          >
+          <Text style={{ color: '#008080', fontSize: 13, fontWeight: '500' }}>
             {t('bloodTypeUnknown')}
           </Text>
         </Pressable>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, paddingHorizontal: 4 }}>
-        <Pressable onPress={() => setConsentAccepted(!consentAccepted)} hitSlop={8}>
-          <Ionicons 
-            name={consentAccepted ? "checkbox" : "square-outline"} 
-            size={24} 
-            color={consentAccepted ? colors.primary : colors.textSecondary} 
-          />
-        </Pressable>
-        <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: colors.textSecondary }}>
-          Tôi đồng ý với các{" "}
-          <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => Linking.openURL(TERMS_URL)}>Điều khoản dịch vụ</Text>
-          {" "}và{" "}
-          <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => Linking.openURL(PRIVACY_URL)}>Chính sách bảo mật</Text>
-          {" "}của Asinu, cho phép thu thập và xử lý các thông tin y tế để cá nhân hóa lộ trình chăm sóc sức khỏe.
+
+      {/* Security Privacy Notice */}
+      <View style={stepStyles.securityCard}>
+        <Ionicons name="shield-checkmark-outline" size={22} color="#008080" />
+        <Text style={stepStyles.securityText}>
+          <Text style={{ fontWeight: '700', color: '#008080' }}>Thông tin</Text> của bạn được bảo mật tuyệt đối và chỉ dùng để chăm sóc sức khỏe.
         </Text>
       </View>
+
+      {/* Consent Checkbox */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
+        <Pressable onPress={() => setConsentAccepted(!consentAccepted)} hitSlop={8}>
+          <Ionicons
+            name={consentAccepted ? "checkbox" : "square-outline"}
+            size={22}
+            color={consentAccepted ? "#008080" : "#94A3B8"}
+          />
+        </Pressable>
+        <Text style={{ flex: 1, fontSize: 12.5, lineHeight: 18, color: '#64748B' }}>
+          Tôi đồng ý với các{" "}
+          <Text style={{ color: '#008080', fontWeight: '700' }} onPress={() => Linking.openURL(TERMS_URL)}>Điều khoản dịch vụ</Text>
+          {" "}và{" "}
+          <Text style={{ color: '#008080', fontWeight: '700' }} onPress={() => Linking.openURL(PRIVACY_URL)}>Chính sách bảo mật</Text>
+          {" "}của Asinu.
+        </Text>
+      </View>
+
+      <Modal
+        visible={showBirthYearPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBirthYearPicker(false)}
+      >
+        <Pressable
+          style={stepStyles.birthYearModalOverlay}
+          onPress={() => setShowBirthYearPicker(false)}
+        >
+          <Pressable style={stepStyles.birthYearModalCard} onPress={() => {}}>
+            <View style={stepStyles.birthYearModalHeader}>
+              <Text style={stepStyles.birthYearModalTitle}>{t('selectBirthYear')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('closePicker')}
+                hitSlop={8}
+                onPress={() => setShowBirthYearPicker(false)}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={stepStyles.birthYearList}
+              contentContainerStyle={stepStyles.birthYearListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {birthYears.map(year => {
+                const selected = birthYear === year;
+                return (
+                  <Pressable
+                    key={year}
+                    onPress={() => {
+                      setBirthYear(year);
+                      setShowBirthYearPicker(false);
+                    }}
+                    style={[stepStyles.birthYearOption, selected && stepStyles.birthYearOptionSelected]}
+                  >
+                    <Text style={[stepStyles.birthYearOptionText, selected && stepStyles.birthYearOptionTextSelected]}>
+                      {year}
+                    </Text>
+                    {selected && <Ionicons name="checkmark-circle" size={20} color="#008080" />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showHeightPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHeightPicker(false)}
+      >
+        <Pressable
+          style={stepStyles.birthYearModalOverlay}
+          onPress={() => setShowHeightPicker(false)}
+        >
+          <Pressable style={stepStyles.birthYearModalCard} onPress={() => {}}>
+            <View style={stepStyles.birthYearModalHeader}>
+              <Text style={stepStyles.birthYearModalTitle}>{t('selectHeight')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('closePicker')}
+                hitSlop={8}
+                onPress={() => setShowHeightPicker(false)}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={stepStyles.birthYearList}
+              contentContainerStyle={stepStyles.birthYearListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {heightOptions.map(value => {
+                const selected = height === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => {
+                      setHeight(value);
+                      setShowHeightPicker(false);
+                    }}
+                    style={[stepStyles.birthYearOption, selected && stepStyles.birthYearOptionSelected]}
+                  >
+                    <Text style={[stepStyles.birthYearOptionText, selected && stepStyles.birthYearOptionTextSelected]}>
+                      {value} cm
+                    </Text>
+                    {selected && <Ionicons name="checkmark-circle" size={20} color="#008080" />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -833,7 +1136,6 @@ function Step1({
 // ─── Step 2 ─────────────────────────────────────────────────────────
 
 interface Step2Props {
-  styles: ReturnType<typeof createStyles>;
   diseases: string[];
   toggleDisease: (v: string) => void;
   otherDisease: string;
@@ -843,7 +1145,6 @@ interface Step2Props {
 }
 
 function Step2({
-  styles,
   diseases, toggleDisease,
   otherDisease, setOtherDisease,
   medication, setMedication,
@@ -852,64 +1153,80 @@ function Step2({
   const hasOther = diseases.includes(DISEASE_OTHER_VALUE);
 
   return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>{t('step2Title')}</Text>
-      <Text style={styles.stepSubtitle}>{t('step2Subtitle')}</Text>
+    <View style={stepStyles.container}>
+      {/* Disease Checkboxes Card List */}
+      <View style={stepStyles.cardList}>
+        {DISEASE_GRID.map(item => {
+          const checked = diseases.includes(item.value);
+          return (
+            <Pressable
+              key={item.value}
+              onPress={() => toggleDisease(item.value)}
+              style={({ pressed }) => [
+                stepStyles.cardRow,
+                checked && stepStyles.cardRowActive,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={stepStyles.cardRowLeft}>
+                <Ionicons name={item.icon as any} size={20} color="#008080" />
+                <Text style={stepStyles.cardRowLabel}>{t(item.labelKey)}</Text>
+              </View>
+              <CustomCheckbox checked={checked} />
+            </Pressable>
+          );
+        })}
 
-      <View style={styles.questionCard}>
-        <View style={styles.diseaseGrid}>
-          {DISEASE_GRID.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={diseases.includes(opt.value)}
-                onPress={() => toggleDisease(opt.value)}
-                fullWidth
-              />
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.diseaseFooterRow}>
-          {DISEASE_FOOTER.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={diseases.includes(opt.value)}
-                onPress={() => toggleDisease(opt.value)}
-                fullWidth
-              />
-            </View>
-          ))}
-        </View>
-
-        {hasOther && (
-          <View style={styles.fieldGroup}>
-            <SectionLabel label={t('otherDiseaseLabel')} />
-            <RNTextInput
-              style={styles.textInput}
-              placeholder={t('otherDiseasePlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              value={otherDisease}
-              onChangeText={setOtherDisease}
-              returnKeyType="done"
-            />
-          </View>
-        )}
+        {DISEASE_FOOTER.map(item => {
+          const checked = diseases.includes(item.value);
+          return (
+            <Pressable
+              key={item.value}
+              onPress={() => toggleDisease(item.value)}
+              style={({ pressed }) => [
+                stepStyles.cardRow,
+                checked && stepStyles.cardRowActive,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={stepStyles.cardRowLeft}>
+                <Ionicons name={item.icon as any} size={20} color="#008080" />
+                <Text style={stepStyles.cardRowLabel}>{t(item.labelKey)}</Text>
+              </View>
+              <CustomCheckbox checked={checked} />
+            </Pressable>
+          );
+        })}
       </View>
 
-      <View style={styles.questionCard}>
+      {/* Other disease detail */}
+      {hasOther && (
+        <View style={stepStyles.fieldGroup}>
+          <SectionLabel label={t('otherDiseaseLabel')} />
+          <View style={stepStyles.inputWrapper}>
+            <RNTextInput
+              style={stepStyles.inputField}
+              placeholder={t('otherDiseasePlaceholder')}
+              placeholderTextColor="#94A3B8"
+              value={otherDisease}
+              onChangeText={setOtherDisease}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Daily medication option */}
+      <View style={stepStyles.fieldGroup}>
         <SectionLabel label={t('dailyMedication')} />
-        <View style={styles.diseaseGrid}>
+        <View style={stepStyles.optionsColumn}>
           {MEDICATION_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={medication === opt.value}
-                onPress={() => setMedication(opt.value)}
-                fullWidth
-              />
-            </View>
+            <CustomChip
+              key={opt.value}
+              label={t(opt.labelKey)}
+              active={medication === opt.value}
+              onPress={() => setMedication(opt.value)}
+              fullWidth
+            />
           ))}
         </View>
       </View>
@@ -920,7 +1237,6 @@ function Step2({
 // ─── Step 3 ─────────────────────────────────────────────────────────
 
 interface Step3Props {
-  styles: ReturnType<typeof createStyles>;
   checkupFreq: string;
   setCheckupFreq: (v: string) => void;
   exerciseFreq: string;
@@ -930,60 +1246,58 @@ interface Step3Props {
 }
 
 function Step3({
-  styles,
   checkupFreq, setCheckupFreq,
   exerciseFreq, setExerciseFreq,
   sleepHours, setSleepHours,
 }: Step3Props) {
   const { t } = useTranslation('onboarding');
+
   return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>{t('step3Title')}</Text>
-
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('checkupFreq')} />
-        <View style={styles.diseaseGrid}>
+    <View style={stepStyles.container}>
+      {/* Question 1 */}
+      <View style={stepStyles.fieldGroup}>
+        <QuestionLabel label={t('checkupFreq')} icon="calendar-check-outline" />
+        <View style={stepStyles.choiceRow}>
           {CHECKUP_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={checkupFreq === opt.value}
-                onPress={() => setCheckupFreq(opt.value)}
-                fullWidth
-              />
-            </View>
+            <ChoiceCard
+              key={opt.value}
+              label={t(opt.labelKey)}
+              icon={opt.icon}
+              active={checkupFreq === opt.value}
+              onPress={() => setCheckupFreq(opt.value)}
+            />
           ))}
         </View>
       </View>
 
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('exerciseFreq')} />
-        <View style={styles.diseaseGrid}>
+      {/* Question 2 */}
+      <View style={stepStyles.fieldGroup}>
+        <QuestionLabel label={t('exerciseFreq')} icon="shoe-sneaker" />
+        <View style={stepStyles.choiceRow}>
           {EXERCISE_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={exerciseFreq === opt.value}
-                onPress={() => setExerciseFreq(opt.value)}
-                fullWidth
-              />
-            </View>
+            <ChoiceCard
+              key={opt.value}
+              label={t(opt.labelKey)}
+              icon={opt.icon}
+              active={exerciseFreq === opt.value}
+              onPress={() => setExerciseFreq(opt.value)}
+            />
           ))}
         </View>
       </View>
 
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('sleepHours')} />
-        <View style={styles.diseaseGrid}>
+      {/* Question 3 */}
+      <View style={stepStyles.fieldGroup}>
+        <QuestionLabel label={t('sleepHours')} icon="weather-night" />
+        <View style={stepStyles.choiceRow}>
           {SLEEP_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={sleepHours === opt.value}
-                onPress={() => setSleepHours(opt.value)}
-                fullWidth
-              />
-            </View>
+            <ChoiceCard
+              key={opt.value}
+              label={t(opt.labelKey)}
+              icon={opt.icon}
+              active={sleepHours === opt.value}
+              onPress={() => setSleepHours(opt.value)}
+            />
           ))}
         </View>
       </View>
@@ -994,7 +1308,6 @@ function Step3({
 // ─── Step 4 ─────────────────────────────────────────────────────────
 
 interface Step4Props {
-  styles: ReturnType<typeof createStyles>;
   mealsPerDay: string;
   setMealsPerDay: (v: string) => void;
   postMealDrowsy: string;
@@ -1006,78 +1319,79 @@ interface Step4Props {
 }
 
 function Step4({
-  styles,
   mealsPerDay, setMealsPerDay,
   postMealDrowsy, setPostMealDrowsy,
   dinnerTime, setDinnerTime,
   sweetIntake, setSweetIntake,
 }: Step4Props) {
   const { t } = useTranslation('onboarding');
+
   return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>{t('step4Title')}</Text>
-
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('mealsPerDay')} />
-        <View style={styles.diseaseGrid}>
+    <View style={stepStyles.container}>
+      {/* Question 1 */}
+      <View style={stepStyles.fieldGroup}>
+        <QuestionLabel label={t('mealsPerDay')} icon="bowl-outline" />
+        <View style={stepStyles.choiceRow}>
           {MEALS_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={mealsPerDay === opt.value}
-                onPress={() => setMealsPerDay(opt.value)}
-                fullWidth
-              />
-            </View>
+            <ChoiceCard
+              key={opt.value}
+              label={t(opt.labelKey)}
+              icon={opt.icon}
+              active={mealsPerDay === opt.value}
+              onPress={() => setMealsPerDay(opt.value)}
+            />
           ))}
         </View>
       </View>
 
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('postMealDrowsy')} />
-        <View style={styles.diseaseGrid}>
+      {/* Question 2 */}
+      <View style={stepStyles.fieldGroup}>
+        <QuestionLabel label={t('postMealDrowsy')} icon="sleep" />
+        <View style={stepStyles.choiceRow}>
           {DROWSY_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={postMealDrowsy === opt.value}
-                onPress={() => setPostMealDrowsy(opt.value)}
-                fullWidth
-              />
-            </View>
+            <ChoiceCard
+              key={opt.value}
+              label={t(opt.labelKey)}
+              icon={opt.icon}
+              active={postMealDrowsy === opt.value}
+              onPress={() => setPostMealDrowsy(opt.value)}
+            />
           ))}
         </View>
       </View>
 
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('dinnerTime')} />
-        <View style={styles.diseaseGrid}>
+      {/* Question 3 */}
+      <View style={stepStyles.fieldGroup}>
+        <QuestionLabel label={t('dinnerTime')} icon="clock-outline" />
+        <View style={stepStyles.choiceRow}>
           {DINNER_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
-                label={t(opt.labelKey)}
-                active={dinnerTime === opt.value}
-                onPress={() => setDinnerTime(opt.value)}
-                fullWidth
-              />
-            </View>
+            <ChoiceCard
+              key={opt.value}
+              label={t(opt.labelKey)}
+              icon={opt.icon}
+              active={dinnerTime === opt.value}
+              onPress={() => setDinnerTime(opt.value)}
+            />
           ))}
         </View>
       </View>
 
-      <View style={styles.questionCard}>
-        <SectionLabel label={t('sweetIntake')} />
-        <View style={styles.diseaseGrid}>
-          {SWEET_OPTIONS.map(opt => (
-            <View key={opt.value} style={styles.diseaseGridItem}>
-              <Chip
+      {/* Question 4: Sweet intake with Vector Icon Cards */}
+      <View style={stepStyles.fieldGroup}>
+        <QuestionLabel label={t('sweetIntake')} icon="bottle-soda-outline" />
+        <View style={stepStyles.choiceRow}>
+          {SWEET_OPTIONS.map(opt => {
+            const active = sweetIntake === opt.value;
+            return (
+              <ChoiceCard
+                key={opt.value}
                 label={t(opt.labelKey)}
-                active={sweetIntake === opt.value}
+                icon={opt.icon}
+                active={active}
                 onPress={() => setSweetIntake(opt.value)}
-                fullWidth
               />
-            </View>
-          ))}
+            );
+          })}
         </View>
       </View>
     </View>
@@ -1087,30 +1401,36 @@ function Step4({
 // ─── Step 5 ─────────────────────────────────────────────────────────
 
 interface Step5Props {
-  styles: ReturnType<typeof createStyles>;
   goals: string[];
   toggleGoal: (v: string) => void;
 }
 
-function Step5({ styles, goals, toggleGoal }: Step5Props) {
+function Step5({ goals, toggleGoal }: Step5Props) {
   const { t } = useTranslation('onboarding');
-  return (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>{t('step5Title')}</Text>
-      <Text style={styles.stepSubtitle}>{t('step5Subtitle')}</Text>
 
-      <View style={styles.questionCard}>
-        <View style={styles.chipColumn}>
-          {GOAL_OPTIONS.map(opt => (
-            <Chip
+  return (
+    <View style={stepStyles.container}>
+      <View style={stepStyles.cardList}>
+        {GOAL_OPTIONS.map(opt => {
+          const checked = goals.includes(opt.value);
+          return (
+            <Pressable
               key={opt.value}
-              label={t(opt.labelKey)}
-              active={goals.includes(opt.value)}
               onPress={() => toggleGoal(opt.value)}
-              fullWidth
-            />
-          ))}
-        </View>
+              style={({ pressed }) => [
+                stepStyles.cardRow,
+                checked && stepStyles.cardRowActive,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={stepStyles.cardRowLeft}>
+                <Ionicons name={opt.icon as any} size={20} color="#008080" />
+                <Text style={stepStyles.cardRowLabel}>{t(opt.labelKey)}</Text>
+              </View>
+              <CustomCheckbox checked={checked} />
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -1118,283 +1438,508 @@ function Step5({ styles, goals, toggleGoal }: Step5Props) {
 
 // ─── Styles ──────────────────────────────────────────────────────────
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    centered: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.md,
-      backgroundColor: colors.background,
-    },
-    topBar: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: spacing.xl,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.xs,
-    },
-    topBarLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    exitBtn: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    languageToggle: {
-      flexDirection: 'row',
-      gap: spacing.xs,
-    },
-    langBtn: {
-      paddingHorizontal: spacing.md,
-      height: 36,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderRadius: radius.lg,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    langBtnActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    langBtnText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.textSecondary,
-    },
-    langBtnTextActive: {
-      color: '#fff',
-    },
-    progressWrap: {
-      paddingHorizontal: spacing.xl,
-      paddingBottom: spacing.sm,
-      gap: spacing.xs,
-    },
-    progressTrack: {
-      height: 6,
-      borderRadius: radius.full,
-      backgroundColor: colors.surfaceMuted,
-      overflow: 'hidden',
-      borderWidth: 1.5,
-      borderColor: colors.border,
-    },
-    progressFill: {
-      height: '100%',
-      backgroundColor: colors.primary,
-      borderRadius: radius.full,
-    },
-    progressText: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      fontWeight: '500',
-    },
-    scroll: {
-      paddingHorizontal: spacing.xl,
-      paddingBottom: spacing.xxl,
-    },
-    stepContainer: {
-      gap: spacing.xl,
-    },
-    stepTitle: {
-      fontSize: typography.size.xl,
-      fontWeight: '800',
-      color: colors.textPrimary,
-      marginTop: spacing.sm,
-    },
-    stepSubtitle: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      marginTop: -spacing.md,
-    },
-    fieldGroup: {
-      gap: spacing.sm,
-    },
-    questionCard: {
-      backgroundColor: colors.surface,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      padding: spacing.lg,
-      gap: spacing.sm,
-    },
-    chipRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    chipWrap: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    bloodTypeGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    bloodTypeItem: {
-      flexBasis: '23%',
-      flexGrow: 1,
-    } as any,
-    diseaseGrid: {
-      flexDirection: 'column',
-      gap: spacing.sm,
-    },
-    diseaseGridItem: {
-      alignSelf: 'stretch',
-    } as any,
-    diseaseFooterRow: {
-      flexDirection: 'column',
-      gap: spacing.sm,
-      marginTop: spacing.xs,
-    },
-    threeColRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    threeColItem: {
-      flex: 1,
-    },
-    chipColumn: {
-      gap: spacing.sm,
-    },
-    textInput: {
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      fontSize: typography.size.md,
-      color: colors.textPrimary,
-      backgroundColor: colors.surface,
-      minHeight: 48,
-    },
-    readOnlyInput: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      minHeight: 48,
-      justifyContent: 'center',
-      backgroundColor: colors.surfaceMuted,
-    },
-    readOnlyInputText: {
-      fontSize: typography.size.md,
-      color: colors.textPrimary,
-    },
-    errorText: {
-      fontSize: typography.size.sm,
-      color: colors.danger,
-    },
-    helperText: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-      lineHeight: Math.round(typography.size.xs * 1.5),
-    },
-    loadingText: {
-      color: colors.textSecondary,
-      fontSize: typography.size.sm,
-    },
-    fontSizeTopBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: spacing.md,
-      height: 36,
-      borderRadius: radius.lg,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    fontSizeTopLabel: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.primary,
-    },
-    fontModalOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.45)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 100,
-      padding: spacing.xl,
-    },
-    fontModalCard: {
-      width: '100%',
-      backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: spacing.xl,
-      gap: spacing.md,
-      shadowColor: '#000',
-      shadowOpacity: 0.15,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 10,
-    },
-    fontModalTitle: {
-      fontWeight: '700',
-      color: colors.textPrimary,
-      textAlign: 'center',
-    },
-    fontSizeRow: {
-      flexDirection: 'column',
-      gap: spacing.sm,
-    },
-    fontSizeBtn: {
-      width: '100%',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-start',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.lg,
-      borderRadius: radius.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      gap: spacing.sm,
-    },
-    fontSizeBtnActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    fontSizeBtnText: {
-      fontWeight: '600',
-      color: colors.textPrimary,
-    },
-    fontSizeBtnTextActive: {
-      color: '#fff',
-    },
-    fontSizePreview: {
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginTop: spacing.xs,
-    },
-    footer: {
-      flexDirection: 'row',
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
-      gap: spacing.md,
-      justifyContent: 'space-between',
-      borderTopWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    color: '#64748B',
+    fontSize: 14,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  exitBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  fontSizeTopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    height: 34,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  fontSizeTopLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#008080',
+  },
+  languageToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    padding: 3,
+  },
+  langBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  langBtnActive: {
+    backgroundColor: '#008080',
+  },
+  langBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  langBtnTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Segmented Progress Line Bar
+  progressContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 14,
+  },
+  progressText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  segmentedBarRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  segmentLine: {
+    flex: 1,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#E2E8F0',
+  },
+  segmentLineActive: {
+    backgroundColor: '#008080',
+  },
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+  },
+
+  // Header Title Card
+  headerCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    marginTop: 4,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#008080',
+  },
+  headerSubtitle: {
+    fontSize: 13.5,
+    color: '#64748B',
+    lineHeight: 19,
+    marginTop: 4,
+  },
+
+  // Footer (Stacked Vertically per Reference UI)
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  nextBtn: {
+    width: '100%',
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: '#008080',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  nextBtnText: {
+    fontSize: 15.5,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  backBtn: {
+    width: '100%',
+    height: 52,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#008080',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnText: {
+    fontSize: 15.5,
+    fontWeight: '600',
+    color: '#008080',
+  },
+  btnDisabled: {
+    opacity: 0.4,
+  },
+  btnDisabledTeal: {
+    opacity: 0.5,
+  },
+  textDisabled: {
+    color: '#94A3B8',
+  },
+
+  // Font size modal
+  fontModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+    padding: 20,
+  },
+  fontModalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  fontModalTitle: {
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  fontSizeRow: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  fontSizeBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    gap: 12,
+  },
+  fontSizeBtnActive: {
+    backgroundColor: '#008080',
+    borderColor: '#008080',
+  },
+  fontSizeBtnText: {
+    fontWeight: '600',
+    color: '#334155',
+  },
+  fontSizeBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  fontSizePreview: {
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+});
+
+const stepStyles = StyleSheet.create({
+  container: {
+    gap: 18,
+  },
+  fieldGroup: {
+    gap: 2,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    height: 52,
+    position: 'relative',
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  inputField: {
+    flex: 1,
+    fontSize: 15.5,
+    color: '#0F172A',
+    paddingRight: 48,
+  },
+  birthYearChevron: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 64,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  errorText: {
+    fontSize: 12.5,
+    color: '#EF4444',
+    marginTop: 4,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  genderBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  genderBtnActive: {
+    backgroundColor: '#EAF8F6',
+    borderColor: '#008080',
+  },
+  genderBtnText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#475569',
+  },
+  genderBtnTextActive: {
+    color: '#008080',
+    fontWeight: '600',
+  },
+  bloodGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  bloodItem: {
+    width: '23%',
+  },
+  securityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F0FDFA',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 4,
+  },
+  securityText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#475569',
+    lineHeight: 18,
+    fontWeight: '400',
+  },
+  birthYearModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  birthYearModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    maxHeight: '70%',
+    shadowColor: '#000000',
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  birthYearModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  birthYearModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  birthYearList: {
+    maxHeight: 360,
+  },
+  birthYearListContent: {
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  birthYearOption: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  birthYearOptionSelected: {
+    backgroundColor: '#E6F7F5',
+  },
+  birthYearOptionText: {
+    fontSize: 15,
+    color: '#334155',
+  },
+  birthYearOptionTextSelected: {
+    color: '#008080',
+    fontWeight: '700',
+  },
+  cardList: {
+    gap: 10,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  cardRowActive: {
+    borderColor: '#008080',
+    backgroundColor: '#EAF8F6',
+  },
+  cardRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  cardRowLabel: {
+    fontSize: 15,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  optionsColumn: {
+    gap: 8,
+  },
+  chipWrapRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  questionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 30,
+    marginBottom: 8,
+  },
+  questionLabelText: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  choiceCard: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 112,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  choiceCardActive: {
+    borderColor: '#008080',
+    backgroundColor: '#EAF8F6',
+  },
+  choiceCardText: {
+    minHeight: 34,
+    fontSize: 13,
+    lineHeight: 17,
+    color: '#526B84',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  choiceCardTextActive: {
+    color: '#008080',
+    fontWeight: '700',
+  },
+  emojiCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  emojiCard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  emojiCardActive: {
+    backgroundColor: '#EAF8F6',
+    borderColor: '#008080',
+  },
+  emojiCardText: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  emojiCardTextActive: {
+    color: '#008080',
+    fontWeight: '600',
+  },
+});
