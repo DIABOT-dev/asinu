@@ -7,6 +7,7 @@ import { DoctorConnectButton } from './DoctorConnectButton';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, radius } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { useGuardedRouter as useRouter } from '../hooks/useGuardedRouter';
 
 type HealthLevel = 'ok' | 'monitor' | 'danger';
 
@@ -68,6 +69,7 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
   const scaledTypography = useScaledTypography();
   const config = LEVEL_CONFIG[level];
   const { isDark } = useThemeColors();
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const isVi = i18n.language === 'vi';
 
@@ -167,10 +169,8 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
         <View style={{ marginTop: spacing.sm }}>
           <DoctorConnectButton
             variant="urgent"
-            text={isVi ? 'Bạn có muốn kết nối với bác sĩ không?' : 'Connect with a doctor?'}
-            onPress={() => {
-              // TODO(future): navigate to doctor connect screen.
-            }}
+            text={t('doctorConnectCta')}
+            onPress={() => router.push('/doctor-consultation' as any)}
           />
         </View>
       )}

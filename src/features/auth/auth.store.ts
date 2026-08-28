@@ -48,6 +48,7 @@ export type Profile = {
     status: string;
   }>;
   languagePreference?: string;
+  consentVersion?: string;
   hasPassword?: boolean;
 };
 

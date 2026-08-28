@@ -1345,10 +1345,8 @@ function DoneScreen({
                 <View style={{ marginTop: spacing.md }}>
                   <DoctorConnectButton
                     variant={isEmergency || triageSummary.severity === 'high' ? 'urgent' : 'default'}
-                    text="Bạn có muốn kết nối với bác sĩ không?"
-                    onPress={() => {
-                      // Placeholder cho tính năng tương lai.
-                    }}
+                    text={t('doctorConnectCta')}
+                    onPress={() => router.push('/doctor-consultation' as any)}
                   />
                 </View>
               )}
