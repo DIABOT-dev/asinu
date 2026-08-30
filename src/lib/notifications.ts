@@ -2,11 +2,11 @@
 // Note: This requires expo-notifications to be installed
 // Run: npx expo install expo-notifications
 
-import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-import i18n from '../i18n';
-import { useNotificationStore } from '../stores/notification.store';
+import Constants from "expo-constants";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
+import i18n from "../i18n";
+import { useNotificationStore } from "../stores/notification.store";
 
 /**
  * Initialize the notification handler. Must be called explicitly (e.g. inside
@@ -36,9 +36,7 @@ export function setupNotificationHandler(): void {
     });
     // Đăng ký action buttons sớm nhất có thể (trước khi nhận notification)
     registerNotificationCategories();
-  } catch (e) {
-
-  }
+  } catch (e) {}
 }
 
 /**
@@ -48,10 +46,10 @@ export function setupNotificationHandler(): void {
  */
 export async function registerNotificationCategories(): Promise<void> {
   try {
-    await Notifications.setNotificationCategoryAsync('health_alert', [
+    await Notifications.setNotificationCategoryAsync("health_alert", [
       {
-        identifier: 'ACKNOWLEDGE',
-        buttonTitle: '✓ Đã xem',
+        identifier: "ACKNOWLEDGE",
+        buttonTitle: "✓ Đã xem",
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
@@ -59,8 +57,8 @@ export async function registerNotificationCategories(): Promise<void> {
         },
       },
       {
-        identifier: 'ON_MY_WAY',
-        buttonTitle: '🚗 Đang tới',
+        identifier: "ON_MY_WAY",
+        buttonTitle: "🚗 Đang tới",
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
@@ -68,8 +66,8 @@ export async function registerNotificationCategories(): Promise<void> {
         },
       },
       {
-        identifier: 'CALL',
-        buttonTitle: '📞 Gọi ngay',
+        identifier: "CALL",
+        buttonTitle: "📞 Gọi ngay",
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
@@ -83,7 +81,13 @@ export async function registerNotificationCategories(): Promise<void> {
 }
 
 export interface NotificationData {
-  type: 'care_circle_invitation' | 'care_circle_accepted' | 'alert' | 'message' | 'engagement' | 'health_feed';
+  type:
+    | "care_circle_invitation"
+    | "care_circle_accepted"
+    | "alert"
+    | "message"
+    | "engagement"
+    | "health_feed";
   invitationId?: string;
   senderId?: string;
   senderName?: string;
@@ -96,10 +100,11 @@ export interface NotificationData {
  */
 export async function requestNotificationPermissions(): Promise<boolean> {
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
+
+    if (existingStatus !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync({
         ios: {
           allowAlert: true,
@@ -110,64 +115,71 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       });
       finalStatus = status;
     }
-    
-    if (finalStatus !== 'granted') {
 
+    if (finalStatus !== "granted") {
       return false;
     }
 
     // For Android, delete old channels first then recreate — ensures sound settings
     // are never stuck from a previous cached channel without sound.
-    if (Platform.OS === 'android') {
-      const CHANNEL_IDS = ['reminder', 'alert', 'care-circle', 'checkin', 'milestone'];
+    if (Platform.OS === "android") {
+      const CHANNEL_IDS = [
+        "reminder",
+        "alert",
+        "care-circle",
+        "checkin",
+        "milestone",
+      ];
       await Promise.allSettled(
-        CHANNEL_IDS.map(id => Notifications.deleteNotificationChannelAsync(id))
+        CHANNEL_IDS.map((id) =>
+          Notifications.deleteNotificationChannelAsync(id)
+        )
       );
 
-      await Notifications.setNotificationChannelAsync('reminder', {
-        name: 'Nhắc nhở sức khoẻ',
+      await Notifications.setNotificationChannelAsync("reminder", {
+        name: "Nhắc nhở sức khoẻ",
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 200],
         enableVibrate: true,
-        lightColor: '#08b8a2',
-        sound: 'asinu_reminder.wav',
+        lightColor: "#08b8a2",
+        sound: "asinu_reminder.wav",
       });
 
-      await Notifications.setNotificationChannelAsync('alert', {
-        name: 'Cảnh báo sức khoẻ',
+      await Notifications.setNotificationChannelAsync("alert", {
+        name: "Cảnh báo sức khoẻ",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 300, 150, 300],
         enableVibrate: true,
-        lightColor: '#FF6B6B',
-        sound: 'asinu_alert.wav',
+        lightColor: "#FF6B6B",
+        sound: "asinu_alert.wav",
         bypassDnd: true,
       });
 
-      await Notifications.setNotificationChannelAsync('care-circle', {
-        name: 'Vòng kết nối',
+      await Notifications.setNotificationChannelAsync("care-circle", {
+        name: "Vòng kết nối",
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 100, 250],
         enableVibrate: true,
-        lightColor: '#6B8FFF',
-        sound: 'asinu_care.wav',
+        lightColor: "#6B8FFF",
+        sound: "asinu_care.wav",
       });
 
-      await Notifications.setNotificationChannelAsync('checkin', {
-        name: 'Check-in sức khoẻ',
+      await Notifications.setNotificationChannelAsync("checkin", {
+        name: "Check-in sức khoẻ",
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 300, 100, 300],
         enableVibrate: true,
-        lightColor: '#08b8a2',
-        sound: 'asinu_reminder.wav',
+        lightColor: "#08b8a2",
+        sound: "asinu_reminder.wav",
       });
 
-      await Notifications.setNotificationChannelAsync('milestone', {
-        name: 'Thành tích',
+      await Notifications.setNotificationChannelAsync("milestone", {
+        name: "Thành tích",
         importance: Notifications.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 100, 50, 100, 50, 200],
         enableVibrate: true,
-        lightColor: '#FFD700',
-        sound: 'asinu_milestone.wav',
+        lightColor: "#FFD700",
+        sound: "asinu_milestone.wav",
       });
     }
 
@@ -176,7 +188,6 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 
     return true;
   } catch (error) {
-
     return false;
   }
 }
@@ -188,26 +199,27 @@ export async function getExpoPushToken(): Promise<string | null> {
   try {
     // Skip the Constants.isDevice check — it's unreliable in dev builds.
     // Instead just attempt to get the token; it will fail naturally on web/unsupported.
-    if (Platform.OS === 'web') {
-      console.warn('[PushToken] Web platform — skipping');
+    if (Platform.OS === "web") {
+      console.warn("[PushToken] Web platform — skipping");
       return null;
     }
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (!projectId) {
-      console.warn('[PushToken] No projectId found in expoConfig.extra.eas');
+      console.warn("[PushToken] No projectId found in expoConfig.extra.eas");
       return null;
     }
 
-    if (__DEV__) console.log('[PushToken] Requesting token with projectId:', projectId);
+    if (__DEV__)
+      console.log("[PushToken] Requesting token with projectId:", projectId);
     const token = await Notifications.getExpoPushTokenAsync({
       projectId,
     });
 
-    if (__DEV__) console.log('[PushToken] Got token:', token.data);
+    if (__DEV__) console.log("[PushToken] Got token:", token.data);
     return token.data;
   } catch (error) {
-    console.error('[PushToken] Error getting push token:', error);
+    console.error("[PushToken] Error getting push token:", error);
     return null;
   }
 }
@@ -218,7 +230,7 @@ export async function getExpoPushToken(): Promise<string | null> {
 export async function checkNotificationPermission(): Promise<boolean> {
   try {
     const { status } = await Notifications.getPermissionsAsync();
-    return status === 'granted';
+    return status === "granted";
   } catch {
     return false;
   }
@@ -235,14 +247,12 @@ export async function scheduleLocalNotification(
         title,
         body,
         data: data || {},
-        sound: 'asinu_reminder.wav',
+        sound: "asinu_reminder.wav",
         priority: Notifications.AndroidNotificationPriority.HIGH,
       },
       trigger: null,
     });
-  } catch (error) {
-
-  }
+  } catch (error) {}
 }
 
 /**
@@ -262,8 +272,8 @@ export async function reNotifyAsLocal(
         title,
         body,
         data,
-        sound: 'asinu_alert.wav',
-        categoryIdentifier: 'health_alert',
+        sound: "asinu_alert.wav",
+        categoryIdentifier: "health_alert",
         priority: Notifications.AndroidNotificationPriority.MAX,
       },
       trigger: null, // immediate
@@ -277,19 +287,21 @@ export async function reNotifyAsLocal(
 export function addNotificationReceivedListener(
   callback: (notification: Notifications.Notification) => void
 ) {
-  const subscription = Notifications.addNotificationReceivedListener((notification) => {
-    // Add to notification store
-    const { addNotification } = useNotificationStore.getState();
-    addNotification({
-      title: notification.request.content.title || i18n.t('notification'),
-      body: notification.request.content.body || '',
-      data: notification.request.content.data,
-    });
-    
-    // Call custom callback
-    callback(notification);
-  });
-  
+  const subscription = Notifications.addNotificationReceivedListener(
+    (notification) => {
+      // Add to notification store
+      const { addNotification } = useNotificationStore.getState();
+      addNotification({
+        title: notification.request.content.title || i18n.t("notification"),
+        body: notification.request.content.body || "",
+        data: notification.request.content.data,
+      });
+
+      // Call custom callback
+      callback(notification);
+    }
+  );
+
   return subscription;
 }
 
@@ -311,101 +323,132 @@ export function addNotificationResponseReceivedListener(
  * Returns null when the notification has no specific destination (caller
  * decides default).
  */
-export type NotificationRoute = string | { pathname: string; params?: Record<string, string> };
+export type NotificationRoute =
+  | string
+  | { pathname: string; params?: Record<string, string> };
 
-export function routeFromNotificationData(data: Record<string, unknown> | null | undefined): NotificationRoute | null {
+export function routeFromNotificationData(
+  data: Record<string, unknown> | null | undefined
+): NotificationRoute | null {
   const type = data?.type as string | undefined;
   if (!type) return null;
 
   // Check-in
-  if (type === 'morning_checkin') return '/checkin';
-  if (type === 'checkin_followup' || type === 'checkin_followup_urgent') {
+  if (type === "morning_checkin") return "/checkin";
+  if (type === "checkin_followup" || type === "checkin_followup_urgent") {
     const checkinId = data?.checkinId as string;
-    if (checkinId) return { pathname: '/checkin', params: { checkin_id: checkinId, mode: 'followup' } };
-    return '/checkin';
+    if (checkinId)
+      return {
+        pathname: "/checkin",
+        params: { checkin_id: checkinId, mode: "followup" },
+      };
+    return "/checkin";
   }
-  if (type === 'health_alert') {
-    const alertType = (data?.alertType as string) || '';
-    if (alertType.includes('glucose')) return '/logs/glucose';
-    if (alertType.includes('blood_pressure')) return '/logs/blood-pressure';
-    return '/checkin';
+  if (type === "health_alert") {
+    const alertType = (data?.alertType as string) || "";
+    if (alertType.includes("glucose")) return "/logs/glucose";
+    if (alertType.includes("blood_pressure")) return "/logs/blood-pressure";
+    return "/checkin";
   }
 
   // Reminders → trang ghi log tương ứng
-  if (type === 'reminder_morning_summary' || type === 'reminder_log_morning') {
+  if (type === "reminder_morning_summary" || type === "reminder_log_morning") {
     const firstMissing = data?.firstMissing as string;
-    if (firstMissing === 'glucose') return '/logs/glucose';
-    if (firstMissing === 'blood_pressure') return '/logs/blood-pressure';
-    if (firstMissing === 'medication') return '/logs/medication';
-    return '/checkin';
+    if (firstMissing === "glucose") return "/logs/glucose";
+    if (firstMissing === "blood_pressure") return "/logs/blood-pressure";
+    if (firstMissing === "medication") return "/logs/medication";
+    return "/checkin";
   }
-  if (type === 'reminder_afternoon') {
+  if (type === "reminder_afternoon") {
     const target = data?.target as string;
-    if (target === 'glucose') return '/logs/glucose';
-    if (target === 'blood_pressure') return '/logs/blood-pressure';
-    return '/(tabs)/home';
+    if (target === "glucose") return "/logs/glucose";
+    if (target === "blood_pressure") return "/logs/blood-pressure";
+    return "/(tabs)/home";
   }
-  if (type === 'reminder_evening_summary' || type === 'reminder_log_evening') {
+  if (type === "reminder_evening_summary" || type === "reminder_log_evening") {
     const firstMissing = data?.firstMissing as string;
-    if (firstMissing === 'medication') return '/logs/medication';
-    return '/(tabs)/home';
+    if (firstMissing === "medication") return "/logs/medication";
+    return "/(tabs)/home";
   }
-  if (type === 'reminder_glucose') return '/logs/glucose';
-  if (type === 'reminder_bp') return '/logs/blood-pressure';
-  if (type === 'reminder_medication' || type === 'reminder_medication_morning' || type === 'reminder_medication_evening') {
-    return '/logs/medication';
+  if (type === "reminder_glucose") return "/logs/glucose";
+  if (type === "reminder_bp") return "/logs/blood-pressure";
+  if (
+    type === "reminder_medication" ||
+    type === "reminder_medication_morning" ||
+    type === "reminder_medication_evening"
+  ) {
+    return "/logs/medication";
   }
 
   // Care circle (invitation, accepted, rejected, removed, permission_changed)
   if (
-    type === 'care_circle_invitation' ||
-    type === 'care_circle_accepted' ||
-    type === 'care_circle_rejected' ||
-    type === 'care_circle_removed' ||
-    type === 'care_circle_permission_changed'
+    type === "care_circle_invitation" ||
+    type === "care_circle_accepted" ||
+    type === "care_circle_rejected" ||
+    type === "care_circle_removed" ||
+    type === "care_circle_permission_changed"
   ) {
-    return '/care-circle';
+    return "/care-circle";
   }
 
   // Subscription / Premium lifecycle
   if (
-    type === 'subscription_activated' ||
-    type === 'subscription_expiring_soon' ||
-    type === 'subscription_expired'
+    type === "subscription_activated" ||
+    type === "subscription_expiring_soon" ||
+    type === "subscription_expired"
   ) {
-    return '/subscription';
+    return "/subscription";
   }
 
   // Payment / Wallet
   if (
-    type === 'payment_failed' ||
-    type === 'wallet_topup_success' ||
-    type === 'wallet_low_balance'
+    type === "payment_failed" ||
+    type === "wallet_topup_success" ||
+    type === "wallet_low_balance"
   ) {
-    return '/wallet';
+    return "/wallet";
   }
 
   // Engagement
-  if (type === 'weekly_wellness_summary') {
-    return '/(tabs)/home';
+  if (type === "weekly_wellness_summary") {
+    return "/(tabs)/home";
   }
-  if (type === 'profile_incomplete') {
-    return '/onboarding';
+  if (type === "profile_incomplete") {
+    return "/onboarding";
   }
-  if (type === 'health_feed') {
-    const contentId = (data?.contentId as string) || (data?.content_id as string);
+  if (type === "health_feed") {
+    const contentId =
+      (data?.contentId as string) || (data?.content_id as string);
     if (contentId) return `/feed/${contentId}`;
-    return '/feed';
+    return "/feed";
+  }
+  if (type === "doctor_message") {
+    const taskId = data?.task_id as string;
+    if (taskId)
+      return { pathname: "/doctor-consultation/[taskId]", params: { taskId } };
+    return "/doctor-consultation";
   }
 
   // Emergency / Caregiver → vào home, modal sẽ tự fetch và hiện
-  if (type === 'caregiver_alert' || type === 'emergency' || type === 'caregiver_confirmed') {
-    return '/(tabs)/home';
+  if (
+    type === "caregiver_alert" ||
+    type === "emergency" ||
+    type === "caregiver_confirmed"
+  ) {
+    return "/(tabs)/home";
   }
 
   // Milestones / streaks
-  if (type === 'streak_7' || type === 'streak_14' || type === 'streak_30' || type === 'weekly_recap' || type === 'milestone' || type === 'streak_start' || type === 'streak_milestone') {
-    return '/(tabs)/missions';
+  if (
+    type === "streak_7" ||
+    type === "streak_14" ||
+    type === "streak_30" ||
+    type === "weekly_recap" ||
+    type === "milestone" ||
+    type === "streak_start" ||
+    type === "streak_milestone"
+  ) {
+    return "/(tabs)/missions";
   }
 
   return null;
@@ -418,7 +461,6 @@ export async function getBadgeCount(): Promise<number> {
   try {
     return await Notifications.getBadgeCountAsync();
   } catch (error) {
-
     return 0;
   }
 }
@@ -429,9 +471,7 @@ export async function getBadgeCount(): Promise<number> {
 export async function setBadgeCount(count: number): Promise<void> {
   try {
     await Notifications.setBadgeCountAsync(count);
-  } catch (error) {
-
-  }
+  } catch (error) {}
 }
 
 /**
@@ -441,7 +481,5 @@ export async function clearAllNotifications(): Promise<void> {
   try {
     await Notifications.dismissAllNotificationsAsync();
     await Notifications.cancelAllScheduledNotificationsAsync();
-  } catch (error) {
-
-  }
+  } catch (error) {}
 }
