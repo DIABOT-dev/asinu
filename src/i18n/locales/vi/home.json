@@ -182,5 +182,6 @@
   "checkinSaved": "Đã hoàn tất check-in sức khỏe",
   "alreadyCheckedIn": "Hôm nay mình đã nắm tình hình của bạn rồi",
   "alreadyCheckedInSub": "Mình sẽ ghé hỏi thăm lại khi cần nhé",
-  "emergencyAlertError": "Không thể gửi cảnh báo. Vui lòng thử lại."
+  "emergencyAlertError": "Không thể gửi cảnh báo. Vui lòng thử lại.",
+  "doctorConsultationJoinVideo": "Tham gia phòng tư vấn video"
 }

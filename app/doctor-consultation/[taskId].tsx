@@ -11,6 +11,7 @@ import {
   StyleSheet,
   TextInput,
   View,
+  Linking,
 } from "react-native";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
@@ -209,6 +210,8 @@ export default function DoctorConsultationThreadScreen() {
           )}
           {messages.map((message) => {
             const fromPatient = message.sender_type === "patient";
+            const joinUrl =
+              message.content.match(/https:\/\/[^\s]+/)?.[0] ?? null;
             return (
               <View
                 key={message.id}
@@ -235,6 +238,24 @@ export default function DoctorConsultationThreadScreen() {
                 >
                   {message.content}
                 </Text>
+                {joinUrl ? (
+                  <Pressable
+                    accessibilityRole="link"
+                    onPress={() => void Linking.openURL(joinUrl)}
+                    style={[styles.videoLink, { borderColor: colors.primary }]}
+                  >
+                    <Ionicons
+                      name="videocam-outline"
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={[styles.videoLinkText, { color: colors.primary }]}
+                    >
+                      {t("doctorConsultationJoinVideo")}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             );
           })}
@@ -388,6 +409,18 @@ const styles = StyleSheet.create({
   doctorBubble: { alignSelf: "flex-start" },
   sender: { fontSize: 12, fontWeight: "700", marginBottom: spacing.xs },
   messageText: { fontSize: 15, lineHeight: 22 },
+  videoLink: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  videoLinkText: { fontSize: 14, fontWeight: "700" },
   composer: {
     alignItems: "flex-end",
     borderTopWidth: 1,
