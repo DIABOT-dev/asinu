@@ -14,7 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { ScaledText as Text } from "../src/components/ScaledText";
 import { useAuthStore } from "../src/features/auth/auth.store";
-import { apiClient } from "../src/lib/apiClient";
+import { ApiError, apiClient } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
@@ -130,8 +130,16 @@ export default function DoctorConsultationScreen() {
       } else {
         await loadTasks();
       }
-    } catch {
-      showToast(t("doctorConsultationError"), "error");
+    } catch (error) {
+      // Keep the friendly fallback, but surface the API's actual message so a
+      // rejected request is actionable instead of looking like a silent failure.
+      const message =
+        error instanceof ApiError && error.message.trim()
+          ? error.message
+          : error instanceof Error && error.message.trim()
+            ? error.message
+            : t("doctorConsultationError");
+      showToast(message, "error");
     } finally {
       setIsSubmitting(false);
     }
