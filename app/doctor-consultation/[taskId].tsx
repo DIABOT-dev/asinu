@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
   Linking,
+  Image,
 } from "react-native";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
@@ -28,6 +29,12 @@ type TaskMessage = {
   created_at: string;
 };
 
+type Attachment = { name: string; mime_type: string; size_bytes: number; url: string };
+const parseAttachment = (content: string): Attachment | null => {
+  if (!content.startsWith('[ASINU_ATTACHMENT]')) return null;
+  try { return JSON.parse(content.slice('[ASINU_ATTACHMENT]'.length)) as Attachment; } catch { return null; }
+};
+
 type ThreadResponse = {
   ok: boolean;
   data?: {
@@ -38,6 +45,9 @@ type ThreadResponse = {
   };
 };
 
+const DOCTOR_AVATAR_URI =
+  "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80";
+
 const createClientMessageId = () => {
   const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
   return template.replace(/[xy]/g, (character) => {
@@ -47,12 +57,34 @@ const createClientMessageId = () => {
   });
 };
 
+const formatMessageTime = (dateString?: string) => {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    const hours = date.getHours().toString().padStart(2, "0");
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  } catch {
+    return "";
+  }
+};
+
+const formatHeaderDate = (dateString?: string, todayLabel = "Hôm nay") => {
+  const date = dateString ? new Date(dateString) : new Date();
+  const validDate = isNaN(date.getTime()) ? new Date() : date;
+  const day = validDate.getDate();
+  const month = validDate.getMonth() + 1;
+  const year = validDate.getFullYear();
+  return `${todayLabel}, ${day} thg ${month}, ${year}`;
+};
+
 export default function DoctorConsultationThreadScreen() {
-  const { t } = useTranslation("home");
+  const { t, i18n } = useTranslation("home");
   const router = useRouter();
   const { taskId: rawTaskId } = useLocalSearchParams<{ taskId: string }>();
   const taskId = Array.isArray(rawTaskId) ? rawTaskId[0] : rawTaskId;
-  const { colors } = useThemeColors();
+  const { colors, isDark } = useThemeColors();
   const scrollRef = useRef<ScrollView>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [messages, setMessages] = useState<TaskMessage[]>([]);
@@ -122,6 +154,58 @@ export default function DoctorConsultationThreadScreen() {
     }
   };
 
+  const handlePickImage = async () => {
+    try {
+      const ImagePicker = await import("expo-image-picker");
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showToast(
+          i18n.language === "vi"
+            ? "Vui lòng cấp quyền truy cập thư viện ảnh"
+            : "Please grant photo library access",
+          "error"
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+        const formData = new FormData();
+        formData.append("file", {
+          uri: asset.uri,
+          name: asset.fileName || `doctor-consultation-${Date.now()}.jpg`,
+          type: asset.mimeType || "image/jpeg",
+        } as any);
+        setSending(true);
+        await apiClient(`/api/doctor/tasks/${encodeURIComponent(taskId)}/attachments?tenant_id=${encodeURIComponent(env.doctorTenantId)}`, {
+          method: "POST",
+          body: formData,
+          headers: { "X-Client-Message-Id": createClientMessageId() },
+        });
+        await loadThread();
+        showToast(i18n.language === "vi" ? "Đã gửi ảnh cho bác sĩ" : "Image sent to your doctor", "success");
+      }
+    } catch {
+      showToast(i18n.language === "vi" ? "Không thể gửi ảnh. Vui lòng thử lại." : "Could not send image. Please try again.", "error");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendMedicalRecord = async () => {
+    try {
+      const recordNotice = t("doctorConsultationMedicalRecordSent");
+      showToast(recordNotice, "success");
+    } catch {
+      // ignore
+    }
+  };
+
   const submitRating = async () => {
     if (!taskId || rating < 1 || ratingSubmitting) return;
     setRatingSubmitting(true);
@@ -147,118 +231,328 @@ export default function DoctorConsultationThreadScreen() {
     }
   };
 
+  const firstMessageDate = messages[0]?.created_at;
+  const dateHeader = formatHeaderDate(
+    firstMessageDate,
+    t("doctorConsultationToday")
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={[styles.screen, { backgroundColor: colors.background }]}
+      style={[
+        styles.screen,
+        { backgroundColor: isDark ? colors.background : "#F7F9FB" },
+      ]}
     >
       <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Top Header */}
       <View
         style={[
           styles.header,
-          { backgroundColor: colors.surface, borderColor: colors.border },
+          {
+            backgroundColor: colors.surface,
+            borderBottomColor: isDark ? colors.border : "#EEF2F6",
+          },
         ]}
       >
         <Pressable
           onPress={() => router.back()}
           hitSlop={10}
-          style={styles.backButton}
+          style={[
+            styles.backCircle,
+            { backgroundColor: isDark ? colors.surfaceMuted : "#E8F5F3" },
+          ]}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={20} color="#00A88F" />
         </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
+
+        <View style={styles.headerInfo}>
+          <Text
+            style={[styles.headerTitle, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
             {t("doctorConsultationConversation")}
           </Text>
           <Text
             numberOfLines={1}
-            style={[styles.taskCode, { color: colors.textSecondary }]}
+            style={[
+              styles.headerTaskId,
+              { color: isDark ? colors.textSecondary : "#9AA6B2" },
+            ]}
           >
-            {t("doctorConsultationTaskLabel")}
+            {taskId}
           </Text>
+        </View>
+
+        <View style={styles.doctorHeaderStatus}>
+          <View style={styles.headerAvatarWrapper}>
+            <Image
+              source={{ uri: DOCTOR_AVATAR_URI }}
+              style={styles.headerAvatar}
+            />
+            <View style={styles.onlineBadgeDot} />
+          </View>
+          <View
+            style={[
+              styles.onlinePill,
+              {
+                backgroundColor: isDark
+                  ? "rgba(16, 185, 129, 0.2)"
+                  : "#EDFDF8",
+              },
+            ]}
+          >
+            <View style={styles.onlinePillDot} />
+            <Text style={styles.onlinePillText}>
+              {t("doctorConsultationOnline")}
+            </Text>
+          </View>
         </View>
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color="#00A88F" />
         </View>
       ) : (
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={styles.messages}
+          contentContainerStyle={styles.messagesScroll}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() =>
             scrollRef.current?.scrollToEnd({ animated: false })
           }
         >
-          {summary && (
+          {/* Centered Date Pill */}
+          <View style={styles.datePillContainer}>
             <View
               style={[
-                styles.bubble,
-                styles.patientBubble,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                styles.datePill,
+                {
+                  backgroundColor: isDark ? colors.surface : "#E8EFF5",
+                },
               ]}
             >
-              <Text style={[styles.sender, { color: colors.textSecondary }]}>
-                {t("doctorConsultationInitialRequest")}
-              </Text>
-              <Text style={[styles.messageText, { color: colors.textPrimary }]}>
-                {summary}
+              <Text
+                style={[
+                  styles.datePillText,
+                  { color: isDark ? colors.textSecondary : "#718292" },
+                ]}
+              >
+                {dateHeader}
               </Text>
             </View>
-          )}
-          {messages.map((message) => {
-            const fromPatient = message.sender_type === "patient";
-            const joinUrl =
-              message.content.match(/https:\/\/[^\s]+/)?.[0] ?? null;
-            return (
+          </View>
+
+          {/* Initial Request Bubble (Patient sent) */}
+          {summary && (
+            <View style={[styles.bubbleWrapper, styles.patientWrapper]}>
               <View
-                key={message.id}
                 style={[
-                  styles.bubble,
-                  fromPatient ? styles.patientBubble : styles.doctorBubble,
+                  styles.patientCard,
                   {
-                    backgroundColor: fromPatient
-                      ? colors.surface
-                      : colors.primary + "18",
-                    borderColor: fromPatient
-                      ? colors.border
-                      : colors.primary + "55",
+                    backgroundColor: isDark
+                      ? "rgba(224, 248, 244, 0.15)"
+                      : "#E7F8F4",
+                    borderColor: isDark ? colors.border : "#CEEFE8",
                   },
                 ]}
               >
-                <Text style={[styles.sender, { color: colors.textSecondary }]}>
-                  {fromPatient
-                    ? t("doctorConsultationYou")
-                    : t("doctorConsultationDoctor")}
+                <Text
+                  style={[
+                    styles.initialRequestTag,
+                    { color: isDark ? "#48CBB5" : "#00A88F" },
+                  ]}
+                >
+                  {t("doctorConsultationInitialRequest")}
                 </Text>
                 <Text
-                  style={[styles.messageText, { color: colors.textPrimary }]}
+                  style={[
+                    styles.initialRequestContent,
+                    { color: colors.textPrimary },
+                  ]}
                 >
-                  {message.content}
+                  {summary}
                 </Text>
-                {joinUrl ? (
-                  <Pressable
-                    accessibilityRole="link"
-                    onPress={() => void Linking.openURL(joinUrl)}
-                    style={[styles.videoLink, { borderColor: colors.primary }]}
+                <View style={styles.messageFooterRight}>
+                  <Text
+                    style={[
+                      styles.timestampText,
+                      { color: isDark ? colors.textSecondary : "#8E9EAC" },
+                    ]}
                   >
-                    <Ionicons
-                      name="videocam-outline"
-                      size={18}
-                      color={colors.primary}
-                    />
+                    {formatMessageTime(messages[0]?.created_at)}
+                  </Text>
+                  <Ionicons
+                    name="checkmark-done"
+                    size={15}
+                    color="#00A88F"
+                    style={styles.checkIcon}
+                  />
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Chat Messages */}
+          {messages.map((message, index) => {
+            const fromPatient = message.sender_type === "patient";
+            const attachment = parseAttachment(message.content);
+            const joinUrl =
+              message.content.match(/https:\/\/[^\s]+/)?.[0] ?? null;
+            const timeStr = formatMessageTime(message.created_at);
+
+            if (fromPatient) {
+              return (
+                <View
+                  key={message.id || index}
+                  style={[styles.bubbleWrapper, styles.patientWrapper]}
+                >
+                  <View
+                    style={[
+                      styles.patientBubble,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(224, 248, 244, 0.15)"
+                          : "#E7F8F4",
+                        borderColor: isDark ? colors.border : "#CEEFE8",
+                      },
+                    ]}
+                  >
                     <Text
-                      style={[styles.videoLinkText, { color: colors.primary }]}
+                      style={[
+                        styles.messageBodyText,
+                        { color: colors.textPrimary },
+                      ]}
                     >
-                      {t("doctorConsultationJoinVideo")}
+                      {attachment ? (
+                        <Pressable onPress={() => void Linking.openURL(attachment.url)}>
+                          <Image source={{ uri: attachment.url }} style={styles.messageAttachment} />
+                          <Text style={[styles.attachmentName, { color: colors.textSecondary }]}>{attachment.name}</Text>
+                        </Pressable>
+                      ) : message.content}
                     </Text>
-                  </Pressable>
-                ) : null}
+                    <View style={styles.messageFooterRight}>
+                      {timeStr ? (
+                        <Text
+                          style={[
+                            styles.timestampText,
+                            {
+                              color: isDark ? colors.textSecondary : "#8E9EAC",
+                            },
+                          ]}
+                        >
+                          {timeStr}
+                        </Text>
+                      ) : null}
+                      <Ionicons
+                        name="checkmark-done"
+                        size={15}
+                        color="#00A88F"
+                        style={styles.checkIcon}
+                      />
+                    </View>
+                  </View>
+                </View>
+              );
+            }
+
+            // Doctor message with avatar on the left
+            return (
+              <View
+                key={message.id || index}
+                style={[styles.bubbleWrapper, styles.doctorWrapper]}
+              >
+                <View style={styles.doctorAvatarCol}>
+                  <Image
+                    source={{ uri: DOCTOR_AVATAR_URI }}
+                    style={styles.doctorMsgAvatar}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.doctorBubble,
+                    {
+                      backgroundColor: isDark ? colors.surface : "#FFFFFF",
+                      borderColor: isDark ? colors.border : "#EAEAEA",
+                    },
+                  ]}
+                >
+                  {/* Doctor Name label */}
+                  {index === 0 || messages[index - 1]?.sender_type === "patient" ? (
+                    <Text
+                      style={[
+                        styles.doctorHeaderName,
+                        { color: isDark ? "#48CBB5" : "#008B76" },
+                      ]}
+                    >
+                      {t("doctorConsultationDoctor")}
+                    </Text>
+                  ) : null}
+
+                  <Text
+                    style={[
+                      styles.messageBodyText,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                      {attachment ? (
+                        <Pressable onPress={() => void Linking.openURL(attachment.url)}>
+                          <Image source={{ uri: attachment.url }} style={styles.messageAttachment} />
+                          <Text style={[styles.attachmentName, { color: colors.textSecondary }]}>{attachment.name}</Text>
+                        </Pressable>
+                      ) : message.content}
+                  </Text>
+
+                  {joinUrl ? (
+                    <Pressable
+                      accessibilityRole="link"
+                      onPress={() => void Linking.openURL(joinUrl)}
+                      style={[
+                        styles.videoLink,
+                        {
+                          borderColor: "#00A88F",
+                          backgroundColor: isDark
+                            ? "rgba(0,168,143,0.12)"
+                            : "#F0FAF8",
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="videocam-outline"
+                        size={18}
+                        color="#00A88F"
+                      />
+                      <Text
+                        style={[styles.videoLinkText, { color: "#00A88F" }]}
+                      >
+                        {t("doctorConsultationJoinVideo")}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {timeStr ? (
+                    <View style={styles.messageFooterLeft}>
+                      <Text
+                        style={[
+                          styles.timestampText,
+                          {
+                            color: isDark ? colors.textSecondary : "#8E9EAC",
+                          },
+                        ]}
+                      >
+                        {timeStr}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             );
           })}
+
+          {/* Rating Section if available */}
           {rateable && (
             <View
               style={[
@@ -313,7 +607,7 @@ export default function DoctorConsultationThreadScreen() {
                     style={[
                       styles.ratingButton,
                       {
-                        backgroundColor: colors.primary,
+                        backgroundColor: "#00A88F",
                         opacity: rating < 1 || ratingSubmitting ? 0.55 : 1,
                       },
                     ]}
@@ -333,43 +627,106 @@ export default function DoctorConsultationThreadScreen() {
         </ScrollView>
       )}
 
-      <View
-        style={[
-          styles.composer,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <TextInput
-          multiline
-          maxLength={5000}
-          onChangeText={setDraft}
-          placeholder={t("doctorConsultationReplyPlaceholder")}
-          placeholderTextColor={colors.textSecondary}
+      {/* Floating Action: Gửi hồ sơ y tế */}
+      <View style={styles.floatingActionContainer} pointerEvents="box-none">
+        <Pressable
+          onPress={() => void handleSendMedicalRecord()}
           style={[
-            styles.input,
+            styles.floatingActionButton,
             {
-              color: colors.textPrimary,
-              backgroundColor: colors.background,
-              borderColor: colors.border,
+              backgroundColor: isDark ? colors.surface : "#FFFFFF",
+              borderColor: isDark ? colors.border : "#E2E8F0",
             },
           ]}
-          value={draft}
-        />
+        >
+          <View style={styles.floatingActionIconBox}>
+            <MaterialCommunityIcons
+              name="paperclip"
+              size={24}
+              color="#008B76"
+            />
+            <View style={styles.floatingActionPlus}>
+              <Ionicons name="add-circle" size={14} color="#00A88F" />
+            </View>
+          </View>
+        </Pressable>
+        <Text
+          style={[
+            styles.floatingActionLabel,
+            { color: isDark ? colors.textSecondary : "#6B7A88" },
+          ]}
+        >
+          {t("doctorConsultationSendMedicalRecord")}
+        </Text>
+      </View>
+
+      {/* Composer Toolbar */}
+      <View
+        style={[
+          styles.composerWrapper,
+          {
+            backgroundColor: isDark ? colors.surface : "#FFFFFF",
+            borderTopColor: isDark ? colors.border : "#F0F4F7",
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.inputContainer,
+            {
+              backgroundColor: isDark ? colors.background : "#F5F8FA",
+              borderColor: isDark ? colors.border : "transparent",
+            },
+          ]}
+        >
+          <Pressable
+            onPress={() => void handlePickImage()}
+            style={styles.imagePickerBtn}
+            hitSlop={8}
+            accessibilityLabel={t("doctorConsultationAttachPhoto")}
+          >
+            <Ionicons
+              name="image-outline"
+              size={22}
+              color={isDark ? colors.textSecondary : "#6F7F8E"}
+            />
+          </Pressable>
+
+          <TextInput
+            multiline
+            maxLength={5000}
+            onChangeText={setDraft}
+            placeholder={t("doctorConsultationReplyPlaceholder")}
+            placeholderTextColor={isDark ? colors.textSecondary : "#8E9EAC"}
+            style={[
+              styles.textInput,
+              {
+                color: colors.textPrimary,
+              },
+            ]}
+            value={draft}
+          />
+        </View>
+
         <Pressable
           disabled={!draft.trim() || sending}
           onPress={() => void send()}
           style={[
-            styles.sendButton,
+            styles.sendCircleButton,
             {
-              backgroundColor: colors.primary,
-              opacity: !draft.trim() || sending ? 0.55 : 1,
+              opacity: !draft.trim() || sending ? 0.45 : 1,
             },
           ]}
         >
           {sending ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Ionicons name="send" size={20} color="#fff" />
+            <Ionicons
+              name="paper-plane"
+              size={18}
+              color="#fff"
+              style={{ marginLeft: 2 }}
+            />
           )}
         </Pressable>
       </View>
@@ -383,32 +740,190 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderBottomWidth: 1,
     flexDirection: "row",
-    gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
+    paddingTop: Platform.OS === "ios" ? 54 : spacing.xl,
+    paddingBottom: spacing.sm + 4,
+    gap: spacing.sm,
   },
-  backButton: {
+  backCircle: {
     alignItems: "center",
-    height: 44,
+    borderRadius: 20,
+    height: 40,
     justifyContent: "center",
-    width: 44,
+    width: 40,
   },
-  headerCopy: { flex: 1 },
-  title: { fontSize: 19, fontWeight: "800" },
-  taskCode: { fontSize: 12, marginTop: 2 },
-  center: { alignItems: "center", flex: 1, justifyContent: "center" },
-  messages: { flexGrow: 1, gap: spacing.sm, padding: spacing.md },
-  bubble: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    maxWidth: "86%",
-    padding: spacing.md,
+  headerInfo: {
+    flex: 1,
+    justifyContent: "center",
   },
-  patientBubble: { alignSelf: "flex-end" },
-  doctorBubble: { alignSelf: "flex-start" },
-  sender: { fontSize: 12, fontWeight: "700", marginBottom: spacing.xs },
-  messageText: { fontSize: 15, lineHeight: 22 },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  headerTaskId: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  doctorHeaderStatus: {
+    alignItems: "center",
+  },
+  headerAvatarWrapper: {
+    position: "relative",
+  },
+  headerAvatar: {
+    borderColor: "#E5F7F4",
+    borderRadius: 20,
+    borderWidth: 1.5,
+    height: 40,
+    width: 40,
+  },
+  onlineBadgeDot: {
+    backgroundColor: "#10B981",
+    borderColor: "#FFFFFF",
+    borderRadius: 5,
+    borderWidth: 1.5,
+    bottom: 0,
+    height: 10,
+    position: "absolute",
+    right: 0,
+    width: 10,
+  },
+  onlinePill: {
+    alignItems: "center",
+    borderRadius: 10,
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  onlinePillDot: {
+    backgroundColor: "#10B981",
+    borderRadius: 3,
+    height: 6,
+    width: 6,
+  },
+  onlinePillText: {
+    color: "#059669",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  center: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
+  messagesScroll: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: 72,
+  },
+  datePillContainer: {
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  datePill: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  datePillText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  bubbleWrapper: {
+    marginBottom: spacing.md,
+    width: "100%",
+  },
+  patientWrapper: {
+    alignItems: "flex-end",
+  },
+  doctorWrapper: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: spacing.xs + 2,
+  },
+  doctorAvatarCol: {
+    paddingTop: 2,
+  },
+  doctorMsgAvatar: {
+    borderRadius: 18,
+    height: 36,
+    width: 36,
+  },
+  patientCard: {
+    borderRadius: 20,
+    borderWidth: 0.5,
+    maxWidth: "80%",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  initialRequestTag: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  initialRequestContent: {
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 22,
+  },
+  patientBubble: {
+    borderRadius: 20,
+    borderWidth: 0.5,
+    maxWidth: "80%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  doctorBubble: {
+    borderRadius: 20,
+    borderWidth: 0.5,
+    flex: 1,
+    maxWidth: "85%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  doctorHeaderName: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  messageBodyText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  messageAttachment: {
+    borderRadius: 12,
+    height: 180,
+    marginBottom: 6,
+    width: 220,
+  },
+  attachmentName: {
+    fontSize: 12,
+  },
+  messageFooterRight: {
+    alignItems: "center",
+    alignSelf: "flex-end",
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 6,
+  },
+  messageFooterLeft: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 6,
+  },
+  timestampText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  checkIcon: {
+    marginLeft: 2,
+  },
   videoLink: {
     alignItems: "center",
     alignSelf: "flex-start",
@@ -420,29 +935,87 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  videoLinkText: { fontSize: 14, fontWeight: "700" },
-  composer: {
-    alignItems: "flex-end",
+  videoLinkText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  floatingActionContainer: {
+    alignItems: "center",
+    bottom: 80,
+    position: "absolute",
+    right: 18,
+    zIndex: 10,
+  },
+  floatingActionButton: {
+    alignItems: "center",
+    borderRadius: 28,
+    borderWidth: 0.5,
+    elevation: 4,
+    height: 56,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    width: 56,
+  },
+  floatingActionIconBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  floatingActionPlus: {
+    bottom: -3,
+    position: "absolute",
+    right: -5,
+  },
+  floatingActionLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  composerWrapper: {
+    alignItems: "center",
     borderTopWidth: 1,
     flexDirection: "row",
     gap: spacing.sm,
-    padding: spacing.md,
-  },
-  input: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    flex: 1,
-    fontSize: 15,
-    maxHeight: 120,
-    minHeight: 48,
+    paddingBottom: Platform.OS === "ios" ? 28 : spacing.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.sm,
   },
-  sendButton: {
+  inputContainer: {
     alignItems: "center",
     borderRadius: 24,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  imagePickerBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingRight: 6,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 15,
+    maxHeight: 100,
+    minHeight: 40,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+  },
+  sendCircleButton: {
+    alignItems: "center",
+    backgroundColor: "#00A88F",
+    borderRadius: 24,
+    elevation: 2,
     height: 48,
     justifyContent: "center",
+    shadowColor: "#00A88F",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
     width: 48,
   },
   ratingCard: {

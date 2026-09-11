@@ -53,6 +53,9 @@ type DoctorRecommendationResponse = {
 type DoctorSpecialty = { code: string; name: string };
 type DoctorSpecialtyResponse = { ok: boolean; data?: { items: DoctorSpecialty[] } };
 
+const isAttachmentMessage = (content?: string | null) =>
+  typeof content === "string" && content.startsWith("[ASINU_ATTACHMENT]");
+
 const specialtyLabels: Record<string, string> = {
   general: "Đa khoa",
   general_practice: "Đa khoa",
@@ -439,7 +442,9 @@ export default function DoctorConsultationScreen() {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  {task.latest_message || t("doctorConsultationWaiting")}
+                  {isAttachmentMessage(task.latest_message)
+                    ? t("doctorConsultationAttachPhoto")
+                    : task.latest_message || t("doctorConsultationWaiting")}
                 </Text>
               </Pressable>
             ))}
