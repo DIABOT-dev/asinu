@@ -85,7 +85,7 @@ export default function DoctorConsultationScreen() {
         method: "POST",
         body: {
           tenant_id: env.doctorTenantId,
-          specialty: "general-practice",
+          specialty: "internal_medicine",
           service_flow: "clinical",
           priority: "normal",
           limit: 3,
@@ -109,7 +109,7 @@ export default function DoctorConsultationScreen() {
           method: "POST",
           body: {
             tenant_id: env.doctorTenantId,
-            specialty: "general-practice",
+            specialty: "internal_medicine",
             service_flow: "clinical",
             priority: "normal",
             source_channel: "asinu-mobile",
