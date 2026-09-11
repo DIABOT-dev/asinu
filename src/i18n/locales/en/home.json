@@ -122,6 +122,7 @@
   "doctorConsultationThreads": "Your consultations",
   "doctorConsultationWaiting": "Waiting for a doctor to respond",
   "doctorConsultationConversation": "Doctor conversation",
+  "doctorConsultationTaskLabel": "Your consultation request",
   "doctorConsultationInitialRequest": "Initial request",
   "doctorConsultationYou": "You",
   "doctorConsultationDoctor": "Doctor",

@@ -174,7 +174,7 @@ export default function DoctorConsultationThreadScreen() {
             numberOfLines={1}
             style={[styles.taskCode, { color: colors.textSecondary }]}
           >
-            {taskId}
+            {t("doctorConsultationTaskLabel")}
           </Text>
         </View>
       </View>
