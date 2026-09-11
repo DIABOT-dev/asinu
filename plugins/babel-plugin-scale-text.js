@@ -29,9 +29,12 @@ module.exports = function ({ types: t }) {
         const filename = state.filename || '';
 
         // Chỉ áp dụng cho files trong thư mục app/
-        const isInApp =
-          filename.includes('/app/') ||
-          filename.includes(path.sep + 'app' + path.sep);
+        // Resolve against the project root first. Checking the absolute path
+        // for `/app/` also matches this repository's root directory
+        // (`.../APP/app/asinu/...`) and incorrectly transforms files in
+        // `src/`, including ScaledText itself, into a self-import cycle.
+        const relativeFilename = path.relative(PROJECT_ROOT, filename).replace(/\\/g, '/');
+        const isInApp = relativeFilename === 'app' || relativeFilename.startsWith('app/');
         if (!isInApp) return;
 
         // Chỉ xử lý import từ 'react-native'
