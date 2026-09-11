@@ -383,8 +383,87 @@ export default function DoctorConsultationScreen() {
             </Text>
           </View>
 
-          {/* Section 2: Chuyên khoa muốn được hỗ trợ */}
-          <View style={[styles.sectionHeaderRow, { marginTop: spacing.md }]}>
+          {/* Section 2: Phòng khám */}
+          {clinics.length > 0 && (
+            <View style={[styles.clinicSection, { marginTop: spacing.md }]}>
+              <View style={styles.sectionHeaderRow}>
+                <View
+                  style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
+                >
+                  <Ionicons name="business" size={20} color="#00A88F" />
+                </View>
+                <View style={styles.sectionHeaderTextCol}>
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                    {t("doctorConsultationClinicLabel")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sectionHint,
+                      { color: isDark ? colors.textSecondary : "#64748B" },
+                    ]}
+                  >
+                    {t("doctorConsultationClinicHint")}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.clinicsList}>
+                {clinics.map((clinic) => {
+                  const selected = clinic.tenant_id === selectedTenantId;
+                  return (
+                    <Pressable
+                      key={clinic.tenant_id}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      onPress={() => setSelectedTenantId(clinic.tenant_id)}
+                      style={[
+                        styles.clinicPill,
+                        {
+                          backgroundColor: selected
+                            ? isDark
+                              ? "rgba(0,168,143,0.15)"
+                              : "#F0FBF9"
+                            : isDark
+                            ? colors.background
+                            : "#FFFFFF",
+                          borderColor: selected
+                            ? "#00A88F"
+                            : isDark
+                            ? colors.border
+                            : "#E2E8F0",
+                        },
+                      ]}
+                    >
+                      <View style={styles.clinicPillLeft}>
+                        <Ionicons
+                          name="business-outline"
+                          size={19}
+                          color={selected ? "#00A88F" : "#64748B"}
+                        />
+                        <Text
+                          style={[
+                            styles.clinicPillName,
+                            { color: selected ? "#00A88F" : colors.textPrimary },
+                          ]}
+                        >
+                          {clinic.name}
+                        </Text>
+                      </View>
+                      {selected && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={22}
+                          color="#00A88F"
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Section 3: Chuyên khoa muốn được hỗ trợ */}
+          <View style={[styles.sectionHeaderRow, { marginTop: spacing.md }]}> 
             <View style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}>
               <Ionicons name="pulse" size={20} color="#00A88F" />
             </View>
@@ -930,6 +1009,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     marginTop: 4,
+  },
+  clinicSection: {
+    gap: spacing.xs,
+  },
+  clinicsList: {
+    gap: spacing.sm,
+    marginTop: 4,
+  },
+  clinicPill: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 56,
+    paddingHorizontal: spacing.md,
+  },
+  clinicPillLeft: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  clinicPillName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "700",
   },
   specialtiesList: {
     gap: spacing.sm,
