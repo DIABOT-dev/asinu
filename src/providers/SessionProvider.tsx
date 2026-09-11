@@ -138,7 +138,8 @@ export const SessionProvider = ({ children }: Props) => {
         type === 'payment_failed' ||
         type === 'wallet_low_balance' ||
         type === 'caregiver_confirmed' ||
-        type === 'health_alert'
+        type === 'health_alert' ||
+        type === 'doctor_message'
       ) {
         const toastType: 'success' | 'info' | 'error' =
           type === 'payment_failed' || type === 'health_alert' ? 'error'
