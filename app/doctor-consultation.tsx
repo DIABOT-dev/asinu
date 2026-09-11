@@ -160,7 +160,7 @@ export default function DoctorConsultationScreen() {
         <View
           style={[
             styles.hero,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surface },
           ]}
         >
           <View
@@ -178,7 +178,7 @@ export default function DoctorConsultationScreen() {
         <View
           style={[
             styles.formCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surface },
           ]}
         >
           <Text style={[styles.label, { color: colors.textPrimary }]}>
@@ -220,7 +220,6 @@ export default function DoctorConsultationScreen() {
                         backgroundColor: selected
                           ? colors.primary + "14"
                           : colors.background,
-                        borderColor: selected ? colors.primary : colors.border,
                       },
                     ]}
                   >
@@ -300,7 +299,7 @@ export default function DoctorConsultationScreen() {
           <View
             style={[
               styles.formCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.surface },
             ]}
           >
             <Text style={[styles.label, { color: colors.textPrimary }]}>
@@ -318,7 +317,6 @@ export default function DoctorConsultationScreen() {
                 style={[
                   styles.threadCard,
                   {
-                    borderColor: colors.border,
                     backgroundColor: colors.background,
                   },
                 ]}
@@ -359,7 +357,6 @@ const styles = StyleSheet.create({
   backText: { fontSize: 15, fontWeight: "600" },
   hero: {
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.lg,
     gap: spacing.sm,
   },
@@ -374,7 +371,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, lineHeight: 23 },
   formCard: {
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -402,7 +398,6 @@ const styles = StyleSheet.create({
   submitText: { color: "#fff", fontSize: 16, fontWeight: "800" },
   threadCard: {
     borderRadius: radius.md,
-    borderWidth: 1,
     gap: spacing.xs,
     padding: spacing.md,
   },
@@ -412,7 +407,6 @@ const styles = StyleSheet.create({
   doctorCard: {
     alignItems: "center",
     borderRadius: radius.md,
-    borderWidth: 1,
     flexDirection: "row",
     gap: spacing.sm,
     padding: spacing.md,
