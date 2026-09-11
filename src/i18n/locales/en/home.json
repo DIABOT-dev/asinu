@@ -111,6 +111,8 @@
   "doctorConsultationSubtitle": "Send a consultation request to your clinic.",
   "doctorConsultationSummaryLabel": "How can the doctor help you?",
   "doctorConsultationSummaryPlaceholder": "Briefly describe your symptoms or concern...",
+  "doctorConsultationSpecialtyLabel": "Specialty for this request",
+  "doctorConsultationSpecialtyHint": "Options come from specialties currently published by your clinic.",
   "doctorConsultationConsent": "I agree to share the health information needed for this consultation request.",
   "doctorConsultationSubmit": "Send consultation request",
   "doctorConsultationSubmitting": "Sending request...",

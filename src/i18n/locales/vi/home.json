@@ -111,6 +111,8 @@
   "doctorConsultationSubtitle": "Gửi yêu cầu tư vấn đến phòng khám của bạn.",
   "doctorConsultationSummaryLabel": "Bạn muốn bác sĩ hỗ trợ điều gì?",
   "doctorConsultationSummaryPlaceholder": "Mô tả ngắn triệu chứng hoặc vấn đề bạn đang gặp...",
+  "doctorConsultationSpecialtyLabel": "Chuyên khoa muốn được hỗ trợ",
+  "doctorConsultationSpecialtyHint": "Danh sách được lấy từ các chuyên khoa đang được phòng khám công bố.",
   "doctorConsultationConsent": "Tôi đồng ý chia sẻ thông tin sức khỏe cần thiết cho yêu cầu tư vấn này.",
   "doctorConsultationSubmit": "Gửi yêu cầu tư vấn",
   "doctorConsultationSubmitting": "Đang gửi yêu cầu...",

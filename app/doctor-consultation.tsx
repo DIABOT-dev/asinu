@@ -47,6 +47,20 @@ type DoctorRecommendationResponse = {
   ok: boolean;
   data?: { items: DoctorRecommendation[]; estimatedWaitMinutes: number | null };
 };
+type DoctorSpecialty = { code: string; name: string };
+type DoctorSpecialtyResponse = { ok: boolean; data?: { items: DoctorSpecialty[] } };
+
+const specialtyLabels: Record<string, string> = {
+  general: "Đa khoa",
+  general_practice: "Đa khoa",
+  internal_medicine: "Nội khoa",
+  cardiology: "Tim mạch",
+  endocrinology: "Nội tiết và đái tháo đường",
+  dermatology: "Da liễu",
+  pediatrics: "Nhi khoa",
+  nutrition: "Dinh dưỡng",
+  psychology: "Tâm lý",
+};
 
 export default function DoctorConsultationScreen() {
   const { t } = useTranslation("home");
@@ -65,6 +79,8 @@ export default function DoctorConsultationScreen() {
   const [preferredDoctorId, setPreferredDoctorId] = useState<string | null>(
     null
   );
+  const [specialties, setSpecialties] = useState<DoctorSpecialty[]>([]);
+  const [selectedSpecialty, setSelectedSpecialty] = useState("");
 
   const loadTasks = async () => {
     try {
@@ -79,25 +95,40 @@ export default function DoctorConsultationScreen() {
 
   useEffect(() => {
     void loadTasks();
-    void apiClient<DoctorRecommendationResponse>(
-      "/api/doctor/recommendations",
-      {
-        method: "POST",
-        body: {
-          tenant_id: env.doctorTenantId,
-          specialty: "internal_medicine",
-          service_flow: "clinical",
-          priority: "normal",
-          limit: 3,
-        },
-      }
-    )
-      .then((response) => setRecommendations(response.data?.items ?? []))
-      .catch(() => setRecommendations([]));
+    void apiClient<DoctorSpecialtyResponse>("/api/doctor/specialties", {
+      method: "POST",
+      body: { tenant_id: env.doctorTenantId },
+    })
+      .then((response) => {
+        const items = response.data?.items ?? [];
+        setSpecialties(items);
+        setSelectedSpecialty((current) => current || items[0]?.code || "");
+      })
+      .catch(() => {
+        setSpecialties([]);
+        setRecommendations([]);
+      });
   }, []);
 
+  useEffect(() => {
+    if (!selectedSpecialty) return;
+    setPreferredDoctorId(null);
+    void apiClient<DoctorRecommendationResponse>("/api/doctor/recommendations", {
+      method: "POST",
+      body: {
+        tenant_id: env.doctorTenantId,
+        specialty: selectedSpecialty,
+        service_flow: "clinical",
+        priority: "normal",
+        limit: 3,
+      },
+    })
+      .then((response) => setRecommendations(response.data?.items ?? []))
+      .catch(() => setRecommendations([]));
+  }, [selectedSpecialty]);
+
   const submit = async () => {
-    if (!summary.trim() || !consentAccepted || isSubmitting) {
+    if (!summary.trim() || !consentAccepted || !selectedSpecialty || isSubmitting) {
       showToast(t("doctorConsultationRequired"), "error");
       return;
     }
@@ -109,7 +140,7 @@ export default function DoctorConsultationScreen() {
           method: "POST",
           body: {
             tenant_id: env.doctorTenantId,
-            specialty: "internal_medicine",
+            specialty: selectedSpecialty,
             service_flow: "clinical",
             priority: "normal",
             source_channel: "asinu-mobile",
@@ -209,6 +240,39 @@ export default function DoctorConsultationScreen() {
             textAlignVertical="top"
             value={summary}
           />
+          <View style={styles.specialtySection}>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>
+              {t("doctorConsultationSpecialtyLabel")}
+            </Text>
+            <Text style={[styles.specialtyHint, { color: colors.textSecondary }]}>
+              {t("doctorConsultationSpecialtyHint")}
+            </Text>
+            <View style={styles.specialtyOptions}>
+              {specialties.map((specialty) => {
+                const selected = specialty.code === selectedSpecialty;
+                return (
+                  <Pressable
+                    key={specialty.code}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    onPress={() => setSelectedSpecialty(specialty.code)}
+                    style={[
+                      styles.specialtyOption,
+                      {
+                        backgroundColor: selected ? colors.primary + "14" : colors.background,
+                        borderColor: selected ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.specialtyName, { color: selected ? colors.primary : colors.textPrimary }]}>
+                      {specialtyLabels[specialty.code] || specialty.name}
+                    </Text>
+                    {selected && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
           {recommendations.length > 0 && (
             <View style={styles.recommendationList}>
               <Text style={[styles.label, { color: colors.textPrimary }]}>
@@ -383,6 +447,19 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   label: { fontSize: 16, fontWeight: "700" },
+  specialtySection: { gap: spacing.xs },
+  specialtyHint: { fontSize: 13, lineHeight: 19 },
+  specialtyOptions: { gap: spacing.sm, marginTop: spacing.xs },
+  specialtyOption: {
+    alignItems: "center",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+  },
+  specialtyName: { fontSize: 15, fontWeight: "700" },
   input: {
     borderRadius: radius.md,
     borderWidth: 1,
