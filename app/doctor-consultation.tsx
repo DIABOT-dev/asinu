@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -38,8 +39,10 @@ type DoctorTaskListResponse = {
 type DoctorRecommendation = {
   doctorId: string;
   fullName: string;
+  avatarUrl?: string | null;
   specialties: string[];
   reputation: number;
+  ratingCount?: number;
   estimatedWaitMinutes: number;
   preferred: boolean;
 };
@@ -61,6 +64,15 @@ const specialtyLabels: Record<string, string> = {
   nutrition: "Dinh dưỡng",
   psychology: "Tâm lý",
 };
+
+const doctorInitials = (fullName: string) =>
+  fullName
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 
 export default function DoctorConsultationScreen() {
   const { t } = useTranslation("home");
@@ -295,6 +307,22 @@ export default function DoctorConsultationScreen() {
                       },
                     ]}
                   >
+                    {doctor.avatarUrl ? (
+                      <Image
+                        accessibilityLabel={doctor.fullName}
+                        source={{ uri: doctor.avatarUrl }}
+                        style={styles.doctorAvatar}
+                      />
+                    ) : (
+                      <View
+                        accessibilityLabel={doctor.fullName}
+                        style={[styles.doctorAvatar, styles.doctorAvatarFallback, { backgroundColor: colors.primary + "18" }]}
+                      >
+                        <Text style={[styles.doctorInitials, { color: colors.primary }]}>
+                          {doctorInitials(doctor.fullName)}
+                        </Text>
+                      </View>
+                    )}
                     <View style={styles.doctorCardCopy}>
                       <Text
                         style={[
@@ -310,10 +338,15 @@ export default function DoctorConsultationScreen() {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        {t("doctorConsultationDoctorMeta", {
-                          rating: doctor.reputation.toFixed(1),
-                          minutes: doctor.estimatedWaitMinutes,
-                        })}
+                        {(doctor.ratingCount ?? 0) > 0
+                          ? t("doctorConsultationDoctorMeta", {
+                              rating: doctor.reputation.toFixed(1),
+                              ratingCount: doctor.ratingCount,
+                              minutes: doctor.estimatedWaitMinutes,
+                            })
+                          : t("doctorConsultationDoctorNoRating", {
+                              minutes: doctor.estimatedWaitMinutes,
+                            })}
                       </Text>
                     </View>
                     <Ionicons
@@ -496,6 +529,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.md,
   },
+  doctorAvatar: { borderRadius: 24, height: 48, width: 48 },
+  doctorAvatarFallback: { alignItems: "center", justifyContent: "center" },
+  doctorInitials: { fontSize: 15, fontWeight: "800" },
   doctorCardCopy: { flex: 1 },
   doctorName: { fontSize: 15, fontWeight: "700" },
   doctorMeta: { fontSize: 13, marginTop: 3 },
