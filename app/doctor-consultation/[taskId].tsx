@@ -18,6 +18,7 @@ import { ScaledText as Text } from "../../src/components/ScaledText";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { apiClient } from "../../src/lib/apiClient";
 import { env } from "../../src/lib/env";
+import { profileApi } from "../../src/features/profile/profile.api";
 import { showToast } from "../../src/stores/toast.store";
 import { radius, spacing } from "../../src/styles";
 
@@ -29,10 +30,19 @@ type TaskMessage = {
   created_at: string;
 };
 
-type Attachment = { name: string; mime_type: string; size_bytes: number; url: string };
+type Attachment = {
+  name: string;
+  mime_type: string;
+  size_bytes: number;
+  url: string;
+};
 const parseAttachment = (content: string): Attachment | null => {
-  if (!content.startsWith('[ASINU_ATTACHMENT]')) return null;
-  try { return JSON.parse(content.slice('[ASINU_ATTACHMENT]'.length)) as Attachment; } catch { return null; }
+  if (!content.startsWith("[ASINU_ATTACHMENT]")) return null;
+  try {
+    return JSON.parse(content.slice("[ASINU_ATTACHMENT]".length)) as Attachment;
+  } catch {
+    return null;
+  }
 };
 
 type ThreadResponse = {
@@ -82,8 +92,11 @@ const formatHeaderDate = (dateString?: string, todayLabel = "Hôm nay") => {
 export default function DoctorConsultationThreadScreen() {
   const { t, i18n } = useTranslation("home");
   const router = useRouter();
-  const { taskId: rawTaskId } = useLocalSearchParams<{ taskId: string }>();
+  const { taskId: rawTaskId, tenantId: rawTenantId } =
+    useLocalSearchParams<{ taskId: string; tenantId?: string }>();
   const taskId = Array.isArray(rawTaskId) ? rawTaskId[0] : rawTaskId;
+  const tenantId = Array.isArray(rawTenantId) ? rawTenantId[0] : rawTenantId;
+  const activeTenantId = tenantId || env.doctorTenantId;
   const { colors, isDark } = useThemeColors();
   const scrollRef = useRef<ScrollView>(null);
   const [summary, setSummary] = useState<string | null>(null);
@@ -104,7 +117,7 @@ export default function DoctorConsultationThreadScreen() {
       const response = await apiClient<ThreadResponse>(
         `/api/doctor/tasks/${encodeURIComponent(
           taskId
-        )}/messages?tenant_id=${encodeURIComponent(env.doctorTenantId)}`
+        )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`
       );
       setSummary(response.data?.summary ?? null);
       setMessages(response.data?.messages ?? []);
@@ -120,7 +133,7 @@ export default function DoctorConsultationThreadScreen() {
     void loadThread(true);
     const timer = setInterval(() => void loadThread(), 5000);
     return () => clearInterval(timer);
-  }, [taskId]);
+  }, [taskId, activeTenantId]);
 
   useEffect(() => {
     requestAnimationFrame(() =>
@@ -138,7 +151,7 @@ export default function DoctorConsultationThreadScreen() {
         {
           method: "POST",
           body: {
-            tenant_id: env.doctorTenantId,
+            tenant_id: activeTenantId,
             content,
             message_type: "reply",
             client_message_id: createClientMessageId(),
@@ -182,27 +195,92 @@ export default function DoctorConsultationThreadScreen() {
           type: asset.mimeType || "image/jpeg",
         } as any);
         setSending(true);
-        await apiClient(`/api/doctor/tasks/${encodeURIComponent(taskId)}/attachments?tenant_id=${encodeURIComponent(env.doctorTenantId)}`, {
-          method: "POST",
-          body: formData,
-          headers: { "X-Client-Message-Id": createClientMessageId() },
-        });
+        await apiClient(
+          `/api/doctor/tasks/${encodeURIComponent(
+            taskId
+          )}/attachments?tenant_id=${encodeURIComponent(activeTenantId)}`,
+          {
+            method: "POST",
+            body: formData,
+            headers: { "X-Client-Message-Id": createClientMessageId() },
+          }
+        );
         await loadThread();
-        showToast(i18n.language === "vi" ? "Đã gửi ảnh cho bác sĩ" : "Image sent to your doctor", "success");
+        showToast(
+          i18n.language === "vi"
+            ? "Đã gửi ảnh cho bác sĩ"
+            : "Image sent to your doctor",
+          "success"
+        );
       }
     } catch {
-      showToast(i18n.language === "vi" ? "Không thể gửi ảnh. Vui lòng thử lại." : "Could not send image. Please try again.", "error");
+      showToast(
+        i18n.language === "vi"
+          ? "Không thể gửi ảnh. Vui lòng thử lại."
+          : "Could not send image. Please try again.",
+        "error"
+      );
     } finally {
       setSending(false);
     }
   };
 
   const handleSendMedicalRecord = async () => {
+    if (!taskId || sending) return;
+    setSending(true);
     try {
-      const recordNotice = t("doctorConsultationMedicalRecordSent");
-      showToast(recordNotice, "success");
+      // Send a snapshot as a normal patient message so it is persisted in the
+      // canonical thread and is visible in Doctor Console immediately.
+      // The Doctor Console also loads the full read-only profile separately.
+      const patientProfile = await profileApi.fetchProfile();
+      const isVietnamese = i18n.language === "vi";
+      const list = (items?: string[]) =>
+        items?.filter(Boolean).join(", ") ||
+        (isVietnamese ? "Chưa ghi nhận" : "Not recorded");
+      const lines = isVietnamese
+        ? [
+            "[MEDICAL_RECORD_SUMMARY]",
+            `Họ tên: ${patientProfile.name || "Chưa cập nhật"}`,
+            `Tuổi: ${patientProfile.age ?? "Chưa cập nhật"}`,
+            `Giới tính: ${patientProfile.gender || "Chưa cập nhật"}`,
+            `Chiều cao: ${patientProfile.heightCm ?? "Chưa cập nhật"} cm`,
+            `Cân nặng: ${patientProfile.weightKg ?? "Chưa cập nhật"} kg`,
+            `Nhóm máu: ${patientProfile.bloodType || "Chưa cập nhật"}`,
+            `Bệnh nền/triệu chứng mạn: ${list(patientProfile.chronicDiseases)}`,
+            "Lưu ý: Đây là thông tin bệnh nhân đã khai báo, cần được bác sĩ xác nhận.",
+          ]
+        : [
+            "[MEDICAL_RECORD_SUMMARY]",
+            `Name: ${patientProfile.name || "Not provided"}`,
+            `Age: ${patientProfile.age ?? "Not provided"}`,
+            `Gender: ${patientProfile.gender || "Not provided"}`,
+            `Height: ${patientProfile.heightCm ?? "Not provided"} cm`,
+            `Weight: ${patientProfile.weightKg ?? "Not provided"} kg`,
+            `Blood type: ${patientProfile.bloodType || "Not provided"}`,
+            `Chronic conditions/symptoms: ${list(
+              patientProfile.chronicDiseases
+            )}`,
+            "Note: This information was self-reported by the patient and should be verified by the doctor.",
+          ];
+
+      await apiClient(
+        `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages`,
+        {
+          method: "POST",
+          body: {
+            tenant_id: activeTenantId,
+            content: lines.join("\n"),
+            message_type: "follow_up",
+            client_message_id: createClientMessageId(),
+          },
+        }
+      );
+      await loadThread();
+      showToast(t("doctorConsultationMedicalRecordSent"), "success");
     } catch {
-      // ignore
+      showToast(t("doctorConsultationMessageError"), "error");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -215,7 +293,7 @@ export default function DoctorConsultationThreadScreen() {
         {
           method: "POST",
           body: {
-            tenant_id: env.doctorTenantId,
+            tenant_id: activeTenantId,
             score: rating,
             ...(ratingComment.trim() ? { comment: ratingComment.trim() } : {}),
             request_id: createClientMessageId(),
@@ -298,9 +376,7 @@ export default function DoctorConsultationThreadScreen() {
             style={[
               styles.onlinePill,
               {
-                backgroundColor: isDark
-                  ? "rgba(16, 185, 129, 0.2)"
-                  : "#EDFDF8",
+                backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#EDFDF8",
               },
             ]}
           >
@@ -428,11 +504,25 @@ export default function DoctorConsultationThreadScreen() {
                       ]}
                     >
                       {attachment ? (
-                        <Pressable onPress={() => void Linking.openURL(attachment.url)}>
-                          <Image source={{ uri: attachment.url }} style={styles.messageAttachment} />
-                          <Text style={[styles.attachmentName, { color: colors.textSecondary }]}>{attachment.name}</Text>
+                        <Pressable
+                          onPress={() => void Linking.openURL(attachment.url)}
+                        >
+                          <Image
+                            source={{ uri: attachment.url }}
+                            style={styles.messageAttachment}
+                          />
+                          <Text
+                            style={[
+                              styles.attachmentName,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {attachment.name}
+                          </Text>
                         </Pressable>
-                      ) : message.content}
+                      ) : (
+                        message.content
+                      )}
                     </Text>
                     <View style={styles.messageFooterRight}>
                       {timeStr ? (
@@ -481,7 +571,8 @@ export default function DoctorConsultationThreadScreen() {
                   ]}
                 >
                   {/* Doctor Name label */}
-                  {index === 0 || messages[index - 1]?.sender_type === "patient" ? (
+                  {index === 0 ||
+                  messages[index - 1]?.sender_type === "patient" ? (
                     <Text
                       style={[
                         styles.doctorHeaderName,
@@ -498,12 +589,26 @@ export default function DoctorConsultationThreadScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                      {attachment ? (
-                        <Pressable onPress={() => void Linking.openURL(attachment.url)}>
-                          <Image source={{ uri: attachment.url }} style={styles.messageAttachment} />
-                          <Text style={[styles.attachmentName, { color: colors.textSecondary }]}>{attachment.name}</Text>
-                        </Pressable>
-                      ) : message.content}
+                    {attachment ? (
+                      <Pressable
+                        onPress={() => void Linking.openURL(attachment.url)}
+                      >
+                        <Image
+                          source={{ uri: attachment.url }}
+                          style={styles.messageAttachment}
+                        />
+                        <Text
+                          style={[
+                            styles.attachmentName,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {attachment.name}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      message.content
+                    )}
                   </Text>
 
                   {joinUrl ? (
@@ -630,6 +735,7 @@ export default function DoctorConsultationThreadScreen() {
       {/* Floating Action: Gửi hồ sơ y tế */}
       <View style={styles.floatingActionContainer} pointerEvents="box-none">
         <Pressable
+          disabled={sending}
           onPress={() => void handleSendMedicalRecord()}
           style={[
             styles.floatingActionButton,
