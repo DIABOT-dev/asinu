@@ -57,6 +57,7 @@ type DoctorSpecialtyResponse = {
 };
 type DoctorClinic = { tenant_id: string; name: string; specialties: string[] };
 type DoctorClinicResponse = { ok: boolean; data?: { items: DoctorClinic[] } };
+type PendingAttachment = { uri: string; name: string; mimeType: string };
 
 const isAttachmentMessage = (content?: string | null) =>
   typeof content === "string" && content.startsWith("[ASINU_ATTACHMENT]");
@@ -106,6 +107,21 @@ export default function DoctorConsultationScreen() {
   const [clinics, setClinics] = useState<DoctorClinic[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState(env.doctorTenantId);
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
+  const [estimatedWaitMinutes, setEstimatedWaitMinutes] = useState<
+    number | null
+  >(null);
+  const [symptomOnset, setSymptomOnset] = useState<
+    "today" | "two_to_seven_days" | "over_one_week" | "ongoing" | ""
+  >("");
+  const [progression, setProgression] = useState<
+    "improving" | "stable" | "worsening" | ""
+  >("");
+  const [severity, setSeverity] = useState<"mild" | "moderate" | "severe" | "">(
+    ""
+  );
+  const [emergencyConfirmed, setEmergencyConfirmed] = useState(false);
+  const [pendingAttachment, setPendingAttachment] =
+    useState<PendingAttachment | null>(null);
 
   const loadTasks = async (tenantId = selectedTenantId) => {
     try {
@@ -177,15 +193,51 @@ export default function DoctorConsultationScreen() {
         },
       }
     )
-      .then((response) => setRecommendations(response.data?.items ?? []))
-      .catch(() => setRecommendations([]));
+      .then((response) => {
+        setRecommendations(response.data?.items ?? []);
+        setEstimatedWaitMinutes(response.data?.estimatedWaitMinutes ?? null);
+      })
+      .catch(() => {
+        setRecommendations([]);
+        setEstimatedWaitMinutes(null);
+      });
   }, [selectedSpecialty, selectedTenantId]);
+
+  const pickPreConsultationImage = async () => {
+    try {
+      const ImagePicker = await import("expo-image-picker");
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showToast(t("doctorConsultationPhotoPermission"), "error");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      const asset = result.canceled ? null : result.assets?.[0];
+      if (!asset) return;
+      setPendingAttachment({
+        uri: asset.uri,
+        name: asset.fileName || `doctor-consultation-${Date.now()}.jpg`,
+        mimeType: asset.mimeType || "image/jpeg",
+      });
+    } catch {
+      showToast(t("doctorConsultationAttachmentError"), "error");
+    }
+  };
 
   const submit = async () => {
     if (
       !summary.trim() ||
       !consentAccepted ||
       !selectedSpecialty ||
+      !symptomOnset ||
+      !progression ||
+      !severity ||
+      !emergencyConfirmed ||
       isSubmitting
     ) {
       showToast(t("doctorConsultationRequired"), "error");
@@ -205,6 +257,12 @@ export default function DoctorConsultationScreen() {
             source_channel: "asinu-mobile",
             service_code: "doctor-consultation",
             summary: summary.trim(),
+            clinical_intake: {
+              symptom_onset: symptomOnset,
+              progression,
+              severity,
+              emergency_confirmation: true,
+            },
             consent_version: profile?.consentVersion || "v1.0.0",
             preferred_doctor_id: preferredDoctorId,
           },
@@ -213,9 +271,23 @@ export default function DoctorConsultationScreen() {
       showToast(t("doctorConsultationSuccess"), "success");
       const taskId = response.data?.task_id;
       if (taskId) {
+        if (pendingAttachment) {
+          const formData = new FormData();
+          formData.append("file", {
+            uri: pendingAttachment.uri,
+            name: pendingAttachment.name,
+            type: pendingAttachment.mimeType,
+          } as any);
+          await apiClient(
+            `/api/doctor/tasks/${encodeURIComponent(
+              taskId
+            )}/attachments?tenant_id=${encodeURIComponent(selectedTenantId)}`,
+            { method: "POST", body: formData }
+          );
+        }
         router.replace({
           pathname: "/doctor-consultation/[taskId]",
-          params: { taskId },
+          params: { taskId, tenantId: selectedTenantId },
         } as never);
       } else {
         await loadTasks();
@@ -232,6 +304,13 @@ export default function DoctorConsultationScreen() {
       setIsSubmitting(false);
     }
   };
+
+  const selectedClinic = clinics.find(
+    (clinic) => clinic.tenant_id === selectedTenantId
+  );
+  const selectedDoctor = recommendations.find(
+    (doctor) => doctor.doctorId === preferredDoctorId
+  );
 
   return (
     <KeyboardAvoidingView
@@ -258,11 +337,7 @@ export default function DoctorConsultationScreen() {
           hitSlop={10}
           style={styles.headerBackBtn}
         >
-          <Ionicons
-            name="chevron-back"
-            size={24}
-            color={colors.textPrimary}
-          />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
         <Text
           style={[styles.headerTitle, { color: colors.textPrimary }]}
@@ -318,6 +393,154 @@ export default function DoctorConsultationScreen() {
           </View>
         </View>
 
+        <View
+          style={[
+            styles.intakeSection,
+            { borderColor: isDark ? colors.border : "#E2E8F0" },
+          ]}
+        >
+          <View style={styles.sectionHeaderRow}>
+            <View
+              style={[styles.sectionIconBox, { backgroundColor: "#FFF7E8" }]}
+            >
+              <Ionicons name="shield-checkmark" size={20} color="#D97706" />
+            </View>
+            <View style={styles.sectionHeaderTextCol}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.textPrimary }]}
+              >
+                {t("doctorConsultationScreeningTitle")}
+              </Text>
+              <Text
+                style={[styles.sectionHint, { color: colors.textSecondary }]}
+              >
+                {t("doctorConsultationScreeningHint")}
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
+          >
+            {t("doctorConsultationOnsetLabel")}
+          </Text>
+          <View style={styles.optionChips}>
+            {(
+              [
+                "today",
+                "two_to_seven_days",
+                "over_one_week",
+                "ongoing",
+              ] as const
+            ).map((value) => (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ selected: symptomOnset === value }}
+                key={value}
+                onPress={() => setSymptomOnset(value)}
+                style={[
+                  styles.optionChip,
+                  {
+                    backgroundColor:
+                      symptomOnset === value ? "#E6FAF7" : colors.surface,
+                    borderColor:
+                      symptomOnset === value ? "#00A88F" : colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionChipText,
+                    {
+                      color:
+                        symptomOnset === value
+                          ? "#008B76"
+                          : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {t(`doctorConsultationOnset_${value}`)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text
+            style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
+          >
+            {t("doctorConsultationProgressionLabel")}
+          </Text>
+          <View style={styles.optionChips}>
+            {(["improving", "stable", "worsening"] as const).map((value) => (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ selected: progression === value }}
+                key={value}
+                onPress={() => setProgression(value)}
+                style={[
+                  styles.optionChip,
+                  {
+                    backgroundColor:
+                      progression === value ? "#E6FAF7" : colors.surface,
+                    borderColor:
+                      progression === value ? "#00A88F" : colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionChipText,
+                    {
+                      color:
+                        progression === value
+                          ? "#008B76"
+                          : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {t(`doctorConsultationProgression_${value}`)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text
+            style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
+          >
+            {t("doctorConsultationSeverityLabel")}
+          </Text>
+          <View style={styles.optionChips}>
+            {(["mild", "moderate", "severe"] as const).map((value) => (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ selected: severity === value }}
+                key={value}
+                onPress={() => setSeverity(value)}
+                style={[
+                  styles.optionChip,
+                  {
+                    backgroundColor:
+                      severity === value ? "#E6FAF7" : colors.surface,
+                    borderColor: severity === value ? "#00A88F" : colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionChipText,
+                    {
+                      color:
+                        severity === value ? "#008B76" : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {t(`doctorConsultationSeverity_${value}`)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         {/* Form Card */}
         <View
           style={[
@@ -330,11 +553,15 @@ export default function DoctorConsultationScreen() {
         >
           {/* Section 1: Bạn muốn bác sĩ hỗ trợ điều gì? */}
           <View style={styles.sectionHeaderRow}>
-            <View style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}>
+            <View
+              style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
+            >
               <Ionicons name="document-text" size={20} color="#00A88F" />
             </View>
             <View style={styles.sectionHeaderTextCol}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.textPrimary }]}
+              >
                 {t("doctorConsultationSummaryLabel")}
               </Text>
               <Text
@@ -388,12 +615,17 @@ export default function DoctorConsultationScreen() {
             <View style={[styles.clinicSection, { marginTop: spacing.md }]}>
               <View style={styles.sectionHeaderRow}>
                 <View
-                  style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
+                  style={[
+                    styles.sectionIconBox,
+                    { backgroundColor: "#E6FAF7" },
+                  ]}
                 >
                   <Ionicons name="business" size={20} color="#00A88F" />
                 </View>
                 <View style={styles.sectionHeaderTextCol}>
-                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  <Text
+                    style={[styles.sectionTitle, { color: colors.textPrimary }]}
+                  >
                     {t("doctorConsultationClinicLabel")}
                   </Text>
                   <Text
@@ -442,7 +674,9 @@ export default function DoctorConsultationScreen() {
                         <Text
                           style={[
                             styles.clinicPillName,
-                            { color: selected ? "#00A88F" : colors.textPrimary },
+                            {
+                              color: selected ? "#00A88F" : colors.textPrimary,
+                            },
                           ]}
                         >
                           {clinic.name}
@@ -463,12 +697,16 @@ export default function DoctorConsultationScreen() {
           )}
 
           {/* Section 3: Chuyên khoa muốn được hỗ trợ */}
-          <View style={[styles.sectionHeaderRow, { marginTop: spacing.md }]}> 
-            <View style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}>
+          <View style={[styles.sectionHeaderRow, { marginTop: spacing.md }]}>
+            <View
+              style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
+            >
               <Ionicons name="pulse" size={20} color="#00A88F" />
             </View>
             <View style={styles.sectionHeaderTextCol}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.textPrimary }]}
+              >
                 {t("doctorConsultationSpecialtyLabel")}
               </Text>
               <Text
@@ -564,15 +802,82 @@ export default function DoctorConsultationScreen() {
           {recommendations.length > 0 && (
             <View style={{ marginTop: spacing.md }}>
               <View style={styles.sectionHeaderRow}>
-                <View style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}>
+                <View
+                  style={[
+                    styles.sectionIconBox,
+                    { backgroundColor: "#E6FAF7" },
+                  ]}
+                >
                   <Ionicons name="people" size={20} color="#00A88F" />
                 </View>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textPrimary }]}
+                >
                   {t("doctorConsultationRecommendedDoctors")}
                 </Text>
               </View>
 
               <View style={styles.doctorCardsList}>
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: preferredDoctorId === null }}
+                  onPress={() => setPreferredDoctorId(null)}
+                  style={[
+                    styles.doctorSelectCard,
+                    {
+                      backgroundColor:
+                        preferredDoctorId === null ? "#F0FBF9" : colors.surface,
+                      borderColor:
+                        preferredDoctorId === null ? "#00A88F" : colors.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.doctorAvatarImg,
+                      styles.doctorAvatarFallback,
+                      { backgroundColor: "#E6FAF7" },
+                    ]}
+                  >
+                    <Ionicons
+                      name="git-network-outline"
+                      size={22}
+                      color="#00A88F"
+                    />
+                  </View>
+                  <View style={styles.doctorCardBody}>
+                    <Text
+                      style={[
+                        styles.doctorCardName,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {t("doctorConsultationAutoAssign")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.doctorCardMetaText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {t("doctorConsultationAutoAssignHint")}
+                    </Text>
+                  </View>
+                  {preferredDoctorId === null ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={24}
+                      color="#00A88F"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.radioCircle,
+                        { borderColor: colors.border },
+                      ]}
+                    />
+                  )}
+                </Pressable>
                 {recommendations.map((doctor) => {
                   const selected = preferredDoctorId === doctor.doctorId;
                   return (
@@ -683,9 +988,7 @@ export default function DoctorConsultationScreen() {
                 style={[
                   styles.softPreferenceCard,
                   {
-                    backgroundColor: isDark
-                      ? "rgba(0,168,143,0.1)"
-                      : "#F0FBF9",
+                    backgroundColor: isDark ? "rgba(0,168,143,0.1)" : "#F0FBF9",
                   },
                 ]}
               >
@@ -707,6 +1010,110 @@ export default function DoctorConsultationScreen() {
             </View>
           )}
 
+          <View
+            style={[
+              styles.attachmentSection,
+              { borderColor: isDark ? colors.border : "#E2E8F0" },
+            ]}
+          >
+            <View style={styles.attachmentCopy}>
+              <Text
+                style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
+              >
+                {t("doctorConsultationPreAttachmentTitle")}
+              </Text>
+              <Text
+                style={[styles.sectionHint, { color: colors.textSecondary }]}
+              >
+                {pendingAttachment?.name ||
+                  t("doctorConsultationPreAttachmentHint")}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void pickPreConsultationImage()}
+              style={styles.attachmentButton}
+            >
+              <Ionicons name="image-outline" size={18} color="#008B76" />
+              <Text style={styles.attachmentButtonText}>
+                {pendingAttachment
+                  ? t("doctorConsultationReplaceAttachment")
+                  : t("doctorConsultationChooseAttachment")}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View
+            style={[
+              styles.reviewCard,
+              { backgroundColor: isDark ? colors.background : "#F8FAFC" },
+            ]}
+          >
+            <Text style={[styles.reviewTitle, { color: colors.textPrimary }]}>
+              {t("doctorConsultationReviewTitle")}
+            </Text>
+            <Text style={[styles.reviewLine, { color: colors.textSecondary }]}>
+              {selectedClinic?.name || "—"} ·{" "}
+              {specialtyLabels[selectedSpecialty] || selectedSpecialty}
+            </Text>
+            <Text style={[styles.reviewLine, { color: colors.textSecondary }]}>
+              {selectedDoctor?.fullName || t("doctorConsultationAutoAssign")}
+            </Text>
+            <View style={styles.etaRow}>
+              <Ionicons name="time-outline" size={18} color="#008B76" />
+              <Text style={styles.etaText}>
+                {estimatedWaitMinutes == null
+                  ? t("doctorConsultationEtaUnavailable")
+                  : t("doctorConsultationEta", {
+                      minutes: estimatedWaitMinutes,
+                    })}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.emergencyNotice,
+              { backgroundColor: isDark ? "rgba(185,28,28,0.12)" : "#FEF2F2" },
+            ]}
+          >
+            <Ionicons name="warning-outline" size={20} color="#B91C1C" />
+            <Text
+              style={[
+                styles.emergencyNoticeText,
+                { color: isDark ? "#FCA5A5" : "#991B1B" },
+              ]}
+            >
+              {t("doctorConsultationEmergencyNotice")}
+            </Text>
+          </View>
+
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: emergencyConfirmed }}
+            onPress={() => setEmergencyConfirmed((value) => !value)}
+            style={styles.consentRow}
+          >
+            <View
+              style={[
+                styles.checkboxBox,
+                {
+                  backgroundColor: emergencyConfirmed
+                    ? "#00A88F"
+                    : "transparent",
+                  borderColor: emergencyConfirmed ? "#00A88F" : colors.border,
+                },
+              ]}
+            >
+              {emergencyConfirmed ? (
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+              ) : null}
+            </View>
+            <Text style={[styles.consentText, { color: colors.textSecondary }]}>
+              {t("doctorConsultationEmergencyConfirm")}
+            </Text>
+          </Pressable>
+
           {/* Consent Checkbox */}
           <Pressable
             onPress={() => setConsentAccepted((value) => !value)}
@@ -716,9 +1123,7 @@ export default function DoctorConsultationScreen() {
               style={[
                 styles.checkboxBox,
                 {
-                  backgroundColor: consentAccepted
-                    ? "#00A88F"
-                    : "transparent",
+                  backgroundColor: consentAccepted ? "#00A88F" : "transparent",
                   borderColor: consentAccepted
                     ? "#00A88F"
                     : isDark
@@ -782,11 +1187,15 @@ export default function DoctorConsultationScreen() {
             ]}
           >
             <View style={styles.sectionHeaderRow}>
-              <View style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}>
+              <View
+                style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
+              >
                 <Ionicons name="time" size={20} color="#00A88F" />
               </View>
               <View style={styles.sectionHeaderTextCol}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textPrimary }]}
+                >
                   {t("doctorConsultationThreads")}
                 </Text>
                 <Text
@@ -816,9 +1225,7 @@ export default function DoctorConsultationScreen() {
                   style={[
                     styles.threadItem,
                     {
-                      backgroundColor: isDark
-                        ? colors.background
-                        : "#FAFCFD",
+                      backgroundColor: isDark ? colors.background : "#FAFCFD",
                       borderColor: isDark ? colors.border : "#E2E8F0",
                     },
                   ]}
@@ -849,8 +1256,7 @@ export default function DoctorConsultationScreen() {
                     >
                       {isAttachmentMessage(task.latest_message)
                         ? t("doctorConsultationAttachPhoto")
-                        : task.latest_message ||
-                          t("doctorConsultationWaiting")}
+                        : task.latest_message || t("doctorConsultationWaiting")}
                     </Text>
                   </View>
                   <Ionicons
@@ -1010,6 +1416,34 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 4,
   },
+  intakeSection: {
+    borderBottomWidth: 1,
+    borderTopWidth: 1,
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  optionGroupLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  optionChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  optionChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+  },
+  optionChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
   clinicSection: {
     gap: spacing.xs,
   },
@@ -1125,6 +1559,72 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   softPreferenceText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  attachmentSection: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+    marginTop: spacing.lg,
+    padding: spacing.md,
+  },
+  attachmentCopy: {
+    flex: 1,
+  },
+  attachmentButton: {
+    alignItems: "center",
+    borderColor: "#9EDDD4",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+  },
+  attachmentButtonText: {
+    color: "#008B76",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reviewCard: {
+    borderRadius: 14,
+    gap: 5,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  reviewTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  reviewLine: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  etaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  etaText: {
+    color: "#008B76",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  emergencyNotice: {
+    alignItems: "flex-start",
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  emergencyNoticeText: {
     flex: 1,
     fontSize: 13,
     lineHeight: 19,

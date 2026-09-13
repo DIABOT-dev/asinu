@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,7 +18,6 @@ import { ScaledText as Text } from "../../src/components/ScaledText";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { apiClient } from "../../src/lib/apiClient";
 import { env } from "../../src/lib/env";
-import { profileApi } from "../../src/features/profile/profile.api";
 import { showToast } from "../../src/stores/toast.store";
 import { radius, spacing } from "../../src/styles";
 
@@ -51,9 +50,27 @@ type ThreadResponse = {
     task_id: string;
     summary: string | null;
     messages: TaskMessage[];
-    task_status?: { status: string; rateable: boolean } | null;
+    task_status?: {
+      status: string;
+      rateable: boolean;
+      consultation_summary?: ConsultationSummary | null;
+      follow_up_until?: string | null;
+      follow_up_open?: boolean;
+    } | null;
   };
 };
+
+type ConsultationSummary = {
+  problem_summary: string;
+  assessment: string;
+  next_steps: string;
+  warning_signs: string;
+  follow_up_recommendation: string;
+};
+
+type TaskStatusResponse = NonNullable<
+  NonNullable<ThreadResponse["data"]>["task_status"]
+>;
 
 const DOCTOR_AVATAR_URI =
   "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80";
@@ -92,8 +109,10 @@ const formatHeaderDate = (dateString?: string, todayLabel = "Hôm nay") => {
 export default function DoctorConsultationThreadScreen() {
   const { t, i18n } = useTranslation("home");
   const router = useRouter();
-  const { taskId: rawTaskId, tenantId: rawTenantId } =
-    useLocalSearchParams<{ taskId: string; tenantId?: string }>();
+  const { taskId: rawTaskId, tenantId: rawTenantId } = useLocalSearchParams<{
+    taskId: string;
+    tenantId?: string;
+  }>();
   const taskId = Array.isArray(rawTaskId) ? rawTaskId[0] : rawTaskId;
   const tenantId = Array.isArray(rawTenantId) ? rawTenantId[0] : rawTenantId;
   const activeTenantId = tenantId || env.doctorTenantId;
@@ -109,6 +128,7 @@ export default function DoctorConsultationThreadScreen() {
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [rateable, setRateable] = useState(false);
+  const [taskStatus, setTaskStatus] = useState<TaskStatusResponse | null>(null);
 
   const loadThread = async (showLoading = false) => {
     if (!taskId) return;
@@ -122,6 +142,7 @@ export default function DoctorConsultationThreadScreen() {
       setSummary(response.data?.summary ?? null);
       setMessages(response.data?.messages ?? []);
       setRateable(response.data?.task_status?.rateable === true);
+      setTaskStatus(response.data?.task_status ?? null);
     } catch {
       if (showLoading) showToast(t("doctorConsultationThreadError"), "error");
     } finally {
@@ -153,7 +174,8 @@ export default function DoctorConsultationThreadScreen() {
           body: {
             tenant_id: activeTenantId,
             content,
-            message_type: "reply",
+            message_type:
+              taskStatus?.status === "completed" ? "follow_up" : "reply",
             client_message_id: createClientMessageId(),
           },
         }
@@ -225,65 +247,6 @@ export default function DoctorConsultationThreadScreen() {
     }
   };
 
-  const handleSendMedicalRecord = async () => {
-    if (!taskId || sending) return;
-    setSending(true);
-    try {
-      // Send a snapshot as a normal patient message so it is persisted in the
-      // canonical thread and is visible in Doctor Console immediately.
-      // The Doctor Console also loads the full read-only profile separately.
-      const patientProfile = await profileApi.fetchProfile();
-      const isVietnamese = i18n.language === "vi";
-      const list = (items?: string[]) =>
-        items?.filter(Boolean).join(", ") ||
-        (isVietnamese ? "Chưa ghi nhận" : "Not recorded");
-      const lines = isVietnamese
-        ? [
-            "[MEDICAL_RECORD_SUMMARY]",
-            `Họ tên: ${patientProfile.name || "Chưa cập nhật"}`,
-            `Tuổi: ${patientProfile.age ?? "Chưa cập nhật"}`,
-            `Giới tính: ${patientProfile.gender || "Chưa cập nhật"}`,
-            `Chiều cao: ${patientProfile.heightCm ?? "Chưa cập nhật"} cm`,
-            `Cân nặng: ${patientProfile.weightKg ?? "Chưa cập nhật"} kg`,
-            `Nhóm máu: ${patientProfile.bloodType || "Chưa cập nhật"}`,
-            `Bệnh nền/triệu chứng mạn: ${list(patientProfile.chronicDiseases)}`,
-            "Lưu ý: Đây là thông tin bệnh nhân đã khai báo, cần được bác sĩ xác nhận.",
-          ]
-        : [
-            "[MEDICAL_RECORD_SUMMARY]",
-            `Name: ${patientProfile.name || "Not provided"}`,
-            `Age: ${patientProfile.age ?? "Not provided"}`,
-            `Gender: ${patientProfile.gender || "Not provided"}`,
-            `Height: ${patientProfile.heightCm ?? "Not provided"} cm`,
-            `Weight: ${patientProfile.weightKg ?? "Not provided"} kg`,
-            `Blood type: ${patientProfile.bloodType || "Not provided"}`,
-            `Chronic conditions/symptoms: ${list(
-              patientProfile.chronicDiseases
-            )}`,
-            "Note: This information was self-reported by the patient and should be verified by the doctor.",
-          ];
-
-      await apiClient(
-        `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages`,
-        {
-          method: "POST",
-          body: {
-            tenant_id: activeTenantId,
-            content: lines.join("\n"),
-            message_type: "follow_up",
-            client_message_id: createClientMessageId(),
-          },
-        }
-      );
-      await loadThread();
-      showToast(t("doctorConsultationMedicalRecordSent"), "success");
-    } catch {
-      showToast(t("doctorConsultationMessageError"), "error");
-    } finally {
-      setSending(false);
-    }
-  };
-
   const submitRating = async () => {
     if (!taskId || rating < 1 || ratingSubmitting) return;
     setRatingSubmitting(true);
@@ -314,6 +277,22 @@ export default function DoctorConsultationThreadScreen() {
     firstMessageDate,
     t("doctorConsultationToday")
   );
+  const terminalStatuses = [
+    "cancelled",
+    "expired",
+    "emergency_referred",
+    "forwarded",
+  ];
+  const conversationOpen =
+    !taskStatus ||
+    (!terminalStatuses.includes(taskStatus.status) &&
+      (taskStatus.status !== "completed" ||
+        taskStatus.follow_up_open === true));
+  const statusLabel = taskStatus?.status
+    ? t(`doctorConsultationStatus_${taskStatus.status}`, {
+        defaultValue: taskStatus.status,
+      })
+    : t("doctorConsultationWaiting");
 
   return (
     <KeyboardAvoidingView
@@ -421,6 +400,81 @@ export default function DoctorConsultationThreadScreen() {
               </Text>
             </View>
           </View>
+
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: isDark ? colors.surface : "#F0FBF9",
+                borderColor: isDark ? colors.border : "#CDEDE7",
+              },
+            ]}
+          >
+            <View style={styles.statusHeading}>
+              <Ionicons name="pulse-outline" size={18} color="#008B76" />
+              <Text style={styles.statusLabel}>{statusLabel}</Text>
+            </View>
+            <Text style={[styles.statusHint, { color: colors.textSecondary }]}>
+              {conversationOpen
+                ? taskStatus?.status === "completed"
+                  ? t("doctorConsultationFollowUpOpen")
+                  : t("doctorConsultationStatusTrackingHint")
+                : t("doctorConsultationConversationClosed")}
+            </Text>
+          </View>
+
+          {taskStatus?.consultation_summary ? (
+            <View
+              style={[
+                styles.summaryCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.summaryHeading}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={20}
+                  color="#008B76"
+                />
+                <Text
+                  style={[styles.summaryTitle, { color: colors.textPrimary }]}
+                >
+                  {t("doctorConsultationOutcomeTitle")}
+                </Text>
+              </View>
+              {(
+                [
+                  ["problem_summary", "doctorConsultationOutcomeProblem"],
+                  ["assessment", "doctorConsultationOutcomeAssessment"],
+                  ["next_steps", "doctorConsultationOutcomeNextSteps"],
+                  ["warning_signs", "doctorConsultationOutcomeWarningSigns"],
+                  [
+                    "follow_up_recommendation",
+                    "doctorConsultationOutcomeFollowUp",
+                  ],
+                ] as const
+              ).map(([field, label]) => (
+                <View style={styles.summaryItem} key={field}>
+                  <Text
+                    style={[
+                      styles.summaryItemLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {t(label)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryItemValue,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    {taskStatus.consultation_summary?.[field]}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           {/* Initial Request Bubble (Patient sent) */}
           {summary && (
@@ -732,110 +786,96 @@ export default function DoctorConsultationThreadScreen() {
         </ScrollView>
       )}
 
-      {/* Floating Action: Gửi hồ sơ y tế */}
-      <View style={styles.floatingActionContainer} pointerEvents="box-none">
-        <Pressable
-          disabled={sending}
-          onPress={() => void handleSendMedicalRecord()}
-          style={[
-            styles.floatingActionButton,
-            {
-              backgroundColor: isDark ? colors.surface : "#FFFFFF",
-              borderColor: isDark ? colors.border : "#E2E8F0",
-            },
-          ]}
-        >
-          <View style={styles.floatingActionIconBox}>
-            <MaterialCommunityIcons
-              name="paperclip"
-              size={24}
-              color="#008B76"
-            />
-            <View style={styles.floatingActionPlus}>
-              <Ionicons name="add-circle" size={14} color="#00A88F" />
-            </View>
-          </View>
-        </Pressable>
-        <Text
-          style={[
-            styles.floatingActionLabel,
-            { color: isDark ? colors.textSecondary : "#6B7A88" },
-          ]}
-        >
-          {t("doctorConsultationSendMedicalRecord")}
-        </Text>
-      </View>
-
       {/* Composer Toolbar */}
-      <View
-        style={[
-          styles.composerWrapper,
-          {
-            backgroundColor: isDark ? colors.surface : "#FFFFFF",
-            borderTopColor: isDark ? colors.border : "#F0F4F7",
-          },
-        ]}
-      >
+      {conversationOpen ? (
         <View
           style={[
-            styles.inputContainer,
+            styles.composerWrapper,
             {
-              backgroundColor: isDark ? colors.background : "#F5F8FA",
-              borderColor: isDark ? colors.border : "transparent",
+              backgroundColor: isDark ? colors.surface : "#FFFFFF",
+              borderTopColor: isDark ? colors.border : "#F0F4F7",
             },
           ]}
         >
-          <Pressable
-            onPress={() => void handlePickImage()}
-            style={styles.imagePickerBtn}
-            hitSlop={8}
-            accessibilityLabel={t("doctorConsultationAttachPhoto")}
-          >
-            <Ionicons
-              name="image-outline"
-              size={22}
-              color={isDark ? colors.textSecondary : "#6F7F8E"}
-            />
-          </Pressable>
-
-          <TextInput
-            multiline
-            maxLength={5000}
-            onChangeText={setDraft}
-            placeholder={t("doctorConsultationReplyPlaceholder")}
-            placeholderTextColor={isDark ? colors.textSecondary : "#8E9EAC"}
+          <View
             style={[
-              styles.textInput,
+              styles.inputContainer,
               {
-                color: colors.textPrimary,
+                backgroundColor: isDark ? colors.background : "#F5F8FA",
+                borderColor: isDark ? colors.border : "transparent",
               },
             ]}
-            value={draft}
-          />
-        </View>
+          >
+            <Pressable
+              onPress={() => void handlePickImage()}
+              style={styles.imagePickerBtn}
+              hitSlop={8}
+              accessibilityLabel={t("doctorConsultationAttachPhoto")}
+            >
+              <Ionicons
+                name="image-outline"
+                size={22}
+                color={isDark ? colors.textSecondary : "#6F7F8E"}
+              />
+            </Pressable>
 
-        <Pressable
-          disabled={!draft.trim() || sending}
-          onPress={() => void send()}
+            <TextInput
+              multiline
+              maxLength={5000}
+              onChangeText={setDraft}
+              placeholder={t("doctorConsultationReplyPlaceholder")}
+              placeholderTextColor={isDark ? colors.textSecondary : "#8E9EAC"}
+              style={[
+                styles.textInput,
+                {
+                  color: colors.textPrimary,
+                },
+              ]}
+              value={draft}
+            />
+          </View>
+
+          <Pressable
+            disabled={!draft.trim() || sending}
+            onPress={() => void send()}
+            style={[
+              styles.sendCircleButton,
+              {
+                opacity: !draft.trim() || sending ? 0.45 : 1,
+              },
+            ]}
+          >
+            {sending ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Ionicons
+                name="paper-plane"
+                size={18}
+                color="#fff"
+                style={{ marginLeft: 2 }}
+              />
+            )}
+          </Pressable>
+        </View>
+      ) : (
+        <View
           style={[
-            styles.sendCircleButton,
-            {
-              opacity: !draft.trim() || sending ? 0.45 : 1,
-            },
+            styles.closedComposer,
+            { backgroundColor: colors.surface, borderTopColor: colors.border },
           ]}
         >
-          {sending ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Ionicons
-              name="paper-plane"
-              size={18}
-              color="#fff"
-              style={{ marginLeft: 2 }}
-            />
-          )}
-        </Pressable>
-      </View>
+          <Ionicons
+            name="lock-closed-outline"
+            size={18}
+            color={colors.textSecondary}
+          />
+          <Text
+            style={[styles.closedComposerText, { color: colors.textSecondary }]}
+          >
+            {t("doctorConsultationConversationClosed")}
+          </Text>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -938,6 +978,55 @@ const styles = StyleSheet.create({
   datePillText: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  statusCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 5,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  statusHeading: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  statusLabel: {
+    color: "#008B76",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  statusHint: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  summaryCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+  },
+  summaryHeading: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  summaryTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  summaryItem: {
+    gap: 3,
+  },
+  summaryItemLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  summaryItemValue: {
+    fontSize: 14,
+    lineHeight: 21,
   },
   bubbleWrapper: {
     marginBottom: spacing.md,
@@ -1045,41 +1134,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  floatingActionContainer: {
-    alignItems: "center",
-    bottom: 80,
-    position: "absolute",
-    right: 18,
-    zIndex: 10,
-  },
-  floatingActionButton: {
-    alignItems: "center",
-    borderRadius: 28,
-    borderWidth: 0.5,
-    elevation: 4,
-    height: 56,
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    width: 56,
-  },
-  floatingActionIconBox: {
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  floatingActionPlus: {
-    bottom: -3,
-    position: "absolute",
-    right: -5,
-  },
-  floatingActionLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 4,
-  },
   composerWrapper: {
     alignItems: "center",
     borderTopWidth: 1,
@@ -1088,6 +1142,20 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? 28 : spacing.md,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
+  },
+  closedComposer: {
+    alignItems: "center",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: spacing.xs,
+    justifyContent: "center",
+    minHeight: Platform.OS === "ios" ? 82 : 60,
+    paddingBottom: Platform.OS === "ios" ? 24 : spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  closedComposerText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   inputContainer: {
     alignItems: "center",
