@@ -22,6 +22,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
+import { LogHeroBanner } from '../../src/components/LogHeroBanner';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
@@ -164,18 +165,14 @@ export default function InsulinLogScreen() {
                 </View>
               </Animated.View>
 
-              {/* Hero card */}
+              {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <View style={[styles.heroCard, { backgroundColor: '#eceefe' }]}>
-                  <MaterialCommunityIcons name="needle" size={30} color={iconColors.insulin} />
-                  <View style={styles.heroText}>
-                    <Text style={styles.heroTitle}>{t('insulin')}</Text>
-                    <Text style={styles.heroSub}>{t('quickLog')}</Text>
-                  </View>
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>IU</Text>
-                  </View>
-                </View>
+                <LogHeroBanner
+                  category="insulin"
+                  title={t('insulin')}
+                  description={t('insulinBannerDesc')}
+                  unit="IU"
+                />
               </Animated.View>
 
               {/* Insulin type chips */}

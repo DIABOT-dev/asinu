@@ -165,5 +165,13 @@
   "enterValidBP": "Nhập chỉ số huyết áp hợp lệ",
   "waterStatusExcellent": "Tuyệt vời! Đủ nước",
   "waterStatusGood": "Khá tốt",
-  "waterStatusKeepDrinking": "Tiếp tục uống nước"
+  "waterStatusKeepDrinking": "Tiếp tục uống nước",
+  "healthTracking": "THEO DÕI SỨC KHỎE",
+  "bpBannerDesc": "Ghi lại chỉ số huyết áp của bạn để theo dõi sức khỏe mỗi ngày.",
+  "glucoseBannerDesc": "Ghi lại chỉ số đường huyết của bạn để theo dõi sức khỏe mỗi ngày.",
+  "weightBannerDesc": "Ghi lại cân nặng của bạn để theo dõi tiến trình mỗi ngày.",
+  "waterBannerDesc": "Ghi lại lượng nước bạn đã uống để duy trì cơ thể khỏe mạnh.",
+  "insulinBannerDesc": "Ghi lại liều lượng insulin đã tiêm để kiểm soát tốt chỉ số.",
+  "mealBannerDesc": "Ghi lại khẩu phần dinh dưỡng để cân bằng năng lượng mỗi ngày.",
+  "medicationBannerDesc": "Ghi lại các loại thuốc đã uống đúng giờ và đúng phác đồ."
 }

@@ -18,6 +18,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
+import { LogHeroBanner } from '../../src/components/LogHeroBanner';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
@@ -132,18 +133,14 @@ export default function MealLogScreen() {
                 </View>
               </Animated.View>
 
-              {/* Hero card */}
+              {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <View style={[styles.heroCard, { backgroundColor: '#fef6e8' }]}>
-                  <Ionicons name="restaurant" size={30} color={iconColors.meal} />
-                  <View style={styles.heroText}>
-                    <Text style={styles.heroTitle}>{t('meal')}</Text>
-                    <Text style={styles.heroSub}>{t('quickLog')}</Text>
-                  </View>
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>kcal</Text>
-                  </View>
-                </View>
+                <LogHeroBanner
+                  category="meal"
+                  title={t('meal')}
+                  description={t('mealBannerDesc')}
+                  unit="kcal"
+                />
               </Animated.View>
 
               {/* Meal type chips */}

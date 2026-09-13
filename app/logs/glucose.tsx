@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
 import { Screen } from '../../src/components/Screen';
+import { LogHeroBanner } from '../../src/components/LogHeroBanner';
 import { TextInput } from '../../src/components/TextInput';
 import { VoiceLogButton } from '../../src/components/VoiceLogButton';
 import { VoiceParseResult } from '../../src/features/logs/voice.api';
@@ -306,18 +307,14 @@ export default function GlucoseLogScreen() {
                 </View>
               </Animated.View>
 
-              {/* Hero card */}
+              {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <View style={[styles.heroCard, { backgroundColor: '#e8f4fd' }]}>
-                  <MaterialCommunityIcons name="water" size={32} color={iconColors.glucose} />
-                  <View style={styles.heroText}>
-                    <Text style={styles.heroTitle}>{t('glucose')}</Text>
-                    <Text style={styles.heroSub}>{t('quickLog')}</Text>
-                  </View>
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>mg/dL</Text>
-                  </View>
-                </View>
+                <LogHeroBanner
+                  category="glucose"
+                  title={t('glucose')}
+                  description={t('glucoseBannerDesc')}
+                  unit="mg/dL"
+                />
               </Animated.View>
 
               {/* Big number input card */}

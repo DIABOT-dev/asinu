@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
 import { Screen } from '../../src/components/Screen';
+import { LogHeroBanner } from '../../src/components/LogHeroBanner';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
@@ -145,18 +146,14 @@ export default function WeightLogScreen() {
                 </View>
               </Animated.View>
 
-              {/* Hero card */}
+              {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <View style={[styles.heroCard, { backgroundColor: '#ede8fd' }]}>
-                  <MaterialCommunityIcons name="scale-bathroom" size={30} color={iconColors.weight} />
-                  <View style={styles.heroText}>
-                    <Text style={styles.heroTitle}>{t('weight')}</Text>
-                    <Text style={styles.heroSub}>{t('quickLog')}</Text>
-                  </View>
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>kg</Text>
-                  </View>
-                </View>
+                <LogHeroBanner
+                  category="weight"
+                  title={t('weight')}
+                  description={t('weightBannerDesc')}
+                  unit="kg"
+                />
               </Animated.View>
 
               {/* Weight input card */}

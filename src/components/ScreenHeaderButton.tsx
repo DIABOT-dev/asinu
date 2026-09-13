@@ -23,7 +23,7 @@ export function ScreenBackButton({ onPress, accessibilityLabel = 'Quay lại', d
       onPress={onPress}
       style={({ pressed }) => [styles.backButton, style, pressed && styles.pressed, disabled && styles.disabled]}
     >
-      <Ionicons name="arrow-back" size={22} color={colors.primary} />
+      <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
     </Pressable>
   );
 }
@@ -50,13 +50,17 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   saveButton: {
     minWidth: 68,

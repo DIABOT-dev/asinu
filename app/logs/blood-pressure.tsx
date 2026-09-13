@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
 import { Screen } from '../../src/components/Screen';
+import { LogHeroBanner } from '../../src/components/LogHeroBanner';
 import { TextInput } from '../../src/components/TextInput';
 import { VoiceLogButton } from '../../src/components/VoiceLogButton';
 import { VoiceParseResult } from '../../src/features/logs/voice.api';
@@ -192,18 +193,14 @@ export default function BloodPressureLogScreen() {
                 </View>
               </Animated.View>
 
-              {/* Hero card */}
+              {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <View style={[styles.heroCard, { backgroundColor: '#fde8e8' }]}>
-                  <MaterialCommunityIcons name="heart-pulse" size={32} color={iconColors.bp} />
-                  <View style={styles.heroText}>
-                    <Text style={styles.heroTitle}>{t('bloodPressure')}</Text>
-                    <Text style={styles.heroSub}>{t('quickLog')}</Text>
-                  </View>
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>mmHg</Text>
-                  </View>
-                </View>
+                <LogHeroBanner
+                  category="bloodPressure"
+                  title={t('bloodPressure')}
+                  description={t('bpBannerDesc')}
+                  unit="mmHg"
+                />
               </Animated.View>
 
               {/* SYS / DIA input card */}

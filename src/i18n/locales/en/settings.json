@@ -84,6 +84,7 @@
   "privacyCenterTitle": "Doctor data rights center",
   "privacyCenterDescription": "Manage consultation data shared with doctors. Withdrawing, anonymizing or deleting closes open consultations.",
   "privacyBack": "Back",
+  "privacyClose": "Close",
   "privacyAction_export": "Export data",
   "privacyAction_withdraw_consent": "Withdraw consent",
   "privacyAction_anonymize": "Anonymize data",

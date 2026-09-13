@@ -84,6 +84,7 @@
   "privacyCenterTitle": "Trung tâm quyền dữ liệu Doctor",
   "privacyCenterDescription": "Tự quản lý dữ liệu tư vấn bác sĩ đã chia sẻ. Các yêu cầu hủy đồng ý, ẩn danh và xóa sẽ đóng những ca đang mở.",
   "privacyBack": "Quay lại",
+  "privacyClose": "Đóng",
   "privacyAction_export": "Xuất dữ liệu",
   "privacyAction_withdraw_consent": "Rút lại đồng ý",
   "privacyAction_anonymize": "Ẩn danh dữ liệu",

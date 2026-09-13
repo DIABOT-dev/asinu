@@ -165,5 +165,13 @@
   "enterValidBP": "Please enter valid blood pressure values",
   "waterStatusExcellent": "Excellent! Well hydrated",
   "waterStatusGood": "Fairly good",
-  "waterStatusKeepDrinking": "Keep drinking water"
+  "waterStatusKeepDrinking": "Keep drinking water",
+  "healthTracking": "HEALTH TRACKING",
+  "bpBannerDesc": "Log your blood pressure to keep track of your health daily.",
+  "glucoseBannerDesc": "Log your blood glucose levels to monitor your health daily.",
+  "weightBannerDesc": "Log your weight to stay on top of your daily progress.",
+  "waterBannerDesc": "Log your water intake to stay refreshed and healthy every day.",
+  "insulinBannerDesc": "Log your insulin dosage to manage blood sugar effectively every day.",
+  "mealBannerDesc": "Log your meals to balance your nutrition and energy every day.",
+  "medicationBannerDesc": "Log your daily medicines to stay on schedule every day."
 }

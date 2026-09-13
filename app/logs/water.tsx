@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
 import { Screen } from '../../src/components/Screen';
+import { LogHeroBanner } from '../../src/components/LogHeroBanner';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
@@ -140,22 +141,18 @@ export default function WaterLogScreen() {
                 </View>
               </Animated.View>
 
-              {/* Hero card */}
+              {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <View style={[styles.heroCard, { backgroundColor: '#e8f8fc' }]}>
-                  <Ionicons name="water" size={30} color={iconColors.water} />
-                  <View style={styles.heroText}>
-                    <Text style={styles.heroTitle}>{t('water')}</Text>
-                    <Text style={styles.heroSub}>
-                      {todayTotalMl > 0
-                        ? t('waterTodayTotal', { ml: todayTotalMl })
-                        : t('quickLog')}
-                    </Text>
-                  </View>
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>ml</Text>
-                  </View>
-                </View>
+                <LogHeroBanner
+                  category="water"
+                  title={t('water')}
+                  description={
+                    todayTotalMl > 0
+                      ? t('waterTodayTotal', { ml: todayTotalMl })
+                      : t('waterBannerDesc')
+                  }
+                  unit="ml"
+                />
               </Animated.View>
 
               {/* Volume input card */}

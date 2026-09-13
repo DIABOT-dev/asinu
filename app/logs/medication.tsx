@@ -22,6 +22,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
+import { LogHeroBanner } from '../../src/components/LogHeroBanner';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
@@ -134,18 +135,13 @@ export default function MedicationLogScreen() {
                 </View>
               </Animated.View>
 
-              {/* Hero card */}
+              {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <View style={[styles.heroCard, { backgroundColor: '#e8faf2' }]}>
-                  <MaterialCommunityIcons name="pill" size={30} color={iconColors.medication} />
-                  <View style={styles.heroText}>
-                    <Text style={styles.heroTitle}>{t('medication')}</Text>
-                    <Text style={styles.heroSub}>{t('quickLog')}</Text>
-                  </View>
-                  <View style={styles.heroBadge}>
-                    <MaterialCommunityIcons name="shield-check" size={16} color={iconColors.medication} />
-                  </View>
-                </View>
+                <LogHeroBanner
+                  category="medication"
+                  title={t('medication')}
+                  description={t('medicationBannerDesc')}
+                />
               </Animated.View>
 
               {/* Medication info */}

@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../src/components/ScaledText";
 import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
 import { useThemeColors } from "../src/hooks/useThemeColors";
@@ -39,6 +40,7 @@ const actions: Array<{
 
 export default function PrivacyCenterScreen() {
   const router = useGuardedRouter();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation("settings");
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -98,18 +100,29 @@ export default function PrivacyCenterScreen() {
     }
   };
 
+  const topInset = Math.max(insets.top, 16);
+
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.back()}
-          style={styles.back}
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-          <Text style={styles.backText}>{t("privacyBack")}</Text>
-        </Pressable>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: topInset + spacing.sm },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("privacyClose")}
+            hitSlop={8}
+            onPress={() => router.back()}
+            style={styles.closeButton}
+          >
+            <Ionicons name="close" size={24} color={colors.primary} />
+          </Pressable>
+        </View>
         <Text style={styles.title}>{t("privacyCenterTitle")}</Text>
         <Text style={styles.lead}>{t("privacyCenterDescription")}</Text>
         <View style={styles.actionList}>
@@ -196,17 +209,25 @@ const createStyles = (colors: ThemeColors) =>
     screen: { flex: 1, backgroundColor: colors.background },
     content: {
       padding: spacing.lg,
-      paddingTop: spacing.xl,
       paddingBottom: 48,
       gap: spacing.lg,
     },
-    back: {
+    headerBar: {
       flexDirection: "row",
       alignItems: "center",
-      gap: spacing.sm,
-      alignSelf: "flex-start",
+      justifyContent: "flex-start",
+      marginBottom: -spacing.xs,
     },
-    backText: { color: colors.textPrimary, fontWeight: "600" },
+    closeButton: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.full,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
     title: { color: colors.textPrimary, fontSize: 28, fontWeight: "800" },
     lead: { color: colors.textSecondary, lineHeight: 22 },
     actionList: {
