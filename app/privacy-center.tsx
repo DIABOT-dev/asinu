@@ -27,6 +27,21 @@ type Receipt = {
   created_at: string;
 };
 type ThemeColors = ReturnType<typeof useThemeColors>["colors"];
+
+const createRequestId = () => {
+  const cryptoObject = (
+    globalThis as typeof globalThis & { crypto?: { randomUUID?: () => string } }
+  ).crypto;
+  if (cryptoObject?.randomUUID) return cryptoObject.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+    /[xy]/g,
+    (character) => {
+      const random = Math.floor(Math.random() * 16);
+      const value = character === "x" ? random : (random & 0x3) | 0x8;
+      return value.toString(16);
+    },
+  );
+};
 const actions: Array<{
   action: PrivacyAction;
   icon: keyof typeof Ionicons.glyphMap;
@@ -81,6 +96,7 @@ export default function PrivacyCenterScreen() {
         body: {
           tenant_id: env.doctorTenantId,
           action,
+          request_id: createRequestId(),
           confirmation: "CONFIRM_DOCTOR_DATA_REQUEST",
           reason: "Patient self-service request from ASINU mobile",
         },

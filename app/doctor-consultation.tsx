@@ -1,4 +1,5 @@
 import { Stack, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -61,6 +62,21 @@ type PendingAttachment = { uri: string; name: string; mimeType: string };
 
 const createSubmissionTaskId = () =>
   `doctor-task:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+const PENDING_SUBMISSION_KEY = "@asinu/doctor-consultation/pending-task-id";
+const createClientMessageId = () => {
+  const cryptoObject = (
+    globalThis as typeof globalThis & { crypto?: { randomUUID?: () => string } }
+  ).crypto;
+  if (cryptoObject?.randomUUID) return cryptoObject.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+    /[xy]/g,
+    (character) => {
+      const random = Math.floor(Math.random() * 16);
+      const value = character === "x" ? random : (random & 0x3) | 0x8;
+      return value.toString(16);
+    },
+  );
+};
 
 const isAttachmentMessage = (content?: string | null) =>
   typeof content === "string" && content.startsWith("[ASINU_ATTACHMENT]");
@@ -125,6 +141,14 @@ export default function DoctorConsultationScreen() {
   // Keep retries idempotent. If creating the task succeeded but the optional
   // image upload failed, submitting again must address the same task.
   const submissionTaskIdRef = useRef<string | null>(null);
+  const submissionAttachmentMessageIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(PENDING_SUBMISSION_KEY).then((taskId) => {
+      if (taskId && !submissionTaskIdRef.current)
+        submissionTaskIdRef.current = taskId;
+    });
+  }, []);
 
   const loadTasks = async (tenantId = selectedTenantId) => {
     try {
@@ -251,6 +275,7 @@ export default function DoctorConsultationScreen() {
       submissionTaskIdRef.current ?? createSubmissionTaskId();
     submissionTaskIdRef.current = submissionTaskId;
     try {
+      await AsyncStorage.setItem(PENDING_SUBMISSION_KEY, submissionTaskId);
       const response = await apiClient<DoctorTaskResponse>(
         "/api/doctor/tasks",
         {
@@ -288,11 +313,22 @@ export default function DoctorConsultationScreen() {
             `/api/doctor/tasks/${encodeURIComponent(
               taskId,
             )}/attachments?tenant_id=${encodeURIComponent(selectedTenantId)}`,
-            { method: "POST", body: formData },
+            {
+              method: "POST",
+              body: formData,
+              headers: {
+                "X-Client-Message-Id":
+                  submissionAttachmentMessageIdRef.current ??
+                  (submissionAttachmentMessageIdRef.current =
+                    createClientMessageId()),
+              },
+            },
           );
         }
         showToast(t("doctorConsultationSuccess"), "success");
         submissionTaskIdRef.current = null;
+        submissionAttachmentMessageIdRef.current = null;
+        await AsyncStorage.removeItem(PENDING_SUBMISSION_KEY);
         setPendingAttachment(null);
         router.replace({
           pathname: "/doctor-consultation/[taskId]",
