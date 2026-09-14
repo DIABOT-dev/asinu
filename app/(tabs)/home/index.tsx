@@ -24,6 +24,7 @@ import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateError } from '../../../src/components/state/StateError';
 import { HomeTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
+import { ChartFrameSkeleton } from '../../../src/components/state/ChartFrameSkeleton';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useFlagsStore, selectIsChatbotAvailable } from '../../../src/features/app-config/flags.store';
 import { useHomeViewModel } from '../../../src/features/home/home.vm';
@@ -640,7 +641,7 @@ export default function HomeScreen() {
 
   const hasData = Boolean(treeSummary || missions.length || logs.length);
   const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
-  const showInitialSkeleton = useInitialLoadingGate(!loading);
+  const showInitialSkeleton = useInitialLoadingGate(!loading, 650, hasData);
   const noDataError =
     (logsError === 'no-data' || missionsError === 'no-data' || treeError === 'no-data') && !hasData;
 
@@ -1000,7 +1001,13 @@ export default function HomeScreen() {
           <Text style={[styles.sectionTitle, { flex: 1 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t('glucoseTrend')}</Text>
           <InfoButton text={t('last7Days')} styles={styles} />
         </View>
-        <Suspense fallback={<View style={{ height: 240 }} />}>
+        <Suspense
+          fallback={(
+            <ChartFrameSkeleton
+              height={glucoseTrendData.some((point) => point.value > 0) ? 280 : 220}
+            />
+          )}
+        >
           <GlucoseTrendChart
             data={glucoseTrendData.length > 0 ? glucoseTrendData : []}
           />

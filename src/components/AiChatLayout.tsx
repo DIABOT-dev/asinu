@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Modal,
   Pressable,
   StyleSheet,
@@ -25,6 +24,7 @@ import { useLanguageStore } from '../stores/language.store';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { ScaledText as Text } from './ScaledText';
+import { OptimizedImage } from './OptimizedImage';
 
 export type ChatBubble = {
   id: string;
@@ -412,10 +412,10 @@ export const AiChatLayout = ({
       <View>
         <View style={[styles.messageRow, !isAssistant && styles.messageRowReverse]}>
           {isAssistant && assistantAvatar ? (
-            <Image source={{ uri: assistantAvatar }} style={styles.avatar} />
+            <OptimizedImage source={{ uri: assistantAvatar }} cachePolicy="memory" style={styles.avatar} />
           ) : null}
           {!isAssistant && userAvatar ? (
-            <Image source={{ uri: userAvatar }} style={styles.avatar} />
+            <OptimizedImage source={{ uri: userAvatar }} cachePolicy="memory" style={styles.avatar} />
           ) : null}
           <View style={[styles.bubble, isAssistant ? styles.assistantBubble : styles.userBubble]}>
             <Text

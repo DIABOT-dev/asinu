@@ -148,7 +148,7 @@ export default function ProfileScreen() {
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
   const profileReadyRef = useRef(false);
   const [profileReady, setProfileReady] = useState(false);
-  const showInitialSkeleton = useInitialLoadingGate(profileReady);
+  const showInitialSkeleton = useInitialLoadingGate(profileReady, 650, Boolean(profile));
 
   // Fetch subscription status
   useEffect(() => {

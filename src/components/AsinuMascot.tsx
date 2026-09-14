@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useScaledFontSize } from '../hooks/useScaledTypography';
+import { OptimizedImage } from './OptimizedImage';
 import { ScaledText as Text } from './ScaledText';
 
 const MASCOT_URL = 'https://github.com/DIABOT-dev/resource/blob/main/asinu-mascot.png?raw=true';
@@ -32,10 +33,10 @@ export default function AsinuMascot({ onPress, size = 140 }: AsinuMascotProps) {
             <Ionicons name="chatbubble-ellipses" size={size * 0.5} color="#6366f1" />
           </View>
         ) : (
-          <Image
+          <OptimizedImage
             source={{ uri: MASCOT_URL }}
             style={[styles.image, { width: size, height: size }]}
-            resizeMode="contain"
+            contentFit="contain"
             onError={() => setImageError(true)}
           />
         )}

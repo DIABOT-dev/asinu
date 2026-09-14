@@ -13,9 +13,12 @@ interface NotificationStore {
   notifications: Notification[];
   unreadCount: number;
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  page: number;
   error: string | null;
   _fetching: boolean;
-  fetchFromBackend: () => Promise<void>;
+  fetchFromBackend: (options?: { page?: number; append?: boolean }) => Promise<void>;
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
   markAsRead: (notificationId: string) => Promise<boolean>;
   markAllAsRead: () => Promise<boolean>;
@@ -41,37 +44,57 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
   unreadCount: 0,
   loading: false,
+  loadingMore: false,
+  hasMore: true,
+  page: 0,
   error: null,
 
   _fetching: false,
-  fetchFromBackend: async () => {
+  fetchFromBackend: async ({ page = 1, append = false } = {}) => {
     // Prevent concurrent fetches (mount + AppState + interval can overlap)
     if (get()._fetching) return;
     set({ _fetching: true });
+    if (append) set({ loadingMore: true });
     // Only show loading on first fetch, not on polling (avoids rerender every 30s)
-    const isFirstFetch = get().notifications.length === 0 && !get().error;
+    const isFirstFetch = !append && get().notifications.length === 0 && !get().error;
     if (isFirstFetch) set({ loading: true, error: null });
     try {
-      const response = await fetchNotifications(1, 50);
+      const response = await fetchNotifications(page, 50);
       if (response.ok && response.notifications) {
-        const notifications = response.notifications.map(convertNotification);
+        const incoming = response.notifications.map(convertNotification);
+        const notifications = append
+          ? [...get().notifications, ...incoming.filter(
+            (item) => !get().notifications.some((current) => current.id === item.id),
+          )]
+          : incoming;
         const unreadCount = response.pagination?.unreadCount || 0;
-        // Skip set if data hasn't changed (prevents unnecessary rerenders)
-        const current = get();
-        if (current.unreadCount === unreadCount && current.notifications.length === notifications.length
-            && current.notifications[0]?.id === notifications[0]?.id) {
-          if (isFirstFetch) set({ loading: false, _fetching: false });
-          else set({ _fetching: false });
-          return;
-        }
-        set({ notifications, unreadCount, loading: false, error: null });
+        const pagination = response.pagination;
+        const currentPage = pagination?.page ?? page;
+        const limit = pagination?.limit ?? 50;
+        const total = pagination?.total;
+        const hasMore = typeof total === 'number'
+          ? currentPage * limit < total
+          : incoming.length >= limit;
+        set({
+          notifications,
+          unreadCount,
+          loading: false,
+          loadingMore: false,
+          hasMore,
+          page: currentPage,
+          error: null,
+        });
       } else {
-        set({ error: response.error || 'Failed to fetch', loading: false });
+        set({
+          error: response.error || 'Failed to fetch',
+          loading: false,
+          loadingMore: false,
+        });
       }
     } catch (error) {
-      set({ error: 'Network error', loading: false });
+      set({ error: 'Network error', loading: false, loadingMore: false });
     } finally {
-      set({ _fetching: false });
+      set({ _fetching: false, loadingMore: false });
     }
   },
 
@@ -160,7 +183,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   clearAll: async () => {
     const prev = get().notifications;
     const prevUnread = get().unreadCount;
-    set({ notifications: [], unreadCount: 0 });
+    set({ notifications: [], unreadCount: 0, hasMore: false, page: 0 });
     try {
       const response = await deleteAllNotifications();
       if (!response.ok) throw new Error(response.error || 'Could not delete notifications');

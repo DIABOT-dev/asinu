@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   FadeInUp,
@@ -14,6 +14,7 @@ import Animated, {
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 import { ScaledText as Text } from './ScaledText';
+import { OptimizedImage } from './OptimizedImage';
 
 type Props = {
   avatar?: string;
@@ -84,7 +85,7 @@ export const TypingIndicator = ({ avatar }: Props) => {
       accessibilityLabel={t('typing')}
     >
       {avatar ? (
-        <Image source={{ uri: avatar }} style={styles.avatar} />
+        <OptimizedImage source={{ uri: avatar }} cachePolicy="memory" style={styles.avatar} />
       ) : (
         <View style={styles.avatarSpacer} />
       )}

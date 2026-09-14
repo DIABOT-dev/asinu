@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -26,6 +27,10 @@ import type { Notification } from './NotificationBell';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type FilterKey = 'all' | 'reminder' | 'health' | 'activity' | 'system';
+
+type NotificationListItem =
+  | { kind: 'header'; key: string; title: string }
+  | { kind: 'notification'; key: string; notification: Notification };
 
 const FILTERS: Array<{ key: FilterKey; label: string; icon: IconName }> = [
   { key: 'all', label: 'notificationFilterAll', icon: 'notifications-outline' },
@@ -121,6 +126,9 @@ export function NotificationsPage() {
   const notifications = useNotificationStore((state) => state.notifications);
   const unreadCount = useNotificationStore((state) => state.unreadCount);
   const loading = useNotificationStore((state) => state.loading);
+  const loadingMore = useNotificationStore((state) => state.loadingMore);
+  const hasMore = useNotificationStore((state) => state.hasMore);
+  const page = useNotificationStore((state) => state.page);
   const error = useNotificationStore((state) => state.error);
   const fetchFromBackend = useNotificationStore((state) => state.fetchFromBackend);
   const markAsRead = useNotificationStore((state) => state.markAsRead);
@@ -169,6 +177,18 @@ export function NotificationsPage() {
 
     return groups;
   }, [filteredNotifications, t]);
+
+  const listItems = useMemo<NotificationListItem[]>(
+    () => groupedNotifications.flatMap((group) => [
+      { kind: 'header' as const, key: `header-${group.key}`, title: group.title },
+      ...group.items.map((notification) => ({
+        kind: 'notification' as const,
+        key: notification.id,
+        notification,
+      })),
+    ]),
+    [groupedNotifications],
+  );
 
   const runAction = useCallback(async (
     action: () => Promise<boolean>,
@@ -228,6 +248,11 @@ export function NotificationsPage() {
     await fetchFromBackend();
     setRefreshing(false);
   }, [fetchFromBackend]);
+
+  const handleEndReached = useCallback(() => {
+    if (!hasMore || loadingMore || loading || listItems.length === 0) return;
+    void fetchFromBackend({ page: page + 1, append: true });
+  }, [fetchFromBackend, hasMore, listItems.length, loading, loadingMore, page]);
 
   const renderNotification = (notification: Notification) => {
     const type = getNotificationType(notification);
@@ -354,40 +379,51 @@ export function NotificationsPage() {
             </ScrollView>
           </View>
 
-          <ScrollView
+          <FlatList<NotificationListItem>
+            data={listItems}
+            keyExtractor={(item) => item.key}
+            renderItem={({ item }) => (
+              item.kind === 'header'
+                ? <Text style={styles.groupTitle}>{item.title}</Text>
+                : renderNotification(item.notification)
+            )}
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
-          >
-            {loading && notifications.length === 0 ? (
-              <View style={styles.stateContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.stateText}>{t('loading')}</Text>
-              </View>
-            ) : error && notifications.length === 0 ? (
-              <View style={styles.stateContainer}>
-                <Ionicons name="cloud-offline-outline" size={38} color={colors.textSecondary} />
-                <Text style={styles.stateText}>{t('notificationActionFailed')}</Text>
-                <Pressable onPress={() => void fetchFromBackend()} style={styles.retryButton}>
-                  <Text style={styles.retryText}>{t('retry')}</Text>
-                </Pressable>
-              </View>
-            ) : groupedNotifications.length === 0 ? (
-              <View style={styles.stateContainer}>
-                <Ionicons name="notifications-off-outline" size={42} color={colors.textSecondary} />
-                <Text style={styles.stateText}>{tLogs('noNotifications')}</Text>
-              </View>
-            ) : (
-              groupedNotifications.map((group) => (
-                <View key={group.key} style={styles.group}>
-                  <Text style={styles.groupTitle}>{group.title}</Text>
-                  {group.items.map(renderNotification)}
+            onEndReached={handleEndReached}
+            onEndReachedThreshold={0.3}
+            ListEmptyComponent={(
+              loading && notifications.length === 0 ? (
+                <View style={styles.stateContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={styles.stateText}>{t('loading')}</Text>
                 </View>
-              ))
+              ) : error && notifications.length === 0 ? (
+                <View style={styles.stateContainer}>
+                  <Ionicons name="cloud-offline-outline" size={38} color={colors.textSecondary} />
+                  <Text style={styles.stateText}>{t('notificationActionFailed')}</Text>
+                  <Pressable onPress={() => void fetchFromBackend()} style={styles.retryButton}>
+                    <Text style={styles.retryText}>{t('retry')}</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.stateContainer}>
+                  <Ionicons name="notifications-off-outline" size={42} color={colors.textSecondary} />
+                  <Text style={styles.stateText}>{tLogs('noNotifications')}</Text>
+                </View>
+              )
             )}
-            <View style={{ height: insets.bottom + spacing.xl }} />
-          </ScrollView>
+            ListFooterComponent={loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.footerText}>{t('loading')}</Text>
+              </View>
+            ) : <View style={{ height: insets.bottom + spacing.xl }} />}
+          />
         </View>
       </Screen>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
@@ -465,7 +501,7 @@ function createStyles(
     filterText: { color: colors.textSecondary, fontSize: scaledTypography.size.sm, fontWeight: '500' },
     filterTextActive: { color: '#fff', fontWeight: '700' },
     list: { flex: 1, marginTop: spacing.md },
-    listContent: { paddingHorizontal: spacing.lg },
+    listContent: { paddingHorizontal: spacing.lg, flexGrow: 1 },
     group: { marginBottom: spacing.sm },
     groupTitle: {
       color: colors.textSecondary,
@@ -560,6 +596,14 @@ function createStyles(
       gap: spacing.md,
     },
     stateText: { color: colors.textSecondary, fontSize: scaledTypography.size.md, textAlign: 'center' },
+    footerLoader: {
+      minHeight: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    footerText: { color: colors.textSecondary, fontSize: scaledTypography.size.sm },
     retryButton: {
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.sm,

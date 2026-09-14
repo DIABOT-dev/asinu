@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Image, ImageStyle, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { ImageStyle, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
+import { OptimizedImage } from './OptimizedImage';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
@@ -38,7 +39,13 @@ export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }
     .toUpperCase();
 
   if (imageUrl) {
-    return <Image source={{ uri: imageUrl }} style={[{ width: size, height: size, borderRadius: size / 2 }, imageStyle]} />;
+    return (
+      <OptimizedImage
+        source={{ uri: imageUrl }}
+        cachePolicy="memory"
+        style={[{ width: size, height: size, borderRadius: size / 2 }, imageStyle]}
+      />
+    );
   }
 
   return (

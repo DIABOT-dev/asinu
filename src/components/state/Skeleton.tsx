@@ -1,8 +1,10 @@
 import type React from 'react';
-import { useEffect } from 'react';
-import { StyleProp, View, ViewStyle } from 'react-native';
+import { useEffect, useState } from 'react';
+import { type LayoutChangeEvent, type StyleProp, View, type ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -26,32 +28,65 @@ export function SkeletonBlock({
   style,
 }: SkeletonBlockProps) {
   const shimmer = useSharedValue(0);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   useEffect(() => {
     shimmer.value = withRepeat(
-      withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1, { duration: 1400, easing: Easing.linear }),
       -1,
-      true
+      false,
     );
   }, [shimmer]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: 0.34 + shimmer.value * 0.36,
+    transform: [{
+      translateX: interpolate(shimmer.value, [0, 1], [-containerWidth, containerWidth]),
+    }],
   }));
 
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    if (nextWidth !== containerWidth) {
+      setContainerWidth(nextWidth);
+    }
+  };
+
   return (
-    <Animated.View
+    <View
+      onLayout={handleLayout}
       style={[
         {
           width: width as any,
           height,
           borderRadius,
           backgroundColor: color ?? colors.border,
+          overflow: 'hidden',
         },
         style,
-        animatedStyle,
       ]}
-    />
+    >
+      {containerWidth > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              width: Math.max(containerWidth * 0.55, 48),
+            },
+            animatedStyle,
+          ]}
+        >
+          <LinearGradient
+            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.65)', 'rgba(255,255,255,0)']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={{ flex: 1 }}
+          />
+        </Animated.View>
+      )}
+    </View>
   );
 }
 

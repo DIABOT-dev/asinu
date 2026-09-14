@@ -313,7 +313,11 @@ export default function CareCircleScreen() {
   const sentInvitations = invitations.filter(
     (inv) => String(inv.requester_id) === String(profile?.id) && inv.status === 'pending'
   );
-  const showInitialSkeleton = useInitialLoadingGate(!(loading || refreshing));
+  const showInitialSkeleton = useInitialLoadingGate(
+    !(loading || refreshing),
+    650,
+    Boolean(connections.length || invitations.length),
+  );
 
   return (
     <>

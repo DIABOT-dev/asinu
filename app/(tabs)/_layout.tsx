@@ -121,7 +121,7 @@ export default function TabsLayout() {
   // The short minimum gate also makes cached bundled assets render the skeleton
   // consistently instead of skipping it in a single frame.
   const allVisibleTabIconsLoaded = tabIconSources.slice(0, 4).every(Boolean);
-  const showTabBarLoading = useInitialLoadingGate(allVisibleTabIconsLoaded, 800);
+  const showTabBarLoading = useInitialLoadingGate(allVisibleTabIconsLoaded, 800, allVisibleTabIconsLoaded);
   const visibleTabIconsReady = !showTabBarLoading;
   const homeIconSource = tabIconSources[0] ?? homeIcon;
   const connectIconSource = tabIconSources[1] ?? healthcheckIcon;

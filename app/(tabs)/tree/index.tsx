@@ -295,7 +295,11 @@ export default function TreeScreen() {
   );
 
   const [refreshing, setRefreshing] = useState(false);
-  const showInitialSkeleton = useInitialLoadingGate(status !== 'loading' || Boolean(summary));
+  const showInitialSkeleton = useInitialLoadingGate(
+    status !== 'loading' || Boolean(summary),
+    650,
+    Boolean(summary || recentLogs.length),
+  );
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     const controller = new AbortController();
