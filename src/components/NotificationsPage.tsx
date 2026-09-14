@@ -71,6 +71,7 @@ function getNotificationIcon(type: string, read: boolean): IconName {
   if (type.includes('glucose') || type.includes('blood_pressure')) return 'pulse-outline';
   if (type === 'health_alert' || type === 'caregiver_alert') return 'heart-circle-outline';
   if (type === 'care_circle_invitation') return 'person-add-outline';
+  if (type === 'doctor_message') return read ? 'chatbubble-outline' : 'chatbubble-ellipses-outline';
   if (type.startsWith('care_circle')) return 'people-outline';
   if (type === 'morning_checkin' || type === 'reminder_morning') return 'sunny-outline';
   if (type === 'reminder_afternoon') return 'partly-sunny-outline';
@@ -86,6 +87,7 @@ function getNotificationIconColor(type: string, colors: ReturnType<typeof useThe
   if (type.includes('warning')) return colors.warning;
   if (type.includes('glucose') || type.includes('blood_pressure')) return colors.primary;
   if (type === 'health_alert' || type === 'caregiver_alert') return colors.danger;
+  if (type === 'doctor_message') return colors.primary;
   if (type.startsWith('care_circle')) return '#4f7fa6';
   if (type.startsWith('reminder') || type.startsWith('checkin') || type === 'morning_checkin') return colors.primary;
   if (type === 'milestone' || type.startsWith('streak') || type.includes('weekly')) return colors.premiumDark;

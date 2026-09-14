@@ -87,7 +87,8 @@ export interface NotificationData {
     | "alert"
     | "message"
     | "engagement"
-    | "health_feed";
+    | "health_feed"
+    | "doctor_message";
   invitationId?: string;
   senderId?: string;
   senderName?: string;
@@ -129,6 +130,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
         "care-circle",
         "checkin",
         "milestone",
+        "doctor-consultation",
       ];
       await Promise.allSettled(
         CHANNEL_IDS.map((id) =>
@@ -161,6 +163,15 @@ export async function requestNotificationPermissions(): Promise<boolean> {
         vibrationPattern: [0, 250, 100, 250],
         enableVibrate: true,
         lightColor: "#6B8FFF",
+        sound: "asinu_care.wav",
+      });
+
+      await Notifications.setNotificationChannelAsync("doctor-consultation", {
+        name: "Trao đổi với bác sĩ",
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 100, 250],
+        enableVibrate: true,
+        lightColor: "#08b8a2",
         sound: "asinu_care.wav",
       });
 

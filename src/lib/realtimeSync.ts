@@ -68,6 +68,7 @@ const REFRESH_BY_TYPE: Record<string, string[]> = {
   profile_incomplete:      ['profile', 'notifications'],
   reengagement:            ['notifications'],
   engagement:              ['notifications'],
+  doctor_message:          ['notifications'],
 
 };
 
