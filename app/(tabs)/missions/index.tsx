@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
+import { MissionHeroBanner } from '../../../src/components/MissionHeroBanner';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
 import { MissionsTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
@@ -83,11 +84,7 @@ export default function MissionsScreen() {
         
         {/* Header Section */}
         <Animated.View entering={FadeIn.delay(0).duration(400)}>
-        <View style={styles.headerCard}>
-          <MaterialCommunityIcons name="flag-checkered" size={32} color={colors.primary} />
-          <Text style={styles.headerTitle}>{t('dailyMissions')}</Text>
-          <Text style={styles.headerSubtitle}>{t('refreshDaily')}</Text>
-        </View>
+          <MissionHeroBanner />
         </Animated.View>
 
         {/* Stats Row */}

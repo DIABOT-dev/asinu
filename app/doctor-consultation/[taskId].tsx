@@ -72,9 +72,6 @@ type TaskStatusResponse = NonNullable<
   NonNullable<ThreadResponse["data"]>["task_status"]
 >;
 
-const DOCTOR_AVATAR_URI =
-  "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80";
-
 const createClientMessageId = () => {
   const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
   return template.replace(/[xy]/g, (character) => {
@@ -97,13 +94,26 @@ const formatMessageTime = (dateString?: string) => {
   }
 };
 
-const formatHeaderDate = (dateString?: string, todayLabel = "Hôm nay") => {
+const formatHeaderDate = (
+  dateString?: string,
+  todayLabel = "Hôm nay",
+  locale = "vi-VN",
+) => {
   const date = dateString ? new Date(dateString) : new Date();
   const validDate = isNaN(date.getTime()) ? new Date() : date;
-  const day = validDate.getDate();
-  const month = validDate.getMonth() + 1;
-  const year = validDate.getFullYear();
-  return `${todayLabel}, ${day} thg ${month}, ${year}`;
+  const now = new Date();
+  if (
+    validDate.getFullYear() === now.getFullYear() &&
+    validDate.getMonth() === now.getMonth() &&
+    validDate.getDate() === now.getDate()
+  ) {
+    return todayLabel;
+  }
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(validDate);
 };
 
 export default function DoctorConsultationThreadScreen() {
@@ -136,8 +146,8 @@ export default function DoctorConsultationThreadScreen() {
     try {
       const response = await apiClient<ThreadResponse>(
         `/api/doctor/tasks/${encodeURIComponent(
-          taskId
-        )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`
+          taskId,
+        )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`,
       );
       setSummary(response.data?.summary ?? null);
       setMessages(response.data?.messages ?? []);
@@ -158,7 +168,7 @@ export default function DoctorConsultationThreadScreen() {
 
   useEffect(() => {
     requestAnimationFrame(() =>
-      scrollRef.current?.scrollToEnd({ animated: true })
+      scrollRef.current?.scrollToEnd({ animated: true }),
     );
   }, [messages.length]);
 
@@ -178,7 +188,7 @@ export default function DoctorConsultationThreadScreen() {
               taskStatus?.status === "completed" ? "follow_up" : "reply",
             client_message_id: createClientMessageId(),
           },
-        }
+        },
       );
       setDraft("");
       await loadThread();
@@ -199,7 +209,7 @@ export default function DoctorConsultationThreadScreen() {
           i18n.language === "vi"
             ? "Vui lòng cấp quyền truy cập thư viện ảnh"
             : "Please grant photo library access",
-          "error"
+          "error",
         );
         return;
       }
@@ -219,20 +229,20 @@ export default function DoctorConsultationThreadScreen() {
         setSending(true);
         await apiClient(
           `/api/doctor/tasks/${encodeURIComponent(
-            taskId
+            taskId,
           )}/attachments?tenant_id=${encodeURIComponent(activeTenantId)}`,
           {
             method: "POST",
             body: formData,
             headers: { "X-Client-Message-Id": createClientMessageId() },
-          }
+          },
         );
         await loadThread();
         showToast(
           i18n.language === "vi"
             ? "Đã gửi ảnh cho bác sĩ"
             : "Image sent to your doctor",
-          "success"
+          "success",
         );
       }
     } catch {
@@ -240,7 +250,7 @@ export default function DoctorConsultationThreadScreen() {
         i18n.language === "vi"
           ? "Không thể gửi ảnh. Vui lòng thử lại."
           : "Could not send image. Please try again.",
-        "error"
+        "error",
       );
     } finally {
       setSending(false);
@@ -261,7 +271,7 @@ export default function DoctorConsultationThreadScreen() {
             ...(ratingComment.trim() ? { comment: ratingComment.trim() } : {}),
             request_id: createClientMessageId(),
           },
-        }
+        },
       );
       setRatingSubmitted(true);
       showToast(t("doctorConsultationRatingSuccess"), "success");
@@ -275,7 +285,8 @@ export default function DoctorConsultationThreadScreen() {
   const firstMessageDate = messages[0]?.created_at;
   const dateHeader = formatHeaderDate(
     firstMessageDate,
-    t("doctorConsultationToday")
+    t("doctorConsultationToday"),
+    i18n.language === "en" ? "en-US" : "vi-VN",
   );
   const terminalStatuses = [
     "cancelled",
@@ -293,6 +304,9 @@ export default function DoctorConsultationThreadScreen() {
         defaultValue: taskStatus.status,
       })
     : t("doctorConsultationWaiting");
+  const statusIsTerminal =
+    !taskStatus ||
+    ["completed", ...terminalStatuses].includes(taskStatus.status);
 
   return (
     <KeyboardAvoidingView
@@ -339,29 +353,50 @@ export default function DoctorConsultationThreadScreen() {
               { color: isDark ? colors.textSecondary : "#9AA6B2" },
             ]}
           >
-            {taskId}
+            {t("doctorConsultationTaskLabel")}
           </Text>
         </View>
 
         <View style={styles.doctorHeaderStatus}>
-          <View style={styles.headerAvatarWrapper}>
-            <Image
-              source={{ uri: DOCTOR_AVATAR_URI }}
-              style={styles.headerAvatar}
+          <View
+            style={[
+              styles.headerAvatarPlaceholder,
+              { backgroundColor: isDark ? colors.surfaceMuted : "#E8F5F3" },
+            ]}
+          >
+            <Ionicons
+              name="person-outline"
+              size={21}
+              color={isDark ? colors.textSecondary : "#008B76"}
             />
-            <View style={styles.onlineBadgeDot} />
           </View>
           <View
             style={[
               styles.onlinePill,
               {
-                backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#EDFDF8",
+                backgroundColor: statusIsTerminal
+                  ? isDark
+                    ? "rgba(100, 116, 139, 0.2)"
+                    : "#F1F5F9"
+                  : isDark
+                    ? "rgba(16, 185, 129, 0.2)"
+                    : "#EDFDF8",
               },
             ]}
           >
-            <View style={styles.onlinePillDot} />
-            <Text style={styles.onlinePillText}>
-              {t("doctorConsultationOnline")}
+            <View
+              style={[
+                styles.onlinePillDot,
+                { backgroundColor: statusIsTerminal ? "#94A3B8" : "#10B981" },
+              ]}
+            />
+            <Text
+              style={[
+                styles.onlinePillText,
+                { color: statusIsTerminal ? "#64748B" : "#059669" },
+              ]}
+            >
+              {statusLabel}
             </Text>
           </View>
         </View>
@@ -551,33 +586,37 @@ export default function DoctorConsultationThreadScreen() {
                       },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.messageBodyText,
-                        { color: colors.textPrimary },
-                      ]}
-                    >
-                      {attachment ? (
+                    {attachment ? (
+                      <View style={styles.attachmentContent}>
                         <Pressable
+                          accessibilityRole="imagebutton"
+                          accessibilityLabel={attachment.name}
                           onPress={() => void Linking.openURL(attachment.url)}
                         >
                           <Image
                             source={{ uri: attachment.url }}
                             style={styles.messageAttachment}
                           />
-                          <Text
-                            style={[
-                              styles.attachmentName,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            {attachment.name}
-                          </Text>
                         </Pressable>
-                      ) : (
-                        message.content
-                      )}
-                    </Text>
+                        <Text
+                          style={[
+                            styles.attachmentName,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {attachment.name}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.messageBodyText,
+                          { color: colors.textPrimary },
+                        ]}
+                      >
+                        {message.content}
+                      </Text>
+                    )}
                     <View style={styles.messageFooterRight}>
                       {timeStr ? (
                         <Text
@@ -609,10 +648,18 @@ export default function DoctorConsultationThreadScreen() {
                 key={message.id || index}
                 style={[styles.bubbleWrapper, styles.doctorWrapper]}
               >
-                <View style={styles.doctorAvatarCol}>
-                  <Image
-                    source={{ uri: DOCTOR_AVATAR_URI }}
-                    style={styles.doctorMsgAvatar}
+                <View
+                  style={[
+                    styles.doctorMsgAvatar,
+                    {
+                      backgroundColor: isDark ? colors.surfaceMuted : "#E8F5F3",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={18}
+                    color={isDark ? colors.textSecondary : "#008B76"}
                   />
                 </View>
                 <View
@@ -637,33 +684,37 @@ export default function DoctorConsultationThreadScreen() {
                     </Text>
                   ) : null}
 
-                  <Text
-                    style={[
-                      styles.messageBodyText,
-                      { color: colors.textPrimary },
-                    ]}
-                  >
-                    {attachment ? (
+                  {attachment ? (
+                    <View style={styles.attachmentContent}>
                       <Pressable
+                        accessibilityRole="imagebutton"
+                        accessibilityLabel={attachment.name}
                         onPress={() => void Linking.openURL(attachment.url)}
                       >
                         <Image
                           source={{ uri: attachment.url }}
                           style={styles.messageAttachment}
                         />
-                        <Text
-                          style={[
-                            styles.attachmentName,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {attachment.name}
-                        </Text>
                       </Pressable>
-                    ) : (
-                      message.content
-                    )}
-                  </Text>
+                      <Text
+                        style={[
+                          styles.attachmentName,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {attachment.name}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text
+                      style={[
+                        styles.messageBodyText,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {message.content}
+                    </Text>
+                  )}
 
                   {joinUrl ? (
                     <Pressable
@@ -914,26 +965,12 @@ const styles = StyleSheet.create({
   doctorHeaderStatus: {
     alignItems: "center",
   },
-  headerAvatarWrapper: {
-    position: "relative",
-  },
-  headerAvatar: {
-    borderColor: "#E5F7F4",
+  headerAvatarPlaceholder: {
+    alignItems: "center",
     borderRadius: 20,
-    borderWidth: 1.5,
     height: 40,
+    justifyContent: "center",
     width: 40,
-  },
-  onlineBadgeDot: {
-    backgroundColor: "#10B981",
-    borderColor: "#FFFFFF",
-    borderRadius: 5,
-    borderWidth: 1.5,
-    bottom: 0,
-    height: 10,
-    position: "absolute",
-    right: 0,
-    width: 10,
   },
   onlinePill: {
     alignItems: "center",
@@ -1044,8 +1081,10 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   doctorMsgAvatar: {
+    alignItems: "center",
     borderRadius: 18,
     height: 36,
+    justifyContent: "center",
     width: 36,
   },
   patientCard: {
@@ -1094,6 +1133,9 @@ const styles = StyleSheet.create({
     height: 180,
     marginBottom: 6,
     width: 220,
+  },
+  attachmentContent: {
+    alignItems: "flex-start",
   },
   attachmentName: {
     fontSize: 12,

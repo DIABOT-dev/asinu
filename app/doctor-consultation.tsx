@@ -1,5 +1,5 @@
 import { Stack, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -59,6 +59,9 @@ type DoctorClinic = { tenant_id: string; name: string; specialties: string[] };
 type DoctorClinicResponse = { ok: boolean; data?: { items: DoctorClinic[] } };
 type PendingAttachment = { uri: string; name: string; mimeType: string };
 
+const createSubmissionTaskId = () =>
+  `doctor-task:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+
 const isAttachmentMessage = (content?: string | null) =>
   typeof content === "string" && content.startsWith("[ASINU_ATTACHMENT]");
 
@@ -73,9 +76,6 @@ const specialtyLabels: Record<string, string> = {
   nutrition: "Dinh dưỡng",
   psychology: "Tâm lý",
 };
-
-const DOCTOR_BANNER_ILLUSTRATION =
-  "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=350&auto=format&fit=crop&q=80";
 
 const doctorInitials = (fullName: string) =>
   fullName
@@ -101,7 +101,7 @@ export default function DoctorConsultationScreen() {
     DoctorRecommendation[]
   >([]);
   const [preferredDoctorId, setPreferredDoctorId] = useState<string | null>(
-    null
+    null,
   );
   const [specialties, setSpecialties] = useState<DoctorSpecialty[]>([]);
   const [clinics, setClinics] = useState<DoctorClinic[]>([]);
@@ -117,16 +117,19 @@ export default function DoctorConsultationScreen() {
     "improving" | "stable" | "worsening" | ""
   >("");
   const [severity, setSeverity] = useState<"mild" | "moderate" | "severe" | "">(
-    ""
+    "",
   );
   const [emergencyConfirmed, setEmergencyConfirmed] = useState(false);
   const [pendingAttachment, setPendingAttachment] =
     useState<PendingAttachment | null>(null);
+  // Keep retries idempotent. If creating the task succeeded but the optional
+  // image upload failed, submitting again must address the same task.
+  const submissionTaskIdRef = useRef<string | null>(null);
 
   const loadTasks = async (tenantId = selectedTenantId) => {
     try {
       const response = await apiClient<DoctorTaskListResponse>(
-        `/api/doctor/tasks?tenant_id=${encodeURIComponent(tenantId)}`
+        `/api/doctor/tasks?tenant_id=${encodeURIComponent(tenantId)}`,
       );
       setTasks(response.data?.tasks ?? []);
     } catch {
@@ -145,7 +148,7 @@ export default function DoctorConsultationScreen() {
         setSelectedTenantId((current: string) =>
           items.some((clinic) => clinic.tenant_id === current)
             ? current
-            : items[0]?.tenant_id || current
+            : items[0]?.tenant_id || current,
         );
       })
       .catch(() => {
@@ -168,7 +171,7 @@ export default function DoctorConsultationScreen() {
         setSelectedSpecialty((current) =>
           items.some((item) => item.code === current)
             ? current
-            : items[0]?.code || ""
+            : items[0]?.code || "",
         );
       })
       .catch(() => {
@@ -191,7 +194,7 @@ export default function DoctorConsultationScreen() {
           priority: "normal",
           limit: 3,
         },
-      }
+      },
     )
       .then((response) => {
         setRecommendations(response.data?.items ?? []);
@@ -244,6 +247,9 @@ export default function DoctorConsultationScreen() {
       return;
     }
     setIsSubmitting(true);
+    const submissionTaskId =
+      submissionTaskIdRef.current ?? createSubmissionTaskId();
+    submissionTaskIdRef.current = submissionTaskId;
     try {
       const response = await apiClient<DoctorTaskResponse>(
         "/api/doctor/tasks",
@@ -265,10 +271,10 @@ export default function DoctorConsultationScreen() {
             },
             consent_version: profile?.consentVersion || "v1.0.0",
             preferred_doctor_id: preferredDoctorId,
+            task_id: submissionTaskId,
           },
-        }
+        },
       );
-      showToast(t("doctorConsultationSuccess"), "success");
       const taskId = response.data?.task_id;
       if (taskId) {
         if (pendingAttachment) {
@@ -280,11 +286,14 @@ export default function DoctorConsultationScreen() {
           } as any);
           await apiClient(
             `/api/doctor/tasks/${encodeURIComponent(
-              taskId
+              taskId,
             )}/attachments?tenant_id=${encodeURIComponent(selectedTenantId)}`,
-            { method: "POST", body: formData }
+            { method: "POST", body: formData },
           );
         }
+        showToast(t("doctorConsultationSuccess"), "success");
+        submissionTaskIdRef.current = null;
+        setPendingAttachment(null);
         router.replace({
           pathname: "/doctor-consultation/[taskId]",
           params: { taskId, tenantId: selectedTenantId },
@@ -297,8 +306,8 @@ export default function DoctorConsultationScreen() {
         error instanceof ApiError && error.message.trim()
           ? error.message
           : error instanceof Error && error.message.trim()
-          ? error.message
-          : t("doctorConsultationError");
+            ? error.message
+            : t("doctorConsultationError");
       showToast(message, "error");
     } finally {
       setIsSubmitting(false);
@@ -306,10 +315,10 @@ export default function DoctorConsultationScreen() {
   };
 
   const selectedClinic = clinics.find(
-    (clinic) => clinic.tenant_id === selectedTenantId
+    (clinic) => clinic.tenant_id === selectedTenantId,
   );
   const selectedDoctor = recommendations.find(
-    (doctor) => doctor.doctorId === preferredDoctorId
+    (doctor) => doctor.doctorId === preferredDoctorId,
   );
 
   return (
@@ -385,11 +394,18 @@ export default function DoctorConsultationScreen() {
                 {t("doctorConsultationHeroBadge")}
               </Text>
             </View>
-            <Image
-              source={{ uri: DOCTOR_BANNER_ILLUSTRATION }}
-              style={styles.heroDoctorImage}
-              resizeMode="cover"
-            />
+            <View
+              style={[
+                styles.heroDoctorPlaceholder,
+                { backgroundColor: isDark ? colors.surfaceMuted : "#D8F6F1" },
+              ]}
+            >
+              <Ionicons
+                name="people-outline"
+                size={48}
+                color={isDark ? colors.textSecondary : "#008B76"}
+              />
+            </View>
           </View>
         </View>
 
@@ -655,13 +671,13 @@ export default function DoctorConsultationScreen() {
                               ? "rgba(0,168,143,0.15)"
                               : "#F0FBF9"
                             : isDark
-                            ? colors.background
-                            : "#FFFFFF",
+                              ? colors.background
+                              : "#FFFFFF",
                           borderColor: selected
                             ? "#00A88F"
                             : isDark
-                            ? colors.border
-                            : "#E2E8F0",
+                              ? colors.border
+                              : "#E2E8F0",
                         },
                       ]}
                     >
@@ -738,13 +754,13 @@ export default function DoctorConsultationScreen() {
                           ? "rgba(0,168,143,0.15)"
                           : "#F0FBF9"
                         : isDark
-                        ? colors.background
-                        : "#FFFFFF",
+                          ? colors.background
+                          : "#FFFFFF",
                       borderColor: selected
                         ? "#00A88F"
                         : isDark
-                        ? colors.border
-                        : "#E2E8F0",
+                          ? colors.border
+                          : "#E2E8F0",
                     },
                   ]}
                 >
@@ -756,8 +772,8 @@ export default function DoctorConsultationScreen() {
                           backgroundColor: selected
                             ? "#E0F7F4"
                             : isDark
-                            ? colors.surface
-                            : "#F1F5F9",
+                              ? colors.surface
+                              : "#F1F5F9",
                         },
                       ]}
                     >
@@ -894,13 +910,13 @@ export default function DoctorConsultationScreen() {
                               ? "rgba(0,168,143,0.12)"
                               : "#F8FCFB"
                             : isDark
-                            ? colors.background
-                            : "#FFFFFF",
+                              ? colors.background
+                              : "#FFFFFF",
                           borderColor: selected
                             ? "#00A88F"
                             : isDark
-                            ? colors.border
-                            : "#E2E8F0",
+                              ? colors.border
+                              : "#E2E8F0",
                         },
                       ]}
                     >
@@ -1127,8 +1143,8 @@ export default function DoctorConsultationScreen() {
                   borderColor: consentAccepted
                     ? "#00A88F"
                     : isDark
-                    ? colors.border
-                    : "#94A3B8",
+                      ? colors.border
+                      : "#94A3B8",
                 },
               ]}
             >
@@ -1343,9 +1359,11 @@ const styles = StyleSheet.create({
     position: "relative",
     width: 120,
   },
-  heroDoctorImage: {
+  heroDoctorPlaceholder: {
+    alignItems: "center",
     borderRadius: 18,
     height: 125,
+    justifyContent: "center",
     width: 100,
   },
   heroBadgeSpeech: {
