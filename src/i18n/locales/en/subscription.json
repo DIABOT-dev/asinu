@@ -1,6 +1,12 @@
 {
   "title": "Premium Plan",
+  "headerSubtitle": "Live healthier every day\nwith AI technology",
+  "quoteHeader": "For a healthier version of you ♡",
   "currentPlan": "Current Plan",
+  "currentPlanDesc": "You are currently using the Free plan",
+  "mostPopular": "★ Most Popular",
+  "faqSubtitle": "Quick answers to questions about our service plans",
+  "healthBetterWaiting": "Better health is waiting for you ♥",
   "free": "Free",
   "premium": "Premium",
   "expiresAt": "Expires: {{date}}",

@@ -1,6 +1,12 @@
 {
   "title": "Gói Premium",
+  "headerSubtitle": "Sống khỏe hơn mỗi ngày\ncùng công nghệ AI",
+  "quoteHeader": "Vì một phiên bản khỏe mạnh hơn của bạn ♡",
   "currentPlan": "Gói hiện tại",
+  "currentPlanDesc": "Bạn đang sử dụng gói Miễn phí",
+  "mostPopular": "★ Phổ biến nhất",
+  "faqSubtitle": "Giải đáp nhanh những thắc mắc về gói dịch vụ",
+  "healthBetterWaiting": "Sức khỏe tốt hơn đang chờ bạn ♥",
   "free": "Miễn phí",
   "premium": "Premium",
   "expiresAt": "Hết hạn: {{date}}",

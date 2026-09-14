@@ -189,12 +189,14 @@ function EmergencyFABGate() {
   // /checkin: pure check-in flow đang chạy
   // /onboarding, /login, /register: flow setup, FAB không có ngữ nghĩa
   // /legal: trang xem điều khoản
+  // care-circle: trang đã có FAB mời thành viên riêng
   if (
     pathname.startsWith('/checkin')
     || pathname.startsWith('/onboarding')
     || pathname.startsWith('/login')
     || pathname.startsWith('/register')
     || pathname.startsWith('/legal')
+    || pathname.includes('care-circle')
   ) return null;
   return <AsinuEmergencyFAB />;
 }

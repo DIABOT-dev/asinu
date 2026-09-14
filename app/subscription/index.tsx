@@ -1,44 +1,39 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
-  Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, {
-  FadeInDown,
-  FadeInUp,
-  ZoomIn,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { SubscriptionFAQ } from '../../src/components/SubscriptionFAQ';
-import { IapPurchaseCard } from '../../src/features/iap/IapPurchaseCard';
 import { RestoreLink } from '../../src/features/iap/RestoreLink';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { apiClient, ApiError } from '../../src/lib/apiClient';
 import { env } from '../../src/lib/env';
-import { colors, radius, spacing, typography } from '../../src/styles';
+import { colors, radius, spacing } from '../../src/styles';
 import { showToast } from '../../src/stores/toast.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
+import { PLANS, formatVND } from '../../src/features/subscription/plans';
 
-// ── Types ──────────────────────────────────────────────────────────
+// Assets
+const CROWN_HERO = require('../../assets/images/subscription/crown_hero.png');
+const PHONE_HERO = require('../../assets/images/subscription/phone_hero.png');
+const LEAVES_LEFT = require('../../assets/images/subscription/header_leaves_left.png');
+
+// Types
 type SubscriptionStatus = {
   ok: boolean;
   tier: 'free' | 'premium';
@@ -68,11 +63,6 @@ type SubRecord = {
   created_at: string;
 };
 
-// Plans + PlanOption tile live in src/features/subscription/plans so the
-// /subscription/gift screen renders the exact same picker UI as this one.
-import { PLANS, PlanOption, formatVND, pricePerMonth, type Plan } from '../../src/features/subscription/plans';
-
-// ── Helpers ─────────────────────────────────────────────────────────
 function formatDate(d: string | null) {
   if (!d) return '';
   const date = new Date(d);
@@ -81,49 +71,234 @@ function formatDate(d: string | null) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${day}/${month}/${date.getFullYear()}`;
 }
+
 function formatCountdown(s: number) {
   const m = Math.floor(s / 60);
   return `${m}:${(s % 60).toString().padStart(2, '0')}`;
 }
 
-// ── Feature row ──────────────────────────────────────────────────────
-type FeatureRowProps = { icon: React.ReactNode; text: string; premium?: boolean; dim?: boolean };
-function FeatureRow({ icon, text, premium, dim }: FeatureRowProps) {
-  return (
-    <View style={featureRowStyle.row}>
-      <View style={featureRowStyle.iconWrap}>{icon}</View>
-      <Text style={[featureRowStyle.text, premium && featureRowStyle.premiumText, dim && featureRowStyle.dimText]}>
-        {text}
-      </Text>
-    </View>
-  );
-}
-const featureRowStyle = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  iconWrap: { width: 20, alignItems: 'center' },
-  text: { fontSize: 13, color: colors.textSecondary, flex: 1 },
-  premiumText: { color: colors.premiumDark, fontWeight: '600' },
-  dimText: { opacity: 0.5 },
-});
-
-// ── Animated Plan Option ──────────────────────────────────────────────
-// ── Status badge color ────────────────────────────────────────────────
 function statusColor(s: SubRecord['status']) {
   if (s === 'completed') return colors.success;
   if (s === 'failed') return colors.danger;
   return colors.warning;
 }
 
-// ── Main Screen ──────────────────────────────────────────────────────
+// ── Memoized Subcomponents for Zero-Jank Rendering ──
+
+type CurrentPlanCardProps = {
+  status: SubscriptionStatus | null;
+  t: (key: string, options?: any) => string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const CurrentPlanCard = memo(function CurrentPlanCard({ status, t, styles }: CurrentPlanCardProps) {
+  return (
+    <View style={styles.currentPlanCard}>
+      <View style={styles.currentAvatarWrap}>
+        <Ionicons name="person" size={20} color="#059669" />
+      </View>
+      <View style={styles.currentPlanInfo}>
+        <View style={styles.currentPlanTitleRow}>
+          <Text style={styles.currentPlanLabel}>{t('currentPlan')}</Text>
+          <View style={styles.currentPlanBadge}>
+            <Text style={styles.currentPlanBadgeText}>
+              {status?.isPremium ? t('premium') : t('free')}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.currentPlanSub}>
+          {status?.isPremium && status.expiresAt
+            ? t('expiresAt', { date: formatDate(status.expiresAt) })
+            : t('currentPlanDesc')}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+    </View>
+  );
+});
+
+type FeatureItem = {
+  icon?: React.ReactNode;
+  text: string;
+  dim?: boolean;
+};
+
+type PlanComparisonProps = {
+  freeFeatures: FeatureItem[];
+  premiumFeatures: FeatureItem[];
+  onUpgradePress: () => void;
+  t: (key: string) => string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const PlanComparison = memo(function PlanComparison({
+  freeFeatures,
+  premiumFeatures,
+  onUpgradePress,
+  t,
+  styles,
+}: PlanComparisonProps) {
+  return (
+    <View style={styles.comparisonRow}>
+      {/* Free Plan Card */}
+      <View style={styles.freeCard}>
+        <View style={styles.planCardHeader}>
+          <View style={styles.freeAvatar}>
+            <Ionicons name="person-outline" size={20} color="#64748b" />
+          </View>
+          <Text style={styles.freePlanTitle}>{t('free')}</Text>
+          <Text style={styles.freePrice}>0đ</Text>
+          <Text style={styles.perMonthText}>{t('perMonth')}</Text>
+        </View>
+
+        <View style={styles.featureList}>
+          {freeFeatures.map((item, idx) => (
+            <View key={idx} style={styles.featureRow}>
+              <View style={styles.featureIconWrap}>{item.icon}</View>
+              <Text
+                style={[styles.featureText, item.dim && styles.featureTextDim]}
+                numberOfLines={2}
+              >
+                {item.text}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.freeCTABox}>
+          <Text style={styles.freeCTAText}>{t('currentlyUsing')}</Text>
+        </View>
+      </View>
+
+      {/* Premium Plan Card (Highlighted) */}
+      <View style={styles.premiumCard}>
+        <View style={styles.popularBadge}>
+          <Text style={styles.popularBadgeText}>{t('mostPopular')}</Text>
+        </View>
+
+        <View style={styles.planCardHeader}>
+          <View style={styles.premiumAvatar}>
+            <MaterialCommunityIcons name="crown" size={22} color="#f59e0b" />
+          </View>
+          <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
+          <Text style={styles.premiumPrice}>199K</Text>
+          <Text style={styles.premiumPerMonthText}>{t('perMonth')}</Text>
+        </View>
+
+        <View style={styles.featureList}>
+          {premiumFeatures.map((item, idx) => (
+            <View key={idx} style={styles.featureRow}>
+              <Ionicons name="checkmark-circle" size={16} color="#ea580c" style={styles.premiumCheckIcon} />
+              <Text style={styles.premiumFeatureText} numberOfLines={2}>
+                {item.text}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <Pressable
+          onPress={onUpgradePress}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+        >
+          <LinearGradient
+            colors={['#f97316', '#ea580c']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.premiumCTABtn}
+          >
+            <Text style={styles.premiumCTAText}>{t('upgradeNow')} →</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
+    </View>
+  );
+});
+
+type ComingSoonCardProps = {
+  t: (key: string) => string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const ComingSoonCard = memo(function ComingSoonCard({ t, styles }: ComingSoonCardProps) {
+  return (
+    <View style={styles.comingSoonCard}>
+      <View style={styles.sproutIconWrap}>
+        <MaterialCommunityIcons name="sprout" size={22} color="#059669" />
+      </View>
+      <View style={styles.comingSoonTextCol}>
+        <Text style={styles.comingSoonTitle}>{t('upgradeComingSoonTitle')}</Text>
+        <Text style={styles.comingSoonBody}>{t('upgradeComingSoonBody')}</Text>
+      </View>
+      <Image
+        source={PHONE_HERO}
+        style={styles.phoneArtImg}
+        contentFit="contain"
+        cachePolicy="memory-disk"
+        priority="normal"
+      />
+    </View>
+  );
+});
+
+type HistoryCardProps = {
+  history: SubRecord[];
+  loadingHistory: boolean;
+  t: (key: string, options?: any) => string;
+  statusLabel: (s: SubRecord['status']) => string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const HistoryCard = memo(function HistoryCard({
+  history,
+  loadingHistory,
+  t,
+  statusLabel,
+  styles,
+}: HistoryCardProps) {
+  return (
+    <View style={styles.historyCard}>
+      <View style={styles.receiptIconWrap}>
+        <Ionicons name="receipt-outline" size={20} color="#059669" />
+      </View>
+      <View style={styles.historyContentWrap}>
+        <Text style={styles.historyTitle}>{t('historyTitle')}</Text>
+        {loadingHistory ? (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.historyLoading} />
+        ) : history.length === 0 ? (
+          <Text style={styles.historyEmptyText}>{t('noHistory')}</Text>
+        ) : (
+          <View style={styles.historyItemsList}>
+            {history.slice(0, 3).map((sub) => (
+              <View key={sub.id} style={styles.historyItemRow}>
+                <View style={styles.historyItemCol}>
+                  <Text style={styles.historyItemAmount}>
+                    {formatVND(sub.amount)}đ · {t('planMonth', { months: sub.plan_months })}
+                  </Text>
+                  <Text style={styles.historyItemDate}>{formatDate(sub.created_at)}</Text>
+                </View>
+                <View style={[styles.historyStatusPill, { backgroundColor: statusColor(sub.status) + '20' }]}>
+                  <Text style={[styles.historyStatusText, { color: statusColor(sub.status) }]}>
+                    {statusLabel(sub.status)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+});
+
+// ── Main Screen Component ──
+
 export default function SubscriptionScreen() {
   const { t } = useTranslation('subscription');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
-  const fontScale = useFontSizeStore((s) => s.scale);
-  const isXLarge = fontScale === 'xlarge';
-  const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top, isDark]);
+  const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
 
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -147,21 +322,6 @@ export default function SubscriptionScreen() {
     if (pollRef.current) clearInterval(pollRef.current);
   }, []);
 
-  // ── CTA pulse animation ──
-  const ctaGlow = useSharedValue(1);
-  useEffect(() => {
-    ctaGlow.value = withDelay(800, withRepeat(
-      withSequence(
-        withTiming(1.03, { duration: 900 }),
-        withTiming(1, { duration: 900 }),
-      ),
-      -1, true
-    ));
-  }, []);
-  const ctaAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ctaGlow.value }],
-  }));
-
   const fetchStatus = useCallback(async () => {
     try {
       const res = await apiClient<SubscriptionStatus>('/api/subscriptions/status');
@@ -181,7 +341,7 @@ export default function SubscriptionScreen() {
     fetchStatus();
     fetchHistory();
     return () => clearTimers();
-  }, []);
+  }, [fetchStatus, fetchHistory, clearTimers]);
 
   const startCountdown = useCallback((expiresAt: string) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -267,336 +427,194 @@ export default function SubscriptionScreen() {
       }
     }
   }, [selectedPlan, fetchStatus, fetchHistory, t]);
-  const isQrExpired = qr ? countdown <= 0 && pollStatus !== 'success' : false;
 
-  function statusLabel(s: SubRecord['status']) {
+  const handleUpgradePress = useCallback(() => {
+    if (env.paymentMethod === 'sepay') {
+      handleOpenPayMethod();
+    } else if (env.paymentMethod === 'iap') {
+      showToast(t('chooseIapPlan'), 'info');
+    } else {
+      showToast(t('upgradeComingSoonTitle'), 'info');
+    }
+  }, [handleOpenPayMethod, t]);
+
+  const isQrExpired = qr ? countdown <= 0 && pollStatus !== 'success' : false;
+  const activePlan = PLANS.find(p => p.months === selectedPlan) ?? PLANS[0];
+
+  const statusLabel = useCallback((s: SubRecord['status']) => {
     if (s === 'completed') return t('statusCompleted');
     if (s === 'failed') return t('statusFailed');
     return t('statusPending');
-  }
+  }, [t]);
 
-  const freeFeatures = [
-    { icon: <Ionicons name="calendar-outline"      size={16} color={colors.textSecondary} />, text: t('features.history30d') },
-    { icon: <Ionicons name="chatbubble-outline"    size={16} color={colors.textSecondary} />, text: t('features.chatHistory30d') },
-    { icon: <Ionicons name="layers-outline"        size={16} color={colors.textSecondary} />, text: t('features.chatContext50') },
-    { icon: <Ionicons name="people-outline"        size={16} color={colors.textSecondary} />, text: t('features.connectionsFree') },
-    { icon: <Ionicons name="mic-off-outline"       size={16} color={colors.textSecondary} />, text: t('features.voiceChatNo'),       dim: true },
-    { icon: <Ionicons name="mic-off-outline"       size={16} color={colors.textSecondary} />, text: t('features.voiceLogNo'),        dim: true },
-    { icon: <Ionicons name="mic-off-outline"       size={16} color={colors.textSecondary} />, text: t('features.voiceTranscribeNo'), dim: true },
-  ];
-  const premiumFeatures = [
-    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.history365d') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.chatHistory365d') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.chatContext300') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.connections3') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.voiceChat5k') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.voiceLogYes') },
-    { icon: <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />, text: t('features.voiceTranscribeYes') },
-  ];
+  // Feature lists matching the screenshot
+  const freeFeatures = useMemo<FeatureItem[]>(() => [
+    { icon: <Ionicons name="calendar-outline" size={15} color={colors.textSecondary} />, text: t('features.history30d') },
+    { icon: <Ionicons name="chatbubble-outline" size={15} color={colors.textSecondary} />, text: t('features.chatHistory30d') },
+    { icon: <MaterialCommunityIcons name="cube-outline" size={15} color={colors.textSecondary} />, text: t('features.chatContext50') },
+    { icon: <Ionicons name="people-outline" size={15} color={colors.textSecondary} />, text: t('features.connectionsFree') },
+    { icon: <Ionicons name="mic-off-outline" size={15} color="#94a3b8" />, text: t('features.voiceChatNo'), dim: true },
+    { icon: <Ionicons name="mic-off-outline" size={15} color="#94a3b8" />, text: t('features.voiceLogNo'), dim: true },
+    { icon: <Ionicons name="mic-off-outline" size={15} color="#94a3b8" />, text: t('features.voiceTranscribeNo'), dim: true },
+  ], [t]);
 
-  const activePlan = PLANS.find(p => p.months === selectedPlan) ?? PLANS[0];
+  const premiumFeatures = useMemo<FeatureItem[]>(() => [
+    { text: t('features.history365d') },
+    { text: t('features.chatHistory365d') },
+    { text: t('features.chatContext300') },
+    { text: t('features.connections3') },
+    { text: t('features.voiceChat5k') },
+    { text: t('features.voiceLogYes') },
+    { text: t('features.voiceTranscribeYes') },
+  ], [t]);
+
+  const handleBack = useCallback(() => router.back(), [router]);
+  const handleGiftPress = useCallback(() => router.push('/subscription/gift' as any), [router]);
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-        {/* ── Header ── */}
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <View style={styles.header}>
-            <ScreenBackButton style={styles.backBtn} onPress={() => router.back()} />
-            <Text style={styles.headerTitle}>{t('title')}</Text>
-            <View>
-              <MaterialCommunityIcons name="crown" size={44} color={colors.premiumDark} style={styles.crownIcon} />
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + spacing.sm }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
+      >
+        <Animated.View entering={FadeInDown.duration(280)}>
+          {/* ── Top Header with 3D Crown Art & Left Leaves ── */}
+          <View style={styles.headerRow}>
+            {/* Decorative leaf vine behind back button */}
+            <View style={styles.leavesLeftWrap} pointerEvents="none">
+              <Image
+                source={LEAVES_LEFT}
+                style={styles.leavesLeftImg}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                priority="high"
+              />
             </View>
-          </View>
-        </Animated.View>
 
-        {/* ── Current plan ── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('currentPlan')}</Text>
-          {loadingStatus ? <ActivityIndicator color={colors.primary} /> : (
-            <View style={styles.planRow}>
-              <View style={[styles.planBadge, status?.isPremium ? styles.premiumBadge : styles.freeBadge]}>
-                {status?.isPremium
-                  ? <MaterialCommunityIcons name="crown" size={14} color={colors.premiumDark} />
-                  : <Ionicons name="person-outline" size={14} color={colors.textSecondary} />}
-                <Text style={[styles.planBadgeText, status?.isPremium ? styles.premiumBadgeText : styles.freeBadgeText]}>
-                  {status?.isPremium ? t('premium') : t('free')}
-                </Text>
-              </View>
-              {status?.isPremium && status.expiresAt
-                ? <Text style={styles.expiresText}>{t('expiresAt', { date: formatDate(status.expiresAt) })}</Text>
-                : null}
+            <ScreenBackButton onPress={handleBack} />
+            <View style={styles.headerTextCol}>
+              <Text style={styles.headerTitle}>{t('title')}</Text>
+              <Text style={styles.headerSubtitle} numberOfLines={2}>
+                {t('headerSubtitle')}
+              </Text>
             </View>
-          )}
-          {status?.isPremium && (
-            <View style={styles.voiceBar}>
-              <View style={styles.voiceBarHeader}>
-                <MaterialCommunityIcons name="microphone" size={13} color={colors.premiumDark} />
-                <Text style={styles.voiceBarLabel}>
-                  {t('voiceUsage', { used: status.voiceUsedThisMonth, limit: status.voiceMonthlyLimit })}
-                </Text>
-              </View>
-              <View style={styles.voiceBarTrack}>
-                <Animated.View
-                  entering={FadeInUp.delay(400).duration(600)}
-                  style={[styles.voiceBarFill, { width: `${Math.min(100, (status.voiceUsedThisMonth / status.voiceMonthlyLimit) * 100)}%` as any }]}
-                />
-              </View>
-            </View>
-          )}
-          {/* Apple Guideline 3.1.1 — Restore must be reachable for premium
-              users too (different App Store account / re-installed app). */}
-          {status?.isPremium && (
-            <RestoreLink onRestored={() => { fetchStatus(); fetchHistory(); }} />
-          )}
-        </View>
-
-        {/* ── Two-column feature comparison ── */}
-        <View style={isXLarge ? styles.plansColumn : styles.plansRow}>
-          <View style={!isXLarge ? { flex: 1 } : undefined}>
-            <View style={[styles.planCard, styles.freePlanCard, !isXLarge && { flex: 1 }]}>
-              <View style={styles.planCardHeader}>
-                <Ionicons name="person-circle-outline" size={28} color={colors.textSecondary} />
-                <Text style={styles.freePlanTitle}>{t('free')}</Text>
-                <Text style={styles.freePlanPrice}>0đ</Text>
-                <Text style={styles.planPriceUnit}>{t('perMonth')}</Text>
-              </View>
-              <View style={[styles.planCardBody, !isXLarge && { flex: 1 }]}>
-                {freeFeatures.map((f, i) => (
-                  <FeatureRow key={i} icon={f.icon} text={f.text} dim={f.dim} />
-                ))}
-              </View>
-              <View style={[styles.planCTABtn, styles.freeCTABtn]}>
-                <Text style={styles.freeCTAText}>{status?.isPremium ? t('free') : t('currentlyUsing')}</Text>
-              </View>
+            <View style={styles.crownArtWrap} pointerEvents="none">
+              <Image
+                source={CROWN_HERO}
+                style={styles.crownHeroImg}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                priority="high"
+              />
             </View>
           </View>
 
-          <View style={!isXLarge ? { flex: 1 } : undefined}>
-            <View style={[styles.planCard, styles.premiumPlanCard, !isXLarge && { flex: 1 }]}>
-              <View style={styles.premiumCardHeader}>
-                <MaterialCommunityIcons name="crown" size={28} color={colors.premiumDark} />
-                <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
-                <Text style={styles.premiumPlanPrice}>199K</Text>
-                <Text style={styles.premiumPlanPriceUnit}>{t('perMonth')}</Text>
-              </View>
-              <View style={styles.planCardBody}>
-                {premiumFeatures.map((f, i) => (
-                  <FeatureRow key={i} icon={f.icon} text={f.text} premium />
-                ))}
-              </View>
-              {status?.isPremium && (
-                <View style={[styles.planCTABtn, styles.premiumActiveBadge]}>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.premiumDark} />
-                  <Text style={styles.premiumBadgeText}>{t('currentlyUsing')}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
+          {/* ── Gói hiện tại (Current Plan Card) ── */}
+          <CurrentPlanCard status={status} t={t} styles={styles} />
 
-        {/* ── FAQ — placed before the plan selector so users can read the
-            "what / why / when to upgrade" questions BEFORE deciding to pay.
-            (MVP audit FIX F8 + product feedback to move it from the bottom.) */}
-        {!status?.isPremium && (
-          <Animated.View
-            entering={FadeInDown.delay(350).duration(400).springify()}
-            style={{ marginHorizontal: spacing.lg, marginTop: spacing.lg }}
-          >
+          {/* ── Two-Column Plan Comparison (Miễn phí vs Premium) ── */}
+          <PlanComparison
+            freeFeatures={freeFeatures}
+            premiumFeatures={premiumFeatures}
+            onUpgradePress={handleUpgradePress}
+            t={t}
+            styles={styles}
+          />
+
+          {/* ── FAQ Section (Câu hỏi thường gặp) ── */}
+          <View style={styles.faqWrapper}>
             <SubscriptionFAQ />
-          </Animated.View>
-        )}
+          </View>
 
-        {/* ── Payment surface khi PAYMENT_METHOD != 'sepay' ───────────────
-            Mobile app submit lên store: phải dùng thanh toán nội bộ của nền tảng.
-            SePay flow chỉ giữ trên web. Trong khi IAP còn đang scaffold,
-            hiển thị placeholder để user biết và submit Apple Review không
-            thấy UI thanh toán ngoài. */}
-        {!status?.isPremium && env.paymentMethod === 'hidden' && (
-          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.card}>
-            <View style={{ alignItems: 'center', padding: spacing.lg, gap: spacing.sm }}>
-              <MaterialCommunityIcons name="hammer-wrench" size={40} color={colors.textSecondary} />
-              <Text style={[styles.cardTitle, { textAlign: 'center' }]}>
-                {t('upgradeComingSoonTitle') || 'Tính năng nâng cấp sắp ra mắt'}
-              </Text>
-              <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
-                {t('upgradeComingSoonBody') || 'Asinu đang hoàn thiện kênh thanh toán an toàn qua cửa hàng ứng dụng. Hãy quay lại trong phiên bản tới.'}
-              </Text>
+          {/* ── Coming Soon Banner (Tính năng nâng cấp sắp ra mắt) ── */}
+          <ComingSoonCard t={t} styles={styles} />
+
+          {/* ── Registration History Card (Lịch sử đăng ký) ── */}
+          <HistoryCard
+            history={history}
+            loadingHistory={loadingHistory}
+            t={t}
+            statusLabel={statusLabel}
+            styles={styles}
+          />
+
+          {/* Restore Purchases Link for Store Guidelines */}
+          {status?.isPremium && (
+            <View style={styles.restoreWrap}>
+              <RestoreLink onRestored={() => { fetchStatus(); fetchHistory(); }} />
             </View>
-          </Animated.View>
-        )}
-        {!status?.isPremium && env.paymentMethod === 'iap' && (
-          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
-            <IapPurchaseCard
-              onPurchased={() => {
-                fetchStatus();
-                fetchHistory();
-              }}
-            />
-          </Animated.View>
-        )}
+          )}
 
-        {/* ── Plan selector — chỉ hiển thị khi mode = 'sepay' ── */}
-        {!status?.isPremium && env.paymentMethod === 'sepay' && (
-          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.card}>
-            <Text style={styles.cardTitle}>{t('planSelector')}</Text>
-            <View style={isXLarge ? styles.planGridColumn : styles.planGrid}>
-              {PLANS.map((plan) => (
-                <PlanOption
-                  key={plan.months}
-                  plan={plan}
-                  selected={plan.months === selectedPlan}
-                  onSelect={() => { setSelectedPlan(plan.months); setQr(null); setPollStatus('idle'); clearTimers(); }}
-                  isXLarge={isXLarge}
-                />
-              ))}
-            </View>
-
-            {/* CTA button with pulse */}
-            <Animated.View style={ctaAnimStyle}>
-              <Pressable style={styles.premiumCTABtn} onPress={handleOpenPayMethod} disabled={creatingQR || !!qr || walletPayResult === 'success'}>
-                <View style={styles.premiumCTAGradient}>
-                  {creatingQR
-                    ? <ActivityIndicator color={colors.premiumDark} size="small" />
-                    : (
-                      <View style={styles.ctaRow}>
-                        <MaterialCommunityIcons name="crown" size={18} color={colors.premiumDark} />
-                        <Text style={styles.premiumCTAText}>
-                          {t('upgradeNow')} · {formatVND(activePlan.price)}đ
-                        </Text>
-                      </View>
-                    )}
-                </View>
-              </Pressable>
-            </Animated.View>
-          </Animated.View>
-        )}
-
-        {/* ── QR Payment section (chỉ khi sepay mode) ── */}
-        {qr && !status?.isPremium && env.paymentMethod === 'sepay' && (
-          <Animated.View entering={FadeInDown.duration(400).springify()} style={styles.card}>
-            {pollStatus === 'success' ? (
-              <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.successBox}>
-                <Ionicons name="checkmark-circle" size={64} color={colors.success} />
-                <Text style={styles.successTitle}>{t('activationSuccess')}</Text>
-                <Text style={styles.successDesc}>{t('activationSuccessDesc')}</Text>
-              </Animated.View>
-            ) : isQrExpired ? (
-              <View style={styles.expiredBox}>
-                <Ionicons name="time-outline" size={40} color={colors.danger} />
-                <Text style={styles.expiredText}>{t('qrExpired')}</Text>
-                <Pressable style={styles.retryBtn} onPress={handleCreateQR}>
-                  <Text style={styles.retryBtnText}>{t('generateQR')}</Text>
-                </Pressable>
+          {/* Gift Premium Entry if SePay enabled */}
+          {env.paymentMethod === 'sepay' && (
+            <Pressable
+              onPress={handleGiftPress}
+              style={({ pressed }) => [styles.giftCard, { opacity: pressed ? 0.8 : 1 }]}
+            >
+              <View style={styles.giftIconWrap}>
+                <Ionicons name="gift" size={20} color="#d97706" />
               </View>
-            ) : (
-              <>
-                <Text style={styles.cardTitle}>{t('paymentQR')}</Text>
-                <Animated.View entering={ZoomIn.delay(100).duration(400)}>
-                  <Image source={{ uri: qr.qr_url }} style={styles.qrImage} resizeMode="contain" />
-                </Animated.View>
-                <View style={styles.countdownRow}>
-                  <Ionicons name="time-outline" size={14} color={colors.warning} />
-                  <Text style={styles.countdownText}>{t('countdown', { time: formatCountdown(countdown) })}</Text>
-                </View>
-                <View style={styles.noteBox}>
-                  <Text style={styles.noteLabel}>{t('transferNote')}</Text>
-                  <Text style={styles.noteValue}>{qr.description}</Text>
-                </View>
-                <View style={styles.noteBox}>
-                  <Text style={styles.noteLabel}>{t('amountLabel', { plan: t('planMonth', { months: qr.plan_months }) })}</Text>
-                  <Text style={[styles.noteValue, { color: colors.premiumDark }]}>{formatVND(qr.amount)}đ</Text>
-                </View>
-                <View style={styles.pollingRow}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.pollingText}>{t('polling')}</Text>
-                </View>
-                <Pressable style={styles.cancelBtn} onPress={handleCancelQR}>
-                  <Text style={styles.cancelBtnText}>{t('cancelQR')}</Text>
-                </Pressable>
-              </>
-            )}
-          </Animated.View>
-        )}
-
-        {/* ── Wallet Pay Success ── */}
-        {walletPayResult === 'success' && (
-          <Animated.View entering={ZoomIn.springify().damping(12)} style={[styles.card, styles.successBox]}>
-            <Ionicons name="checkmark-circle" size={64} color={colors.success} />
-            <Text style={styles.successTitle}>{t('activationSuccess')}</Text>
-            <Text style={styles.successDesc}>{t('activationSuccessDesc')}</Text>
-          </Animated.View>
-        )}
-
-        {/* ── Buy Premium for someone in Care Circle (MVP audit FIX #10) ──
-            Cũng dùng SePay nên ẩn khi mode != sepay. Apple/Google review sẽ
-            không thấy bất kỳ link checkout ngoài store nào. */}
-        {env.paymentMethod === 'sepay' && (
-        <Animated.View entering={FadeInDown.delay(450).duration(400).springify()} style={styles.card}>
-          <Pressable
-            onPress={() => router.push('/subscription/gift' as any)}
-            style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <View style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: colors.premium + '22',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <Ionicons name="gift" size={22} color={colors.premiumDark} />
+              <View style={styles.giftContentWrap}>
+                <Text style={styles.giftTitle}>{t('giftEntry')}</Text>
+                <Text style={styles.giftDesc}>{t('giftEntryDesc')}</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { marginBottom: 2 }]}>{t('giftEntry')}</Text>
-                <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
-                  {t('giftEntryDesc')}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-            </View>
-          </Pressable>
+              <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+            </Pressable>
+          )}
         </Animated.View>
-        )}
-
-        {/* ── History ── */}
-        <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} style={styles.card}>
-          <Text style={styles.cardTitle}>{t('historyTitle')}</Text>
-          {loadingHistory ? <ActivityIndicator color={colors.primary} /> :
-            history.length === 0
-              ? <Text style={styles.emptyText}>{t('noHistory')}</Text>
-              : history.map((sub, i) => (
-                <Animated.View
-                  key={sub.id}
-                  entering={FadeInDown.delay(i * 60).duration(300)}
-                  style={styles.historyRow}
-                >
-                  <View style={styles.historyLeft}>
-                    <Ionicons
-                      name={sub.status === 'completed' ? 'checkmark-circle' : sub.status === 'failed' ? 'close-circle' : 'time'}
-                      size={20} color={statusColor(sub.status)}
-                    />
-                    <View style={styles.historyInfo}>
-                      <Text style={styles.historyAmount}>{formatVND(sub.amount)}đ · {t('planMonth', { months: sub.plan_months })}</Text>
-                      <Text style={styles.historyDate}>
-                        {formatDate(sub.created_at)}
-                      </Text>
-                      {sub.subscription_end
-                        ? <Text style={styles.historyValidity}>{t('validUntil', { date: formatDate(sub.subscription_end) })}</Text>
-                        : null}
-                    </View>
-                  </View>
-                  <View style={[styles.historyBadge, { backgroundColor: statusColor(sub.status) + '20' }]}>
-                    <Text style={[styles.historyBadgeText, { color: statusColor(sub.status) }]}>{statusLabel(sub.status)}</Text>
-                  </View>
-                </Animated.View>
-              ))
-          }
-        </Animated.View>
-
       </ScrollView>
+
+      {/* ── QR Payment Section Modal (SePay) ── */}
+      {qr && (
+        <Modal visible transparent animationType="fade" onRequestClose={handleCancelQR}>
+          <Pressable style={styles.payModalOverlay} onPress={handleCancelQR}>
+            <Pressable style={styles.payModalBox} onPress={() => {}}>
+              {pollStatus === 'success' ? (
+                <View style={styles.successBox}>
+                  <Ionicons name="checkmark-circle" size={56} color={colors.success} />
+                  <Text style={styles.successTitle}>{t('activationSuccess')}</Text>
+                  <Text style={styles.successDesc}>{t('activationSuccessDesc')}</Text>
+                </View>
+              ) : isQrExpired ? (
+                <View style={styles.expiredBox}>
+                  <Ionicons name="time-outline" size={40} color={colors.danger} />
+                  <Text style={styles.expiredText}>{t('qrExpired')}</Text>
+                  <Pressable style={styles.retryBtn} onPress={handleCreateQR}>
+                    <Text style={styles.retryBtnText}>{t('generateQR')}</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.payModalTitle}>{t('paymentQR')}</Text>
+                  <Image source={{ uri: qr.qr_url }} style={styles.qrImage} contentFit="contain" />
+                  <View style={styles.countdownRow}>
+                    <Ionicons name="time-outline" size={14} color={colors.warning} />
+                    <Text style={styles.countdownText}>{t('countdown', { time: formatCountdown(countdown) })}</Text>
+                  </View>
+                  <View style={styles.noteBox}>
+                    <Text style={styles.noteLabel}>{t('transferNote')}</Text>
+                    <Text style={styles.noteValue}>{qr.description}</Text>
+                  </View>
+                  <View style={styles.noteBox}>
+                    <Text style={styles.noteLabel}>{t('amountLabel', { plan: t('planMonth', { months: qr.plan_months }) })}</Text>
+                    <Text style={[styles.noteValue, { color: '#ea580c' }]}>{formatVND(qr.amount)}đ</Text>
+                  </View>
+                  <View style={styles.pollingRow}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.pollingText}>{t('polling')}</Text>
+                  </View>
+                  <Pressable style={styles.cancelBtn} onPress={handleCancelQR}>
+                    <Text style={styles.cancelBtnText}>{t('cancelQR')}</Text>
+                  </Pressable>
+                </>
+              )}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
 
       {/* ── Modal chọn phương thức thanh toán ── */}
       <Modal visible={showPayMethodModal} transparent animationType="fade" onRequestClose={() => setShowPayMethodModal(false)}>
@@ -611,7 +629,7 @@ export default function SubscriptionScreen() {
               <View style={styles.payMethodIcon}>
                 <MaterialCommunityIcons name="wallet" size={24} color={colors.primary} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.payMethodTextWrap}>
                 <Text style={styles.payMethodLabel}>{t('walletDeduct')}</Text>
                 <Text style={styles.payMethodSub}>{t('walletBalance', { amount: formatVND(walletBalance) })}</Text>
               </View>
@@ -623,9 +641,9 @@ export default function SubscriptionScreen() {
               onPress={() => { setShowPayMethodModal(false); handleCreateQR(); }}
             >
               <View style={styles.payMethodIcon}>
-                <MaterialCommunityIcons name="qrcode-scan" size={24} color={colors.premium} />
+                <MaterialCommunityIcons name="qrcode-scan" size={24} color="#ea580c" />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.payMethodTextWrap}>
                 <Text style={styles.payMethodLabel}>{t('scanQR')}</Text>
                 <Text style={styles.payMethodSub}>{t('bankTransfer')}</Text>
               </View>
@@ -640,32 +658,11 @@ export default function SubscriptionScreen() {
       </Modal>
 
       {/* ── Modal xác nhận thanh toán bằng ví ── */}
-      <Modal
-        visible={showWalletConfirm}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (walletPayResult !== 'loading') {
-            setShowWalletConfirm(false);
-            setWalletPayResult('idle');
-            setWalletPayError('');
-          }
-        }}
-      >
-        <Pressable
-          style={styles.payModalOverlay}
-          onPress={() => {
-            if (walletPayResult !== 'loading') {
-              setShowWalletConfirm(false);
-              setWalletPayResult('idle');
-              setWalletPayError('');
-            }
-          }}
-        >
+      <Modal visible={showWalletConfirm} transparent animationType="fade" onRequestClose={() => setShowWalletConfirm(false)}>
+        <Pressable style={styles.payModalOverlay} onPress={() => setShowWalletConfirm(false)}>
           <Pressable style={styles.payModalBox} onPress={() => {}}>
             {walletPayResult === 'success' ? (
-              /* ── Thành công ── */
-              <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.walletResultBox}>
+              <View style={styles.walletResultBox}>
                 <Ionicons name="checkmark-circle" size={56} color={colors.success} />
                 <Text style={styles.walletResultTitle}>{t('subscriptionSuccess')}</Text>
                 <Text style={styles.walletResultDesc}>{t('planActivated', { months: activePlan.months })}</Text>
@@ -675,11 +672,10 @@ export default function SubscriptionScreen() {
                 >
                   <Text style={styles.confirmOkText}>{t('close')}</Text>
                 </Pressable>
-              </Animated.View>
+              </View>
             ) : (
-              /* ── Form xác nhận ── */
               <>
-                <MaterialCommunityIcons name="wallet-outline" size={36} color={colors.primary} style={{ alignSelf: 'center', marginBottom: spacing.sm }} />
+                <MaterialCommunityIcons name="wallet-outline" size={36} color={colors.primary} style={styles.walletIconSelf} />
                 <Text style={styles.payModalTitle}>{t('confirmSubscription')}</Text>
                 <Text style={styles.confirmDesc}>
                   {t('confirmSubscriptionMsg', { months: activePlan.months, price: formatVND(activePlan.price) })}
@@ -689,20 +685,15 @@ export default function SubscriptionScreen() {
                   <Text style={styles.confirmBalanceValue}>{formatVND(walletBalance)}{t('currency')}</Text>
                 </View>
                 {walletPayResult === 'failed' && (
-                  <Animated.View entering={FadeInDown.duration(300)} style={styles.walletErrorBox}>
+                  <View style={styles.walletErrorBox}>
                     <Ionicons name="alert-circle" size={16} color={colors.danger} />
                     <Text style={styles.walletErrorText}>{walletPayError}</Text>
-                  </Animated.View>
+                  </View>
                 )}
                 <View style={styles.confirmActions}>
                   <Pressable
                     style={styles.confirmCancelBtn}
-                    onPress={() => {
-                      setShowWalletConfirm(false);
-                      setWalletPayResult('idle');
-                      setWalletPayError('');
-                      setShowPayMethodModal(true);
-                    }}
+                    onPress={() => { setShowWalletConfirm(false); setShowPayMethodModal(true); }}
                     disabled={walletPayResult === 'loading'}
                   >
                     <Text style={styles.confirmCancelText}>{t('goBack')}</Text>
@@ -712,12 +703,11 @@ export default function SubscriptionScreen() {
                     onPress={handleWalletPay}
                     disabled={walletPayResult === 'loading'}
                   >
-                    {walletPayResult === 'loading'
-                      ? <ActivityIndicator size="small" color="#fff" />
-                      : <Text style={styles.confirmOkText}>
-                          {walletPayResult === 'failed' ? t('retry') : t('confirm')}
-                        </Text>
-                    }
+                    {walletPayResult === 'loading' ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.confirmOkText}>{walletPayResult === 'failed' ? t('retry') : t('confirm')}</Text>
+                    )}
                   </Pressable>
                 </View>
               </>
@@ -725,108 +715,497 @@ export default function SubscriptionScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-
     </Screen>
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>, topInset: number) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
   return StyleSheet.create({
-    scrollContent: { paddingBottom: 40, backgroundColor: colors.background },
-    header: {
-      paddingTop: topInset + spacing.md,
-      paddingBottom: spacing.xl,
-      paddingHorizontal: spacing.lg,
+    scrollContent: {
+      paddingBottom: 90,
+      paddingHorizontal: 16,
+    },
+    headerRow: {
+      flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.xs,
-      backgroundColor: colors.primaryLight,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      position: 'relative',
+      minHeight: 88,
+      paddingTop: 4,
+      paddingBottom: 8,
     },
-    backBtn: { position: 'absolute', left: spacing.lg, top: topInset + spacing.md },
-    headerTitle: { color: colors.premiumDark, fontSize: typography.size.lg, fontWeight: '800' },
-    crownIcon: { marginTop: spacing.xs },
-    card: {
-      backgroundColor: colors.surface,
-      marginHorizontal: spacing.lg,
-      marginTop: spacing.lg,
-      borderRadius: radius.lg,
-      padding: spacing.lg,
-      shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6,
-      shadowOffset: { width: 0, height: 2 }, elevation: 2,
-      borderWidth: 1, borderColor: colors.border,
+    leavesLeftWrap: {
+      position: 'absolute',
+      left: -14,
+      top: -8,
+      width: 140,
+      height: 85,
+      zIndex: 0,
     },
-    cardTitle: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.md },
-    planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' },
-    planBadge: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.xl,
+    leavesLeftImg: {
+      width: '100%',
+      height: '100%',
     },
-    freeBadge: { backgroundColor: colors.border },
-    premiumBadge: { backgroundColor: colors.premiumLight, borderWidth: 1, borderColor: colors.border },
-    planBadgeText: { fontSize: typography.size.sm, fontWeight: '700' },
-    freeBadgeText: { color: colors.textSecondary },
-    premiumBadgeText: { color: colors.premiumDark },
-    expiresText: { fontSize: typography.size.xs, color: colors.textSecondary },
+    headerTextCol: {
+      flex: 1,
+      paddingLeft: 10,
+      paddingRight: 145,
+      justifyContent: 'center',
+      zIndex: 1,
+    },
+    headerTitle: {
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+      color: isDark ? '#f8fafc' : '#0f172a',
+    },
+    headerSubtitle: {
+      fontSize: 12,
+      fontWeight: '500',
+      lineHeight: 17,
+      color: isDark ? '#94a3b8' : '#047857',
+      marginTop: 2,
+    },
+    crownArtWrap: {
+      position: 'absolute',
+      right: -8,
+      top: 2,
+      width: 145,
+      height: 70,
+      zIndex: 1,
+    },
+    crownHeroImg: {
+      width: '100%',
+      height: '100%',
+    },
 
-    voiceBar: { marginTop: spacing.md },
-    voiceBarHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
-    voiceBarLabel: { fontSize: typography.size.xs, color: colors.textSecondary },
-    voiceBarTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
-    voiceBarFill: { height: '100%', backgroundColor: colors.premium, borderRadius: 3 },
+    // Current plan card
+    currentPlanCard: {
+      backgroundColor: isDark ? colors.surface : '#ffffff',
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#e2e8f0',
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 4,
+    },
+    currentAvatarWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    currentPlanInfo: {
+      flex: 1,
+    },
+    currentPlanTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    currentPlanLabel: {
+      fontSize: 14.5,
+      fontWeight: '700',
+      color: isDark ? '#f8fafc' : '#0f172a',
+    },
+    currentPlanBadge: {
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 12,
+    },
+    currentPlanBadgeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: '#059669',
+    },
+    currentPlanSub: {
+      fontSize: 12,
+      color: isDark ? '#94a3b8' : '#64748b',
+      marginTop: 2,
+    },
 
-    plansRow: {
-      flexDirection: 'row', gap: spacing.md,
-      marginHorizontal: spacing.lg, marginTop: spacing.lg,
+    // Comparison row
+    comparisonRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 14,
       alignItems: 'stretch',
     },
-    plansColumn: {
-      gap: spacing.md,
-      marginHorizontal: spacing.lg, marginTop: spacing.lg,
+    freeCard: {
+      flex: 1,
+      backgroundColor: isDark ? colors.surface : '#ffffff',
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#e2e8f0',
+      padding: 12,
+      justifyContent: 'space-between',
     },
-    planCard: {
-      borderRadius: radius.lg, overflow: 'hidden',
-      shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 }, elevation: 3,
-      backgroundColor: colors.surface,
+    premiumCard: {
+      flex: 1,
+      backgroundColor: isDark ? '#1c1917' : '#fffbf5',
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: '#f59e0b',
+      padding: 12,
+      justifyContent: 'space-between',
+      position: 'relative',
     },
-    freePlanCard: { borderWidth: 1, borderColor: colors.border },
-    premiumPlanCard: { borderWidth: 1, borderColor: colors.border },
+    popularBadge: {
+      position: 'absolute',
+      top: -10,
+      right: 12,
+      backgroundColor: '#ea580c',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      zIndex: 2,
+    },
+    popularBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#ffffff',
+    },
     planCardHeader: {
-      alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.sm,
-      backgroundColor: colors.surface, gap: 4,
-      borderBottomWidth: 1, borderBottomColor: colors.border,
+      alignItems: 'center',
+      paddingTop: 4,
+      paddingBottom: 8,
     },
-    freePlanTitle: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
-    freePlanPrice: { fontSize: typography.size.xl, fontWeight: '800', color: colors.textSecondary },
-    planPriceUnit: { fontSize: typography.size.xs, color: colors.textSecondary },
-    premiumCardHeader: {
-      alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.sm, gap: 4,
-      backgroundColor: colors.premiumLight,
-      borderBottomWidth: 1, borderBottomColor: colors.border,
+    freeAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: isDark ? '#334155' : '#f1f5f9',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 6,
     },
-    premiumPlanTitle: { fontSize: typography.size.md, fontWeight: '800', color: colors.premiumDark },
-    premiumPlanPrice: { fontSize: typography.size.xl, fontWeight: '800', color: colors.premiumDark },
-    premiumPlanPriceUnit: { fontSize: typography.size.xs, color: colors.textSecondary },
-    planCardBody: { padding: spacing.md, gap: 2 },
-    planCTABtn: {
-      margin: spacing.md, marginTop: 0, paddingVertical: spacing.sm,
-      borderRadius: radius.lg, alignItems: 'center',
+    premiumAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: '#fef3c7',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 6,
     },
-    freeCTABtn: { borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' },
-    freeCTAText: { fontSize: typography.size.xs, fontWeight: '700', color: colors.textSecondary },
-    premiumActiveBadge: {
-      flexDirection: 'row', gap: 4, justifyContent: 'center',
-      backgroundColor: colors.premiumLight,
+    freePlanTitle: {
+      fontSize: 14.5,
+      fontWeight: '700',
+      color: isDark ? '#f8fafc' : '#0f172a',
+    },
+    premiumPlanTitle: {
+      fontSize: 14.5,
+      fontWeight: '700',
+      color: '#ea580c',
+    },
+    freePrice: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: isDark ? '#f8fafc' : '#0f172a',
+      marginTop: 2,
+      letterSpacing: -0.5,
+    },
+    premiumPrice: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: '#ea580c',
+      marginTop: 2,
+      letterSpacing: -0.5,
+    },
+    perMonthText: {
+      fontSize: 11,
+      color: '#94a3b8',
+      marginTop: -2,
+    },
+    premiumPerMonthText: {
+      fontSize: 11,
+      color: '#ea580c',
+      opacity: 0.8,
+      marginTop: -2,
+    },
+    featureList: {
+      marginVertical: 10,
+      gap: 9,
+    },
+    featureRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    featureIconWrap: {
+      width: 18,
+      alignItems: 'center',
+      marginRight: 6,
+    },
+    featureText: {
+      flex: 1,
+      fontSize: 11,
+      color: isDark ? '#cbd5e1' : '#475569',
+      lineHeight: 15,
+    },
+    featureTextDim: {
+      color: '#94a3b8',
+    },
+    premiumCheckIcon: {
+      marginRight: 6,
+    },
+    premiumFeatureText: {
+      flex: 1,
+      fontSize: 11,
+      fontWeight: '600',
+      color: isDark ? '#f8fafc' : '#1e293b',
+      lineHeight: 15,
+    },
+    freeCTABox: {
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      borderRadius: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+      marginTop: 6,
+    },
+    freeCTAText: {
+      fontSize: 12.5,
+      fontWeight: '600',
+      color: '#64748b',
+    },
+    premiumCTABtn: {
+      borderRadius: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+      marginTop: 6,
+    },
+    premiumCTAText: {
+      fontSize: 12.5,
+      fontWeight: '700',
+      color: '#ffffff',
     },
 
-    planGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
-    planGridColumn: { gap: spacing.sm, marginBottom: spacing.lg },
+    faqWrapper: {
+      marginTop: 16,
+    },
 
-    premiumCTABtn: { borderRadius: radius.lg },
-    premiumCTAGradient: { paddingVertical: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.premiumLight },
-    ctaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    premiumCTAText: { fontSize: typography.size.sm, fontWeight: '800', color: colors.premiumDark },
+    // Coming soon card
+    comingSoonCard: {
+      backgroundColor: isDark ? '#064e3b20' : '#e6f7ef',
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: isDark ? '#047857' : '#a7f3d0',
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 14,
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    sproutIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    comingSoonTextCol: {
+      flex: 1,
+      paddingRight: 75,
+    },
+    comingSoonTitle: {
+      fontSize: 13.5,
+      fontWeight: '700',
+      color: isDark ? '#34d399' : '#047857',
+    },
+    comingSoonBody: {
+      fontSize: 11.5,
+      color: isDark ? '#a7f3d0' : '#065f46',
+      marginTop: 2,
+      lineHeight: 16,
+    },
+    phoneArtImg: {
+      position: 'absolute',
+      right: -4,
+      bottom: -4,
+      width: 86,
+      height: 72,
+    },
+
+    // History card
+    historyCard: {
+      backgroundColor: isDark ? colors.surface : '#ffffff',
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#e2e8f0',
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      marginTop: 12,
+    },
+    receiptIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    historyContentWrap: {
+      flex: 1,
+    },
+    historyTitle: {
+      fontSize: 14.5,
+      fontWeight: '700',
+      color: isDark ? '#f8fafc' : '#0f172a',
+    },
+    historyLoading: {
+      alignSelf: 'flex-start',
+      marginTop: 4,
+    },
+    historyEmptyText: {
+      fontSize: 12,
+      color: '#94a3b8',
+      marginTop: 4,
+    },
+    historyItemsList: {
+      marginTop: 8,
+      gap: 8,
+    },
+    historyItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: 6,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: isDark ? colors.border : '#f1f5f9',
+    },
+    historyItemCol: {
+      flex: 1,
+    },
+    historyItemAmount: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: isDark ? '#f8fafc' : '#1e293b',
+    },
+    historyItemDate: {
+      fontSize: 11.5,
+      color: '#94a3b8',
+      marginTop: 1,
+    },
+    historyStatusPill: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 8,
+    },
+    historyStatusText: {
+      fontSize: 11,
+      fontWeight: '600',
+    },
+
+    restoreWrap: {
+      marginTop: 14,
+      alignItems: 'center',
+    },
+
+    // Gift card
+    giftCard: {
+      backgroundColor: isDark ? colors.surface : '#ffffff',
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#e2e8f0',
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 12,
+    },
+    giftIconWrap: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: '#fef3c7',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    giftContentWrap: {
+      flex: 1,
+    },
+    giftTitle: {
+      fontSize: 14.5,
+      fontWeight: '700',
+      color: isDark ? '#f8fafc' : '#1e293b',
+    },
+    giftDesc: {
+      fontSize: 12,
+      color: '#64748b',
+      marginTop: 1,
+    },
+
+    // Modals
+    payModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.xl,
+    },
+    payModalBox: {
+      backgroundColor: isDark ? colors.surface : '#ffffff',
+      borderRadius: 24,
+      padding: spacing.xl,
+      gap: spacing.sm,
+    },
+    payModalTitle: {
+      fontSize: typography.size.md,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginBottom: spacing.sm,
+    },
+    payMethodBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      padding: spacing.lg,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    payMethodIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    payMethodTextWrap: {
+      flex: 1,
+    },
+    payMethodLabel: {
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    payMethodSub: {
+      fontSize: typography.size.xs,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    payCancelBtn: {
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      marginTop: spacing.xs,
+    },
+    payCancelText: {
+      fontSize: typography.size.sm,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
 
     qrImage: { width: '100%', height: 220, marginBottom: spacing.md },
     countdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: spacing.md },
@@ -846,85 +1225,23 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, topIns
     successTitle: { color: colors.success, fontSize: typography.size.md, fontWeight: '700' },
     successDesc: { color: colors.textSecondary, fontSize: typography.size.sm, textAlign: 'center' },
 
-    emptyText: { color: colors.textSecondary, fontSize: typography.size.xs, textAlign: 'center', paddingVertical: spacing.lg },
-    historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-    historyLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-    historyInfo: { flex: 1 },
-    historyAmount: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
-    historyDate: { fontSize: typography.size.xs, color: colors.textSecondary },
-    historyValidity: { fontSize: typography.size.xs, color: colors.premiumDark, fontWeight: '600' },
-    historyBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.sm },
-    historyBadgeText: { fontSize: typography.size.xs, fontWeight: '600' },
-
-    // Payment method modal
-    payModalOverlay: {
-      flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
-      justifyContent: 'center',
-      paddingHorizontal: spacing.xl,
-    },
-    payModalBox: {
-      backgroundColor: colors.surface,
-      borderRadius: 24,
-      padding: spacing.xl,
-      gap: spacing.sm,
-    },
-    payModalTitle: {
-      fontSize: typography.size.md, fontWeight: '700',
-      color: colors.textPrimary, textAlign: 'center',
-      marginBottom: spacing.sm,
-    },
-    payMethodBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-      padding: spacing.lg, borderRadius: 16,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: 1, borderColor: colors.border,
-    },
-    payMethodIcon: {
-      width: 44, height: 44, borderRadius: 22,
-      backgroundColor: colors.surface,
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: colors.border,
-    },
-    payMethodLabel: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
-    payMethodSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
-    payCancelBtn: { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
-    payCancelText: { fontSize: typography.size.sm, color: colors.textSecondary, fontWeight: '600' },
-
-    // Wallet confirm modal
-    confirmDesc: {
-      fontSize: typography.size.sm, color: colors.textSecondary,
-      textAlign: 'center', lineHeight: 22,
-    },
-    confirmBalanceRow: {
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      backgroundColor: colors.surfaceMuted, borderRadius: 12,
-      paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-      marginTop: spacing.xs,
-    },
+    walletIconSelf: { alignSelf: 'center', marginBottom: spacing.sm },
+    confirmDesc: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+    confirmBalanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, marginTop: spacing.xs },
     confirmBalanceLabel: { fontSize: typography.size.sm, color: colors.textSecondary },
     confirmBalanceValue: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
     confirmActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-    confirmCancelBtn: {
-      flex: 1, paddingVertical: spacing.md, borderRadius: 12,
-      borderWidth: 1, borderColor: colors.border, alignItems: 'center',
-    },
+    confirmCancelBtn: { flex: 1, paddingVertical: spacing.md, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
     confirmCancelText: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textSecondary },
-    confirmOkBtn: {
-      flex: 1, paddingVertical: spacing.md, borderRadius: 12,
-      backgroundColor: colors.primary, alignItems: 'center',
-    },
+    confirmOkBtn: { flex: 1, paddingVertical: spacing.md, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center' },
     confirmRetryBtn: { backgroundColor: colors.warning },
     confirmOkText: { fontSize: typography.size.sm, fontWeight: '700', color: '#fff' },
 
-    walletResultBox: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+    walletResultBox: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
     walletResultTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.success },
     walletResultDesc: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center' },
 
-    walletErrorBox: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
-      backgroundColor: colors.danger + '15', borderRadius: 10,
-      padding: spacing.md, marginTop: spacing.xs,
-    },
+    walletErrorBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.danger + '15', borderRadius: 10, padding: spacing.md, marginTop: spacing.xs },
     walletErrorText: { flex: 1, fontSize: typography.size.xs, color: colors.danger, fontWeight: '500' },
   });
 }

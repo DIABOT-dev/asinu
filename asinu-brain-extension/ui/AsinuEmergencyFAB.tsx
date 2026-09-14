@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -142,7 +142,7 @@ export const AsinuEmergencyFAB = ({ onInteraction }: Props) => {
         {...panResponder.panHandlers}
       >
         <View style={styles.fab}>
-          <Ionicons name="medkit" size={28} color={colors.danger} />
+          <FontAwesome name="plus" size={26} color="#FFFFFF" />
         </View>
       </Animated.View>
 
@@ -254,14 +254,14 @@ const styles = StyleSheet.create({
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: colors.surface,
+    backgroundColor: '#0D9488',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    shadowColor: '#0D9488',
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   backdrop: {
     flex: 1,

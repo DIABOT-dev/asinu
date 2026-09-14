@@ -148,6 +148,32 @@ type HomeMetricCarouselProps = {
   onOpen: (route: string) => void;
 };
 
+const METRIC_BANNER_MAP: Record<string, any> = {
+  glucose: require('../../../assets/images/logs/banner_glucose.png'),
+  'blood-pressure': require('../../../assets/images/logs/banner_bp.png'),
+  weight: require('../../../assets/images/logs/banner_weight.png'),
+  water: require('../../../assets/images/logs/banner_water.png'),
+};
+
+const METRIC_THEME_MAP: Record<string, { iconBg: string; iconColor: string }> = {
+  glucose: {
+    iconBg: '#EBF3FE',
+    iconColor: '#4A6B95',
+  },
+  'blood-pressure': {
+    iconBg: '#FFF0F2',
+    iconColor: '#E11D48',
+  },
+  weight: {
+    iconBg: '#F3EBFD',
+    iconColor: '#7C3AED',
+  },
+  water: {
+    iconBg: '#E4F7F4',
+    iconColor: '#0D9488',
+  },
+};
+
 function HomeMetricCarousel({ cards, styles, onOpen }: HomeMetricCarouselProps) {
   const { width } = useWindowDimensions();
   const cardWidth = Math.max(240, Math.min(width - spacing.lg * 2 - spacing.sm, 348));
@@ -183,19 +209,39 @@ function HomeMetricCarousel({ cards, styles, onOpen }: HomeMetricCarouselProps) 
         data={carouselData}
         horizontal
         keyExtractor={(item, index) => `${item.key}-${index}`}
-        renderItem={({ item }) => (
-          <Pressable
-            style={[styles.metricCard, styles.metricCarouselCard, { width: cardWidth }]}
-            onPress={() => onOpen(item.route)}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.title}: ${item.value} ${item.unit}`}
-          >
-            <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
-            <Text style={styles.metricTitle}>{item.title}</Text>
-            <Text style={[styles.metricValue, { color: item.color }]}>{item.value}</Text>
-            <Text style={styles.metricUnit}>{item.unit}</Text>
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const banner = METRIC_BANNER_MAP[item.key];
+          const theme = METRIC_THEME_MAP[item.key] || { iconBg: '#EBF3FE', iconColor: item.color };
+          return (
+            <Pressable
+              style={[styles.metricCard, styles.metricCarouselCard, { width: cardWidth }]}
+              onPress={() => onOpen(item.route)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}: ${item.value} ${item.unit}`}
+            >
+              {banner && (
+                <Image
+                  source={banner}
+                  style={StyleSheet.absoluteFillObject}
+                  resizeMode="cover"
+                />
+              )}
+              <View style={styles.metricCardContent}>
+                <View style={styles.metricHeaderRow}>
+                  <View style={[styles.metricIconCircle, { backgroundColor: theme.iconBg }]}>
+                    <MaterialCommunityIcons name={item.icon} size={20} color={theme.iconColor} />
+                  </View>
+                  <Text style={styles.metricTitle}>{item.title}</Text>
+                </View>
+
+                <View style={styles.metricValueRow}>
+                  <Text style={styles.metricValue}>{item.value}</Text>
+                  <Text style={styles.metricUnit}>{item.unit}</Text>
+                </View>
+              </View>
+            </Pressable>
+          );
+        }}
         contentContainerStyle={styles.metricCarouselContent}
         showsHorizontalScrollIndicator={false}
         snapToInterval={snapInterval}
@@ -1124,69 +1170,81 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   metricCard: {
     flex: 1,
     backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: spacing.lg,
   },
   metricCarouselCard: {
     flex: 0,
-    minHeight: 148,
+    minHeight: 142,
     marginRight: spacing.md,
-    borderWidth: 1.2,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: '#EEF2F5',
+    borderRadius: 24,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  metricCardContent: {
+    zIndex: 2,
+    maxWidth: '65%',
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  metricHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metricIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metricTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 10,
+  },
+  metricValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 18,
+  },
+  metricValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  metricUnit: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginLeft: 8,
   },
   metricCarouselDots: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: spacing.md,
+    marginTop: 14,
   },
   metricCarouselDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.border,
+    backgroundColor: '#E5E7EB',
   },
   metricCarouselDotActive: {
-    width: 18,
-    backgroundColor: colors.primary,
-  },
-  metricCardGlucose: {
-    borderWidth: 1.2,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  metricCardBP: {
-    borderWidth: 1.2,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  metricTitle: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  metricValue: {
-    fontSize: typography.size.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  metricUnit: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
+    width: 24,
+    backgroundColor: '#0D9488',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
