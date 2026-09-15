@@ -1,5 +1,9 @@
 {
   "title": "Cài đặt",
+  "doctorConsultationHistory": "Lịch sử tư vấn bác sĩ",
+  "doctorConsultationHistoryDescription": "Xem lại các cuộc trao đổi và phản hồi từ chuyên gia.",
+  "doctorConsultationHistoryEmpty": "Chưa có cuộc tư vấn nào",
+  "doctorConsultationHistoryEmptyDescription": "Các yêu cầu tư vấn bạn gửi sẽ được lưu tại đây.",
   "fontSize": "Cỡ chữ ứng dụng",
   "fontSmall": "Nhỏ",
   "fontNormal": "Bình thường",

@@ -49,10 +49,10 @@ const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
 
 const DeleteAccountModal = React.lazy(
-  () => import("../../../src/components/DeleteAccountModal")
+  () => import("../../../src/components/DeleteAccountModal"),
 );
 const ChangePasswordModal = React.lazy(
-  () => import("../../../src/components/ChangePasswordModal")
+  () => import("../../../src/components/ChangePasswordModal"),
 );
 import { RippleRefreshScrollView } from "../../../src/components/RippleRefresh";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -105,7 +105,7 @@ export default function ProfileScreen() {
   const { isDark } = useThemeColors();
   const styles = useMemo(
     () => createStyles(scaledTypography, isDark),
-    [scaledTypography, isDark]
+    [scaledTypography, isDark],
   );
 
   const fetchLogs = useLogsStore((state) => state.fetchRecent);
@@ -130,30 +130,30 @@ export default function ProfileScreen() {
     fontScale === "small"
       ? ts("fontSmall")
       : fontScale === "normal"
-      ? ts("fontNormal")
-      : fontScale === "large"
-      ? ts("fontLarge")
-      : ts("fontXLarge");
+        ? ts("fontNormal")
+        : fontScale === "large"
+          ? ts("fontLarge")
+          : ts("fontXLarge");
   const langLabel = language === "vi" ? ts("languageVi") : ts("languageEn");
 
   // Edit form state
   const [editName, setEditName] = useState(profile?.name || "");
   const [editPhone, setEditPhone] = useState(profile?.phone || "");
   const [editAge, setEditAge] = useState(
-    profile?.age ? String(Math.round(profile.age)) : ""
+    profile?.age ? String(Math.round(profile.age)) : "",
   );
   const [editGender, setEditGender] = useState<"Nam" | "Nữ" | "">(
-    (profile?.gender as "Nam" | "Nữ") || ""
+    (profile?.gender as "Nam" | "Nữ") || "",
   );
   const [editHeight, setEditHeight] = useState(
-    profile?.heightCm ? String(Math.round(profile.heightCm)) : ""
+    profile?.heightCm ? String(Math.round(profile.heightCm)) : "",
   );
   const [editWeight, setEditWeight] = useState(
-    profile?.weightKg ? String(Math.round(profile.weightKg)) : ""
+    profile?.weightKg ? String(Math.round(profile.weightKg)) : "",
   );
   const [editBloodType, setEditBloodType] = useState(profile?.bloodType || "");
   const [editChronicDiseases, setEditChronicDiseases] = useState(
-    profile?.chronicDiseases?.join(", ") || ""
+    profile?.chronicDiseases?.join(", ") || "",
   );
   const [showDiseasePicker, setShowDiseasePicker] = useState(false);
   const [customDiseaseInput, setCustomDiseaseInput] = useState("");
@@ -167,7 +167,8 @@ export default function ProfileScreen() {
       if (profile.heightCm) setEditHeight(String(Math.round(profile.heightCm)));
       if (profile.weightKg) setEditWeight(String(Math.round(profile.weightKg)));
       if (profile.bloodType) setEditBloodType(profile.bloodType);
-      if (profile.chronicDiseases) setEditChronicDiseases(profile.chronicDiseases.join(", "));
+      if (profile.chronicDiseases)
+        setEditChronicDiseases(profile.chronicDiseases.join(", "));
     }
   }, [profile]);
 
@@ -205,7 +206,11 @@ export default function ProfileScreen() {
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
   const profileReadyRef = useRef(false);
   const [profileReady, setProfileReady] = useState(false);
-  const showInitialSkeleton = useInitialLoadingGate(profileReady, 650, Boolean(profile));
+  const showInitialSkeleton = useInitialLoadingGate(
+    profileReady,
+    650,
+    Boolean(profile),
+  );
 
   // Fetch subscription status
   useEffect(() => {
@@ -249,7 +254,7 @@ export default function ProfileScreen() {
         }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, []),
   );
 
   const [refreshing, setRefreshing] = useState(false);
@@ -277,8 +282,8 @@ export default function ProfileScreen() {
   const identityTitle = hasProfile
     ? name || tc("notUpdated")
     : phone
-    ? t("newCustomer")
-    : t("notLoggedIn");
+      ? t("newCustomer")
+      : t("notLoggedIn");
   const statusText = hasProfile ? t("active") : t("notLoggedIn");
 
   const handleShareApp = useCallback(async () => {
@@ -324,10 +329,10 @@ export default function ProfileScreen() {
     setEditAge(profile?.age ? String(Math.round(profile.age)) : "");
     setEditGender((profile?.gender as "Nam" | "Nữ" | "") || "");
     setEditHeight(
-      profile?.heightCm ? String(Math.round(profile.heightCm)) : ""
+      profile?.heightCm ? String(Math.round(profile.heightCm)) : "",
     );
     setEditWeight(
-      profile?.weightKg ? String(Math.round(profile.weightKg)) : ""
+      profile?.weightKg ? String(Math.round(profile.weightKg)) : "",
     );
     setEditBloodType(profile?.bloodType || "");
     setEditChronicDiseases(profile?.chronicDiseases?.join(", ") || "");
@@ -367,7 +372,7 @@ export default function ProfileScreen() {
       const updatedProfile = await authApi.uploadAvatar(
         asset.uri,
         mimeType,
-        asset.fileName || "avatar.jpg"
+        asset.fileName || "avatar.jpg",
       );
       useAuthStore.setState({ profile: updatedProfile });
       showToast(t("avatarUpdated"), "success");
@@ -508,9 +513,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.headerTextGroup}>
                 <Text style={styles.headerTitle}>{t("headerTitle")}</Text>
-                <Text style={styles.headerSubtitle}>
-                  {t("headerSubtitle")}
-                </Text>
+                <Text style={styles.headerSubtitle}>{t("headerSubtitle")}</Text>
               </View>
               <View style={styles.headerArtGroup}>
                 <Image
@@ -583,7 +586,6 @@ export default function ProfileScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-
               </View>
             </Animated.View>
 
@@ -592,9 +594,7 @@ export default function ProfileScreen() {
               <View style={styles.sectionHeaderBetween}>
                 <View style={styles.sectionHeaderLeft}>
                   <Ionicons name="person" size={18} color="#059669" />
-                  <Text style={styles.sectionHeading}>
-                    {t("personalInfo")}
-                  </Text>
+                  <Text style={styles.sectionHeading}>{t("personalInfo")}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.editBtn}
@@ -647,7 +647,11 @@ export default function ProfileScreen() {
                 {/* 3. Tuổi */}
                 <View style={styles.gridCard}>
                   <View style={styles.gridIconWrap}>
-                    <Ionicons name="calendar-outline" size={20} color="#ea580c" />
+                    <Ionicons
+                      name="calendar-outline"
+                      size={20}
+                      color="#ea580c"
+                    />
                   </View>
                   <View style={styles.gridCardContent}>
                     <Text style={styles.gridCardLabel}>{t("age")}</Text>
@@ -765,9 +769,7 @@ export default function ProfileScreen() {
             <Animated.View entering={FadeIn.delay(220).duration(350)}>
               <View style={styles.sectionHeaderRow}>
                 <Ionicons name="flash" size={18} color="#10b981" />
-                <Text style={styles.sectionHeading}>
-                  {t("sectionActions")}
-                </Text>
+                <Text style={styles.sectionHeading}>{t("sectionActions")}</Text>
               </View>
               <View style={styles.cardsStack}>
                 <TouchableOpacity
@@ -809,7 +811,11 @@ export default function ProfileScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.rowIconWrap}>
-                    <Ionicons name="journal-outline" size={22} color="#f43f5e" />
+                    <Ionicons
+                      name="journal-outline"
+                      size={22}
+                      color="#f43f5e"
+                    />
                   </View>
                   <Text style={styles.rowLabel}>{t("logEntry")}</Text>
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
@@ -821,7 +827,11 @@ export default function ProfileScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.rowIconWrap}>
-                    <Ionicons name="bookmark-outline" size={22} color="#8b5cf6" />
+                    <Ionicons
+                      name="bookmark-outline"
+                      size={22}
+                      color="#8b5cf6"
+                    />
                   </View>
                   <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
@@ -883,6 +893,26 @@ export default function ProfileScreen() {
               <View style={styles.cardsStack}>
                 <TouchableOpacity
                   style={styles.actionCard}
+                  onPress={() =>
+                    router.push("/doctor-consultation-history" as any)
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowIconWrap}>
+                    <Ionicons
+                      name="chatbubbles-outline"
+                      size={22}
+                      color="#0d9488"
+                    />
+                  </View>
+                  <Text style={styles.rowLabel}>
+                    {ts("doctorConsultationHistory")}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionCard}
                   onPress={() => setShowFontPicker(true)}
                   activeOpacity={0.7}
                 >
@@ -900,7 +930,11 @@ export default function ProfileScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.rowIconWrap}>
-                    <Ionicons name="language-outline" size={22} color="#10b981" />
+                    <Ionicons
+                      name="language-outline"
+                      size={22}
+                      color="#10b981"
+                    />
                   </View>
                   <Text style={styles.rowLabel}>{ts("language")}</Text>
                   <Text style={styles.rowMeta}>{langLabel}</Text>
@@ -979,7 +1013,11 @@ export default function ProfileScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.rowIconWrap}>
-                    <Ionicons name="sparkles-outline" size={22} color="#10b981" />
+                    <Ionicons
+                      name="sparkles-outline"
+                      size={22}
+                      color="#10b981"
+                    />
                   </View>
                   <Text style={styles.rowLabel}>
                     {ts("aiDataConsentSettings")}
@@ -1240,14 +1278,20 @@ export default function ProfileScreen() {
                 onPress={handleCloseEditModal}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Ionicons name="close" size={18} color={styles.sheetCloseIcon.color} />
+                <Ionicons
+                  name="close"
+                  size={18}
+                  color={styles.sheetCloseIcon.color}
+                />
               </Pressable>
             </View>
 
             {/* Sheet Title & Subtitle */}
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{t("editProfileTitle")}</Text>
-              <Text style={styles.sheetSubtitle}>{t("editProfileSubtitle")}</Text>
+              <Text style={styles.sheetSubtitle}>
+                {t("editProfileSubtitle")}
+              </Text>
             </View>
 
             <ScrollView
@@ -1320,7 +1364,9 @@ export default function ProfileScreen() {
               {/* Section 1: Thông tin cá nhân */}
               <View style={styles.sheetSection}>
                 <View style={styles.sheetSectionHeaderRow}>
-                  <Text style={styles.sheetSectionTitle}>{t("personalInfo")}</Text>
+                  <Text style={styles.sheetSectionTitle}>
+                    {t("personalInfo")}
+                  </Text>
                   <Text style={styles.sheetSectionSubtitle}>
                     {t("basicInfoSubtitle")}
                   </Text>
@@ -1529,7 +1575,9 @@ export default function ProfileScreen() {
               {/* Section 4: Sức khỏe / Bệnh nền */}
               <View style={styles.sheetSection}>
                 <View style={styles.sheetSectionHeaderRow}>
-                  <Text style={styles.sheetSectionTitle}>{t("healthInfo")}</Text>
+                  <Text style={styles.sheetSectionTitle}>
+                    {t("healthInfo")}
+                  </Text>
                   <Text style={styles.sheetSectionSubtitle}>
                     {t("healthInfoSubtitle")}
                   </Text>
@@ -1709,17 +1757,19 @@ export default function ProfileScreen() {
         >
           <Pressable style={styles.pickerModalCard} onPress={() => {}}>
             <Text style={styles.pickerModalTitle}>{ts("fontSize")}</Text>
-            <View style={{ width: "100%", gap: spacing.sm, marginTop: spacing.md }}>
+            <View
+              style={{ width: "100%", gap: spacing.sm, marginTop: spacing.md }}
+            >
               {(["small", "normal", "large", "xlarge"] as FontSizeScale[]).map(
                 (size) => {
                   const label =
                     size === "small"
                       ? ts("fontSmall")
                       : size === "normal"
-                      ? ts("fontNormal")
-                      : size === "large"
-                      ? ts("fontLarge")
-                      : ts("fontXLarge");
+                        ? ts("fontNormal")
+                        : size === "large"
+                          ? ts("fontLarge")
+                          : ts("fontXLarge");
                   const active = fontScale === size;
                   return (
                     <Pressable
@@ -1746,7 +1796,7 @@ export default function ProfileScreen() {
                       ) : null}
                     </Pressable>
                   );
-                }
+                },
               )}
             </View>
           </Pressable>
@@ -1766,7 +1816,9 @@ export default function ProfileScreen() {
         >
           <Pressable style={styles.pickerModalCard} onPress={() => {}}>
             <Text style={styles.pickerModalTitle}>{ts("language")}</Text>
-            <View style={{ width: "100%", gap: spacing.sm, marginTop: spacing.md }}>
+            <View
+              style={{ width: "100%", gap: spacing.sm, marginTop: spacing.md }}
+            >
               {(["vi", "en"] as AppLanguage[]).map((lang) => {
                 const active = language === lang;
                 return (
@@ -1935,7 +1987,7 @@ export default function ProfileScreen() {
 
 function createStyles(
   typography: ReturnType<typeof useScaledTypography>,
-  isDark: boolean
+  isDark: boolean,
 ) {
   const cardBg = isDark ? "#1e293b" : "#ffffff";
   const borderCol = isDark ? "#334155" : "#f1f5f9";
@@ -2456,7 +2508,9 @@ function createStyles(
       justifyContent: "space-between",
       backgroundColor: isDark ? "rgba(13, 148, 136, 0.12)" : "#E8F7F6",
       borderWidth: 1,
-      borderColor: isDark ? "rgba(13, 148, 136, 0.25)" : "rgba(13, 148, 136, 0.15)",
+      borderColor: isDark
+        ? "rgba(13, 148, 136, 0.25)"
+        : "rgba(13, 148, 136, 0.15)",
       borderRadius: 16,
       paddingHorizontal: 14,
       paddingVertical: 10,
@@ -2522,7 +2576,9 @@ function createStyles(
       borderRadius: 20,
       backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF",
       borderWidth: 1,
-      borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(13, 148, 136, 0.25)",
+      borderColor: isDark
+        ? "rgba(255,255,255,0.15)"
+        : "rgba(13, 148, 136, 0.25)",
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05,

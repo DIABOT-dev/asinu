@@ -75,6 +75,26 @@ export async function registerNotificationCategories(): Promise<void> {
         },
       },
     ]);
+
+    await Notifications.setNotificationCategoryAsync("doctor_message", [
+      {
+        identifier: "REPLY_DOCTOR_MESSAGE",
+        buttonTitle: i18n.t("notificationReply", { ns: "common" }),
+        textInput: {
+          submitButtonTitle: i18n.t("send", { ns: "common" }),
+          placeholder: i18n.t("notificationReplyPlaceholder", {
+            ns: "common",
+          }),
+        },
+        options: {
+          isDestructive: false,
+          isAuthenticationRequired: false,
+          // Keep the quick reply in the notification surface. The app still
+          // receives the response and sends it through the authenticated API.
+          opensAppToForeground: false,
+        },
+      },
+    ]);
   } catch (e) {
     // Silently ignore on platforms that don't support categories
   }
@@ -134,8 +154,8 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       ];
       await Promise.allSettled(
         CHANNEL_IDS.map((id) =>
-          Notifications.deleteNotificationChannelAsync(id)
-        )
+          Notifications.deleteNotificationChannelAsync(id),
+        ),
       );
 
       await Notifications.setNotificationChannelAsync("reminder", {
@@ -250,7 +270,7 @@ export async function checkNotificationPermission(): Promise<boolean> {
 export async function scheduleLocalNotification(
   title: string,
   body: string,
-  data?: NotificationData
+  data?: NotificationData,
 ) {
   try {
     await Notifications.scheduleNotificationAsync({
@@ -275,7 +295,7 @@ export async function scheduleLocalNotification(
 export async function reNotifyAsLocal(
   title: string,
   body: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): Promise<void> {
   try {
     await Notifications.scheduleNotificationAsync({
@@ -296,7 +316,7 @@ export async function reNotifyAsLocal(
  * Add a listener for when notifications are received while app is in foreground
  */
 export function addNotificationReceivedListener(
-  callback: (notification: Notifications.Notification) => void
+  callback: (notification: Notifications.Notification) => void,
 ) {
   const subscription = Notifications.addNotificationReceivedListener(
     (notification) => {
@@ -310,7 +330,7 @@ export function addNotificationReceivedListener(
 
       // Call custom callback
       callback(notification);
-    }
+    },
   );
 
   return subscription;
@@ -320,7 +340,7 @@ export function addNotificationReceivedListener(
  * Add a listener for when user taps on a notification
  */
 export function addNotificationResponseReceivedListener(
-  callback: (response: Notifications.NotificationResponse) => void
+  callback: (response: Notifications.NotificationResponse) => void,
 ) {
   return Notifications.addNotificationResponseReceivedListener(callback);
 }
@@ -335,11 +355,10 @@ export function addNotificationResponseReceivedListener(
  * decides default).
  */
 export type NotificationRoute =
-  | string
-  | { pathname: string; params?: Record<string, string> };
+  string | { pathname: string; params?: Record<string, string> };
 
 export function routeFromNotificationData(
-  data: Record<string, unknown> | null | undefined
+  data: Record<string, unknown> | null | undefined,
 ): NotificationRoute | null {
   const type = data?.type as string | undefined;
   if (!type) return null;
@@ -435,8 +454,15 @@ export function routeFromNotificationData(
   }
   if (type === "doctor_message") {
     const taskId = data?.task_id as string;
+    const tenantId = data?.tenant_id as string;
     if (taskId)
-      return { pathname: "/doctor-consultation/[taskId]", params: { taskId } };
+      return {
+        pathname: "/doctor-consultation/[taskId]",
+        params: {
+          taskId,
+          ...(tenantId ? { tenantId } : {}),
+        },
+      };
     return "/doctor-consultation";
   }
 

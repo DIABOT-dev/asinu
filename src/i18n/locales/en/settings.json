@@ -1,5 +1,9 @@
 {
   "title": "Settings",
+  "doctorConsultationHistory": "Doctor consultation history",
+  "doctorConsultationHistoryDescription": "Review your conversations and replies from specialists.",
+  "doctorConsultationHistoryEmpty": "No consultations yet",
+  "doctorConsultationHistoryEmptyDescription": "Consultation requests you send will appear here.",
   "fontSize": "App Font Size",
   "fontSmall": "Small",
   "fontNormal": "Normal",

@@ -16,6 +16,8 @@
   "fontXLarge": "X-Large",
   "complete": "Complete",
   "send": "Send",
+  "notificationReply": "Reply",
+  "notificationReplyPlaceholder": "Reply to your doctor",
   "confirm": "Confirm",
   "success": "Success",
   "error": "Error",

@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { ScaledText as Text } from "../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../src/components/ScaledTextInput";
+import { AppAlertModal } from "../src/components/AppAlertModal";
 import { useAuthStore } from "../src/features/auth/auth.store";
 import { ApiError, apiClient } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
@@ -29,9 +30,12 @@ type DoctorTaskListResponse = {
   ok: boolean;
   data?: {
     tasks: Array<{
+      tenant_id?: string;
       task_id: string;
       summary: string;
       created_at: string;
+      status?: string | null;
+      follow_up_until?: string | null;
       latest_message?: string | null;
       latest_sender_type?: "patient" | "doctor" | null;
       latest_message_at?: string | null;
@@ -79,11 +83,30 @@ const createClientMessageId = () => {
   );
 };
 
-const isAttachmentMessage = (content?: string | null) =>
-  typeof content === "string" && content.startsWith("[ASINU_ATTACHMENT]");
+const ACTIVE_CONSULTATION_STATUSES = new Set([
+  "new",
+  "queued",
+  "assigned",
+  "accepted",
+  "started",
+  "in_progress",
+  "waiting_user",
+  "waiting_approval",
+  "waiting_doctor",
+]);
 
-const isVoiceMessage = (content?: string | null) =>
-  typeof content === "string" && content.startsWith("[ASINU_VOICE]");
+const isActiveConsultation = (task: {
+  status?: string | null;
+  follow_up_until?: string | null;
+}) => {
+  if (!task.status) return true;
+  if (task.status && ACTIVE_CONSULTATION_STATUSES.has(task.status)) return true;
+  return Boolean(
+    task.status === "completed" &&
+    task.follow_up_until &&
+    new Date(task.follow_up_until).getTime() > Date.now(),
+  );
+};
 
 const specialtyLabels: Record<string, string> = {
   general: "Đa khoa",
@@ -114,9 +137,11 @@ export default function DoctorConsultationScreen() {
   const [summary, setSummary] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [tasks, setTasks] = useState<
-    NonNullable<DoctorTaskListResponse["data"]>["tasks"]
-  >([]);
+  const [activeConsultation, setActiveConsultation] = useState<
+    NonNullable<DoctorTaskListResponse["data"]>["tasks"][number] | null
+  >(null);
+  const [activeWarningVisible, setActiveWarningVisible] = useState(false);
+  const activeWarningTaskRef = useRef<string | null>(null);
   const [recommendations, setRecommendations] = useState<
     DoctorRecommendation[]
   >([]);
@@ -159,9 +184,16 @@ export default function DoctorConsultationScreen() {
       const response = await apiClient<DoctorTaskListResponse>(
         `/api/doctor/tasks?tenant_id=${encodeURIComponent(tenantId)}`,
       );
-      setTasks(response.data?.tasks ?? []);
+      const nextTasks = response.data?.tasks ?? [];
+      const current = nextTasks.find(isActiveConsultation) ?? null;
+      setActiveConsultation(current);
+      if (current && activeWarningTaskRef.current !== current.task_id) {
+        activeWarningTaskRef.current = current.task_id;
+        setActiveWarningVisible(true);
+      }
+      if (!current) activeWarningTaskRef.current = null;
     } catch {
-      setTasks([]);
+      setActiveConsultation(null);
     }
   };
 
@@ -361,877 +393,248 @@ export default function DoctorConsultationScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={[
-        styles.screen,
-        { backgroundColor: isDark ? colors.background : "#F4F7F9" },
-      ]}
-    >
-      <Stack.Screen options={{ headerShown: false }} />
-
-      {/* Header bar */}
-      <View
+    <>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={[
-          styles.headerBar,
-          {
-            backgroundColor: colors.surface,
-            borderBottomColor: isDark ? colors.border : "#EEF2F6",
-          },
+          styles.screen,
+          { backgroundColor: isDark ? colors.background : "#F4F7F9" },
         ]}
       >
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          style={styles.headerBackBtn}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text
-          style={[styles.headerTitle, { color: colors.textPrimary }]}
-          numberOfLines={1}
-        >
-          {t("doctorConsultationHeaderTitle")}
-        </Text>
-      </View>
+        <Stack.Screen options={{ headerShown: false }} />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero Banner with Doctor Illustration */}
+        {/* Header bar */}
         <View
           style={[
-            styles.heroCard,
-            {
-              backgroundColor: isDark ? colors.surface : "#E6FAF7",
-              borderColor: isDark ? colors.border : "#D3F5EF",
-            },
-          ]}
-        >
-          <View style={styles.heroLeft}>
-            <View style={styles.heroMedkitBadge}>
-              <Ionicons name="medkit" size={22} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.heroHeading, { color: colors.textPrimary }]}>
-              {t("doctorConsultationTitle")}
-            </Text>
-            <Text
-              style={[
-                styles.heroSubheading,
-                { color: isDark ? colors.textSecondary : "#64748B" },
-              ]}
-            >
-              {t("doctorConsultationSubtitle")}
-            </Text>
-          </View>
-
-          <View style={styles.heroRight}>
-            <View style={styles.heroBadgeSpeech}>
-              <Text style={styles.heroBadgeSpeechText}>
-                {t("doctorConsultationHeroBadge")}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.heroDoctorPlaceholder,
-                { backgroundColor: isDark ? colors.surfaceMuted : "#D8F6F1" },
-              ]}
-            >
-              <Ionicons
-                name="people-outline"
-                size={48}
-                color={isDark ? colors.textSecondary : "#008B76"}
-              />
-            </View>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.intakeSection,
-            { borderColor: isDark ? colors.border : "#E2E8F0" },
-          ]}
-        >
-          <View style={styles.sectionHeaderRow}>
-            <View
-              style={[styles.sectionIconBox, { backgroundColor: "#FFF7E8" }]}
-            >
-              <Ionicons name="shield-checkmark" size={20} color="#D97706" />
-            </View>
-            <View style={styles.sectionHeaderTextCol}>
-              <Text
-                style={[styles.sectionTitle, { color: colors.textPrimary }]}
-              >
-                {t("doctorConsultationScreeningTitle")}
-              </Text>
-              <Text
-                style={[styles.sectionHint, { color: colors.textSecondary }]}
-              >
-                {t("doctorConsultationScreeningHint")}
-              </Text>
-            </View>
-          </View>
-
-          <Text
-            style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
-          >
-            {t("doctorConsultationOnsetLabel")}
-          </Text>
-          <View style={styles.optionChips}>
-            {(
-              [
-                "today",
-                "two_to_seven_days",
-                "over_one_week",
-                "ongoing",
-              ] as const
-            ).map((value) => (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ selected: symptomOnset === value }}
-                key={value}
-                onPress={() => setSymptomOnset(value)}
-                style={[
-                  styles.optionChip,
-                  {
-                    backgroundColor:
-                      symptomOnset === value ? "#E6FAF7" : colors.surface,
-                    borderColor:
-                      symptomOnset === value ? "#00A88F" : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    {
-                      color:
-                        symptomOnset === value
-                          ? "#008B76"
-                          : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  {t(`doctorConsultationOnset_${value}`)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text
-            style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
-          >
-            {t("doctorConsultationProgressionLabel")}
-          </Text>
-          <View style={styles.optionChips}>
-            {(["improving", "stable", "worsening"] as const).map((value) => (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ selected: progression === value }}
-                key={value}
-                onPress={() => setProgression(value)}
-                style={[
-                  styles.optionChip,
-                  {
-                    backgroundColor:
-                      progression === value ? "#E6FAF7" : colors.surface,
-                    borderColor:
-                      progression === value ? "#00A88F" : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    {
-                      color:
-                        progression === value
-                          ? "#008B76"
-                          : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  {t(`doctorConsultationProgression_${value}`)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text
-            style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
-          >
-            {t("doctorConsultationSeverityLabel")}
-          </Text>
-          <View style={styles.optionChips}>
-            {(["mild", "moderate", "severe"] as const).map((value) => (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ selected: severity === value }}
-                key={value}
-                onPress={() => setSeverity(value)}
-                style={[
-                  styles.optionChip,
-                  {
-                    backgroundColor:
-                      severity === value ? "#E6FAF7" : colors.surface,
-                    borderColor: severity === value ? "#00A88F" : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    {
-                      color:
-                        severity === value ? "#008B76" : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  {t(`doctorConsultationSeverity_${value}`)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Form Card */}
-        <View
-          style={[
-            styles.formCard,
+            styles.headerBar,
             {
               backgroundColor: colors.surface,
-              borderColor: isDark ? colors.border : "#F0F3F6",
+              borderBottomColor: isDark ? colors.border : "#EEF2F6",
             },
           ]}
         >
-          {/* Section 1: Bạn muốn bác sĩ hỗ trợ điều gì? */}
-          <View style={styles.sectionHeaderRow}>
-            <View
-              style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
-            >
-              <Ionicons name="document-text" size={20} color="#00A88F" />
-            </View>
-            <View style={styles.sectionHeaderTextCol}>
-              <Text
-                style={[styles.sectionTitle, { color: colors.textPrimary }]}
-              >
-                {t("doctorConsultationSummaryLabel")}
-              </Text>
-              <Text
-                style={[
-                  styles.sectionHint,
-                  { color: isDark ? colors.textSecondary : "#64748B" },
-                ]}
-              >
-                {t("doctorConsultationSummaryHint")}
-              </Text>
-            </View>
-          </View>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={10}
+            style={styles.headerBackBtn}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color={colors.textPrimary}
+            />
+          </Pressable>
+          <Text
+            style={[styles.headerTitle, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {t("doctorConsultationHeaderTitle")}
+          </Text>
+        </View>
 
-          {/* Text Input area */}
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero Banner with Doctor Illustration */}
           <View
             style={[
-              styles.inputBox,
+              styles.heroCard,
               {
-                backgroundColor: isDark ? colors.background : "#FFFFFF",
-                borderColor: isDark ? colors.border : "#E2E8F0",
+                backgroundColor: isDark ? colors.surface : "#E6FAF7",
+                borderColor: isDark ? colors.border : "#D3F5EF",
               },
             ]}
           >
-            <TextInput
-              multiline
-              maxLength={500}
-              onChangeText={setSummary}
-              placeholder={t("doctorConsultationSummaryPlaceholder")}
-              placeholderTextColor={isDark ? colors.textSecondary : "#94A3B8"}
-              style={[
-                styles.inputArea,
-                {
-                  color: colors.textPrimary,
-                },
-              ]}
-              textAlignVertical="top"
-              value={summary}
-            />
-            <Text
-              style={[
-                styles.charCounter,
-                { color: isDark ? colors.textSecondary : "#94A3B8" },
-              ]}
-            >
-              {}
-            </Text>
-          </View>
-
-          {/* Section 2: Phòng khám */}
-          {clinics.length > 0 && (
-            <View style={[styles.clinicSection, { marginTop: spacing.md }]}>
-              <View style={styles.sectionHeaderRow}>
-                <View
-                  style={[
-                    styles.sectionIconBox,
-                    { backgroundColor: "#E6FAF7" },
-                  ]}
-                >
-                  <Ionicons name="business" size={20} color="#00A88F" />
-                </View>
-                <View style={styles.sectionHeaderTextCol}>
-                  <Text
-                    style={[styles.sectionTitle, { color: colors.textPrimary }]}
-                  >
-                    {t("doctorConsultationClinicLabel")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.sectionHint,
-                      { color: isDark ? colors.textSecondary : "#64748B" },
-                    ]}
-                  >
-                    {t("doctorConsultationClinicHint")}
-                  </Text>
-                </View>
+            <View style={styles.heroLeft}>
+              <View style={styles.heroMedkitBadge}>
+                <Ionicons name="medkit" size={22} color="#FFFFFF" />
               </View>
-              <View style={styles.clinicsList}>
-                {clinics.map((clinic) => {
-                  const selected = clinic.tenant_id === selectedTenantId;
-                  return (
-                    <Pressable
-                      key={clinic.tenant_id}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected }}
-                      onPress={() => setSelectedTenantId(clinic.tenant_id)}
-                      style={[
-                        styles.clinicPill,
-                        {
-                          backgroundColor: selected
-                            ? isDark
-                              ? "rgba(0,168,143,0.15)"
-                              : "#F0FBF9"
-                            : isDark
-                              ? colors.background
-                              : "#FFFFFF",
-                          borderColor: selected
-                            ? "#00A88F"
-                            : isDark
-                              ? colors.border
-                              : "#E2E8F0",
-                        },
-                      ]}
-                    >
-                      <View style={styles.clinicPillLeft}>
-                        <Ionicons
-                          name="business-outline"
-                          size={19}
-                          color={selected ? "#00A88F" : "#64748B"}
-                        />
-                        <Text
-                          style={[
-                            styles.clinicPillName,
-                            {
-                              color: selected ? "#00A88F" : colors.textPrimary,
-                            },
-                          ]}
-                        >
-                          {clinic.name}
-                        </Text>
-                      </View>
-                      {selected && (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={22}
-                          color="#00A88F"
-                        />
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {/* Section 3: Chuyên khoa muốn được hỗ trợ */}
-          <View style={[styles.sectionHeaderRow, { marginTop: spacing.md }]}>
-            <View
-              style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
-            >
-              <Ionicons name="pulse" size={20} color="#00A88F" />
-            </View>
-            <View style={styles.sectionHeaderTextCol}>
-              <Text
-                style={[styles.sectionTitle, { color: colors.textPrimary }]}
-              >
-                {t("doctorConsultationSpecialtyLabel")}
+              <Text style={[styles.heroHeading, { color: colors.textPrimary }]}>
+                {t("doctorConsultationTitle")}
               </Text>
               <Text
                 style={[
-                  styles.sectionHint,
+                  styles.heroSubheading,
                   { color: isDark ? colors.textSecondary : "#64748B" },
                 ]}
               >
-                {t("doctorConsultationSpecialtyHint")}
+                {t("doctorConsultationSubtitle")}
               </Text>
             </View>
-          </View>
 
-          {/* Specialty Options List */}
-          <View style={styles.specialtiesList}>
-            {specialties.map((specialty) => {
-              const selected = specialty.code === selectedSpecialty;
-              return (
-                <Pressable
-                  key={specialty.code}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected }}
-                  onPress={() => setSelectedSpecialty(specialty.code)}
-                  style={[
-                    styles.specialtyPill,
-                    {
-                      backgroundColor: selected
-                        ? isDark
-                          ? "rgba(0,168,143,0.15)"
-                          : "#F0FBF9"
-                        : isDark
-                          ? colors.background
-                          : "#FFFFFF",
-                      borderColor: selected
-                        ? "#00A88F"
-                        : isDark
-                          ? colors.border
-                          : "#E2E8F0",
-                    },
-                  ]}
-                >
-                  <View style={styles.specialtyPillLeft}>
-                    <View
-                      style={[
-                        styles.specialtyIconRound,
-                        {
-                          backgroundColor: selected
-                            ? "#E0F7F4"
-                            : isDark
-                              ? colors.surface
-                              : "#F1F5F9",
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="pulse"
-                        size={18}
-                        color={selected ? "#00A88F" : "#64748B"}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.specialtyPillName,
-                        {
-                          color: selected ? "#00A88F" : colors.textPrimary,
-                        },
-                      ]}
-                    >
-                      {specialtyLabels[specialty.code] || specialty.name}
-                    </Text>
-                  </View>
-
-                  {selected ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={22}
-                      color="#00A88F"
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.radioCircle,
-                        { borderColor: isDark ? colors.border : "#CBD5E1" },
-                      ]}
-                    />
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Section: Bác sĩ có thể tiếp nhận ngay */}
-          {recommendations.length > 0 && (
-            <View style={{ marginTop: spacing.md }}>
-              <View style={styles.sectionHeaderRow}>
-                <View
-                  style={[
-                    styles.sectionIconBox,
-                    { backgroundColor: "#E6FAF7" },
-                  ]}
-                >
-                  <Ionicons name="people" size={20} color="#00A88F" />
-                </View>
-                <Text
-                  style={[styles.sectionTitle, { color: colors.textPrimary }]}
-                >
-                  {t("doctorConsultationRecommendedDoctors")}
+            <View style={styles.heroRight}>
+              <View style={styles.heroBadgeSpeech}>
+                <Text style={styles.heroBadgeSpeechText}>
+                  {t("doctorConsultationHeroBadge")}
                 </Text>
               </View>
-
-              <View style={styles.doctorCardsList}>
-                <Pressable
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: preferredDoctorId === null }}
-                  onPress={() => setPreferredDoctorId(null)}
-                  style={[
-                    styles.doctorSelectCard,
-                    {
-                      backgroundColor:
-                        preferredDoctorId === null ? "#F0FBF9" : colors.surface,
-                      borderColor:
-                        preferredDoctorId === null ? "#00A88F" : colors.border,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.doctorAvatarImg,
-                      styles.doctorAvatarFallback,
-                      { backgroundColor: "#E6FAF7" },
-                    ]}
-                  >
-                    <Ionicons
-                      name="git-network-outline"
-                      size={22}
-                      color="#00A88F"
-                    />
-                  </View>
-                  <View style={styles.doctorCardBody}>
-                    <Text
-                      style={[
-                        styles.doctorCardName,
-                        { color: colors.textPrimary },
-                      ]}
-                    >
-                      {t("doctorConsultationAutoAssign")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.doctorCardMetaText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {t("doctorConsultationAutoAssignHint")}
-                    </Text>
-                  </View>
-                  {preferredDoctorId === null ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={24}
-                      color="#00A88F"
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.radioCircle,
-                        { borderColor: colors.border },
-                      ]}
-                    />
-                  )}
-                </Pressable>
-                {recommendations.map((doctor) => {
-                  const selected = preferredDoctorId === doctor.doctorId;
-                  return (
-                    <Pressable
-                      key={doctor.doctorId}
-                      onPress={() =>
-                        setPreferredDoctorId(selected ? null : doctor.doctorId)
-                      }
-                      style={[
-                        styles.doctorSelectCard,
-                        {
-                          backgroundColor: selected
-                            ? isDark
-                              ? "rgba(0,168,143,0.12)"
-                              : "#F8FCFB"
-                            : isDark
-                              ? colors.background
-                              : "#FFFFFF",
-                          borderColor: selected
-                            ? "#00A88F"
-                            : isDark
-                              ? colors.border
-                              : "#E2E8F0",
-                        },
-                      ]}
-                    >
-                      {doctor.avatarUrl ? (
-                        <Image
-                          accessibilityLabel={doctor.fullName}
-                          source={{ uri: doctor.avatarUrl }}
-                          style={styles.doctorAvatarImg}
-                        />
-                      ) : (
-                        <View
-                          accessibilityLabel={doctor.fullName}
-                          style={[
-                            styles.doctorAvatarImg,
-                            styles.doctorAvatarFallback,
-                            { backgroundColor: "#E6FAF7" },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.doctorInitials,
-                              { color: "#00A88F" },
-                            ]}
-                          >
-                            {doctorInitials(doctor.fullName)}
-                          </Text>
-                        </View>
-                      )}
-
-                      <View style={styles.doctorCardBody}>
-                        <Text
-                          style={[
-                            styles.doctorCardName,
-                            { color: colors.textPrimary },
-                          ]}
-                        >
-                          {doctor.fullName}
-                        </Text>
-                        <View style={styles.doctorCardMetaRow}>
-                          <Ionicons name="star" size={14} color="#F59E0B" />
-                          <Text
-                            style={[
-                              styles.doctorCardMetaText,
-                              {
-                                color: isDark
-                                  ? colors.textSecondary
-                                  : "#64748B",
-                              },
-                            ]}
-                          >
-                            {(doctor.ratingCount ?? 0) > 0
-                              ? t("doctorConsultationDoctorMeta", {
-                                  rating: doctor.reputation.toFixed(1),
-                                  ratingCount: doctor.ratingCount,
-                                  minutes: doctor.estimatedWaitMinutes,
-                                })
-                              : t("doctorConsultationDoctorNoRating", {
-                                  minutes: doctor.estimatedWaitMinutes,
-                                })}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {selected ? (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={24}
-                          color="#00A88F"
-                        />
-                      ) : (
-                        <View
-                          style={[
-                            styles.radioCircle,
-                            { borderColor: isDark ? colors.border : "#94A3B8" },
-                          ]}
-                        />
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {/* Soft preference notice */}
               <View
                 style={[
-                  styles.softPreferenceCard,
-                  {
-                    backgroundColor: isDark ? "rgba(0,168,143,0.1)" : "#F0FBF9",
-                  },
+                  styles.heroDoctorPlaceholder,
+                  { backgroundColor: isDark ? colors.surfaceMuted : "#D8F6F1" },
                 ]}
               >
                 <Ionicons
-                  name="information-circle"
-                  size={20}
-                  color="#00A88F"
-                  style={styles.softPreferenceIcon}
+                  name="people-outline"
+                  size={48}
+                  color={isDark ? colors.textSecondary : "#008B76"}
                 />
-                <Text
-                  style={[
-                    styles.softPreferenceText,
-                    { color: isDark ? colors.textSecondary : "#475569" },
-                  ]}
-                >
-                  {t("doctorConsultationSoftPreference")}
-                </Text>
               </View>
             </View>
-          )}
+          </View>
 
           <View
             style={[
-              styles.attachmentSection,
+              styles.intakeSection,
               { borderColor: isDark ? colors.border : "#E2E8F0" },
             ]}
           >
-            <View style={styles.attachmentCopy}>
-              <Text
-                style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
+            <View style={styles.sectionHeaderRow}>
+              <View
+                style={[styles.sectionIconBox, { backgroundColor: "#FFF7E8" }]}
               >
-                {t("doctorConsultationPreAttachmentTitle")}
-              </Text>
-              <Text
-                style={[styles.sectionHint, { color: colors.textSecondary }]}
-              >
-                {pendingAttachment?.name ||
-                  t("doctorConsultationPreAttachmentHint")}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void pickPreConsultationImage()}
-              style={styles.attachmentButton}
-            >
-              <Ionicons name="image-outline" size={18} color="#008B76" />
-              <Text style={styles.attachmentButtonText}>
-                {pendingAttachment
-                  ? t("doctorConsultationReplaceAttachment")
-                  : t("doctorConsultationChooseAttachment")}
-              </Text>
-            </Pressable>
-          </View>
-
-          <View
-            style={[
-              styles.reviewCard,
-              { backgroundColor: isDark ? colors.background : "#F8FAFC" },
-            ]}
-          >
-            <Text style={[styles.reviewTitle, { color: colors.textPrimary }]}>
-              {t("doctorConsultationReviewTitle")}
-            </Text>
-            <Text style={[styles.reviewLine, { color: colors.textSecondary }]}>
-              {selectedClinic?.name || "—"} ·{" "}
-              {specialtyLabels[selectedSpecialty] || selectedSpecialty}
-            </Text>
-            <Text style={[styles.reviewLine, { color: colors.textSecondary }]}>
-              {selectedDoctor?.fullName || t("doctorConsultationAutoAssign")}
-            </Text>
-            <View style={styles.etaRow}>
-              <Ionicons name="time-outline" size={18} color="#008B76" />
-              <Text style={styles.etaText}>
-                {estimatedWaitMinutes == null
-                  ? t("doctorConsultationEtaUnavailable")
-                  : t("doctorConsultationEta", {
-                      minutes: estimatedWaitMinutes,
-                    })}
-              </Text>
-            </View>
-          </View>
-
-          <View
-            style={[
-              styles.emergencyNotice,
-              { backgroundColor: isDark ? "rgba(185,28,28,0.12)" : "#FEF2F2" },
-            ]}
-          >
-            <Ionicons name="warning-outline" size={20} color="#B91C1C" />
-            <Text
-              style={[
-                styles.emergencyNoticeText,
-                { color: isDark ? "#FCA5A5" : "#991B1B" },
-              ]}
-            >
-              {t("doctorConsultationEmergencyNotice")}
-            </Text>
-          </View>
-
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: emergencyConfirmed }}
-            onPress={() => setEmergencyConfirmed((value) => !value)}
-            style={styles.consentRow}
-          >
-            <View
-              style={[
-                styles.checkboxBox,
-                {
-                  backgroundColor: emergencyConfirmed
-                    ? "#00A88F"
-                    : "transparent",
-                  borderColor: emergencyConfirmed ? "#00A88F" : colors.border,
-                },
-              ]}
-            >
-              {emergencyConfirmed ? (
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-              ) : null}
-            </View>
-            <Text style={[styles.consentText, { color: colors.textSecondary }]}>
-              {t("doctorConsultationEmergencyConfirm")}
-            </Text>
-          </Pressable>
-
-          {/* Consent Checkbox */}
-          <Pressable
-            onPress={() => setConsentAccepted((value) => !value)}
-            style={styles.consentRow}
-          >
-            <View
-              style={[
-                styles.checkboxBox,
-                {
-                  backgroundColor: consentAccepted ? "#00A88F" : "transparent",
-                  borderColor: consentAccepted
-                    ? "#00A88F"
-                    : isDark
-                      ? colors.border
-                      : "#94A3B8",
-                },
-              ]}
-            >
-              {consentAccepted && (
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-              )}
-            </View>
-            <Text
-              style={[
-                styles.consentText,
-                { color: isDark ? colors.textSecondary : "#475569" },
-              ]}
-            >
-              {t("doctorConsultationConsent")}
-            </Text>
-          </Pressable>
-
-          {/* Submit Button */}
-          <Pressable
-            disabled={isSubmitting}
-            onPress={() => void submit()}
-            style={[
-              styles.submitBtn,
-              {
-                opacity: isSubmitting ? 0.65 : 1,
-              },
-            ]}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <View style={styles.submitBtnContent}>
-                <Ionicons
-                  name="paper-plane"
-                  size={18}
-                  color="#FFFFFF"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.submitBtnText}>
-                  {t("doctorConsultationSubmit")}
+                <Ionicons name="shield-checkmark" size={20} color="#D97706" />
+              </View>
+              <View style={styles.sectionHeaderTextCol}>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textPrimary }]}
+                >
+                  {t("doctorConsultationScreeningTitle")}
+                </Text>
+                <Text
+                  style={[styles.sectionHint, { color: colors.textSecondary }]}
+                >
+                  {t("doctorConsultationScreeningHint")}
                 </Text>
               </View>
-            )}
-          </Pressable>
-        </View>
+            </View>
 
-        {/* Previous Consultation Threads */}
-        {tasks.length > 0 && (
+            <Text
+              style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
+            >
+              {t("doctorConsultationOnsetLabel")}
+            </Text>
+            <View style={styles.optionChips}>
+              {(
+                [
+                  "today",
+                  "two_to_seven_days",
+                  "over_one_week",
+                  "ongoing",
+                ] as const
+              ).map((value) => (
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: symptomOnset === value }}
+                  key={value}
+                  onPress={() => setSymptomOnset(value)}
+                  style={[
+                    styles.optionChip,
+                    {
+                      backgroundColor:
+                        symptomOnset === value ? "#E6FAF7" : colors.surface,
+                      borderColor:
+                        symptomOnset === value ? "#00A88F" : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      {
+                        color:
+                          symptomOnset === value
+                            ? "#008B76"
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {t(`doctorConsultationOnset_${value}`)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text
+              style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
+            >
+              {t("doctorConsultationProgressionLabel")}
+            </Text>
+            <View style={styles.optionChips}>
+              {(["improving", "stable", "worsening"] as const).map((value) => (
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: progression === value }}
+                  key={value}
+                  onPress={() => setProgression(value)}
+                  style={[
+                    styles.optionChip,
+                    {
+                      backgroundColor:
+                        progression === value ? "#E6FAF7" : colors.surface,
+                      borderColor:
+                        progression === value ? "#00A88F" : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      {
+                        color:
+                          progression === value
+                            ? "#008B76"
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {t(`doctorConsultationProgression_${value}`)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text
+              style={[styles.optionGroupLabel, { color: colors.textPrimary }]}
+            >
+              {t("doctorConsultationSeverityLabel")}
+            </Text>
+            <View style={styles.optionChips}>
+              {(["mild", "moderate", "severe"] as const).map((value) => (
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: severity === value }}
+                  key={value}
+                  onPress={() => setSeverity(value)}
+                  style={[
+                    styles.optionChip,
+                    {
+                      backgroundColor:
+                        severity === value ? "#E6FAF7" : colors.surface,
+                      borderColor:
+                        severity === value ? "#00A88F" : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      {
+                        color:
+                          severity === value ? "#008B76" : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {t(`doctorConsultationSeverity_${value}`)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Form Card */}
           <View
             style={[
               styles.formCard,
@@ -1241,17 +644,18 @@ export default function DoctorConsultationScreen() {
               },
             ]}
           >
+            {/* Section 1: Bạn muốn bác sĩ hỗ trợ điều gì? */}
             <View style={styles.sectionHeaderRow}>
               <View
                 style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
               >
-                <Ionicons name="time" size={20} color="#00A88F" />
+                <Ionicons name="document-text" size={20} color="#00A88F" />
               </View>
               <View style={styles.sectionHeaderTextCol}>
                 <Text
                   style={[styles.sectionTitle, { color: colors.textPrimary }]}
                 >
-                  {t("doctorConsultationThreads")}
+                  {t("doctorConsultationSummaryLabel")}
                 </Text>
                 <Text
                   style={[
@@ -1259,76 +663,670 @@ export default function DoctorConsultationScreen() {
                     { color: isDark ? colors.textSecondary : "#64748B" },
                   ]}
                 >
-                  {t("doctorConsultationThreadsHint")}
+                  {t("doctorConsultationSummaryHint")}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.threadsList}>
-              {tasks.map((task) => (
-                <Pressable
-                  key={task.task_id}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/doctor-consultation/[taskId]",
-                      params: {
-                        taskId: task.task_id,
-                        tenantId: selectedTenantId,
-                      },
-                    } as never)
-                  }
-                  style={[
-                    styles.threadItem,
-                    {
-                      backgroundColor: isDark ? colors.background : "#FAFCFD",
-                      borderColor: isDark ? colors.border : "#E2E8F0",
-                    },
-                  ]}
-                >
-                  <View style={styles.threadItemIconBox}>
-                    <Ionicons
-                      name="chatbubble-ellipses"
-                      size={20}
-                      color="#00A88F"
-                    />
+            {/* Text Input area */}
+            <View
+              style={[
+                styles.inputBox,
+                {
+                  backgroundColor: isDark ? colors.background : "#FFFFFF",
+                  borderColor: isDark ? colors.border : "#E2E8F0",
+                },
+              ]}
+            >
+              <TextInput
+                multiline
+                maxLength={500}
+                onChangeText={setSummary}
+                placeholder={t("doctorConsultationSummaryPlaceholder")}
+                placeholderTextColor={isDark ? colors.textSecondary : "#94A3B8"}
+                style={[
+                  styles.inputArea,
+                  {
+                    color: colors.textPrimary,
+                  },
+                ]}
+                textAlignVertical="top"
+                value={summary}
+              />
+              <Text
+                style={[
+                  styles.charCounter,
+                  { color: isDark ? colors.textSecondary : "#94A3B8" },
+                ]}
+              >
+                {}
+              </Text>
+            </View>
+
+            {/* Section 2: Phòng khám */}
+            {clinics.length > 0 && (
+              <View style={[styles.clinicSection, { marginTop: spacing.md }]}>
+                <View style={styles.sectionHeaderRow}>
+                  <View
+                    style={[
+                      styles.sectionIconBox,
+                      { backgroundColor: "#E6FAF7" },
+                    ]}
+                  >
+                    <Ionicons name="business" size={20} color="#00A88F" />
                   </View>
-                  <View style={styles.threadItemContent}>
+                  <View style={styles.sectionHeaderTextCol}>
                     <Text
-                      numberOfLines={1}
                       style={[
-                        styles.threadItemTitle,
+                        styles.sectionTitle,
                         { color: colors.textPrimary },
                       ]}
                     >
-                      {task.summary}
+                      {t("doctorConsultationClinicLabel")}
                     </Text>
                     <Text
-                      numberOfLines={2}
                       style={[
-                        styles.threadItemPreview,
-                        { color: colors.textSecondary },
+                        styles.sectionHint,
+                        { color: isDark ? colors.textSecondary : "#64748B" },
                       ]}
                     >
-                      {isAttachmentMessage(task.latest_message)
-                        ? t("doctorConsultationAttachPhoto")
-                        : isVoiceMessage(task.latest_message)
-                          ? t("doctorConsultationVoiceMessage")
-                          : task.latest_message ||
-                            t("doctorConsultationWaiting")}
+                      {t("doctorConsultationClinicHint")}
                     </Text>
                   </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={isDark ? colors.textSecondary : "#94A3B8"}
-                  />
-                </Pressable>
-              ))}
+                </View>
+                <View style={styles.clinicsList}>
+                  {clinics.map((clinic) => {
+                    const selected = clinic.tenant_id === selectedTenantId;
+                    return (
+                      <Pressable
+                        key={clinic.tenant_id}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        onPress={() => setSelectedTenantId(clinic.tenant_id)}
+                        style={[
+                          styles.clinicPill,
+                          {
+                            backgroundColor: selected
+                              ? isDark
+                                ? "rgba(0,168,143,0.15)"
+                                : "#F0FBF9"
+                              : isDark
+                                ? colors.background
+                                : "#FFFFFF",
+                            borderColor: selected
+                              ? "#00A88F"
+                              : isDark
+                                ? colors.border
+                                : "#E2E8F0",
+                          },
+                        ]}
+                      >
+                        <View style={styles.clinicPillLeft}>
+                          <Ionicons
+                            name="business-outline"
+                            size={19}
+                            color={selected ? "#00A88F" : "#64748B"}
+                          />
+                          <Text
+                            style={[
+                              styles.clinicPillName,
+                              {
+                                color: selected
+                                  ? "#00A88F"
+                                  : colors.textPrimary,
+                              },
+                            ]}
+                          >
+                            {clinic.name}
+                          </Text>
+                        </View>
+                        {selected && (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={22}
+                            color="#00A88F"
+                          />
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Section 3: Chuyên khoa muốn được hỗ trợ */}
+            <View style={[styles.sectionHeaderRow, { marginTop: spacing.md }]}>
+              <View
+                style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
+              >
+                <Ionicons name="pulse" size={20} color="#00A88F" />
+              </View>
+              <View style={styles.sectionHeaderTextCol}>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textPrimary }]}
+                >
+                  {t("doctorConsultationSpecialtyLabel")}
+                </Text>
+                <Text
+                  style={[
+                    styles.sectionHint,
+                    { color: isDark ? colors.textSecondary : "#64748B" },
+                  ]}
+                >
+                  {t("doctorConsultationSpecialtyHint")}
+                </Text>
+              </View>
             </View>
+
+            {/* Specialty Options List */}
+            <View style={styles.specialtiesList}>
+              {specialties.map((specialty) => {
+                const selected = specialty.code === selectedSpecialty;
+                return (
+                  <Pressable
+                    key={specialty.code}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    onPress={() => setSelectedSpecialty(specialty.code)}
+                    style={[
+                      styles.specialtyPill,
+                      {
+                        backgroundColor: selected
+                          ? isDark
+                            ? "rgba(0,168,143,0.15)"
+                            : "#F0FBF9"
+                          : isDark
+                            ? colors.background
+                            : "#FFFFFF",
+                        borderColor: selected
+                          ? "#00A88F"
+                          : isDark
+                            ? colors.border
+                            : "#E2E8F0",
+                      },
+                    ]}
+                  >
+                    <View style={styles.specialtyPillLeft}>
+                      <View
+                        style={[
+                          styles.specialtyIconRound,
+                          {
+                            backgroundColor: selected
+                              ? "#E0F7F4"
+                              : isDark
+                                ? colors.surface
+                                : "#F1F5F9",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="pulse"
+                          size={18}
+                          color={selected ? "#00A88F" : "#64748B"}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.specialtyPillName,
+                          {
+                            color: selected ? "#00A88F" : colors.textPrimary,
+                          },
+                        ]}
+                      >
+                        {specialtyLabels[specialty.code] || specialty.name}
+                      </Text>
+                    </View>
+
+                    {selected ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color="#00A88F"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.radioCircle,
+                          { borderColor: isDark ? colors.border : "#CBD5E1" },
+                        ]}
+                      />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Section: Bác sĩ có thể tiếp nhận ngay */}
+            {recommendations.length > 0 && (
+              <View style={{ marginTop: spacing.md }}>
+                <View style={styles.sectionHeaderRow}>
+                  <View
+                    style={[
+                      styles.sectionIconBox,
+                      { backgroundColor: "#E6FAF7" },
+                    ]}
+                  >
+                    <Ionicons name="people" size={20} color="#00A88F" />
+                  </View>
+                  <Text
+                    style={[styles.sectionTitle, { color: colors.textPrimary }]}
+                  >
+                    {t("doctorConsultationRecommendedDoctors")}
+                  </Text>
+                </View>
+
+                <View style={styles.doctorCardsList}>
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{
+                      selected: preferredDoctorId === null,
+                    }}
+                    onPress={() => setPreferredDoctorId(null)}
+                    style={[
+                      styles.doctorSelectCard,
+                      {
+                        backgroundColor:
+                          preferredDoctorId === null
+                            ? "#F0FBF9"
+                            : colors.surface,
+                        borderColor:
+                          preferredDoctorId === null
+                            ? "#00A88F"
+                            : colors.border,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.doctorAvatarImg,
+                        styles.doctorAvatarFallback,
+                        { backgroundColor: "#E6FAF7" },
+                      ]}
+                    >
+                      <Ionicons
+                        name="git-network-outline"
+                        size={22}
+                        color="#00A88F"
+                      />
+                    </View>
+                    <View style={styles.doctorCardBody}>
+                      <Text
+                        style={[
+                          styles.doctorCardName,
+                          { color: colors.textPrimary },
+                        ]}
+                      >
+                        {t("doctorConsultationAutoAssign")}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.doctorCardMetaText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {t("doctorConsultationAutoAssignHint")}
+                      </Text>
+                    </View>
+                    {preferredDoctorId === null ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={24}
+                        color="#00A88F"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.radioCircle,
+                          { borderColor: colors.border },
+                        ]}
+                      />
+                    )}
+                  </Pressable>
+                  {recommendations.map((doctor) => {
+                    const selected = preferredDoctorId === doctor.doctorId;
+                    return (
+                      <Pressable
+                        key={doctor.doctorId}
+                        onPress={() =>
+                          setPreferredDoctorId(
+                            selected ? null : doctor.doctorId,
+                          )
+                        }
+                        style={[
+                          styles.doctorSelectCard,
+                          {
+                            backgroundColor: selected
+                              ? isDark
+                                ? "rgba(0,168,143,0.12)"
+                                : "#F8FCFB"
+                              : isDark
+                                ? colors.background
+                                : "#FFFFFF",
+                            borderColor: selected
+                              ? "#00A88F"
+                              : isDark
+                                ? colors.border
+                                : "#E2E8F0",
+                          },
+                        ]}
+                      >
+                        {doctor.avatarUrl ? (
+                          <Image
+                            accessibilityLabel={doctor.fullName}
+                            source={{ uri: doctor.avatarUrl }}
+                            style={styles.doctorAvatarImg}
+                          />
+                        ) : (
+                          <View
+                            accessibilityLabel={doctor.fullName}
+                            style={[
+                              styles.doctorAvatarImg,
+                              styles.doctorAvatarFallback,
+                              { backgroundColor: "#E6FAF7" },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.doctorInitials,
+                                { color: "#00A88F" },
+                              ]}
+                            >
+                              {doctorInitials(doctor.fullName)}
+                            </Text>
+                          </View>
+                        )}
+
+                        <View style={styles.doctorCardBody}>
+                          <Text
+                            style={[
+                              styles.doctorCardName,
+                              { color: colors.textPrimary },
+                            ]}
+                          >
+                            {doctor.fullName}
+                          </Text>
+                          <View style={styles.doctorCardMetaRow}>
+                            <Ionicons name="star" size={14} color="#F59E0B" />
+                            <Text
+                              style={[
+                                styles.doctorCardMetaText,
+                                {
+                                  color: isDark
+                                    ? colors.textSecondary
+                                    : "#64748B",
+                                },
+                              ]}
+                            >
+                              {(doctor.ratingCount ?? 0) > 0
+                                ? t("doctorConsultationDoctorMeta", {
+                                    rating: doctor.reputation.toFixed(1),
+                                    ratingCount: doctor.ratingCount,
+                                    minutes: doctor.estimatedWaitMinutes,
+                                  })
+                                : t("doctorConsultationDoctorNoRating", {
+                                    minutes: doctor.estimatedWaitMinutes,
+                                  })}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {selected ? (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            color="#00A88F"
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.radioCircle,
+                              {
+                                borderColor: isDark ? colors.border : "#94A3B8",
+                              },
+                            ]}
+                          />
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Soft preference notice */}
+                <View
+                  style={[
+                    styles.softPreferenceCard,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(0,168,143,0.1)"
+                        : "#F0FBF9",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="information-circle"
+                    size={20}
+                    color="#00A88F"
+                    style={styles.softPreferenceIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.softPreferenceText,
+                      { color: isDark ? colors.textSecondary : "#475569" },
+                    ]}
+                  >
+                    {t("doctorConsultationSoftPreference")}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View
+              style={[
+                styles.attachmentSection,
+                { borderColor: isDark ? colors.border : "#E2E8F0" },
+              ]}
+            >
+              <View style={styles.attachmentCopy}>
+                <Text
+                  style={[
+                    styles.optionGroupLabel,
+                    { color: colors.textPrimary },
+                  ]}
+                >
+                  {t("doctorConsultationPreAttachmentTitle")}
+                </Text>
+                <Text
+                  style={[styles.sectionHint, { color: colors.textSecondary }]}
+                >
+                  {pendingAttachment?.name ||
+                    t("doctorConsultationPreAttachmentHint")}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void pickPreConsultationImage()}
+                style={styles.attachmentButton}
+              >
+                <Ionicons name="image-outline" size={18} color="#008B76" />
+                <Text style={styles.attachmentButtonText}>
+                  {pendingAttachment
+                    ? t("doctorConsultationReplaceAttachment")
+                    : t("doctorConsultationChooseAttachment")}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View
+              style={[
+                styles.reviewCard,
+                { backgroundColor: isDark ? colors.background : "#F8FAFC" },
+              ]}
+            >
+              <Text style={[styles.reviewTitle, { color: colors.textPrimary }]}>
+                {t("doctorConsultationReviewTitle")}
+              </Text>
+              <Text
+                style={[styles.reviewLine, { color: colors.textSecondary }]}
+              >
+                {selectedClinic?.name || "—"} ·{" "}
+                {specialtyLabels[selectedSpecialty] || selectedSpecialty}
+              </Text>
+              <Text
+                style={[styles.reviewLine, { color: colors.textSecondary }]}
+              >
+                {selectedDoctor?.fullName || t("doctorConsultationAutoAssign")}
+              </Text>
+              <View style={styles.etaRow}>
+                <Ionicons name="time-outline" size={18} color="#008B76" />
+                <Text style={styles.etaText}>
+                  {estimatedWaitMinutes == null
+                    ? t("doctorConsultationEtaUnavailable")
+                    : t("doctorConsultationEta", {
+                        minutes: estimatedWaitMinutes,
+                      })}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.emergencyNotice,
+                {
+                  backgroundColor: isDark ? "rgba(185,28,28,0.12)" : "#FEF2F2",
+                },
+              ]}
+            >
+              <Ionicons name="warning-outline" size={20} color="#B91C1C" />
+              <Text
+                style={[
+                  styles.emergencyNoticeText,
+                  { color: isDark ? "#FCA5A5" : "#991B1B" },
+                ]}
+              >
+                {t("doctorConsultationEmergencyNotice")}
+              </Text>
+            </View>
+
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: emergencyConfirmed }}
+              onPress={() => setEmergencyConfirmed((value) => !value)}
+              style={styles.consentRow}
+            >
+              <View
+                style={[
+                  styles.checkboxBox,
+                  {
+                    backgroundColor: emergencyConfirmed
+                      ? "#00A88F"
+                      : "transparent",
+                    borderColor: emergencyConfirmed ? "#00A88F" : colors.border,
+                  },
+                ]}
+              >
+                {emergencyConfirmed ? (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                ) : null}
+              </View>
+              <Text
+                style={[styles.consentText, { color: colors.textSecondary }]}
+              >
+                {t("doctorConsultationEmergencyConfirm")}
+              </Text>
+            </Pressable>
+
+            {/* Consent Checkbox */}
+            <Pressable
+              onPress={() => setConsentAccepted((value) => !value)}
+              style={styles.consentRow}
+            >
+              <View
+                style={[
+                  styles.checkboxBox,
+                  {
+                    backgroundColor: consentAccepted
+                      ? "#00A88F"
+                      : "transparent",
+                    borderColor: consentAccepted
+                      ? "#00A88F"
+                      : isDark
+                        ? colors.border
+                        : "#94A3B8",
+                  },
+                ]}
+              >
+                {consentAccepted && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.consentText,
+                  { color: isDark ? colors.textSecondary : "#475569" },
+                ]}
+              >
+                {t("doctorConsultationConsent")}
+              </Text>
+            </Pressable>
+
+            {/* Submit Button */}
+            <Pressable
+              disabled={isSubmitting}
+              onPress={() => void submit()}
+              style={[
+                styles.submitBtn,
+                {
+                  opacity: isSubmitting ? 0.65 : 1,
+                },
+              ]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <View style={styles.submitBtnContent}>
+                  <Ionicons
+                    name="paper-plane"
+                    size={18}
+                    color="#FFFFFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.submitBtnText}>
+                    {t("doctorConsultationSubmit")}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
           </View>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+        {/** The full history lives in Personal > Settings. */}
+      </KeyboardAvoidingView>
+      <AppAlertModal
+        visible={activeWarningVisible && Boolean(activeConsultation)}
+        title={t("doctorConsultationActiveTitle")}
+        message={t("doctorConsultationActiveMessage")}
+        icon={{ name: "chat-processing-outline", color: "#00A88F" }}
+        buttons={[
+          {
+            text: t("doctorConsultationOpenActive"),
+            onPress: () => {
+              if (!activeConsultation) return;
+              router.push({
+                pathname: "/doctor-consultation/[taskId]",
+                params: {
+                  taskId: activeConsultation.task_id,
+                  tenantId: activeConsultation.tenant_id || selectedTenantId,
+                },
+              } as never);
+            },
+          },
+          {
+            text: t("doctorConsultationContinueLater"),
+            style: "cancel",
+          },
+        ]}
+        onDismiss={() => setActiveWarningVisible(false)}
+      />
+    </>
   );
 }
 
