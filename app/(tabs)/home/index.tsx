@@ -144,6 +144,9 @@ type HomeMetricCard = {
   route: string;
 };
 
+// Tạm ẩn các thẻ Thuốc và Insulin khỏi carousel trang chính.
+const HIDDEN_HOME_METRIC_KEYS = new Set(['medication', 'insulin']);
+
 type HomeMetricCarouselProps = {
   cards: HomeMetricCard[];
   styles: ReturnType<typeof createStyles>;
@@ -586,7 +589,7 @@ export default function HomeScreen() {
       color: iconColors.water,
       route: '/logs/water',
     },
-  ], [quickMetrics, t, tc]);
+  ], [quickMetrics, t, tc]).filter((card) => !HIDDEN_HOME_METRIC_KEYS.has(card.key));
 
   const healthFeedApi = useCallback(async <T,>(path: string, options?: any) => {
     return apiClient<T>(`/api/health-feed${path}`, options);
