@@ -729,8 +729,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       flexDirection: 'row',
       alignItems: 'center',
       position: 'relative',
-      minHeight: 88,
-      paddingTop: 4,
+      minHeight: 112,
+      paddingTop: 6,
       paddingBottom: 8,
     },
     leavesLeftWrap: {
@@ -748,7 +748,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     headerTextCol: {
       flex: 1,
       paddingLeft: 10,
-      paddingRight: 145,
+      paddingRight: 180,
       justifyContent: 'center',
       zIndex: 1,
     },
@@ -767,10 +767,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     crownArtWrap: {
       position: 'absolute',
-      right: -8,
-      top: 2,
-      width: 145,
-      height: 70,
+      right: -4,
+      top: 4,
+      width: 180,
+      height: 90,
       zIndex: 1,
     },
     crownHeroImg: {
@@ -999,6 +999,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       marginTop: 14,
       position: 'relative',
       overflow: 'hidden',
+      minHeight: 96,
     },
     sproutIconWrap: {
       width: 36,
@@ -1011,7 +1012,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     comingSoonTextCol: {
       flex: 1,
-      paddingRight: 75,
+      paddingRight: 142,
     },
     comingSoonTitle: {
       fontSize: 13.5,
@@ -1026,10 +1027,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     phoneArtImg: {
       position: 'absolute',
-      right: -4,
-      bottom: -4,
-      width: 86,
-      height: 72,
+      right: 4,
+      top: '50%',
+      transform: [{ translateY: -34 }],
+      width: 136,
+      height: 68,
     },
 
     // History card

@@ -10,11 +10,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { ScaledText as Text } from "../src/components/ScaledText";
+import { ScaledTextInput as TextInput } from "../src/components/ScaledTextInput";
 import { useAuthStore } from "../src/features/auth/auth.store";
 import { ApiError, apiClient } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
@@ -232,7 +233,6 @@ export default function DoctorConsultationScreen() {
 
   const pickPreConsultationImage = async () => {
     try {
-      const ImagePicker = await import("expo-image-picker");
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {

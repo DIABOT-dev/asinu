@@ -7,7 +7,6 @@ import {
   Image,
   Pressable,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import Svg, { Circle, Defs, G, Path, Rect, Stop, LinearGradient as SvgGradient } from 'react-native-svg';
@@ -16,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { ScaledText } from '../../src/components/ScaledText';
+import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { Screen } from '../../src/components/Screen';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
@@ -491,7 +491,7 @@ export default function WalletScreen() {
               <ScaledText style={styles.inputCurrencyText}>đ</ScaledText>
             </View>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { fontSize: 15 }]}
               placeholder={t('enterAmount')}
               placeholderTextColor="#9CA3AF"
               keyboardType="numeric"

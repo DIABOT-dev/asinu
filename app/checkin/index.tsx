@@ -24,7 +24,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
@@ -32,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { chatApi } from '../../src/features/chat/chat.api';
@@ -454,7 +454,7 @@ export default function CheckinScreen() {
         headerShown: true,
         title: isFollowUp ? t('checkinHeaderFollowUp') : t('checkinHeaderTitle'),
         headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
+        headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' },
         headerShadowVisible: false,
         headerLeft: () => {
           // Adaptive: ở step 'location' show back về status; các step khác show nút đóng
@@ -1100,7 +1100,7 @@ function TriageScreen({
               </Pressable>
               <View style={styles.inputWrap}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { fontSize: 15 }]}
                   placeholder={isTranscribing ? '...' : t('checkinCustomPlaceholder')}
                   placeholderTextColor={colors.textSecondary + '77'}
                   value={custom}

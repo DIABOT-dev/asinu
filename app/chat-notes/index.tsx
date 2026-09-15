@@ -11,7 +11,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -222,7 +222,7 @@ export default function ChatNotesScreen() {
           headerShown: true,
           title: t('chatNotesTitle'),
           headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
+          headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' },
           headerShadowVisible: false,
           headerLeft: () => (
             <ScreenBackButton onPress={() => router.back()} />
@@ -255,12 +255,12 @@ export default function ChatNotesScreen() {
               <View style={styles.customDateRow}>
                 <View style={styles.dateInputWrap}>
                   <Text style={styles.dateLabel}>{t('filterFrom')}</Text>
-                  <TextInput style={styles.dateInput} placeholder={t('filterDateFormat')} placeholderTextColor={colors.border} value={fromText} onChangeText={setFromText} keyboardType="number-pad" maxLength={10} />
+                  <TextInput style={[styles.dateInput, { fontSize: 15 }]} placeholder={t('filterDateFormat')} placeholderTextColor={colors.border} value={fromText} onChangeText={setFromText} keyboardType="number-pad" maxLength={10} />
                 </View>
                 <View style={styles.dateSeparator}><Ionicons name="arrow-forward" size={16} color={colors.textSecondary} /></View>
                 <View style={styles.dateInputWrap}>
                   <Text style={styles.dateLabel}>{t('filterTo')}</Text>
-                  <TextInput style={styles.dateInput} placeholder={t('filterDateFormat')} placeholderTextColor={colors.border} value={toText} onChangeText={setToText} keyboardType="number-pad" maxLength={10} />
+                  <TextInput style={[styles.dateInput, { fontSize: 15 }]} placeholder={t('filterDateFormat')} placeholderTextColor={colors.border} value={toText} onChangeText={setToText} keyboardType="number-pad" maxLength={10} />
                 </View>
               </View>
             )}

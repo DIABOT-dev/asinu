@@ -172,11 +172,25 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
   return backendLogs.map((log, idx) => {
     const detail = log.detail || {};
 
+    const rawStatus =
+      log.status ||
+      detail.status ||
+      log.health_status ||
+      detail.health_status ||
+      log.metadata?.status;
+
     const baseEntry: LogEntry = {
       id: log.id,
       type: (log.log_type === 'bp' || log.log_type === 'blood_pressure') ? 'blood-pressure' : log.log_type,
       recordedAt: log.occurred_at,
       notes: log.note,
+      status: typeof rawStatus === 'string' ? rawStatus : undefined,
+      health_status:
+        typeof log.health_status === 'string'
+          ? log.health_status
+          : typeof detail.health_status === 'string'
+          ? detail.health_status
+          : undefined,
       tags: Array.isArray(log.metadata?.tags) ? log.metadata.tags : []
     };
 

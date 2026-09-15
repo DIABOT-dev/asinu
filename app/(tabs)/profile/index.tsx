@@ -3,6 +3,7 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
@@ -27,7 +28,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -39,7 +39,11 @@ import {
   AiDataConsentModal,
   revokeAiDataConsent,
 } from "../../../src/components/AiDataConsentModal";
+import { ScaledTextInput as TextInput } from "../../../src/components/ScaledTextInput";
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
+import { LinearGradient } from "expo-linear-gradient";
+
+const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
@@ -133,14 +137,67 @@ export default function ProfileScreen() {
   const langLabel = language === "vi" ? ts("languageVi") : ts("languageEn");
 
   // Edit form state
-  const [editName, setEditName] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editAge, setEditAge] = useState("");
-  const [editGender, setEditGender] = useState<"Nam" | "Nữ" | "">("");
-  const [editHeight, setEditHeight] = useState("");
-  const [editWeight, setEditWeight] = useState("");
-  const [editBloodType, setEditBloodType] = useState("");
-  const [editChronicDiseases, setEditChronicDiseases] = useState("");
+  const [editName, setEditName] = useState(profile?.name || "");
+  const [editPhone, setEditPhone] = useState(profile?.phone || "");
+  const [editAge, setEditAge] = useState(
+    profile?.age ? String(Math.round(profile.age)) : ""
+  );
+  const [editGender, setEditGender] = useState<"Nam" | "Nữ" | "">(
+    (profile?.gender as "Nam" | "Nữ") || ""
+  );
+  const [editHeight, setEditHeight] = useState(
+    profile?.heightCm ? String(Math.round(profile.heightCm)) : ""
+  );
+  const [editWeight, setEditWeight] = useState(
+    profile?.weightKg ? String(Math.round(profile.weightKg)) : ""
+  );
+  const [editBloodType, setEditBloodType] = useState(profile?.bloodType || "");
+  const [editChronicDiseases, setEditChronicDiseases] = useState(
+    profile?.chronicDiseases?.join(", ") || ""
+  );
+  const [showDiseasePicker, setShowDiseasePicker] = useState(false);
+  const [customDiseaseInput, setCustomDiseaseInput] = useState("");
+
+  useEffect(() => {
+    if (profile) {
+      if (profile.name) setEditName(profile.name);
+      if (profile.phone) setEditPhone(profile.phone);
+      if (profile.age) setEditAge(String(Math.round(profile.age)));
+      if (profile.gender) setEditGender(profile.gender as "Nam" | "Nữ");
+      if (profile.heightCm) setEditHeight(String(Math.round(profile.heightCm)));
+      if (profile.weightKg) setEditWeight(String(Math.round(profile.weightKg)));
+      if (profile.bloodType) setEditBloodType(profile.bloodType);
+      if (profile.chronicDiseases) setEditChronicDiseases(profile.chronicDiseases.join(", "));
+    }
+  }, [profile]);
+
+  const diseaseList = useMemo(() => {
+    return editChronicDiseases
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }, [editChronicDiseases]);
+
+  const toggleDisease = (disease: string) => {
+    let list = [...diseaseList];
+    if (list.includes(disease)) {
+      list = list.filter((d) => d !== disease);
+    } else {
+      list.push(disease);
+    }
+    setEditChronicDiseases(list.join(", "));
+  };
+
+  const addCustomDisease = () => {
+    const trimmed = customDiseaseInput.trim();
+    if (!trimmed) return;
+    if (!diseaseList.includes(trimmed)) {
+      const list = [...diseaseList, trimmed];
+      setEditChronicDiseases(list.join(", "));
+    }
+    setCustomDiseaseInput("");
+  };
+
   const [phoneError, setPhoneError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -287,7 +344,6 @@ export default function ProfileScreen() {
     setIsUploadingAvatar(true);
 
     try {
-      const ImagePicker = await import("expo-image-picker");
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -471,18 +527,9 @@ export default function ProfileScreen() {
 
             {/* ==================== USER PROFILE CARD ==================== */}
             <Animated.View entering={FadeIn.delay(60).duration(350)}>
-              <TouchableOpacity
-                style={styles.userCard}
-                onPress={handleEditProfile}
-                activeOpacity={0.88}
-              >
+              <View style={styles.userCard}>
                 {/* Avatar with active green dot */}
-                <TouchableOpacity
-                  style={styles.avatarWrap}
-                  onPress={handlePickAvatar}
-                  disabled={isUploadingAvatar}
-                  activeOpacity={0.8}
-                >
+                <View style={styles.avatarWrap}>
                   {profile?.avatarUrl ? (
                     <Image
                       source={{ uri: profile.avatarUrl }}
@@ -498,7 +545,7 @@ export default function ProfileScreen() {
                   )}
                   {/* Status badge green dot */}
                   <View style={styles.avatarOnlineDot} />
-                </TouchableOpacity>
+                </View>
 
                 {/* Name & status & plan badge */}
                 <View style={styles.userInfoCol}>
@@ -537,9 +584,7 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Right chevron */}
-                <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
-              </TouchableOpacity>
+              </View>
             </Animated.View>
 
             {/* ==================== THÔNG TIN CÁ NHÂN SECTION ==================== */}
@@ -555,6 +600,8 @@ export default function ProfileScreen() {
                   style={styles.editBtn}
                   onPress={handleEditProfile}
                   activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("edit")}
                 >
                   <Ionicons name="pencil" size={14} color="#059669" />
                   <Text style={styles.editBtnText}>{t("edit")}</Text>
@@ -564,11 +611,7 @@ export default function ProfileScreen() {
               {/* 2-Column Info Grid */}
               <View style={styles.infoGrid}>
                 {/* 1. Số điện thoại */}
-                <TouchableOpacity
-                  style={styles.gridCard}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.gridCard}>
                   <View style={styles.gridIconWrap}>
                     <Ionicons name="call" size={20} color="#059669" />
                   </View>
@@ -578,15 +621,10 @@ export default function ProfileScreen() {
                       {phone || tc("notUpdated")}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={14} color="#cbd5e1" />
-                </TouchableOpacity>
+                </View>
 
                 {/* 2. Giới tính */}
-                <TouchableOpacity
-                  style={styles.gridCard}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.gridCard}>
                   <View style={styles.gridIconWrap}>
                     <Ionicons
                       name={profile?.gender === "Nữ" ? "female" : "male"}
@@ -604,15 +642,10 @@ export default function ProfileScreen() {
                         : tc("notUpdated")}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={14} color="#cbd5e1" />
-                </TouchableOpacity>
+                </View>
 
                 {/* 3. Tuổi */}
-                <TouchableOpacity
-                  style={styles.gridCard}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.gridCard}>
                   <View style={styles.gridIconWrap}>
                     <Ionicons name="calendar-outline" size={20} color="#ea580c" />
                   </View>
@@ -624,15 +657,10 @@ export default function ProfileScreen() {
                         : tc("notUpdated")}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={14} color="#cbd5e1" />
-                </TouchableOpacity>
+                </View>
 
                 {/* 4. Chiều cao */}
-                <TouchableOpacity
-                  style={styles.gridCard}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.gridCard}>
                   <View style={styles.gridIconWrap}>
                     <MaterialCommunityIcons
                       name="human-male-height"
@@ -650,15 +678,10 @@ export default function ProfileScreen() {
                         : tc("notUpdated")}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={14} color="#cbd5e1" />
-                </TouchableOpacity>
+                </View>
 
                 {/* 5. Cân nặng */}
-                <TouchableOpacity
-                  style={styles.gridCard}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.gridCard}>
                   <View style={styles.gridIconWrap}>
                     <MaterialCommunityIcons
                       name="scale-bathroom"
@@ -676,15 +699,10 @@ export default function ProfileScreen() {
                         : tc("notUpdated")}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={14} color="#cbd5e1" />
-                </TouchableOpacity>
+                </View>
 
                 {/* 6. Nhóm máu */}
-                <TouchableOpacity
-                  style={styles.gridCard}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.gridCard}>
                   <View style={styles.gridIconWrap}>
                     <Ionicons name="water" size={20} color="#e11d48" />
                   </View>
@@ -694,16 +712,11 @@ export default function ProfileScreen() {
                       {profile?.bloodType || tc("notUpdated")}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={14} color="#cbd5e1" />
-                </TouchableOpacity>
+                </View>
               </View>
 
               {/* Full Width Card: Bệnh nền */}
-              <TouchableOpacity
-                style={styles.chronicDiseaseCard}
-                onPress={handleEditProfile}
-                activeOpacity={0.75}
-              >
+              <View style={styles.chronicDiseaseCard}>
                 <View style={styles.gridIconWrap}>
                   <MaterialCommunityIcons
                     name="plus-box"
@@ -722,8 +735,7 @@ export default function ProfileScreen() {
                       : t("noChronicDiseases")}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
-              </TouchableOpacity>
+              </View>
             </Animated.View>
 
             {/* ==================== BANNER CHĂM SÓC SỨC KHỎE ==================== */}
@@ -1074,6 +1086,7 @@ export default function ProfileScreen() {
                 style={styles.deleteAccountCard}
                 onPress={() => setShowDeleteModal(true)}
                 activeOpacity={0.75}
+                accessibilityRole="button"
               >
                 <Ionicons
                   name="trash-outline"
@@ -1084,7 +1097,6 @@ export default function ProfileScreen() {
                 <Text style={styles.deleteAccountText}>
                   {ts("deleteAccountForever")}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color="#ef4444" />
               </TouchableOpacity>
 
               {/* Nút Đăng xuất */}
@@ -1095,8 +1107,8 @@ export default function ProfileScreen() {
               >
                 <Ionicons
                   name="log-out-outline"
-                  size={20}
-                  color="#ef4444"
+                  size={22}
+                  color={isDark ? "#f87171" : "#e11d48"}
                   style={{ marginRight: 8 }}
                 />
                 <Text style={styles.logoutButtonText}>{t("logout")}</Text>
@@ -1212,178 +1224,210 @@ export default function ProfileScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
+          style={styles.sheetOverlay}
         >
           <View
             style={[
               styles.editModalContent,
-              { paddingTop: insets.top + spacing.md },
+              { paddingBottom: Math.max(insets.bottom, 16) + spacing.xs },
             ]}
           >
-            <View style={styles.editModalHeader}>
-              <Text style={styles.editModalTitle}>{t("editProfileTitle")}</Text>
+            {/* Sheet Handle Bar & Close Button */}
+            <View style={styles.sheetHandleRow}>
+              <View style={styles.sheetHandleBar} />
+              <Pressable
+                style={styles.sheetCloseBtn}
+                onPress={handleCloseEditModal}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={18} color={styles.sheetCloseIcon.color} />
+              </Pressable>
             </View>
 
-            <View style={styles.editAvatarSection}>
-              <View style={styles.editAvatarFrame}>
-                {profile?.avatarUrl ? (
-                  <Image
-                    source={{ uri: profile.avatarUrl }}
-                    style={styles.editAvatarImage}
-                  />
-                ) : (
-                  <MaterialCommunityIcons
-                    name="account-outline"
-                    size={76}
-                    color={colors.primary}
-                  />
-                )}
-                {isUploadingAvatar ? (
-                  <View style={styles.editAvatarLoading}>
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  </View>
-                ) : null}
-              </View>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.uploadAvatarButton,
-                  pressed && { opacity: 0.75 },
-                ]}
-                onPress={handlePickAvatar}
-                disabled={isUploadingAvatar}
-              >
-                <Ionicons
-                  name="cloud-upload-outline"
-                  size={18}
-                  color={colors.primaryDark}
-                />
-                <Text style={styles.uploadAvatarButtonText}>
-                  {t("uploadAvatar")}
-                </Text>
-              </Pressable>
+            {/* Sheet Title & Subtitle */}
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{t("editProfileTitle")}</Text>
+              <Text style={styles.sheetSubtitle}>{t("editProfileSubtitle")}</Text>
             </View>
 
             <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.sheetScrollContent}
             >
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <Ionicons
-                    name="person-outline"
-                    size={16}
-                    color={iconColors.primary}
-                  />
-                  <Text style={styles.inputLabel}>{t("fullName")}</Text>
+              {/* Avatar Section */}
+              <View style={styles.editAvatarSection}>
+                <View style={styles.avatarLeftRow}>
+                  <View style={styles.avatarCircleWrapper}>
+                    {profile?.avatarUrl ? (
+                      <Image
+                        source={{ uri: profile.avatarUrl }}
+                        style={styles.avatarCircleImg}
+                      />
+                    ) : (
+                      <View style={styles.avatarCirclePlaceholder}>
+                        <MaterialCommunityIcons
+                          name="account"
+                          size={40}
+                          color={colors.primary}
+                        />
+                      </View>
+                    )}
+                    {isUploadingAvatar && (
+                      <View style={styles.editAvatarLoading}>
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      </View>
+                    )}
+                    <Pressable
+                      style={styles.avatarCameraBadge}
+                      onPress={handlePickAvatar}
+                      disabled={isUploadingAvatar}
+                    >
+                      <Ionicons name="camera" size={12} color="#ffffff" />
+                    </Pressable>
+                  </View>
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.uploadPhotoPill,
+                      pressed && { opacity: 0.75 },
+                    ]}
+                    onPress={handlePickAvatar}
+                    disabled={isUploadingAvatar}
+                  >
+                    <Ionicons
+                      name="camera-outline"
+                      size={15}
+                      color={colors.primaryDark}
+                    />
+                    <Text style={styles.uploadPhotoPillText}>
+                      {t("uploadPhoto")}
+                    </Text>
+                  </Pressable>
                 </View>
-                <TextInput
-                  style={styles.input}
-                  value={editName}
-                  onChangeText={setEditName}
-                  placeholder={t("enterName")}
-                  placeholderTextColor={colors.textSecondary}
-                />
+
+                {/* Subtle decorative heart pulse watermark on the right */}
+                <View style={styles.avatarWatermark}>
+                  <MaterialCommunityIcons
+                    name="heart-pulse"
+                    size={68}
+                    color={colors.primary}
+                    style={{ opacity: 0.12 }}
+                  />
+                </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <Ionicons
-                    name="call-outline"
-                    size={16}
-                    color={iconColors.emerald}
-                  />
-                  <Text style={styles.inputLabel}>{t("phone")}</Text>
+              {/* Section 1: Thông tin cá nhân */}
+              <View style={styles.sheetSection}>
+                <View style={styles.sheetSectionHeaderRow}>
+                  <Text style={styles.sheetSectionTitle}>{t("personalInfo")}</Text>
+                  <Text style={styles.sheetSectionSubtitle}>
+                    {t("basicInfoSubtitle")}
+                  </Text>
                 </View>
-                <TextInput
-                  style={[styles.input, phoneError ? styles.inputError : null]}
-                  value={editPhone}
-                  onChangeText={(text) => {
-                    setEditPhone(text);
-                    setPhoneError("");
-                  }}
-                  placeholder={t("enterPhone")}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="phone-pad"
-                />
+
+                <View style={styles.twoColumnRow}>
+                  {/* Họ tên */}
+                  <View style={styles.compactInputCard}>
+                    <View style={styles.cardHeaderRow}>
+                      <Ionicons
+                        name="person"
+                        size={14}
+                        color={iconColors.primary}
+                      />
+                      <Text style={styles.compactLabel}>{t("fullName")}</Text>
+                    </View>
+                    <TextInput
+                      style={styles.compactInputText}
+                      value={editName}
+                      onChangeText={setEditName}
+                      placeholder={t("enterName")}
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+
+                  {/* Số điện thoại */}
+                  <View
+                    style={[
+                      styles.compactInputCard,
+                      phoneError ? styles.compactInputError : null,
+                    ]}
+                  >
+                    <View style={styles.cardHeaderRow}>
+                      <Ionicons
+                        name="call"
+                        size={14}
+                        color={iconColors.emerald}
+                      />
+                      <Text style={styles.compactLabel}>{t("phone")}</Text>
+                    </View>
+                    <TextInput
+                      style={styles.compactInputText}
+                      value={editPhone}
+                      onChangeText={(text) => {
+                        setEditPhone(text);
+                        setPhoneError("");
+                      }}
+                      placeholder={t("enterPhone")}
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+                </View>
                 {phoneError ? (
-                  <Text style={styles.fieldError}>{phoneError}</Text>
+                  <Text style={styles.fieldErrorPhone}>{phoneError}</Text>
                 ) : null}
               </View>
 
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <FontAwesome5
-                    name="birthday-cake"
-                    size={14}
-                    color={iconColors.premium}
-                  />
-                  <Text style={styles.inputLabel}>{t("age")}</Text>
-                </View>
-                <TextInput
-                  style={styles.input}
-                  value={editAge}
-                  onChangeText={setEditAge}
-                  placeholder={t("enterAge")}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="number-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <Ionicons
-                    name="male-female"
-                    size={16}
-                    color={iconColors.violet}
-                  />
-                  <Text style={styles.inputLabel}>{t("gender")}</Text>
-                </View>
-                <View style={styles.genderButtonsRow}>
+              {/* Section 2: Giới tính */}
+              <View style={styles.sheetSection}>
+                <Text style={styles.sheetSectionTitleOnly}>{t("gender")}</Text>
+                <View style={styles.genderRow}>
                   <Pressable
                     style={[
-                      styles.genderButton,
-                      editGender === "Nam" && styles.genderButtonActive,
+                      styles.genderCard,
+                      editGender === "Nam" && styles.genderCardActiveMale,
                     ]}
                     onPress={() => setEditGender("Nam")}
                   >
                     <Ionicons
                       name="male"
-                      size={20}
+                      size={18}
                       color={
                         editGender === "Nam"
                           ? colors.primaryDark
-                          : categoryColors.glucose
+                          : colors.textSecondary
                       }
                     />
                     <Text
                       style={[
-                        styles.genderButtonText,
-                        editGender === "Nam" && styles.genderButtonTextActive,
+                        styles.genderCardText,
+                        editGender === "Nam" && styles.genderCardTextActiveMale,
                       ]}
                     >
                       {tc("male")}
                     </Text>
                   </Pressable>
+
                   <Pressable
                     style={[
-                      styles.genderButton,
-                      editGender === "Nữ" && styles.genderButtonActive,
+                      styles.genderCard,
+                      editGender === "Nữ" && styles.genderCardActiveFemale,
                     ]}
                     onPress={() => setEditGender("Nữ")}
                   >
                     <Ionicons
                       name="female"
-                      size={20}
+                      size={18}
                       color={
-                        editGender === "Nữ"
-                          ? colors.primaryDark
-                          : brandColors.pink
+                        editGender === "Nữ" ? "#E11D48" : colors.textSecondary
                       }
                     />
                     <Text
                       style={[
-                        styles.genderButtonText,
-                        editGender === "Nữ" && styles.genderButtonTextActive,
+                        styles.genderCardText,
+                        editGender === "Nữ" &&
+                          styles.genderCardTextActiveFemale,
                       ]}
                     >
                       {tc("female")}
@@ -1392,134 +1436,264 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <MaterialCommunityIcons
-                    name="human-male-height"
-                    size={16}
-                    color={iconColors.cyan}
-                  />
-                  <Text style={styles.inputLabel}>{t("heightCm")}</Text>
+              {/* Section 3: 4 Stats Row (Tuổi, Chiều cao, Cân nặng, Nhóm máu) */}
+              <View style={styles.sheetSection}>
+                <View style={styles.fourStatsRow}>
+                  {/* Tuổi */}
+                  <View style={styles.statBox}>
+                    <View style={styles.statBoxHeader}>
+                      <FontAwesome5
+                        name="birthday-cake"
+                        size={12}
+                        color={iconColors.premium}
+                      />
+                      <Text style={styles.statBoxLabel}>{t("age")}</Text>
+                    </View>
+                    <TextInput
+                      style={styles.statBoxInput}
+                      value={editAge}
+                      onChangeText={setEditAge}
+                      placeholder="--"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                    />
+                    <Text style={styles.statBoxUnit}>{t("unitAge")}</Text>
+                  </View>
+
+                  {/* Chiều cao */}
+                  <View style={styles.statBox}>
+                    <View style={styles.statBoxHeader}>
+                      <MaterialCommunityIcons
+                        name="human-male-height"
+                        size={15}
+                        color={iconColors.cyan}
+                      />
+                      <Text style={styles.statBoxLabel}>{t("height")}</Text>
+                    </View>
+                    <TextInput
+                      style={styles.statBoxInput}
+                      value={editHeight}
+                      onChangeText={setEditHeight}
+                      placeholder="--"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                    />
+                    <Text style={styles.statBoxUnit}>{t("unitCm")}</Text>
+                  </View>
+
+                  {/* Cân nặng */}
+                  <View style={styles.statBox}>
+                    <View style={styles.statBoxHeader}>
+                      <MaterialCommunityIcons
+                        name="scale-bathroom"
+                        size={15}
+                        color={iconColors.weight}
+                      />
+                      <Text style={styles.statBoxLabel}>{t("weight")}</Text>
+                    </View>
+                    <TextInput
+                      style={styles.statBoxInput}
+                      value={editWeight}
+                      onChangeText={setEditWeight}
+                      placeholder="--"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                    />
+                    <Text style={styles.statBoxUnit}>{t("unitKg")}</Text>
+                  </View>
+
+                  {/* Nhóm máu */}
+                  <View style={styles.statBox}>
+                    <View style={styles.statBoxHeader}>
+                      <FontAwesome5
+                        name="tint"
+                        size={12}
+                        color={iconColors.danger}
+                      />
+                      <Text style={styles.statBoxLabel}>{t("bloodType")}</Text>
+                    </View>
+                    <TextInput
+                      style={styles.statBoxInput}
+                      value={editBloodType}
+                      onChangeText={setEditBloodType}
+                      placeholder="O+"
+                      placeholderTextColor={colors.textSecondary}
+                      autoCapitalize="characters"
+                      maxLength={4}
+                    />
+                    <Text style={styles.statBoxUnit}> </Text>
+                  </View>
                 </View>
-                <TextInput
-                  style={styles.input}
-                  value={editHeight}
-                  onChangeText={setEditHeight}
-                  placeholder={t("enterHeight")}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="number-pad"
-                />
               </View>
 
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <MaterialCommunityIcons
-                    name="scale-bathroom"
-                    size={16}
-                    color={iconColors.weight}
-                  />
-                  <Text style={styles.inputLabel}>{t("weightKg")}</Text>
+              {/* Section 4: Sức khỏe / Bệnh nền */}
+              <View style={styles.sheetSection}>
+                <View style={styles.sheetSectionHeaderRow}>
+                  <Text style={styles.sheetSectionTitle}>{t("healthInfo")}</Text>
+                  <Text style={styles.sheetSectionSubtitle}>
+                    {t("healthInfoSubtitle")}
+                  </Text>
                 </View>
-                <TextInput
-                  style={styles.input}
-                  value={editWeight}
-                  onChangeText={setEditWeight}
-                  placeholder={t("enterWeight")}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="number-pad"
-                />
-              </View>
 
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <FontAwesome5
-                    name="tint"
-                    size={14}
-                    color={iconColors.danger}
-                  />
-                  <Text style={styles.inputLabel}>{t("bloodType")}</Text>
-                </View>
-                <TextInput
-                  style={styles.input}
-                  value={editBloodType}
-                  onChangeText={setEditBloodType}
-                  placeholder={t("bloodTypeExample")}
-                  placeholderTextColor={colors.textSecondary}
-                  autoCapitalize="characters"
-                />
-              </View>
+                <Pressable
+                  style={styles.sheetChronicDiseaseCard}
+                  onPress={() => setShowDiseasePicker(true)}
+                >
+                  <View style={styles.chronicCardLeft}>
+                    <MaterialCommunityIcons
+                      name="clipboard-pulse-outline"
+                      size={18}
+                      color={colors.primaryDark}
+                    />
+                    <Text style={styles.chronicCardLabel}>
+                      {t("chronicDiseases")}
+                    </Text>
+                  </View>
 
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <MaterialCommunityIcons
-                    name="medical-bag"
-                    size={16}
-                    color={iconColors.medication}
+                  <View style={styles.chronicChipsContainer}>
+                    {diseaseList.length > 0 ? (
+                      diseaseList.map((disease, idx) => (
+                        <View key={idx} style={styles.diseaseChip}>
+                          <Text style={styles.diseaseChipText}>{disease}</Text>
+                        </View>
+                      ))
+                    ) : (
+                      <Text style={styles.chronicCardEmpty}>
+                        {t("noChronicDiseases")}
+                      </Text>
+                    )}
+                  </View>
+
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={colors.textSecondary}
                   />
-                  <Text style={styles.inputLabel}>{t("chronicDiseases")}</Text>
-                </View>
-                <TextInput
-                  style={[styles.input, styles.textAreaInput]}
-                  value={editChronicDiseases}
-                  onChangeText={setEditChronicDiseases}
-                  placeholder={t("chronicDiseasesExample")}
-                  placeholderTextColor={colors.textSecondary}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
+                </Pressable>
               </View>
             </ScrollView>
 
-            <View style={styles.modalButtons}>
+            {/* Sheet Footer: Hủy & Lưu */}
+            <View style={styles.sheetFooter}>
               <Pressable
-                style={styles.cancelButton}
+                style={styles.sheetCancelBtn}
                 onPress={handleCloseEditModal}
               >
-                <Text style={styles.cancelButtonText}>{tc("cancel")}</Text>
+                <Text style={styles.sheetCancelBtnText}>{tc("cancel")}</Text>
               </Pressable>
+
               <Pressable
                 style={[
-                  styles.saveButton,
-                  isSaving && styles.saveButtonDisabled,
+                  styles.sheetSaveBtn,
+                  isSaving && styles.sheetSaveBtnDisabled,
                 ]}
                 onPress={handleSaveProfile}
                 disabled={isSaving}
               >
-                <View
-                  style={[
-                    styles.saveButtonInner,
-                    {
-                      backgroundColor: isSaving
-                        ? colors.surfaceMuted
-                        : colors.primaryLight,
-                    },
-                  ]}
-                >
-                  {isSaving ? (
-                    <Text
-                      style={[
-                        styles.saveButtonText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {tc("saving")}
-                    </Text>
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={colors.primaryDark}
-                      />
-                      <Text style={styles.saveButtonText}>{tc("save")}</Text>
-                    </>
-                  )}
-                </View>
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark" size={18} color="#ffffff" />
+                    <Text style={styles.sheetSaveBtnText}>{tc("save")}</Text>
+                  </>
+                )}
               </Pressable>
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ==================== DISEASE PICKER MODAL ==================== */}
+      <Modal
+        visible={showDiseasePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDiseasePicker(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowDiseasePicker(false)}
+        >
+          <Pressable style={styles.pickerModalCard} onPress={() => {}}>
+            <View style={styles.diseaseModalHeader}>
+              <Text style={styles.pickerModalTitle}>{t("selectDiseases")}</Text>
+              <Text style={styles.diseaseModalSubtitle}>
+                {t("selectDiseasesDesc")}
+              </Text>
+            </View>
+
+            <View style={styles.diseaseChipsGrid}>
+              {[
+                "Tiểu đường",
+                "Cao huyết áp",
+                "Tim mạch",
+                "Mỡ máu",
+                "Gút (Gout)",
+                "Hen suyễn",
+                "Dạ dày",
+                "Gan nhiễm mỡ",
+              ].map((item) => {
+                const selected = diseaseList.includes(item);
+                return (
+                  <Pressable
+                    key={item}
+                    style={[
+                      styles.diseaseSelectChip,
+                      selected && styles.diseaseSelectChipActive,
+                    ]}
+                    onPress={() => toggleDisease(item)}
+                  >
+                    {selected && (
+                      <Ionicons
+                        name="checkmark"
+                        size={14}
+                        color={colors.primaryDark}
+                        style={{ marginRight: 4 }}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.diseaseSelectChipText,
+                        selected && styles.diseaseSelectChipTextActive,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.customDiseaseRow}>
+              <TextInput
+                style={styles.customDiseaseInput}
+                value={customDiseaseInput}
+                onChangeText={setCustomDiseaseInput}
+                placeholder={t("enterCustomDisease")}
+                placeholderTextColor={colors.textSecondary}
+              />
+              <Pressable
+                style={styles.addDiseaseBtn}
+                onPress={addCustomDisease}
+              >
+                <Ionicons name="add" size={18} color="#ffffff" />
+                <Text style={styles.addDiseaseBtnText}>
+                  {tc("add") || "Thêm"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={styles.diseaseDoneBtn}
+              onPress={() => setShowDiseasePicker(false)}
+            >
+              <Text style={styles.diseaseDoneBtnText}>
+                {tc("save") || "Xong"}
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* ==================== FONT SIZE PICKER ==================== */}
@@ -1684,35 +1858,73 @@ export default function ProfileScreen() {
           onPress={() => setShowLogoutModal(false)}
         >
           <Pressable style={styles.logoutModalCard} onPress={() => {}}>
-            <Ionicons
-              name="log-out-outline"
-              size={32}
-              color={iconColors.danger}
-              style={{ marginBottom: spacing.md }}
-            />
+            {/* Nút Đóng (x) góc phải */}
+            <TouchableOpacity
+              style={styles.logoutModalCloseBtn}
+              onPress={() => setShowLogoutModal(false)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Ionicons
+                name="close"
+                size={18}
+                color={isDark ? "#94a3b8" : "#64748b"}
+              />
+            </TouchableOpacity>
+
+            {/* Custom 3D Illustration Badge */}
+            <View style={styles.logoutArtWrap}>
+              <Image
+                source={LOGOUT_ART}
+                style={styles.logoutArtImage}
+                resizeMode="contain"
+              />
+            </View>
+
+            {/* Title */}
             <Text style={styles.logoutModalTitle}>
               {t("logoutConfirmTitle")}
             </Text>
+
+            {/* Message */}
             <Text style={styles.logoutModalMessage}>
               {t("logoutConfirmMessage")}
             </Text>
+
+            {/* Actions */}
             <View style={styles.logoutModalActions}>
-              <Pressable
+              <TouchableOpacity
                 style={[styles.logoutModalBtn, styles.logoutModalBtnCancel]}
                 onPress={() => setShowLogoutModal(false)}
+                activeOpacity={0.8}
               >
                 <Text style={styles.logoutModalBtnCancelText}>
                   {tc("cancel")}
                 </Text>
-              </Pressable>
-              <Pressable
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[styles.logoutModalBtn, styles.logoutModalBtnConfirm]}
                 onPress={handleLogout}
+                activeOpacity={0.85}
               >
-                <Text style={styles.logoutModalBtnConfirmText}>
-                  {t("logout")}
-                </Text>
-              </Pressable>
+                <LinearGradient
+                  colors={["#f43f5e", "#e11d48"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.logoutModalBtnConfirmGradient}
+                >
+                  <Ionicons
+                    name="log-out-outline"
+                    size={19}
+                    color="#ffffff"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.logoutModalBtnConfirmText}>
+                    {t("logout")}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           </Pressable>
         </Pressable>
@@ -2042,10 +2254,10 @@ function createStyles(
     deleteAccountCard: {
       marginHorizontal: 16,
       marginTop: 12,
-      backgroundColor: isDark ? "#450a0a22" : "#fff1f2",
+      backgroundColor: cardBg,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: isDark ? "#7f1d1d" : "#fecaca",
+      borderColor: borderCol,
       paddingVertical: 14,
       paddingHorizontal: 16,
       flexDirection: "row",
@@ -2055,7 +2267,7 @@ function createStyles(
       flex: 1,
       fontSize: 15,
       fontWeight: "700",
-      color: "#ef4444",
+      color: textPrimaryCol,
     },
 
     // Logout Button
@@ -2063,10 +2275,10 @@ function createStyles(
       marginHorizontal: 16,
       marginTop: 14,
       marginBottom: 16,
-      backgroundColor: cardBg,
-      borderRadius: 16,
+      backgroundColor: isDark ? "#451a1a33" : "#fff5f5",
+      borderRadius: 999,
       borderWidth: 1.5,
-      borderColor: isDark ? "#7f1d1d" : "#fecaca",
+      borderColor: isDark ? "#7f1d1d" : "#fca5a5",
       height: 52,
       flexDirection: "row",
       alignItems: "center",
@@ -2074,8 +2286,8 @@ function createStyles(
     },
     logoutButtonText: {
       fontSize: 16,
-      fontWeight: "700",
-      color: "#ef4444",
+      fontWeight: "600",
+      color: isDark ? "#f87171" : "#e11d48",
     },
 
     // Footer illustration banner
@@ -2169,105 +2381,244 @@ function createStyles(
       fontSize: 14,
     },
 
-    // Edit Profile Modal
-    editModalContent: {
+    // Redesigned Edit Profile Bottom Sheet
+    sheetOverlay: {
       flex: 1,
+      backgroundColor: "rgba(15, 23, 42, 0.45)",
+      justifyContent: "flex-end",
+    },
+    editModalContent: {
       backgroundColor: cardBg,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.xl,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingHorizontal: 16,
+      paddingTop: 10,
       width: "100%",
       maxHeight: "92%",
-      marginTop: "auto",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 10,
     },
-    editModalHeader: {
+    sheetHandleRow: {
+      flexDirection: "row",
       alignItems: "center",
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: borderCol,
+      justifyContent: "center",
+      height: 28,
+      position: "relative",
     },
-    editModalTitle: {
+    sheetHandleBar: {
+      width: 44,
+      height: 4.5,
+      borderRadius: 2.5,
+      backgroundColor: isDark ? "#475569" : "#CBD5E1",
+    },
+    sheetCloseBtn: {
+      position: "absolute",
+      right: 0,
+      top: 0,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: isDark ? "#334155" : "#F1F5F9",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sheetCloseIcon: {
+      color: textSecondaryCol,
+    },
+    sheetHeader: {
+      alignItems: "center",
+      marginTop: 2,
+      marginBottom: 12,
+    },
+    sheetTitle: {
       fontSize: 18,
       fontWeight: "700",
       color: textPrimaryCol,
+      letterSpacing: -0.2,
     },
+    sheetSubtitle: {
+      fontSize: 12,
+      color: textSecondaryCol,
+      marginTop: 2,
+      textAlign: "center",
+    },
+    sheetScrollContent: {
+      paddingBottom: 16,
+    },
+
+    // Avatar Row Card
     editAvatarSection: {
+      flexDirection: "row",
       alignItems: "center",
-      paddingVertical: spacing.lg,
+      justifyContent: "space-between",
+      backgroundColor: isDark ? "rgba(13, 148, 136, 0.12)" : "#E8F7F6",
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(13, 148, 136, 0.25)" : "rgba(13, 148, 136, 0.15)",
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginBottom: 12,
+      overflow: "hidden",
+      position: "relative",
     },
-    editAvatarFrame: {
-      width: 90,
-      height: 90,
-      borderRadius: 45,
+    avatarLeftRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      zIndex: 1,
+    },
+    avatarCircleWrapper: {
+      position: "relative",
+      width: 58,
+      height: 58,
+    },
+    avatarCircleImg: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      backgroundColor: colors.primaryLight,
+      borderWidth: 2,
+      borderColor: "#FFFFFF",
+    },
+    avatarCirclePlaceholder: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
       backgroundColor: colors.primaryLight,
       alignItems: "center",
       justifyContent: "center",
-      overflow: "hidden",
-      marginBottom: spacing.sm,
-    },
-    editAvatarImage: {
-      width: "100%",
-      height: "100%",
-      borderRadius: 45,
+      borderWidth: 2,
+      borderColor: "#FFFFFF",
     },
     editAvatarLoading: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: "rgba(0,0,0,0.4)",
+      borderRadius: 29,
       justifyContent: "center",
       alignItems: "center",
     },
-    uploadAvatarButton: {
+    avatarCameraBadge: {
+      position: "absolute",
+      right: -2,
+      bottom: -2,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: colors.primaryDark,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1.5,
+      borderColor: "#FFFFFF",
+    },
+    uploadPhotoPill: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
       paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingVertical: 7,
       borderRadius: 20,
-      backgroundColor: colors.primaryLight,
+      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF",
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(13, 148, 136, 0.25)",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
-    uploadAvatarButtonText: {
-      fontSize: 13,
+    uploadPhotoPillText: {
+      fontSize: 12.5,
       fontWeight: "600",
       color: colors.primaryDark,
     },
-    inputGroup: {
-      marginBottom: spacing.md,
+    avatarWatermark: {
+      position: "absolute",
+      right: 4,
+      top: -6,
+      bottom: 0,
+      justifyContent: "center",
+      pointerEvents: "none",
     },
-    inputLabelRow: {
+
+    // Sheet Sections
+    sheetSection: {
+      marginBottom: 12,
+    },
+    sheetSectionHeaderRow: {
       flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
+      alignItems: "baseline",
+      justifyContent: "space-between",
       marginBottom: 6,
+      paddingHorizontal: 2,
     },
-    inputLabel: {
-      fontSize: 13,
-      fontWeight: "600",
+    sheetSectionTitle: {
+      fontSize: 13.5,
+      fontWeight: "700",
+      color: textPrimaryCol,
+    },
+    sheetSectionSubtitle: {
+      fontSize: 11,
       color: textSecondaryCol,
     },
-    input: {
-      backgroundColor: colors.background,
+    sheetSectionTitleOnly: {
+      fontSize: 13.5,
+      fontWeight: "700",
+      color: textPrimaryCol,
+      marginBottom: 6,
+      paddingHorizontal: 2,
+    },
+
+    // Two Column Row (Họ tên & Phone)
+    twoColumnRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    compactInputCard: {
+      flex: 1,
+      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
       borderWidth: 1,
       borderColor: borderCol,
       borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      fontSize: 15,
-      color: textPrimaryCol,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
     },
-    inputError: {
-      borderColor: "#ef4444",
+    compactInputError: {
+      borderColor: "#EF4444",
     },
-    fieldError: {
-      fontSize: 12,
-      color: "#ef4444",
-      marginTop: 4,
-    },
-    genderButtonsRow: {
+    cardHeaderRow: {
       flexDirection: "row",
-      gap: 12,
+      alignItems: "center",
+      gap: 5,
+      marginBottom: 3,
     },
-    genderButton: {
+    compactLabel: {
+      fontSize: 11,
+      fontWeight: "500",
+      color: textSecondaryCol,
+    },
+    compactInputText: {
+      fontSize: 13.5,
+      fontWeight: "600",
+      color: textPrimaryCol,
+      padding: 0,
+      height: 22,
+    },
+    fieldErrorPhone: {
+      fontSize: 11,
+      color: "#EF4444",
+      marginTop: 4,
+      marginLeft: 4,
+    },
+
+    // Gender Row
+    genderRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    genderCard: {
       flex: 1,
       flexDirection: "row",
       alignItems: "center",
@@ -2275,61 +2626,248 @@ function createStyles(
       gap: 8,
       paddingVertical: 10,
       borderRadius: 12,
-      backgroundColor: colors.background,
-      borderWidth: 1,
+      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+      borderWidth: 1.5,
       borderColor: borderCol,
     },
-    genderButtonActive: {
-      backgroundColor: colors.primaryLight,
-      borderColor: colors.primary,
+    genderCardActiveMale: {
+      backgroundColor: isDark ? "#064E3B20" : "#E6F7F5",
+      borderColor: colors.primaryDark,
     },
-    genderButtonText: {
-      fontSize: 14,
+    genderCardActiveFemale: {
+      backgroundColor: isDark ? "#4C051920" : "#FFF1F2",
+      borderColor: "#E11D48",
+    },
+    genderCardText: {
+      fontSize: 13.5,
       fontWeight: "600",
       color: textSecondaryCol,
     },
-    genderButtonTextActive: {
+    genderCardTextActiveMale: {
+      color: colors.primaryDark,
+      fontWeight: "700",
+    },
+    genderCardTextActiveFemale: {
+      color: "#E11D48",
+      fontWeight: "700",
+    },
+
+    // 4 Stats Row (Tuổi, Chiều cao, Cân nặng, Nhóm máu)
+    fourStatsRow: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    statBox: {
+      flex: 1,
+      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+      borderWidth: 1,
+      borderColor: borderCol,
+      borderRadius: 12,
+      paddingHorizontal: 4,
+      paddingVertical: 8,
+      alignItems: "center",
+    },
+    statBoxHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginBottom: 4,
+    },
+    statBoxLabel: {
+      fontSize: 10.5,
+      fontWeight: "500",
+      color: textSecondaryCol,
+      textAlign: "center",
+    },
+    statBoxInput: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: textPrimaryCol,
+      textAlign: "center",
+      padding: 0,
+      minWidth: 32,
+      height: 22,
+    },
+    statBoxUnit: {
+      fontSize: 10.5,
+      color: textSecondaryCol,
+      marginTop: 2,
+    },
+
+    // Chronic Diseases Card
+    sheetChronicDiseaseCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+      borderWidth: 1,
+      borderColor: borderCol,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    chronicCardLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    chronicCardLabel: {
+      fontSize: 12.5,
+      fontWeight: "600",
+      color: textPrimaryCol,
+    },
+    chronicChipsContainer: {
+      flex: 1,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      alignItems: "center",
+      paddingHorizontal: 4,
+    },
+    diseaseChip: {
+      backgroundColor: colors.primaryLight,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+    },
+    diseaseChipText: {
+      fontSize: 11,
+      fontWeight: "600",
       color: colors.primaryDark,
     },
-    textAreaInput: {
-      height: 80,
+    chronicCardEmpty: {
+      fontSize: 12,
+      color: textSecondaryCol,
+      fontStyle: "italic",
     },
-    modalButtons: {
+
+    // Sheet Footer Actions
+    sheetFooter: {
       flexDirection: "row",
-      gap: 12,
-      marginTop: spacing.md,
+      gap: 10,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: borderCol,
     },
-    cancelButton: {
+    sheetCancelBtn: {
       flex: 1,
       paddingVertical: 12,
       borderRadius: 14,
+      backgroundColor: isDark ? "#334155" : "#F1F5F9",
       alignItems: "center",
-      backgroundColor: colors.surfaceMuted,
+      justifyContent: "center",
     },
-    cancelButtonText: {
-      fontSize: 15,
+    sheetCancelBtnText: {
+      fontSize: 14.5,
       fontWeight: "600",
       color: textSecondaryCol,
     },
-    saveButton: {
-      flex: 1,
+    sheetSaveBtn: {
+      flex: 1.6,
+      paddingVertical: 12,
       borderRadius: 14,
-      overflow: "hidden",
-    },
-    saveButtonDisabled: {
-      opacity: 0.6,
-    },
-    saveButtonInner: {
+      backgroundColor: colors.primaryDark,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
-      paddingVertical: 12,
+      shadowColor: colors.primaryDark,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 2,
     },
-    saveButtonText: {
-      fontSize: 15,
+    sheetSaveBtnDisabled: {
+      opacity: 0.6,
+    },
+    sheetSaveBtnText: {
+      fontSize: 14.5,
       fontWeight: "700",
+      color: "#FFFFFF",
+    },
+
+    // Disease Picker Modal
+    diseaseModalHeader: {
+      marginBottom: spacing.md,
+      alignItems: "center",
+    },
+    diseaseModalSubtitle: {
+      fontSize: 12,
+      color: textSecondaryCol,
+      marginTop: 3,
+      textAlign: "center",
+    },
+    diseaseChipsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: spacing.md,
+      justifyContent: "center",
+    },
+    diseaseSelectChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 14,
+      backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+      borderWidth: 1,
+      borderColor: borderCol,
+    },
+    diseaseSelectChipActive: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primaryDark,
+    },
+    diseaseSelectChipText: {
+      fontSize: 12.5,
+      color: textSecondaryCol,
+    },
+    diseaseSelectChipTextActive: {
       color: colors.primaryDark,
+      fontWeight: "600",
+    },
+    customDiseaseRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: spacing.lg,
+      width: "100%",
+    },
+    customDiseaseInput: {
+      flex: 1,
+      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+      borderWidth: 1,
+      borderColor: borderCol,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 13,
+      color: textPrimaryCol,
+    },
+    addDiseaseBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: colors.primaryDark,
+    },
+    addDiseaseBtnText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#FFFFFF",
+    },
+    diseaseDoneBtn: {
+      width: "100%",
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: colors.primaryDark,
+      alignItems: "center",
+    },
+    diseaseDoneBtnText: {
+      fontSize: 14.5,
+      fontWeight: "700",
+      color: "#FFFFFF",
     },
 
     // Pickers (Font size, Language)
@@ -2376,55 +2914,102 @@ function createStyles(
     // Logout Modal
     logoutModalCard: {
       backgroundColor: cardBg,
-      borderRadius: radius.xl,
+      borderRadius: 26,
       borderWidth: 1,
-      borderColor: borderCol,
-      padding: spacing.xl,
+      borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+      paddingTop: 28,
+      paddingBottom: 22,
+      paddingHorizontal: 22,
       width: "100%",
-      maxWidth: 360,
+      maxWidth: 345,
       alignItems: "center",
+      position: "relative",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.4 : 0.12,
+      shadowRadius: 24,
+      elevation: 10,
+    },
+    logoutModalCloseBtn: {
+      position: "absolute",
+      top: 14,
+      right: 14,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: isDark ? "#334155" : "#f1f5f9",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 2,
+    },
+    logoutArtWrap: {
+      width: 140,
+      height: 96,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 4,
+      marginBottom: 8,
+    },
+    logoutArtImage: {
+      width: "100%",
+      height: "100%",
     },
     logoutModalTitle: {
-      fontSize: typography.size.lg,
+      fontSize: 22,
       fontWeight: "800",
       color: textPrimaryCol,
-      marginBottom: spacing.xs,
+      letterSpacing: -0.3,
       textAlign: "center",
+      marginBottom: 8,
     },
     logoutModalMessage: {
-      fontSize: typography.size.sm,
+      fontSize: 14,
       color: textSecondaryCol,
       textAlign: "center",
-      marginBottom: spacing.lg,
-      lineHeight: 20,
+      lineHeight: 21,
+      marginBottom: 22,
+      paddingHorizontal: 4,
     },
     logoutModalActions: {
       flexDirection: "row",
-      gap: spacing.md,
+      gap: 12,
       width: "100%",
     },
     logoutModalBtn: {
+      height: 48,
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    logoutModalBtnCancel: {
       flex: 1,
-      paddingVertical: spacing.md,
-      borderRadius: radius.md,
+      backgroundColor: isDark ? "#334155" : "#f1f5f9",
       alignItems: "center",
       justifyContent: "center",
     },
-    logoutModalBtnCancel: {
-      backgroundColor: colors.surfaceMuted,
-    },
     logoutModalBtnCancelText: {
-      fontSize: typography.size.sm,
-      fontWeight: "600",
+      fontSize: 15,
+      fontWeight: "700",
       color: textPrimaryCol,
     },
     logoutModalBtnConfirm: {
-      backgroundColor: colors.danger,
+      flex: 1.25,
+      shadowColor: "#e11d48",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.4 : 0.25,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    logoutModalBtnConfirmGradient: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
     },
     logoutModalBtnConfirmText: {
-      fontSize: typography.size.sm,
+      fontSize: 15,
       fontWeight: "700",
-      color: colors.surface,
+      color: "#ffffff",
     },
   });
 }

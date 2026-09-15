@@ -7,20 +7,29 @@ import { typography as baseTypography } from '../styles/theme';
  */
 export const useScaledTypography = () => {
   const multiplier = useFontSizeStore((state) => state.multiplier);
+  const scaledSize = useMemo(
+    () => ({
+      xxs: Math.round(baseTypography.size.xxs * multiplier),
+      xs: Math.round(baseTypography.size.xs * multiplier),
+      sm: Math.round(baseTypography.size.sm * multiplier),
+      md: Math.round(baseTypography.size.md * multiplier),
+      lg: Math.round(baseTypography.size.lg * multiplier),
+      xl: Math.round(baseTypography.size.xl * multiplier)
+    }),
+    [multiplier]
+  );
 
   return useMemo(
     () => ({
       ...baseTypography,
+      // `size` is always the design/base size. ScaledText owns text scaling;
+      // scaledSize is for native controls, icons and layout dimensions.
       size: {
-        xxs: Math.round(baseTypography.size.xxs * multiplier),
-        xs: Math.round(baseTypography.size.xs * multiplier),
-        sm: Math.round(baseTypography.size.sm * multiplier),
-        md: Math.round(baseTypography.size.md * multiplier),
-        lg: Math.round(baseTypography.size.lg * multiplier),
-        xl: Math.round(baseTypography.size.xl * multiplier)
-      }
+        ...baseTypography.size
+      },
+      scaledSize
     }),
-    [multiplier]
+    [scaledSize]
   );
 };
 

@@ -498,7 +498,7 @@ export default function ReminderConfigScreen() {
           headerShown: true,
           title: t('scheduleTitle'),
           headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' },
+          headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' },
           headerShadowVisible: false,
           headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
         }}

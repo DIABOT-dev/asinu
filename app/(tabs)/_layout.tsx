@@ -105,11 +105,11 @@ export default function TabsLayout() {
       tabBarActiveTintColor: colors.primary,
       tabBarInactiveTintColor: colors.textSecondary,
       tabBarHideOnKeyboard: false,
-      tabBarLabelStyle: [styles.tabBarLabel, { fontSize: scaledTypography.size.xs }],
+      tabBarLabelStyle: [styles.tabBarLabel, { fontSize: scaledTypography.scaledSize.xs }],
       tabBarStyle: {
         ...styles.tabBar,
         backgroundColor: colors.surface,
-        height: 28 + scaledTypography.size.xs + 16 + 14 + bottom,
+        height: 28 + scaledTypography.scaledSize.xs + 16 + 14 + bottom,
         paddingBottom: bottom > 0 ? bottom : 8,
         paddingTop: 8,
       },

@@ -10,12 +10,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput as RNTextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { authApi } from '../../src/features/auth/auth.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';

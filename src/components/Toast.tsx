@@ -86,7 +86,7 @@ export const Toast = ({ visible, message, type = 'success', duration = 2500, onH
           },
         ]}
       >
-        <MaterialCommunityIcons name={cfg.icon} size={scaledTypography.size.lg} color={cfg.color} />
+        <MaterialCommunityIcons name={cfg.icon} size={scaledTypography.scaledSize.lg} color={cfg.color} />
         <Text style={[styles.message, { fontSize: scaledTypography.size.sm, color: cfg.color }]}>
           {message}
         </Text>

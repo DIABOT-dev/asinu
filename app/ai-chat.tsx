@@ -11,6 +11,7 @@ import { apiClient } from '../src/lib/apiClient';
 import { navigation } from '../src/lib/navigation';
 import { colors } from '../src/styles';
 import { useThemeColors } from '../src/hooks/useThemeColors';
+import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { ScreenBackButton } from '../src/components/ScreenHeaderButton';
 
@@ -142,6 +143,7 @@ export default function AiChatScreen() {
   };
 
   const { isDark } = useThemeColors();
+  const scaledTypography = useScaledTypography();
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
   }), [isDark]);
@@ -149,10 +151,10 @@ export default function AiChatScreen() {
     headerShown: true,
     title: t('title') || 'Asinu AI',
     headerStyle: { backgroundColor: colors.background },
-    headerTitleStyle: { color: colors.textPrimary, fontWeight: '700' as const },
+    headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' as const },
     headerShadowVisible: false,
     headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
-  }), [router, t, isDark]);
+  }), [router, t, isDark, scaledTypography]);
 
   return (
     <>

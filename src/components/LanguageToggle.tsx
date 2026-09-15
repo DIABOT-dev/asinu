@@ -59,31 +59,37 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     container: {
       flexDirection: 'row',
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: '#E2EEF5',
       overflow: 'hidden',
-      height: 36,
+      height: 38,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      elevation: 1,
     },
     btn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 4,
-      paddingHorizontal: spacing.md,
+      gap: 5,
+      paddingHorizontal: 12,
       height: '100%',
+      borderRadius: 18,
     },
     btnActive: {
-      backgroundColor: colors.primary,
+      backgroundColor: '#20BCB4',
     },
     text: {
-      fontSize: typography.size.xs,
+      fontSize: 12.5,
       fontWeight: '700',
       color: colors.textSecondary,
     },
     textActive: {
-      color: '#fff',
+      color: '#FFFFFF',
     },
   });
 }

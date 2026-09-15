@@ -1,4 +1,4 @@
-import { Platform, Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native';
+import { Platform, StyleSheet, Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native';
 import { useScaledFontSize } from '../hooks/useScaledTypography';
 
 /**
@@ -27,53 +27,17 @@ function pickInterFamily(fontWeight: TextStyle['fontWeight']): string {
   return 'Inter_400Regular';
 }
 
-/**
- * Extract aggregate fontWeight từ style (last wins).
- */
-function extractFontWeight(style: any): TextStyle['fontWeight'] | undefined {
-  if (!style) return undefined;
-  if (typeof style === 'object' && !Array.isArray(style)) {
-    return (style as TextStyle).fontWeight;
-  }
-  if (Array.isArray(style)) {
-    for (let i = style.length - 1; i >= 0; i--) {
-      const s = style[i];
-      if (s && typeof s === 'object' && 'fontWeight' in s) {
-        return (s as TextStyle).fontWeight;
-      }
-    }
-  }
-  return undefined;
-}
-
 export const ScaledText = ({ style, ...props }: RNTextProps) => {
-  const getBaseValues = (): { fontSize: number; lineHeight?: number } => {
-    if (!style) return { fontSize: 16 };
-
-    // Single style object
-    if (typeof style === 'object' && !Array.isArray(style)) {
-      const s = style as TextStyle;
-      return { fontSize: s.fontSize ?? 16, lineHeight: s.lineHeight as number | undefined };
-    }
-
-    // Array of styles - find last fontSize and lineHeight
-    if (Array.isArray(style)) {
-      let fontSize = 16;
-      let lineHeight: number | undefined;
-      for (let i = style.length - 1; i >= 0; i--) {
-        const s = style[i];
-        if (s && typeof s === 'object') {
-          if (lineHeight === undefined && 'lineHeight' in s) lineHeight = (s as TextStyle).lineHeight as number | undefined;
-          if ('fontSize' in s) { fontSize = (s as TextStyle).fontSize ?? 16; break; }
-        }
-      }
-      return { fontSize, lineHeight };
-    }
-
-    return { fontSize: 16 };
-  };
-
-  const { fontSize: baseFontSize, lineHeight: baseLineHeight } = getBaseValues();
+  // StyleSheet.create() may return numeric style IDs on native platforms.
+  // Flatten first so the component scales the actual font size instead of
+  // silently falling back to 16 for every registered style.
+  const resolvedStyle = StyleSheet.flatten(style) as TextStyle | undefined;
+  const baseFontSize = typeof resolvedStyle?.fontSize === 'number' && resolvedStyle.fontSize > 0
+    ? resolvedStyle.fontSize
+    : 16;
+  const baseLineHeight = typeof resolvedStyle?.lineHeight === 'number'
+    ? resolvedStyle.lineHeight
+    : undefined;
   const scaledFontSize = useScaledFontSize(baseFontSize);
   const ratio = baseFontSize > 0 ? scaledFontSize / baseFontSize : 1;
   // Android needs extra lineHeight for Vietnamese diacritics (ơ, ư, ô, ê) to prevent clipping
@@ -84,7 +48,7 @@ export const ScaledText = ({ style, ...props }: RNTextProps) => {
 
   // Pick Inter family theo fontWeight aggregate. Override fontWeight=normal
   // vì Inter family đã encode weight rồi (tránh fake bold trên Android).
-  const fontWeight = extractFontWeight(style);
+  const fontWeight = resolvedStyle?.fontWeight;
   const fontFamily = pickInterFamily(fontWeight);
 
   const overrides: TextStyle = {

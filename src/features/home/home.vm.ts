@@ -104,6 +104,11 @@ export const useHomeViewModel = () => {
     const waterTotal = logs
       .filter((log) => log.type === 'water' && isToday(log.recordedAt))
       .reduce((total, log) => total + (Number(log.volume_ml) || 0), 0);
+    const medCount = logs.filter((log) => log.type === 'medication' && isToday(log.recordedAt)).length;
+    const mealCount = logs.filter((log) => log.type === 'meal' && isToday(log.recordedAt)).length;
+    const insulinTotal = logs
+      .filter((log) => log.type === 'insulin' && isToday(log.recordedAt))
+      .reduce((total, log) => total + (Number((log as any).dose_units) || 0), 0);
     
     const glucoseValue = latestGlucose ? getLogValue(latestGlucose, 'value') : null;
     const systolicValue = latestBloodPressure ? getLogValue(latestBloodPressure, 'systolic') : null;
@@ -117,6 +122,9 @@ export const useHomeViewModel = () => {
         : '--',
       weight: typeof weightValue === 'number' && Number.isFinite(weightValue) ? weightValue : '--',
       water: waterTotal > 0 ? waterTotal : '--',
+      medication: medCount > 0 ? medCount : '--',
+      meal: mealCount > 0 ? mealCount : '--',
+      insulin: insulinTotal > 0 ? insulinTotal : '--',
     };
   }, [logs]);
 

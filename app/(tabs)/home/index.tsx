@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { AppState, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, useAnimatedScrollHandler, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image as ExpoImage } from 'expo-image';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { Avatar } from '../../../src/components/Avatar';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
@@ -142,10 +143,10 @@ type HomeMetricCard = {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   color: string;
   route: string;
+  banner?: any;
+  iconBg?: string;
+  iconColor?: string;
 };
-
-// Tạm ẩn các thẻ Thuốc và Insulin khỏi carousel trang chính.
-const HIDDEN_HOME_METRIC_KEYS = new Set(['medication', 'insulin']);
 
 type HomeMetricCarouselProps = {
   cards: HomeMetricCard[];
@@ -158,6 +159,9 @@ const METRIC_BANNER_MAP: Record<string, any> = {
   'blood-pressure': require('../../../assets/images/logs/banner_bp.png'),
   weight: require('../../../assets/images/logs/banner_weight.png'),
   water: require('../../../assets/images/logs/banner_water.png'),
+  medication: require('../../../assets/images/logs/banner_medication.png'),
+  meal: require('../../../assets/images/logs/banner_meal.png'),
+  insulin: require('../../../assets/images/logs/banner_insulin.png'),
 };
 
 const METRIC_THEME_MAP: Record<string, { iconBg: string; iconColor: string }> = {
@@ -215,8 +219,11 @@ function HomeMetricCarousel({ cards, styles, onOpen }: HomeMetricCarouselProps) 
         horizontal
         keyExtractor={(item, index) => `${item.key}-${index}`}
         renderItem={({ item }) => {
-          const banner = METRIC_BANNER_MAP[item.key];
-          const theme = METRIC_THEME_MAP[item.key] || { iconBg: '#EBF3FE', iconColor: item.color };
+          const banner = item.banner || METRIC_BANNER_MAP[item.key];
+          const theme = {
+            iconBg: item.iconBg || METRIC_THEME_MAP[item.key]?.iconBg || '#EBF3FE',
+            iconColor: item.iconColor || METRIC_THEME_MAP[item.key]?.iconColor || item.color,
+          };
           return (
             <Pressable
               style={[styles.metricCard, styles.metricCarouselCard, { width: cardWidth }]}
@@ -225,10 +232,11 @@ function HomeMetricCarousel({ cards, styles, onOpen }: HomeMetricCarouselProps) 
               accessibilityLabel={`${item.title}: ${item.value} ${item.unit}`}
             >
               {banner && (
-                <Image
+                <ExpoImage
                   source={banner}
-                  style={StyleSheet.absoluteFillObject}
-                  resizeMode="cover"
+                  style={[StyleSheet.absoluteFillObject, { width: cardWidth, height: 144 }]}
+                  contentFit="cover"
+                  transition={150}
                 />
               )}
               <View style={styles.metricCardContent}>
@@ -559,8 +567,11 @@ export default function HomeScreen() {
       value: quickMetrics.glucose,
       unit: tc('unitMgdl'),
       icon: 'water',
-      color: iconColors.glucose,
+      color: '#4A6B95',
       route: '/logs/glucose',
+      banner: require('../../../assets/images/logs/banner_glucose.png'),
+      iconBg: '#EBF3FE',
+      iconColor: '#4A6B95',
     },
     {
       key: 'blood-pressure',
@@ -568,8 +579,11 @@ export default function HomeScreen() {
       value: quickMetrics.bloodPressure,
       unit: tc('unitMmhg'),
       icon: 'heart-pulse',
-      color: iconColors.bp,
+      color: '#E11D48',
       route: '/logs/blood-pressure',
+      banner: require('../../../assets/images/logs/banner_bp.png'),
+      iconBg: '#FFF0F2',
+      iconColor: '#E11D48',
     },
     {
       key: 'weight',
@@ -577,8 +591,11 @@ export default function HomeScreen() {
       value: quickMetrics.weight,
       unit: tc('unitKg'),
       icon: 'scale-bathroom',
-      color: iconColors.weight,
+      color: '#7C3AED',
       route: '/logs/weight',
+      banner: require('../../../assets/images/logs/banner_weight.png'),
+      iconBg: '#F3EBFD',
+      iconColor: '#7C3AED',
     },
     {
       key: 'water',
@@ -586,10 +603,13 @@ export default function HomeScreen() {
       value: quickMetrics.water,
       unit: tc('unitMl'),
       icon: 'cup-water',
-      color: iconColors.water,
+      color: '#0D9488',
       route: '/logs/water',
+      banner: require('../../../assets/images/logs/banner_water.png'),
+      iconBg: '#E4F7F4',
+      iconColor: '#0D9488',
     },
-  ], [quickMetrics, t, tc]).filter((card) => !HIDDEN_HOME_METRIC_KEYS.has(card.key));
+  ], [quickMetrics, t, tc]);
 
   const healthFeedApi = useCallback(async <T,>(path: string, options?: any) => {
     return apiClient<T>(`/api/health-feed${path}`, options);
@@ -1219,16 +1239,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCarouselCard: {
     flex: 0,
-    minHeight: 142,
+    height: 144,
+    minHeight: 144,
     marginRight: spacing.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#EEF2F5',
     borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 2,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
@@ -1236,7 +1257,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   metricCardContent: {
     zIndex: 2,
-    maxWidth: '65%',
+    maxWidth: '60%',
     flex: 1,
     justifyContent: 'space-between',
   },
@@ -1252,25 +1273,25 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     justifyContent: 'center',
   },
   metricTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
-    marginLeft: 10,
+    color: '#0F172A',
+    marginLeft: 12,
   },
   metricValueRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginTop: 18,
+    marginTop: 20,
   },
   metricValue: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   metricUnit: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '500',
-    color: '#6B7280',
+    color: '#64748B',
     marginLeft: 8,
   },
   metricCarouselDots: {

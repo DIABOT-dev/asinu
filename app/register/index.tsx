@@ -1,57 +1,38 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-
-import { Image, ImageBackground } from 'react-native';
+import { Image } from 'react-native';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
-  FadeIn, FadeInDown, FadeInLeft, FadeInUp,
-  useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, Easing,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
 } from 'react-native-reanimated';
-
-const appLogo = require('../../assets/icon.png');
-const authBackground = require('../../assets/images/login/login_background.png');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
-import { TextInput } from '../../src/components/TextInput';
+import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
 import { authApi } from '../../src/features/auth/auth.api';
 import { showToast } from '../../src/stores/toast.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { getPasswordStrength, validateEmail, validatePassword, validatePhone } from '../../src/lib/validation';
+import { validateEmail, validatePassword, validatePhone } from '../../src/lib/validation';
 import { colors, radius, spacing } from '../../src/styles';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { MedicalAuthBackdrop } from '../../src/components/MedicalAuthBackdrop';
 
-function FloatingOrbs() {
-  const y1 = useSharedValue(0);
-  const y2 = useSharedValue(0);
-  const y3 = useSharedValue(0);
-  React.useEffect(() => {
-    y1.value = withRepeat(withSequence(withTiming(-15, { duration: 3000, easing: Easing.inOut(Easing.ease) }), withTiming(15, { duration: 3000, easing: Easing.inOut(Easing.ease) })), -1, true);
-    y2.value = withRepeat(withSequence(withTiming(12, { duration: 2500, easing: Easing.inOut(Easing.ease) }), withTiming(-12, { duration: 2500, easing: Easing.inOut(Easing.ease) })), -1, true);
-    y3.value = withRepeat(withSequence(withTiming(-10, { duration: 3500, easing: Easing.inOut(Easing.ease) }), withTiming(10, { duration: 3500, easing: Easing.inOut(Easing.ease) })), -1, true);
-  }, []);
-  const s1 = useAnimatedStyle(() => ({ transform: [{ translateY: y1.value }] }));
-  const s2 = useAnimatedStyle(() => ({ transform: [{ translateY: y2.value }] }));
-  const s3 = useAnimatedStyle(() => ({ transform: [{ translateY: y3.value }] }));
-  return (
-    <>
-      <Animated.View style={[{ position: 'absolute', top: '10%', left: -30, width: 110, height: 110, borderRadius: 55, backgroundColor: colors.emerald + '12' }, s1]} />
-      <Animated.View style={[{ position: 'absolute', top: '40%', right: -35, width: 90, height: 90, borderRadius: 45, backgroundColor: colors.primary + '10' }, s2]} />
-      <Animated.View style={[{ position: 'absolute', bottom: '20%', left: -20, width: 70, height: 70, borderRadius: 35, backgroundColor: colors.premium + '10' }, s3]} />
-    </>
-  );
-}
+const appLogo = require('../../assets/icon.png');
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -67,6 +48,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const { t } = useTranslation('auth');
   const { t: tc } = useTranslation('common');
   const { t: ts } = useTranslation('settings');
@@ -112,22 +94,6 @@ export default function RegisterScreen() {
     setPasswordError(err || undefined);
   };
 
-  const getPasswordStrengthColor = () => {
-    if (!password) return colors.textSecondary;
-    const { strength } = getPasswordStrength(password);
-    if (strength === 'weak') return '#ef4444';
-    if (strength === 'medium') return colors.premium;
-    return '#22c55e';
-  };
-
-  const getPasswordStrengthText = () => {
-    if (!password) return '';
-    const { strength } = getPasswordStrength(password);
-    if (strength === 'weak') return t('strengthWeak');
-    if (strength === 'medium') return t('strengthMedium');
-    return t('strengthStrong');
-  };
-
   const handleSubmit = async () => {
     const emailErr = validateEmail(email);
     const phoneErr = validatePhone(phone);
@@ -161,13 +127,11 @@ export default function RegisterScreen() {
       setTimeout(() => router.replace('/login'), 1500);
     } catch (err: any) {
       const raw = String(err?.message || '');
-      // If error is HTML (ngrok down) or too long, show user-friendly message
       const isHtml = raw.includes('<!DOCTYPE') || raw.includes('<html');
       const msg = (isHtml || raw.length > 200 || !raw)
         ? t('registerFailed')
         : raw;
 
-      // Show specific field errors based on backend response
       const msgLower = msg.toLowerCase();
       if (msgLower.includes('phone') || msgLower.includes('điện thoại') || msgLower.includes('số điện thoại')) {
         setPhoneError(msg);
@@ -191,313 +155,293 @@ export default function RegisterScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-    <View style={styles.screen}>
-      <View pointerEvents="none" style={styles.backdrop}>
-        <ImageBackground
-          source={authBackground}
-          resizeMode="cover"
-          style={StyleSheet.absoluteFillObject}
-          imageStyle={styles.backdropImage}
-        />
-        <View style={styles.backdropWash} />
-      </View>
+      <View style={{ flex: 1, backgroundColor: isDark ? '#0A1A2F' : '#FAFCFE' }}>
+        <MedicalAuthBackdrop width={width} height={height} isDark={isDark} />
 
-      {/* Font size modal */}
-      {showFontModal && (
-        <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
-          <Pressable style={styles.fontModalCard} onPress={() => {}}>
-            <Text style={styles.fontModalTitle}>{ts('fontSize')}</Text>
-            <View style={styles.fontSizeRow}>
-              {FONT_SIZE_OPTIONS.map(opt => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => { setScale(opt.value); setShowFontModal(false); }}
-                  style={[styles.fontSizeBtn, scale === opt.value && styles.fontSizeBtnActive]}
-                >
-                  <MaterialCommunityIcons
-                    name="format-size"
-                    size={opt.iconSize}
-                    color={scale === opt.value ? '#fff' : colors.primary}
-                    style={{ width: 28, textAlign: 'center' }}
-                  />
-                  <Text style={[styles.fontSizeBtnText, scale === opt.value && styles.fontSizeBtnTextActive]}>
-                    {getFontSizeLabel(opt.value)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.fontSizePreview}>{ts('fontPreview')}</Text>
-          </Pressable>
-        </Pressable>
-      )}
-
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + 24 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Top bar */}
-        <Animated.View entering={FadeIn.duration(400)} style={styles.topBarRowNoBack}>
-          <LanguageToggle />
-        </Animated.View>
-
-        {/* Logo + Title */}
-        <View style={styles.heroSection}>
-          <View style={styles.logoWrap}>
-            <Image source={appLogo} style={styles.logo} resizeMode="cover" />
-          </View>
-          <Animated.View entering={FadeIn.delay(500).duration(400)} style={{ alignSelf: 'stretch' }}>
-            <Text style={styles.title}>{t('createAccount')}</Text>
-          </Animated.View>
-          <Animated.View entering={FadeIn.delay(600).duration(400)} style={{ alignSelf: 'stretch' }}>
-            <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
-          </Animated.View>
-        </View>
-
-        {/* Form Card */}
-        <Animated.View entering={FadeInDown.delay(250).duration(500)}>
-          <View style={styles.formCard}>
-            {/* Email */}
-            <Animated.View entering={FadeInLeft.delay(350).duration(400).springify()} style={styles.inputGroup}>
-              <TextInput
-                value={email}
-                onChangeText={(text) => { setEmail(text); setEmailError(undefined); }}
-                onBlur={handleEmailBlur}
-                placeholder={t('emailPlaceholder')}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={styles.inputRounded}
-                leftIcon={
-                  <View style={styles.inputIconWrap}>
-                    <Ionicons name="mail-outline" size={18} color={colors.primary} />
-                  </View>
-                }
-              />
-              {emailError && (
-                <View style={styles.fieldErrorRow}>
-                  <Ionicons name="alert-circle" size={14} color={colors.danger} />
-                  <Text style={styles.fieldError}>{emailError}</Text>
-                </View>
-              )}
-            </Animated.View>
-
-            {/* Phone */}
-            <Animated.View entering={FadeInLeft.delay(430).duration(400).springify()} style={styles.inputGroup}>
-              <TextInput
-                value={phone}
-                onChangeText={(text) => { setPhone(text); setPhoneError(undefined); }}
-                onBlur={handlePhoneBlur}
-                placeholder={t('phonePlaceholder')}
-                keyboardType="phone-pad"
-                style={styles.inputRounded}
-                leftIcon={
-                  <View style={styles.inputIconWrap}>
-                    <Ionicons name="call-outline" size={18} color={colors.primary} />
-                  </View>
-                }
-              />
-              <Text style={styles.fieldHelp}>{t('phoneHelp')}</Text>
-              {phoneError && (
-                <View style={styles.fieldErrorRow}>
-                  <Ionicons name="alert-circle" size={14} color={colors.danger} />
-                  <Text style={styles.fieldError}>{phoneError}</Text>
-                </View>
-              )}
-            </Animated.View>
-
-            {/* Password */}
-            <Animated.View entering={FadeInLeft.delay(510).duration(400).springify()} style={styles.inputGroup}>
-              <TextInput
-                value={password}
-                onChangeText={(text) => { setPassword(text); setPasswordError(undefined); }}
-                onBlur={handlePasswordBlur}
-                placeholder={t('minChars')}
-                secureTextEntry={!showPassword}
-                style={styles.inputRounded}
-                leftIcon={
-                  <View style={styles.inputIconWrap}>
-                    <Ionicons name="lock-closed-outline" size={18} color={colors.primary} />
-                  </View>
-                }
-                rightElement={
-                  <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={12} style={styles.eyeBtn}>
-                    <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color={colors.textSecondary} />
-                  </Pressable>
-                }
-              />
-              {passwordError && (
-                <View style={styles.fieldErrorRow}>
-                  <Ionicons name="alert-circle" size={14} color={colors.danger} />
-                  <Text style={styles.fieldError}>{passwordError}</Text>
-                </View>
-              )}
-              {password && !passwordError && (
-                <Text style={[styles.strengthText, { color: getPasswordStrengthColor() }]}>
-                  {t('strengthLabel')} {getPasswordStrengthText()}
-                </Text>
-              )}
-            </Animated.View>
-
-            {/* Name (optional) */}
-            <Animated.View entering={FadeInLeft.delay(590).duration(400).springify()} style={styles.inputGroup}>
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder={t('namePlaceholder')}
-                style={styles.inputRounded}
-                leftIcon={
-                  <View style={styles.inputIconWrap}>
-                    <Ionicons name="person-outline" size={18} color={colors.primary} />
-                  </View>
-                }
-              />
-            </Animated.View>
-
-            {/* Agree checkbox */}
-            <View style={[styles.checkboxRow, scale !== 'xlarge' && styles.checkboxRowInline]}>
-              <Pressable style={styles.checkboxToggle} onPress={() => setAgreed(!isAgreed)}>
-                <Ionicons
-                  name={isAgreed ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={isAgreed ? colors.primary : colors.textSecondary}
-                />
-                <Text style={styles.checkboxLabel}>{t('agreeCheckbox')}</Text>
-              </Pressable>
-              <Pressable onPress={() => openLegal('terms')}>
-                <Text style={styles.linkItalic}>{t('termsOfUse')}</Text>
-              </Pressable>
-              <Text style={styles.checkboxLabel}>&</Text>
-              <Pressable onPress={() => openLegal('privacy')}>
-                <Text style={styles.linkItalic}>{t('privacyPolicyShort')}</Text>
-              </Pressable>
-            </View>
-
-            {/* Error */}
-            {error ? (
-              <View style={styles.errorRow}>
-                <Ionicons name="warning" size={16} color={colors.danger} />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
-            {/* Register Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.submitBtn,
-                !canSubmit && styles.submitBtnDisabled,
-                pressed && canSubmit && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}
-              onPress={handleSubmit}
-            >
-              <LinearGradient
-                colors={['#139fd0', '#25d1a2']}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.submitBtnGradient}
-              >
-                {loading ? (
-                  <MaterialCommunityIcons name="loading" size={20} color="#ffffff" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="account-plus" size={20} color="#ffffff" />
-                    <Text style={styles.submitBtnText}>
-                      {loading ? tc('processing') : t('register')}
+        {/* Font size modal (if triggered) */}
+        {showFontModal && (
+          <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
+            <Pressable style={styles.fontModalCard} onPress={() => {}}>
+              <Text style={styles.fontModalTitle}>{ts('fontSize')}</Text>
+              <View style={styles.fontSizeRow}>
+                {FONT_SIZE_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => { setScale(opt.value); setShowFontModal(false); }}
+                    style={[styles.fontSizeBtn, scale === opt.value && styles.fontSizeBtnActive]}
+                  >
+                    <MaterialCommunityIcons
+                      name="format-size"
+                      size={opt.iconSize}
+                      color={scale === opt.value ? '#fff' : '#20BCB4'}
+                      style={{ width: 28, textAlign: 'center' }}
+                    />
+                    <Text style={[styles.fontSizeBtnText, scale === opt.value && styles.fontSizeBtnTextActive]}>
+                      {getFontSizeLabel(opt.value)}
                     </Text>
-                  </>
-                )}
-              </LinearGradient>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.fontSizePreview}>{ts('fontPreview')}</Text>
             </Pressable>
-          </View>
-        </Animated.View>
+          </Pressable>
+        )}
 
-        {/* Trust points */}
-        <Animated.View entering={FadeInUp.delay(350).duration(400)} style={styles.trustCard}>
-          {([
-            { icon: 'shield-checkmark-outline' as const, title: t('registerSecurityTitle'), text: t('registerSecurityText') },
-            { icon: 'lock-closed-outline' as const, title: t('registerSafetyTitle'), text: t('registerSafetyText') },
-            { icon: 'headset-outline' as const, title: t('registerSupportTitle'), text: t('registerSupportText') },
-          ]).map((item, index) => (
-            <React.Fragment key={item.title}>
-              {index > 0 && <View style={styles.trustDivider} />}
-              <View style={styles.trustItem}>
-                <Ionicons name={item.icon} size={30} color={colors.primary} />
-                <View style={styles.trustCopy}>
-                  <Text style={styles.trustTitle}>{item.title}</Text>
-                  <Text style={styles.trustText}>{item.text}</Text>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: insets.top + spacing.sm,
+              paddingBottom: Math.max(insets.bottom, 24) + 16,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Top Bar: Pill Language Toggle on Right */}
+          <Animated.View entering={FadeIn.duration(400)} style={styles.topBarRowNoBack}>
+            <LanguageToggle />
+          </Animated.View>
+
+          {/* Logo + Title + Subtitle */}
+          <View style={styles.heroSection}>
+            <Animated.View entering={FadeInDown.duration(500)} style={styles.logoWrap}>
+              <Image source={appLogo} style={styles.logo} resizeMode="cover" />
+            </Animated.View>
+            <Animated.View entering={FadeIn.delay(200).duration(400)} style={{ alignSelf: 'stretch' }}>
+              <Text style={styles.title}>{t('createAccount')}</Text>
+            </Animated.View>
+            <Animated.View entering={FadeIn.delay(300).duration(400)} style={{ alignSelf: 'stretch' }}>
+              <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
+            </Animated.View>
+          </View>
+
+          {/* Main Form Card */}
+          <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+            <View style={styles.formCard}>
+              {/* Email Field */}
+              <View style={styles.inputGroup}>
+                <View style={[styles.inputBox, emailError ? styles.inputBoxError : null]}>
+                  <Ionicons name="mail-outline" size={20} color="#1AB6AE" style={styles.inputLeftIcon} />
+                  <RNTextInput
+                    value={email}
+                    onChangeText={(text) => { setEmail(text); setEmailError(undefined); }}
+                    onBlur={handleEmailBlur}
+                    placeholder={t('emailPlaceholder')}
+                    placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.textInputField}
+                  />
+                </View>
+                {emailError && (
+                  <View style={styles.fieldErrorRow}>
+                    <Ionicons name="alert-circle" size={14} color={colors.danger} />
+                    <Text style={styles.fieldError}>{emailError}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Phone Field */}
+              <View style={styles.inputGroup}>
+                <View style={[styles.inputBox, phoneError ? styles.inputBoxError : null]}>
+                  <Ionicons name="call-outline" size={20} color="#1AB6AE" style={styles.inputLeftIcon} />
+                  <RNTextInput
+                    value={phone}
+                    onChangeText={(text) => { setPhone(text); setPhoneError(undefined); }}
+                    onBlur={handlePhoneBlur}
+                    placeholder={t('phonePlaceholder')}
+                    placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                    keyboardType="phone-pad"
+                    style={styles.textInputField}
+                  />
+                </View>
+                <Text style={styles.fieldHelp}>{t('phoneHelp')}</Text>
+                {phoneError && (
+                  <View style={styles.fieldErrorRow}>
+                    <Ionicons name="alert-circle" size={14} color={colors.danger} />
+                    <Text style={styles.fieldError}>{phoneError}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Password Field */}
+              <View style={styles.inputGroup}>
+                <View style={[styles.inputBox, passwordError ? styles.inputBoxError : null]}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#1AB6AE" style={styles.inputLeftIcon} />
+                  <RNTextInput
+                    value={password}
+                    onChangeText={(text) => { setPassword(text); setPasswordError(undefined); }}
+                    onBlur={handlePasswordBlur}
+                    placeholder={t('minChars')}
+                    placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                    secureTextEntry={!showPassword}
+                    style={styles.textInputField}
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={12}
+                    style={styles.eyeBtn}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                      size={20}
+                      color={isDark ? '#64748B' : '#94A3B8'}
+                    />
+                  </Pressable>
+                </View>
+                {passwordError && (
+                  <View style={styles.fieldErrorRow}>
+                    <Ionicons name="alert-circle" size={14} color={colors.danger} />
+                    <Text style={styles.fieldError}>{passwordError}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Full Name Field */}
+              <View style={styles.inputGroup}>
+                <View style={styles.inputBox}>
+                  <Ionicons name="person-outline" size={20} color="#1AB6AE" style={styles.inputLeftIcon} />
+                  <RNTextInput
+                    value={name}
+                    onChangeText={setName}
+                    placeholder={t('namePlaceholder')}
+                    placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                    autoCapitalize="words"
+                    style={styles.textInputField}
+                  />
                 </View>
               </View>
-            </React.Fragment>
-          ))}
-        </Animated.View>
 
-        {/* Login link */}
-        <Animated.View entering={FadeInUp.delay(400).duration(400)} style={styles.loginPrompt}>
-          <Text style={styles.loginText}>{t('hasAccount')}</Text>
-          <Pressable onPress={() => router.replace('/login')}>
-            <Text style={styles.loginLink}> {t('login')}</Text>
-          </Pressable>
-        </Animated.View>
-      </ScrollView>
-    </View>
+              {/* Agree Checkbox */}
+              <View style={styles.checkboxContainer}>
+                <Pressable
+                  onPress={() => setAgreed(!isAgreed)}
+                  style={[
+                    styles.checkboxBox,
+                    isAgreed && styles.checkboxBoxChecked,
+                  ]}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: isAgreed }}
+                >
+                  {isAgreed && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                </Pressable>
+
+                <View style={styles.checkboxTextRow}>
+                  <Pressable onPress={() => setAgreed(!isAgreed)}>
+                    <Text style={styles.checkboxText}>{t('agreeCheckbox')}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => openLegal('terms')}>
+                    <Text style={styles.checkboxLink}>{t('termsOfUse')}</Text>
+                  </Pressable>
+                  <Text style={styles.checkboxText}> & </Text>
+                  <Pressable onPress={() => openLegal('privacy')}>
+                    <Text style={styles.checkboxLink}>{t('privacyPolicyShort')}</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Error Message */}
+              {error ? (
+                <View style={styles.errorRow}>
+                  <Ionicons name="warning" size={16} color={colors.danger} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              {/* Register Submit Button */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.submitBtn,
+                  !canSubmit && styles.submitBtnDisabled,
+                  pressed && canSubmit && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                ]}
+                onPress={handleSubmit}
+                disabled={!canSubmit || loading}
+              >
+                <LinearGradient
+                  colors={['#24C7BF', '#1BB5AD']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitBtnGradient}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="account-plus" size={21} color="#FFFFFF" />
+                      <Text style={styles.submitBtnText}>
+                        {loading ? tc('processing') : t('register')}
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </Animated.View>
+
+          {/* Trust Points Card (Bảo mật - An toàn - Hỗ trợ) */}
+          <Animated.View entering={FadeInUp.delay(350).duration(400)}>
+            <View style={styles.trustCard}>
+              {/* Item 1: Bảo mật */}
+              <View style={styles.trustItem}>
+                <Ionicons name="shield-checkmark-outline" size={28} color="#1AB6AE" />
+                <View style={styles.trustCopy}>
+                  <Text style={styles.trustTitle}>{t('registerSecurityTitle')}</Text>
+                  <Text style={styles.trustText}>{t('registerSecurityText')}</Text>
+                </View>
+              </View>
+
+              <View style={styles.trustDivider} />
+
+              {/* Item 2: An toàn */}
+              <View style={styles.trustItem}>
+                <Ionicons name="lock-closed-outline" size={28} color="#1AB6AE" />
+                <View style={styles.trustCopy}>
+                  <Text style={styles.trustTitle}>{t('registerSafetyTitle')}</Text>
+                  <Text style={styles.trustText}>{t('registerSafetyText')}</Text>
+                </View>
+              </View>
+
+              <View style={styles.trustDivider} />
+
+              {/* Item 3: Hỗ trợ */}
+              <View style={styles.trustItem}>
+                <Ionicons name="headset-outline" size={28} color="#1AB6AE" />
+                <View style={styles.trustCopy}>
+                  <Text style={styles.trustTitle}>{t('registerSupportTitle')}</Text>
+                  <Text style={styles.trustText}>{t('registerSupportText')}</Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Login Prompt */}
+          <Animated.View entering={FadeInUp.delay(450).duration(400)} style={styles.loginPrompt}>
+            <Text style={styles.loginText}>{t('hasAccount')}</Text>
+            <Pressable onPress={() => router.replace('/login')}>
+              <Text style={styles.loginLink}>{t('login')}</Text>
+            </Pressable>
+          </Animated.View>
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
   return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
     scrollContent: {
-      paddingHorizontal: spacing.xl,
+      paddingHorizontal: spacing.lg,
       gap: spacing.lg,
     },
 
-    backdrop: {
-      ...StyleSheet.absoluteFillObject,
-      overflow: 'hidden',
-    },
-    backdropImage: {
-      opacity: isDark ? 0.12 : 0.48,
-    },
-    backdropWash: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: isDark ? `${colors.background}d9` : `${colors.background}28`,
-    },
-
-    // ── Top bar ──
-    topBarRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
+    // ── Top Bar ──
     topBarRowNoBack: {
       alignItems: 'flex-end',
     },
-    topBarRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    fontSizeTopBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      paddingHorizontal: spacing.md,
-      height: 36,
-    },
-    fontSizeTopLabel: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.primary,
-    },
 
-    // ── Font modal ──
+    // ── Font Modal ──
     fontModalOverlay: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'rgba(0,0,0,0.45)',
@@ -506,15 +450,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       zIndex: 100,
     },
     fontModalCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
+      backgroundColor: isDark ? '#1E293B' : colors.surface,
+      borderRadius: 22,
       padding: spacing.xl,
       width: '85%',
+      borderWidth: 1,
+      borderColor: isDark ? '#334155' : colors.border,
     },
     fontModalTitle: {
       fontSize: typography.size.lg,
       fontWeight: '700',
-      color: colors.textPrimary,
+      color: isDark ? '#F1F5F9' : colors.textPrimary,
       marginBottom: spacing.lg,
       textAlign: 'center',
     },
@@ -532,125 +478,176 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       paddingHorizontal: spacing.lg,
       borderRadius: 14,
       borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.background,
+      borderColor: isDark ? '#334155' : colors.border,
+      backgroundColor: isDark ? '#0F172A' : colors.background,
       gap: spacing.sm,
     },
     fontSizeBtnActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+      backgroundColor: '#20BCB4',
+      borderColor: '#20BCB4',
     },
     fontSizeBtnText: {
       fontSize: typography.size.xs,
       fontWeight: '600',
-      color: colors.textSecondary,
+      color: isDark ? '#94A3B8' : colors.textSecondary,
     },
     fontSizeBtnTextActive: {
       color: '#fff',
     },
     fontSizePreview: {
       fontSize: typography.size.md,
-      color: colors.textSecondary,
+      color: isDark ? '#94A3B8' : colors.textSecondary,
       textAlign: 'center',
     },
 
     // ── Hero ──
     heroSection: {
       alignItems: 'center',
-      gap: spacing.sm,
-      marginTop: spacing.md,
+      gap: spacing.xs,
+      marginTop: spacing.xs,
     },
     logoWrap: {
       width: 96,
       height: 96,
-      borderRadius: 28,
+      borderRadius: 26,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 3.5,
+      borderColor: '#FFFFFF',
       overflow: 'hidden',
-      shadowColor: colors.primary,
-      shadowOpacity: 0.2,
-      shadowRadius: 16,
+      shadowColor: '#0284C7',
+      shadowOpacity: 0.35,
+      shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },
       elevation: 8,
-      borderWidth: 1.5,
-      borderColor: colors.primary + '22',
+      marginBottom: 6,
     },
     logo: {
       width: '100%',
       height: '100%',
     },
     title: {
-      fontSize: typography.size.xl,
-      fontWeight: '700',
-      color: isDark ? colors.textPrimary : '#17243A',
+      fontSize: 27,
+      fontWeight: '800',
+      color: isDark ? '#F1F5F9' : '#0B1E48',
       textAlign: 'center',
-      marginTop: spacing.sm,
-      width: '100%',
+      letterSpacing: -0.5,
     },
     subtitle: {
-      color: colors.textSecondary,
+      color: isDark ? '#94A3B8' : '#64748B',
       textAlign: 'center',
-      fontSize: typography.size.sm,
-      lineHeight: typography.size.sm * 1.4,
-      width: '100%',
-      flexShrink: 1,
+      fontSize: 14,
+      lineHeight: 20,
+      marginTop: 2,
     },
 
     // ── Form Card ──
     formCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.xl,
-      gap: spacing.md,
+      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+      borderRadius: 26,
+      paddingHorizontal: 20,
+      paddingTop: 24,
+      paddingBottom: 22,
+      gap: 14,
       borderWidth: 1.5,
-      borderColor: colors.border,
-      shadowColor: '#000',
-      shadowOpacity: 0.06,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 6 },
+      borderColor: isDark ? '#334155' : '#F1F7FB',
+      shadowColor: '#0284C7',
+      shadowOpacity: 0.07,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 8 },
       elevation: 4,
     },
     inputGroup: {
-      gap: spacing.xs,
+      gap: 4,
     },
-    inputRounded: {
-      borderRadius: radius.xxl,
-      minHeight: 58,
-    },
-    inputIconWrap: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+    inputBox: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      height: 54,
+      borderRadius: 16,
+      backgroundColor: isDark ? '#0F172A' : '#F8FCFE',
+      borderWidth: 1.5,
+      borderColor: isDark ? '#334155' : '#E2EEF5',
+      paddingHorizontal: 16,
+    },
+    inputBoxError: {
+      borderColor: colors.danger,
+    },
+    inputLeftIcon: {
+      marginRight: 12,
+    },
+    textInputField: {
+      flex: 1,
+      fontSize: 14.5,
+      color: isDark ? '#F8FAFC' : '#0F172A',
+      height: '100%',
+      paddingVertical: 0,
     },
     eyeBtn: {
-      padding: 4,
+      padding: 6,
+      marginLeft: 4,
+    },
+    fieldHelp: {
+      fontSize: 12.5,
+      color: isDark ? '#94A3B8' : '#64748B',
+      marginLeft: 4,
+      marginTop: 2,
     },
     fieldErrorRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      marginLeft: spacing.sm,
+      marginLeft: 4,
+      marginTop: 2,
     },
     fieldError: {
       color: colors.danger,
       fontSize: typography.size.xs,
     },
-    fieldHelp: {
-      color: colors.textSecondary,
-      fontSize: typography.size.xs,
-      marginLeft: spacing.sm,
+
+    // ── Checkbox ──
+    checkboxContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 4,
     },
-    strengthText: {
-      fontSize: typography.size.xs,
-      marginLeft: spacing.sm,
+    checkboxBox: {
+      width: 20,
+      height: 20,
+      borderRadius: 5,
+      borderWidth: 1.5,
+      borderColor: isDark ? '#64748B' : '#94A3B8',
+      backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    checkboxBoxChecked: {
+      backgroundColor: '#20BCB4',
+      borderColor: '#20BCB4',
+    },
+    checkboxTextRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      flex: 1,
+    },
+    checkboxText: {
+      fontSize: 13,
+      color: isDark ? '#94A3B8' : '#64748B',
+    },
+    checkboxLink: {
+      fontSize: 13,
+      color: '#1AB6AE',
       fontWeight: '600',
     },
+
+    // ── Error ──
     errorRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
       backgroundColor: colors.danger + '18',
-      borderRadius: radius.lg,
+      borderRadius: radius.md,
       padding: spacing.md,
     },
     errorText: {
@@ -659,107 +656,93 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       flex: 1,
     },
 
-    // ── Checkbox ──
-    checkboxRow: {
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    checkboxRowInline: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-    },
-    checkboxToggle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    checkboxLabel: {
-      color: colors.textPrimary,
-      fontSize: typography.size.xs,
-    },
-    linkItalic: {
-      color: colors.primary,
-      fontWeight: '700',
-      fontSize: typography.size.xs,
-    },
-
     // ── Submit Button ──
     submitBtn: {
-      borderRadius: radius.full,
-      marginTop: spacing.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderRadius: 26,
+      overflow: 'hidden',
+      marginTop: 4,
+      shadowColor: '#20BCB4',
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
     },
     submitBtnDisabled: {
       opacity: 0.55,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     submitBtnGradient: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.md + 2,
-      borderRadius: radius.full,
-      backgroundColor: colors.primaryLight,
+      gap: 8,
+      height: 52,
+      borderRadius: 26,
     },
     submitBtnText: {
-      color: '#ffffff',
-      fontSize: typography.size.md,
+      color: '#FFFFFF',
+      fontSize: 16,
       fontWeight: '700',
     },
 
-    // A quiet, horizontal reassurance row keeps the registration flow credible without adding another form card.
+    // ── Trust Card ──
     trustCard: {
+      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: isDark ? '#334155' : '#F1F7FB',
+      shadowColor: '#0284C7',
+      shadowOpacity: 0.05,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 2,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: isDark ? colors.surface : '#f2fbfc',
-      borderRadius: radius.xl,
-      borderWidth: 1,
-      borderColor: isDark ? colors.border : '#d7f0f2',
-      paddingVertical: spacing.lg,
-      paddingHorizontal: spacing.md,
-      gap: spacing.sm,
+      justifyContent: 'space-around',
+      paddingVertical: 14,
+      paddingHorizontal: 8,
     },
     trustItem: {
-      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
-      minWidth: 0,
+      gap: 8,
+      flex: 1,
+      justifyContent: 'center',
+    },
+    trustCopy: {
+      justifyContent: 'center',
+    },
+    trustTitle: {
+      fontSize: 13.5,
+      fontWeight: '700',
+      color: isDark ? '#F1F5F9' : '#0B1E48',
+    },
+    trustText: {
+      fontSize: 12,
+      fontWeight: '400',
+      color: isDark ? '#94A3B8' : '#64748B',
     },
     trustDivider: {
       width: 1,
-      height: 40,
-      backgroundColor: colors.border,
-    },
-    trustCopy: {
-      flex: 1,
-      minWidth: 0,
-    },
-    trustTitle: {
-      color: colors.textPrimary,
-      fontSize: typography.size.xs,
-      fontWeight: '700',
-    },
-    trustText: {
-      color: colors.textSecondary,
-      fontSize: typography.size.xs,
-      marginTop: 2,
+      height: 36,
+      backgroundColor: isDark ? '#334155' : '#E2EEF5',
     },
 
-    // ── Login link ──
+    // ── Login Prompt ──
     loginPrompt: {
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
+      marginTop: 4,
     },
     loginText: {
-      color: colors.textSecondary,
-      fontSize: typography.size.sm,
+      color: isDark ? '#94A3B8' : '#64748B',
+      fontSize: 13.5,
     },
     loginLink: {
-      color: colors.primary,
-      fontSize: typography.size.sm,
+      color: '#20BCB4',
+      fontSize: 13.5,
       fontWeight: '700',
     },
   });

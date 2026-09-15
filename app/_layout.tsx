@@ -33,7 +33,8 @@ import { initializeIap, teardownIap } from '../src/features/iap/iap.service';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SessionProvider } from '../src/providers/SessionProvider';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
-import { applyTheme, spacing, typography } from '../src/styles';
+import { applyTheme, spacing } from '../src/styles';
+import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { trackScreenViewed } from '../src/lib/screenTracking';
 
 type NavigationProp = NativeStackNavigationProp<ParamListBase>;
@@ -45,6 +46,7 @@ type ScreenOptionsProps = {
 export default function RootLayout() {
   const { t } = useTranslation('auth');
   const { colors, isDark } = useThemeColors();
+  const scaledTypography = useScaledTypography();
   const setSystemScheme = useThemeStore((s) => s.setSystemScheme);
   // Load Inter font weights — chuẩn typography cho healthcare app.
   // Render null cho đến khi font ready (~200ms first launch, sau đó cached).
@@ -94,7 +96,7 @@ export default function RootLayout() {
       headerShown: true,
       title: t('legalTitle'),
       headerTitleAlign: 'center' as const,
-      headerTitleStyle: { color: colors.textPrimary, fontSize: typography.size.md, fontWeight: '700' as const },
+      headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' as const },
       headerStyle: { backgroundColor: colors.surface },
       headerShadowVisible: false,
       headerBackVisible: false,
@@ -110,7 +112,7 @@ export default function RootLayout() {
         </Pressable>
       )
     }),
-    [t, colors]
+    [t, colors, scaledTypography]
   );
 
   // Block render đến khi font load xong → tránh flash of unstyled text

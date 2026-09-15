@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { authApi } from '../features/auth/auth.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { ApiError } from '../lib/apiClient';
 import { showToast } from '../stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../styles';
 import { ScaledText as Text } from './ScaledText';
+import { ScaledTextInput as TextInput } from './ScaledTextInput';
 
 type Props = {
   visible: boolean;
@@ -72,7 +73,7 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.inputWrap}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { fontSize: 18 }]}
           value={value}
           onChangeText={(v) => { onChange(v); setError(''); }}
           placeholder={t('passwordPlaceholder')}

@@ -60,7 +60,8 @@ export const TextInput = ({ label, error, style, leftIcon, rightElement, onFocus
       <View style={[styles.wrapper, { borderColor, backgroundColor: bgColor }, style as any]}>
         {leftIcon ? <View style={styles.iconLeft}>{leftIcon}</View> : null}
         <RNTextInput
-          style={[styles.input, { fontSize: scaledTypography.size.md }]}
+          style={[styles.input, { fontSize: scaledTypography.scaledSize.md }]}
+          allowFontScaling={false}
           placeholderTextColor={colors.textSecondary}
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); onBlur?.(e); }}

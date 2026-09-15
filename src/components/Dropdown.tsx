@@ -4,14 +4,15 @@ import {
     FlatList,
     Keyboard,
     Modal,
-    TextInput as RNTextInput,
     StyleSheet,
     TouchableOpacity,
     View
 } from 'react-native';
+import type { TextInput as RNTextInputInstance } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { ScaledText as Text } from './ScaledText';
+import { ScaledTextInput as RNTextInput } from './ScaledTextInput';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
@@ -46,7 +47,7 @@ export function Dropdown({
   const { t } = useTranslation('common');
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const searchInputRef = useRef<RNTextInput>(null);
+  const searchInputRef = useRef<RNTextInputInstance>(null);
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
@@ -255,7 +256,7 @@ export function Dropdown({
                 <Ionicons name="search" size={20} color={colors.textSecondary} />
                 <RNTextInput
                   ref={searchInputRef}
-                  style={[styles.searchInput, { fontSize: scaledTypography.size.md }]}
+                  style={[styles.searchInput, { fontSize: 18 }]}
                   placeholder={t('search')}
                   placeholderTextColor={colors.textSecondary}
                   value={searchQuery}

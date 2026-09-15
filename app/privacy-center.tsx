@@ -7,11 +7,11 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../src/components/ScaledText";
+import { ScaledTextInput as TextInput } from "../src/components/ScaledTextInput";
 import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { apiClient } from "../src/lib/apiClient";

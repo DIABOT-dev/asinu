@@ -10,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DropdownOption } from '../../src/components/Dropdown';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { showToast } from '../../src/stores/toast.store';
 import { careCircleApi, useCareCircle } from '../../src/features/care-circle';
@@ -278,7 +278,7 @@ export default function InviteScreen() {
             <View style={styles.phoneSearchRow}>
               <View style={styles.phoneInputWrap}>
                 <TextInput
-                  style={styles.comboInput}
+                  style={[styles.comboInput, { fontSize: 15 }]}
                   value={phoneQuery}
                   onChangeText={text => {
                     setPhoneQuery(text);
@@ -365,7 +365,7 @@ export default function InviteScreen() {
             </View>
             <View style={styles.comboInputRow}>
               <TextInput
-                style={styles.comboInput}
+                style={[styles.comboInput, { fontSize: 15 }]}
                 value={selectedRelationship ? selectedRelationship.label : customRelationship}
                 onChangeText={text => { setCustomRelationship(text); setSelectedRelationship(null); }}
                 placeholder={t('relPlaceholder')}
@@ -398,7 +398,7 @@ export default function InviteScreen() {
             </View>
             <View style={styles.comboInputRow}>
               <TextInput
-                style={styles.comboInput}
+                style={[styles.comboInput, { fontSize: 15 }]}
                 value={selectedRole ? selectedRole.label : customRole}
                 onChangeText={text => { setCustomRole(text); setSelectedRole(null); }}
                 placeholder={t('rolePlaceholder')}

@@ -10,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput as RNTextInput,
   View,
 } from 'react-native';
 import Animated, {
@@ -25,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
 import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
 import { Screen } from '../../src/components/Screen';
 import { LogHeroBanner } from '../../src/components/LogHeroBanner';
@@ -332,7 +332,7 @@ export default function GlucoseLogScreen() {
                       keyboardType="numeric"
                       placeholder="---"
                       placeholderTextColor={colors.border}
-                      style={[styles.bigInput, { fontSize: scaledTypography.size.xl * 2 }]}
+                      style={[styles.bigInput, { fontSize: 30 * 2 }]}
                       maxLength={5}
                       textAlign="center"
                       selectTextOnFocus

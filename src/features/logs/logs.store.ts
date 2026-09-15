@@ -74,6 +74,8 @@ export type LogEntry = {
   tags?: string[];
   notes?: string;
   recordedAt?: string;
+  status?: string;
+  health_status?: string;
 };
 
 type ErrorState = 'none' | 'remote-failed' | 'no-data';

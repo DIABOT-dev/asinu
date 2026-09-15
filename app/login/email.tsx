@@ -1,29 +1,41 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Path, Svg } from 'react-native-svg';
-
-import { Image, ImageBackground } from 'react-native';
+import { Circle, G, Path, Rect, Svg } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
-  FadeIn, FadeInDown, FadeInRight, FadeInUp,
-  useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, Easing,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScaledText as Text } from '../../src/components/ScaledText';
+import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
+import { SocialProvider } from '../../src/features/auth/auth.service';
+import { useAuthStore } from '../../src/features/auth/auth.store';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { colors, radius, spacing } from '../../src/styles';
+import { LanguageToggle } from '../../src/components/LanguageToggle';
+import { showToast, setPendingToast, useToastStore } from '../../src/stores/toast.store';
+import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { MedicalAuthBackdrop } from '../../src/components/MedicalAuthBackdrop';
 
 const appLogo = require('../../assets/icon.png');
-const loginBackground = require('../../assets/images/login/login_background.png');
 
-function GoogleMark({ size = 22 }: { size?: number }) {
+function GoogleMark({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Google">
       <Path fill="#4285F4" d="M21.35 12.27c0-.79-.07-1.55-.22-2.27H12v4.3h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.69 2.91-4.18 2.91-7.42Z" />
@@ -33,61 +45,12 @@ function GoogleMark({ size = 22 }: { size?: number }) {
     </Svg>
   );
 }
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScaledText as Text } from '../../src/components/ScaledText';
-import { TextInput } from '../../src/components/TextInput';
-import { SocialProvider } from '../../src/features/auth/auth.service';
-import { useAuthStore } from '../../src/features/auth/auth.store';
-import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, radius, spacing } from '../../src/styles';
-import { LanguageToggle } from '../../src/components/LanguageToggle';
-import { showToast, setPendingToast, useToastStore } from '../../src/stores/toast.store';
-import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
-import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 const SOCIAL_PROVIDERS_BY_PLATFORM: Record<string, SocialProvider[]> = {
-  // Keep the iOS review path on native providers that are stable in the
-  // current build. Facebook/Zalo native SDKs can terminate the process on
-  // iOS before JavaScript receives an error, so they must not be exposed
-  // until both paths are verified on a real iPhone and iPad build.
   ios: ['google', 'apple'],
   android: ['google', 'zalo'],
-  default: ['google'],
+  default: ['google', 'apple'],
 };
-
-// Floating decorative orbs
-function FloatingOrbs() {
-  const y1 = useSharedValue(0);
-  const y2 = useSharedValue(0);
-  const y3 = useSharedValue(0);
-
-  React.useEffect(() => {
-    y1.value = withRepeat(withSequence(
-      withTiming(-15, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
-      withTiming(15, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
-    ), -1, true);
-    y2.value = withRepeat(withSequence(
-      withTiming(12, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
-      withTiming(-12, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
-    ), -1, true);
-    y3.value = withRepeat(withSequence(
-      withTiming(-10, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
-      withTiming(10, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
-    ), -1, true);
-  }, []);
-
-  const s1 = useAnimatedStyle(() => ({ transform: [{ translateY: y1.value }] }));
-  const s2 = useAnimatedStyle(() => ({ transform: [{ translateY: y2.value }] }));
-  const s3 = useAnimatedStyle(() => ({ transform: [{ translateY: y3.value }] }));
-
-  return (
-    <>
-      <Animated.View style={[{ position: 'absolute', top: '8%', right: -30, width: 120, height: 120, borderRadius: 60, backgroundColor: colors.primary + '12' }, s1]} />
-      <Animated.View style={[{ position: 'absolute', top: '35%', left: -40, width: 100, height: 100, borderRadius: 50, backgroundColor: colors.emerald + '10' }, s2]} />
-      <Animated.View style={[{ position: 'absolute', bottom: '15%', right: -20, width: 80, height: 80, borderRadius: 40, backgroundColor: colors.premium + '10' }, s3]} />
-    </>
-  );
-}
 
 export default function LoginEmailScreen() {
   const flushPending = useToastStore((s) => s.flushPending);
@@ -113,13 +76,11 @@ export default function LoginEmailScreen() {
     if (profile?.onboardingCompleted === true) {
       router.replace('/(tabs)/home');
     } else {
-      // Never treat a missing or incomplete profile as onboarding-complete.
-      // This prevents a new social account from bypassing setup when the
-      // lightweight profile request has not returned all fields yet.
       router.replace('/onboarding');
     }
   };
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const { t } = useTranslation('auth');
   const { t: tc } = useTranslation('common');
   const { t: ts } = useTranslation('settings');
@@ -226,264 +187,270 @@ export default function LoginEmailScreen() {
 
   return (
     <>
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View pointerEvents="none" style={styles.backdrop}>
-        <ImageBackground
-          source={loginBackground}
-          resizeMode="cover"
-          style={StyleSheet.absoluteFillObject}
-          imageStyle={styles.backdropImage}
-        />
-        <View style={styles.backdropWash} />
-      </View>
-
-      {/* Font size modal */}
-      {showFontModal && (
-        <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
-          <Pressable style={styles.fontModalCard} onPress={() => {}}>
-            <Text style={styles.fontModalTitle}>{ts('fontSize')}</Text>
-            <View style={styles.fontSizeRow}>
-              {FONT_SIZE_OPTIONS.map(opt => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => { setScale(opt.value); setShowFontModal(false); }}
-                  style={[styles.fontSizeBtn, scale === opt.value && styles.fontSizeBtnActive]}
-                >
-                  <MaterialCommunityIcons
-                    name="format-size"
-                    size={opt.iconSize}
-                    color={scale === opt.value ? '#fff' : colors.primary}
-                    style={{ width: 28, textAlign: 'center' }}
-                  />
-                  <Text style={[styles.fontSizeBtnText, scale === opt.value && styles.fontSizeBtnTextActive]}>
-                    {getFontSizeLabel(opt.value)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.fontSizePreview}>{ts('fontPreview')}</Text>
-          </Pressable>
-        </Pressable>
-      )}
-
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + 24 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Top bar */}
-        <Animated.View entering={FadeIn.duration(400)} style={styles.topBarRow}>
-          <Pressable style={styles.fontSizeTopBtn} onPress={() => setShowFontModal(true)}>
-            <MaterialCommunityIcons name="format-size" size={16} color={colors.primary} />
-            <Text style={styles.fontSizeTopLabel}>{getFontSizeLabel(scale)}</Text>
-          </Pressable>
-          <LanguageToggle />
-        </Animated.View>
+        <View style={{ flex: 1, backgroundColor: isDark ? '#0A1A2F' : '#FAFCFE' }}>
+          <MedicalAuthBackdrop width={width} height={height} isDark={isDark} />
 
-        {/* Logo + Title */}
-        <View style={styles.heroSection}>
-          <View style={styles.logoWrap}>
-            <Image source={appLogo} style={styles.logo} resizeMode="cover" />
-          </View>
-          <Animated.View entering={FadeIn.delay(500).duration(400)} style={{ alignSelf: 'stretch' }}>
-            <Text style={styles.title}>{t('welcomeTitle')}</Text>
-          </Animated.View>
-          <Animated.View entering={FadeIn.delay(600).duration(400)} style={{ alignSelf: 'stretch' }}>
-            <Text style={styles.subtitle}>{t('welcomeSubtitle')}</Text>
-          </Animated.View>
-        </View>
-
-        {/* Form Card */}
-        <Animated.View entering={FadeInDown.delay(250).duration(500)}>
-          <View style={styles.formCard}>
-            {/* Email/Phone Input */}
-            <View style={styles.inputGroup}>
-              <TextInput
-                value={identifier}
-                onChangeText={(text) => {
-                  setIdentifier(text);
-                  setIdentifierError(undefined);
-                  useAuthStore.setState({ error: undefined });
-                }}
-                onBlur={handleIdentifierBlur}
-                placeholder={t('emailOrPhone')}
-                keyboardType="default"
-                autoCapitalize="none"
-                style={styles.inputRounded}
-                leftIcon={
-                  <View style={styles.inputIconWrap}>
-                    <Ionicons name="mail-outline" size={20} color={colors.primary} />
-                  </View>
-                }
-              />
-              {visibleIdentifierError && (
-                <View style={styles.fieldErrorRow}>
-                  <Ionicons name="alert-circle" size={14} color={colors.danger} />
-                  <Text style={styles.fieldError}>{visibleIdentifierError}</Text>
+          {/* Font size modal */}
+          {showFontModal && (
+            <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
+              <Pressable style={styles.fontModalCard} onPress={() => {}}>
+                <Text style={styles.fontModalTitle}>{ts('fontSize')}</Text>
+                <View style={styles.fontSizeRow}>
+                  {FONT_SIZE_OPTIONS.map((opt) => (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => { setScale(opt.value); setShowFontModal(false); }}
+                      style={[styles.fontSizeBtn, scale === opt.value && styles.fontSizeBtnActive]}
+                    >
+                      <MaterialCommunityIcons
+                        name="format-size"
+                        size={opt.iconSize}
+                        color={scale === opt.value ? '#fff' : '#20BCB4'}
+                        style={{ width: 28, textAlign: 'center' }}
+                      />
+                      <Text style={[styles.fontSizeBtnText, scale === opt.value && styles.fontSizeBtnTextActive]}>
+                        {getFontSizeLabel(opt.value)}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
-              )}
+                <Text style={styles.fontSizePreview}>{ts('fontPreview')}</Text>
+              </Pressable>
+            </Pressable>
+          )}
+
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingTop: insets.top + spacing.sm,
+                paddingBottom: Math.max(insets.bottom, 24) + 16,
+              },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Bar: Pill Font Size Button [Tt Nhỏ] & Pill Language Toggle [🇻🇳 VI | 🇬🇧 EN] */}
+            <Animated.View entering={FadeIn.duration(400)} style={styles.topBarRow}>
+              <Pressable
+                style={styles.fontSizeTopBtn}
+                onPress={() => setShowFontModal(true)}
+                accessibilityRole="button"
+                accessibilityLabel={ts('fontSize')}
+              >
+                <Text style={styles.fontSizeTt}>Tt</Text>
+                <Text style={styles.fontSizeTopLabel}>{getFontSizeLabel(scale)}</Text>
+              </Pressable>
+              <LanguageToggle />
+            </Animated.View>
+
+            {/* Logo + Title + Subtitle */}
+            <View style={styles.heroSection}>
+              <Animated.View entering={FadeInDown.duration(500)} style={styles.logoWrap}>
+                <Image source={appLogo} style={styles.logo} resizeMode="cover" />
+              </Animated.View>
+              <Animated.View entering={FadeIn.delay(200).duration(400)} style={{ alignSelf: 'stretch' }}>
+                <Text style={styles.title}>{t('welcomeTitle')}</Text>
+              </Animated.View>
+              <Animated.View entering={FadeIn.delay(300).duration(400)} style={{ alignSelf: 'stretch' }}>
+                <Text style={styles.subtitle}>{t('welcomeSubtitle')}</Text>
+              </Animated.View>
             </View>
 
-            {/* Password Input */}
-            <View style={styles.inputGroup}>
-              <TextInput
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  useAuthStore.setState({ error: undefined });
-                }}
-                placeholder={t('password')}
-                secureTextEntry={!showPassword}
-                style={styles.inputRounded}
-                leftIcon={
-                  <View style={styles.inputIconWrap}>
-                    <Ionicons name="lock-closed-outline" size={18} color={colors.primary} />
-                  </View>
-                }
-                rightElement={
-                  <Pressable
-                    onPress={() => setShowPassword(!showPassword)}
-                    hitSlop={12}
-                    style={styles.eyeBtn}
-                  >
-                    <Ionicons
-                      name={showPassword ? 'eye' : 'eye-off'}
-                      size={20}
-                      color={colors.textSecondary}
+            {/* Main Form Card */}
+            <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+              <View style={styles.formCard}>
+                {/* Email / Phone Input */}
+                <View style={styles.inputGroup}>
+                  <View style={[styles.inputBox, visibleIdentifierError ? styles.inputBoxError : null]}>
+                    <Ionicons name="mail-outline" size={20} color="#1AB6AE" style={styles.inputLeftIcon} />
+                    <RNTextInput
+                      value={identifier}
+                      onChangeText={(text) => {
+                        setIdentifier(text);
+                        setIdentifierError(undefined);
+                        useAuthStore.setState({ error: undefined });
+                      }}
+                      onBlur={handleIdentifierBlur}
+                      placeholder={t('emailOrPhone')}
+                      placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                      keyboardType="default"
+                      autoCapitalize="none"
+                      style={styles.textInputField}
                     />
-                  </Pressable>
-                }
-              />
-            </View>
-
-            <Pressable
-              onPress={() => showToast(t('forgotPasswordHelp'), 'info')}
-              style={styles.forgotButton}
-            >
-              <Text style={styles.forgotPassword}>{t('forgotPassword')}</Text>
-            </Pressable>
-
-            {/* Error */}
-            {inlineLoginError ? (
-              <View style={styles.errorRow}>
-                <Ionicons name="warning" size={16} color={colors.danger} />
-                <Text style={styles.errorText}>{inlineLoginError}</Text>
-              </View>
-            ) : null}
-
-            {/* Login Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.loginBtn,
-                !canLogin && styles.loginBtnDisabled,
-                pressed && canLogin && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}
-              onPress={handleLogin}
-            >
-              <View style={styles.loginBtnGradient}>
-                {loginButtonLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="login" size={21} color="#FFFFFF" />
-                    <Text style={styles.loginBtnText}>
-                      {loginButtonLoading ? tc('processing') : t('login')}
-                    </Text>
-                  </>
-                )}
-              </View>
-            </Pressable>
-          </View>
-        </Animated.View>
-
-        {/* Divider */}
-        <Animated.View entering={FadeIn.delay(400).duration(400)} style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>{t('orContinueWith')}</Text>
-          <View style={styles.dividerLine} />
-        </Animated.View>
-
-        {/* Social Login */}
-        <Animated.View entering={FadeInUp.delay(500).duration(500)} style={styles.socialGroup}>
-          {(SOCIAL_PROVIDERS_BY_PLATFORM[Platform.OS] ?? SOCIAL_PROVIDERS_BY_PLATFORM.default).map((provider, idx) => {
-            const isButtonLoading = isSubmitting && pendingAction === provider;
-            const label =
-              provider === 'google' ? t('continueWithGoogle') :
-              provider === 'facebook' ? t('continueWithFacebook') :
-              provider === 'zalo' ? t('continueWithZalo') :
-              t('continueWithApple');
-
-            const meta = {
-              google: { icon: 'google', color: '#EA4335', bg: '#fef2f2' },
-              facebook: { icon: 'facebook', color: '#1877F2', bg: '#eff6ff' },
-              zalo: { icon: null, color: '#0068FF', bg: '#eff6ff' },
-              apple: { icon: 'apple', color: '#000', bg: '#f5f5f5' },
-            }[provider];
-
-            return (
-              <Animated.View key={provider} entering={FadeInRight.delay(550 + idx * 80).duration(400).springify()}>
-                <Pressable
-                  onPress={() => handleSocialLogin(provider)}
-                  disabled={isSubmitting}
-                  style={({ pressed }) => [
-                    styles.socialButton,
-                    pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-                    isSubmitting && { opacity: 0.5 },
-                  ]}
-                >
-                  {!isButtonLoading && (
-                    <View style={styles.socialIconCircle}>
-                      {provider === 'google' ? (
-                        <GoogleMark />
-                      ) : provider === 'zalo' ? (
-                        <Image source={require('../../src/assets/zalo.png')} style={styles.zaloIcon} resizeMode="contain" />
-                      ) : (
-                        <FontAwesome5 name={meta.icon} size={18} color={meta.color} brand={provider !== 'apple'} />
-                      )}
+                  </View>
+                  {visibleIdentifierError && (
+                    <View style={styles.fieldErrorRow}>
+                      <Ionicons name="alert-circle" size={14} color={colors.danger} />
+                      <Text style={styles.fieldError}>{visibleIdentifierError}</Text>
                     </View>
                   )}
-                  <Text style={styles.socialButtonText}>
-                    {isButtonLoading ? tc('processing') : label}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary + '66'} />
+                </View>
+
+                {/* Password Input */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.inputBox}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#1AB6AE" style={styles.inputLeftIcon} />
+                    <RNTextInput
+                      value={password}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        useAuthStore.setState({ error: undefined });
+                      }}
+                      placeholder={t('password')}
+                      placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                      secureTextEntry={!showPassword}
+                      style={styles.textInputField}
+                    />
+                    <Pressable
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={12}
+                      style={styles.eyeBtn}
+                    >
+                      <Ionicons
+                        name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                        size={20}
+                        color={isDark ? '#64748B' : '#94A3B8'}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Forgot Password */}
+                <Pressable
+                  onPress={() => showToast(t('forgotPasswordHelp'), 'info')}
+                  style={styles.forgotButton}
+                >
+                  <Text style={styles.forgotPassword}>{t('forgotPassword')}</Text>
                 </Pressable>
-              </Animated.View>
-            );
-          })}
-        </Animated.View>
 
-        {/* Legal */}
-        <Animated.View entering={FadeIn.delay(600).duration(400)} style={styles.legal}>
-          <View style={styles.legalHelperRow}>
-            <Ionicons name="shield-checkmark-outline" size={18} color={colors.textSecondary} />
-            <Text style={styles.helper}>{t('agreeTerms')}</Text>
-          </View>
-          <View style={styles.linkRow}>
-            <Pressable onPress={() => openLegal('terms')}>
-              <Text style={styles.link}>{t('termsOfUse')}</Text>
-            </Pressable>
-            <Text style={styles.separator}>·</Text>
-            <Pressable onPress={() => openLegal('privacy')}>
-              <Text style={styles.link}>{t('privacyPolicy')}</Text>
-            </Pressable>
-          </View>
-        </Animated.View>
+                {/* Inline Error */}
+                {inlineLoginError ? (
+                  <View style={styles.errorRow}>
+                    <Ionicons name="warning" size={16} color={colors.danger} />
+                    <Text style={styles.errorText}>{inlineLoginError}</Text>
+                  </View>
+                ) : null}
 
-        {/* Register */}
-        <Animated.View entering={FadeInUp.delay(700).duration(400)} style={styles.registerPrompt}>
-          <Text style={styles.registerText}>{t('noAccount')}</Text>
-          <Pressable onPress={() => router.replace('/register')}>
-            <Text style={styles.registerLink}> {t('registerNow')}</Text>
-          </Pressable>
-        </Animated.View>
+                {/* Login Button with Vibrant Turquoise-Mint Gradient and Pill Corners */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.loginBtn,
+                    !canLogin && styles.loginBtnDisabled,
+                    pressed && canLogin && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}
+                  onPress={handleLogin}
+                  disabled={!canLogin || loginButtonLoading}
+                >
+                  <LinearGradient
+                    colors={['#24C7BF', '#1BB5AD']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.loginBtnGradient}
+                  >
+                    {loginButtonLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="log-in-outline" size={22} color="#FFFFFF" />
+                        <Text style={styles.loginBtnText}>
+                          {loginButtonLoading ? tc('processing') : t('login')}
+                        </Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </Animated.View>
 
-      </ScrollView>
-    </View>
-    </KeyboardAvoidingView>
+            {/* Divider: Hoặc đăng nhập bằng */}
+            <Animated.View entering={FadeIn.delay(350).duration(400)} style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>{t('orContinueWith')}</Text>
+              <View style={styles.dividerLine} />
+            </Animated.View>
+
+            {/* Social Login: 2 Side-by-Side Cards (Google & Apple / Zalo) */}
+            <Animated.View entering={FadeInUp.delay(450).duration(500)} style={styles.socialRow}>
+              {(SOCIAL_PROVIDERS_BY_PLATFORM[Platform.OS] ?? SOCIAL_PROVIDERS_BY_PLATFORM.default)
+                .slice(0, 2)
+                .map((provider) => {
+                  const isButtonLoading = isSubmitting && pendingAction === provider;
+                  const label =
+                    provider === 'google' ? t('continueWithGoogle') :
+                    provider === 'apple' ? t('continueWithApple') :
+                    provider === 'zalo' ? t('continueWithZalo') :
+                    t('continueWithFacebook');
+
+                  return (
+                    <Pressable
+                      key={provider}
+                      onPress={() => handleSocialLogin(provider)}
+                      disabled={isSubmitting}
+                      style={({ pressed }) => [
+                        styles.socialCard,
+                        pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                        isSubmitting && { opacity: 0.5 },
+                      ]}
+                    >
+                      {isButtonLoading ? (
+                        <ActivityIndicator size="small" color="#20BCB4" />
+                      ) : (
+                        <>
+                          {provider === 'google' ? (
+                            <GoogleMark size={20} />
+                          ) : provider === 'apple' ? (
+                            <FontAwesome5 name="apple" size={20} color={isDark ? '#FFFFFF' : '#000000'} />
+                          ) : provider === 'zalo' ? (
+                            <Image
+                              source={require('../../src/assets/zalo.png')}
+                              style={styles.zaloIcon}
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <FontAwesome5 name="facebook" size={20} color="#1877F2" />
+                          )}
+                          <Text style={styles.socialCardText} numberOfLines={1}>
+                            {label}
+                          </Text>
+                        </>
+                      )}
+                    </Pressable>
+                  );
+                })}
+            </Animated.View>
+
+            {/* Legal Links */}
+            <Animated.View entering={FadeIn.delay(550).duration(400)} style={styles.legal}>
+              <View style={styles.legalHelperRow}>
+                <Ionicons name="shield-checkmark-outline" size={18} color="#1AB6AE" />
+                <Text style={styles.legalHelperText}>{t('agreeTerms')}</Text>
+              </View>
+              <View style={styles.legalLinksRow}>
+                <Pressable onPress={() => openLegal('terms')}>
+                  <Text style={styles.legalLink}>{t('termsOfUse')}</Text>
+                </Pressable>
+                <Text style={styles.legalDot}>•</Text>
+                <Pressable onPress={() => openLegal('privacy')}>
+                  <Text style={styles.legalLink}>{t('privacyPolicy')}</Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+
+            {/* Register Prompt */}
+            <Animated.View entering={FadeInUp.delay(650).duration(400)} style={styles.registerPrompt}>
+              <Text style={styles.registerText}>{t('noAccount')}</Text>
+              <Pressable onPress={() => router.replace('/register')}>
+                <Text style={styles.registerLink}>{t('registerNow')}</Text>
+              </Pressable>
+            </Animated.View>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </>
   );
 }
@@ -491,24 +458,11 @@ export default function LoginEmailScreen() {
 function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
   return StyleSheet.create({
     scrollContent: {
-      paddingHorizontal: spacing.xl,
+      paddingHorizontal: spacing.lg,
       gap: spacing.lg,
     },
 
-    // Keep the illustration behind the scroll content so it never changes layout height.
-    backdrop: {
-      ...StyleSheet.absoluteFillObject,
-      overflow: 'hidden',
-    },
-    backdropImage: {
-      opacity: isDark ? 0.12 : 0.48,
-    },
-    backdropWash: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: isDark ? `${colors.background}d9` : `${colors.background}28`,
-    },
-
-    // ── Top bar ──
+    // ── Top Bar ──
     topBarRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -517,21 +471,32 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     fontSizeTopBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
+      gap: 6,
+      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+      borderRadius: 20,
       borderWidth: 1.5,
-      borderColor: colors.border,
-      paddingHorizontal: spacing.md,
-      height: 36,
+      borderColor: isDark ? '#334155' : '#E2EEF5',
+      paddingHorizontal: 14,
+      height: 38,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    fontSizeTt: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: '#20BCB4',
+      letterSpacing: -0.5,
     },
     fontSizeTopLabel: {
       fontSize: 13,
       fontWeight: '700',
-      color: colors.primary,
+      color: '#20BCB4',
     },
 
-    // ── Font modal ──
+    // ── Font Modal ──
     fontModalOverlay: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'rgba(0,0,0,0.45)',
@@ -540,15 +505,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       zIndex: 100,
     },
     fontModalCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
+      backgroundColor: isDark ? '#1E293B' : colors.surface,
+      borderRadius: 22,
       padding: spacing.xl,
       width: '85%',
+      borderWidth: 1,
+      borderColor: isDark ? '#334155' : colors.border,
     },
     fontModalTitle: {
       fontSize: typography.size.lg,
       fontWeight: '700',
-      color: colors.textPrimary,
+      color: isDark ? '#F1F5F9' : colors.textPrimary,
       marginBottom: spacing.lg,
       textAlign: 'center',
     },
@@ -566,106 +533,120 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       paddingHorizontal: spacing.lg,
       borderRadius: 14,
       borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.background,
+      borderColor: isDark ? '#334155' : colors.border,
+      backgroundColor: isDark ? '#0F172A' : colors.background,
       gap: spacing.sm,
     },
     fontSizeBtnActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+      backgroundColor: '#20BCB4',
+      borderColor: '#20BCB4',
     },
     fontSizeBtnText: {
       fontSize: typography.size.xs,
       fontWeight: '600',
-      color: colors.textSecondary,
+      color: isDark ? '#94A3B8' : colors.textSecondary,
     },
     fontSizeBtnTextActive: {
       color: '#fff',
     },
     fontSizePreview: {
       fontSize: typography.size.md,
-      color: colors.textSecondary,
+      color: isDark ? '#94A3B8' : colors.textSecondary,
       textAlign: 'center',
     },
 
     // ── Hero ──
     heroSection: {
       alignItems: 'center',
-      gap: spacing.sm,
-      marginTop: spacing.md,
+      gap: spacing.xs,
+      marginTop: spacing.xs,
     },
     logoWrap: {
       width: 96,
       height: 96,
-      borderRadius: 28,
+      borderRadius: 26,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 3.5,
+      borderColor: '#FFFFFF',
       overflow: 'hidden',
-      shadowColor: colors.primary,
-      shadowOpacity: 0.2,
-      shadowRadius: 16,
+      shadowColor: '#0284C7',
+      shadowOpacity: 0.35,
+      shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },
       elevation: 8,
-      borderWidth: 1.5,
-      borderColor: colors.primary + '22',
+      marginBottom: 6,
     },
     logo: {
       width: '100%',
       height: '100%',
     },
     title: {
-      fontSize: typography.size.xl,
-      fontWeight: '700',
-      color: isDark ? colors.textPrimary : '#12335B',
+      fontSize: 27,
+      fontWeight: '800',
+      color: isDark ? '#F1F5F9' : '#0B1E48',
       textAlign: 'center',
-      marginTop: spacing.sm,
-      width: '100%',
+      letterSpacing: -0.5,
     },
     subtitle: {
-      color: colors.textSecondary,
+      color: isDark ? '#94A3B8' : '#64748B',
       textAlign: 'center',
-      fontSize: typography.size.sm,
-      lineHeight: typography.size.sm * 1.4,
-      width: '100%',
-      flexShrink: 1,
+      fontSize: 14,
+      lineHeight: 20,
       marginTop: 2,
     },
 
     // ── Form Card ──
     formCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 24,
-      padding: spacing.xl,
-      gap: spacing.md,
+      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+      borderRadius: 26,
+      paddingHorizontal: 20,
+      paddingTop: 24,
+      paddingBottom: 22,
+      gap: 16,
       borderWidth: 1.5,
-      borderColor: colors.border,
-      shadowColor: '#000',
-      shadowOpacity: 0.06,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 6 },
+      borderColor: isDark ? '#334155' : '#F1F7FB',
+      shadowColor: '#0284C7',
+      shadowOpacity: 0.07,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 8 },
       elevation: 4,
     },
     inputGroup: {
-      gap: spacing.xs,
+      gap: 4,
     },
-    inputRounded: {
-      borderRadius: radius.full,
-      minHeight: 60,
-      paddingHorizontal: spacing.lg,
-    },
-    inputIconWrap: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+    inputBox: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      height: 54,
+      borderRadius: 16,
+      backgroundColor: isDark ? '#0F172A' : '#F8FCFE',
+      borderWidth: 1.5,
+      borderColor: isDark ? '#334155' : '#E2EEF5',
+      paddingHorizontal: 16,
+    },
+    inputBoxError: {
+      borderColor: colors.danger,
+    },
+    inputLeftIcon: {
+      marginRight: 12,
+    },
+    textInputField: {
+      flex: 1,
+      fontSize: 14.5,
+      color: isDark ? '#F8FAFC' : '#0F172A',
+      height: '100%',
+      paddingVertical: 0,
     },
     eyeBtn: {
-      padding: 4,
+      padding: 6,
+      marginLeft: 4,
     },
     fieldErrorRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      marginLeft: spacing.sm,
+      marginLeft: 4,
+      marginTop: 2,
     },
     fieldError: {
       color: colors.danger,
@@ -673,21 +654,20 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     forgotButton: {
       alignSelf: 'flex-end',
-      marginTop: -spacing.xs,
-      paddingVertical: 2,
-      paddingHorizontal: spacing.xs,
+      marginTop: -4,
+      paddingVertical: 4,
     },
     forgotPassword: {
-      color: colors.primary,
-      fontSize: typography.size.sm,
-      fontWeight: '700',
+      color: '#1AB6AE',
+      fontSize: 13.5,
+      fontWeight: '600',
     },
     errorRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
       backgroundColor: colors.danger + '18',
-      borderRadius: radius.lg,
+      borderRadius: radius.md,
       padding: spacing.md,
     },
     errorText: {
@@ -698,25 +678,31 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
 
     // ── Login Button ──
     loginBtn: {
-      borderRadius: radius.full,
-      marginTop: spacing.sm,
+      borderRadius: 26,
       overflow: 'hidden',
+      marginTop: 2,
+      shadowColor: '#20BCB4',
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
     },
     loginBtnDisabled: {
       opacity: 0.55,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     loginBtnGradient: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.md + 4,
-      borderRadius: radius.full,
-      backgroundColor: colors.primary,
+      gap: 8,
+      height: 52,
+      borderRadius: 26,
     },
     loginBtnText: {
       color: '#FFFFFF',
-      fontSize: typography.size.md,
+      fontSize: 16,
       fontWeight: '700',
     },
 
@@ -724,82 +710,84 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     dividerRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.md,
+      paddingHorizontal: 4,
     },
     dividerLine: {
       flex: 1,
       height: 1,
-      backgroundColor: colors.border,
+      backgroundColor: isDark ? '#334155' : '#E2EEF5',
     },
     dividerText: {
-      color: colors.textSecondary,
-      fontSize: typography.size.xs,
+      color: isDark ? '#94A3B8' : '#64748B',
+      fontSize: 13,
       fontWeight: '500',
+      marginHorizontal: 14,
     },
 
-    // ── Social Login ──
-    socialGroup: {
-      gap: spacing.sm,
-    },
-    socialButton: {
+    // ── Social Row (2 Side-by-Side Cards) ──
+    socialRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 18,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      paddingVertical: spacing.md + 2,
-      paddingHorizontal: spacing.lg,
-      gap: spacing.md,
+      gap: 12,
     },
-    socialIconCircle: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
+    socialCard: {
+      flex: 1,
+      height: 52,
+      borderRadius: 18,
+      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+      borderWidth: 1.5,
+      borderColor: isDark ? '#334155' : '#E2EEF5',
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      paddingHorizontal: 12,
+      gap: 8,
+      shadowColor: '#000',
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 1,
+    },
+    socialCardText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: isDark ? '#F1F5F9' : '#0F172A',
+      flexShrink: 1,
     },
     zaloIcon: {
-      width: 20,
-      height: 20,
-    },
-    socialButtonText: {
-      fontSize: typography.size.sm,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      flex: 1,
+      width: 22,
+      height: 22,
     },
 
     // ── Legal ──
     legal: {
-      gap: spacing.xs,
+      gap: 4,
       alignItems: 'center',
+      marginTop: 4,
     },
     legalHelperRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.xs,
+      gap: 6,
     },
-    helper: {
-      color: colors.textSecondary,
-      fontWeight: '400',
-      fontSize: typography.size.xs,
-      textAlign: 'center',
+    legalHelperText: {
+      color: isDark ? '#94A3B8' : '#64748B',
+      fontSize: 12.5,
     },
-    linkRow: {
+    legalLinksRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
+      gap: 8,
       justifyContent: 'center',
-      flexWrap: 'wrap',
     },
-    link: {
-      color: colors.primary,
-      fontWeight: '700',
-      fontSize: typography.size.xs,
+    legalLink: {
+      color: '#1AB6AE',
+      fontWeight: '600',
+      fontSize: 12.5,
     },
-    separator: {
-      color: colors.textSecondary,
+    legalDot: {
+      color: '#1AB6AE',
+      fontSize: 12,
     },
 
     // ── Register ──
@@ -807,15 +795,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      flexWrap: 'wrap',
+      marginTop: 2,
     },
     registerText: {
-      color: colors.textSecondary,
-      fontSize: typography.size.sm,
+      color: isDark ? '#94A3B8' : '#64748B',
+      fontSize: 13.5,
     },
     registerLink: {
-      color: colors.primary,
-      fontSize: typography.size.sm,
+      color: '#20BCB4',
+      fontSize: 13.5,
       fontWeight: '700',
     },
   });

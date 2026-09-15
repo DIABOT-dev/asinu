@@ -6,11 +6,11 @@ import {
     Modal,
     Pressable,
     StyleSheet,
-    TextInput,
     View
 } from 'react-native';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { ScaledText as Text } from './ScaledText';
+import { ScaledTextInput as TextInput } from './ScaledTextInput';
 import { colors, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
@@ -210,7 +210,7 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
               {t('deleteConfirmPrompt', { word: CONFIRMATION_WORD })}
             </Text>
             <TextInput
-              style={[styles.input, { fontSize: scaledTypography.size.md }]}
+              style={[styles.input, { fontSize: 18 }]}
               value={inputValue}
               onChangeText={setInputValue}
               placeholder={t('deleteConfirmPlaceholder', { word: CONFIRMATION_WORD })}

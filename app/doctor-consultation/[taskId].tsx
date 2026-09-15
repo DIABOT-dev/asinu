@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,12 +10,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
   Linking,
   Image,
 } from "react-native";
 import { ScaledText as Text } from "../../src/components/ScaledText";
+import { ScaledTextInput as TextInput } from "../../src/components/ScaledTextInput";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { apiClient } from "../../src/lib/apiClient";
 import { env } from "../../src/lib/env";
@@ -201,7 +202,6 @@ export default function DoctorConsultationThreadScreen() {
 
   const handlePickImage = async () => {
     try {
-      const ImagePicker = await import("expo-image-picker");
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {

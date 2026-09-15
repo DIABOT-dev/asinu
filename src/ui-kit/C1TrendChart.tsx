@@ -73,7 +73,7 @@ export const C1TrendChart = ({ data, accentColor = colors.primary, height = 220,
   const screenWidth = Dimensions.get('window').width - 48; // padding container
   const chartWidth = screenWidth - CHART_PADDING.left - CHART_PADDING.right;
   // titleRowHeight tính theo font size thực tế để tránh X-axis bị cắt
-  const titleRowHeight = title ? Math.ceil(scaledTypography.size.sm * 1.6 + 10) : 0;
+  const titleRowHeight = title ? Math.ceil(scaledTypography.scaledSize.sm * 1.6 + 10) : 0;
   const svgHeight = height - titleRowHeight;
   const chartHeight = svgHeight - CHART_PADDING.top - CHART_PADDING.bottom;
 
