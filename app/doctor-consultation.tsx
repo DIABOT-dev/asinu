@@ -82,6 +82,9 @@ const createClientMessageId = () => {
 const isAttachmentMessage = (content?: string | null) =>
   typeof content === "string" && content.startsWith("[ASINU_ATTACHMENT]");
 
+const isVoiceMessage = (content?: string | null) =>
+  typeof content === "string" && content.startsWith("[ASINU_VOICE]");
+
 const specialtyLabels: Record<string, string> = {
   general: "Đa khoa",
   general_practice: "Đa khoa",
@@ -1308,7 +1311,10 @@ export default function DoctorConsultationScreen() {
                     >
                       {isAttachmentMessage(task.latest_message)
                         ? t("doctorConsultationAttachPhoto")
-                        : task.latest_message || t("doctorConsultationWaiting")}
+                        : isVoiceMessage(task.latest_message)
+                          ? t("doctorConsultationVoiceMessage")
+                          : task.latest_message ||
+                            t("doctorConsultationWaiting")}
                     </Text>
                   </View>
                   <Ionicons

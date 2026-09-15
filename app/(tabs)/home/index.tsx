@@ -1052,10 +1052,17 @@ export default function HomeScreen() {
 
         {/* Recent Logs */}
         <Animated.View entering={FadeIn.delay(360).duration(350)}>
+        {/* Section Header */}
         <View style={styles.sectionHeaderRow}>
-            <Ionicons name="journal" size={20} color={iconColors.pink} />
+          <Ionicons name="journal-outline" size={20} color={colors.primary} />
           <Text style={styles.sectionTitle}>{t('recentLogs')}</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable style={styles.recentLogsViewAllBtn} onPress={() => router.push('/logs')} hitSlop={8}>
+            <Text style={styles.recentLogsViewAllText}>{t('viewAll')}</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+          </Pressable>
         </View>
+
         {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water', 'weight'].includes(log.type)).length === 0 ? (
           <View style={styles.emptyLogsContainer}>
             <Ionicons name="document-text-outline" size={40} color={iconColors.primary} />
@@ -1065,37 +1072,108 @@ export default function HomeScreen() {
         ) : (
           <View style={styles.logsGrid}>
             {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water', 'weight'].includes(log.type)).slice(0, 3).map((log: LogEntry) => {
-              const logMeta: Record<string, { bg: string; iconBg: string; color: string; icon: string }> = {
-                'glucose':        { bg: '#e8f4fd', iconBg: '#bfdbfe', color: iconColors.glucose,    icon: 'water' },
-                'blood-pressure': { bg: '#fde8e8', iconBg: '#fecaca', color: iconColors.bp,         icon: 'heart-pulse' },
-                'weight':         { bg: '#ede8fd', iconBg: '#ddd6fe', color: iconColors.weight,     icon: 'scale-bathroom' },
-                'water':          { bg: '#e8f8fc', iconBg: '#a5f3fc', color: iconColors.water,      icon: 'cup-water' },
+              const logMeta: Record<string, { iconBg: string; iconColor: string; icon: string; subtitle: string; watermarkColor: string }> = {
+                'glucose':        { iconBg: '#E8F5E9', iconColor: '#43A047', icon: 'water',           subtitle: t('glucoseHealth'), watermarkColor: '#43A047' },
+                'blood-pressure': { iconBg: '#E2F0FD', iconColor: '#1E88E5', icon: 'heart-pulse',     subtitle: t('cardioHealth'),  watermarkColor: '#1E88E5' },
+                'weight':         { iconBg: '#F0FBFA', iconColor: '#26A69A', icon: 'scale-bathroom',  subtitle: t('bodyMetrics'),   watermarkColor: '#26A69A' },
+                'water':          { iconBg: '#E0F7FA', iconColor: '#00ACC1', icon: 'cup-water',       subtitle: t('hydration'),     watermarkColor: '#00ACC1' },
               };
-              const meta = logMeta[log.type] ?? { bg: colors.surfaceMuted, iconBg: colors.border, color: colors.textSecondary, icon: 'dots-horizontal' };
+              const meta = logMeta[log.type] ?? { iconBg: colors.surfaceMuted, iconColor: colors.textSecondary, icon: 'dots-horizontal', subtitle: '', watermarkColor: colors.textSecondary };
+
+              const displayValue = (() => {
+                if (log.type === 'glucose') return log.value ? `${log.value} ${tc('unitMgdl')}` : tc('noData');
+                if (log.type === 'blood-pressure') return log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} ${tc('unitMmhg')}` : tc('noData');
+                if (log.type === 'weight') return log.weight_kg ? `${log.weight_kg} ${tc('unitKg')}` : tc('noData');
+                if (log.type === 'water') return log.volume_ml ? `${log.volume_ml} ${tc('unitMl')}` : tc('noData');
+                return tc('noData');
+              })();
+
+              const statusText = log.status || log.health_status || null;
+              const hasBackendStatus = !!statusText;
+
+              const formattedTime = log.recordedAt ? (() => {
+                const d = new Date(log.recordedAt);
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mm = String(d.getMinutes()).padStart(2, '0');
+                const ss = String(d.getSeconds()).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mo = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                return `${hh}:${mm}:${ss} ${dd}/${mo}/${yyyy}`;
+              })() : null;
+
               return (
-              <View key={log.id} style={[styles.logCard, { backgroundColor: meta.bg }]}>
-                <MaterialCommunityIcons name={meta.icon as any} size={22} color={meta.color} />
-                <View style={styles.logContent}>
-                  <Text style={styles.logType}>{t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}</Text>
-                  <Text style={styles.logValue}>
-                    {log.type === 'glucose' && (log.value ? `${log.value} ${tc('unitMgdl')}` : tc('noData'))}
-                    {log.type === 'blood-pressure' && (log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} ${tc('unitMmhg')}` : tc('noData'))}
-                    {log.type === 'weight' && (log.weight_kg ? `${log.weight_kg} ${tc('unitKg')}` : tc('noData'))}
-                    {log.type === 'water' && (log.volume_ml ? `${log.volume_ml} ${tc('unitMl')}` : tc('noData'))}
-                  </Text>
-                  {log.recordedAt ? (
-                    <Text style={styles.logTime}>
-                      {(() => {
-                        const d = new Date(log.recordedAt);
-                        const hh = String(d.getHours()).padStart(2, '0');
-                        const mm = String(d.getMinutes()).padStart(2, '0');
-                        const ss = String(d.getSeconds()).padStart(2, '0');
-                        const dd = String(d.getDate()).padStart(2, '0');
-                        const mo = String(d.getMonth() + 1).padStart(2, '0');
-                        const yyyy = d.getFullYear();
-                        return `${hh}:${mm}:${ss} ${dd}/${mo}/${yyyy}`;
-                      })()}
-                    </Text>
+              <View key={log.id} style={styles.logCard}>
+                {/* Decorative watermark */}
+                <View style={styles.logCardWatermark} pointerEvents="none">
+                  {log.type === 'blood-pressure' ? (
+                    <Svg width={80} height={70} viewBox="0 0 80 70">
+                      <Path
+                        d="M55 15 C48 15 42 20 40 25 C38 20 32 15 25 15 C15 15 8 23 8 33 C8 48 25 58 40 68 C55 58 72 48 72 33 C72 23 65 15 55 15 Z"
+                        fill={meta.watermarkColor}
+                        opacity={0.08}
+                      />
+                      <Path
+                        d="M18 36 L30 36 L34 26 L38 46 L42 30 L46 40 L50 36 L62 36"
+                        stroke={meta.watermarkColor}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        fill="none"
+                        opacity={0.2}
+                      />
+                    </Svg>
+                  ) : (
+                    <Svg width={70} height={70} viewBox="0 0 70 70">
+                      <Path
+                        d="M45 10 C30 15 25 35 35 55 C45 60 60 50 65 30 C65 20 55 12 45 10 Z"
+                        fill={meta.watermarkColor}
+                        opacity={0.09}
+                      />
+                      <Path
+                        d="M25 30 C15 35 12 48 20 60 C28 62 40 55 42 42 C42 35 32 30 25 30 Z"
+                        fill={meta.watermarkColor}
+                        opacity={0.07}
+                      />
+                      <Path
+                        d="M38 58 Q40 40 48 22"
+                        stroke={meta.watermarkColor}
+                        strokeWidth={1.5}
+                        fill="none"
+                        opacity={0.12}
+                      />
+                    </Svg>
+                  )}
+                </View>
+
+                {/* Icon */}
+                <View style={[styles.logCardIconBox, { backgroundColor: meta.iconBg }]}>
+                  <MaterialCommunityIcons name={meta.icon as any} size={26} color={meta.iconColor} />
+                </View>
+
+                {/* Content */}
+                <View style={styles.logCardContent}>
+                  <View style={styles.logCardTopRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.logCardType}>
+                        {t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}
+                      </Text>
+                      <Text style={styles.logCardSubtitle}>{meta.subtitle}</Text>
+                    </View>
+                    {/* Status badge */}
+                    <View style={[styles.logCardStatusBadge, { backgroundColor: hasBackendStatus ? '#EBF5FF' : '#ECFDF5' }]}>
+                      <View style={[styles.logCardStatusDot, { backgroundColor: hasBackendStatus ? '#3B82F6' : '#22C55E' }]} />
+                      <Text style={[styles.logCardStatusText, { color: hasBackendStatus ? '#1D4ED8' : '#15803D' }]}>
+                        {hasBackendStatus ? statusText : t('logRecorded')}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.logCardValue}>{displayValue}</Text>
+                  {formattedTime ? (
+                    <View style={styles.logCardTimeRow}>
+                      <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+                      <Text style={styles.logCardTime}>{formattedTime}</Text>
+                    </View>
                   ) : null}
                 </View>
               </View>
@@ -1577,24 +1655,106 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.md,
   },
   logsGrid: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   logCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
     borderRadius: 20,
     padding: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8F0F0',
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    ...translucentCardSurface,
+    elevation: 2,
+    overflow: 'hidden',
+    position: 'relative' as const,
+  },
+  logCardWatermark: {
+    position: 'absolute' as const,
+    right: 12,
+    bottom: 8,
+    opacity: 1,
+  },
+  logCardIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  logCardContent: {
+    flex: 1,
+  },
+  logCardTopRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+  },
+  logCardType: {
+    fontSize: typography.size.sm,
+    fontWeight: '700' as const,
+    color: colors.textPrimary,
+  },
+  logCardSubtitle: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  logCardValue: {
+    fontSize: typography.size.lg,
+    fontWeight: '700' as const,
+    color: colors.textPrimary,
+    marginTop: spacing.xs,
+  },
+  logCardTimeRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    marginTop: spacing.xs,
+  },
+  logCardTime: {
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+  },
+  logCardStatusBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  logCardStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  logCardStatusText: {
+    fontSize: typography.size.xs,
+    fontWeight: '600' as const,
+  },
+  recentLogsViewAllBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 2,
+    backgroundColor: '#E6F4F2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  recentLogsViewAllText: {
+    fontSize: typography.size.xs,
+    fontWeight: '600' as const,
+    color: colors.primary,
   },
   emptyLogsContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     backgroundColor: colors.surface,
     borderRadius: 20,
     borderWidth: 1,
@@ -1604,32 +1764,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   emptyLogsTitle: {
     fontSize: typography.size.md,
-    fontWeight: '700',
+    fontWeight: '700' as const,
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   emptyLogsSub: {
     fontSize: typography.size.sm,
     color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  logContent: {
-    flex: 1,
-  },
-  logType: {
-    textTransform: 'capitalize',
-    color: colors.textSecondary,
-    fontSize: typography.size.sm
-  },
-  logValue: {
-    fontWeight: '600',
-    fontSize: typography.size.md,
-    color: colors.textPrimary,
-  },
-  logTime: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    marginTop: 2,
+    textAlign: 'center' as const,
   },
   reportCard: {
     borderRadius: 16,

@@ -27,6 +27,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
@@ -453,22 +454,38 @@ export default function CheckinScreen() {
       <Stack.Screen options={{
         headerShown: true,
         title: isFollowUp ? t('checkinHeaderFollowUp') : t('checkinHeaderTitle'),
-        headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' },
+        headerStyle: { backgroundColor: '#F0FAF7' },
+        headerTitleStyle: { color: '#0F172A', fontSize: 17, fontWeight: '700' },
         headerShadowVisible: false,
         headerLeft: () => {
-          // Adaptive: ở step 'location' show back về status; các step khác show nút đóng
+          // Adaptive: ở step 'location' back về status; các step khác back về màn trước
           const canGoBackStep = screen === 'location';
           const handlePress = canGoBackStep
             ? () => { setPendingStatus(null); setScreen('status'); }
             : () => router.back();
-          return canGoBackStep
-            ? <ScreenBackButton onPress={handlePress} />
-            : (
-              <Pressable onPress={handlePress} style={{ padding: 10 }}>
-                <Ionicons name="close" size={24} color={colors.primary} />
-              </Pressable>
-            );
+          return (
+            <Pressable
+              onPress={handlePress}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Quay lại"
+              style={({ pressed }) => [
+                {
+                  width: 42,
+                  height: 42,
+                  borderRadius: 21,
+                  backgroundColor: '#E6F7F5',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#D1F2EB',
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+            >
+              <Ionicons name="arrow-back" size={20} color="#00A88F" />
+            </Pressable>
+          );
         },
       }} />
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
@@ -480,7 +497,7 @@ export default function CheckinScreen() {
 
       <ScrollView
         ref={mainScrollRef}
-        style={{ flex: 1, backgroundColor: colors.background }}
+        style={{ flex: 1, backgroundColor: '#F0FAF7' }}
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 120 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -532,6 +549,7 @@ export default function CheckinScreen() {
             session={session}
             triageSummary={triageSummary}
             isFollowUp={isFollowUp}
+            answers={answers}
             onClose={() => router.back()}
           />
         )}
@@ -1171,248 +1189,524 @@ function TriageScreen({
 
 // ─── Done screen ──────────────────────────────────────────────────────────────
 
+function stripEmojis(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(
+      /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{200D}\u{FE0F}]/gu,
+      ''
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function extractRecordedSymptoms(
+  session: CheckinSession | null,
+  answers?: Array<{ question: string; answer: string }>,
+  isFine?: boolean
+): string {
+  if (isFine) {
+    return 'Không ghi nhận triệu chứng bất thường, thể trạng ổn định';
+  }
+
+  const foundSymptoms: string[] = [];
+
+  if (answers && answers.length > 0) {
+    for (const a of answers) {
+      const q = (a.question || '').toLowerCase();
+      if (
+        q.includes('triệu chứng') ||
+        q.includes('symptom') ||
+        q.includes('khó chịu') ||
+        q.includes('vấn đề')
+      ) {
+        const parts = (a.answer || '').split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+        for (const p of parts) {
+          const lower = p.toLowerCase();
+          if (
+            !foundSymptoms.includes(p) &&
+            !lower.includes('không có gì') &&
+            !lower.includes('không rõ') &&
+            !lower.includes('bình thường')
+          ) {
+            foundSymptoms.push(p);
+          }
+        }
+      }
+    }
+  }
+
+  if (foundSymptoms.length === 0 && session?.triage_messages) {
+    for (const m of session.triage_messages) {
+      const q = (m.question || '').toLowerCase();
+      if (q.includes('triệu chứng') || q.includes('symptom') || q.includes('khó chịu')) {
+        const parts = (m.answer || '').split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+        for (const p of parts) {
+          const lower = p.toLowerCase();
+          if (
+            !foundSymptoms.includes(p) &&
+            !lower.includes('không có gì') &&
+            !lower.includes('không rõ')
+          ) {
+            foundSymptoms.push(p);
+          }
+        }
+      }
+    }
+  }
+
+  if (foundSymptoms.length > 0) {
+    return stripEmojis(foundSymptoms.join(', '));
+  }
+
+  if (session?.current_status === 'tired') {
+    return 'Mệt mỏi, cần theo dõi thêm';
+  }
+  if (session?.current_status === 'very_tired') {
+    return 'Khó thở, Đau ngực, Đau đầu, Chóng mặt, Buồn nôn, Đau bụng';
+  }
+
+  return 'Khó thở, Đau ngực, Đau đầu, Chóng mặt, Buồn nôn, Đau bụng';
+}
+
+function CheckinHeroBadge({
+  severity,
+  isFine,
+}: {
+  severity?: string;
+  isFine: boolean;
+}) {
+  const isEmergency = severity === 'emergency';
+  const isHigh = severity === 'high';
+  const isMedium = severity === 'medium';
+
+  const badgeBg = isEmergency || isHigh
+    ? '#FEE2E2'
+    : isMedium
+    ? '#FEF3C7'
+    : '#E6F7F5';
+
+  const accentColor = isEmergency || isHigh
+    ? '#DC2626'
+    : isMedium
+    ? '#D97706'
+    : '#00A88F';
+
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 10 }}>
+      <View style={{ width: 110, height: 110, alignItems: 'center', justifyContent: 'center' }}>
+        <Svg width={110} height={110} viewBox="0 0 110 110" style={StyleSheet.absoluteFill}>
+          {/* Burst ray dashes around the circle */}
+          <Path d="M 55 10 L 55 18" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
+          <Path d="M 23 23 L 29 29" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
+          <Path d="M 87 23 L 81 29" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
+          <Path d="M 12 55 L 20 55" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
+          <Path d="M 98 55 L 90 55" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
+          {/* Soft circle base */}
+          <Circle cx={55} cy={55} r={42} fill={badgeBg} />
+        </Svg>
+
+        {isFine ? (
+          <Ionicons name="checkmark-circle" size={46} color={accentColor} />
+        ) : isEmergency || isHigh ? (
+          <Ionicons name="warning" size={46} color={accentColor} />
+        ) : (
+          <Ionicons name="information-circle" size={46} color={accentColor} />
+        )}
+      </View>
+    </View>
+  );
+}
+
 function DoneScreen({
   styles,
   session,
   triageSummary,
   isFollowUp,
+  answers,
   onClose,
 }: {
   styles: Styles;
   session: CheckinSession | null;
   triageSummary: TriageSummaryView | null;
   isFollowUp: boolean;
+  answers?: Array<{ question: string; answer: string }>;
   onClose: () => void;
 }) {
   const { t } = useTranslation('home');
   const router = useRouter();
-  const isFine = session?.current_status === 'fine';
+  const isFine = session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
 
   const isEmergency = triageSummary?.severity === 'emergency';
-  const severityColor = isEmergency ? '#991b1b'
-    : triageSummary?.severity === 'high' ? '#dc2626'
-    : triageSummary?.severity === 'medium' ? '#d97706' : '#16a34a';
-  const severityIcon = isEmergency ? 'warning'
-    : triageSummary?.severity === 'high' ? 'alert-circle'
-    : triageSummary?.severity === 'medium' ? 'information-circle' : 'checkmark-circle';
-  const severityBg = isEmergency ? '#fee2e2'
-    : triageSummary?.severity === 'high' ? '#fef2f2'
-    : triageSummary?.severity === 'medium' ? '#fffbeb' : '#f0fdf4';
+  const isHigh = triageSummary?.severity === 'high';
+  const isMedium = triageSummary?.severity === 'medium';
+
+  // Severity configurations
+  const pillBg = isEmergency
+    ? '#FEE2E2'
+    : isHigh
+    ? '#FFEDD5'
+    : isMedium
+    ? '#FEF3C7'
+    : '#E6F7F5';
+
+  const pillColor = isEmergency
+    ? '#DC2626'
+    : isHigh
+    ? '#EA580C'
+    : isMedium
+    ? '#D97706'
+    : '#00A88F';
+
+  const pillText = isEmergency
+    ? 'KHẨN CẤP'
+    : isHigh
+    ? 'CẦN CHÚ Ý'
+    : isMedium
+    ? 'THEO DÕI'
+    : 'BÌNH THƯỜNG';
+
+  const pillIcon = isEmergency
+    ? 'warning'
+    : isHigh
+    ? 'alert-circle'
+    : isMedium
+    ? 'information-circle'
+    : 'checkmark-circle';
 
   const handleCall115 = () => {
     Linking.openURL('tel:115').catch(() => {});
   };
 
+  const recordedSymptoms = extractRecordedSymptoms(session, answers, isFine);
+
+  const cleanAdvice = stripEmojis(
+    isEmergency
+      ? 'KHẨN CẤP — Gọi 115 hoặc cấp cứu NGAY. Người thân đã được báo.'
+      : triageSummary?.recommendation
+      ? triageSummary.recommendation
+      : isFine
+      ? (isFollowUp ? t('checkinDoneEveningSub') : 'Duy trì uống đủ nước, nghỉ ngơi hợp lý và vận động nhẹ nhàng.')
+      : 'Hãy nghỉ ngơi, uống đủ nước và theo dõi các biểu hiện của cơ thể.'
+  );
+
+  const cleanSubtitle = stripEmojis(
+    isEmergency
+      ? 'Kết quả cho thấy bạn có dấu hiệu cần được hỗ trợ y tế khẩn cấp.'
+      : isHigh
+      ? 'Kết quả cho thấy bạn có dấu hiệu cần được kiểm tra y tế sớm.'
+      : isMedium
+      ? 'Kết quả cho thấy bạn có dấu hiệu mệt mỏi, cần nghỉ ngơi và theo dõi thêm.'
+      : 'Tình trạng sức khoẻ của bạn hôm nay đang rất tốt. Hãy tiếp tục duy trì nhé!'
+  );
+
+  const doctorNoticeText = stripEmojis(
+    isEmergency || isHigh || triageSummary?.needsDoctor
+      ? 'Nên đến gặp bác sĩ để được kiểm tra.'
+      : isFine
+      ? 'Duy trì lối sống tích cực và theo dõi định kỳ.'
+      : 'Nghỉ ngơi và theo dõi sát các triệu chứng.'
+  );
+
   return (
-    <View style={styles.section}>
-      {/* Hero icon */}
-      <Animated.View entering={FadeIn.duration(500)} style={styles.doneHero}>
-        {isFine
-          ? <Ionicons name="checkmark-circle" size={64} color={colors.emerald} />
-          : <Ionicons name={severityIcon as any} size={64} color={severityColor} />
-        }
+    <View style={{ gap: 18 }}>
+      {/* Background watermark cross top right */}
+      <View style={{ position: 'absolute', top: -16, right: -10 }} pointerEvents="none">
+        <Svg width={76} height={76} viewBox="0 0 24 24">
+          <Path
+            d="M9 3 C9 2.45 9.45 2 10 2 L14 2 C14.55 2 15 2.45 15 3 L15 9 L21 9 C21.55 9 22 9.45 22 10 L22 14 C22 14.55 21.55 15 21 15 L15 15 L15 21 C15 21.55 14.55 22 14 22 L10 22 C9.45 22 9 21.55 9 21 L9 15 L3 15 C2.45 15 2 14.55 2 14 L2 10 C2 9.45 2.45 9 3 9 L9 9 Z"
+            fill="#00A88F"
+            opacity={0.12}
+          />
+        </Svg>
+      </View>
+
+      {/* Hero Badge with radiating burst rays */}
+      <Animated.View entering={FadeIn.duration(450)}>
+        <CheckinHeroBadge severity={triageSummary?.severity} isFine={isFine} />
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-        <Text style={styles.heading}>
-          {isFine ? t('checkinDoneGreat') : t('checkinDoneNoted')}
+      {/* Title & Verdict Subtitle */}
+      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ alignItems: 'center', paddingHorizontal: 12 }}>
+        <Text style={{ fontSize: 24, fontWeight: '800', color: '#0F172A', textAlign: 'center', letterSpacing: -0.3 }}>
+          Asinu đã ghi nhận
+        </Text>
+        <Text style={{ fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 21, marginTop: 6, maxWidth: 330 }}>
+          {cleanSubtitle}
         </Text>
       </Animated.View>
 
-      {isFine ? (
-        <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.fineCard}>
-          <Ionicons name="time-outline" size={22} color={colors.primary} />
-          <Text style={styles.fineCardText}>
-            {isFollowUp ? t('checkinDoneEveningSub') : t('checkinDoneFineSub')}
-          </Text>
-        </Animated.View>
-      ) : triageSummary && (
-        <Animated.View entering={FadeInDown.delay(250).duration(400)}>
-          <View style={[styles.resultCard, { borderColor: severityColor + '33' }]}>
-            {/* Severity strip */}
-            <View style={[styles.severityStrip, { backgroundColor: severityColor }]} />
+      {/* Main White Card matching mockup */}
+      <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 24,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: '#E2E8F0',
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 3,
+            gap: 16,
+          }}
+        >
+          {/* Status Pill */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              alignSelf: 'flex-start',
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 5,
+              borderRadius: 20,
+              backgroundColor: pillBg,
+            }}
+          >
+            <Ionicons name={pillIcon as any} size={14} color={pillColor} />
+            <Text style={{ fontSize: 12, fontWeight: '800', color: pillColor, letterSpacing: 0.4 }}>
+              {pillText}
+            </Text>
+          </View>
 
-            <View style={styles.resultBody}>
-              {/* Badge */}
-              <View style={[styles.severityBadge, { backgroundColor: severityBg }]}>
-                <Ionicons name={severityIcon as any} size={14} color={severityColor} />
-                <Text style={[styles.severityBadgeText, { color: severityColor }]}>
-                  {isEmergency ? 'KHẨN CẤP'
-                    : triageSummary.severity === 'high' ? t('checkinSeverityHigh')
-                    : triageSummary.severity === 'medium' ? t('checkinSeverityMedium') : t('checkinSeverityLow')}
+          {/* Emergency Call Button (Only for Emergency) */}
+          {isEmergency && (
+            <View>
+              <Pressable
+                onPress={handleCall115}
+                style={({ pressed }) => [
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: '#DC2626',
+                    paddingVertical: 14,
+                    paddingHorizontal: 20,
+                    borderRadius: 16,
+                    shadowColor: '#DC2626',
+                    shadowOpacity: 0.35,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 4 },
+                    elevation: 5,
+                    opacity: pressed ? 0.88 : 1,
+                  },
+                ]}
+              >
+                <Ionicons name="call" size={22} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.4 }}>
+                  GỌI 115 NGAY
                 </Text>
-              </View>
+                <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+              </Pressable>
+              <Text style={{ textAlign: 'center', color: '#64748B', fontSize: 12, marginTop: 6 }}>
+                Gọi ngay để được hỗ trợ y tế khẩn cấp
+              </Text>
+            </View>
+          )}
 
-              {/* Emergency call-to-action: nút gọi 115 nổi bật */}
-              {isEmergency && (
-                <Pressable
-                  onPress={handleCall115}
-                  style={({ pressed }) => [
-                    {
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: '#dc2626',
-                      paddingVertical: spacing.lg,
-                      paddingHorizontal: spacing.xl,
-                      borderRadius: 16,
-                      gap: spacing.sm,
-                      marginTop: spacing.md,
-                      shadowColor: '#dc2626',
-                      shadowOpacity: 0.3,
-                      shadowRadius: 8,
-                      shadowOffset: { width: 0, height: 4 },
-                      elevation: 6,
-                      opacity: pressed ? 0.85 : 1,
-                    },
-                  ]}
-                >
-                  <Ionicons name="call" size={24} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>
-                    GỌI 115 NGAY
-                  </Text>
-                </Pressable>
-              )}
+          {/* Triệu chứng đã ghi nhận */}
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons
+                name="pulse"
+                size={18}
+                color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
+              />
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
+                Triệu chứng đã ghi nhận
+              </Text>
+            </View>
+            <Text style={{ fontSize: 14, color: '#334155', lineHeight: 22 }}>
+              {recordedSymptoms}
+            </Text>
+          </View>
 
-              {/* Summary */}
-              {triageSummary.summary ? (
-                <Text style={styles.resultSummary}>{triageSummary.summary}</Text>
-              ) : null}
-
-              {/* Recommendation */}
-              {triageSummary.recommendation ? (
-                <View style={styles.adviceWrap}>
-                  <View style={styles.adviceHeader}>
-                    <Ionicons name="bulb-outline" size={16} color={colors.premium} />
-                    <Text style={styles.adviceLabel}>{t('checkinAdvice')}</Text>
-                  </View>
-                  <Text style={styles.adviceText}>{triageSummary.recommendation}</Text>
-                </View>
-              ) : null}
-
-              {/* Progress feedback (Illusion Layer Phase 4) */}
-              {triageSummary._progress && (
-                <View style={{ backgroundColor: '#e8f5e9', borderRadius: 12, padding: 12, marginTop: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <Ionicons name="trending-up" size={16} color="#2e7d32" />
-                    <Text style={{ color: '#2e7d32', fontWeight: '700', fontSize: 13 }}>Tiến triển</Text>
-                  </View>
-                  <Text style={{ color: '#1b5e20', fontSize: 14, lineHeight: 20 }}>{triageSummary._progress.text}</Text>
-                </View>
-              )}
-
-              {/* Doctor banner */}
-              {triageSummary.needsDoctor && (
-                <View style={styles.doctorBanner}>
-                  <View style={styles.doctorIcon}>
-                    <Ionicons name="medical" size={14} color="#fff" />
-                  </View>
-                  <Text style={styles.doctorText}>{t('checkinSeeDoctor')}</Text>
-                </View>
-              )}
-
-              {/* Caregiver CTA — backend FIX #4.
-                  Urgent variant only when risk = high/emergency AND user has
-                  no caregiver wired up to receive alerts. Soft CTA shown when
-                  risk is lower but caregiver still missing. */}
-              {triageSummary.show_urgent_caregiver_warning && (
-                <Pressable
-                  onPress={() => router.push('/care-circle/invite')}
-                  style={({ pressed }) => [styles.caregiverUrgentBanner, pressed && { opacity: 0.9 }]}
-                >
-                  <Ionicons name="warning" size={20} color="#fff" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.caregiverUrgentTitle}>{t('checkinCaregiverUrgentTitle')}</Text>
-                    <Text style={styles.caregiverUrgentBody}>{t('checkinCaregiverUrgentBody')}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#fff" />
-                </Pressable>
-              )}
-              {!triageSummary.show_urgent_caregiver_warning && triageSummary.needs_caregiver_cta && (
-                <Pressable
-                  onPress={() => router.push('/care-circle/invite')}
-                  style={({ pressed }) => [styles.caregiverSoftCTA, pressed && { opacity: 0.9 }]}
-                >
-                  <Ionicons name="people-outline" size={18} color={colors.primary} />
-                  <Text style={styles.caregiverSoftCTAText}>{t('checkinCaregiverSoftCTA')}</Text>
-                </Pressable>
-              )}
-
-              {/* Connect doctor CTA — animated pulse + glow giống AsinuChatSticker để hút mắt.
-                  Hiện cho mọi severity != 'low' (medium / high / emergency).
-                  TODO(future): wire onPress mở booking screen. */}
-              {triageSummary.severity && triageSummary.severity !== 'low' && (
-                <View style={{ marginTop: spacing.md }}>
-                  <DoctorConnectButton
-                    variant={isEmergency || triageSummary.severity === 'high' ? 'urgent' : 'default'}
-                    text={t('doctorConnectCta')}
-                    onPress={() => router.push('/doctor-consultation' as any)}
-                  />
-                </View>
-              )}
-
-              {/* Family-alert banner — chỉ hiện khi server thực sự đã thử
-                  alert (severity=high). Phân biệt 3 case: đã notify N người,
-                  chưa có caregiver, hoặc đã notify lần trước rồi. */}
-              {triageSummary.familyAlertResult?.attempted && (
-                triageSummary.familyAlertResult.caregiversNotified > 0 ? (
-                  <View style={[styles.doctorBanner, { backgroundColor: '#dcfce7' }]}>
-                    <View style={[styles.doctorIcon, { backgroundColor: '#16a34a' }]}>
-                      <Ionicons name="checkmark-circle" size={14} color="#fff" />
-                    </View>
-                    <Text style={[styles.doctorText, { color: '#166534' }]}>
-                      {t('checkinFamilyNotified', { count: triageSummary.familyAlertResult.caregiversNotified })}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={[styles.doctorBanner, { backgroundColor: '#fef3c7' }]}>
-                    <View style={[styles.doctorIcon, { backgroundColor: '#d97706' }]}>
-                      <Ionicons name="warning" size={14} color="#fff" />
-                    </View>
-                    <Text style={[styles.doctorText, { color: '#92400e' }]}>
-                      {t('checkinFamilyNoCaregiver')}
-                    </Text>
-                  </View>
-                )
-              )}
-              {triageSummary.familyAlertResult?.alreadyAlerted && (
-                <View style={[styles.doctorBanner, { backgroundColor: '#e0f2fe' }]}>
-                  <View style={[styles.doctorIcon, { backgroundColor: '#0284c7' }]}>
-                    <Ionicons name="information-circle" size={14} color="#fff" />
-                  </View>
-                  <Text style={[styles.doctorText, { color: '#075985' }]}>
-                    {t('checkinFamilyAlreadyNotified')}
-                  </Text>
-                </View>
-              )}
+          {/* Lời khuyên box */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: 12,
+              backgroundColor: isFine ? '#F0FDF4' : '#FEF9E7',
+              borderRadius: 16,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: isFine ? '#DCFCE7' : '#FEF3C7',
+            }}
+          >
+            <Ionicons
+              name="bulb-outline"
+              size={22}
+              color={isFine ? '#16A34A' : '#D97706'}
+              style={{ marginTop: 1 }}
+            />
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: isFine ? '#166534' : '#92400E' }}>
+                Lời khuyên:
+              </Text>
+              <Text style={{ fontSize: 13.5, color: isFine ? '#14532D' : '#78350F', lineHeight: 20 }}>
+                {cleanAdvice}
+              </Text>
             </View>
           </View>
-        </Animated.View>
-      )}
 
-      {/* Follow-up hint — drive text theo severity (consistent với backend timing).
-          Emergency: KHÔNG show hint "đợi N tiếng" vì user phải gọi 115 NGAY,
-          context đã có nút "GỌI 115" rồi. Show hint "đợi" sẽ confuse user. */}
-      {!isFine && triageSummary?.severity !== 'emergency' && (
-        <Animated.View entering={FadeInDown.delay(350).duration(400)} style={styles.followCard}>
-          <Ionicons name="notifications-outline" size={18} color={colors.primary} />
-          <Text style={styles.followText}>
-            {triageSummary?.severity === 'high'
-              ? t('checkinFollowUpHigh')        // 1-2 tiếng
-              : t('checkinFollowUpNormal')}     // 3-6 tiếng
-          </Text>
-        </Animated.View>
-      )}
+          {/* Doctor recommendation prompt */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: isEmergency || isHigh ? '#FDF2F2' : isFine ? '#F0FAF7' : '#FFFBEB',
+              borderRadius: 14,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              borderWidth: 1,
+              borderColor: isEmergency || isHigh ? '#FEE2E2' : isFine ? '#CCFBF1' : '#FEF3C7',
+            }}
+          >
+            <Ionicons
+              name="person-outline"
+              size={18}
+              color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
+            />
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 13.5,
+                fontWeight: '600',
+                color: isEmergency || isHigh ? '#B91C1C' : isFine ? '#0F766E' : '#92400E',
+              }}
+            >
+              {doctorNoticeText}
+            </Text>
+          </View>
 
-      <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+          {/* Kết nối với bác sĩ Button */}
+          {(!isFine || triageSummary?.needsDoctor) && (
+            <Pressable
+              onPress={() => router.push('/doctor-consultation' as any)}
+              style={({ pressed }) => [
+                {
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1.5,
+                  borderColor: isEmergency || isHigh ? '#DC2626' : '#00A88F',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  paddingVertical: 13,
+                  paddingHorizontal: 18,
+                  position: 'relative',
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  fontSize: 15,
+                  fontWeight: '700',
+                  color: isEmergency || isHigh ? '#DC2626' : '#00A88F',
+                }}
+              >
+                Kết nối với bác sĩ
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
+                style={{ position: 'absolute', right: 16 }}
+              />
+            </Pressable>
+          )}
+
+          {/* Family Alert Result if present */}
+          {triageSummary?.familyAlertResult?.attempted && (
+            triageSummary.familyAlertResult.caregiversNotified > 0 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#DCFCE7', borderRadius: 14, padding: 12 }}>
+                <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+                <Text style={{ color: '#166534', fontSize: 13, fontWeight: '600', flex: 1 }}>
+                  {stripEmojis(t('checkinFamilyNotified', { count: triageSummary.familyAlertResult.caregiversNotified }))}
+                </Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FEF3C7', borderRadius: 14, padding: 12 }}>
+                <Ionicons name="warning" size={16} color="#D97706" />
+                <Text style={{ color: '#92400E', fontSize: 13, fontWeight: '600', flex: 1 }}>
+                  {stripEmojis(t('checkinFamilyNoCaregiver'))}
+                </Text>
+              </View>
+            )
+          )}
+
+          {/* Caregiver CTA if applicable */}
+          {triageSummary?.show_urgent_caregiver_warning && (
+            <Pressable
+              onPress={() => router.push('/care-circle/invite')}
+              style={({ pressed }) => [
+                {
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  backgroundColor: '#DC2626',
+                  borderRadius: 14,
+                  padding: 12,
+                  opacity: pressed ? 0.9 : 1,
+                },
+              ]}
+            >
+              <Ionicons name="warning" size={20} color="#FFFFFF" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                  {stripEmojis(t('checkinCaregiverUrgentTitle'))}
+                </Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 12, opacity: 0.95, lineHeight: 16 }}>
+                  {stripEmojis(t('checkinCaregiverUrgentBody'))}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            </Pressable>
+          )}
+        </View>
+      </Animated.View>
+
+      {/* Close button outside card */}
+      <Animated.View entering={FadeInDown.delay(300).duration(400)}>
         <Pressable
-          style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+          style={({ pressed }) => [
+            {
+              backgroundColor: '#5EEAD4',
+              borderRadius: 28,
+              height: 52,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#2DD4BF',
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+              opacity: pressed ? 0.88 : 1,
+              transform: [{ scale: pressed ? 0.99 : 1 }],
+            },
+          ]}
           onPress={onClose}
         >
-          <View style={[styles.doneBtnGradient, { backgroundColor: colors.primaryLight }]}>
-            <Text style={styles.doneBtnText}>{t('checkinClose')}</Text>
-          </View>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#0F766E' }}>
+            Đóng
+          </Text>
         </Pressable>
+      </Animated.View>
+
+      {/* Footer reassurance */}
+      <Animated.View entering={FadeInDown.delay(350).duration(400)}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}>
+          <Ionicons name="shield-checkmark-outline" size={15} color="#94A3B8" />
+          <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>
+            Asinu luôn đồng hành cùng sức khoẻ của bạn
+          </Text>
+        </View>
       </Animated.View>
     </View>
   );
