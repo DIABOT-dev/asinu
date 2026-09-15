@@ -9,6 +9,7 @@ import { AppState, FlatList, Image, Modal, Platform, Pressable, ScrollView, Styl
 import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, useAnimatedScrollHandler, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
+import { Avatar } from '../../../src/components/Avatar';
 import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
@@ -799,11 +800,23 @@ export default function HomeScreen() {
       
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
-        <View style={[styles.notificationContainer, { top: insets.top + spacing.sm }]}>
+        <View style={[styles.headerActions, { top: insets.top + spacing.sm }]}>
           <NotificationBell
             unreadCount={unreadCount}
             onOpen={handleOpenNotifications}
           />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={tc('tabProfile')}
+            style={({ pressed }) => [styles.profileButton, pressed && styles.headerActionPressed]}
+            onPress={() => router.replace('/(tabs)/profile')}
+          >
+            <Avatar
+              name={profile.name || tc('tabProfile')}
+              imageUrl={profile.avatarUrl}
+              size={44}
+            />
+          </Pressable>
         </View>
       )}
 
@@ -1113,10 +1126,31 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     paddingBottom: spacing.xl,
     gap: spacing.xl
   },
-  notificationContainer: {
+  headerActions: {
     position: 'absolute',
     right: spacing.md,
     zIndex: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  headerActionPressed: {
+    opacity: 0.78,
   },
   checkinBanner: {
     flexDirection: 'row',
