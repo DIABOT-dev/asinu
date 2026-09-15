@@ -1,4 +1,4 @@
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,7 +21,7 @@ import { useAuthStore } from "../src/features/auth/auth.store";
 import { apiClient, getApiErrorMessage } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
 import { useThemeColors } from "../src/hooks/useThemeColors";
-import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
+import { useGuardedRouter as useRouter } from "../src/hooks/useGuardedRouter";
 import { showToast } from "../src/stores/toast.store";
 import { radius, spacing } from "../src/styles";
 

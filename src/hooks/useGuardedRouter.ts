@@ -56,7 +56,12 @@ export function useGuardedRouter(): ExpoRouter {
   );
 
   const back = useCallback<ExpoRouter['back']>(() => {
-    runGuardedNavigation('back', 'back', () => router.back());
+    runGuardedNavigation('back', 'back', () => {
+      // Deep links and cold starts can render a screen without a navigator
+      // history. Calling router.back() in that state makes Expo Router emit
+      // the unhandled GO_BACK action warning/toast.
+      if (router.canGoBack()) router.back();
+    });
   }, [router]);
 
   const navigate = useCallback<ExpoRouter['navigate']>(

@@ -13,7 +13,7 @@
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -28,6 +28,7 @@ import { ApiError, apiClient, getApiErrorMessage } from '../../src/lib/apiClient
 import { colors, radius, spacing } from '../../src/styles';
 import { showToast } from '../../src/stores/toast.store';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
+import { useGuardedRouter as useRouter } from '../../src/hooks/useGuardedRouter';
 
 type GiftQR = {
   order_code: string;
@@ -48,6 +49,8 @@ type WalletResult =
   | { status: 'failed'; error: string };
 
 function GiftHeader({ title, topInset }: { title: string; topInset: number }) {
+  const router = useRouter();
+
   return (
     <View style={[styles.header, { paddingTop: topInset + spacing.md }]}>
       <ScreenBackButton
@@ -61,6 +64,7 @@ function GiftHeader({ title, topInset }: { title: string; topInset: number }) {
 }
 
 export default function GiftSubscriptionScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('subscription');
   const { t: tcc } = useTranslation('careCircle');

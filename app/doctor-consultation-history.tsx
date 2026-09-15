@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -16,6 +16,7 @@ import { Screen } from "../src/components/Screen";
 import { ScreenBackButton } from "../src/components/ScreenHeaderButton";
 import { useScaledTypography } from "../src/hooks/useScaledTypography";
 import { useThemeColors } from "../src/hooks/useThemeColors";
+import { useGuardedRouter as useRouter } from "../src/hooks/useGuardedRouter";
 import { apiClient } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
 

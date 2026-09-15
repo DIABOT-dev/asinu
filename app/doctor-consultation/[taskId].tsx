@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../../src/components/ScaledTextInput";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
+import { useGuardedRouter as useRouter } from "../../src/hooks/useGuardedRouter";
 import { apiClient, getApiErrorMessage } from "../../src/lib/apiClient";
 import { env } from "../../src/lib/env";
 import { tokenStore } from "../../src/lib/tokenStore";
