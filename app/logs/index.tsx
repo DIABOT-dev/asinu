@@ -29,6 +29,9 @@ type LogCard = {
   desc: string;
 };
 
+// Tạm ẩn Thuốc và Insulin khỏi màn Ghi nhật ký; giữ nguyên dữ liệu và màn nhập riêng.
+const HIDDEN_LOG_CARD_KEYS = new Set(['medication', 'insulin']);
+
 export default function LogsIndexScreen() {
   const { t } = useTranslation('logs');
   const router = useRouter();
@@ -87,7 +90,7 @@ export default function LogsIndexScreen() {
 
           {/* Cards — 1 per row */}
           <View style={styles.grid}>
-            {LOG_CARDS.map((card, i) => (
+            {LOG_CARDS.filter((card) => !HIDDEN_LOG_CARD_KEYS.has(card.key)).map((card, i) => (
               <Animated.View
                 key={card.key}
                 entering={FadeInDown.delay(120 + i * 60).duration(400).springify()}
