@@ -451,43 +451,43 @@ export default function CheckinScreen() {
 
   return (
     <>
-      <Stack.Screen options={{
-        headerShown: true,
-        title: isFollowUp ? t('checkinHeaderFollowUp') : t('checkinHeaderTitle'),
-        headerStyle: { backgroundColor: '#F0FAF7' },
-        headerTitleStyle: { color: '#0F172A', fontSize: 17, fontWeight: '700' },
-        headerShadowVisible: false,
-        headerLeft: () => {
-          // Adaptive: ở step 'location' back về status; các step khác back về màn trước
-          const canGoBackStep = screen === 'location';
-          const handlePress = canGoBackStep
-            ? () => { setPendingStatus(null); setScreen('status'); }
-            : () => router.back();
-          return (
-            <Pressable
-              onPress={handlePress}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Quay lại"
-              style={({ pressed }) => [
-                {
-                  width: 42,
-                  height: 42,
-                  borderRadius: 21,
-                  backgroundColor: '#E6F7F5',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: '#D1F2EB',
-                  opacity: pressed ? 0.75 : 1,
-                },
-              ]}
-            >
-              <Ionicons name="arrow-back" size={20} color="#00A88F" />
-            </Pressable>
-          );
-        },
-      }} />
+      <Stack.Screen options={{ headerShown: false }} />
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingTop: insets.top + 8,
+          paddingBottom: 10,
+          paddingHorizontal: 16,
+          backgroundColor: '#F0FAF7',
+        }}
+      >
+        <ScreenBackButton
+          onPress={() => {
+            if (screen === 'location') {
+              setPendingStatus(null);
+              setScreen('status');
+            } else {
+              router.back();
+            }
+          }}
+        />
+        <Text
+          style={{
+            fontSize: 17,
+            fontWeight: '700',
+            color: '#0F172A',
+            textAlign: 'center',
+            flex: 1,
+            marginHorizontal: 12,
+          }}
+          numberOfLines={1}
+        >
+          {isFollowUp ? t('checkinHeaderFollowUp') : t('checkinHeaderTitle')}
+        </Text>
+        <View style={{ width: 40 }} />
+      </View>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <AiDataConsentModal
         visible={showAiConsent}
@@ -1359,12 +1359,12 @@ function DoneScreen({
     : '#00A88F';
 
   const pillText = isEmergency
-    ? 'KHẨN CẤP'
+    ? t('checkinStatusEmergency')
     : isHigh
-    ? 'CẦN CHÚ Ý'
+    ? t('checkinStatusHigh')
     : isMedium
-    ? 'THEO DÕI'
-    : 'BÌNH THƯỜNG';
+    ? t('checkinStatusMedium')
+    : t('checkinStatusFine');
 
   const pillIcon = isEmergency
     ? 'warning'
@@ -1382,30 +1382,30 @@ function DoneScreen({
 
   const cleanAdvice = stripEmojis(
     isEmergency
-      ? 'KHẨN CẤP — Gọi 115 hoặc cấp cứu NGAY. Người thân đã được báo.'
+      ? t('checkinEmergencyAdvice')
       : triageSummary?.recommendation
       ? triageSummary.recommendation
       : isFine
-      ? (isFollowUp ? t('checkinDoneEveningSub') : 'Duy trì uống đủ nước, nghỉ ngơi hợp lý và vận động nhẹ nhàng.')
-      : 'Hãy nghỉ ngơi, uống đủ nước và theo dõi các biểu hiện của cơ thể.'
+      ? (isFollowUp ? t('checkinDoneEveningSub') : t('checkinFineAdvice'))
+      : t('checkinMonitorAdvice')
   );
 
   const cleanSubtitle = stripEmojis(
     isEmergency
-      ? 'Kết quả cho thấy bạn có dấu hiệu cần được hỗ trợ y tế khẩn cấp.'
+      ? t('checkinEmergencySubtitle')
       : isHigh
-      ? 'Kết quả cho thấy bạn có dấu hiệu cần được kiểm tra y tế sớm.'
+      ? t('checkinHighSubtitle')
       : isMedium
-      ? 'Kết quả cho thấy bạn có dấu hiệu mệt mỏi, cần nghỉ ngơi và theo dõi thêm.'
-      : 'Tình trạng sức khoẻ của bạn hôm nay đang rất tốt. Hãy tiếp tục duy trì nhé!'
+      ? t('checkinMediumSubtitle')
+      : t('checkinFineSubtitle')
   );
 
   const doctorNoticeText = stripEmojis(
     isEmergency || isHigh || triageSummary?.needsDoctor
-      ? 'Nên đến gặp bác sĩ để được kiểm tra.'
+      ? t('checkinSeeDoctor')
       : isFine
-      ? 'Duy trì lối sống tích cực và theo dõi định kỳ.'
-      : 'Nghỉ ngơi và theo dõi sát các triệu chứng.'
+      ? t('checkinDoctorNoticeFine')
+      : t('checkinDoctorNoticeDefault')
   );
 
   return (
@@ -1429,7 +1429,7 @@ function DoneScreen({
       {/* Title & Verdict Subtitle */}
       <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ alignItems: 'center', paddingHorizontal: 12 }}>
         <Text style={{ fontSize: 24, fontWeight: '800', color: '#0F172A', textAlign: 'center', letterSpacing: -0.3 }}>
-          Asinu đã ghi nhận
+          {t('checkinDoneNoted')}
         </Text>
         <Text style={{ fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 21, marginTop: 6, maxWidth: 330 }}>
           {cleanSubtitle}
@@ -1497,12 +1497,12 @@ function DoneScreen({
               >
                 <Ionicons name="call" size={22} color="#FFFFFF" />
                 <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.4 }}>
-                  GỌI 115 NGAY
+                  {t('checkinCallEmergency')}
                 </Text>
                 <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
               </Pressable>
               <Text style={{ textAlign: 'center', color: '#64748B', fontSize: 12, marginTop: 6 }}>
-                Gọi ngay để được hỗ trợ y tế khẩn cấp
+                {t('checkinCallEmergencyHint')}
               </Text>
             </View>
           )}
@@ -1516,7 +1516,7 @@ function DoneScreen({
                 color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
               />
               <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
-                Triệu chứng đã ghi nhận
+                {t('checkinRecordedSymptoms')}
               </Text>
             </View>
             <Text style={{ fontSize: 14, color: '#334155', lineHeight: 22 }}>
@@ -1545,7 +1545,7 @@ function DoneScreen({
             />
             <View style={{ flex: 1, gap: 3 }}>
               <Text style={{ fontSize: 14, fontWeight: '700', color: isFine ? '#166534' : '#92400E' }}>
-                Lời khuyên:
+                {t('checkinAdvice')}
               </Text>
               <Text style={{ fontSize: 13.5, color: isFine ? '#14532D' : '#78350F', lineHeight: 20 }}>
                 {cleanAdvice}
@@ -1553,7 +1553,7 @@ function DoneScreen({
             </View>
           </View>
 
-          {/* Doctor recommendation prompt */}
+          {/* Specialist recommendation prompt */}
           <View
             style={{
               flexDirection: 'row',
@@ -1584,7 +1584,7 @@ function DoneScreen({
             </Text>
           </View>
 
-          {/* Kết nối với bác sĩ Button */}
+          {/* Nút kết nối với chuyên gia */}
           {(!isFine || triageSummary?.needsDoctor) && (
             <Pressable
               onPress={() => router.push('/doctor-consultation' as any)}
@@ -1611,7 +1611,7 @@ function DoneScreen({
                   color: isEmergency || isHigh ? '#DC2626' : '#00A88F',
                 }}
               >
-                Kết nối với bác sĩ
+                {t('checkinConnectDoctor')}
               </Text>
               <Ionicons
                 name="chevron-forward"
@@ -1694,7 +1694,7 @@ function DoneScreen({
           onPress={onClose}
         >
           <Text style={{ fontSize: 17, fontWeight: '700', color: '#0F766E' }}>
-            Đóng
+            {t('checkinClose')}
           </Text>
         </Pressable>
       </Animated.View>
@@ -1704,7 +1704,7 @@ function DoneScreen({
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}>
           <Ionicons name="shield-checkmark-outline" size={15} color="#94A3B8" />
           <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>
-            Asinu luôn đồng hành cùng sức khoẻ của bạn
+            {t('checkinFooter')}
           </Text>
         </View>
       </Animated.View>
@@ -2190,7 +2190,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     doctorText: { fontSize: typography.size.xs, color: '#991b1b', fontWeight: '700', flex: 1 },
 
     // Caregiver CTAs (backend FIX #4) — urgent variant uses brand red so it
-    // doesn't get lost next to the doctor banner; soft variant matches the
+    // doesn't get lost next to the specialist banner; soft variant matches the
     // existing advice block.
     caregiverUrgentBanner: {
       flexDirection: 'row',

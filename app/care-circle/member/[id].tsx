@@ -41,17 +41,18 @@ const SEVERITY_CONFIG: Record<string, { color: string; labelKey: string }> = {
   high:   { color: '#ef4444', labelKey: 'checkinSeverityHigh' },
 };
 // ── Helpers ──────────────────────────────────────────────────────
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-const formatCheckinDateTime = (iso: string) => {
-  const d = new Date(iso);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  return `${hh}:${mm}:${ss} ${dd}/${mo}/${yyyy}`;
+const getDisplayLocale = (language: string) => language === 'en' ? 'en-US' : 'vi-VN';
+const formatDate = (iso: string, language: string) => new Date(iso).toLocaleDateString(getDisplayLocale(language), { day: '2-digit', month: '2-digit', year: 'numeric' });
+const formatTime = (iso: string, language: string) => new Date(iso).toLocaleTimeString(getDisplayLocale(language), { hour: '2-digit', minute: '2-digit' });
+const formatCheckinDateTime = (iso: string, language: string) => {
+  return new Date(iso).toLocaleString(getDisplayLocale(language), {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 };
 
 const getLogValue = (log: { log_type: string; metadata: any }): string => {
@@ -142,7 +143,7 @@ type CheckinSession = {
 export default function MemberLogsScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const router = useRouter();
-  const { t } = useTranslation('careCircle');
+  const { t, i18n } = useTranslation('careCircle');
   const { t: tl } = useTranslation('logs');
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
@@ -212,12 +213,12 @@ export default function MemberLogsScreen() {
   const groupedLogs = useMemo(() => {
     const map: Record<string, typeof logs> = {};
     for (const log of logs) {
-      const date = formatDate(log.occurred_at);
+      const date = formatDate(log.occurred_at, i18n.language);
       if (!map[date]) map[date] = [];
       map[date].push(log);
     }
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [logs]);
+  }, [i18n.language, logs]);
 
   const isLoading = activeTab === 'overview' ? summaryLoading : activeTab === 'logs' ? logsLoading : checkinsLoading;
   const report = useMemo(() => normalizeMemberReport(summary?.report), [summary?.report]);
@@ -251,7 +252,7 @@ export default function MemberLogsScreen() {
             color={activeTab === 'overview' ? colors.primary : colors.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>
-            Tổng quan
+            {t('tabOverview')}
           </Text>
         </Pressable>
         <Pressable
@@ -301,7 +302,7 @@ export default function MemberLogsScreen() {
             {summaryError === '' && !summary && (
               <View style={styles.center}>
                 <MaterialCommunityIcons name="view-dashboard-outline" size={48} color={colors.textSecondary} />
-                <Text style={styles.emptyText}>Chưa có dữ liệu tổng quan</Text>
+                <Text style={styles.emptyText}>{t('noOverviewData')}</Text>
               </View>
             )}
             {summaryError === '' && summary && (
@@ -345,7 +346,7 @@ export default function MemberLogsScreen() {
                         {value !== '' && <Text style={styles.logValue}>{value}</Text>}
                         {log.note && <Text style={styles.logNote}>{log.note}</Text>}
                       </View>
-                      <Text style={styles.logTime}>{formatTime(log.occurred_at)}</Text>
+                      <Text style={styles.logTime}>{formatTime(log.occurred_at, i18n.language)}</Text>
                     </View>
                   );
                 })}
@@ -386,7 +387,7 @@ export default function MemberLogsScreen() {
                       <MaterialCommunityIcons name={statusCfg.icon as any} size={22} color={statusCfg.color} />
                     )}
                     <View style={styles.checkinHeaderInfo}>
-                      <Text style={styles.checkinDate}>{formatCheckinDateTime(session.created_at)}</Text>
+                      <Text style={styles.checkinDate}>{formatCheckinDateTime(session.created_at, i18n.language)}</Text>
                       {statusCfg && (
                         <Text style={[styles.checkinStatus, { color: statusCfg.color }]}>
                           {t(statusCfg.labelKey)}
@@ -441,8 +442,8 @@ export default function MemberLogsScreen() {
                     || session.triage_severity === 'medium') && (() => {
                     const isUrgent = session.emergency_triggered || session.triage_severity === 'high';
                     const ctaText = session.emergency_triggered
-                      ? 'Liên hệ bác sĩ ngay'
-                      : 'Đặt khám bác sĩ';
+                      ? t('contactSpecialistNow')
+                      : t('connectSpecialist');
                     return (
                       <View style={{ marginTop: spacing.sm }}>
                         <DoctorConnectButton

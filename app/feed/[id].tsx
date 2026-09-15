@@ -18,17 +18,17 @@ async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
 }
 
-function buildShareText(content: any) {
+function buildShareText(content: any, t: (key: string) => string) {
   let text = `${content.title}\n\n`;
   if (content.summary) text += `${content.summary}\n\n`;
   if (content.checklist && content.checklist.length > 0) {
-    text += `Những việc cần lưu ý:\n`;
+    text += `${t('feedShareChecklistHeading')}\n`;
     content.checklist.forEach((item: string) => {
       text += `- ${item}\n`;
     });
     text += `\n`;
   }
-  text += `(Chia sẻ từ ứng dụng sức khỏe Asinu)`;
+  text += t('feedShareFooter');
   return text;
 }
 
@@ -85,7 +85,7 @@ export default function ArticleDetailScreen() {
 
   const handleCopy = async () => {
     if (!content) return;
-    const text = buildShareText(content);
+    const text = buildShareText(content, tc);
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -104,8 +104,8 @@ export default function ArticleDetailScreen() {
 
   const handleShare = async () => {
     if (!content) return;
-    let text = buildShareText(content);
-    text += `\nTìm hiểu thêm trên Asinu: https://asinu.vn/`;
+    let text = buildShareText(content, tc);
+    text += `\n${tc('feedShareMore')}`;
 
     try {
       const result = await Share.share({ message: text });
@@ -135,7 +135,7 @@ export default function ArticleDetailScreen() {
   if (!content) {
     return (
       <Screen style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Không tìm thấy bài viết</Text>
+        <Text style={styles.errorText}>{tc('feedNotFound')}</Text>
         <ScreenBackButton onPress={() => router.back()} />
       </Screen>
     );
@@ -146,7 +146,7 @@ export default function ArticleDetailScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <ScreenBackButton onPress={() => router.back()} />
-        <Text style={styles.headerTitle} numberOfLines={1}>Chi tiết bản tin</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{tc('feedDetailTitle')}</Text>
         <Pressable onPress={handleToggleSave} style={styles.headerBtn} disabled={saving} hitSlop={12}>
           <Ionicons 
             name={content.is_saved ? "bookmark" : "bookmark-outline"} 
@@ -165,7 +165,7 @@ export default function ArticleDetailScreen() {
             color={content.content_type === 'warning' ? colors.danger : colors.primary}
           />
           <Text style={[styles.badgeText, content.severity_level === 'warning' && styles.badgeTextHigh]}>
-            {content.content_type === 'warning' ? 'Cảnh báo khẩn' : 'Lời khuyên sức khỏe'}
+            {content.content_type === 'warning' ? tc('feedBadgeWarning') : tc('feedBadgeAdvice')}
           </Text>
         </View>
 
@@ -185,7 +185,7 @@ export default function ArticleDetailScreen() {
         {/* Checklist Section */}
         {content.checklist && content.checklist.length > 0 && (
           <View style={styles.checklistSection}>
-            <Text style={styles.checklistHeading}>Những việc cần thực hiện:</Text>
+            <Text style={styles.checklistHeading}>{tc('feedChecklistHeading')}</Text>
             {content.checklist.map((item: string, idx: number) => (
               <View key={idx} style={styles.checkItem}>
                 <Ionicons name="checkmark-circle-outline" size={20} color={colors.primary} style={{ marginTop: 2 }} />
@@ -211,11 +211,11 @@ export default function ArticleDetailScreen() {
         <View style={styles.actionsRow}>
           <Pressable style={styles.actionButton} onPress={handleCopy}>
             <MaterialCommunityIcons name="content-copy" size={20} color={colors.primary} />
-            <Text style={styles.actionBtnText}>Sao chép nội dung</Text>
+            <Text style={styles.actionBtnText}>{tc('feedCopy')}</Text>
           </Pressable>
           <Pressable style={[styles.actionButton, styles.shareBtn]} onPress={handleShare}>
             <Ionicons name="share-social-outline" size={20} color="#fff" />
-            <Text style={[styles.actionBtnText, { color: '#fff' }]}>Chia sẻ gia đình</Text>
+            <Text style={[styles.actionBtnText, { color: '#fff' }]}>{tc('feedShare')}</Text>
           </Pressable>
         </View>
 

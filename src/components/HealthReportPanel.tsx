@@ -93,7 +93,7 @@ export function HealthReportPanel({
   treeSummaryOverride,
 }: Props) {
   const router = useRouter();
-  const { t } = useTranslation('report');
+  const { t, i18n } = useTranslation('report');
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -412,7 +412,7 @@ export function HealthReportPanel({
               {report.sessions.length === 0 ? (
                 <Text style={styles.emptyHistory}>{t('noData')}</Text>
               ) : report.sessions.map((session, index) => {
-                const dateStr = new Date(session.date).toLocaleDateString('vi-VN', {
+                const dateStr = new Date(session.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN', {
                   weekday: 'short',
                   day: '2-digit',
                   month: '2-digit',

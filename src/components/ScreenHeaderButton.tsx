@@ -13,11 +13,13 @@ type HeaderButtonProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-export function ScreenBackButton({ onPress, accessibilityLabel = 'Quay lại', disabled, style }: HeaderButtonProps) {
+export function ScreenBackButton({ onPress, accessibilityLabel, disabled, style }: HeaderButtonProps) {
+  const { t } = useTranslation('common');
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={accessibilityLabel ?? t('back')}
       disabled={disabled}
       hitSlop={8}
       onPress={onPress}
@@ -28,13 +30,13 @@ export function ScreenBackButton({ onPress, accessibilityLabel = 'Quay lại', d
   );
 }
 
-export function ScreenSaveButton({ onPress, accessibilityLabel = 'Lưu', disabled, style }: HeaderButtonProps) {
+export function ScreenSaveButton({ onPress, accessibilityLabel, disabled, style }: HeaderButtonProps) {
   const { t } = useTranslation('common');
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={accessibilityLabel ?? t('save')}
       disabled={disabled}
       hitSlop={8}
       onPress={onPress}

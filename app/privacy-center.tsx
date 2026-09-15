@@ -14,7 +14,7 @@ import { ScaledText as Text } from "../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../src/components/ScaledTextInput";
 import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
 import { useThemeColors } from "../src/hooks/useThemeColors";
-import { apiClient } from "../src/lib/apiClient";
+import { apiClient, getApiErrorMessage } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
 import { showToast } from "../src/stores/toast.store";
 import { radius, spacing } from "../src/styles";
@@ -56,7 +56,7 @@ const actions: Array<{
 export default function PrivacyCenterScreen() {
   const router = useGuardedRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation("settings");
+  const { t, i18n } = useTranslation("settings");
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [confirmation, setConfirmation] = useState("");
@@ -109,8 +109,8 @@ export default function PrivacyCenterScreen() {
       setConfirmation("");
       await loadReceipts();
       showToast(t("privacyRequestSuccess"), "success");
-    } catch {
-      showToast(t("privacyRequestError"), "error");
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t, "privacyRequestError"), "error");
     } finally {
       setBusy(null);
     }
@@ -206,8 +206,8 @@ export default function PrivacyCenterScreen() {
                   {t(`privacyAction_${receipt.action}`)}
                 </Text>
                 <Text style={styles.receiptMeta}>
-                  {new Date(receipt.created_at).toLocaleString()} ·{" "}
-                  {receipt.status}
+                  {new Date(receipt.created_at).toLocaleString(i18n.language === "en" ? "en-US" : "vi-VN")} ·{" "}
+                  {t(`privacyStatus_${receipt.status}`, { defaultValue: t("privacyStatus_unknown") })}
                 </Text>
               </View>
             ))

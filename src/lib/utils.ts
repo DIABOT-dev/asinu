@@ -1,22 +1,24 @@
+import i18n from '../i18n';
+
 const VN_TZ = 'Asia/Ho_Chi_Minh';
-const VN_LOCALE = 'vi-VN';
+const getAppLocale = () => (i18n.language === 'en' ? 'en-US' : 'vi-VN');
 
 export const formatTime = (date: Date) =>
-  date.toLocaleTimeString(VN_LOCALE, {
+  date.toLocaleTimeString(getAppLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: VN_TZ,
   });
 
 export const formatDate = (date: Date) =>
-  date.toLocaleDateString(VN_LOCALE, {
+  date.toLocaleDateString(getAppLocale(), {
     month: 'short',
     day: 'numeric',
     timeZone: VN_TZ,
   });
 
 export const formatDateTime = (date: Date) =>
-  date.toLocaleString(VN_LOCALE, {
+  date.toLocaleString(getAppLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -36,7 +38,7 @@ export const nowVN = (): Date => {
 export const isSameDayVN = (a: Date | string, b: Date | string): boolean => {
   const toVNDate = (d: Date | string) => {
     const date = typeof d === 'string' ? new Date(d) : d;
-    return date.toLocaleDateString(VN_LOCALE, { timeZone: VN_TZ });
+    return date.toLocaleDateString('en-CA', { timeZone: VN_TZ });
   };
   return toVNDate(a) === toVNDate(b);
 };

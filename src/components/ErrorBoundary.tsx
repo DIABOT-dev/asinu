@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { ScaledText as Text } from './ScaledText';
 import { colors, radius, spacing } from '../styles';
@@ -14,7 +15,13 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+type LocalizedProps = Props & {
+  errorTitle: string;
+  genericMessage: string;
+  retryLabel: string;
+};
+
+class ErrorBoundaryImpl extends Component<LocalizedProps, State> {
   state: State = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): State {
@@ -75,12 +82,12 @@ export class ErrorBoundary extends Component<Props, State> {
         <View style={styles.container}>
           <View style={styles.card}>
             <Ionicons name="warning-outline" size={40} color={colors.warning} />
-            <Text style={styles.title}>Đã xảy ra lỗi</Text>
+            <Text style={styles.title}>{this.props.errorTitle}</Text>
             <Text style={styles.message}>
-              {this.state.error?.message || 'Có gì đó không đúng. Vui lòng thử lại.'}
+              {this.props.genericMessage}
             </Text>
             <Pressable style={styles.retryBtn} onPress={this.handleRetry}>
-              <Text style={styles.retryText}>Thử lại</Text>
+              <Text style={styles.retryText}>{this.props.retryLabel}</Text>
             </Pressable>
           </View>
         </View>
@@ -89,4 +96,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
+}
+
+export function ErrorBoundary(props: Props) {
+  const { t } = useTranslation('common');
+  return (
+    <ErrorBoundaryImpl
+      {...props}
+      errorTitle={t('errorOccurred')}
+      genericMessage={t('genericErrorMessage')}
+      retryLabel={t('retry')}
+    />
+  );
 }

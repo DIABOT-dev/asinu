@@ -18,7 +18,7 @@ import { ScaledText as Text } from "../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../src/components/ScaledTextInput";
 import { AppAlertModal } from "../src/components/AppAlertModal";
 import { useAuthStore } from "../src/features/auth/auth.store";
-import { ApiError, apiClient } from "../src/lib/apiClient";
+import { apiClient, getApiErrorMessage } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
@@ -373,13 +373,10 @@ export default function DoctorConsultationScreen() {
         await loadTasks();
       }
     } catch (error) {
-      const message =
-        error instanceof ApiError && error.message.trim()
-          ? error.message
-          : error instanceof Error && error.message.trim()
-            ? error.message
-            : t("doctorConsultationError");
-      showToast(message, "error");
+      showToast(
+        getApiErrorMessage(error, t, "doctorConsultationError"),
+        "error",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -437,7 +434,7 @@ export default function DoctorConsultationScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero Banner with Doctor Illustration */}
+          {/* Hero banner with specialist illustration */}
           <View
             style={[
               styles.heroCard,
@@ -644,7 +641,7 @@ export default function DoctorConsultationScreen() {
               },
             ]}
           >
-            {/* Section 1: Bạn muốn bác sĩ hỗ trợ điều gì? */}
+            {/* Section 1: Bạn muốn chuyên gia hỗ trợ điều gì? */}
             <View style={styles.sectionHeaderRow}>
               <View
                 style={[styles.sectionIconBox, { backgroundColor: "#E6FAF7" }]}
@@ -896,7 +893,7 @@ export default function DoctorConsultationScreen() {
               })}
             </View>
 
-            {/* Section: Bác sĩ có thể tiếp nhận ngay */}
+            {/* Section: Chuyên gia có thể tiếp nhận ngay */}
             {recommendations.length > 0 && (
               <View style={{ marginTop: spacing.md }}>
                 <View style={styles.sectionHeaderRow}>

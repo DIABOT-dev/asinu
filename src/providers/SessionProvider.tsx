@@ -242,7 +242,7 @@ export const SessionProvider = ({ children }: Props) => {
         return;
       }
 
-      // Quick reply from the Doctor notification. Expo exposes the submitted
+      // Quick reply from the specialist notification. Expo exposes the submitted
       // text as response.userText; the same authenticated endpoint used by
       // the consultation screen keeps this path subject to lifecycle checks,
       // follow-up windows and idempotency.

@@ -1,6 +1,12 @@
 {
   "title": "My Wallet",
   "balance": "Balance",
+  "currentBalance": "Current balance",
+  "secureWallet": "Secure wallet",
+  "secureTopUp": "Secure top-up",
+  "generateQRHint": "Scan the code to top up quickly",
+  "seeAll": "See all",
+  "historyEmptyDescription": "Your transactions will appear here",
   "topUp": "Top Up",
   "enterAmount": "Enter amount (VND)",
   "generateQR": "Generate QR Code",

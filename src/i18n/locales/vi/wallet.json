@@ -1,6 +1,12 @@
 {
   "title": "Ví của tôi",
   "balance": "Số dư",
+  "currentBalance": "Số dư hiện tại",
+  "secureWallet": "Ví an toàn",
+  "secureTopUp": "Bảo mật tuyệt đối",
+  "generateQRHint": "Quét mã để nạp tiền nhanh chóng",
+  "seeAll": "Xem tất cả",
+  "historyEmptyDescription": "Các giao dịch sẽ được hiển thị tại đây",
   "topUp": "Nạp tiền",
   "enterAmount": "Nhập số tiền (VND)",
   "generateQR": "Tạo mã QR",

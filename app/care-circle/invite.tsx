@@ -27,6 +27,7 @@ import { colors, iconColors, radius, spacing, brandColors} from '../../src/style
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { normalizeVietnamesePhone } from '../../src/lib/validation';
+import { getApiErrorMessage } from '../../src/lib/apiClient';
 
 type SearchUser = {
   id: string;
@@ -238,7 +239,7 @@ export default function InviteScreen() {
       if (error.statusCode === 403 || error.message?.includes('premium') || error.message?.includes('Premium')) {
         setShowUpgradeModal(true);
       } else {
-        showToast(error.message || t('cannotSendInvite'), 'error');
+        showToast(getApiErrorMessage(error, t, 'cannotSendInvite'), 'error');
       }
     }
   };

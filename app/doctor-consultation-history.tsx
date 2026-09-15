@@ -216,7 +216,9 @@ export default function DoctorConsultationHistoryScreen() {
                   active ? styles.statusActive : styles.statusDone,
                 ]}
               >
-                {tHome(statusKey(item.status), { defaultValue: status })}
+                  {tHome(statusKey(item.status), {
+                    defaultValue: tHome("doctorConsultationStatusUnknown"),
+                  })}
               </Text>
             </View>
           </View>

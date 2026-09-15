@@ -1,4 +1,5 @@
-﻿import { apiClient } from '../../lib/apiClient';
+import i18n from '../../i18n';
+import { ApiError, apiClient } from '../../lib/apiClient';
 import { env } from '../../lib/env';
 import { tokenStore } from '../../lib/tokenStore';
 
@@ -90,8 +91,21 @@ export const chatApi = {
     });
     const text = await response.text();
     let data: any;
-    try { data = JSON.parse(text); } catch { throw new Error(`Server error ${response.status}`); }
-    if (!data.ok) throw new Error(data.error ?? `Server error ${response.status}`);
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new ApiError(
+        i18n.t('errorServer', { ns: 'common' }),
+        response.status,
+      );
+    }
+    if (!response.ok || !data.ok) {
+      throw new ApiError(
+        data.error || i18n.t('errorServer', { ns: 'common' }),
+        response.status,
+        { code: typeof data.code === 'string' ? data.code : undefined, data },
+      );
+    }
     return data.text as string;
   }
 };

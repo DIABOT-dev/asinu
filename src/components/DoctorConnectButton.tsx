@@ -5,7 +5,7 @@ import { ScaledText as Text } from './ScaledText';
 import { colors, spacing } from '../styles';
 
 /**
- * Animated CTA button for "Connect with Doctor" feature.
+ * Animated CTA button for the specialist consultation feature.
  *
  * Effects (giống AsinuChatSticker — float + pulse):
  *   1. Pulse scale: 1.0 to 1.04 loop ~1.2s easing sin

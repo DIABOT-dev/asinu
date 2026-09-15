@@ -92,6 +92,35 @@ const isAbortError = (error: unknown): error is Error =>
 const isRequestTimeout = (error: unknown): error is RequestTimeoutError =>
   error instanceof RequestTimeoutError || (error instanceof Error && error.name === 'RequestTimeoutError');
 
+const technicalErrorPattern = /^(?:request failed(?::\s*\d+)?|server error(?:\s*\d+)?|internal server error|bad request|unauthorized|forbidden|not found|conflict|too many requests|service unavailable|network request failed|failed to fetch|network error|request timed out)$/i;
+
+/** Convert API/transport failures into a localized, actionable UI message. */
+export function getApiErrorMessage(
+  error: unknown,
+  t: (key: string, options?: any) => string,
+  fallbackKey = 'errorOccurred',
+): string {
+  const common = (key: string) => i18n.t(key, { ns: 'common' });
+  if (isRequestTimeout(error)) return common('requestTimedOut');
+  if (isNetworkFailure(error)) return common('networkErrorUnknown');
+
+  if (error instanceof ApiError) {
+    const message = error.message?.trim();
+    if (message && !technicalErrorPattern.test(message)) return message;
+
+    if (error.statusCode === 401) return common('errorUnauthorized');
+    if (error.statusCode === 403) return common('errorForbidden');
+    if (error.statusCode === 404) return common('errorNotFound');
+    if (error.statusCode === 409) return common('errorConflict');
+    if (error.statusCode === 422) return common('errorValidation');
+    if (error.statusCode === 429) return common('errorRateLimited');
+    if (error.statusCode >= 500) return common('errorServer');
+    if (error.statusCode >= 400) return common('errorInvalidRequest');
+  }
+
+  return t(fallbackKey);
+}
+
 const createUserFacingTimeoutError = () => {
   const error = new Error(i18n.t('requestTimedOut', { ns: 'common' }));
   error.name = 'RequestTimeoutError';

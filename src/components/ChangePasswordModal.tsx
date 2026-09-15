@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { authApi } from '../features/auth/auth.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
-import { ApiError } from '../lib/apiClient';
+import { getApiErrorMessage } from '../lib/apiClient';
 import { showToast } from '../stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../styles';
 import { ScaledText as Text } from './ScaledText';
@@ -55,8 +55,7 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
       reset();
       onClose();
     } catch (e) {
-      if (e instanceof ApiError) setError(e.message || tc('error'));
-      else setError(tc('error'));
+      setError(getApiErrorMessage(e, tc, 'errorOccurred'));
     } finally {
       setSubmitting(false);
     }

@@ -74,7 +74,7 @@ import {
 } from "../../../src/stores/language.store";
 import { useScaledTypography } from "../../../src/hooks/useScaledTypography";
 import { useInitialLoadingGate } from "../../../src/hooks/useInitialLoadingGate";
-import { ApiError, apiClient } from "../../../src/lib/apiClient";
+import { ApiError, apiClient, getApiErrorMessage } from "../../../src/lib/apiClient";
 import {
   brandColors,
   categoryColors,
@@ -378,11 +378,10 @@ export default function ProfileScreen() {
       showToast(t("avatarUpdated"), "success");
     } catch (error) {
       console.error("[Profile] avatar upload failed", error);
-      const message =
-        error instanceof ApiError || error instanceof Error
-          ? error.message
-          : "";
-      showToast(message || t("avatarUploadFailed"), "error");
+      showToast(
+        getApiErrorMessage(error, t, "avatarUploadFailed"),
+        "error",
+      );
     } finally {
       avatarPickerInFlightRef.current = false;
       setIsUploadingAvatar(false);
@@ -460,7 +459,10 @@ export default function ProfileScreen() {
       if (error instanceof ApiError && error.statusCode === 409) {
         setPhoneError(t("phoneAlreadyUsed"));
       } else {
-        showToast((error as Error).message || t("profileUpdateError"), "error");
+        showToast(
+          getApiErrorMessage(error, t, "profileUpdateError"),
+          "error",
+        );
       }
     } finally {
       setIsSaving(false);
@@ -1047,7 +1049,7 @@ export default function ProfileScreen() {
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                 </TouchableOpacity>
 
-                {/* Trung tâm quyền dữ liệu Doctor */}
+                {/* Trung tâm quyền dữ liệu chuyên gia */}
                 <TouchableOpacity
                   style={styles.actionCard}
                   onPress={() => router.push("/privacy-center" as any)}

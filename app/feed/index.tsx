@@ -119,11 +119,11 @@ export default function FeedListScreen() {
 
   const getFeedTypeLabel = (type: string) => {
     switch (type) {
-      case 'checklist': return 'Checklist tự chăm sóc';
-      case 'warning': return 'Cảnh báo quan trọng';
-      case 'family_note': return 'Ghi chú gửi gia đình';
-      case 'weekly_summary': return 'Báo cáo tuần';
-      default: return 'Lời khuyên sức khỏe';
+      case 'checklist': return tc('feedTypeChecklist');
+      case 'warning': return tc('feedTypeWarning');
+      case 'family_note': return tc('feedTypeFamilyNote');
+      case 'weekly_summary': return tc('feedTypeWeeklySummary');
+      default: return tc('feedTypeAdvice');
     }
   };
 
@@ -134,7 +134,7 @@ export default function FeedListScreen() {
         onPress={() => handleDismiss(itemId)}
       >
         <Ionicons name="eye-off-outline" size={24} color="#fff" />
-        <Text style={styles.dismissActionText}>Ẩn bản tin</Text>
+        <Text style={styles.dismissActionText}>{tc('hideFeed')}</Text>
       </Pressable>
     );
   };
@@ -144,7 +144,7 @@ export default function FeedListScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <ScreenBackButton onPress={() => router.back()} />
-        <Text style={styles.headerTitle}>Bản tin sức khỏe</Text>
+        <Text style={styles.headerTitle}>{tc('feedHeader')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -154,13 +154,13 @@ export default function FeedListScreen() {
           style={[styles.tab, activeTab === 'feed' && styles.activeTab]} 
           onPress={() => setActiveTab('feed')}
         >
-          <Text style={[styles.tabText, activeTab === 'feed' && styles.activeTabText]}>Bản tin</Text>
+          <Text style={[styles.tabText, activeTab === 'feed' && styles.activeTabText]}>{tc('feedTab')}</Text>
         </Pressable>
         <Pressable 
           style={[styles.tab, activeTab === 'saved' && styles.activeTab]} 
           onPress={() => setActiveTab('saved')}
         >
-          <Text style={[styles.tabText, activeTab === 'saved' && styles.activeTabText]}>Ghi nhớ</Text>
+          <Text style={[styles.tabText, activeTab === 'saved' && styles.activeTabText]}>{tc('savedTab')}</Text>
         </Pressable>
       </View>
 
@@ -175,8 +175,8 @@ export default function FeedListScreen() {
             <View style={styles.emptyIconContainer}>
               <Ionicons name="newspaper-outline" size={48} color={colors.textSecondary} />
             </View>
-            <Text style={styles.emptyTitle}>Health Feed đang tắt</Text>
-            <Text style={styles.emptySub}>Khi backend bật lại tính năng này, các bản tin sức khỏe sẽ xuất hiện tại đây.</Text>
+            <Text style={styles.emptyTitle}>{tc('feedDisabledTitle')}</Text>
+            <Text style={styles.emptySub}>{tc('feedDisabledDescription')}</Text>
           </View>
         ) : activeTab !== 'saved' ? (
           filteredFeed.length === 0 ? (
@@ -184,8 +184,8 @@ export default function FeedListScreen() {
               <View style={styles.emptyIconContainer}>
                 <Ionicons name="newspaper-outline" size={48} color={colors.textSecondary} />
               </View>
-              <Text style={styles.emptyTitle}>Chưa có bản tin mới</Text>
-              <Text style={styles.emptySub}>Asinu sẽ gửi bài viết hướng dẫn chăm sóc cá nhân hóa phù hợp với sức khỏe của bác tại đây.</Text>
+              <Text style={styles.emptyTitle}>{tc('feedEmptyTitle')}</Text>
+              <Text style={styles.emptySub}>{tc('feedEmptyDescription')}</Text>
             </View>
           ) : (
             filteredFeed.map(item => {
@@ -236,7 +236,7 @@ export default function FeedListScreen() {
                     </Text>
  
                     <View style={styles.cardFooter}>
-                      <Text style={styles.ctaText}>{item.action_label || 'Đọc chi tiết'}</Text>
+                      <Text style={styles.ctaText}>{item.action_label || tc('feedReadDetails')}</Text>
                       <Ionicons name="chevron-forward" size={16} color={colors.primary} />
                     </View>
                   </Pressable>
@@ -269,7 +269,7 @@ export default function FeedListScreen() {
                       <Text style={styles.cardTitle} numberOfLines={1}>
                         {item.title}
                       </Text>
-                      <Text style={styles.cardTypeLabel}>Đã lưu vào ghi nhớ</Text>
+                      <Text style={styles.cardTypeLabel}>{tc('savedItemLabel')}</Text>
                     </View>
                   </View>
                 </View>
@@ -277,7 +277,7 @@ export default function FeedListScreen() {
                   {item.summary}
                 </Text>
                 <View style={styles.cardFooter}>
-                  <Text style={styles.ctaText}>Đọc lại hướng dẫn</Text>
+                  <Text style={styles.ctaText}>{tc('feedReadAgain')}</Text>
                   <Ionicons name="chevron-forward" size={16} color={colors.primary} />
                 </View>
               </Pressable>

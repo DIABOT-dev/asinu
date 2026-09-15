@@ -33,6 +33,7 @@ import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, spacing, brandColors } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
+import { getApiErrorMessage } from '../../src/lib/apiClient';
 
 export default function CareCircleScreen() {
   const router = useRouter();
@@ -199,8 +200,7 @@ export default function CareCircleScreen() {
       await acceptInvitation(id);
       showToast(t('acceptSuccess'), 'success');
     } catch (error) {
-      const msg = (error as Error)?.message?.trim();
-      showToast(msg || t('acceptError'), 'error');
+      showToast(getApiErrorMessage(error, t, 'acceptError'), 'error');
     } finally {
       setActionLoading(null);
     }

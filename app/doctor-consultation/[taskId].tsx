@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../../src/components/ScaledTextInput";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
-import { apiClient } from "../../src/lib/apiClient";
+import { apiClient, getApiErrorMessage } from "../../src/lib/apiClient";
 import { env } from "../../src/lib/env";
 import { tokenStore } from "../../src/lib/tokenStore";
 import { showToast } from "../../src/stores/toast.store";
@@ -609,18 +609,11 @@ export default function DoctorConsultationThreadScreen() {
           },
         );
         await loadThread();
-        showToast(
-          i18n.language === "vi"
-            ? "Đã gửi ảnh cho bác sĩ"
-            : "Image sent to your doctor",
-          "success",
-        );
+        showToast(t("doctorConsultationImageSent"), "success");
       }
-    } catch {
+    } catch (error) {
       showToast(
-        i18n.language === "vi"
-          ? "Không thể gửi ảnh. Vui lòng thử lại."
-          : "Could not send image. Please try again.",
+        getApiErrorMessage(error, t, "doctorConsultationAttachmentError"),
         "error",
       );
     } finally {
@@ -672,7 +665,7 @@ export default function DoctorConsultationThreadScreen() {
         taskStatus.follow_up_open === true));
   const statusLabel = taskStatus?.status
     ? t(`doctorConsultationStatus_${taskStatus.status}`, {
-        defaultValue: taskStatus.status,
+        defaultValue: t("doctorConsultationStatusUnknown"),
       })
     : t("doctorConsultationWaiting");
   const statusIsTerminal =
@@ -1218,7 +1211,7 @@ export default function DoctorConsultationThreadScreen() {
                 );
               }
 
-              // Doctor message with avatar on the left
+              // Specialist message with avatar on the left
               return (
                 <View
                   key={message.id || index}
@@ -1251,7 +1244,7 @@ export default function DoctorConsultationThreadScreen() {
                       },
                     ]}
                   >
-                    {/* Doctor Name label */}
+                    {/* Specialist name label */}
                     {index === 0 ||
                     messages[index - 1]?.sender_type === "patient" ? (
                       <Text

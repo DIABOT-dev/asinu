@@ -163,7 +163,7 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
         </View>
       )}
 
-      {/* Connect doctor CTA — chỉ hiển thị khi level=danger (Cần chú ý).
+      {/* Connect specialist CTA — chỉ hiển thị khi level=danger (Cần chú ý).
           DoctorConnectButton có pulse + glow animation để hút mắt user. */}
       {level === 'danger' && checkinDone && (
         <View style={{ marginTop: spacing.sm }}>

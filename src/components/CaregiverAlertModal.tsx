@@ -26,7 +26,7 @@ interface PendingAlert {
 }
 
 export function CaregiverAlertModal() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
@@ -168,7 +168,7 @@ export function CaregiverAlertModal() {
             }
           </Text>
           <Text style={styles.time}>
-            {t('careAlertSentAt')} {new Date(alert.sentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+            {t('careAlertSentAt')} {new Date(alert.sentAt).toLocaleTimeString(i18n.language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })}
           </Text>
 
           {/* Actions */}

@@ -24,7 +24,7 @@ import { Screen } from '../../src/components/Screen';
 import { careCircleApi, type CareCircleConnection } from '../../src/features/care-circle/care-circle.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { PLANS, PlanOption, formatVND, type Plan } from '../../src/features/subscription/plans';
-import { ApiError, apiClient } from '../../src/lib/apiClient';
+import { ApiError, apiClient, getApiErrorMessage } from '../../src/lib/apiClient';
 import { colors, radius, spacing } from '../../src/styles';
 import { showToast } from '../../src/stores/toast.store';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
@@ -64,6 +64,7 @@ export default function GiftSubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('subscription');
   const { t: tcc } = useTranslation('careCircle');
+  const { t: tc } = useTranslation('common');
   const currentUserId = useAuthStore((s) => s.profile?.id);
 
   const [connections, setConnections] = useState<CareCircleConnection[]>([]);
@@ -142,12 +143,12 @@ export default function GiftSubscriptionScreen() {
       } else if (err instanceof ApiError && err.code === 'INVALID_RECIPIENT') {
         showToast(t('giftErrorInvalidBody'), 'error');
       } else {
-        showToast(err?.message || t('giftErrorGenericBody'), 'error');
+        showToast(getApiErrorMessage(err, tc, 'errorServer'), 'error');
       }
     } finally {
       setCreatingQR(false);
     }
-  }, [recipientId, selectedMonths, t]);
+  }, [recipientId, selectedMonths, t, tc]);
 
   const handleWalletPay = useCallback(async () => {
     if (!recipientId) return;
@@ -172,14 +173,15 @@ export default function GiftSubscriptionScreen() {
         setWallet({ status: 'failed', error: t('giftErrorNotInCircleBody') });
         showToast(t('giftErrorNotInCircleBody'), 'error');
       } else if (err instanceof ApiError) {
-        setWallet({ status: 'failed', error: err.message || t('paymentFailed') });
-        showToast(err.message || t('paymentFailed'), 'error');
+        const message = getApiErrorMessage(err, tc, 'errorServer');
+        setWallet({ status: 'failed', error: message });
+        showToast(message, 'error');
       } else {
         setWallet({ status: 'failed', error: t('paymentNetworkError') });
         showToast(t('paymentNetworkError'), 'error');
       }
     }
-  }, [recipientId, selectedMonths, t]);
+  }, [recipientId, selectedMonths, t, tc]);
 
   // ─── Branch 1: QR rendered after a successful create ─────────────────
   if (qr) {

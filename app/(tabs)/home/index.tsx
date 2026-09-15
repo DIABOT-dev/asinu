@@ -676,10 +676,10 @@ export default function HomeScreen() {
       <Animated.View entering={FadeIn.delay(135).duration(350)} style={styles.healthFeedContainer}>
         <View style={styles.sectionHeaderRow}>
           <Ionicons name="sparkles" size={20} color={colors.primary} />
-          <Text style={styles.sectionTitle}>Asinu nhắc bạn</Text>
+          <Text style={styles.sectionTitle}>{t('healthFeedSectionTitle')}</Text>
           <View style={{ flex: 1 }} />
           <Pressable onPress={() => router.push('/feed' as any)} hitSlop={12}>
-            <Text style={styles.healthFeedSeeAllText}>Xem tất cả ({healthFeedItems.length})</Text>
+            <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: healthFeedItems.length })}</Text>
           </Pressable>
         </View>
 
@@ -786,9 +786,9 @@ export default function HomeScreen() {
               resizeMode="contain"
             />
             <View style={styles.healthFeedEmptyTextContainer}>
-              <Text style={styles.healthFeedEmptyTitle}>Đã đọc hết nhắc nhở!</Text>
+              <Text style={styles.healthFeedEmptyTitle}>{t('healthFeedEmptyTitle')}</Text>
               <Text style={styles.healthFeedEmptyMessage}>
-                Tuyệt vời! Bác đã đọc hết các nhắc nhở hôm nay. Chúc bác một ngày tràn đầy năng lượng!
+                {t('healthFeedEmptyMessage')}
               </Text>
             </View>
           </View>

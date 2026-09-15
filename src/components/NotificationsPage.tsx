@@ -109,14 +109,14 @@ function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+function formatTime(date: Date, language: string): string {
+  return date.toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
 export function NotificationsPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { t: tLogs } = useTranslation('logs');
   const { colors, isDark } = useThemeColors();
   const scaledTypography = useScaledTypography();
@@ -168,7 +168,7 @@ export function NotificationsPage() {
           ? t('today')
           : isSameDay(day, yesterday)
             ? t('yesterday')
-            : day.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            : day.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
         group = { key, title, items: [] };
         groups.push(group);
       }
@@ -176,7 +176,7 @@ export function NotificationsPage() {
     });
 
     return groups;
-  }, [filteredNotifications, t]);
+  }, [filteredNotifications, i18n.language, t]);
 
   const listItems = useMemo<NotificationListItem[]>(
     () => groupedNotifications.flatMap((group) => [
@@ -276,7 +276,7 @@ export function NotificationsPage() {
               <Text style={[styles.notificationTitle, !notification.read && styles.notificationTitleUnread]} numberOfLines={1}>
                 {notification.title}
               </Text>
-              <Text style={styles.notificationTime}>{formatTime(notification.timestamp)}</Text>
+              <Text style={styles.notificationTime}>{formatTime(notification.timestamp, i18n.language)}</Text>
             </View>
             <Text style={styles.notificationBody} numberOfLines={2}>{notification.body}</Text>
           </View>

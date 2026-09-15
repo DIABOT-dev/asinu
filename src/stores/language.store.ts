@@ -3,6 +3,7 @@ import i18n from 'i18next';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { authApi } from '../features/auth/auth.api';
+import { refreshNotificationLocalization } from '../lib/notifications';
 
 export type AppLanguage = 'vi' | 'en';
 
@@ -18,11 +19,13 @@ export const useLanguageStore = create<LanguageStore>()(
       language: (i18n.language as AppLanguage) || 'vi',
       applyLanguage: (language: AppLanguage) => {
         i18n.changeLanguage(language);
+        refreshNotificationLocalization().catch(() => {});
         AsyncStorage.setItem('@app/language', language);
         set({ language });
       },
       setLanguage: (language: AppLanguage) => {
         i18n.changeLanguage(language);
+        refreshNotificationLocalization().catch(() => {});
         AsyncStorage.setItem('@app/language', language);
         set({ language });
         authApi.updateProfile({ language }).catch(() => {});

@@ -49,7 +49,7 @@ export async function registerNotificationCategories(): Promise<void> {
     await Notifications.setNotificationCategoryAsync("health_alert", [
       {
         identifier: "ACKNOWLEDGE",
-        buttonTitle: "✓ Đã xem",
+        buttonTitle: i18n.t("notificationActionSeen", { ns: "common" }),
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
@@ -58,7 +58,7 @@ export async function registerNotificationCategories(): Promise<void> {
       },
       {
         identifier: "ON_MY_WAY",
-        buttonTitle: "🚗 Đang tới",
+        buttonTitle: i18n.t("notificationActionOnMyWay", { ns: "common" }),
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
@@ -67,7 +67,7 @@ export async function registerNotificationCategories(): Promise<void> {
       },
       {
         identifier: "CALL",
-        buttonTitle: "📞 Gọi ngay",
+        buttonTitle: i18n.t("notificationActionCall", { ns: "common" }),
         options: {
           isDestructive: false,
           isAuthenticationRequired: false,
@@ -116,6 +116,90 @@ export interface NotificationData {
   [key: string]: unknown;
 }
 
+const NOTIFICATION_CHANNEL_IDS = [
+  "reminder",
+  "alert",
+  "care-circle",
+  "checkin",
+  "milestone",
+  "doctor-consultation",
+] as const;
+
+async function configureNotificationChannels(): Promise<void> {
+  if (Platform.OS !== "android") return;
+
+  await Promise.allSettled(
+    NOTIFICATION_CHANNEL_IDS.map((id) =>
+      Notifications.deleteNotificationChannelAsync(id),
+    ),
+  );
+
+  await Notifications.setNotificationChannelAsync("reminder", {
+    name: i18n.t("notificationChannelReminder", { ns: "common" }),
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 200],
+    enableVibrate: true,
+    lightColor: "#08b8a2",
+    sound: "asinu_reminder.wav",
+  });
+
+  await Notifications.setNotificationChannelAsync("alert", {
+    name: i18n.t("notificationChannelAlert", { ns: "common" }),
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 300, 150, 300],
+    enableVibrate: true,
+    lightColor: "#FF6B6B",
+    sound: "asinu_alert.wav",
+    bypassDnd: true,
+  });
+
+  await Notifications.setNotificationChannelAsync("care-circle", {
+    name: i18n.t("notificationChannelCareCircle", { ns: "common" }),
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 100, 250],
+    enableVibrate: true,
+    lightColor: "#6B8FFF",
+    sound: "asinu_care.wav",
+  });
+
+  await Notifications.setNotificationChannelAsync("doctor-consultation", {
+    name: i18n.t("notificationChannelDoctor", { ns: "common" }),
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 100, 250],
+    enableVibrate: true,
+    lightColor: "#08b8a2",
+    sound: "asinu_care.wav",
+  });
+
+  await Notifications.setNotificationChannelAsync("checkin", {
+    name: i18n.t("notificationChannelCheckin", { ns: "common" }),
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 300, 100, 300],
+    enableVibrate: true,
+    lightColor: "#08b8a2",
+    sound: "asinu_reminder.wav",
+  });
+
+  await Notifications.setNotificationChannelAsync("milestone", {
+    name: i18n.t("notificationChannelMilestone", { ns: "common" }),
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 100, 50, 100, 50, 200],
+    enableVibrate: true,
+    lightColor: "#FFD700",
+    sound: "asinu_milestone.wav",
+  });
+}
+
+/** Refresh native notification labels after the app language changes. */
+export async function refreshNotificationLocalization(): Promise<void> {
+  try {
+    await configureNotificationChannels();
+    await registerNotificationCategories();
+  } catch {
+    // Native notification configuration is best-effort on unsupported runtimes.
+  }
+}
+
 /**
  * Request notification permissions from the user
  */
@@ -141,81 +225,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       return false;
     }
 
-    // For Android, delete old channels first then recreate — ensures sound settings
-    // are never stuck from a previous cached channel without sound.
-    if (Platform.OS === "android") {
-      const CHANNEL_IDS = [
-        "reminder",
-        "alert",
-        "care-circle",
-        "checkin",
-        "milestone",
-        "doctor-consultation",
-      ];
-      await Promise.allSettled(
-        CHANNEL_IDS.map((id) =>
-          Notifications.deleteNotificationChannelAsync(id),
-        ),
-      );
-
-      await Notifications.setNotificationChannelAsync("reminder", {
-        name: "Nhắc nhở sức khoẻ",
-        importance: Notifications.AndroidImportance.DEFAULT,
-        vibrationPattern: [0, 200],
-        enableVibrate: true,
-        lightColor: "#08b8a2",
-        sound: "asinu_reminder.wav",
-      });
-
-      await Notifications.setNotificationChannelAsync("alert", {
-        name: "Cảnh báo sức khoẻ",
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 300, 150, 300],
-        enableVibrate: true,
-        lightColor: "#FF6B6B",
-        sound: "asinu_alert.wav",
-        bypassDnd: true,
-      });
-
-      await Notifications.setNotificationChannelAsync("care-circle", {
-        name: "Vòng kết nối",
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 100, 250],
-        enableVibrate: true,
-        lightColor: "#6B8FFF",
-        sound: "asinu_care.wav",
-      });
-
-      await Notifications.setNotificationChannelAsync("doctor-consultation", {
-        name: "Trao đổi với bác sĩ",
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 100, 250],
-        enableVibrate: true,
-        lightColor: "#08b8a2",
-        sound: "asinu_care.wav",
-      });
-
-      await Notifications.setNotificationChannelAsync("checkin", {
-        name: "Check-in sức khoẻ",
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 300, 100, 300],
-        enableVibrate: true,
-        lightColor: "#08b8a2",
-        sound: "asinu_reminder.wav",
-      });
-
-      await Notifications.setNotificationChannelAsync("milestone", {
-        name: "Thành tích",
-        importance: Notifications.AndroidImportance.DEFAULT,
-        vibrationPattern: [0, 100, 50, 100, 50, 200],
-        enableVibrate: true,
-        lightColor: "#FFD700",
-        sound: "asinu_milestone.wav",
-      });
-    }
-
-    // Đăng ký action buttons trên notification
-    await registerNotificationCategories();
+    await refreshNotificationLocalization();
 
     return true;
   } catch (error) {

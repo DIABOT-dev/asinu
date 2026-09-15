@@ -1,5 +1,7 @@
 import { env } from '../../lib/env';
 import { tokenStore } from '../../lib/tokenStore';
+import i18n from '../../i18n';
+import { ApiError } from '../../lib/apiClient';
 
 export type VoiceLogType = 'glucose' | 'blood_pressure' | 'insulin';
 
@@ -58,9 +60,13 @@ export async function voiceParseLogs(
 
   if (!response.ok) {
     const text = await response.text();
-    let msg = `Request failed: ${response.status}`;
-    try { msg = JSON.parse(text).error || msg; } catch {}
-    throw new Error(msg);
+    let data: any = null;
+    try { data = JSON.parse(text); } catch {}
+    throw new ApiError(
+      data?.error || i18n.t('errorServer', { ns: 'common' }),
+      response.status,
+      { code: typeof data?.code === 'string' ? data.code : undefined, data: data ?? undefined },
+    );
   }
 
   return response.json();

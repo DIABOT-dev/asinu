@@ -31,10 +31,10 @@ type BalanceRes = { ok: boolean; balance: string };
 type QRRes = { ok: boolean; order_code: string; qr_url: string; amount: number; description: string; expires_at: string };
 type HistoryRes = { ok: boolean; payments: Payment[]; total: number };
 
-function formatVND(val: number | string): string {
+function formatVND(val: number | string, language = 'vi'): string {
   const n = typeof val === 'string' ? parseFloat(val) : val;
   if (isNaN(n)) return '0';
-  return n.toLocaleString('vi-VN');
+  return n.toLocaleString(language === 'en' ? 'en-US' : 'vi-VN');
 }
 function formatStatus(status: Payment['status'], t: (k: string) => string): string {
   if (status === 'completed') return t('completed');
@@ -205,7 +205,7 @@ function EmptyHistoryGraphic() {
 }
 
 export default function WalletScreen() {
-  const { t } = useTranslation('wallet');
+  const { t, i18n } = useTranslation('wallet');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
@@ -355,21 +355,21 @@ export default function WalletScreen() {
             <WalletCardGraphic />
 
             <View style={styles.balanceCardContent}>
-              <ScaledText style={styles.balanceLabel}>Số dư hiện tại</ScaledText>
+              <ScaledText style={styles.balanceLabel}>{t('currentBalance')}</ScaledText>
               {loadingBalance ? (
                 <View style={{ marginTop: 8 }}>
                   <ActivityIndicator size="small" color="#059669" />
                 </View>
               ) : (
                 <View style={styles.balanceRow}>
-                  <ScaledText style={styles.balanceValue}>{formatVND(balance)}</ScaledText>
-                  <ScaledText style={styles.balanceUnit}>đ</ScaledText>
+                  <ScaledText style={styles.balanceValue}>{formatVND(balance, i18n.language)}</ScaledText>
+                  <ScaledText style={styles.balanceUnit}>{t('balanceUnit')}</ScaledText>
                 </View>
               )}
 
               <View style={styles.badgePill}>
                 <Ionicons name="shield-checkmark" size={13} color="#059669" />
-                <ScaledText style={styles.badgeText}>Ví an toàn</ScaledText>
+                <ScaledText style={styles.badgeText}>{t('secureWallet')}</ScaledText>
               </View>
             </View>
           </LinearGradient>
@@ -384,7 +384,7 @@ export default function WalletScreen() {
             </View>
             <View style={styles.securityRight}>
               <Ionicons name="shield-checkmark-outline" size={14} color="#059669" />
-              <ScaledText style={styles.securityText}>Bảo mật tuyệt đối</ScaledText>
+              <ScaledText style={styles.securityText}>{t('secureTopUp')}</ScaledText>
             </View>
           </View>
 
@@ -406,9 +406,9 @@ export default function WalletScreen() {
                   </View>
                   <View style={{ marginBottom: 6 }}><Icon50K /></View>
                   <ScaledText style={[styles.quickCardAmount, amount === '50000' && styles.quickCardAmountActive]}>
-                    50.000 đ
+                    {formatVND(50000, i18n.language)} {t('balanceUnit')}
                   </ScaledText>
-                  <ScaledText style={styles.quickCardLabel}>50K</ScaledText>
+                  <ScaledText style={styles.quickCardLabel}>{t('quick50')}</ScaledText>
                 </Pressable>
               </View>
 
@@ -427,9 +427,9 @@ export default function WalletScreen() {
                   </View>
                   <View style={{ marginBottom: 6 }}><Icon100K /></View>
                   <ScaledText style={[styles.quickCardAmount, amount === '100000' && styles.quickCardAmountActive]}>
-                    100.000 đ
+                    {formatVND(100000, i18n.language)} {t('balanceUnit')}
                   </ScaledText>
-                  <ScaledText style={styles.quickCardLabel}>100K</ScaledText>
+                  <ScaledText style={styles.quickCardLabel}>{t('quick100')}</ScaledText>
                 </Pressable>
               </View>
 
@@ -448,9 +448,9 @@ export default function WalletScreen() {
                   </View>
                   <View style={{ marginBottom: 6 }}><Icon200K /></View>
                   <ScaledText style={[styles.quickCardAmount, amount === '200000' && styles.quickCardAmountActive]}>
-                    200.000 đ
+                    {formatVND(200000, i18n.language)} {t('balanceUnit')}
                   </ScaledText>
-                  <ScaledText style={styles.quickCardLabel}>200K</ScaledText>
+                  <ScaledText style={styles.quickCardLabel}>{t('quick200')}</ScaledText>
                 </Pressable>
               </View>
 
@@ -469,9 +469,9 @@ export default function WalletScreen() {
                   </View>
                   <View style={{ marginBottom: 6 }}><Icon500K /></View>
                   <ScaledText style={[styles.quickCardAmount, amount === '500000' && styles.quickCardAmountActive]}>
-                    500.000 đ
+                    {formatVND(500000, i18n.language)} {t('balanceUnit')}
                   </ScaledText>
-                  <ScaledText style={styles.quickCardLabel}>500K</ScaledText>
+                  <ScaledText style={styles.quickCardLabel}>{t('quick500')}</ScaledText>
                 </Pressable>
               </View>
             </View>
@@ -527,8 +527,8 @@ export default function WalletScreen() {
                 <MaterialCommunityIcons name="view-grid-plus-outline" size={26} color="#059669" />
               </View>
               <View style={styles.generateTextWrap}>
-                <ScaledText style={styles.generateTitle}>Tạo mã QR</ScaledText>
-                <ScaledText style={styles.generateSub}>Quét mã để nạp tiền nhanh chóng</ScaledText>
+              <ScaledText style={styles.generateTitle}>{t('generateQR')}</ScaledText>
+              <ScaledText style={styles.generateSub}>{t('generateQRHint')}</ScaledText>
               </View>
               {creatingQR ? (
                 <ActivityIndicator size="small" color="#059669" />
@@ -546,7 +546,7 @@ export default function WalletScreen() {
               <View style={styles.successBox}>
                 <Ionicons name="checkmark-circle" size={68} color="#10B981" />
                 <ScaledText style={styles.successTitle}>{t('paymentSuccess')}</ScaledText>
-                <ScaledText style={styles.successSub}>+{formatVND(qr.amount)} đ</ScaledText>
+                <ScaledText style={styles.successSub}>+{formatVND(qr.amount, i18n.language)} {t('balanceUnit')}</ScaledText>
               </View>
             ) : (
               <>
@@ -574,7 +574,7 @@ export default function WalletScreen() {
                         <Image source={{ uri: qr.qr_url }} style={styles.qrImage} resizeMode="contain" />
                       </View>
                       <View style={styles.qrAmountBadge}>
-                        <ScaledText style={styles.qrAmountText}>{formatVND(qr.amount)} đ</ScaledText>
+                      <ScaledText style={styles.qrAmountText}>{formatVND(qr.amount, i18n.language)} {t('balanceUnit')}</ScaledText>
                       </View>
                     </View>
 
@@ -617,7 +617,7 @@ export default function WalletScreen() {
               <ScaledText style={styles.sectionTitle}>{t('history')}</ScaledText>
             </View>
             <Pressable onPress={() => {}} hitSlop={8}>
-              <ScaledText style={styles.seeAllText}>Xem tất cả &gt;</ScaledText>
+              <ScaledText style={styles.seeAllText}>{t('seeAll')} &gt;</ScaledText>
             </Pressable>
           </View>
 
@@ -637,16 +637,16 @@ export default function WalletScreen() {
             <View style={styles.emptyWrap}>
               <EmptyHistoryGraphic />
               <ScaledText style={styles.emptyTitle}>{t('noHistory')}</ScaledText>
-              <ScaledText style={styles.emptySub}>Các giao dịch sẽ được hiển thị tại đây</ScaledText>
+              <ScaledText style={styles.emptySub}>{t('historyEmptyDescription')}</ScaledText>
             </View>
           ) : (
             payments.map((p, idx) => (
               <View key={p.id} style={[styles.paymentRow, idx === payments.length - 1 && { borderBottomWidth: 0 }]}>
                 <Ionicons name={statusIcon(p.status) as any} size={20} color={statusColor(p.status)} />
                 <View style={styles.paymentInfo}>
-                  <ScaledText style={styles.paymentAmount}>+{formatVND(p.amount)} đ</ScaledText>
+                  <ScaledText style={styles.paymentAmount}>+{formatVND(p.amount, i18n.language)} {t('balanceUnit')}</ScaledText>
                   <ScaledText style={styles.paymentDate}>
-                    {new Date(p.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {new Date(p.created_at).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </ScaledText>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: statusColor(p.status) + '15' }]}>

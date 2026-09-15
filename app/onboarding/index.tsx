@@ -1009,9 +1009,7 @@ function Step1({
       {/* Security Privacy Notice */}
       <View style={stepStyles.securityCard}>
         <Ionicons name="shield-checkmark-outline" size={22} color="#008080" />
-        <Text style={stepStyles.securityText}>
-          <Text style={{ fontWeight: '700', color: '#008080' }}>Thông tin</Text> của bạn được bảo mật tuyệt đối và chỉ dùng để chăm sóc sức khỏe.
-        </Text>
+        <Text style={stepStyles.securityText}>{t('securityNotice')}</Text>
       </View>
 
       {/* Consent Checkbox */}
@@ -1024,11 +1022,11 @@ function Step1({
           />
         </Pressable>
         <Text style={{ flex: 1, fontSize: 12.5, lineHeight: 18, color: '#64748B' }}>
-          Tôi đồng ý với các{" "}
-          <Text style={{ color: '#008080', fontWeight: '700' }} onPress={() => Linking.openURL(TERMS_URL)}>Điều khoản dịch vụ</Text>
-          {" "}và{" "}
-          <Text style={{ color: '#008080', fontWeight: '700' }} onPress={() => Linking.openURL(PRIVACY_URL)}>Chính sách bảo mật</Text>
-          {" "}của Asinu.
+          {t('consentPrefix')} {" "}
+          <Text style={{ color: '#008080', fontWeight: '700' }} onPress={() => Linking.openURL(TERMS_URL)}>{t('termsOfService')}</Text>
+          {" "}{t('and')}{" "}
+          <Text style={{ color: '#008080', fontWeight: '700' }} onPress={() => Linking.openURL(PRIVACY_URL)}>{t('privacyPolicy')}</Text>
+          {" "}{t('consentSuffix')}
         </Text>
       </View>
 

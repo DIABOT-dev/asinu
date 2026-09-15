@@ -20,7 +20,7 @@ import { Screen } from '../../src/components/Screen';
 import { SubscriptionFAQ } from '../../src/components/SubscriptionFAQ';
 import { RestoreLink } from '../../src/features/iap/RestoreLink';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { apiClient, ApiError } from '../../src/lib/apiClient';
+import { apiClient, ApiError, getApiErrorMessage } from '../../src/lib/apiClient';
 import { env } from '../../src/lib/env';
 import { colors, radius, spacing } from '../../src/styles';
 import { showToast } from '../../src/stores/toast.store';
@@ -294,6 +294,7 @@ const HistoryCard = memo(function HistoryCard({
 
 export default function SubscriptionScreen() {
   const { t } = useTranslation('subscription');
+  const { t: tc } = useTranslation('common');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
@@ -419,14 +420,15 @@ export default function SubscriptionScreen() {
     } catch (err) {
       setWalletPayResult('failed');
       if (err instanceof ApiError) {
-        setWalletPayError(err.message || t('paymentFailed'));
-        showToast(err.message || t('paymentFailed'), 'error');
+        const message = getApiErrorMessage(err, tc, 'errorServer');
+        setWalletPayError(message);
+        showToast(message, 'error');
       } else {
         setWalletPayError(t('paymentNetworkError'));
         showToast(t('paymentNetworkError'), 'error');
       }
     }
-  }, [selectedPlan, fetchStatus, fetchHistory, t]);
+  }, [selectedPlan, fetchStatus, fetchHistory, t, tc]);
 
   const handleUpgradePress = useCallback(() => {
     if (env.paymentMethod === 'sepay') {
