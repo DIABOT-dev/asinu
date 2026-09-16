@@ -50,34 +50,37 @@ export function MedicalAuthBackdrop({
       />
 
       <Svg width={width} height={height} style={StyleSheet.absoluteFillObject}>
-        {/* Ambient Corner Silhouettes / Bubbles */}
+        {/* Top-Left Ambient Orb */}
         <Circle
           cx={0}
           cy={120}
           r={170}
           fill={isDark ? '#0284C7' : '#D2F2FA'}
-          opacity={isDark ? 0.08 : 0.6}
+          opacity={isDark ? 0.08 : 0.45}
         />
+        {/* Top-Right Ambient Orb */}
         <Circle
           cx={width + 30}
           cy={160}
           r={180}
           fill={isDark ? '#0284C7' : '#DDF6F9'}
-          opacity={isDark ? 0.08 : 0.55}
+          opacity={isDark ? 0.08 : 0.45}
+        />
+
+        {/* Bottom Ambient Soft Overlapping Orbs (crossing smoothly across the center, eliminating harsh borders and gaps) */}
+        <Circle
+          cx={-45}
+          cy={height + 15}
+          r={Math.max(width * 0.72, 280)}
+          fill={isDark ? '#0284C7' : '#BAE6FD'}
+          opacity={isDark ? 0.08 : 0.32}
         />
         <Circle
-          cx={-20}
-          cy={height - 80}
-          r={230}
-          fill={isDark ? '#0284C7' : '#BEEBFB'}
-          opacity={isDark ? 0.08 : 0.65}
-        />
-        <Circle
-          cx={width + 40}
-          cy={height - 60}
-          r={250}
+          cx={width + 50}
+          cy={height - 15}
+          r={Math.max(width * 0.78, 305)}
           fill={isDark ? '#0284C7' : '#B6E5FE'}
-          opacity={isDark ? 0.08 : 0.65}
+          opacity={isDark ? 0.08 : 0.36}
         />
 
         {/* Top-Left Medical Cross */}
@@ -104,14 +107,14 @@ export function MedicalAuthBackdrop({
         />
 
         {/* Bottom-Left Dot Grid Matrix */}
-        <G opacity={isDark ? 0.25 : 0.55} transform={`translate(28, ${Math.max(height - 180, 520)})`}>
+        <G opacity={isDark ? 0.22 : 0.45} transform={`translate(26, ${Math.max(height - 170, 520)})`}>
           {[0, 1, 2, 3].map((r) =>
             [0, 1, 2, 3].map((c) => (
               <Circle
                 key={`dot-${r}-${c}`}
-                cx={c * 15}
-                cy={r * 15}
-                r={2.8}
+                cx={c * 14}
+                cy={r * 14}
+                r={2.5}
                 fill={dotColor}
               />
             ))
@@ -119,9 +122,9 @@ export function MedicalAuthBackdrop({
         </G>
 
         {/* Bottom-Right Medical Cross */}
-        <G opacity={crossOpacity} transform={`translate(${Math.max(width - 74, 280)}, ${Math.max(height - 140, 560)})`}>
-          <Rect x="0" y="15" width="46" height="16" rx="6" fill={crossColor} />
-          <Rect x="15" y="0" width="16" height="46" rx="6" fill={crossColor} />
+        <G opacity={isDark ? 0.22 : 0.75} transform={`translate(${Math.max(width - 68, 280)}, ${Math.max(height - 135, 560)})`}>
+          <Rect x="0" y="17" width="50" height="17" rx="6" fill={crossColor} />
+          <Rect x="17" y="0" width="17" height="50" rx="6" fill={crossColor} />
         </G>
       </Svg>
     </View>
