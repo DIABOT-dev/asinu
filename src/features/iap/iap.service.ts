@@ -18,22 +18,36 @@
  */
 
 import { Platform } from 'react-native';
-import {
-  initConnection,
-  endConnection,
-  fetchProducts,
-  requestPurchase,
-  finishTransaction,
-  getAvailablePurchases,
-  purchaseUpdatedListener,
-  purchaseErrorListener,
-  ErrorCode,
-  type Purchase,
-  type SubscriptionProduct,
-} from 'expo-iap';
+import type { Purchase, SubscriptionProduct } from 'expo-iap';
 import { env } from '../../lib/env';
 import { iapApi } from './iap.api';
 import type { IapProduct, IapVerifyResponse } from './iap.types';
+
+/**
+ * expo-iap is a native module and is not included in Expo Go. Keep the
+ * runtime import lazy so importing the root layout does not make every route
+ * fail validation when the app is opened in Expo Go. A development/release
+ * build that includes the expo-iap config plugin will still load it on demand.
+ */
+type ExpoIapModule = typeof import('expo-iap');
+let expoIap: ExpoIapModule | null | undefined;
+
+function getExpoIap(): ExpoIapModule | null {
+  if (expoIap !== undefined) return expoIap;
+
+  try {
+    // Keep this require inside the function: Metro bundles the dependency but
+    // does not evaluate its native module until IAP is actually requested.
+    expoIap = require('expo-iap') as ExpoIapModule;
+  } catch (error) {
+    expoIap = null;
+    if (__DEV__) {
+      console.warn('[iap] Native module unavailable; use a development build to enable store billing.', error);
+    }
+  }
+
+  return expoIap;
+}
 
 export type LocalProduct = IapProduct & {
   // Localised price formatted by the platform (e.g. "199.000 ₫" on iOS,
@@ -44,10 +58,7 @@ export type LocalProduct = IapProduct & {
   nativeProduct?: SubscriptionProduct;
 };
 
-export type PurchaseResult =
-  | { kind: 'success'; verify: IapVerifyResponse }
-  | { kind: 'cancelled' }
-  | { kind: 'failed'; error: string };
+export type PurchaseResult = { kind: 'success'; verify: IapVerifyResponse } | { kind: 'cancelled' } | { kind: 'failed'; error: string };
 
 // ─── Connection state ─────────────────────────────────────────────────
 
@@ -118,14 +129,21 @@ export async function initializeIap(): Promise<void> {
     return;
   }
 
+  const iap = getExpoIap();
+  if (!iap) {
+    initError = 'Native IAP module unavailable. Use a development build.';
+    logIap('init skipped: native module unavailable');
+    return;
+  }
+
   try {
     logIap('init start');
-    await initConnection();
+    await iap.initConnection();
     connected = true;
     initError = null;
     logIap('init success');
 
-    purchaseSub = purchaseUpdatedListener(async (purchase: Purchase) => {
+    purchaseSub = iap.purchaseUpdatedListener(async (purchase: Purchase) => {
       const productId = purchase.productId;
       const slot = popPending(productId);
       logIap('purchase updated', {
@@ -139,14 +157,14 @@ export async function initializeIap(): Promise<void> {
           platform: Platform.OS === 'ios' ? 'apple' : 'google',
           productId,
           // Unified token: iOS = JWS string, Android = purchaseToken.
-          signedTransaction: Platform.OS === 'ios' ? (purchase.purchaseToken ?? undefined) : undefined,
-          purchaseToken: Platform.OS === 'android' ? (purchase.purchaseToken ?? undefined) : undefined,
+          signedTransaction: Platform.OS === 'ios' ? purchase.purchaseToken ?? undefined : undefined,
+          purchaseToken: Platform.OS === 'android' ? purchase.purchaseToken ?? undefined : undefined,
         });
 
         if (verify.ok) {
           // Backend activated Premium — safe to finalize the platform tx.
           try {
-            await finishTransaction({ purchase, isConsumable: false });
+            await iap.finishTransaction({ purchase, isConsumable: false });
           } catch (e) {
             // Don't fail the purchase result if finishTransaction throws —
             // the transaction will be re-delivered on next app launch and
@@ -165,10 +183,10 @@ export async function initializeIap(): Promise<void> {
       }
     });
 
-    errorSub = purchaseErrorListener((error: any) => {
+    errorSub = iap.purchaseErrorListener((error: any) => {
       logIap('purchase error event', { error: describeIapError(error) });
       const result: PurchaseResult =
-        error.code === ErrorCode.E_USER_CANCELLED
+        error.code === iap.ErrorCode.E_USER_CANCELLED
           ? { kind: 'cancelled' }
           : { kind: 'failed', error: error.message || String(error.code) };
 
@@ -193,7 +211,7 @@ export async function teardownIap(): Promise<void> {
   try {
     purchaseSub?.remove();
     errorSub?.remove();
-    await endConnection();
+    await expoIap?.endConnection();
   } finally {
     purchaseSub = null;
     errorSub = null;
@@ -213,7 +231,8 @@ export async function teardownIap(): Promise<void> {
 export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
   const backendCatalog = await iapApi.fetchProducts();
 
-  if (env.paymentMethod !== 'iap' || !connected) {
+  const iap = getExpoIap();
+  if (env.paymentMethod !== 'iap' || !connected || !iap) {
     logIap('fetch products skipped: using backend catalog', {
       productIds: backendCatalog.products.map(p => p.id),
     });
@@ -223,7 +242,7 @@ export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
   try {
     const skus = backendCatalog.products.map(p => p.id);
     logIap('fetch products start', { skus });
-    const native = (await fetchProducts({ skus, type: 'subs' })) ?? [];
+    const native = (await iap.fetchProducts({ skus, type: 'subs' })) ?? [];
     logIap('fetch products success', {
       requestedSkus: skus,
       returnedProducts: native.map((n: any) => n.id ?? n.productId),
@@ -238,7 +257,9 @@ export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
       };
     });
   } catch (err) {
-    logIap('fetch products failed: falling back to backend prices', { error: describeIapError(err) });
+    logIap('fetch products failed: falling back to backend prices', {
+      error: describeIapError(err),
+    });
     return backendCatalog.products;
   }
 }
@@ -253,10 +274,7 @@ export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
  * NOTE: the caller is responsible for re-fetching subscription status
  * after `kind: 'success'` — this function does not touch local cache.
  */
-export async function purchaseSubscription(
-  productId: string,
-  product?: LocalProduct,
-): Promise<PurchaseResult> {
+export async function purchaseSubscription(productId: string, product?: LocalProduct): Promise<PurchaseResult> {
   logIap('purchase requested', {
     productId,
     hasNativeProduct: Boolean(product?.nativeProduct),
@@ -266,11 +284,19 @@ export async function purchaseSubscription(
     logIap('purchase blocked: payment method disabled', { productId });
     return { kind: 'failed', error: 'IAP mode is not enabled' };
   }
+  let iap = getExpoIap();
+  if (!iap) {
+    return {
+      kind: 'failed',
+      error: 'Native IAP module unavailable. Use a development build.',
+    };
+  }
   if (!connected) {
     logIap('purchase retrying init', { productId });
     await initializeIap();
   }
-  if (!connected) {
+  iap = getExpoIap();
+  if (!connected || !iap) {
     logIap('purchase blocked: init unavailable', { productId });
     return {
       kind: 'failed',
@@ -286,7 +312,7 @@ export async function purchaseSubscription(
     let np = product?.nativeProduct;
     if (!np) {
       try {
-        const native = (await fetchProducts({ skus: [productId], type: 'subs' })) ?? [];
+        const native = (await iap.fetchProducts({ skus: [productId], type: 'subs' })) ?? [];
         np = native[0] as SubscriptionProduct | undefined;
       } catch {}
     }
@@ -305,14 +331,14 @@ export async function purchaseSubscription(
     }
   }
 
-  return new Promise<PurchaseResult>(async (resolve) => {
+  return new Promise<PurchaseResult>(async resolve => {
     pending.push({ productId, resolve });
     try {
       logIap('requestPurchase start', {
         productId,
         androidOfferToken: androidOfferToken ? `${androidOfferToken.slice(0, 6)}...` : undefined,
       });
-      await requestPurchase({
+      await iap.requestPurchase({
         type: 'subs',
         request: {
           ios: { sku: productId },
@@ -328,8 +354,15 @@ export async function purchaseSubscription(
       // requestPurchase rejected synchronously (e.g. validation), so the
       // listeners won't fire — resolve here ourselves.
       popPending(productId);
-      logIap('requestPurchase exception', { productId, error: describeIapError(err) });
-      if (String(err?.code || '').toLowerCase().includes('cancel')) {
+      logIap('requestPurchase exception', {
+        productId,
+        error: describeIapError(err),
+      });
+      if (
+        String(err?.code || '')
+          .toLowerCase()
+          .includes('cancel')
+      ) {
         resolve({ kind: 'cancelled' });
       } else {
         resolve({ kind: 'failed', error: err?.message || String(err) });
@@ -345,12 +378,21 @@ export async function purchaseSubscription(
  * a new device. Iterates platform purchases and re-verifies each with
  * the backend (idempotent: duplicate transaction_id → alreadyProcessed).
  */
-export async function restorePurchases(): Promise<{ restored: number; errors: string[] }> {
+export async function restorePurchases(): Promise<{
+  restored: number;
+  errors: string[];
+}> {
   if (env.paymentMethod !== 'iap') return { restored: 0, errors: ['IAP mode disabled'] };
   if (!connected) return { restored: 0, errors: ['IAP not initialised'] };
+  const iap = getExpoIap();
+  if (!iap)
+    return {
+      restored: 0,
+      errors: ['Native IAP module unavailable. Use a development build.'],
+    };
 
   try {
-    const purchases = (await getAvailablePurchases()) ?? [];
+    const purchases = (await iap.getAvailablePurchases()) ?? [];
     let restored = 0;
     const errors: string[] = [];
 
@@ -359,12 +401,14 @@ export async function restorePurchases(): Promise<{ restored: number; errors: st
         const verify = await iapApi.verifyReceipt({
           platform: Platform.OS === 'ios' ? 'apple' : 'google',
           productId: p.productId,
-          signedTransaction: Platform.OS === 'ios' ? (p.purchaseToken ?? undefined) : undefined,
-          purchaseToken: Platform.OS === 'android' ? (p.purchaseToken ?? undefined) : undefined,
+          signedTransaction: Platform.OS === 'ios' ? p.purchaseToken ?? undefined : undefined,
+          purchaseToken: Platform.OS === 'android' ? p.purchaseToken ?? undefined : undefined,
         });
         if (verify.ok) {
           restored++;
-          try { await finishTransaction({ purchase: p, isConsumable: false }); } catch {}
+          try {
+            await iap.finishTransaction({ purchase: p, isConsumable: false });
+          } catch {}
         } else {
           errors.push(verify.error);
         }
