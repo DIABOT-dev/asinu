@@ -234,7 +234,7 @@ function HomeMetricCarousel({ cards, styles, onOpen }: HomeMetricCarouselProps) 
               {banner && (
                 <ExpoImage
                   source={banner}
-                  style={[StyleSheet.absoluteFillObject, { width: cardWidth, height: 144 }]}
+                  style={[StyleSheet.absoluteFill, { width: cardWidth, height: 144 }]}
                   contentFit="cover"
                   transition={150}
                 />
@@ -803,7 +803,7 @@ export default function HomeScreen() {
       <LinearGradient
         colors={['#e0f7f4', '#f0fbf9', '#f8fafc', '#f8fafc']}
         locations={[0, 0.2, 0.45, 1]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       {/* Modal: Đã check-in rồi */}
       <Modal visible={showAlreadyDoneModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowAlreadyDoneModal(false)}>

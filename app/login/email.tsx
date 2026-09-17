@@ -498,7 +498,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
 
     // ── Font Modal ──
     fontModalOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: 'rgba(0,0,0,0.45)',
       justifyContent: 'center',
       alignItems: 'center',

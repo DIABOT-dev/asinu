@@ -2069,7 +2069,7 @@ function createStyles(
       borderRadius: 32,
     },
     avatarLoadingOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       borderRadius: 32,
       backgroundColor: "rgba(0,0,0,0.35)",
       justifyContent: "center",
@@ -2550,7 +2550,7 @@ function createStyles(
       borderColor: "#FFFFFF",
     },
     editAvatarLoading: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: "rgba(0,0,0,0.4)",
       borderRadius: 29,
       justifyContent: "center",

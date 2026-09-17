@@ -67,9 +67,9 @@ export default function RootLayout() {
   // Sync system color scheme
   useEffect(() => {
     const scheme = Appearance.getColorScheme();
-    if (scheme) setSystemScheme(scheme);
+    if (scheme === 'light' || scheme === 'dark') setSystemScheme(scheme);
     const sub = Appearance.addChangeListener(({ colorScheme }) => {
-      if (colorScheme) setSystemScheme(colorScheme);
+      if (colorScheme === 'light' || colorScheme === 'dark') setSystemScheme(colorScheme);
     });
     return () => sub.remove();
   }, [setSystemScheme]);
@@ -127,7 +127,7 @@ export default function RootLayout() {
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <WellnessProvider>
             <CarePulseProvider>
-              <StatusBar style={isDark ? 'light' : 'dark'} translucent backgroundColor="transparent" />
+              <StatusBar style={isDark ? 'light' : 'dark'} />
               <Stack screenOptions={screenOptions}>
                 <Stack.Screen
                   name="login/index"

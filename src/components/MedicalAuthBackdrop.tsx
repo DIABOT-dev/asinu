@@ -42,14 +42,14 @@ export function MedicalAuthBackdrop({
   const dotColor = isDark ? '#38BDF8' : '#7DD3FC';
 
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient
         colors={gradientColors}
         locations={[0, 0.15, 0.35, 0.65, 0.85, 1]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
-      <Svg width={width} height={height} style={StyleSheet.absoluteFillObject}>
+      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         {/* Top-Left Ambient Orb */}
         <Circle
           cx={0}

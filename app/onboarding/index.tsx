@@ -1572,7 +1572,7 @@ const styles = StyleSheet.create({
 
   // Font size modal
   fontModalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',

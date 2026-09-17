@@ -206,7 +206,7 @@ export default function LogsIndexScreen() {
                   {/* 3D Crystal Banner Background */}
                   <Image
                     source={card.banner}
-                    style={StyleSheet.absoluteFillObject}
+                    style={StyleSheet.absoluteFill}
                     contentFit="cover"
                     transition={150}
                   />
@@ -217,7 +217,7 @@ export default function LogsIndexScreen() {
                       colors={['rgba(15, 23, 42, 0.90)', 'rgba(15, 23, 42, 0.45)']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={StyleSheet.absoluteFillObject}
+                      style={StyleSheet.absoluteFill}
                     />
                   )}
 

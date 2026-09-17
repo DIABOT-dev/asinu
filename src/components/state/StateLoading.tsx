@@ -16,7 +16,7 @@ export const StateLoading = ({ message, overlay = true }: StateLoadingProps) => 
   const displayMessage = message ?? t('loading');
   const styles = useMemo(() => StyleSheet.create({
     container: {
-      ...(overlay ? StyleSheet.absoluteFillObject : null),
+      ...(overlay ? StyleSheet.absoluteFill : null),
       padding: spacing.xl,
       alignItems: 'center',
       justifyContent: 'center',
