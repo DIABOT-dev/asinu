@@ -40,7 +40,6 @@ jobs:
       - name: Install Expo & EAS CLI
         uses: expo/expo-github-action@v8
         with:
-          expo-version: 57.0.23
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
