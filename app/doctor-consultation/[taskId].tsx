@@ -77,11 +77,7 @@ const parseVoice = (content: string | null): VoiceMessage | null => {
   }
 };
 
-let _Audio: typeof import("expo-av").Audio | null = null;
-const getAudio = async () => {
-  if (!_Audio) _Audio = (await import("expo-av")).Audio;
-  return _Audio;
-};
+import { Audio } from '@/lib/audio';
 
 type ThreadResponse = {
   ok: boolean;
@@ -501,7 +497,6 @@ export default function DoctorConsultationThreadScreen() {
   const startVoiceRecording = async () => {
     if (recording || sending || !conversationOpen) return;
     try {
-      const Audio = await getAudio();
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
         showToast(t("doctorConsultationMicrophonePermission"), "error");
@@ -531,7 +526,7 @@ export default function DoctorConsultationThreadScreen() {
       await activeRecording.stopAndUnloadAsync();
       const uri = activeRecording.getURI();
       recordingRef.current = null;
-      await (await getAudio()).setAudioModeAsync({ allowsRecordingIOS: false });
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       if (!uri) throw new Error("VOICE_FILE_MISSING");
       const formData = new FormData();
       formData.append("file", {
@@ -565,7 +560,6 @@ export default function DoctorConsultationThreadScreen() {
         return;
       }
       await soundRef.current?.unloadAsync?.();
-      const Audio = await getAudio();
       const result = await Audio.Sound.createAsync(
         { uri: url },
         { shouldPlay: true },

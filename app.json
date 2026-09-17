@@ -121,7 +121,8 @@
       ],
       "expo-iap",
       "expo-localization",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true

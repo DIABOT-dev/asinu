@@ -10,11 +10,7 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 // Audio lazy-loaded only when recording starts
-let _Audio: typeof import('expo-av').Audio | null = null;
-async function getAudio() {
-  if (!_Audio) { _Audio = (await import('expo-av')).Audio; }
-  return _Audio;
-}
+import { Audio } from '@/lib/audio';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
@@ -102,7 +98,6 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
 
   const startRecording = async () => {
     try {
-      const Audio = await getAudio();
       const existing = await Audio.getPermissionsAsync();
       const { granted, canAskAgain } = existing.granted ? existing : await Audio.requestPermissionsAsync();
       if (!granted) {
@@ -141,7 +136,6 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
     setState('processing');
     try {
       await recording.stopAndUnloadAsync();
-      const Audio = await getAudio();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       const uri = recording.getURI();
       recordingRef.current = null;

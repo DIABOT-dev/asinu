@@ -1,9 +1,6 @@
 PODS:
   - EXApplication (57.0.3):
     - ExpoModulesCore
-  - EXAV (16.0.8):
-    - ExpoModulesCore
-    - ReactCommon/turbomodule/core
   - EXConstants (57.0.18):
     - ExpoModulesCore
   - EXJSONUtils (57.0.2)
@@ -190,6 +187,8 @@ PODS:
   - ExpoAppleAuthentication (57.0.2):
     - ExpoModulesCore
   - ExpoAsset (57.0.17):
+    - ExpoModulesCore
+  - ExpoAudio (57.0.5):
     - ExpoModulesCore
   - ExpoClipboard (57.0.2):
     - ExpoModulesCore
@@ -2597,7 +2596,6 @@ PODS:
 
 DEPENDENCIES:
   - EXApplication (from `../node_modules/expo-application/ios`)
-  - EXAV (from `../node_modules/expo-av/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXJSONUtils (from `../node_modules/expo-json-utils/ios`)
   - EXManifests (from `../node_modules/expo-manifests/ios`)
@@ -2609,6 +2607,7 @@ DEPENDENCIES:
   - ExpoAdapterFBSDKNext (from `../node_modules/react-native-fbsdk-next/ios`)
   - ExpoAppleAuthentication (from `../node_modules/expo-apple-authentication/ios`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
+  - ExpoAudio (from `../node_modules/expo-audio/ios`)
   - ExpoClipboard (from `../node_modules/expo-clipboard/ios`)
   - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
   - "ExpoDomWebView (from `../node_modules/@expo/dom-webview/ios`)"
@@ -2746,8 +2745,6 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   EXApplication:
     :path: "../node_modules/expo-application/ios"
-  EXAV:
-    :path: "../node_modules/expo-av/ios"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
   EXJSONUtils:
@@ -2770,6 +2767,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-apple-authentication/ios"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
+  ExpoAudio:
+    :path: "../node_modules/expo-audio/ios"
   ExpoClipboard:
     :path: "../node_modules/expo-clipboard/ios"
   ExpoCrypto:
@@ -3002,7 +3001,6 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   EXApplication: a727f05eb8592f0bc764f6ab8d51eacc158652ec
-  EXAV: b60fcf142fae6684d295bc28cd7cfcb3335570ea
   EXConstants: 8948a340eb14bf2bdaaa0e21a63cb9343860b87a
   EXJSONUtils: a49e3ef80dff762108e5690c7b2f360675dcf7f6
   EXManifests: 4c53b2602e03ccf44d0b4ff9c5d655b2c5acba3f
@@ -3014,6 +3012,7 @@ SPEC CHECKSUMS:
   ExpoAdapterFBSDKNext: 49ecf2414e4787250b0ed1faae99d1295dee674e
   ExpoAppleAuthentication: 16c2955d33ec7315e5a99d17fb5d62ed33cdb5b9
   ExpoAsset: b3999ffb3d4049b6c870708c60ea2209ace9f170
+  ExpoAudio: edc9230b788be6f65238a53907d5c176b57a7ce0
   ExpoClipboard: 15b8cc88075d7c50af165ed8fca0a76915903bba
   ExpoCrypto: 3ba3d7fcf244a3ae8cb888c5759e0db70ecc236d
   ExpoDomWebView: beaec034e51bd028428b98bb1f2633ab79c6d095

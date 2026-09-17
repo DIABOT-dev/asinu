@@ -8,11 +8,7 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
  *   followup   → same 3-button screen with context banner
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-let _Audio: typeof import('expo-av').Audio | null = null;
-async function getAudio() {
-  if (!_Audio) { _Audio = (await import('expo-av')).Audio; }
-  return _Audio;
-}
+import { Audio } from '@/lib/audio';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -871,7 +867,6 @@ function TriageScreen({
           try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
           recordingRef.current = null;
         }
-        const Audio = await getAudio();
         const { granted } = await Audio.requestPermissionsAsync();
         if (!granted) return;
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
