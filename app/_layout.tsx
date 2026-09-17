@@ -1,6 +1,5 @@
-import type { ParamListBase, RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Stack, usePathname } from 'expo-router';
+import { Stack, usePathname, type NativeStackNavigationProp } from 'expo-router';
+import type { ParamListBase, RouteProp } from 'expo-router/react-navigation';
 import {
   useFonts,
   Inter_400Regular,
@@ -38,7 +37,7 @@ import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { trackScreenViewed } from '../src/lib/screenTracking';
 
 type NavigationProp = NativeStackNavigationProp<ParamListBase>;
-type ScreenOptionsProps = { 
+type ScreenOptionsProps = {
   route: RouteProp<ParamListBase, string>;
   navigation: NavigationProp;
 };

@@ -1,6 +1,6 @@
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 ﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';

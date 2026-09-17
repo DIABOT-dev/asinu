@@ -1,4 +1,4 @@
-name: mobile-eas-build
+name: ASINU EAS Build
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ on:
           - android
           - ios
           - all
-        default: android
+        default: ios
 
 jobs:
   eas-build:
@@ -30,23 +30,27 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "20.18.1"
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
 
       - name: Install Expo & EAS CLI
         uses: expo/expo-github-action@v8
         with:
-          expo-version: latest
+          expo-version: 57.0.23
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Trigger EAS build
         run: |
-          eas build --platform ${{ inputs.platform }} --profile ${{ inputs.profile }} --non-interactive
+          eas build \
+            --platform ${{ inputs.platform }} \
+            --profile ${{ inputs.profile }} \
+            --non-interactive \
+            --wait
 
       - name: Show latest build
         run: |

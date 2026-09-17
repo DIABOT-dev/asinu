@@ -8,7 +8,7 @@ import { Screen } from '../../src/components/Screen';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { apiClient } from '../../src/lib/apiClient';
 import { colors, iconColors, spacing } from '../../src/styles';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
