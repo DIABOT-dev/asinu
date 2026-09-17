@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { secureStorage } from '../../../lib/secureStorage';
 import { tokenStore } from '../../../lib/tokenStore';
 import { fetchCarePulseState, sendCarePulseEvent } from '../api/carePulse.api';
 import { EngineState, PulseStatus, TriggerSource, initialEngineState } from '../types';
@@ -157,7 +157,7 @@ export const useCarePulseStore = create<CarePulseStore>()(
     }),
     {
       name: 'care_pulse_v1',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => secureStorage),
       partialize: (state) => ({ engineState: state.engineState }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);

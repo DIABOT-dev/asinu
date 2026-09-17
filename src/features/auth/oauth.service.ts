@@ -4,6 +4,7 @@
  */
 
 import { AuthRequest, DiscoveryDocument, ResponseType, exchangeCodeAsync, makeRedirectUri } from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import { NativeModules, Platform } from 'react-native';
 import i18n from '../../i18n';
@@ -18,7 +19,7 @@ export type OAuthResult = {
   idToken?: string;
   code?: string;
   codeVerifier?: string;
-  directToken?: string; // JWT from backend callback (Zalo server-side flow)
+  directToken?: string; // JWT returned after one-time OAuth code + PKCE exchange
   profile?: {
     email?: string;
     name?: string;
@@ -93,10 +94,15 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
 
     // Android: server-side flow qua backend (Android OAuth client không hỗ trợ browser redirect)
     if (Platform.OS === 'android') {
-      const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+      const apiBase = (process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
       if (!apiBase) throw new Error('API base URL chưa được cấu hình');
 
-      const initiateUrl = `${apiBase}/api/auth/google/initiate`;
+      const codeVerifier = await generateCodeVerifier();
+      const codeChallenge = await createCodeChallenge(codeVerifier);
+      const initiateUrl = `${apiBase}/api/auth/google/initiate?${new URLSearchParams({
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+      }).toString()}`;
       const appCallbackUri = 'asinu-lite://auth/google/callback';
 
       const result = await WebBrowser.openAuthSessionAsync(initiateUrl, appCallbackUri);
@@ -113,7 +119,17 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       const error = url.searchParams.get('error');
       if (error) return { type: 'error', error: `Google login failed: ${error}` };
 
-      const directToken = url.searchParams.get('token');
+      const code = url.searchParams.get('code');
+      if (!code) return { type: 'error', error: t('noAccessToken') };
+
+      const exchangeResponse = await fetch(`${apiBase}/api/auth/oauth/exchange`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, code_verifier: codeVerifier }),
+      });
+      if (!exchangeResponse.ok) return { type: 'error', error: t('authFailed') };
+      const exchange = await exchangeResponse.json();
+      const directToken = typeof exchange?.token === 'string' ? exchange.token : null;
       if (!directToken) return { type: 'error', error: t('noAccessToken') };
 
       return { type: 'success', directToken };
@@ -253,16 +269,32 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
   }
 }
 
-/**
- * Generate PKCE code verifier (random string)
- */
-function generateCodeVerifier(): string {
+function base64Url(value: string): string {
+  return value.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+/** Generate a cryptographically random RFC 7636 verifier. */
+async function generateCodeVerifier(): Promise<string> {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const limit = 256 - (256 % chars.length);
   let result = '';
-  for (let i = 0; i < 64; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  while (result.length < 64) {
+    const bytes = await Crypto.getRandomBytesAsync(64);
+    for (const byte of bytes) {
+      if (byte < limit) result += chars[byte % chars.length];
+      if (result.length === 64) break;
+    }
   }
   return result;
+}
+
+async function createCodeChallenge(codeVerifier: string): Promise<string> {
+  const digest = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    codeVerifier,
+    { encoding: Crypto.CryptoEncoding.BASE64 }
+  );
+  return base64Url(digest);
 }
 
 async function authenticateWithZaloNativeAndroid(): Promise<OAuthResult> {

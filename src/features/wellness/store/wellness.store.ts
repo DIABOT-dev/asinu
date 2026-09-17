@@ -3,10 +3,10 @@
  * Zustand store cho hệ thống theo dõi sức khỏe
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import i18n from '../../../i18n';
+import { secureStorage } from '../../../lib/secureStorage';
 import { tokenStore } from '../../../lib/tokenStore';
 import {
     acknowledgeAlert,
@@ -368,7 +368,7 @@ export const useWellnessStore = create<WellnessStore>()(
     }),
     {
       name: 'wellness-store',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => secureStorage),
       partialize: (state) => ({
         state: state.state,
         lastSyncAt: state.lastSyncAt

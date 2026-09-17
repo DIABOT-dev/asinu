@@ -1,6 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 import { localCache } from '../../lib/localCache';
 import { tokenStore } from '../../lib/tokenStore';
 import { useNotificationStore } from '../../stores/notification.store';
@@ -68,9 +66,7 @@ type AuthState = {
   logout: () => Promise<void>;
 };
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
+export const useAuthStore = create<AuthState>()((set, get) => ({
       profile: null,
       token: null,
       loading: false,
@@ -81,7 +77,10 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true, error: undefined });
 
         try {
-          // Try to restore token from secure storage
+          // Remove sensitive values written in plaintext by older versions.
+          await localCache.clearLegacyPlaintextCache();
+
+          // Restore the token only from OS-protected storage.
           const savedToken = await tokenStore.loadToken();
 
           if (!savedToken) {
@@ -239,7 +238,7 @@ export const useAuthStore = create<AuthState>()(
           useProfileStore.getState().reset();
           useWellnessStore.getState().reset();
           useCarePulseStore.getState().reset();
-          AsyncStorage.multiRemove(['wellness-store', 'care_pulse_v1']).catch(() => {});
+          await localCache.clearLegacyPlaintextCache();
           set({ profile: null, token: null, loading: false });
         } catch (error) {
           set({ loading: false, error: (error as Error).message });
@@ -283,28 +282,9 @@ export const useAuthStore = create<AuthState>()(
         useWellnessStore.getState().reset();
         useCarePulseStore.getState().reset();
 
-        // Clear persisted user-scoped data from AsyncStorage.
-        // KHÔNG xoá '@asinu/data_consent_v1' — consent là per-device, chỉ hiện 1 lần
-        // suốt đời cài đặt app (cho đến khi user uninstall). Logout không reset consent.
-        AsyncStorage.multiRemove(['wellness-store', 'care_pulse_v1']).catch(() => {});
+        // Remove any legacy plaintext sensitive data. Consent is not included.
+        await localCache.clearLegacyPlaintextCache();
 
         set({ profile: null, token: null });
       }
-    }),
-    {
-      name: 'auth-storage',
-      storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({
-        // Only persist token, NOT profile
-        // Profile must be fetched fresh from API on each login
-        token: state.token
-      }),
-      onRehydrateStorage: () => (state) => {
-
-        if (state) {
-          state.setHydrated(true);
-        }
-      }
-    }
-  )
-);
+    }));
