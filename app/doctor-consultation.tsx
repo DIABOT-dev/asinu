@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +21,7 @@ import { AppAlertModal } from "../src/components/AppAlertModal";
 import { ScreenBackButton } from "../src/components/ScreenHeaderButton";
 import { useAuthStore } from "../src/features/auth/auth.store";
 import { apiClient, getApiErrorMessage } from "../src/lib/apiClient";
+import { env } from "../src/lib/env";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useGuardedRouter as useRouter } from "../src/hooks/useGuardedRouter";
@@ -51,6 +53,8 @@ type DoctorRecommendation = {
   ratingCount?: number;
   estimatedWaitMinutes: number;
   preferred: boolean;
+  routingTenantId?: string;
+  availability?: "online" | "busy" | "offline";
 };
 type DoctorRecommendationResponse = {
   ok: boolean;
@@ -61,8 +65,20 @@ type DoctorSpecialtyResponse = {
   ok: boolean;
   data?: { items: DoctorSpecialty[] };
 };
-type DoctorClinic = { tenant_id: string; name: string; specialties: string[] };
-type DoctorClinicResponse = { ok: boolean; data?: { items: DoctorClinic[] } };
+type DoctorReview = {
+  score: number;
+  comment: string | null;
+  authorLabel?: string;
+  verified?: boolean;
+  createdAt: string;
+};
+type DoctorReviewsResponse = {
+  ok: boolean;
+  data?: {
+    summary: { averageRating: number; ratingCount: number };
+    items: DoctorReview[];
+  };
+};
 type PendingAttachment = { uri: string; name: string; mimeType: string };
 
 const createSubmissionTaskId = () =>
@@ -133,8 +149,9 @@ export default function DoctorConsultationScreen() {
     null,
   );
   const [specialties, setSpecialties] = useState<DoctorSpecialty[]>([]);
-  const [clinics, setClinics] = useState<DoctorClinic[]>([]);
-  const [selectedTenantId, setSelectedTenantId] = useState("");
+  // Tenant routing is intentionally opaque to patients. It is only retained
+  // long enough to submit the task to the provider backend.
+  const [selectedTenantId, setSelectedTenantId] = useState(env.doctorTenantId);
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
   const [estimatedWaitMinutes, setEstimatedWaitMinutes] = useState<
     number | null
@@ -151,6 +168,10 @@ export default function DoctorConsultationScreen() {
   const [emergencyConfirmed, setEmergencyConfirmed] = useState(false);
   const [pendingAttachment, setPendingAttachment] =
     useState<PendingAttachment | null>(null);
+  const [reviewDoctor, setReviewDoctor] = useState<DoctorRecommendation | null>(null);
+  const [reviews, setReviews] = useState<DoctorReview[]>([]);
+  const [reviewSummary, setReviewSummary] = useState({ averageRating: 0, ratingCount: 0 });
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const submissionTaskIdRef = useRef<string | null>(null);
   const submissionAttachmentMessageIdRef = useRef<string | null>(null);
@@ -181,44 +202,12 @@ export default function DoctorConsultationScreen() {
   };
 
   useEffect(() => {
-    void apiClient<DoctorClinicResponse>("/api/doctor/clinics", {
-      method: "POST",
-      body: {},
-      })
-      .then((response) => {
-        const items = response.data?.items ?? [];
-        setClinics(items);
-        setSelectedTenantId((current: string) =>
-          items.some((clinic) => clinic.tenant_id === current)
-            ? current
-            : items[0]?.tenant_id || "",
-        );
-      })
-      .catch(() => {
-        setClinics([]);
-        setSelectedTenantId("");
-        setSpecialties([]);
-        setSelectedSpecialty("");
-        setRecommendations([]);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!selectedTenantId) return;
-    setSpecialties([]);
-    setSelectedSpecialty("");
-    void loadTasks(selectedTenantId);
-    void apiClient<DoctorSpecialtyResponse>("/api/doctor/specialties", {
-      method: "POST",
-      body: { tenant_id: selectedTenantId },
-      })
+    void apiClient<DoctorSpecialtyResponse>("/api/doctor/specialty-options")
       .then((response) => {
         const items = response.data?.items ?? [];
         setSpecialties(items);
         setSelectedSpecialty((current) =>
-          items.some((item) => item.code === current)
-            ? current
-            : items[0]?.code || "",
+          items.some((item) => item.code === current) ? current : items[0]?.code || "",
         );
       })
       .catch(() => {
@@ -226,21 +215,26 @@ export default function DoctorConsultationScreen() {
         setSelectedSpecialty("");
         setRecommendations([]);
       });
+    if (env.doctorTenantId) void loadTasks(env.doctorTenantId);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTenantId) return;
+    void loadTasks(selectedTenantId);
   }, [selectedTenantId]);
 
   useEffect(() => {
     if (!selectedSpecialty) return;
     setPreferredDoctorId(null);
     void apiClient<DoctorRecommendationResponse>(
-      "/api/doctor/recommendations",
+      "/api/doctor/specialists",
       {
         method: "POST",
         body: {
-          tenant_id: selectedTenantId,
           specialty: selectedSpecialty,
           service_flow: "clinical",
           priority: "normal",
-          limit: 3,
+          limit: 6,
         },
       },
     )
@@ -252,7 +246,25 @@ export default function DoctorConsultationScreen() {
         setRecommendations([]);
         setEstimatedWaitMinutes(null);
       });
-  }, [selectedSpecialty, selectedTenantId]);
+  }, [selectedSpecialty]);
+
+  const openReviews = async (doctor: DoctorRecommendation) => {
+    setReviewDoctor(doctor);
+    setReviews([]);
+    setReviewSummary({ averageRating: doctor.reputation || 0, ratingCount: doctor.ratingCount || 0 });
+    setReviewsLoading(true);
+    try {
+      const response = await apiClient<DoctorReviewsResponse>(
+        `/api/doctor/specialists/${encodeURIComponent(doctor.doctorId)}/reviews`,
+      );
+      setReviews(response.data?.items ?? []);
+      if (response.data?.summary) setReviewSummary(response.data.summary);
+    } catch {
+      showToast(t("doctorConsultationReviewsError"), "error");
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
 
   const pickPreConsultationImage = async () => {
     try {
@@ -304,7 +316,10 @@ export default function DoctorConsultationScreen() {
         {
           method: "POST",
           body: {
-            tenant_id: selectedTenantId,
+            tenant_id:
+              selectedDoctor?.routingTenantId ||
+              recommendations[0]?.routingTenantId ||
+              selectedTenantId,
             specialty: selectedSpecialty,
             service_flow: "clinical",
             priority: "normal",
@@ -335,7 +350,9 @@ export default function DoctorConsultationScreen() {
           await apiClient(
             `/api/doctor/tasks/${encodeURIComponent(
               taskId,
-            )}/attachments?tenant_id=${encodeURIComponent(selectedTenantId)}`,
+            )}/attachments?tenant_id=${encodeURIComponent(
+              selectedDoctor?.routingTenantId || recommendations[0]?.routingTenantId || selectedTenantId,
+            )}`,
             {
               method: "POST",
               body: formData,
@@ -353,9 +370,11 @@ export default function DoctorConsultationScreen() {
         submissionAttachmentMessageIdRef.current = null;
         await AsyncStorage.removeItem(PENDING_SUBMISSION_KEY);
         setPendingAttachment(null);
+        const routingTenantId =
+          selectedDoctor?.routingTenantId || recommendations[0]?.routingTenantId || selectedTenantId;
         router.replace({
           pathname: "/doctor-consultation/[taskId]",
-          params: { taskId, tenantId: selectedTenantId },
+          params: { taskId, tenantId: routingTenantId },
         } as never);
       } else {
         await loadTasks();
@@ -370,21 +389,13 @@ export default function DoctorConsultationScreen() {
     }
   };
 
-  const selectedClinic = clinics.find(
-    (clinic) => clinic.tenant_id === selectedTenantId,
-  );
   const selectedDoctor = recommendations.find(
     (doctor) => doctor.doctorId === preferredDoctorId,
   );
   const selectedSpecialtyItem = specialties.find(
     (specialty) => specialty.code === selectedSpecialty,
   );
-  const visibleSpecialties =
-    selectedClinic?.specialties && selectedClinic.specialties.length > 0
-      ? specialties.filter((specialty) =>
-          selectedClinic.specialties.includes(specialty.code),
-        )
-      : specialties;
+  const visibleSpecialties = specialties;
   const getSpecialtyLabel = (specialty: DoctorSpecialty) =>
     t(`doctorConsultationSpecialty_${specialty.code}`, {
       defaultValue: specialty.name,
@@ -413,10 +424,6 @@ export default function DoctorConsultationScreen() {
   };
 
   const handleStep2Next = () => {
-    if (!selectedTenantId) {
-      showToast(t("doctorConsultationClinicRequired"), "error");
-      return;
-    }
     if (!selectedSpecialty) {
       showToast(t("doctorConsultationSpecialtyRequired"), "error");
       return;
@@ -503,7 +510,7 @@ export default function DoctorConsultationScreen() {
 
           {/* Step 2 Tab */}
           <Pressable
-            accessibilityLabel={t("doctorConsultationStepClinic")}
+            accessibilityLabel={t("doctorConsultationStepSpecialist")}
             accessibilityRole="tab"
             onPress={() => setCurrentStep(2)}
             style={styles.stepTabItem}
@@ -542,7 +549,7 @@ export default function DoctorConsultationScreen() {
                     : styles.stepTitleInactive,
                 ]}
               >
-                {t("doctorConsultationStepClinic")}
+                {t("doctorConsultationStepSpecialist")}
               </Text>
             </View>
             {currentStep === 2 && <View style={styles.stepActiveUnderline} />}
@@ -905,117 +912,11 @@ export default function DoctorConsultationScreen() {
           )}
 
           {/* ========================================================================= */}
-          {/* STEP 2: NƠI TƯ VẤN                                                        */}
+          {/* STEP 2: CHUYÊN GIA                                                        */}
           {/* ========================================================================= */}
           {currentStep === 2 && (
             <>
-              {/* Card 1: Chọn phòng khám */}
-              <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: isDark ? colors.border : "#E2ECE9",
-                  },
-                ]}
-              >
-                <View style={styles.cardHeaderRow}>
-                  <View
-                    style={[
-                      styles.cardIconBox,
-                      { backgroundColor: "#EDFAF8" },
-                    ]}
-                  >
-                    <Ionicons name="business" size={20} color="#3A968B" />
-                  </View>
-                  <View style={styles.cardHeaderTextCol}>
-                    <Text style={styles.cardTitle}>
-                      {t("doctorConsultationClinicLabel")}
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      {t("doctorConsultationClinicHint")}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Clinics Radio List */}
-                <View style={styles.selectionList}>
-                  {clinics.length === 0 ? (
-                    <Text style={styles.emptySelectionText}>
-                      {t("doctorConsultationNoClinics")}
-                    </Text>
-                  ) : (
-                    clinics.map((clinic) => {
-                    const selected = clinic.tenant_id === selectedTenantId;
-                    return (
-                      <Pressable
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        key={clinic.tenant_id}
-                        onPress={() => setSelectedTenantId(clinic.tenant_id)}
-                        style={[
-                          styles.selectableItem,
-                          {
-                            backgroundColor: selected
-                              ? isDark
-                                ? "rgba(58,150,139,0.15)"
-                                : "#EDFAF8"
-                              : isDark
-                                ? colors.background
-                                : "#FFFFFF",
-                            borderColor: selected
-                              ? "#3A968B"
-                              : isDark
-                                ? colors.border
-                                : "#D4E2DF",
-                          },
-                        ]}
-                      >
-                        <View style={styles.selectableItemLeft}>
-                          {selected ? (
-                            <View style={styles.radioActiveRing}>
-                              <View style={styles.radioActiveDot} />
-                            </View>
-                          ) : (
-                            <View
-                              style={[
-                                styles.radioInactiveRing,
-                                {
-                                  borderColor: isDark
-                                    ? colors.border
-                                    : "#94A3B8",
-                                },
-                              ]}
-                            />
-                          )}
-                          <Text
-                            style={[
-                              styles.selectableItemText,
-                              {
-                                color: selected
-                                  ? "#3A968B"
-                                  : colors.textPrimary,
-                              },
-                            ]}
-                          >
-                            {clinic.name}
-                          </Text>
-                        </View>
-                        {selected && (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={22}
-                            color="#3A968B"
-                          />
-                        )}
-                      </Pressable>
-                    );
-                    })
-                  )}
-                </View>
-              </View>
-
-              {/* Card 2: Chuyên khoa muốn được hỗ trợ */}
+              {/* Card 1: Chuyên khoa muốn được hỗ trợ */}
               <View
                 style={[
                   styles.card,
@@ -1116,6 +1017,128 @@ export default function DoctorConsultationScreen() {
                         )}
                       </Pressable>
                     );
+                    })
+                  )}
+                </View>
+              </View>
+
+              {/* Card 2: Danh sách bác sĩ phù hợp */}
+              <View
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: isDark ? colors.border : "#E2ECE9",
+                  },
+                ]}
+              >
+                <View style={styles.cardHeaderRow}>
+                  <View style={[styles.cardIconBox, { backgroundColor: "#EDFAF8" }]}>
+                    <Ionicons name="people" size={20} color="#3A968B" />
+                  </View>
+                  <View style={styles.cardHeaderTextCol}>
+                    <Text style={styles.cardTitle}>{t("doctorConsultationSpecialistsTitle")}</Text>
+                    <Text style={styles.cardSubtitle}>{t("doctorConsultationSpecialistsHint")}</Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: preferredDoctorId === null }}
+                  onPress={() => setPreferredDoctorId(null)}
+                  style={[
+                    styles.selectableItem,
+                    {
+                      backgroundColor: preferredDoctorId === null ? "#EDFAF8" : colors.background,
+                      borderColor: preferredDoctorId === null ? "#3A968B" : colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.selectableItemLeft}>
+                    <View style={preferredDoctorId === null ? styles.radioActiveRing : styles.radioInactiveRing}>
+                      {preferredDoctorId === null ? <View style={styles.radioActiveDot} /> : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.selectableItemText, { color: colors.textPrimary }]}>
+                        {t("doctorConsultationAutoAssign")}
+                      </Text>
+                      <Text style={styles.doctorPreferenceHint}>{t("doctorConsultationAutoAssignHint")}</Text>
+                    </View>
+                  </View>
+                </Pressable>
+                <View style={styles.selectionList}>
+                  {recommendations.length === 0 ? (
+                    <Text style={styles.emptySelectionText}>{t("doctorConsultationNoSpecialists")}</Text>
+                  ) : (
+                    recommendations.map((doctor) => {
+                      const selected = doctor.doctorId === preferredDoctorId;
+                      const online = (doctor.availability ?? "online") === "online";
+                      return (
+                        <View
+                          key={doctor.doctorId}
+                          style={[
+                            styles.doctorListItem,
+                            {
+                              backgroundColor: selected ? "#EDFAF8" : colors.background,
+                              borderColor: selected ? "#3A968B" : colors.border,
+                            },
+                          ]}
+                        >
+                          <Pressable
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected }}
+                            onPress={() => {
+                              setPreferredDoctorId(doctor.doctorId);
+                              if (doctor.routingTenantId) setSelectedTenantId(doctor.routingTenantId);
+                            }}
+                            style={styles.doctorListMain}
+                          >
+                            {doctor.avatarUrl ? (
+                              <Image source={{ uri: doctor.avatarUrl }} style={styles.doctorAvatar} />
+                            ) : (
+                              <View style={styles.doctorAvatarFallback}>
+                                <Ionicons name="person" size={20} color="#3A968B" />
+                              </View>
+                            )}
+                            <View style={styles.doctorListCopy}>
+                              <View style={styles.doctorNameRow}>
+                                <Text style={[styles.doctorName, { color: colors.textPrimary }]} numberOfLines={1}>
+                                  {doctor.fullName}
+                                </Text>
+                                <View style={[styles.onlineBadge, { backgroundColor: online ? "#DCFCE7" : "#F1F5F9" }]}>
+                                  <View style={[styles.onlineDot, { backgroundColor: online ? "#16A34A" : "#94A3B8" }]} />
+                                  <Text style={[styles.onlineBadgeText, { color: online ? "#15803D" : "#64748B" }]}>
+                                    {online ? t("doctorConsultationSpecialistOnline") : t("doctorConsultationSpecialistBusy")}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={styles.doctorSpecialties} numberOfLines={1}>
+                                {doctor.specialties.map((item) => getSpecialtyLabel({ code: item, name: item })).join(" · ")}
+                              </Text>
+                              <Text style={styles.doctorMeta}>
+                                {doctor.ratingCount
+                                  ? t("doctorConsultationDoctorMeta", {
+                                      rating: doctor.reputation.toFixed(1),
+                                      ratingCount: doctor.ratingCount,
+                                      minutes: doctor.estimatedWaitMinutes,
+                                    })
+                                  : t("doctorConsultationDoctorNoRating", { minutes: doctor.estimatedWaitMinutes })}
+                              </Text>
+                            </View>
+                            <View style={selected ? styles.radioActiveRing : styles.radioInactiveRing}>
+                              {selected ? <View style={styles.radioActiveDot} /> : null}
+                            </View>
+                          </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={t("doctorConsultationViewReviews")}
+                            onPress={() => void openReviews(doctor)}
+                            style={styles.reviewsButton}
+                          >
+                            <Ionicons name="star-outline" size={15} color="#3A968B" />
+                            <Text style={styles.reviewsButtonText}>{t("doctorConsultationViewReviews")}</Text>
+                          </Pressable>
+                        </View>
+                      );
                     })
                   )}
                 </View>
@@ -1309,33 +1332,6 @@ export default function DoctorConsultationScreen() {
                         { color: isDark ? colors.textPrimary : "#0F2F38" },
                       ]}
                     >
-                      {t("doctorConsultationClinicLabel")}
-                    </Text>
-                    <Text
-                      numberOfLines={2}
-                      style={[
-                        styles.summaryTableVal,
-                        { color: isDark ? colors.textPrimary : "#0F2F38" },
-                      ]}
-                    >
-                      {selectedClinic?.name || t("common:noDataAvailable")}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.summaryDivider,
-                      { backgroundColor: isDark ? colors.border : "#F1F5F9" },
-                    ]}
-                  />
-
-                  <View style={styles.summaryTableRow}>
-                    <Text
-                      style={[
-                        styles.summaryTableKey,
-                        { color: isDark ? colors.textPrimary : "#0F2F38" },
-                      ]}
-                    >
                       {t("doctorConsultationSpecialtyLabel")}
                     </Text>
                     <Text
@@ -1397,6 +1393,7 @@ export default function DoctorConsultationScreen() {
                         })}
                   </Text>
                 </View>
+                <Text style={styles.etaBasisText}>{t("doctorConsultationEtaBasis")}</Text>
 
                 {/* Emergency Red Warning Banner */}
                 <View
@@ -1583,6 +1580,53 @@ export default function DoctorConsultationScreen() {
         title={t("doctorConsultationActiveTitle")}
         visible={activeWarningVisible && Boolean(activeConsultation)}
       />
+
+      <Modal
+        visible={Boolean(reviewDoctor)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReviewDoctor(null)}
+      >
+        <Pressable style={styles.reviewsOverlay} onPress={() => setReviewDoctor(null)}>
+          <Pressable
+            style={[styles.reviewsSheet, { backgroundColor: colors.surface }]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.reviewsSheetHandle} />
+            <View style={styles.reviewsSheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.reviewsSheetTitle, { color: colors.textPrimary }]}>
+                  {reviewDoctor?.fullName}
+                </Text>
+                <Text style={styles.reviewsSheetSummary}>
+                  {reviewSummary.averageRating.toFixed(1)} ★ · {t("doctorConsultationReviewCount", { count: reviewSummary.ratingCount })}
+                </Text>
+              </View>
+              <Pressable accessibilityRole="button" onPress={() => setReviewDoctor(null)} hitSlop={10}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            {reviewsLoading ? (
+              <ActivityIndicator color="#3A968B" style={{ marginVertical: 32 }} />
+            ) : reviews.length === 0 ? (
+              <Text style={styles.emptyReviewsText}>{t("doctorConsultationNoReviews")}</Text>
+            ) : (
+              <ScrollView style={styles.reviewsScroll} showsVerticalScrollIndicator={false}>
+                {reviews.map((review, index) => (
+                  <View key={`${review.createdAt}-${index}`} style={[styles.reviewItem, { borderBottomColor: colors.border }]}>
+                    <View style={styles.reviewItemHeader}>
+                      <Text style={styles.reviewAuthor}>{t("doctorConsultationAnonymizedReview")}</Text>
+                      <Text style={styles.reviewStars}>{"★".repeat(Math.max(0, Math.min(5, review.score)))}</Text>
+                    </View>
+                    {review.comment ? <Text style={[styles.reviewComment, { color: colors.textPrimary }]}>{review.comment}</Text> : null}
+                    <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -1809,6 +1853,162 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 4,
   },
+  doctorPreferenceHint: {
+    color: "#6B8289",
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  doctorListItem: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 10,
+  },
+  doctorListMain: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  doctorAvatar: {
+    borderRadius: 24,
+    height: 48,
+    width: 48,
+  },
+  doctorAvatarFallback: {
+    alignItems: "center",
+    backgroundColor: "#DDF4F0",
+    borderRadius: 24,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  doctorListCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  doctorNameRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  doctorName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  onlineBadge: {
+    alignItems: "center",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  onlineDot: {
+    borderRadius: 4,
+    height: 6,
+    width: 6,
+  },
+  onlineBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  doctorSpecialties: {
+    color: "#64748B",
+    fontSize: 12,
+    marginTop: 3,
+  },
+  doctorMeta: {
+    color: "#3A968B",
+    fontSize: 11.5,
+    fontWeight: "600",
+    marginTop: 3,
+  },
+  reviewsButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    gap: 4,
+    marginLeft: 58,
+    marginTop: 7,
+    paddingVertical: 2,
+  },
+  reviewsButtonText: {
+    color: "#3A968B",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  reviewsOverlay: {
+    backgroundColor: "rgba(15, 47, 56, 0.38)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  reviewsSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "78%",
+    padding: 20,
+  },
+  reviewsSheetHandle: {
+    alignSelf: "center",
+    backgroundColor: "#CBD5E1",
+    borderRadius: 3,
+    height: 5,
+    marginBottom: 16,
+    width: 42,
+  },
+  reviewsSheetHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+  reviewsSheetTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  reviewsSheetSummary: {
+    color: "#3A968B",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  reviewsScroll: {
+    flexGrow: 0,
+  },
+  reviewItem: {
+    borderBottomWidth: 1,
+    paddingVertical: 12,
+  },
+  reviewItemHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  reviewAuthor: {
+    color: "#475569",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reviewStars: {
+    color: "#F59E0B",
+    fontSize: 13,
+  },
+  reviewComment: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 7,
+  },
+  reviewDate: {
+    color: "#94A3B8",
+    fontSize: 11,
+    marginTop: 6,
+  },
+  emptyReviewsText: {
+    color: "#64748B",
+    fontSize: 14,
+    paddingVertical: 28,
+    textAlign: "center",
+  },
   emptySelectionText: {
     color: "#6B8289",
     fontSize: 14,
@@ -1972,6 +2172,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: "600",
+  },
+  etaBasisText: {
+    color: "#64748B",
+    fontSize: 11.5,
+    lineHeight: 17,
+    marginLeft: 30,
+    marginTop: 3,
   },
   emergencyBanner: {
     alignItems: "flex-start",

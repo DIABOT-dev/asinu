@@ -19,6 +19,7 @@ import Svg, { Path, Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../../src/components/ScaledTextInput";
+import { AppAlertModal } from "../../src/components/AppAlertModal";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { useGuardedRouter as useRouter } from "../../src/hooks/useGuardedRouter";
 import { apiClient, getApiErrorMessage } from "../../src/lib/apiClient";
@@ -265,6 +266,8 @@ export default function DoctorConsultationThreadScreen() {
   const [rateable, setRateable] = useState(false);
   const [taskStatus, setTaskStatus] = useState<TaskStatusResponse | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [busyModalVisible, setBusyModalVisible] = useState(false);
+  const busyModalShownRef = useRef(false);
 
   const loadThread = async (showLoading = false) => {
     if (!taskId) return;
@@ -298,6 +301,10 @@ export default function DoctorConsultationThreadScreen() {
       }
       setRateable(response.data?.task_status?.rateable === true);
       setTaskStatus(response.data?.task_status ?? null);
+      if (response.data?.task_status?.status === "expired" && !busyModalShownRef.current) {
+        busyModalShownRef.current = true;
+        setBusyModalVisible(true);
+      }
     } catch {
       if (showLoading) showToast(t("doctorConsultationThreadError"), "error");
     } finally {
@@ -393,6 +400,7 @@ export default function DoctorConsultationThreadScreen() {
       scrollRef.current?.scrollToEnd({ animated: true }),
     );
   }, [messages.length]);
+
 
   const send = async () => {
     const content = draft.trim();
@@ -1624,6 +1632,23 @@ export default function DoctorConsultationThreadScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+      <AppAlertModal
+        visible={busyModalVisible}
+        title={t("doctorConsultationBusyTitle")}
+        message={t("doctorConsultationBusyMessage")}
+        icon={{ name: "clock-alert-outline", color: "#D97706" }}
+        onDismiss={() => setBusyModalVisible(false)}
+        buttons={[
+          {
+            text: t("doctorConsultationChooseAnother"),
+            onPress: () => router.replace("/doctor-consultation"),
+          },
+          {
+            text: t("doctorConsultationKeepWaiting"),
+            style: "cancel",
+          },
+        ]}
+      />
     </View>
   );
 }
