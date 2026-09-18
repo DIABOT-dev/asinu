@@ -424,7 +424,7 @@ export default function CareCircleScreen() {
                 />
                 <View style={styles.inviteBannerCopy}>
                   <Text style={styles.inviteBannerTitle}>{t('inviteNew')}</Text>
-                  <Text style={styles.inviteBannerSubtitle} numberOfLines={1}>
+                  <Text style={styles.inviteBannerSubtitle} numberOfLines={2}>
                     {t('inviteNewSubtitle')}
                   </Text>
                 </View>
@@ -1089,22 +1089,28 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     inviteBannerCopy: {
       flex: 1,
+      minWidth: 0,
       paddingHorizontal: 10,
       justifyContent: 'center',
     },
     inviteBannerTitle: {
+      flexShrink: 1,
       fontSize: 15,
       fontWeight: '700',
       color: '#0D5A50',
+      lineHeight: 19,
     },
     inviteBannerSubtitle: {
+      flexShrink: 1,
       fontSize: 12,
       color: '#6B7280',
       marginTop: 2,
+      lineHeight: 16,
     },
     invitePillButton: {
       flexDirection: 'row',
       alignItems: 'center',
+      flexShrink: 0,
       backgroundColor: '#0D9488',
       borderRadius: 20,
       paddingVertical: 7,

@@ -799,18 +799,24 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     currentPlanInfo: {
       flex: 1,
+      minWidth: 0,
     },
     currentPlanTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      flexWrap: 'wrap',
+      minWidth: 0,
       gap: 8,
     },
     currentPlanLabel: {
+      flexShrink: 1,
       fontSize: 14.5,
       fontWeight: '700',
       color: isDark ? '#f8fafc' : '#0f172a',
+      lineHeight: 20,
     },
     currentPlanBadge: {
+      flexShrink: 0,
       backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
       paddingHorizontal: 8,
       paddingVertical: 2,
@@ -822,8 +828,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       color: '#059669',
     },
     currentPlanSub: {
+      flexShrink: 1,
       fontSize: 12,
       color: isDark ? '#94a3b8' : '#64748b',
+      lineHeight: 17,
       marginTop: 2,
     },
 

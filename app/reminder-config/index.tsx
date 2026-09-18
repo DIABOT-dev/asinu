@@ -672,31 +672,32 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     scheduleDesc: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
 
     scheduleBottom: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+      flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap',
+      minWidth: 0, gap: spacing.sm,
       backgroundColor: Platform.OS === 'android' ? '#F7FFFC' : 'rgba(255,255,255,0.7)',
       borderRadius: radius.lg, padding: spacing.md,
     },
-    timeDisplaySmall: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    timeText: { fontSize: typography.size.lg, fontWeight: '800' },
+    timeDisplaySmall: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, minWidth: 0, gap: 6 },
+    timeText: { flexShrink: 1, fontSize: typography.size.lg, fontWeight: '800' },
 
     autoBadge: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
+      flexDirection: 'row', alignItems: 'center', flexShrink: 1, maxWidth: '100%', gap: 4,
       backgroundColor: colors.primaryLight, borderRadius: radius.full,
       paddingHorizontal: spacing.sm + 2, paddingVertical: 3,
-      marginLeft: spacing.sm,
     },
-    autoBadgeText: { fontSize: typography.size.xxs, fontWeight: '600', color: colors.primary },
+    autoBadgeText: { flexShrink: 1, fontSize: typography.size.xxs, fontWeight: '600', color: colors.primary },
 
     resetBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 3,
+      flexDirection: 'row', alignItems: 'center', flexShrink: 1, maxWidth: '100%', gap: 3,
       backgroundColor: colors.background, borderRadius: radius.full,
       paddingHorizontal: spacing.sm + 2, paddingVertical: 3,
-      marginLeft: spacing.sm, borderWidth: 1, borderColor: colors.border,
+      borderWidth: 1, borderColor: colors.border,
     },
-    resetBtnText: { fontSize: typography.size.xxs, fontWeight: '600', color: colors.textSecondary },
+    resetBtnText: { flexShrink: 1, fontSize: typography.size.xxs, fontWeight: '600', color: colors.textSecondary },
 
     editBtnWrap: {
       marginLeft: 'auto',
+      flexShrink: 0,
       width: 32, height: 32, borderRadius: 12,
       backgroundColor: Platform.OS === 'android' ? '#F9FFFD' : 'rgba(255,255,255,0.8)',
       alignItems: 'center', justifyContent: 'center',

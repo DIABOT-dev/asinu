@@ -1117,7 +1117,8 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
     },
     paymentRow: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
+      minWidth: 0,
       gap: 12,
       paddingVertical: 12,
       borderBottomWidth: 1,
@@ -1125,20 +1126,29 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
     },
     paymentInfo: {
       flex: 1,
+      minWidth: 0,
     },
     paymentAmount: {
+      flexShrink: 1,
       fontSize: scaledTypography.size.sm,
       fontWeight: '700',
       color: '#111827',
+      lineHeight: scaledTypography.size.sm + 5,
     },
     paymentDate: {
+      flexShrink: 1,
       fontSize: scaledTypography.size.xs,
       color: '#6B7280',
       marginTop: 2,
+      lineHeight: scaledTypography.size.xs + 5,
     },
     statusBadge: {
       flexDirection: 'row',
       alignItems: 'center',
+      flexShrink: 0,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end',
+      maxWidth: '42%',
       gap: 4,
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -1150,8 +1160,11 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       borderRadius: 3,
     },
     statusText: {
+      flexShrink: 1,
       fontSize: scaledTypography.size.xs,
       fontWeight: '600',
+      lineHeight: scaledTypography.size.xs + 5,
+      textAlign: 'right',
     },
   });
 }

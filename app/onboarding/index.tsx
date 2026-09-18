@@ -1832,6 +1832,7 @@ const stepStyles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
+    minWidth: 0,
   },
   cardRowActive: {
     borderColor: '#008080',
@@ -1842,11 +1843,14 @@ const stepStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    minWidth: 0,
   },
   cardRowLabel: {
+    flexShrink: 1,
     fontSize: 15,
     color: '#1E293B',
     fontWeight: '500',
+    lineHeight: 20,
   },
   optionsColumn: {
     gap: 8,
