@@ -501,6 +501,7 @@ export default function DoctorConsultationScreen() {
                     ? styles.stepTitleActive
                     : styles.stepTitleInactive,
                 ]}
+                numberOfLines={2}
               >
                 {t("doctorConsultationStepCondition")}
               </Text>
@@ -548,6 +549,7 @@ export default function DoctorConsultationScreen() {
                     ? styles.stepTitleActive
                     : styles.stepTitleInactive,
                 ]}
+                numberOfLines={2}
               >
                 {t("doctorConsultationStepSpecialist")}
               </Text>
@@ -589,6 +591,7 @@ export default function DoctorConsultationScreen() {
                     ? styles.stepTitleActive
                     : styles.stepTitleInactive,
                 ]}
+                numberOfLines={2}
               >
                 {t("doctorConsultationStepReview")}
               </Text>
@@ -722,7 +725,7 @@ export default function DoctorConsultationScreen() {
                               fontWeight: selected ? "700" : "500",
                             },
                           ]}
-                          numberOfLines={1}
+                          numberOfLines={2}
                         >
                           {t(`doctorConsultationOnset_${value}`)}
                         </Text>
@@ -773,7 +776,7 @@ export default function DoctorConsultationScreen() {
                                 fontWeight: selected ? "700" : "500",
                               },
                             ]}
-                            numberOfLines={1}
+                            numberOfLines={2}
                           >
                             {t(`doctorConsultationProgression_${value}`)}
                           </Text>
@@ -824,7 +827,7 @@ export default function DoctorConsultationScreen() {
                               fontWeight: selected ? "700" : "500",
                             },
                           ]}
-                          numberOfLines={1}
+                          numberOfLines={2}
                         >
                           {t(`doctorConsultationSeverity_${value}`)}
                         </Text>
@@ -1632,6 +1635,7 @@ const styles = StyleSheet.create({
   stepTabContent: {
     alignItems: "center",
     flexDirection: "row",
+    minWidth: 0,
     gap: 6,
     paddingBottom: 10,
     paddingTop: 8,
@@ -1663,7 +1667,10 @@ const styles = StyleSheet.create({
     color: "#64748B",
   },
   stepTitle: {
+    flexShrink: 1,
     fontSize: 13.5,
+    lineHeight: 17,
+    textAlign: "center",
   },
   stepTitleActive: {
     color: "#3A968B",
@@ -1698,6 +1705,7 @@ const styles = StyleSheet.create({
   },
   heroLeft: {
     flex: 1.3,
+    minWidth: 0,
   },
   heroHeading: {
     color: "#0F2F38",
@@ -1722,12 +1730,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     justifyContent: "flex-end",
+    minWidth: 0,
   },
   heroRightText: {
     color: "#3A968B",
+    flexShrink: 1,
     fontSize: 12.5,
     fontWeight: "700",
     lineHeight: 17,
+    textAlign: "center",
   },
   card: {
     borderRadius: 20,
@@ -1749,6 +1760,7 @@ const styles = StyleSheet.create({
   },
   cardHeaderTextCol: {
     flex: 1,
+    minWidth: 0,
   },
   cardTitle: {
     color: "#0F2F38",
@@ -1784,15 +1796,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     flex: 1,
-    height: 38,
     justifyContent: "center",
-    paddingHorizontal: 2,
+    minHeight: 38,
+    minWidth: 0,
+    paddingHorizontal: 4,
+    paddingVertical: 7,
   },
   optionPillTextSmall: {
     fontSize: 12,
+    lineHeight: 16,
+    textAlign: "center",
   },
   optionPillText: {
     fontSize: 13,
+    lineHeight: 17,
+    textAlign: "center",
   },
   textAreaContainer: {
     borderRadius: 14,
@@ -1865,9 +1883,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 6,
+    minWidth: 0,
   },
   doctorName: {
     flex: 1,
+    minWidth: 0,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -1875,6 +1895,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 999,
     flexDirection: "row",
+    flexShrink: 0,
     gap: 4,
     paddingHorizontal: 7,
     paddingVertical: 3,
@@ -1891,6 +1912,7 @@ const styles = StyleSheet.create({
   doctorSpecialties: {
     color: "#64748B",
     fontSize: 12,
+    lineHeight: 17,
     marginTop: 3,
   },
   doctorMeta: {
@@ -1910,6 +1932,7 @@ const styles = StyleSheet.create({
   },
   reviewsButtonText: {
     color: "#3A968B",
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -1938,6 +1961,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reviewsSheetTitle: {
+    flexShrink: 1,
     fontSize: 18,
     fontWeight: "800",
   },
@@ -2004,11 +2028,13 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     gap: 12,
+    minWidth: 0,
   },
   selectableItemText: {
     flex: 1,
     fontSize: 15,
     fontWeight: "700",
+    minWidth: 0,
   },
   radioActiveRing: {
     alignItems: "center",
@@ -2043,8 +2069,10 @@ const styles = StyleSheet.create({
   },
   uploadPhotoBtnText: {
     color: "#3A968B",
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "700",
+    textAlign: "center",
   },
   attachmentPreviewBox: {
     alignItems: "center",
@@ -2062,6 +2090,7 @@ const styles = StyleSheet.create({
   },
   attachmentMetaCol: {
     flex: 1,
+    minWidth: 0,
   },
   attachmentMetaName: {
     fontSize: 13.5,
@@ -2080,6 +2109,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 4,
+    minWidth: 0,
   },
   secondaryNavBtn: {
     alignItems: "center",
@@ -2090,8 +2120,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   secondaryNavBtnText: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "700",
+    textAlign: "center",
   },
   primaryNavBtn: {
     alignItems: "center",
@@ -2108,14 +2140,16 @@ const styles = StyleSheet.create({
   },
   primaryNavBtnText: {
     color: "#FFFFFF",
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: "800",
+    textAlign: "center",
   },
   summaryTable: {
     gap: 0,
   },
   summaryTableRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     paddingVertical: 10,
   },
@@ -2123,13 +2157,17 @@ const styles = StyleSheet.create({
     color: "#0F2F38",
     fontSize: 14,
     fontWeight: "600",
-    width: 125,
+    lineHeight: 20,
+    marginRight: 12,
+    width: 112,
   },
   summaryTableVal: {
     color: "#0F2F38",
     flex: 1,
     fontSize: 14,
     fontWeight: "500",
+    lineHeight: 20,
+    minWidth: 0,
     textAlign: "left",
   },
   summaryDivider: {
@@ -2147,6 +2185,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: "600",
+    lineHeight: 19,
+    minWidth: 0,
   },
   etaBasisText: {
     color: "#64748B",
@@ -2205,10 +2245,15 @@ const styles = StyleSheet.create({
   submitNavBtnContent: {
     alignItems: "center",
     flexDirection: "row",
+    flexShrink: 1,
+    justifyContent: "center",
+    paddingHorizontal: 8,
   },
   submitNavBtnText: {
     color: "#FFFFFF",
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: "800",
+    textAlign: "center",
   },
 });

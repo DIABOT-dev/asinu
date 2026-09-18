@@ -603,7 +603,7 @@ function StatusScreen({
               onPress={() => onSelect(opt.status)}
             >
               <MaterialCommunityIcons name={opt.icon} size={28} color={opt.color} />
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[styles.statusLabel, { color: opt.color }]}>{t(opt.labelKey)}</Text>
                 <Text style={styles.statusSub}>{t(opt.sublabelKey)}</Text>
               </View>
@@ -701,7 +701,7 @@ function LocationScreen({
                 size={28}
                 color={isSelected ? colors.primary : colors.textSecondary}
               />
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 }}>
                   {meta.label}
                 </Text>
@@ -1034,7 +1034,7 @@ function TriageScreen({
                       paddingHorizontal: spacing.sm,
                       marginBottom: spacing.xs,
                     }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.primary }}>
+                      <Text style={{ flexShrink: 1, fontSize: 14, fontWeight: '700', color: colors.primary }}>
                         {group.label}
                       </Text>
                       <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
@@ -1491,7 +1491,7 @@ function DoneScreen({
                 ]}
               >
                 <Ionicons name="call" size={22} color="#FFFFFF" />
-                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.4 }}>
+                <Text style={{ flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.4, lineHeight: 24, textAlign: 'center' }}>
                   {t('checkinCallEmergency')}
                 </Text>
                 <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
@@ -1510,7 +1510,7 @@ function DoneScreen({
                 size={18}
                 color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
               />
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
                 {t('checkinRecordedSymptoms')}
               </Text>
             </View>
@@ -1539,7 +1539,7 @@ function DoneScreen({
               style={{ marginTop: 1 }}
             />
             <View style={{ flex: 1, gap: 3 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: isFine ? '#166534' : '#92400E' }}>
+              <Text style={{ flexShrink: 1, fontSize: 14, fontWeight: '700', color: isFine ? '#166534' : '#92400E' }}>
                 {t('checkinAdvice')}
               </Text>
               <Text style={{ fontSize: 13.5, color: isFine ? '#14532D' : '#78350F', lineHeight: 20 }}>
@@ -1573,6 +1573,7 @@ function DoneScreen({
                 fontSize: 13.5,
                 fontWeight: '600',
                 color: isEmergency || isHigh ? '#B91C1C' : isFine ? '#0F766E' : '#92400E',
+                lineHeight: 19,
               }}
             >
               {doctorNoticeText}
@@ -1601,9 +1602,13 @@ function DoneScreen({
             >
               <Text
                 style={{
+                  flex: 1,
                   fontSize: 15,
                   fontWeight: '700',
                   color: isEmergency || isHigh ? '#DC2626' : '#00A88F',
+                  lineHeight: 21,
+                  paddingHorizontal: 8,
+                  textAlign: 'center',
                 }}
               >
                 {t('checkinConnectDoctor')}
@@ -1698,7 +1703,7 @@ function DoneScreen({
       <Animated.View entering={FadeInDown.delay(350).duration(400)}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}>
           <Ionicons name="shield-checkmark-outline" size={15} color="#94A3B8" />
-          <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>
+          <Text style={{ flexShrink: 1, fontSize: 12, color: '#64748B', fontWeight: '500', textAlign: 'center' }}>
             {t('checkinFooter')}
           </Text>
         </View>
@@ -1798,6 +1803,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     aiBubble: {
       backgroundColor: colors.surface,
+      flexShrink: 1,
+      minWidth: 0,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       borderRadius: radius.lg,
@@ -1809,6 +1816,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       elevation: 1,
     },
     aiBubbleText: {
+      flexShrink: 1,
       fontSize: typography.size.xs,
       color: colors.textSecondary,
       lineHeight: 18,
@@ -1829,10 +1837,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 6,
+      minWidth: 0,
     },
     userAnswerTag: {
       flexDirection: 'row',
       alignItems: 'center',
+      maxWidth: '100%',
       gap: 4,
       backgroundColor: 'rgba(255,255,255,0.2)',
       borderRadius: 12,
@@ -1840,6 +1850,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingVertical: 3,
     },
     userAnswerTagText: {
+      flexShrink: 1,
       fontSize: typography.size.xs,
       color: '#fff',
       fontWeight: '600',
@@ -1858,6 +1869,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     // Current question (bigger, emphasized)
     currentQuestionBubble: {
       flex: 1,
+      minWidth: 0,
       backgroundColor: colors.surface,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
@@ -1885,6 +1897,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       marginTop: 2,
     },
     selectHintText: {
+      flexShrink: 1,
       fontSize: typography.size.xxs,
       color: colors.textSecondary,
     },
@@ -1998,6 +2011,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderColor: colors.border,
     },
     input: {
+      minWidth: 0,
       paddingHorizontal: spacing.lg,
       paddingVertical: 12,
       fontSize: typography.size.sm,

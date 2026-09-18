@@ -723,7 +723,7 @@ export default function DoctorConsultationThreadScreen() {
     <View
       style={[
         styles.screen,
-        { backgroundColor: isDark ? colors.background : "#F8FAFC" },
+        { backgroundColor: isDark ? colors.background : "#F5FBFC" },
       ]}
     >
       <Stack.Screen options={{ headerShown: false }} />
@@ -737,8 +737,8 @@ export default function DoctorConsultationThreadScreen() {
           styles.headerBar,
           {
             paddingTop: insets.top + 6,
-            backgroundColor: isDark ? colors.surface : "#FFFFFF",
-            borderBottomColor: isDark ? colors.border : "#E2E8F0",
+            backgroundColor: isDark ? colors.surface : "#F5FBFC",
+            borderBottomColor: isDark ? colors.border : "#E2ECE9",
           },
         ]}
       >
@@ -1696,6 +1696,8 @@ const styles = StyleSheet.create({
     width: 7,
   },
   headerSubtitle: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 12,
     fontWeight: "500",
   },
@@ -1742,8 +1744,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusLabel: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 14,
     fontWeight: "600",
+    lineHeight: 20,
   },
   statusHint: {
     fontSize: 13,
@@ -1801,6 +1806,7 @@ const styles = StyleSheet.create({
   patientCard: {
     borderRadius: 16,
     borderWidth: 1,
+    minWidth: 0,
     maxWidth: "85%",
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -1818,6 +1824,7 @@ const styles = StyleSheet.create({
   patientBubble: {
     borderRadius: 16,
     borderWidth: 1,
+    minWidth: 0,
     maxWidth: "85%",
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -1826,7 +1833,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     flex: 1,
-    maxWidth: "85%",
+    minWidth: 0,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -1836,12 +1843,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   messageBodyText: {
+    flexShrink: 1,
     fontSize: 15,
     lineHeight: 22,
   },
   messageAttachment: {
+    aspectRatio: 1,
     borderRadius: 14,
-    height: 220,
+    maxWidth: "100%",
     width: 220,
     marginBottom: 6,
   },
@@ -1852,6 +1861,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 8,
+    maxWidth: "100%",
     width: 220,
     marginTop: 4,
   },
@@ -1864,8 +1875,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-end",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 4,
+    justifyContent: "flex-end",
     marginTop: 6,
+    maxWidth: "100%",
   },
   messageFooterLeft: {
     alignItems: "center",
@@ -1928,6 +1942,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   voiceMessageText: {
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -1996,8 +2011,10 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   closedComposerText: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: "600",
+    textAlign: "center",
   },
   inputContainer: {
     alignItems: "center",
