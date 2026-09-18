@@ -156,8 +156,9 @@ export default function LoginEmailScreen() {
       navigatingRef.current = true;
       setPendingToast(t('loginSuccess'), 'success');
       navigateAfterLogin();
-    } catch (loginError) {
-      showToast(getLoginErrorMessage(loginError), 'error');
+    } catch {
+      // auth.store keeps the same error in the form state below. Showing a
+      // toast here as well duplicates the message (modal + inline banner).
     } finally {
       setPendingAction(null);
     }
@@ -172,8 +173,9 @@ export default function LoginEmailScreen() {
       navigatingRef.current = true;
       setPendingToast(t('loginSuccess'), 'success');
       navigateAfterLogin();
-    } catch (loginError) {
-      showToast(getLoginErrorMessage(loginError), 'error');
+    } catch {
+      // Keep one error surface on the login form; auth.store already exposes
+      // this failure through `error`.
     } finally {
       setPendingAction(null);
     }

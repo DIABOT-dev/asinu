@@ -170,19 +170,15 @@ export default function GiftSubscriptionScreen() {
         showToast(t('giftSuccessTitle'), 'success');
       } else {
         setWallet({ status: 'failed', error: res.message || t('paymentFailed') });
-        showToast(res.message || t('paymentFailed'), 'error');
       }
     } catch (err: any) {
       if (err instanceof ApiError && err.code === 'NOT_IN_CARE_CIRCLE') {
         setWallet({ status: 'failed', error: t('giftErrorNotInCircleBody') });
-        showToast(t('giftErrorNotInCircleBody'), 'error');
       } else if (err instanceof ApiError) {
         const message = getApiErrorMessage(err, tc, 'errorServer');
         setWallet({ status: 'failed', error: message });
-        showToast(message, 'error');
       } else {
         setWallet({ status: 'failed', error: t('paymentNetworkError') });
-        showToast(t('paymentNetworkError'), 'error');
       }
     }
   }, [recipientId, selectedMonths, t, tc]);
@@ -493,7 +489,6 @@ const styles = StyleSheet.create({
   },
   methodIcon: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: colors.primary + '14',
     alignItems: 'center', justifyContent: 'center',
   },
   methodTitle: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },

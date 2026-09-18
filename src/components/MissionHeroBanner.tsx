@@ -103,7 +103,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: isDark ? 'rgba(5, 150, 105, 0.28)' : 'rgba(16, 185, 129, 0.18)',
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 10,

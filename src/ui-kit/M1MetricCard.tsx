@@ -91,7 +91,7 @@ export const M1MetricCard = React.memo(({
 
   return (
     <Container style={[styles.card, { borderColor: colors.border }]} onPress={onPress}>
-      <View style={[styles.accent, { backgroundColor: colors.primaryLight }]}>
+      <View style={styles.accent}>
         {icon || <Ionicons name="pulse" size={20} color={accentColor} />}
       </View>
       <Text style={[styles.title, { fontSize: scaledTypography.size.md }]}>{title}</Text>

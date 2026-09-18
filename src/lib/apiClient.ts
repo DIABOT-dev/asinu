@@ -221,7 +221,10 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
         }
       }
       
-      if (shouldRetry(method, error) && attempt < attempts && !timedOut) {
+      // GET requests are safe to retry after a timeout. This is especially
+      // important for the Doctor conversation endpoint behind a tunnel: a
+      // cold backend can exceed the first timeout without being unavailable.
+      if (shouldRetry(method, error) && attempt < attempts) {
         const delay = initialDelay * Math.pow(factor, attempt - 1);
         await sleep(delay);
         continue;

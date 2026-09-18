@@ -144,7 +144,6 @@ type HomeMetricCard = {
   color: string;
   route: string;
   banner?: any;
-  iconBg?: string;
   iconColor?: string;
 };
 
@@ -164,21 +163,17 @@ const METRIC_BANNER_MAP: Record<string, any> = {
   insulin: require('../../../assets/images/logs/banner_insulin.png'),
 };
 
-const METRIC_THEME_MAP: Record<string, { iconBg: string; iconColor: string }> = {
+const METRIC_THEME_MAP: Record<string, { iconColor: string }> = {
   glucose: {
-    iconBg: '#EBF3FE',
     iconColor: '#4A6B95',
   },
   'blood-pressure': {
-    iconBg: '#FFF0F2',
     iconColor: '#E11D48',
   },
   weight: {
-    iconBg: '#F3EBFD',
     iconColor: '#7C3AED',
   },
   water: {
-    iconBg: '#E4F7F4',
     iconColor: '#0D9488',
   },
 };
@@ -221,7 +216,6 @@ function HomeMetricCarousel({ cards, styles, onOpen }: HomeMetricCarouselProps) 
         renderItem={({ item }) => {
           const banner = item.banner || METRIC_BANNER_MAP[item.key];
           const theme = {
-            iconBg: item.iconBg || METRIC_THEME_MAP[item.key]?.iconBg || '#EBF3FE',
             iconColor: item.iconColor || METRIC_THEME_MAP[item.key]?.iconColor || item.color,
           };
           return (
@@ -241,7 +235,7 @@ function HomeMetricCarousel({ cards, styles, onOpen }: HomeMetricCarouselProps) 
               )}
               <View style={styles.metricCardContent}>
                 <View style={styles.metricHeaderRow}>
-                  <View style={[styles.metricIconCircle, { backgroundColor: theme.iconBg }]}>
+                  <View style={styles.metricIconCircle}>
                     <MaterialCommunityIcons name={item.icon} size={20} color={theme.iconColor} />
                   </View>
                   <Text style={styles.metricTitle}>{item.title}</Text>
@@ -570,7 +564,6 @@ export default function HomeScreen() {
       color: '#4A6B95',
       route: '/logs/glucose',
       banner: require('../../../assets/images/logs/banner_glucose.png'),
-      iconBg: '#EBF3FE',
       iconColor: '#4A6B95',
     },
     {
@@ -582,7 +575,6 @@ export default function HomeScreen() {
       color: '#E11D48',
       route: '/logs/blood-pressure',
       banner: require('../../../assets/images/logs/banner_bp.png'),
-      iconBg: '#FFF0F2',
       iconColor: '#E11D48',
     },
     {
@@ -594,7 +586,6 @@ export default function HomeScreen() {
       color: '#7C3AED',
       route: '/logs/weight',
       banner: require('../../../assets/images/logs/banner_weight.png'),
-      iconBg: '#F3EBFD',
       iconColor: '#7C3AED',
     },
     {
@@ -606,7 +597,6 @@ export default function HomeScreen() {
       color: '#0D9488',
       route: '/logs/water',
       banner: require('../../../assets/images/logs/banner_water.png'),
-      iconBg: '#E4F7F4',
       iconColor: '#0D9488',
     },
   ], [quickMetrics, t, tc]);
@@ -1072,13 +1062,13 @@ export default function HomeScreen() {
         ) : (
           <View style={styles.logsGrid}>
             {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water', 'weight'].includes(log.type)).slice(0, 3).map((log: LogEntry) => {
-              const logMeta: Record<string, { iconBg: string; iconColor: string; icon: string; subtitle: string; watermarkColor: string }> = {
-                'glucose':        { iconBg: '#E8F5E9', iconColor: '#43A047', icon: 'water',           subtitle: t('glucoseHealth'), watermarkColor: '#43A047' },
-                'blood-pressure': { iconBg: '#E2F0FD', iconColor: '#1E88E5', icon: 'heart-pulse',     subtitle: t('cardioHealth'),  watermarkColor: '#1E88E5' },
-                'weight':         { iconBg: '#F0FBFA', iconColor: '#26A69A', icon: 'scale-bathroom',  subtitle: t('bodyMetrics'),   watermarkColor: '#26A69A' },
-                'water':          { iconBg: '#E0F7FA', iconColor: '#00ACC1', icon: 'cup-water',       subtitle: t('hydration'),     watermarkColor: '#00ACC1' },
+              const logMeta: Record<string, { iconColor: string; icon: string; subtitle: string; watermarkColor: string }> = {
+                'glucose':        { iconColor: '#43A047', icon: 'water',           subtitle: t('glucoseHealth'), watermarkColor: '#43A047' },
+                'blood-pressure': { iconColor: '#1E88E5', icon: 'heart-pulse',     subtitle: t('cardioHealth'),  watermarkColor: '#1E88E5' },
+                'weight':         { iconColor: '#26A69A', icon: 'scale-bathroom',  subtitle: t('bodyMetrics'),   watermarkColor: '#26A69A' },
+                'water':          { iconColor: '#00ACC1', icon: 'cup-water',       subtitle: t('hydration'),     watermarkColor: '#00ACC1' },
               };
-              const meta = logMeta[log.type] ?? { iconBg: colors.surfaceMuted, iconColor: colors.textSecondary, icon: 'dots-horizontal', subtitle: '', watermarkColor: colors.textSecondary };
+              const meta = logMeta[log.type] ?? { iconColor: colors.textSecondary, icon: 'dots-horizontal', subtitle: '', watermarkColor: colors.textSecondary };
 
               const displayValue = (() => {
                 if (log.type === 'glucose') return log.value ? `${log.value} ${tc('unitMgdl')}` : tc('noData');
@@ -1147,7 +1137,7 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Icon */}
-                <View style={[styles.logCardIconBox, { backgroundColor: meta.iconBg }]}>
+                <View style={styles.logCardIconBox}>
                   <MaterialCommunityIcons name={meta.icon as any} size={26} color={meta.iconColor} />
                 </View>
 

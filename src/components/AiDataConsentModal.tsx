@@ -126,7 +126,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: 28,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.primaryLight,
     },
     title: {
       color: colors.textPrimary,

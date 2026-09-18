@@ -129,6 +129,9 @@ export default function DoctorConsultationHistoryScreen() {
         tenantIds.map((tenantId) =>
           apiClient<TaskListResponse>(
             `/api/doctor/tasks?tenant_id=${encodeURIComponent(tenantId)}`,
+            {
+              retry: { attempts: 3, initialDelayMs: 500, backoffFactor: 2 },
+            },
           ),
         ),
       );
@@ -348,7 +351,6 @@ function createStyles(
     },
     taskIcon: {
       alignItems: "center",
-      backgroundColor: isDark ? "#103b38" : "#E6FAF7",
       borderRadius: 14,
       height: 44,
       justifyContent: "center",

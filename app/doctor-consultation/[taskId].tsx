@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../../src/components/ScaledTextInput";
 import { AppAlertModal } from "../../src/components/AppAlertModal";
+import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { useGuardedRouter as useRouter } from "../../src/hooks/useGuardedRouter";
 import { apiClient, getApiErrorMessage } from "../../src/lib/apiClient";
@@ -100,6 +101,17 @@ type ThreadResponse = {
   };
 };
 
+type TaskListResponse = {
+  ok: boolean;
+  data?: {
+    tasks?: Array<{
+      task_id: string;
+      status?: string | null;
+      follow_up_until?: string | null;
+    }>;
+  };
+};
+
 type ConsultationSummary = {
   problem_summary: string;
   assessment: string;
@@ -157,76 +169,7 @@ const formatHeaderDate = (
 };
 
 function MedicalBackground({ isDark }: { isDark: boolean }) {
-  const primaryColor = isDark ? "#14B8A6" : "#2DD4BF";
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Top Left Cross */}
-      <View style={{ position: "absolute", top: 130, left: 24 }}>
-        <Svg width={30} height={30} viewBox="0 0 24 24">
-          <Path
-            d="M9 3 C9 2.45 9.45 2 10 2 L14 2 C14.55 2 15 2.45 15 3 L15 9 L21 9 C21.55 9 22 9.45 22 10 L22 14 C22 14.55 21.55 15 21 15 L15 15 L15 21 C15 21.55 14.55 22 14 22 L10 22 C9.45 22 9 21.55 9 21 L9 15 L3 15 C2.45 15 2 14.55 2 14 L2 10 C2 9.45 2.45 9 3 9 L9 9 Z"
-            fill={primaryColor}
-            opacity={isDark ? 0.08 : 0.16}
-          />
-        </Svg>
-      </View>
-
-      {/* Mid Left Cross */}
-      <View style={{ position: "absolute", top: 380, left: 22 }}>
-        <Svg width={36} height={36} viewBox="0 0 24 24">
-          <Path
-            d="M9 3 C9 2.45 9.45 2 10 2 L14 2 C14.55 2 15 2.45 15 3 L15 9 L21 9 C21.55 9 22 9.45 22 10 L22 14 C22 14.55 21.55 15 21 15 L15 15 L15 21 C15 21.55 14.55 22 14 22 L10 22 C9.45 22 9 21.55 9 21 L9 15 L3 15 C2.45 15 2 14.55 2 14 L2 10 C2 9.45 2.45 9 3 9 L9 9 Z"
-            fill={primaryColor}
-            opacity={isDark ? 0.07 : 0.14}
-          />
-        </Svg>
-      </View>
-
-      {/* Mid Left Heartbeat Pulse Wave */}
-      <View style={{ position: "absolute", top: 430, left: -20 }}>
-        <Svg width={220} height={100} viewBox="0 0 220 100">
-          <Path
-            d="M0 50 L60 50 L70 35 L78 70 L88 20 L98 80 L108 42 L116 55 L125 50 L220 50"
-            stroke={primaryColor}
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-            opacity={isDark ? 0.1 : 0.22}
-          />
-        </Svg>
-      </View>
-
-      {/* Bottom Left Dot Grid */}
-      <View style={{ position: "absolute", bottom: 120, left: 24 }}>
-        <Svg width={70} height={90}>
-          {[0, 1, 2, 3, 4].map((r) =>
-            [0, 1, 2, 3].map((c) => (
-              <Circle
-                key={`${r}-${c}`}
-                cx={c * 16 + 4}
-                cy={r * 16 + 4}
-                r={2.5}
-                fill={primaryColor}
-                opacity={isDark ? 0.1 : 0.22}
-              />
-            )),
-          )}
-        </Svg>
-      </View>
-
-      {/* Bottom Right Cross */}
-      <View style={{ position: "absolute", bottom: 180, right: 28 }}>
-        <Svg width={42} height={42} viewBox="0 0 24 24">
-          <Path
-            d="M9 3 C9 2.45 9.45 2 10 2 L14 2 C14.55 2 15 2.45 15 3 L15 9 L21 9 C21.55 9 22 9.45 22 10 L22 14 C22 14.55 21.55 15 21 15 L15 15 L15 21 C15 21.55 14.55 22 14 22 L10 22 C9.45 22 9 21.55 9 21 L9 15 L3 15 C2.45 15 2 14.55 2 14 L2 10 C2 9.45 2.45 9 3 9 L9 9 Z"
-            fill={primaryColor}
-            opacity={isDark ? 0.08 : 0.16}
-          />
-        </Svg>
-      </View>
-    </View>
-  );
+  return null;
 }
 
 export default function DoctorConsultationThreadScreen() {
@@ -261,6 +204,7 @@ export default function DoctorConsultationThreadScreen() {
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [rateable, setRateable] = useState(false);
   const [taskStatus, setTaskStatus] = useState<TaskStatusResponse | null>(null);
+  const [statusClock, setStatusClock] = useState(() => Date.now());
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [busyModalVisible, setBusyModalVisible] = useState(false);
   const busyModalShownRef = useRef(false);
@@ -273,6 +217,11 @@ export default function DoctorConsultationThreadScreen() {
         `/api/doctor/tasks/${encodeURIComponent(
           taskId,
         )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`,
+        {
+          // A tunnel/backend cold start should not surface as a false chat
+          // loading error on the first render.
+          retry: { attempts: 3, initialDelayMs: 500, backoffFactor: 2 },
+        },
       );
       setSummary(response.data?.summary ?? null);
       setMessages(response.data?.messages ?? []);
@@ -295,14 +244,53 @@ export default function DoctorConsultationThreadScreen() {
           },
         ).catch(() => undefined);
       }
-      setRateable(response.data?.task_status?.rateable === true);
-      setTaskStatus(response.data?.task_status ?? null);
-      if (response.data?.task_status?.status === "expired" && !busyModalShownRef.current) {
+      // The Doctor integration can be temporarily unavailable while ASINU
+      // still serves persisted messages. Recover the lifecycle from ASINU's
+      // task list so an expired/completed case remains read-only instead of
+      // looking like an unknown active conversation.
+      let resolvedTaskStatus = response.data?.task_status ?? null;
+      if (!resolvedTaskStatus) {
+        try {
+          const taskList = await apiClient<TaskListResponse>(
+            `/api/doctor/tasks?tenant_id=${encodeURIComponent(activeTenantId)}`,
+            {
+              retry: { attempts: 2, initialDelayMs: 400, backoffFactor: 2 },
+            },
+          );
+          const task = taskList.data?.tasks?.find(
+            (candidate) => candidate.task_id === taskId,
+          );
+          if (task?.status) {
+            const followUpUntil = task.follow_up_until ?? null;
+            resolvedTaskStatus = {
+              status: task.status,
+              rateable: task.status === "completed",
+              follow_up_until: followUpUntil,
+              follow_up_open: Boolean(
+                task.status === "completed" &&
+                  followUpUntil &&
+                  new Date(followUpUntil).getTime() > Date.now(),
+              ),
+            };
+          }
+        } catch {
+          // Keep the fail-closed state when the fallback is unavailable.
+        }
+      }
+
+      setRateable(resolvedTaskStatus?.rateable === true);
+      setTaskStatus(resolvedTaskStatus);
+      if (resolvedTaskStatus?.status === "expired" && !busyModalShownRef.current) {
         busyModalShownRef.current = true;
         setBusyModalVisible(true);
       }
-    } catch {
-      if (showLoading) showToast(t("doctorConsultationThreadError"), "error");
+    } catch (error) {
+      if (showLoading) {
+        showToast(
+          getApiErrorMessage(error, t, "doctorConsultationThreadError"),
+          "error",
+        );
+      }
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -400,7 +388,7 @@ export default function DoctorConsultationThreadScreen() {
 
   const send = async () => {
     const content = draft.trim();
-    if (!taskId || !content || sending) return;
+    if (!taskId || !content || sending || !conversationOpen) return;
     setSending(true);
     try {
       await apiClient(
@@ -519,7 +507,7 @@ export default function DoctorConsultationThreadScreen() {
 
   const stopVoiceRecording = async () => {
     const activeRecording = recordingRef.current;
-    if (!activeRecording || !taskId) return;
+    if (!activeRecording || !taskId || !conversationOpen) return;
     setRecording(false);
     setSending(true);
     try {
@@ -575,6 +563,7 @@ export default function DoctorConsultationThreadScreen() {
   };
 
   const handlePickImage = async () => {
+    if (!taskId || sending || !conversationOpen) return;
     try {
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -658,22 +647,58 @@ export default function DoctorConsultationThreadScreen() {
   const terminalStatuses = [
     "cancelled",
     "expired",
+    "failed",
     "emergency_referred",
     "forwarded",
   ];
-  const conversationOpen =
-    !taskStatus ||
-    (!terminalStatuses.includes(taskStatus.status) &&
-      (taskStatus.status !== "completed" ||
-        taskStatus.follow_up_open === true));
+  const followUpOpen = Boolean(
+    taskStatus?.status === "completed" &&
+      taskStatus.follow_up_open === true &&
+      (!taskStatus.follow_up_until ||
+        new Date(taskStatus.follow_up_until).getTime() > statusClock),
+  );
+  const currentStatus = taskStatus?.status;
+  const conversationOpen = currentStatus
+    ? !terminalStatuses.includes(currentStatus) &&
+      (currentStatus !== "completed" || followUpOpen)
+    : false;
   const statusLabel = taskStatus?.status
     ? t(`doctorConsultationStatus_${taskStatus.status}`, {
         defaultValue: t("doctorConsultationStatusUnknown"),
       })
-    : t("doctorConsultationWaiting");
+    : loading
+      ? t("doctorConsultationWaiting")
+      : t("doctorConsultationStatus_completed", {
+          defaultValue: "Đã hoàn tất",
+        });
   const statusIsTerminal =
     !taskStatus ||
     ["completed", ...terminalStatuses].includes(taskStatus.status);
+
+  useEffect(() => {
+    const followUpUntil = taskStatus?.follow_up_until;
+    if (!followUpUntil || taskStatus?.status !== "completed") return;
+    const expiresAt = new Date(followUpUntil).getTime();
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      setStatusClock(Date.now());
+      return;
+    }
+    const timer = setTimeout(() => setStatusClock(Date.now()), expiresAt - Date.now() + 50);
+    return () => clearTimeout(timer);
+  }, [taskStatus?.follow_up_until, taskStatus?.status]);
+
+  useEffect(() => {
+    if (conversationOpen) return;
+    if (draft) setDraft("");
+    if (recording) {
+      const activeRecording = recordingRef.current;
+      if (activeRecording) {
+        void activeRecording.stopAndUnloadAsync?.().catch(() => undefined);
+      }
+      recordingRef.current = null;
+      setRecording(false);
+    }
+  }, [conversationOpen, draft, recording]);
 
   useEffect(() => {
     if (!taskId || !conversationOpen) return;
@@ -698,7 +723,7 @@ export default function DoctorConsultationThreadScreen() {
     <View
       style={[
         styles.screen,
-        { backgroundColor: isDark ? colors.background : "#F0FAF7" },
+        { backgroundColor: isDark ? colors.background : "#F8FAFC" },
       ]}
     >
       <Stack.Screen options={{ headerShown: false }} />
@@ -706,96 +731,59 @@ export default function DoctorConsultationThreadScreen() {
       {/* Decorative medical background elements */}
       <MedicalBackground isDark={isDark} />
 
-      {/* Floating Top Header Card */}
-      <View style={[styles.headerCardWrapper, { paddingTop: insets.top + 6 }]}>
-        <View
-          style={[
-            styles.headerCard,
-            {
-              backgroundColor: isDark ? colors.surface : "#FFFFFF",
-              borderColor: isDark ? colors.border : "#E2EEEC",
-            },
-          ]}
-        >
-          <View style={styles.headerMainRow}>
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={10}
-              style={[
-                styles.backCircle,
-                { backgroundColor: isDark ? colors.surfaceMuted : "#E6F7F5" },
-              ]}
-            >
-              <Ionicons name="arrow-back" size={20} color="#00A88F" />
-            </Pressable>
+      {/* Standard Top Header Bar matching all app screens */}
+      <View
+        style={[
+          styles.headerBar,
+          {
+            paddingTop: insets.top + 6,
+            backgroundColor: isDark ? colors.surface : "#FFFFFF",
+            borderBottomColor: isDark ? colors.border : "#E2E8F0",
+          },
+        ]}
+      >
+        <ScreenBackButton onPress={() => router.back()} />
 
-            <View style={styles.headerInfo}>
-              <Text
-                style={[
-                  styles.headerTitle,
-                  { color: isDark ? colors.textPrimary : "#0F172A" },
-                ]}
-                numberOfLines={1}
-              >
-                {t("doctorConsultationConversation")}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.headerTaskId,
-                  { color: isDark ? colors.textSecondary : "#94A3B8" },
-                ]}
-              >
-                {t("doctorConsultationTaskLabel")}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.headerAvatarPlaceholder,
-                { backgroundColor: isDark ? colors.surfaceMuted : "#E6F7F5" },
-              ]}
-            >
-              <Ionicons
-                name="person-outline"
-                size={22}
-                color={isDark ? colors.textSecondary : "#00A88F"}
-              />
-            </View>
-          </View>
-
-          {/* Status pill right below avatar, aligned to right */}
+        <View style={styles.headerInfo}>
+          <Text
+            style={[
+              styles.headerTitle,
+              { color: isDark ? colors.textPrimary : "#0F172A" },
+            ]}
+            numberOfLines={1}
+          >
+            {t("doctorConsultationConversation")}
+          </Text>
           <View style={styles.headerStatusRow}>
             <View
               style={[
-                styles.onlinePill,
-                {
-                  backgroundColor: statusIsTerminal
-                    ? isDark
-                      ? "rgba(100, 116, 139, 0.2)"
-                      : "#F1F5F9"
-                    : isDark
-                      ? "rgba(16, 185, 129, 0.15)"
-                      : "#EDFDF8",
-                },
+                styles.statusDot,
+                { backgroundColor: statusIsTerminal ? "#94A3B8" : "#10B981" },
+              ]}
+            />
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.headerSubtitle,
+                { color: isDark ? colors.textSecondary : "#64748B" },
               ]}
             >
-              <View
-                style={[
-                  styles.onlinePillDot,
-                  { backgroundColor: statusIsTerminal ? "#94A3B8" : "#10B981" },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.onlinePillText,
-                  { color: statusIsTerminal ? "#64748B" : "#059669" },
-                ]}
-              >
-                {statusLabel}
-              </Text>
-            </View>
+              {statusLabel}
+            </Text>
           </View>
+        </View>
+
+        <View
+          style={[
+            styles.headerAvatar,
+            { backgroundColor: isDark ? colors.surfaceMuted : "#F0FDFA" },
+          ]}
+        >
+          <Ionicons
+            name="medical"
+            size={18}
+            color={isDark ? colors.textSecondary : "#00A88F"}
+          />
         </View>
       </View>
 
@@ -841,19 +829,48 @@ export default function DoctorConsultationThreadScreen() {
               style={[
                 styles.statusCard,
                 {
-                  backgroundColor: isDark ? colors.surface : "#FFFFFF",
-                  borderColor: isDark ? colors.border : "#A7F3D0",
+                  backgroundColor: isDark
+                    ? colors.surface
+                    : statusIsTerminal
+                      ? "#F8FAFC"
+                      : "#F0FDF4",
+                  borderColor: isDark
+                    ? colors.border
+                    : statusIsTerminal
+                      ? "#E2E8F0"
+                      : "#BBF7D0",
                 },
               ]}
             >
               <View style={styles.statusHeading}>
-                <Ionicons name="pulse" size={22} color="#00A88F" />
-                <Text style={styles.statusLabel}>{statusLabel}</Text>
+                <Ionicons
+                  name={statusIsTerminal ? "checkmark-circle" : "pulse"}
+                  size={18}
+                  color={statusIsTerminal ? "#64748B" : "#00A88F"}
+                />
+                <Text
+                  style={[
+                    styles.statusLabel,
+                    {
+                      color: statusIsTerminal
+                        ? isDark
+                          ? colors.textPrimary
+                          : "#334155"
+                        : "#00A88F",
+                    },
+                  ]}
+                >
+                  {statusIsTerminal
+                    ? t("doctorConsultationStatus_completed", {
+                        defaultValue: "Ca tư vấn đã hoàn tất",
+                      })
+                    : statusLabel}
+                </Text>
               </View>
               <Text
                 style={[
                   styles.statusHint,
-                  { color: isDark ? colors.textSecondary : "#475569" },
+                  { color: isDark ? colors.textSecondary : "#64748B" },
                 ]}
               >
                 {conversationOpen
@@ -1649,76 +1666,45 @@ export default function DoctorConsultationThreadScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  headerCardWrapper: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    zIndex: 10,
-  },
-  headerCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    shadowColor: "#0D9488",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  headerMainRow: {
+  headerBar: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    alignItems: "center",
     gap: 12,
-  },
-  backCircle: {
-    alignItems: "center",
-    borderRadius: 21,
-    height: 42,
-    justifyContent: "center",
-    width: 42,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    zIndex: 10,
   },
   headerInfo: {
     flex: 1,
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 19,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "700",
     letterSpacing: -0.2,
   },
-  headerTaskId: {
-    fontSize: 13,
+  headerStatusRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
     marginTop: 2,
   },
-  headerAvatarPlaceholder: {
+  statusDot: {
+    borderRadius: 3.5,
+    height: 7,
+    width: 7,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  headerAvatar: {
     alignItems: "center",
-    borderRadius: 21,
-    height: 42,
+    borderRadius: 18,
+    height: 36,
     justifyContent: "center",
-    width: 42,
-  },
-  headerStatusRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: 4,
-  },
-  onlinePill: {
-    alignItems: "center",
-    borderRadius: 12,
-    flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  onlinePillDot: {
-    borderRadius: 3,
-    height: 6,
-    width: 6,
-  },
-  onlinePillText: {
-    fontSize: 11,
-    fontWeight: "600",
+    width: 36,
   },
   center: {
     alignItems: "center",
@@ -1733,42 +1719,36 @@ const styles = StyleSheet.create({
   },
   datePillContainer: {
     alignItems: "center",
-    marginVertical: 12,
+    marginVertical: 10,
   },
   datePill: {
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 6,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   datePillText: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
   },
   statusCard: {
-    borderRadius: 20,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    borderWidth: 1,
     marginBottom: 16,
-    padding: 16,
-    shadowColor: "#0D9488",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    padding: 12,
   },
   statusHeading: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   statusLabel: {
-    color: "#00A88F",
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "600",
   },
   statusHint: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
   },
   summaryCard: {
     borderRadius: 18,
@@ -1819,36 +1799,36 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   patientCard: {
-    borderRadius: 22,
+    borderRadius: 16,
     borderWidth: 1,
-    maxWidth: "82%",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    maxWidth: "85%",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   initialRequestTag: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     marginBottom: 4,
   },
   initialRequestContent: {
-    fontSize: 18,
-    fontWeight: "700",
-    lineHeight: 24,
+    fontSize: 15,
+    fontWeight: "500",
+    lineHeight: 22,
   },
   patientBubble: {
-    borderRadius: 22,
+    borderRadius: 16,
     borderWidth: 1,
-    maxWidth: "82%",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    maxWidth: "85%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   doctorBubble: {
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     flex: 1,
     maxWidth: "85%",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   doctorHeaderName: {
     fontSize: 13,

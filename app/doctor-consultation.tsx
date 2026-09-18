@@ -657,12 +657,7 @@ export default function DoctorConsultationScreen() {
                 ]}
               >
                 <View style={styles.cardHeaderRow}>
-                  <View
-                    style={[
-                      styles.cardIconBox,
-                      { backgroundColor: "#FFF4E5" },
-                    ]}
-                  >
+                  <View style={styles.cardIconBox}>
                     <Ionicons
                       name="shield-checkmark"
                       size={20}
@@ -850,12 +845,7 @@ export default function DoctorConsultationScreen() {
                 ]}
               >
                 <View style={styles.cardHeaderRow}>
-                  <View
-                    style={[
-                      styles.cardIconBox,
-                      { backgroundColor: "#EDFAF8" },
-                    ]}
-                  >
+                  <View style={styles.cardIconBox}>
                     <Ionicons name="document-text" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
@@ -927,12 +917,7 @@ export default function DoctorConsultationScreen() {
                 ]}
               >
                 <View style={styles.cardHeaderRow}>
-                  <View
-                    style={[
-                      styles.cardIconBox,
-                      { backgroundColor: "#EDFAF8" },
-                    ]}
-                  >
+                  <View style={styles.cardIconBox}>
                     <Ionicons name="pulse" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
@@ -1033,7 +1018,7 @@ export default function DoctorConsultationScreen() {
                 ]}
               >
                 <View style={styles.cardHeaderRow}>
-                  <View style={[styles.cardIconBox, { backgroundColor: "#EDFAF8" }]}>
+                  <View style={styles.cardIconBox}>
                     <Ionicons name="people" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
@@ -1155,12 +1140,7 @@ export default function DoctorConsultationScreen() {
                 ]}
               >
                 <View style={styles.cardHeaderRow}>
-                  <View
-                    style={[
-                      styles.cardIconBox,
-                      { backgroundColor: "#EDFAF8" },
-                    ]}
-                  >
+                  <View style={styles.cardIconBox}>
                     <Ionicons name="image" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
@@ -1301,12 +1281,7 @@ export default function DoctorConsultationScreen() {
                 ]}
               >
                 <View style={styles.cardHeaderRow}>
-                  <View
-                    style={[
-                      styles.cardIconBox,
-                      { backgroundColor: "#EDFAF8" },
-                    ]}
-                  >
+                  <View style={styles.cardIconBox}>
                     <Ionicons name="document-text" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>

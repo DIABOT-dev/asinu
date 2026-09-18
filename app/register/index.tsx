@@ -110,7 +110,6 @@ export default function RegisterScreen() {
 
     if (!isAgreed) {
       setError(t('agreeRequired'));
-      showToast(t('agreeRequired'), 'error');
       return;
     }
 
@@ -142,7 +141,6 @@ export default function RegisterScreen() {
       } else {
         setError(msg);
       }
-      showToast(msg, 'error');
     } finally {
       setLoading(false);
     }

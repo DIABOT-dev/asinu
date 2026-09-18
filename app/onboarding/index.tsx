@@ -160,7 +160,6 @@ const badgeStyles = StyleSheet.create({
     width: 86,
     height: 86,
     borderRadius: 43,
-    backgroundColor: '#EAF8F6',
     alignItems: 'center',
     justifyContent: 'center',
   },

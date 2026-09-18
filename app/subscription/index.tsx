@@ -415,17 +415,14 @@ export default function SubscriptionScreen() {
       } else {
         setWalletPayResult('failed');
         setWalletPayError(res.message ?? t('paymentFailed'));
-        showToast(res.message ?? t('paymentFailed'), 'error');
       }
     } catch (err) {
       setWalletPayResult('failed');
       if (err instanceof ApiError) {
         const message = getApiErrorMessage(err, tc, 'errorServer');
         setWalletPayError(message);
-        showToast(message, 'error');
       } else {
         setWalletPayError(t('paymentNetworkError'));
-        showToast(t('paymentNetworkError'), 'error');
       }
     }
   }, [selectedPlan, fetchStatus, fetchHistory, t, tc]);
@@ -1007,7 +1004,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 10,
@@ -1052,7 +1048,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1129,7 +1124,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: 38,
       height: 38,
       borderRadius: 19,
-      backgroundColor: '#fef3c7',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1181,11 +1175,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     payMethodTextWrap: {
       flex: 1,

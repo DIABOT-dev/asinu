@@ -222,7 +222,6 @@ export default function InviteScreen() {
         ? t('pleaseSearchAndSelectRecipient')
         : t('pleaseEnterPhoneToInvite');
       setSearchError(message);
-      showToast(message, 'error');
       return;
     }
     try {

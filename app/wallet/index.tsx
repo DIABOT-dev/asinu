@@ -310,11 +310,9 @@ export default function WalletScreen() {
         showToast(t('qrCreated'), 'success');
       } else {
         setError(t('createQRError'));
-        showToast(t('createQRError'), 'error');
       }
     } catch {
       setError(t('createQRError'));
-      showToast(t('createQRError'), 'error');
     } finally { setCreatingQR(false); }
   }, [amount, t, clearTimers, startCountdown, startPolling]);
 

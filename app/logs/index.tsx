@@ -29,7 +29,6 @@ type LogCardItem = {
   unit: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   iconColor: string;
-  iconBg: string;
   banner: any;
 };
 
@@ -100,7 +99,6 @@ export default function LogsIndexScreen() {
       unit: 'mg/dL',
       icon: 'water',
       iconColor: '#E11D48',
-      iconBg: '#FFF1F2',
       banner: require('../../assets/images/logs/banner_glucose.png'),
     },
     {
@@ -111,7 +109,6 @@ export default function LogsIndexScreen() {
       unit: 'mmHg',
       icon: 'heart-pulse',
       iconColor: '#E11D48',
-      iconBg: '#FFF0F2',
       banner: require('../../assets/images/logs/banner_bp.png'),
     },
     {
@@ -122,7 +119,6 @@ export default function LogsIndexScreen() {
       unit: 'ml',
       icon: 'cup-water',
       iconColor: '#0284C7',
-      iconBg: '#E0F2FE',
       banner: require('../../assets/images/logs/banner_water.png'),
     },
     {
@@ -133,7 +129,6 @@ export default function LogsIndexScreen() {
       unit: 'kg',
       icon: 'scale-bathroom',
       iconColor: '#7C3AED',
-      iconBg: '#F3EBFD',
       banner: require('../../assets/images/logs/banner_weight.png'),
     },
     {
@@ -144,7 +139,6 @@ export default function LogsIndexScreen() {
       unit: t('doseUnit', { defaultValue: 'liều' }),
       icon: 'pill',
       iconColor: '#059669',
-      iconBg: '#ECFDF5',
       banner: require('../../assets/images/logs/banner_medication.png'),
     },
     {
@@ -155,7 +149,6 @@ export default function LogsIndexScreen() {
       unit: t('mealUnit', { defaultValue: 'bữa' }),
       icon: 'food-apple',
       iconColor: '#D97706',
-      iconBg: '#FEF3C7',
       banner: require('../../assets/images/logs/banner_meal.png'),
     },
     {
@@ -166,7 +159,6 @@ export default function LogsIndexScreen() {
       unit: t('insulinUnit', { defaultValue: 'U' }),
       icon: 'needle',
       iconColor: '#4F46E5',
-      iconBg: '#EEF2FF',
       banner: require('../../assets/images/logs/banner_insulin.png'),
     },
   ], [quickMetrics, t]);
@@ -224,7 +216,7 @@ export default function LogsIndexScreen() {
                   {/* Card Content Column */}
                   <View style={styles.metricCardContent}>
                     <View style={styles.metricHeaderRow}>
-                      <View style={[styles.metricIconCircle, { backgroundColor: card.iconBg }]}>
+                      <View style={styles.metricIconCircle}>
                         <MaterialCommunityIcons name={card.icon} size={20} color={card.iconColor} />
                       </View>
                       <Text style={styles.metricTitle}>{card.title}</Text>
