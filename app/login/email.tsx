@@ -416,7 +416,7 @@ export default function LoginEmailScreen() {
                           ) : (
                             <FontAwesome5 name="facebook" size={20} color="#1877F2" />
                           )}
-                          <Text style={styles.socialCardText} numberOfLines={1}>
+                          <Text style={styles.socialCardText} numberOfLines={2}>
                             {label}
                           </Text>
                         </>
@@ -734,6 +734,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     socialCard: {
       flex: 1,
+      minWidth: 0,
       height: 52,
       borderRadius: 18,
       backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
@@ -742,8 +743,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 12,
-      gap: 8,
+      paddingHorizontal: 8,
+      gap: 6,
       shadowColor: '#000',
       shadowOpacity: 0.03,
       shadowRadius: 4,
@@ -755,6 +756,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       fontWeight: '600',
       color: isDark ? '#F1F5F9' : '#0F172A',
       flexShrink: 1,
+      minWidth: 0,
+      lineHeight: 16,
+      textAlign: 'center',
     },
     zaloIcon: {
       width: 22,
