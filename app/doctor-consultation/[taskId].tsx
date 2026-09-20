@@ -78,7 +78,7 @@ const parseVoice = (content: string | null): VoiceMessage | null => {
   }
 };
 
-import { Audio } from '@/lib/audio';
+import { Audio } from "@/lib/audio";
 
 type ThreadResponse = {
   ok: boolean;
@@ -97,6 +97,7 @@ type ThreadResponse = {
       consultation_summary?: ConsultationSummary | null;
       follow_up_until?: string | null;
       follow_up_open?: boolean;
+      reopen_open?: boolean;
     } | null;
   };
 };
@@ -149,7 +150,7 @@ const formatMessageTime = (dateString?: string) => {
 const formatHeaderDate = (
   dateString?: string,
   todayLabel = "Hôm nay",
-  locale = "vi-VN",
+  locale = "vi-VN"
 ) => {
   const date = dateString ? new Date(dateString) : new Date();
   const validDate = isNaN(date.getTime()) ? new Date() : date;
@@ -215,20 +216,20 @@ export default function DoctorConsultationThreadScreen() {
     try {
       const response = await apiClient<ThreadResponse>(
         `/api/doctor/tasks/${encodeURIComponent(
-          taskId,
+          taskId
         )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`,
         {
           // A tunnel/backend cold start should not surface as a false chat
           // loading error on the first render.
           retry: { attempts: 3, initialDelayMs: 500, backoffFactor: 2 },
-        },
+        }
       );
       setSummary(response.data?.summary ?? null);
       setMessages(response.data?.messages ?? []);
       setDoctorTyping(response.data?.typing?.is_typing === true);
       const unreadDoctorMessages = (response.data?.messages ?? [])
         .filter(
-          (message) => message.sender_type === "doctor" && !message.read_at,
+          (message) => message.sender_type === "doctor" && !message.read_at
         )
         .map((message) => message.id);
       if (unreadDoctorMessages.length) {
@@ -241,7 +242,7 @@ export default function DoctorConsultationThreadScreen() {
               action: "read",
               message_ids: unreadDoctorMessages,
             },
-          },
+          }
         ).catch(() => undefined);
       }
       // The Doctor integration can be temporarily unavailable while ASINU
@@ -255,10 +256,10 @@ export default function DoctorConsultationThreadScreen() {
             `/api/doctor/tasks?tenant_id=${encodeURIComponent(activeTenantId)}`,
             {
               retry: { attempts: 2, initialDelayMs: 400, backoffFactor: 2 },
-            },
+            }
           );
           const task = taskList.data?.tasks?.find(
-            (candidate) => candidate.task_id === taskId,
+            (candidate) => candidate.task_id === taskId
           );
           if (task?.status) {
             const followUpUntil = task.follow_up_until ?? null;
@@ -269,7 +270,7 @@ export default function DoctorConsultationThreadScreen() {
               follow_up_open: Boolean(
                 task.status === "completed" &&
                   followUpUntil &&
-                  new Date(followUpUntil).getTime() > Date.now(),
+                  new Date(followUpUntil).getTime() > Date.now()
               ),
             };
           }
@@ -280,7 +281,12 @@ export default function DoctorConsultationThreadScreen() {
 
       setRateable(resolvedTaskStatus?.rateable === true);
       setTaskStatus(resolvedTaskStatus);
-      if (resolvedTaskStatus?.status === "expired" && !busyModalShownRef.current) {
+      if (
+        (resolvedTaskStatus?.status === "expired" ||
+          (resolvedTaskStatus?.status === "cancelled" &&
+            resolvedTaskStatus.reopen_open === true)) &&
+        !busyModalShownRef.current
+      ) {
         busyModalShownRef.current = true;
         setBusyModalVisible(true);
       }
@@ -288,7 +294,7 @@ export default function DoctorConsultationThreadScreen() {
       if (showLoading) {
         showToast(
           getApiErrorMessage(error, t, "doctorConsultationThreadError"),
-          "error",
+          "error"
         );
       }
     } finally {
@@ -313,7 +319,7 @@ export default function DoctorConsultationThreadScreen() {
           .replace(/^http/i, "ws")
           .replace(/\/$/, "");
         const url = `${baseUrl}/api/doctor/chat/ws?tenant_id=${encodeURIComponent(
-          activeTenantId,
+          activeTenantId
         )}&task_id=${encodeURIComponent(taskId)}`;
         socket = new WebSocket(url, ["asinu-chat", token]);
         socket.onopen = () => {
@@ -334,7 +340,7 @@ export default function DoctorConsultationThreadScreen() {
             } else if (envelope.type === "chat.typing.changed") {
               setDoctorTyping(
                 envelope.data?.actor_type === "doctor" &&
-                  envelope.data?.is_typing === true,
+                  envelope.data?.is_typing === true
               );
             }
           } catch {
@@ -376,15 +382,14 @@ export default function DoctorConsultationThreadScreen() {
       void soundRef.current?.unloadAsync?.();
       void recordingRef.current?.stopAndUnloadAsync?.();
     },
-    [],
+    []
   );
 
   useEffect(() => {
     requestAnimationFrame(() =>
-      scrollRef.current?.scrollToEnd({ animated: true }),
+      scrollRef.current?.scrollToEnd({ animated: true })
     );
   }, [messages.length]);
-
 
   const send = async () => {
     const content = draft.trim();
@@ -402,7 +407,7 @@ export default function DoctorConsultationThreadScreen() {
               taskStatus?.status === "completed" ? "follow_up" : "reply",
             client_message_id: createClientMessageId(),
           },
-        },
+        }
       );
       setDraft("");
       await loadThread();
@@ -416,7 +421,7 @@ export default function DoctorConsultationThreadScreen() {
   const runMessageAction = async (
     messageId: string,
     action: "edit" | "unsend" | "delete_for_me" | "pin" | "unpin",
-    content?: string,
+    content?: string
   ) => {
     if (!taskId) return;
     try {
@@ -430,7 +435,7 @@ export default function DoctorConsultationThreadScreen() {
             message_id: messageId,
             ...(content ? { content } : {}),
           },
-        },
+        }
       );
       setEditingMessageId(null);
       setEditingDraft("");
@@ -445,7 +450,7 @@ export default function DoctorConsultationThreadScreen() {
     const ownMessage = message.sender_type === "patient";
     const content = message.content ?? "";
     const isRichMessage = Boolean(
-      parseAttachment(content) || parseVoice(content),
+      parseAttachment(content) || parseVoice(content)
     );
     const buttons: Array<{
       text: string;
@@ -495,7 +500,7 @@ export default function DoctorConsultationThreadScreen() {
         playsInSilentModeIOS: true,
       });
       const result = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
       recordingRef.current = result.recording;
       recordingStartedAtRef.current = Date.now();
@@ -525,7 +530,7 @@ export default function DoctorConsultationThreadScreen() {
       formData.append("tenant_id", activeTenantId);
       formData.append(
         "duration_ms",
-        String(Date.now() - recordingStartedAtRef.current),
+        String(Date.now() - recordingStartedAtRef.current)
       );
       await apiClient(`/api/doctor/tasks/${encodeURIComponent(taskId)}/voice`, {
         method: "POST",
@@ -550,7 +555,7 @@ export default function DoctorConsultationThreadScreen() {
       await soundRef.current?.unloadAsync?.();
       const result = await Audio.Sound.createAsync(
         { uri: url },
-        { shouldPlay: true },
+        { shouldPlay: true }
       );
       soundRef.current = result.sound;
       setPlayingMessageId(messageId);
@@ -572,7 +577,7 @@ export default function DoctorConsultationThreadScreen() {
           i18n.language === "vi"
             ? "Vui lòng cấp quyền truy cập thư viện ảnh"
             : "Please grant photo library access",
-          "error",
+          "error"
         );
         return;
       }
@@ -592,13 +597,13 @@ export default function DoctorConsultationThreadScreen() {
         setSending(true);
         await apiClient(
           `/api/doctor/tasks/${encodeURIComponent(
-            taskId,
+            taskId
           )}/attachments?tenant_id=${encodeURIComponent(activeTenantId)}`,
           {
             method: "POST",
             body: formData,
             headers: { "X-Client-Message-Id": createClientMessageId() },
-          },
+          }
         );
         await loadThread();
         showToast(t("doctorConsultationImageSent"), "success");
@@ -606,7 +611,7 @@ export default function DoctorConsultationThreadScreen() {
     } catch (error) {
       showToast(
         getApiErrorMessage(error, t, "doctorConsultationAttachmentError"),
-        "error",
+        "error"
       );
     } finally {
       setSending(false);
@@ -627,7 +632,7 @@ export default function DoctorConsultationThreadScreen() {
             ...(ratingComment.trim() ? { comment: ratingComment.trim() } : {}),
             request_id: createClientMessageId(),
           },
-        },
+        }
       );
       setRatingSubmitted(true);
       showToast(t("doctorConsultationRatingSuccess"), "success");
@@ -642,7 +647,7 @@ export default function DoctorConsultationThreadScreen() {
   const dateHeader = formatHeaderDate(
     firstMessageDate,
     t("doctorConsultationToday"),
-    i18n.language === "en" ? "en-US" : "vi-VN",
+    i18n.language === "en" ? "en-US" : "vi-VN"
   );
   const terminalStatuses = [
     "cancelled",
@@ -655,11 +660,17 @@ export default function DoctorConsultationThreadScreen() {
     taskStatus?.status === "completed" &&
       taskStatus.follow_up_open === true &&
       (!taskStatus.follow_up_until ||
-        new Date(taskStatus.follow_up_until).getTime() > statusClock),
+        new Date(taskStatus.follow_up_until).getTime() > statusClock)
   );
   const currentStatus = taskStatus?.status;
+  const reopenOpen = Boolean(
+    ["cancelled", "expired"].includes(currentStatus ?? "") &&
+      taskStatus?.reopen_open === true &&
+      (!taskStatus?.follow_up_until ||
+        new Date(taskStatus.follow_up_until).getTime() > statusClock)
+  );
   const conversationOpen = currentStatus
-    ? !terminalStatuses.includes(currentStatus) &&
+    ? (reopenOpen || !terminalStatuses.includes(currentStatus)) &&
       (currentStatus !== "completed" || followUpOpen)
     : false;
   const statusLabel = taskStatus?.status
@@ -667,23 +678,30 @@ export default function DoctorConsultationThreadScreen() {
         defaultValue: t("doctorConsultationStatusUnknown"),
       })
     : loading
-      ? t("doctorConsultationWaiting")
-      : t("doctorConsultationStatus_completed", {
-          defaultValue: "Đã hoàn tất",
-        });
+    ? t("doctorConsultationWaiting")
+    : t("doctorConsultationStatus_completed", {
+        defaultValue: "Đã hoàn tất",
+      });
   const statusIsTerminal =
     !taskStatus ||
     ["completed", ...terminalStatuses].includes(taskStatus.status);
 
   useEffect(() => {
     const followUpUntil = taskStatus?.follow_up_until;
-    if (!followUpUntil || taskStatus?.status !== "completed") return;
+    if (
+      !followUpUntil ||
+      !["completed", "cancelled", "expired"].includes(taskStatus?.status ?? "")
+    )
+      return;
     const expiresAt = new Date(followUpUntil).getTime();
     if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
       setStatusClock(Date.now());
       return;
     }
-    const timer = setTimeout(() => setStatusClock(Date.now()), expiresAt - Date.now() + 50);
+    const timer = setTimeout(
+      () => setStatusClock(Date.now()),
+      expiresAt - Date.now() + 50
+    );
     return () => clearTimeout(timer);
   }, [taskStatus?.follow_up_until, taskStatus?.status]);
 
@@ -713,7 +731,7 @@ export default function DoctorConsultationThreadScreen() {
             action: "typing",
             is_typing: isTyping,
           },
-        },
+        }
       ).catch(() => undefined);
     }, 250);
     return () => clearTimeout(timer);
@@ -832,13 +850,13 @@ export default function DoctorConsultationThreadScreen() {
                   backgroundColor: isDark
                     ? colors.surface
                     : statusIsTerminal
-                      ? "#F8FAFC"
-                      : "#F0FDF4",
+                    ? "#F8FAFC"
+                    : "#F0FDF4",
                   borderColor: isDark
                     ? colors.border
                     : statusIsTerminal
-                      ? "#E2E8F0"
-                      : "#BBF7D0",
+                    ? "#E2E8F0"
+                    : "#BBF7D0",
                 },
               ]}
             >
@@ -1040,7 +1058,7 @@ export default function DoctorConsultationThreadScreen() {
                                 void runMessageAction(
                                   message.id,
                                   "edit",
-                                  editingDraft.trim(),
+                                  editingDraft.trim()
                                 )
                               }
                             >
@@ -1148,7 +1166,10 @@ export default function DoctorConsultationThreadScreen() {
                               ]}
                             >
                               {voice.duration_ms
-                                ? `${Math.max(1, Math.round(voice.duration_ms / 1000))}s`
+                                ? `${Math.max(
+                                    1,
+                                    Math.round(voice.duration_ms / 1000)
+                                  )}s`
                                 : t("doctorConsultationVoiceMessage")}
                             </Text>
                           </Pressable>
@@ -1309,7 +1330,7 @@ export default function DoctorConsultationThreadScreen() {
                               void runMessageAction(
                                 message.id,
                                 "edit",
-                                editingDraft.trim(),
+                                editingDraft.trim()
                               )
                             }
                           >
@@ -1360,7 +1381,10 @@ export default function DoctorConsultationThreadScreen() {
                           ]}
                         >
                           {voice.duration_ms
-                            ? `${Math.max(1, Math.round(voice.duration_ms / 1000))}s`
+                            ? `${Math.max(
+                                1,
+                                Math.round(voice.duration_ms / 1000)
+                              )}s`
                             : t("doctorConsultationVoiceMessage")}
                         </Text>
                       </Pressable>
@@ -1572,8 +1596,8 @@ export default function DoctorConsultationThreadScreen() {
                     recording
                       ? "#EF4444"
                       : isDark
-                        ? colors.textSecondary
-                        : "#6F7F8E"
+                      ? colors.textSecondary
+                      : "#6F7F8E"
                   }
                 />
               </Pressable>
@@ -1645,20 +1669,41 @@ export default function DoctorConsultationThreadScreen() {
       </KeyboardAvoidingView>
       <AppAlertModal
         visible={busyModalVisible}
-        title={t("doctorConsultationBusyTitle")}
-        message={t("doctorConsultationBusyMessage")}
+        title={
+          reopenOpen
+            ? t("doctorConsultationReopenTitle")
+            : t("doctorConsultationBusyTitle")
+        }
+        message={
+          reopenOpen
+            ? t("doctorConsultationReopenMessage")
+            : t("doctorConsultationBusyMessage")
+        }
         icon={{ name: "clock-alert-outline", color: "#D97706" }}
         onDismiss={() => setBusyModalVisible(false)}
-        buttons={[
-          {
-            text: t("doctorConsultationChooseAnother"),
-            onPress: () => router.replace("/doctor-consultation"),
-          },
-          {
-            text: t("doctorConsultationKeepWaiting"),
-            style: "cancel",
-          },
-        ]}
+        buttons={
+          reopenOpen
+            ? [
+                {
+                  text: t("doctorConsultationContinue"),
+                  onPress: () => setBusyModalVisible(false),
+                },
+                {
+                  text: t("doctorConsultationBusyDismiss"),
+                  style: "cancel",
+                },
+              ]
+            : [
+                {
+                  text: t("doctorConsultationChooseAnother"),
+                  onPress: () => router.replace("/doctor-consultation"),
+                },
+                {
+                  text: t("doctorConsultationBusyDismiss"),
+                  style: "cancel",
+                },
+              ]
+        }
       />
     </View>
   );
