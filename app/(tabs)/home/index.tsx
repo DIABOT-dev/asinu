@@ -674,7 +674,7 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [healthFeedApi, profile]); // Empty deps - refreshAll is stable
 
-  const hasData = Boolean(treeSummary || missions.length || logs.length);
+  const hasData = Boolean(treeSummary || missions.length || logs.length || healthScore);
   const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
   const showInitialSkeleton = useInitialLoadingGate(!loading, 650, hasData);
   const noDataError =
