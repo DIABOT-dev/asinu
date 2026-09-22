@@ -8,6 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, wit
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
+import { Avatar } from '../../../src/components/Avatar';
 import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
 import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { PineTreeIllustration } from '../../../src/components/PineTreeIllustration';
@@ -18,6 +19,7 @@ import { StateError } from '../../../src/components/state/StateError';
 import { TreeTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useTreeStore } from '../../../src/features/tree/tree.store';
+import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { colors, spacing } from '../../../src/styles';
@@ -88,6 +90,7 @@ export default function TreeScreen() {
   const router = useRouter();
   const { t } = useTranslation('tree');
   const { t: tc } = useTranslation('common');
+  const profile = useAuthStore((state) => state.profile);
   const summary = useTreeStore((state) => state.summary);
   const history = useTreeStore((state) => state.history);
   const fetchTree = useTreeStore((state) => state.fetchTree);
@@ -245,7 +248,11 @@ export default function TreeScreen() {
             accessibilityLabel="Hồ sơ"
             hitSlop={8}
           >
-            <Ionicons name="person-outline" size={20} color="#0f766e" />
+            <Avatar
+              name={profile?.name || tc('tabProfile')}
+              imageUrl={profile?.avatarUrl}
+              size={34}
+            />
           </Pressable>
         </View>
 
