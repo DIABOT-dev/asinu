@@ -12,7 +12,7 @@ import { Image as ExpoImage } from 'expo-image';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { Avatar } from '../../../src/components/Avatar';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
-import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
+import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import { apiClient } from '../../../src/lib/apiClient';
@@ -41,7 +41,6 @@ import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import type { Mission } from '../../../src/features/missions/missions.store';
 import React from 'react';
 const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
-const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
 // Temporarily hide the missions section on the home screen.
 const SHOW_HOME_MISSIONS = false;
 
@@ -454,7 +453,6 @@ export default function HomeScreen() {
 
   const { t } = useTranslation('home');
   const { t: tc } = useTranslation('common');
-  const { t: tt } = useTranslation('tree');
   const [isChatOpen, setChatOpen] = useState(false);
   const isChatbotAvailable = useFlagsStore(selectIsChatbotAvailable);
   const fetchFlags = useFlagsStore((s) => s.fetchFlags);
@@ -941,17 +939,6 @@ export default function HomeScreen() {
 
         {renderHealthFeedBlock()}
 
-        {/* Health Score Card */}
-        {healthScore && (
-          <Animated.View entering={FadeIn.delay(120).duration(350)}>
-            <HealthScoreCard
-              level={healthScore.level}
-              factors={healthScore.factors}
-              checkinDone={healthScore.checkinDone}
-            />
-          </Animated.View>
-        )}
-
         {isChatbotAvailable && (
           <Animated.View entering={FadeIn.delay(190).duration(350)}>
             <AsinuChatSticker onPress={() => setChatOpen(true)} />
@@ -988,42 +975,23 @@ export default function HomeScreen() {
           <InfoButton text={t('treeFormula')} styles={styles} />
         </View>
         <View style={styles.healthTreeCard}>
-          <View style={styles.healthTreeOverview}>
-            <Suspense fallback={<View style={styles.healthTreeRingFallback} />}>
-              <T1ProgressRing
-                percentage={treeSummary?.score ?? 0}
-                label={t('score')}
-                size={112}
-                strokeWidth={9}
-                accentColor={colors.primary}
-              />
-            </Suspense>
-            <View style={styles.healthTreeOverviewCopy}>
-              <View style={styles.healthTreeStatusRow}>
-                <MaterialCommunityIcons name="sprout-outline" size={18} color={iconColors.emerald} />
-                <Text style={styles.healthTreeStatusLabel}>
-                  {(treeSummary?.score ?? 0) >= 0.7 ? tt('good') : (treeSummary?.score ?? 0) >= 0.4 ? tt('average') : tt('needsImprovement')}
-                </Text>
-              </View>
-              <Text style={styles.healthTreeStatusText}>{t('treeFormula')}</Text>
-            </View>
-          </View>
+          <HealthTreeStatusCard score={healthScore} compact />
 
           <View style={styles.healthTreeMetricsRow}>
             <View style={styles.healthTreeMetric}>
-              <Ionicons name="flame-outline" size={18} color={iconColors.premium} />
+              <Ionicons name="checkmark-circle-outline" size={18} color={iconColors.emerald} />
               <Text style={styles.healthTreeMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {treeSummary?.streakDays ?? 0} {t('days')}
+                {healthScore ? (healthScore.checkinDone ? t('healthTreeCheckinDone') : t('healthTreeCheckinNeeded')) : '--'}
               </Text>
-              <Text style={styles.healthTreeMetricLabel} numberOfLines={1}>{t('streak')}</Text>
+              <Text style={styles.healthTreeMetricLabel} numberOfLines={1}>{t('healthTreeCheckinLabel')}</Text>
             </View>
             <View style={styles.healthTreeMetricDivider} />
             <View style={styles.healthTreeMetric}>
-              <Ionicons name="checkmark-circle-outline" size={18} color={iconColors.emerald} />
+              <Ionicons name="alert-circle-outline" size={18} color={healthScore?.factors.length ? iconColors.warning : iconColors.emerald} />
               <Text style={styles.healthTreeMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {treeSummary?.completedToday ?? 0}/{treeSummary?.totalMissions ?? 0}
+                {healthScore?.checkinDone ? healthScore.factors.length : '--'}
               </Text>
-              <Text style={styles.healthTreeMetricLabel} numberOfLines={1}>{t('todayMissions')}</Text>
+              <Text style={styles.healthTreeMetricLabel} numberOfLines={1}>{t('healthTreeSignalsLabel')}</Text>
             </View>
           </View>
 
@@ -1597,35 +1565,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     shadowRadius: 8,
     elevation: 2,
     gap: spacing.lg,
-  },
-  healthTreeOverview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-  },
-  healthTreeRingFallback: {
-    width: 112,
-    height: 112,
-  },
-  healthTreeOverviewCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: spacing.sm,
-  },
-  healthTreeStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  healthTreeStatusLabel: {
-    fontSize: typography.size.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  healthTreeStatusText: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    lineHeight: 18,
   },
   healthTreeMetricsRow: {
     flexDirection: 'row',

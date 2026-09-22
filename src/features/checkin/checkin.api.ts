@@ -106,6 +106,12 @@ export interface HealthReportData {
   avgCheckinHour?: number;
 }
 
+export interface HealthScoreData {
+  level: 'ok' | 'monitor' | 'danger';
+  factors: string[];
+  checkinDone: boolean;
+}
+
 export const checkinApi = {
   getToday: () =>
     apiClient<{ ok: boolean; session: CheckinSession | null }>('/api/mobile/checkin/today'),
@@ -160,6 +166,6 @@ export const checkinApi = {
     apiClient<{ ok: boolean } & HealthReportData>(`/api/mobile/checkin/report?period=${period}`),
 
   getHealthScore: () =>
-    apiClient<{ ok: boolean; level: 'ok' | 'monitor' | 'danger'; factors: string[]; checkinDone: boolean }>('/api/mobile/health-score'),
+    apiClient<{ ok: boolean } & HealthScoreData>('/api/mobile/health-score'),
 
 };

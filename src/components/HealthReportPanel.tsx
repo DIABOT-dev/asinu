@@ -12,7 +12,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { ScaledText as Text } from './ScaledText';
-import { checkinApi, type HealthReportData } from '../features/checkin/checkin.api';
+import { checkinApi, type HealthReportData, type HealthScoreData } from '../features/checkin/checkin.api';
 import { treeApi } from '../features/tree/tree.api';
 import type { TreeSummary } from '../features/tree/tree.store';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -83,6 +83,7 @@ type Props = {
   showEmptyReport?: boolean;
   reportOverride?: HealthReportData | null;
   treeSummaryOverride?: TreeSummary | null;
+  healthScoreOverride?: HealthScoreData | null;
 };
 
 export function HealthReportPanel({
@@ -91,6 +92,7 @@ export function HealthReportPanel({
   showEmptyReport = false,
   reportOverride,
   treeSummaryOverride,
+  healthScoreOverride,
 }: Props) {
   const router = useRouter();
   const { t, i18n } = useTranslation('report');
@@ -154,21 +156,46 @@ export function HealthReportPanel({
   const alertTitle = report && report.alerts.emergencyTriggered > 0
     ? t('emergencyTriggered')
     : t('familyAlerted');
-  const healthScore = treeSummary ? Math.round(treeSummary.score * 100) : null;
-  const scoreColor = healthScore === null
-    ? colors.textSecondary
-    : healthScore >= 70
+  const legacyHealthScore = treeSummary ? Math.round(treeSummary.score * 100) : null;
+  const statusScoreColor = healthScoreOverride?.checkinDone
+    ? healthScoreOverride.level === 'ok'
       ? iconColors.emerald
-      : healthScore >= 40
+      : healthScoreOverride.level === 'monitor'
         ? iconColors.warning
-        : iconColors.danger;
-  const scoreLabel = healthScore === null
-    ? 'noData'
-    : healthScore >= 70
-      ? 'healthScoreGood'
-      : healthScore >= 40
-        ? 'healthScoreMonitor'
-        : 'healthScoreNeedsAttention';
+        : iconColors.danger
+    : colors.textSecondary;
+  const scoreColor = healthScoreOverride === undefined
+    ? legacyHealthScore === null
+      ? colors.textSecondary
+      : legacyHealthScore >= 70
+        ? iconColors.emerald
+        : legacyHealthScore >= 40
+          ? iconColors.warning
+          : iconColors.danger
+    : statusScoreColor;
+  const scoreLabel = (() => {
+    if (healthScoreOverride === undefined) {
+      if (legacyHealthScore === null) return 'noData';
+      if (legacyHealthScore >= 70) return 'healthScoreGood';
+      if (legacyHealthScore >= 40) return 'healthScoreMonitor';
+      return 'healthScoreNeedsAttention';
+    }
+    if (!healthScoreOverride) return 'statusUnavailable';
+    if (!healthScoreOverride.checkinDone) return 'statusNotCheckedIn';
+    if (healthScoreOverride.level === 'ok') return 'statusStable';
+    if (healthScoreOverride.level === 'monitor') return 'statusNeedsMonitoring';
+    return 'statusNeedsAttention';
+  })();
+  const healthMetricValue = (() => {
+    if (healthScoreOverride === undefined) {
+      return legacyHealthScore === null ? '--' : `${legacyHealthScore}/100`;
+    }
+    if (!healthScoreOverride?.checkinDone) return '--';
+    if (healthScoreOverride.level === 'ok') return t('statusStable');
+    if (healthScoreOverride.level === 'monitor') return t('statusNeedsMonitoring');
+    return t('statusNeedsAttention');
+  })();
+  const healthMetricLabel = healthScoreOverride === undefined ? t('healthScore') : t('currentStatus');
   const totalMissions = treeSummary?.totalMissions ?? 0;
   const completedMissions = treeSummary?.completedToday ?? 0;
   const habitCompletion = totalMissions > 0 ? `${completedMissions}/${totalMissions}` : '--';
@@ -267,8 +294,8 @@ export function HealthReportPanel({
                 <Metric
                   icon="heart-pulse"
                   color={scoreColor}
-                  value={healthScore === null ? '--' : `${healthScore}/100`}
-                  label={t('healthScore')}
+                  value={healthMetricValue}
+                  label={healthMetricLabel}
                   detail={t(scoreLabel)}
                   styles={styles}
                 />

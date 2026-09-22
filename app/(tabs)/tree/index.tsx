@@ -9,6 +9,7 @@ import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
+import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
@@ -20,10 +21,10 @@ import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { colors, iconColors, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
+import { checkinApi, type HealthScoreData } from '../../../src/features/checkin/checkin.api';
 import React from 'react';
 
 const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
-const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
 
 function FloatingSnow({ x, delay = 0, size = 16, duration = 3000 }: any) {
   const translateY = useSharedValue(-20);
@@ -201,6 +202,7 @@ export default function TreeScreen() {
   
   const padTop = insets.top + spacing.lg;
   const [chartTooltip, setChartTooltip] = useState(false);
+  const [healthScore, setHealthScore] = useState<HealthScoreData | null>(null);
 
   const formatTime = (iso?: string) => {
     if (!iso) return '';
@@ -289,6 +291,9 @@ export default function TreeScreen() {
       const controller = new AbortController();
       fetchTree(controller.signal);
       fetchLogs(controller.signal);
+      checkinApi.getHealthScore()
+        .then((result) => setHealthScore(result))
+        .catch(() => {});
       return () => controller.abort();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -296,14 +301,18 @@ export default function TreeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const showInitialSkeleton = useInitialLoadingGate(
-    status !== 'loading' || Boolean(summary),
+    status !== 'loading' || Boolean(summary || healthScore),
     650,
-    Boolean(summary || recentLogs.length),
+    Boolean(summary || recentLogs.length || healthScore),
   );
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     const controller = new AbortController();
-    await Promise.all([fetchTree(controller.signal), fetchLogs(controller.signal)]);
+    await Promise.all([
+      fetchTree(controller.signal),
+      fetchLogs(controller.signal),
+      checkinApi.getHealthScore().then((result) => setHealthScore(result)).catch(() => {}),
+    ]);
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -311,7 +320,7 @@ export default function TreeScreen() {
   return (
     <Screen>
       {errorState === 'remote-failed' ? <OfflineBanner /> : null}
-      {errorState === 'no-data' && !summary && !showInitialSkeleton ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
+      {errorState === 'no-data' && !summary && !healthScore && !showInitialSkeleton ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
       
       <RippleRefreshScrollView
         refreshing={refreshing}
@@ -323,7 +332,7 @@ export default function TreeScreen() {
           <TreeTabSkeleton />
         ) : (
         <>
-        {status === 'success' && !summary ? <StateEmpty /> : null}
+        {status === 'success' && !summary && !healthScore ? <StateEmpty /> : null}
         
         {/* Header Section */}
         <View style={styles.headerRow}>
@@ -334,66 +343,60 @@ export default function TreeScreen() {
           <FloatingSnow x="85%" delay={200} size={16} duration={3200} />
           <View style={{ flex: 1, zIndex: 10 }}>
             <Text style={styles.headerTitle}>{t('healthTree')}</Text>
-            <Text style={styles.headerSubtitle}>{t('summaryFromLogs')}</Text>
+            <Text style={styles.headerSubtitle}>{t('summaryFromCheckins')}</Text>
           </View>
           <Animated.View style={{ zIndex: 10 }}>
             <FontAwesome5 name="tree" size={72} color="#10b981" />
           </Animated.View>
         </View>
 
-        {/* Giải thích cách tính điểm (Info Box) */}
+        {/* Cây sức khoẻ lấy trạng thái check-in làm tín hiệu chính. */}
         <View style={styles.infoBox}>
           <View style={styles.infoTitleRow}>
-            <Ionicons name="bar-chart" size={16} color={colors.textSecondary} />
-            <Text style={styles.infoTitle}>{t('scoringMethod')}</Text>
+            <Ionicons name="pulse" size={16} color={colors.primary} />
+            <Text style={styles.infoTitle}>{t('statusBasis')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Ionicons name="journal" size={14} color={colors.primary} />
-            <Text style={styles.infoText}>{t('logScore')}</Text>
+            <Ionicons name="heart-outline" size={14} color={colors.primary} />
+            <Text style={styles.infoText}>{t('checkinStatusBasis')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Ionicons name="checkbox" size={14} color={colors.emerald} />
-            <Text style={styles.infoText}>{t('missionScore')}</Text>
+            <Ionicons name="analytics-outline" size={14} color={colors.emerald} />
+            <Text style={styles.infoText}>{t('recentMetricsBasis')}</Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="calendar" size={14} color="#8b5cf6" />
-            <Text style={styles.infoText}>{t('last7DaysData')}</Text>
+            <Text style={styles.infoText}>{t('historySecondary')}</Text>
           </View>
         </View>
 
-        {/* Progress Score (Ring) */}
-        <View style={styles.scoreCardContainer}>
-          <View style={{ position: 'relative', width: 160, height: 140, justifyContent: 'center', alignItems: 'center' }}>
-            <Suspense fallback={<View style={{ width: 120, height: 120 }} />}>
-              <T1ProgressRing percentage={summary?.score ?? 0} label={t('score')} accentColor="#34d399" />
-            </Suspense>
-          </View>
-          <Text style={styles.scoreCaption}>
-            {Math.round((summary?.score ?? 0) * 100)}% - {(summary?.score ?? 0) >= 0.7 ? t('good') : (summary?.score ?? 0) >= 0.4 ? t('average') : t('needsImprovement')}
-          </Text>
-        </View>
+        <HealthTreeStatusCard score={healthScore} />
 
-        {/* Streak & Missions Row */}
+        {/* Trạng thái check-in và dấu hiệu được giữ ở trung tâm; log/nhiệm vụ chỉ là dữ liệu phụ. */}
         <View style={styles.scoreRow}>
           <View style={[styles.scoreCard, { borderColor: colors.border, borderWidth: 1 }]}>
-            <Ionicons name="flame" size={20} color={iconColors.warning} />
+            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.scoreValue, { color: colors.premiumDark }]} numberOfLines={1} adjustsFontSizeToFit>{summary?.streakDays ?? 0}</Text>
-              <Text style={[styles.scoreLabel, { color: colors.premiumDark }]} numberOfLines={1}>{t('consecutiveDays')}</Text>
+              <Text style={[styles.scoreValue, { color: colors.primaryDark }]} numberOfLines={1} adjustsFontSizeToFit>
+                {healthScore ? (healthScore.checkinDone ? t('checkinComplete') : t('checkinPending')) : '--'}
+              </Text>
+              <Text style={[styles.scoreLabel, { color: colors.primaryDark }]} numberOfLines={1}>{t('todayStatus')}</Text>
             </View>
           </View>
 
           <View style={[styles.scoreCard, { borderColor: colors.border, borderWidth: 1 }]}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+            <Ionicons name="alert-circle" size={20} color={healthScore?.factors.length ? iconColors.warning : iconColors.emerald} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.scoreValue, { color: colors.primaryDark }]} numberOfLines={1} adjustsFontSizeToFit>{summary?.completedToday ?? 0}/{summary?.totalMissions ?? 8}</Text>
-              <Text style={[styles.scoreLabel, { color: colors.primaryDark }]} numberOfLines={1}>{t('todayMissions')}</Text>
+              <Text style={[styles.scoreValue, { color: healthScore?.factors.length ? iconColors.warning : iconColors.emerald }]} numberOfLines={1} adjustsFontSizeToFit>
+                {healthScore?.checkinDone ? healthScore.factors.length : '--'}
+              </Text>
+              <Text style={[styles.scoreLabel, { color: colors.textSecondary }]} numberOfLines={1}>{t('signalsToWatch')}</Text>
             </View>
           </View>
         </View>
 
         {/* Báo cáo sức khoẻ - nhúng nguyên khối */}
-        <HealthReportPanel embedded />
+        <HealthReportPanel embedded healthScoreOverride={healthScore} />
 
         {/* Section Header */}
         <View style={styles.sectionHeader}>
@@ -560,26 +563,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.sm,
       color: colors.textSecondary,
       flex: 1
-    },
-    scoreCardContainer: {
-      backgroundColor: '#ffffff',
-      borderRadius: 24,
-      padding: spacing.xl,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: spacing.md,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.06,
-      shadowRadius: 10,
-      elevation: 3,
-    },
-    scoreCaption: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      fontWeight: '500'
     },
     scoreRow: {
       flexDirection: 'row',
