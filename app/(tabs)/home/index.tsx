@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { Avatar } from '../../../src/components/Avatar';
-import { DailyCheckinCard } from '../../../src/components/DailyCheckinCard';
+import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HealthScoreCard } from '../../../src/components/HealthScoreCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
@@ -35,12 +35,15 @@ import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { useNotificationStore } from '../../../src/stores/notification.store';
 import { showToast, useToastStore } from '../../../src/stores/toast.store';
+import { getHealthFeedPreference } from '../../../src/stores/health-feed-preference';
 import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import type { Mission } from '../../../src/features/missions/missions.store';
 import React from 'react';
 const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
 const T1ProgressRing = React.lazy(() => import('../../../src/ui-kit/T1ProgressRing').then(m => ({ default: m.T1ProgressRing })));
+// Temporarily hide the missions section on the home screen.
+const SHOW_HOME_MISSIONS = false;
 
 
 function InfoButton({ text, styles }: { text: string; styles: any }) {
@@ -607,15 +610,25 @@ export default function HomeScreen() {
 
   // Health Feed states and effects
   const [healthFeedEnabled, setHealthFeedEnabled] = useState(false);
+  const [healthFeedVisible, setHealthFeedVisible] = useState(true);
   const [healthFeedItems, setHealthFeedItems] = useState<any[]>([]);
   const unreadHealthFeedItems = healthFeedItems.filter(item => !item.read_at);
-  const hasPriorityHealthFeed = unreadHealthFeedItems.some((item) => item.priority >= 100);
 
   useFocusEffect(
     useCallback(() => {
-      if (profile) {
+      if (!profile) return;
+      let active = true;
+      getHealthFeedPreference().then((visible) => {
+        if (!active) return;
+        setHealthFeedVisible(visible);
+        if (!visible) {
+          setHealthFeedEnabled(false);
+          setHealthFeedItems([]);
+          return;
+        }
         healthFeedApi<any>('/feed')
           .then(res => {
+            if (!active) return;
             if (res.ok && res.enabled) {
               setHealthFeedEnabled(true);
               setHealthFeedItems(res.feed || []);
@@ -624,7 +637,10 @@ export default function HomeScreen() {
             }
           })
           .catch(() => {});
-      }
+      }).catch(() => {});
+      return () => {
+        active = false;
+      };
     }, [healthFeedApi, profile])
   );
 
@@ -640,12 +656,19 @@ export default function HomeScreen() {
     await fetchFromBackend();
     if (profile) {
       try {
-        const res = await healthFeedApi<any>('/feed');
-        if (res.ok && res.enabled) {
-          setHealthFeedEnabled(true);
-          setHealthFeedItems(res.feed || []);
-        } else {
+        const visible = await getHealthFeedPreference();
+        setHealthFeedVisible(visible);
+        if (!visible) {
           setHealthFeedEnabled(false);
+          setHealthFeedItems([]);
+        } else {
+          const res = await healthFeedApi<any>('/feed');
+          if (res.ok && res.enabled) {
+            setHealthFeedEnabled(true);
+            setHealthFeedItems(res.feed || []);
+          } else {
+            setHealthFeedEnabled(false);
+          }
         }
       } catch {}
     }
@@ -660,7 +683,7 @@ export default function HomeScreen() {
     (logsError === 'no-data' || missionsError === 'no-data' || treeError === 'no-data') && !hasData;
 
   const renderHealthFeedBlock = () => {
-    if (!healthFeedEnabled) return null;
+    if (!healthFeedVisible) return null;
 
     return (
       <Animated.View entering={FadeIn.delay(135).duration(350)} style={styles.healthFeedContainer}>
@@ -668,9 +691,11 @@ export default function HomeScreen() {
           <Ionicons name="sparkles" size={20} color={colors.primary} />
           <Text style={styles.sectionTitle}>{t('healthFeedSectionTitle')}</Text>
           <View style={{ flex: 1 }} />
-          <Pressable onPress={() => router.push('/feed' as any)} hitSlop={12}>
-            <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: healthFeedItems.length })}</Text>
-          </Pressable>
+          {healthFeedEnabled && (
+            <Pressable onPress={() => router.push('/feed' as any)} hitSlop={12}>
+              <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: healthFeedItems.length })}</Text>
+            </Pressable>
+          )}
         </View>
 
         {unreadHealthFeedItems.length > 0 ? (
@@ -909,18 +934,12 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {hasPriorityHealthFeed && renderHealthFeedBlock()}
-
-
-
-        {/* Metrics Row */}
+        {/* Daily check-in takes the former metrics position. */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
-        <HomeMetricCarousel
-          cards={metricCards}
-          styles={styles}
-          onOpen={(route) => router.push(route as any)}
-        />
+          <DailyCheckinCard />
         </Animated.View>
+
+        {renderHealthFeedBlock()}
 
         {/* Health Score Card */}
         {healthScore && (
@@ -933,37 +952,32 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {!hasPriorityHealthFeed && renderHealthFeedBlock()}
-
-        <Animated.View entering={FadeIn.delay(150).duration(350)}>
-        <DailyCheckinCard />
-        </Animated.View>
-
-
         {isChatbotAvailable && (
           <Animated.View entering={FadeIn.delay(190).duration(350)}>
             <AsinuChatSticker onPress={() => setChatOpen(true)} />
           </Animated.View>
         )}
 
-        {/* Section Header */}
-        <Animated.View entering={FadeIn.delay(210).duration(350)}>
-        <View style={styles.sectionHeaderRow}>
-          <Ionicons name="flag" size={20} color={iconColors.warning} />
-          <Text style={styles.sectionTitle}>{t('todayMissions')}</Text>
-          <View style={{ flex: 1 }} />
-          <InfoButton text={t('missionsRefreshDaily')} styles={styles} />
-        </View>
-        <View style={styles.cardList}>
-        <HomeMissionCarousel missions={missions} styles={styles} onOpen={handleMissionOpen} />
-        {missions.length > 0 && (
-          <Pressable style={styles.seeMoreBtn} onPress={() => router.push('/missions')}>
-            <Text style={styles.seeMoreText}>{tc('viewMore')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={iconColors.primary} />
-          </Pressable>
+        {/* Missions section is temporarily hidden on the home screen. */}
+        {SHOW_HOME_MISSIONS && (
+          <Animated.View entering={FadeIn.delay(210).duration(350)}>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="flag" size={20} color={iconColors.warning} />
+              <Text style={styles.sectionTitle}>{t('todayMissions')}</Text>
+              <View style={{ flex: 1 }} />
+              <InfoButton text={t('missionsRefreshDaily')} styles={styles} />
+            </View>
+            <View style={styles.cardList}>
+              <HomeMissionCarousel missions={missions} styles={styles} onOpen={handleMissionOpen} />
+              {missions.length > 0 && (
+                <Pressable style={styles.seeMoreBtn} onPress={() => router.push('/missions')}>
+                  <Text style={styles.seeMoreText}>{tc('viewMore')}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={iconColors.primary} />
+                </Pressable>
+              )}
+            </View>
+          </Animated.View>
         )}
-        </View>
-        </Animated.View>
 
         {/* Tree Section */}
         <Animated.View entering={FadeIn.delay(260).duration(350)}>
@@ -1018,6 +1032,20 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={18} color={iconColors.primary} />
           </Pressable>
         </View>
+        </Animated.View>
+
+        {/* Immediate check-in entry point, available before the next scheduled check-in. */}
+        <Animated.View entering={FadeIn.delay(290).duration(350)}>
+          <InstantCheckinCard />
+        </Animated.View>
+
+        {/* Metrics Row */}
+        <Animated.View entering={FadeIn.delay(300).duration(350)}>
+          <HomeMetricCarousel
+            cards={metricCards}
+            styles={styles}
+            onOpen={(route) => router.push(route as any)}
+          />
         </Animated.View>
 
         {/* Chart Section */}

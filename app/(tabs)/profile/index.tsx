@@ -28,6 +28,7 @@ import {
   ScrollView,
   Share,
   StyleSheet,
+  Switch,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -37,6 +38,7 @@ import {
 } from "../../../src/components/AppAlertModal";
 import {
   AiDataConsentModal,
+  hasAiDataConsent,
   revokeAiDataConsent,
 } from "../../../src/components/AiDataConsentModal";
 import { ScaledTextInput as TextInput } from "../../../src/components/ScaledTextInput";
@@ -84,6 +86,10 @@ import {
   spacing,
 } from "../../../src/styles";
 import { useThemeColors } from "../../../src/hooks/useThemeColors";
+import {
+  getHealthFeedPreference,
+  setHealthFeedPreference,
+} from "../../../src/stores/health-feed-preference";
 
 type SubStatus = {
   tier: "free" | "premium";
@@ -124,6 +130,8 @@ export default function ProfileScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showAiConsentModal, setShowAiConsentModal] = useState(false);
+  const [healthFeedEnabled, setHealthFeedEnabled] = useState(true);
+  const [aiConsentEnabled, setAiConsentEnabled] = useState(false);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
 
   const fontLabel =
@@ -135,6 +143,50 @@ export default function ProfileScreen() {
           ? ts("fontLarge")
           : ts("fontXLarge");
   const langLabel = language === "vi" ? ts("languageVi") : ts("languageEn");
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getHealthFeedPreference(), hasAiDataConsent()]).then(
+      ([feedEnabled, consentEnabled]) => {
+        if (cancelled) return;
+        setHealthFeedEnabled(feedEnabled);
+        setAiConsentEnabled(consentEnabled);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggleHealthFeed = useCallback(
+    async (enabled: boolean) => {
+      setHealthFeedEnabled(enabled);
+      try {
+        await setHealthFeedPreference(enabled);
+        showToast(
+          ts(enabled ? "healthFeedEnabled" : "healthFeedDisabled"),
+          "success",
+        );
+      } catch {
+        setHealthFeedEnabled(!enabled);
+      }
+    },
+    [ts],
+  );
+
+  const handleToggleAiConsent = useCallback(
+    (enabled: boolean) => {
+      if (enabled) {
+        setShowAiConsentModal(true);
+        return;
+      }
+      void revokeAiDataConsent().then(() => {
+        setAiConsentEnabled(false);
+        showToast(ts("aiDataConsentRevoked"), "success");
+      });
+    },
+    [ts],
+  );
 
   // Edit form state
   const [editName, setEditName] = useState(profile?.name || "");
@@ -367,13 +419,7 @@ export default function ProfileScreen() {
       if (result.canceled || !result.assets?.[0]) return;
 
       const asset = result.assets[0];
-      const mimeType =
-        asset.mimeType === "image/png" ? "image/png" : "image/jpeg";
-      const updatedProfile = await authApi.uploadAvatar(
-        asset.uri,
-        mimeType,
-        asset.fileName || "avatar.jpg",
-      );
+      const updatedProfile = await authApi.uploadAvatar(asset.uri);
       useAuthStore.setState({ profile: updatedProfile });
       showToast(t("avatarUpdated"), "success");
     } catch (error) {
@@ -823,11 +869,7 @@ export default function ProfileScreen() {
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/feed" as any)}
-                  activeOpacity={0.7}
-                >
+                <View style={styles.actionCard}>
                   <View style={styles.rowIconWrap}>
                     <Ionicons
                       name="bookmark-outline"
@@ -835,9 +877,20 @@ export default function ProfileScreen() {
                       color="#8b5cf6"
                     />
                   </View>
-                  <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
+                  <View style={styles.toggleCopy}>
+                    <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
+                    <Text style={styles.toggleDescription}>
+                      {ts("healthFeedToggleDesc")}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={healthFeedEnabled}
+                    onValueChange={handleToggleHealthFeed}
+                    trackColor={{ false: "#d1d5db", true: colors.primary }}
+                    thumbColor={colors.surface}
+                    ios_backgroundColor="#d1d5db"
+                  />
+                </View>
 
                 <TouchableOpacity
                   style={styles.actionCard}
@@ -1009,11 +1062,7 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
 
                 {/* Quyền dùng Asinu AI */}
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => setShowAiConsentModal(true)}
-                  activeOpacity={0.7}
-                >
+                <View style={styles.actionCard}>
                   <View style={styles.rowIconWrap}>
                     <Ionicons
                       name="sparkles-outline"
@@ -1024,8 +1073,14 @@ export default function ProfileScreen() {
                   <Text style={styles.rowLabel}>
                     {ts("aiDataConsentSettings")}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
+                  <Switch
+                    value={aiConsentEnabled}
+                    onValueChange={handleToggleAiConsent}
+                    trackColor={{ false: "#d1d5db", true: colors.primary }}
+                    thumbColor={colors.surface}
+                    ios_backgroundColor="#d1d5db"
+                  />
+                </View>
 
                 {/* Chính sách bảo mật */}
                 <TouchableOpacity
@@ -1881,11 +1936,13 @@ export default function ProfileScreen() {
       <AiDataConsentModal
         visible={showAiConsentModal}
         onAgree={() => {
+          setAiConsentEnabled(true);
           setShowAiConsentModal(false);
           showToast(ts("aiDataConsentGranted"), "success");
         }}
         onDecline={() => {
           void revokeAiDataConsent().then(() => {
+            setAiConsentEnabled(false);
             setShowAiConsentModal(false);
             showToast(ts("aiDataConsentRevoked"), "success");
           });
@@ -2302,6 +2359,16 @@ function createStyles(
       fontSize: 13,
       color: textSecondaryCol,
       marginRight: 6,
+    },
+    toggleCopy: {
+      flex: 1,
+      minWidth: 0,
+      marginRight: 10,
+    },
+    toggleDescription: {
+      fontSize: 12,
+      color: textSecondaryCol,
+      marginTop: 2,
     },
 
     // Delete Account Card (Destructive in System Section)

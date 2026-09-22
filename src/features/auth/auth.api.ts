@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import { apiClient } from '../../lib/apiClient';
 import { Profile } from './auth.store';
 
@@ -81,9 +82,9 @@ export const authApi = {
   updateProfile(payload: UpdateProfilePayload) {
     return apiClient<ProfileResponse>('/api/mobile/profile', { method: 'PUT', body: payload }).then(res => res.profile);
   },
-  uploadAvatar(uri: string, mimeType = 'image/jpeg', fileName = 'avatar.jpg') {
+  uploadAvatar(uri: string) {
     const formData = new FormData();
-    formData.append('avatar', { uri, type: mimeType, name: fileName } as any);
+    formData.append('avatar', new File(uri));
     return apiClient<ProfileResponse>('/api/mobile/profile/avatar', {
       method: 'POST',
       body: formData,

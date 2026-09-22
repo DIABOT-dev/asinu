@@ -95,10 +95,10 @@ const STATUS_OPTIONS: Array<{
 }> = [
   {
     status: 'fine',
-    icon: 'emoticon-happy-outline',
-    labelKey: 'checkinFine',
-    sublabelKey: 'checkinFineSub',
-    color: iconColors.emerald,
+    icon: 'alert-circle-outline',
+    labelKey: 'checkinAbnormal',
+    sublabelKey: 'checkinAbnormalSub',
+    color: iconColors.warning,
   },
   {
     status: 'tired',
@@ -149,7 +149,7 @@ export default function CheckinScreen() {
   const isFollowUp = params.mode === 'followup';
   const isRandom = params.mode === 'random';
   const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
-  const presetStatus = params.preset_status as 'tired' | 'very_tired' | undefined;
+  const presetStatus = params.preset_status as CheckinStatus | undefined;
 
   const [screen, setScreen]       = useState<Screen>('status');
   const [loading, setLoading]     = useState(!isFollowUp && !existingCheckinId && !isRandom);
@@ -578,6 +578,16 @@ function StatusScreen({
     return t('checkinGreetingEvening');
   };
 
+  const handleSelect = (status: CheckinStatus) => {
+    // This option is only a temporary placeholder while the abnormal-symptom
+    // flow is being built. The home "Tôi ổn" shortcut still uses preset_status.
+    if (status === 'fine') {
+      showToast(t('checkinAbnormalUnavailable'), 'info');
+      return;
+    }
+    onSelect(status);
+  };
+
   return (
     <View style={styles.section}>
       {/* Asinu avatar */}
@@ -600,7 +610,7 @@ function StatusScreen({
                 styles.statusCard,
                 pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
               ]}
-              onPress={() => onSelect(opt.status)}
+              onPress={() => handleSelect(opt.status)}
             >
               <MaterialCommunityIcons name={opt.icon} size={28} color={opt.color} />
               <View style={{ flex: 1, minWidth: 0 }}>

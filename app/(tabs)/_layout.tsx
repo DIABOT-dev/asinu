@@ -170,8 +170,8 @@ export default function TabsLayout() {
           tabBarIcon: renderProfileIcon
         }}
       />
-      {/* Missions screen vẫn giữ route — accessible từ home (section "Nhiệm vụ
-          hôm nay") + push deep link. KHÔNG hiển thị trong tab bar (href: null). */}
+      {/* Missions screen vẫn giữ route cho profile và deep link.
+          KHÔNG hiển thị trong tab bar (href: null). */}
       <Tabs.Screen
         name="missions/index"
         options={{

@@ -18,14 +18,6 @@ import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
-function getCheckinGreeting(t: (key: string) => string): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return t('checkinGreetingMorning');
-  if (hour < 14) return t('checkinGreetingAfternoon');
-  if (hour < 18) return t('checkinGreetingEvening2');
-  return t('checkinGreetingEvening');
-}
-
 // Cache session across hot reloads to prevent flash
 let _cachedSession: CheckinSession | null | undefined = undefined;
 
@@ -60,13 +52,13 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
     return (
       <Pressable
         style={({ pressed }) => [styles.card, styles.cardPrompt, pressed && { opacity: 0.9 }]}
-        onPress={() => router.push('/checkin')}
+        onPress={() => router.push({ pathname: '/checkin', params: { preset_status: 'fine' } })}
       >
         <View style={styles.row}>
           <Ionicons name="heart-half" size={24} color={colors.primary} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.promptTitle}>{t('checkinTitle')}</Text>
-            <Text style={styles.sub}>{getCheckinGreeting(t)}</Text>
+            <Text style={styles.promptTitle}>{t('checkinFine')}</Text>
+            <Text style={styles.sub}>{t('checkinFineSub')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.primary} />
         </View>
@@ -108,6 +100,36 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   );
 });
 
+/**
+ * Always-visible entry point for an immediate check-in.
+ * `mode=random` lets the user start a new check-in before the scheduled follow-up.
+ */
+export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
+  const router = useRouter();
+  const { t } = useTranslation('home');
+  const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.card, styles.cardInstant, pressed && { opacity: 0.9 }]}
+      onPress={() => router.push({ pathname: '/checkin', params: { mode: 'random' } })}
+      accessibilityRole="button"
+      accessibilityLabel={t('checkinInstantTitle')}
+    >
+      <View style={styles.row}>
+        <Ionicons name="pulse" size={24} color={colors.premiumDark} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.instantTitle}>{t('checkinInstantTitle')}</Text>
+          <Text style={styles.sub}>{t('checkinInstantSub')}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={colors.premiumDark} />
+      </View>
+    </Pressable>
+  );
+});
+
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     card: {
@@ -125,6 +147,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderColor: colors.border,
       backgroundColor: colors.premiumLight,
     },
+    cardInstant: {
+      borderColor: colors.premiumDark,
+      backgroundColor: colors.premiumLight,
+    },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -132,6 +158,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     promptTitle:  { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
     followTitle:  { fontSize: typography.size.sm, fontWeight: '700', color: '#d97706' },
+    instantTitle: { fontSize: typography.size.sm, fontWeight: '700', color: colors.premiumDark },
     sub:          { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
   });
 }

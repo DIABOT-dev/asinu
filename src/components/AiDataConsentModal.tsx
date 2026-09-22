@@ -186,6 +186,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     button: {
       minHeight: 48,
+      minWidth: 0,
       flex: 1,
       borderRadius: radius.full,
       alignItems: 'center',
@@ -198,17 +199,22 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.surfaceMuted,
     },
     declineText: {
+      flexShrink: 1,
       color: colors.textSecondary,
       fontSize: typography.size.xs,
       fontWeight: '700',
+      textAlign: 'center',
     },
     agreeButton: {
       backgroundColor: colors.primary,
     },
     agreeText: {
+      flexShrink: 1,
       color: colors.surface,
       fontSize: typography.size.xs,
       fontWeight: '700',
+      lineHeight: 18,
+      textAlign: 'center',
     },
     footer: {
       color: colors.textSecondary,
