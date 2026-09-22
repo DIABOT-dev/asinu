@@ -156,7 +156,9 @@ export function HealthReportPanel({
   const alertTitle = report && report.alerts.emergencyTriggered > 0
     ? t('emergencyTriggered')
     : t('familyAlerted');
-  const legacyHealthScore = treeSummary ? Math.round(treeSummary.score * 100) : null;
+  const legacyHealthScore = typeof treeSummary?.score === 'number'
+    ? Math.round(treeSummary.score * 100)
+    : null;
   const statusScoreColor = healthScoreOverride?.checkinDone
     ? healthScoreOverride.level === 'ok'
       ? iconColors.emerald

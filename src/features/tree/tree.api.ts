@@ -3,7 +3,7 @@ import { TreeHistoryPoint, TreeSummary } from './tree.store';
 
 type TreeSummaryResponse = {
   ok: boolean;
-  score: number;
+  score: number | null;
   streakDays: number;
   completedToday: number;
   totalMissions?: number;

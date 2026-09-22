@@ -5,7 +5,8 @@ import { logError } from '../../lib/logger';
 import { treeApi } from './tree.api';
 
 export type TreeSummary = {
-  score: number;
+  /** Deprecated compatibility field. Current tree state is healthStatus/check-in driven. */
+  score: number | null;
   streakDays: number;
   completedToday: number;
   totalMissions?: number;
