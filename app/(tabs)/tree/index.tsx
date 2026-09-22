@@ -1,15 +1,16 @@
-import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { useCallback, useMemo, useRef, useState, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, withDelay } from 'react-native-reanimated';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
 import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
+import { PineTreeIllustration } from '../../../src/components/PineTreeIllustration';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
@@ -19,7 +20,7 @@ import { useLogsStore } from '../../../src/features/logs/logs.store';
 import { useTreeStore } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
-import { colors, iconColors, spacing } from '../../../src/styles';
+import { colors, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import { checkinApi, type HealthScoreData } from '../../../src/features/checkin/checkin.api';
 import React from 'react';
@@ -82,110 +83,9 @@ function FloatingSnow({ x, delay = 0, size = 16, duration = 3000 }: any) {
   );
 }
 
-function AnimatedBorderCard({ style, children }: { color?: string; innerColors?: readonly [string, string, ...string[]]; style?: any; children: React.ReactNode }) {
-  return (
-    <View style={[style, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
-      {children}
-    </View>
-  );
-}
-
-function AnimatedLightningSparks() {
-  const opacity1 = useSharedValue(0);
-  const opacity2 = useSharedValue(0);
-
-  useEffect(() => {
-    opacity1.value = withRepeat(
-      withSequence(
-        withTiming(0.35, { duration: 100, easing: Easing.linear }),
-        withTiming(0, { duration: 120, easing: Easing.linear }),
-        withTiming(0.25, { duration: 80, easing: Easing.linear }),
-        withTiming(0, { duration: 150, easing: Easing.linear }),
-        withDelay(3000, withTiming(0, { duration: 100 }))
-      ),
-      -1,
-      false
-    );
-
-    opacity2.value = withRepeat(
-      withSequence(
-        withDelay(200, withTiming(0.3, { duration: 120, easing: Easing.linear })),
-        withTiming(0, { duration: 100, easing: Easing.linear }),
-        withTiming(0.2, { duration: 90, easing: Easing.linear }),
-        withTiming(0, { duration: 160, easing: Easing.linear }),
-        withDelay(2800, withTiming(0, { duration: 100 }))
-      ),
-      -1,
-      false
-    );
-  }, []);
-
-  const animStyle1 = useAnimatedStyle(() => {
-    return {
-      opacity: opacity1.value,
-    };
-  });
-
-  const animStyle2 = useAnimatedStyle(() => {
-    return {
-      opacity: opacity2.value,
-    };
-  });
-
-  return (
-    <>
-      <Animated.View style={[{ position: 'absolute', top: -4, right: 8, transform: [{ rotate: '-15deg' }] }, animStyle1]}>
-        <Ionicons name="flash" size={36} color="#fbbf24" />
-      </Animated.View>
-
-      <Animated.View style={[{ position: 'absolute', bottom: -6, left: 32, transform: [{ rotate: '35deg' }] }, animStyle2]}>
-        <Ionicons name="flash" size={24} color="#fbbf24" />
-      </Animated.View>
-    </>
-  );
-}
-
-function FloatingLeaf({ x, y, rotate, size, color, delay = 0 }: any) {
-  const translateY = useSharedValue(0);
-  const opacity = useSharedValue(0.4);
-
-  useEffect(() => {
-    const t1 = setTimeout(() => {
-      translateY.value = withRepeat(
-        withSequence(
-          withTiming(-8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
-    }, delay);
-    return () => clearTimeout(t1);
-  }, [delay]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate }, { translateY: translateY.value }],
-      opacity: opacity.value,
-    };
-  });
-
-  return (
-    <Animated.View style={[{ position: 'absolute', ...(y.top !== undefined ? { top: y.top } : {}), ...(y.bottom !== undefined ? { bottom: y.bottom } : {}), ...(x.left !== undefined ? { left: x.left } : {}), ...(x.right !== undefined ? { right: x.right } : {}) }, animatedStyle]}>
-      <Ionicons name="leaf" size={size} color={color} />
-    </Animated.View>
-  );
-}
 
 export default function TreeScreen() {
+  const router = useRouter();
   const { t } = useTranslation('tree');
   const { t: tc } = useTranslation('common');
   const summary = useTreeStore((state) => state.summary);
@@ -200,7 +100,7 @@ export default function TreeScreen() {
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   
-  const padTop = insets.top + spacing.lg;
+  const padTop = insets.top + spacing.sm;
   const [chartTooltip, setChartTooltip] = useState(false);
   const [healthScore, setHealthScore] = useState<HealthScoreData | null>(null);
 
@@ -232,10 +132,8 @@ export default function TreeScreen() {
       unit: tc('unitMgdl'),
       meta: glucoseLog?.recordedAt ? t('latest', { time: formatTime(glucoseLog.recordedAt) }) : t('noDataYet'),
       icon: 'water' as const,
-      bgIcon: 'sprout' as const,
-      colors: ['#eff6ff', '#dbeafe'] as const,
       textColor: '#2563eb',
-      bgIconColor: 'rgba(59,130,246,0.1)'
+      bgColor: '#eff6ff',
     },
     {
       key: 'blood-pressure',
@@ -247,10 +145,8 @@ export default function TreeScreen() {
       unit: tc('unitMmhg'),
       meta: bpLog?.recordedAt ? t('latest', { time: formatTime(bpLog.recordedAt) }) : t('noDataYet'),
       icon: 'heart-pulse' as const,
-      bgIcon: 'heart-pulse' as const,
-      colors: ['#fdf2f8', '#fce7f3'] as const,
       textColor: '#e11d48',
-      bgIconColor: 'rgba(225,29,72,0.1)'
+      bgColor: '#fff1f2',
     },
     {
       key: 'weight',
@@ -259,10 +155,8 @@ export default function TreeScreen() {
       unit: tc('unitKg'),
       meta: weightLog?.recordedAt ? t('latest', { time: formatTime(weightLog.recordedAt) }) : t('noDataYet'),
       icon: 'scale-bathroom' as const,
-      bgIcon: 'scale-bathroom' as const,
-      colors: ['#faf5ff', '#f3e8ff'] as const,
       textColor: '#7e22ce',
-      bgIconColor: 'rgba(126,34,206,0.1)'
+      bgColor: '#faf5ff',
     },
     {
       key: 'water',
@@ -271,10 +165,8 @@ export default function TreeScreen() {
       unit: tc('unitMl'),
       meta: waterLog?.volume_ml ? t('todayLabel') : t('noDataYet'),
       icon: 'cup-water' as const,
-      bgIcon: 'cup-water' as const,
-      colors: ['#f0fdfa', '#ccfbf1'] as const,
       textColor: '#0f766e',
-      bgIconColor: 'rgba(15,118,110,0.1)'
+      bgColor: '#f0fdfa',
     }
   ], [glucoseLog, bpLog, weightLog, waterLog, t, tc]);
 
@@ -334,7 +226,30 @@ export default function TreeScreen() {
         <>
         {status === 'success' && !summary && !healthScore ? <StateEmpty /> : null}
         
-        {/* Header Section */}
+        {/* Brand Header Bar */}
+        <View style={styles.brandBar}>
+          <Image
+            source={require('../../../assets/images/asinu-brand-logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+          <Image
+            source={require('../../../assets/images/asinu-brand-slogan.png')}
+            style={styles.brandSlogan}
+            resizeMode="contain"
+          />
+          <Pressable
+            onPress={() => router.push('/(tabs)/profile')}
+            style={styles.profileBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Hồ sơ"
+            hitSlop={8}
+          >
+            <Ionicons name="person-outline" size={20} color="#0f766e" />
+          </Pressable>
+        </View>
+
+        {/* Screen Title & Tree Row */}
         <View style={styles.headerRow}>
           <FloatingSnow x="10%" delay={0} size={14} duration={3500} />
           <FloatingSnow x="30%" delay={1000} size={20} duration={4000} />
@@ -345,52 +260,56 @@ export default function TreeScreen() {
             <Text style={styles.headerTitle}>{t('healthTree')}</Text>
             <Text style={styles.headerSubtitle}>{t('summaryFromCheckins')}</Text>
           </View>
-          <Animated.View style={{ zIndex: 10 }}>
-            <FontAwesome5 name="tree" size={72} color="#10b981" />
-          </Animated.View>
+          <View style={styles.treeWrapper}>
+            <Ionicons name="snow" size={14} color="#7dd3fc" style={styles.snowDecor1} />
+            <Ionicons name="snow" size={12} color="#38bdf8" style={styles.snowDecor2} />
+            <Ionicons name="snow" size={10} color="#bae6fd" style={styles.snowDecor3} />
+            <PineTreeIllustration size={78} />
+          </View>
         </View>
 
-        {/* Cây sức khoẻ lấy trạng thái check-in làm tín hiệu chính. */}
+        {/* Cây sức khỏe lấy trạng thái check-in làm tín hiệu chính. */}
         <View style={styles.infoBox}>
           <View style={styles.infoTitleRow}>
-            <Ionicons name="pulse" size={16} color={colors.primary} />
+            <Ionicons name="pulse" size={18} color="#059669" />
             <Text style={styles.infoTitle}>{t('statusBasis')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Ionicons name="heart-outline" size={14} color={colors.primary} />
+            <Ionicons name="heart-outline" size={16} color="#059669" />
             <Text style={styles.infoText}>{t('checkinStatusBasis')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Ionicons name="analytics-outline" size={14} color={colors.emerald} />
+            <Ionicons name="trending-up-outline" size={16} color="#059669" />
             <Text style={styles.infoText}>{t('recentMetricsBasis')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Ionicons name="calendar" size={14} color="#8b5cf6" />
+            <Ionicons name="calendar-outline" size={16} color="#2563eb" />
             <Text style={styles.infoText}>{t('historySecondary')}</Text>
           </View>
         </View>
 
+        {/* Health Tree Status Card */}
         <HealthTreeStatusCard score={healthScore} />
 
-        {/* Trạng thái check-in và dấu hiệu được giữ ở trung tâm; log/nhiệm vụ chỉ là dữ liệu phụ. */}
+        {/* Trạng thái check-in và dấu hiệu cần chú ý */}
         <View style={styles.scoreRow}>
-          <View style={[styles.scoreCard, { borderColor: colors.border, borderWidth: 1 }]}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+          <View style={styles.scoreCard}>
+            <Ionicons name="checkmark-circle" size={28} color="#059669" />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.scoreValue, { color: colors.primaryDark }]} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={[styles.scoreValue, { color: '#065f46' }]} numberOfLines={1} adjustsFontSizeToFit>
                 {healthScore ? (healthScore.checkinDone ? t('checkinComplete') : t('checkinPending')) : '--'}
               </Text>
-              <Text style={[styles.scoreLabel, { color: colors.primaryDark }]} numberOfLines={1}>{t('todayStatus')}</Text>
+              <Text style={[styles.scoreLabel, { color: '#065f46' }]} numberOfLines={1}>{t('todayStatus')}</Text>
             </View>
           </View>
 
-          <View style={[styles.scoreCard, { borderColor: colors.border, borderWidth: 1 }]}>
-            <Ionicons name="alert-circle" size={20} color={healthScore?.factors.length ? iconColors.warning : iconColors.emerald} />
+          <View style={styles.scoreCard}>
+            <Ionicons name="alert-circle" size={28} color={healthScore?.factors.length ? '#f59e0b' : '#0f766e'} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.scoreValue, { color: healthScore?.factors.length ? iconColors.warning : iconColors.emerald }]} numberOfLines={1} adjustsFontSizeToFit>
-                {healthScore?.checkinDone ? healthScore.factors.length : '--'}
+              <Text style={[styles.scoreValue, { color: healthScore?.factors.length ? '#f59e0b' : '#0f766e' }]} numberOfLines={1} adjustsFontSizeToFit>
+                {healthScore?.checkinDone ? healthScore.factors.length : '0'}
               </Text>
-              <Text style={[styles.scoreLabel, { color: colors.textSecondary }]} numberOfLines={1}>{t('signalsToWatch')}</Text>
+              <Text style={[styles.scoreLabel, { color: '#6b7280' }]} numberOfLines={1}>{t('signalsToWatch')}</Text>
             </View>
           </View>
         </View>
@@ -400,36 +319,31 @@ export default function TreeScreen() {
 
         {/* Section Header */}
         <View style={styles.sectionHeader}>
-          <Ionicons name="stats-chart" size={20} color={colors.textPrimary} />
+          <Ionicons name="pulse" size={20} color="#059669" />
           <Text style={styles.sectionTitle}>{t('healthMetrics')}</Text>
         </View>
 
         {/* Metrics Grid 2x2 */}
         <View style={styles.metricGrid}>
           {metrics.map((metric) => (
-            <AnimatedBorderCard
-              key={metric.key}
-              innerColors={metric.colors}
-              color={metric.textColor}
-              style={styles.metricItem}
-            >
-              <View style={styles.metricContent}>
-                <View style={styles.metricTop}>
-                  <MaterialCommunityIcons name={metric.icon} size={20} color={metric.textColor} />
-                  <Text style={[styles.metricTitle, { color: metric.textColor }]}>{metric.title}</Text>
+            <View key={metric.key} style={styles.metricItem}>
+              <View style={styles.metricTop}>
+                <View style={[styles.metricIconWrap, { backgroundColor: metric.bgColor }]}>
+                  <MaterialCommunityIcons name={metric.icon} size={18} color={metric.textColor} />
                 </View>
-                
-                <Text style={[styles.metricValue, { color: metric.textColor }]} numberOfLines={1} adjustsFontSizeToFit>{metric.value}</Text>
-                <Text style={[styles.metricUnit, { color: metric.textColor, opacity: 0.7 }]}>{metric.unit}</Text>
-                
-                <MaterialCommunityIcons 
-                  name={metric.bgIcon} 
-                  size={70} 
-                  color={metric.bgIconColor} 
-                  style={styles.metricBgIcon} 
-                />
+                <Text style={styles.metricTitle} numberOfLines={1}>{metric.title}</Text>
               </View>
-            </AnimatedBorderCard>
+
+              <View style={styles.metricValueRow}>
+                <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit>{metric.value}</Text>
+                <Text style={styles.metricUnit}>{metric.unit}</Text>
+              </View>
+
+              <View style={styles.metricMetaRow}>
+                <Ionicons name="time-outline" size={12} color="#9ca3af" />
+                <Text style={styles.metricMetaText} numberOfLines={1}>{metric.meta}</Text>
+              </View>
+            </View>
           ))}
         </View>
         
@@ -437,7 +351,7 @@ export default function TreeScreen() {
         <View style={styles.chartSection}>
           <View style={styles.chartHeader}>
             <View style={styles.chartTitleRow}>
-              <Ionicons name="trending-up" size={20} color={colors.primary} />
+              <Ionicons name="trending-up" size={20} color="#059669" />
               <Text style={styles.chartLabel}>{t('activityChart7Days')}</Text>
               <Pressable hitSlop={8} onPress={() => setChartTooltip(v => !v)}>
                 <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
@@ -465,6 +379,16 @@ export default function TreeScreen() {
         )}
 
       </RippleRefreshScrollView>
+
+      {/* Floating Action Button (+) */}
+      <Pressable
+        style={[styles.fabButton, { bottom: insets.bottom + 16 }]}
+        onPress={() => router.push('/checkin')}
+        accessibilityRole="button"
+        accessibilityLabel="Check-in"
+      >
+        <Ionicons name="add" size={28} color="#ffffff" />
+      </Pressable>
     </Screen>
   );
 }
@@ -472,201 +396,234 @@ export default function TreeScreen() {
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     container: {
-      padding: spacing.lg,
-      gap: spacing.lg
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.lg,
+      gap: spacing.md,
+    },
+    brandBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.xs,
+      marginBottom: spacing.xs,
+    },
+    brandLogo: {
+      width: 125,
+      height: 38,
+    },
+    brandSlogan: {
+      width: 135,
+      height: 34,
+      flexShrink: 1,
+      marginHorizontal: 4,
+    },
+    profileBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      borderWidth: 1.5,
+      borderColor: '#a7f3d0',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#ffffff',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 1,
     },
     headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: spacing.sm,
+      paddingHorizontal: spacing.xs,
       marginBottom: spacing.xs,
+      position: 'relative',
     },
     headerTitle: {
       fontSize: 28,
       fontWeight: '800',
-      color: '#065f46',
+      color: '#064e3b',
       marginBottom: 4,
     },
     headerSubtitle: {
-      fontSize: typography.size.sm,
+      fontSize: 14,
       color: '#047857',
+      fontWeight: '500',
     },
-    infoBox: {
-      padding: spacing.lg,
-      backgroundColor: '#ffffff',
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: spacing.sm,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 6,
-      elevation: 2,
-    },
-    reportCard: {
-      backgroundColor: '#ecfdf5',
-      borderRadius: 18,
-      padding: spacing.lg,
-      marginTop: spacing.sm,
-      borderWidth: 1,
-      borderColor: 'rgba(16, 185, 129, 0.18)',
-      shadowColor: '#10b981',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.08,
-      shadowRadius: 14,
-      elevation: 4,
-    },
-    reportRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    reportIconWrap: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+    treeWrapper: {
+      position: 'relative',
       alignItems: 'center',
       justifyContent: 'center',
+      zIndex: 10,
     },
-    reportTextWrap: {
-      flex: 1,
-      gap: 2,
+    snowDecor1: {
+      position: 'absolute',
+      top: -6,
+      left: -16,
     },
-    reportTitle: {
-      fontSize: typography.size.md,
-      fontWeight: '800',
-      color: '#065f46',
+    snowDecor2: {
+      position: 'absolute',
+      bottom: 22,
+      left: -10,
     },
-    reportSub: {
-      fontSize: typography.size.sm,
-      color: '#047857',
+    snowDecor3: {
+      position: 'absolute',
+      top: 14,
+      right: -12,
+    },
+    infoBox: {
+      padding: spacing.md,
+      backgroundColor: '#ffffff',
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: '#e5e7eb',
+      gap: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
+      elevation: 1,
     },
     infoTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      marginBottom: spacing.xs
+      marginBottom: 2,
     },
     infoTitle: {
-      fontSize: typography.size.md,
-      fontWeight: '600',
-      color: colors.textPrimary
+      fontSize: 15,
+      fontWeight: '700',
+      color: '#111827',
     },
     infoItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm
+      gap: 10,
     },
     infoText: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      flex: 1
+      fontSize: 13,
+      color: '#4b5563',
+      flex: 1,
+      lineHeight: 18,
     },
     scoreRow: {
       flexDirection: 'row',
-      gap: spacing.md,
+      gap: 12,
     },
     scoreCard: {
       flex: 1,
-      borderRadius: 20,
-      padding: spacing.md,
+      borderRadius: 18,
+      padding: 14,
+      backgroundColor: '#ffffff',
+      borderWidth: 1,
+      borderColor: '#e5e7eb',
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
+      gap: 12,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      elevation: 2,
-    },
-    scoreIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
+      elevation: 1,
     },
     scoreValue: {
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '800',
     },
     scoreLabel: {
-      fontSize: typography.size.xs,
-      fontWeight: '600',
-      marginTop: 1,
+      fontSize: 12,
+      fontWeight: '500',
+      marginTop: 2,
     },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      marginTop: spacing.sm,
+      marginTop: spacing.xs,
+      paddingHorizontal: spacing.xs,
     },
     sectionTitle: {
-      fontSize: typography.size.md,
+      fontSize: 17,
       fontWeight: '700',
-      color: colors.textPrimary,
+      color: '#111827',
     },
     metricGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: spacing.md,
-      justifyContent: 'space-between'
+      gap: 12,
+      justifyContent: 'space-between',
     },
     metricItem: {
-      width: '47.5%',
-      borderRadius: 24,
-      minHeight: 140,
-      position: 'relative',
+      width: '48%',
+      borderRadius: 18,
+      padding: 14,
+      backgroundColor: '#ffffff',
+      borderWidth: 1,
+      borderColor: '#e5e7eb',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      elevation: 5,
-    },
-    metricContent: {
-      flex: 1,
-      padding: spacing.lg,
-      zIndex: 2,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
+      elevation: 1,
     },
     metricTop: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      marginBottom: spacing.md,
+    },
+    metricIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     metricTitle: {
       fontWeight: '600',
-      fontSize: typography.size.sm,
+      fontSize: 13,
+      color: '#374151',
+      flex: 1,
+      marginLeft: 6,
+    },
+    metricValueRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      marginTop: 10,
+      marginBottom: 6,
     },
     metricValue: {
-      fontSize: 26,
+      fontSize: 22,
       fontWeight: '800',
-      marginTop: 'auto',
+      color: '#111827',
     },
     metricUnit: {
-      fontSize: typography.size.xs,
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#6b7280',
+      marginLeft: 4,
     },
-    metricBgIcon: {
-      position: 'absolute',
-      bottom: -15,
-      right: -10,
-      transform: [{ rotate: '-10deg' }],
-      zIndex: -1,
+    metricMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    metricMetaText: {
+      fontSize: 11,
+      color: '#9ca3af',
+      flex: 1,
     },
     chartSection: {
       backgroundColor: '#ffffff',
-      borderRadius: 24,
-      padding: spacing.lg,
-      marginTop: spacing.sm,
+      borderRadius: 20,
+      padding: spacing.md,
+      marginTop: spacing.xs,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: '#e5e7eb',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 3,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
+      elevation: 1,
     },
     chartHeader: {
       gap: spacing.xs,
@@ -679,9 +636,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     chartLabel: {
       flex: 1,
-      fontSize: typography.size.md,
+      fontSize: 16,
       fontWeight: '700',
-      color: colors.textPrimary,
+      color: '#111827',
     },
     chartTooltip: {
       backgroundColor: colors.surfaceMuted,
@@ -704,6 +661,22 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     placeholderText: {
       fontSize: typography.size.sm,
       color: colors.textSecondary,
+    },
+    fabButton: {
+      position: 'absolute',
+      right: 20,
+      width: 54,
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: '#00897b',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#00897b',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 8,
+      elevation: 6,
+      zIndex: 50,
     },
   });
 }

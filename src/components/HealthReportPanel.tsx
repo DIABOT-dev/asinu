@@ -1,5 +1,5 @@
+import React, { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -149,9 +149,6 @@ export function HealthReportPanel({
   const statusTotal = report
     ? Object.values(report.statusDistribution).reduce((total, count) => total + count, 0)
     : 0;
-  const checkinPercent = report && report.totalDays > 0
-    ? Math.round((report.checkinDays / report.totalDays) * 100)
-    : 0;
   const alertCount = report ? report.alerts.familyAlerted + report.alerts.emergencyTriggered : 0;
   const alertTitle = report && report.alerts.emergencyTriggered > 0
     ? t('emergencyTriggered')
@@ -225,7 +222,7 @@ export function HealthReportPanel({
 
           <View style={embedded ? styles.embeddedTitleBlock : styles.headerTitleBlock}>
             <View style={styles.titleRow}>
-              <MaterialCommunityIcons name="chart-line" size={embedded ? 21 : 22} color={colors.primary} />
+              <MaterialCommunityIcons name="chart-bar" size={embedded ? 24 : 22} color="#059669" />
               <Text numberOfLines={1} style={embedded ? styles.embeddedTitle : styles.headerTitle}>{t('title')}</Text>
             </View>
           </View>
@@ -237,9 +234,9 @@ export function HealthReportPanel({
               onPress={() => setFilterOpen(open => !open)}
               style={styles.filterButton}
             >
-              <MaterialCommunityIcons name="calendar-month-outline" size={19} color={colors.primary} />
+              <MaterialCommunityIcons name="calendar-month-outline" size={17} color="#059669" />
               <Text style={styles.filterText}>{t(period === 'week' ? 'weekFilter' : 'monthFilter')}</Text>
-              <MaterialCommunityIcons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={21} color={colors.primary} />
+              <MaterialCommunityIcons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#059669" />
             </Pressable>
             {filterOpen && (
               <View style={styles.filterMenu}>
@@ -252,7 +249,7 @@ export function HealthReportPanel({
                     <MaterialCommunityIcons
                       name={option === 'week' ? 'calendar-week-outline' : 'calendar-month-outline'}
                       size={18}
-                      color={option === period ? colors.primary : colors.textSecondary}
+                      color={option === period ? '#059669' : colors.textSecondary}
                     />
                     <Text style={[styles.filterOptionText, option === period && styles.filterOptionTextActive]}>
                       {t(option === 'week' ? 'weekFilter' : 'monthFilter')}
@@ -267,7 +264,7 @@ export function HealthReportPanel({
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color="#059669" />
         </View>
       ) : !report || (!showEmptyReport && report.checkinDays === 0) ? (
         <View style={styles.center}>
@@ -283,9 +280,9 @@ export function HealthReportPanel({
         >
           <Animated.View entering={FadeIn.duration(350)} style={styles.card}>
             <View style={styles.statusOverview}>
-              <MaterialCommunityIcons name={statusMeta.icon} size={52} color={statusMeta.color} />
+              <MaterialCommunityIcons name={statusMeta.icon} size={50} color={statusMeta.color} />
               <View style={styles.statusOverviewCopy}>
-                <Text style={[styles.statusOverviewTitle, { color: statusMeta.color }]}>{t(statusMeta.labelKey)}</Text>
+                <Text style={styles.statusOverviewTitle}>{t(statusMeta.labelKey)}</Text>
                 <Text style={styles.statusOverviewSummary}>{t(statusMeta.summaryKey)}</Text>
               </View>
             </View>
@@ -303,7 +300,7 @@ export function HealthReportPanel({
                 />
                 <Metric
                   icon="check-circle-outline"
-                  color={iconColors.glucose}
+                  color="#0f766e"
                   value={habitCompletion}
                   label={t('habitCompletion')}
                   detail={totalMissions > 0 ? `${habitPercent}%` : t('noData')}
@@ -313,7 +310,7 @@ export function HealthReportPanel({
             <View style={styles.metricRow}>
                 <Metric
                   icon="bell-outline"
-                  color={alertCount > 0 ? iconColors.danger : iconColors.emerald}
+                  color={alertCount > 0 ? iconColors.danger : '#059669'}
                   value={String(alertCount)}
                   label={t('alertsTitle')}
                   detail={alertCount > 0 ? t('needsAttention') : t('noAlerts')}
@@ -321,7 +318,7 @@ export function HealthReportPanel({
                 />
                 <Metric
                   icon="calendar-check-outline"
-                  color={iconColors.violet}
+                  color="#4338ca"
                   value={`${report.checkinDays}/${report.totalDays}`}
                   label={t('trackingDays')}
                   detail={t(period === 'week' ? 'weekFilter' : 'monthFilter')}
@@ -338,7 +335,9 @@ export function HealthReportPanel({
                 const percent = severityTotal > 0 ? Math.round((count / severityTotal) * 100) : 0;
                 return (
                   <View key={severity} style={styles.severityItem}>
-                    <MaterialCommunityIcons name={SEVERITY_ICON[severity]} size={28} color={SEVERITY_COLORS[severity]} />
+                    <View style={[styles.severityIconWrap, { backgroundColor: `${SEVERITY_COLORS[severity]}14` }]}>
+                      <MaterialCommunityIcons name={SEVERITY_ICON[severity]} size={24} color={SEVERITY_COLORS[severity]} />
+                    </View>
                     <Text style={styles.severityLabel} numberOfLines={1}>
                       {t(severity === 'low' ? 'severityLow' : severity === 'medium' ? 'severityMedium' : 'severityHigh')}
                     </Text>
@@ -346,7 +345,7 @@ export function HealthReportPanel({
                       {count} <Text style={styles.severityPercent}>({percent}%)</Text>
                     </Text>
                     <View style={styles.severityTrack}>
-                      <View style={[styles.severityFill, { width: `${percent}%`, backgroundColor: `${SEVERITY_COLORS[severity]}99` }]} />
+                      <View style={[styles.severityFill, { width: `${percent}%`, backgroundColor: SEVERITY_COLORS[severity] }]} />
                     </View>
                   </View>
                 );
@@ -358,7 +357,9 @@ export function HealthReportPanel({
             <SectionTitle icon="shield-check-outline" title={t('statusTitle')} styles={styles} />
             <View style={styles.card}>
               <View style={styles.statusSummary}>
-                <MaterialCommunityIcons name={statusMeta.icon} size={30} color={statusMeta.color} />
+                <View style={[styles.statusSummaryIconWrap, { backgroundColor: `${statusMeta.color}14` }]}>
+                  <MaterialCommunityIcons name={statusMeta.icon} size={28} color={statusMeta.color} />
+                </View>
                 <View style={styles.statusSummaryCopy}>
                   <Text style={[styles.statusSummaryTitle, { color: statusMeta.color }]}>{t(statusMeta.labelKey)}</Text>
                   <Text style={styles.statusSummaryText}>{t(statusMeta.summaryKey)}</Text>
@@ -371,8 +372,8 @@ export function HealthReportPanel({
                   '#d7ba58',
                   '#80b878',
                   iconColors.emerald,
-                ].map((color, index) => (
-                  <View key={index} style={[styles.statusScaleSegment, { backgroundColor: `${color}bb` }]} />
+                ].map((col, index) => (
+                  <View key={index} style={[styles.statusScaleSegment, { backgroundColor: `${col}bb` }]} />
                 ))}
                 <View style={[styles.statusMarker, { left: `${statusMeta.position}%`, borderColor: statusMeta.color }]} />
               </View>
@@ -390,8 +391,8 @@ export function HealthReportPanel({
                     if (count === 0) return null;
                     const meta = STATUS_META[status];
                     return (
-                      <View key={status} style={styles.statusCountItem}>
-                        <MaterialCommunityIcons name={meta.icon} size={16} color={meta.color} />
+                      <View key={status} style={[styles.statusCountItem, { backgroundColor: `${meta.color}0f` }]}>
+                        <MaterialCommunityIcons name={meta.icon} size={14} color={meta.color} />
                         <Text style={styles.statusCountLabel}>{t(meta.labelKey)}</Text>
                         <Text style={[styles.statusCountValue, { color: meta.color }]}>{count}</Text>
                       </View>
@@ -401,6 +402,7 @@ export function HealthReportPanel({
               )}
             </View>
           </Animated.View>
+
 
           {alertCount > 0 && (
             <Animated.View entering={FadeInDown.delay(240).duration(350)} style={styles.sectionBlock}>
@@ -489,9 +491,9 @@ function Metric({
     <View style={styles.metricCell}>
       <View style={styles.metricHeading}>
         <MaterialCommunityIcons name={icon} size={18} color={color} />
-        <Text style={styles.metricLabel} numberOfLines={2}>{label}</Text>
+        <Text style={styles.metricLabel} numberOfLines={1}>{label}</Text>
       </View>
-      <Text style={[styles.metricValue, { color }]}>{value}</Text>
+      <Text style={[styles.metricValue, { color }]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
       <Text style={styles.metricDetail} numberOfLines={1}>{detail}</Text>
     </View>
   );
@@ -501,7 +503,7 @@ function SectionTitle({
   icon,
   title,
   styles,
-  color = colors.primary,
+  color = '#059669',
 }: {
   icon: IconName;
   title: string;
@@ -524,7 +526,7 @@ function createStyles(
   return StyleSheet.create({
     outer: {
       flex: embedded ? undefined : 1,
-      marginTop: embedded ? spacing.lg : 0,
+      marginTop: embedded ? spacing.sm : 0,
     },
     header: {
       flexDirection: 'row',
@@ -537,37 +539,42 @@ function createStyles(
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      paddingHorizontal: embedded ? spacing.sm : spacing.lg,
+      paddingHorizontal: embedded ? 0 : spacing.lg,
       paddingBottom: spacing.sm,
     },
     headerTitleBlock: { flex: 1, minWidth: 0 },
     embeddedTitleBlock: { flex: 1, minWidth: 0 },
-    titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    headerTitle: { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
     headerSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
-    embeddedTitle: { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
+    embeddedTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
     embeddedSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
     filterWrap: { position: 'relative', zIndex: 10 },
     filterButton: {
-      minHeight: 44,
+      height: 38,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
-      paddingHorizontal: spacing.md,
+      gap: 6,
+      paddingHorizontal: 12,
       borderRadius: radius.full,
-      backgroundColor: colors.surface,
+      backgroundColor: '#ffffff',
       borderWidth: 1,
-      borderColor: `${colors.primary}38`,
+      borderColor: '#d1fae5',
+      shadowColor: '#000',
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 1,
     },
-    filterText: { fontSize: typography.size.xs, fontWeight: '600', color: colors.primaryDark },
+    filterText: { fontSize: 13, fontWeight: '600', color: '#065f46' },
     filterMenu: {
       position: 'absolute',
-      top: 50,
+      top: 44,
       right: 0,
       minWidth: 148,
       padding: spacing.xs,
       borderRadius: radius.md,
-      backgroundColor: colors.surface,
+      backgroundColor: '#ffffff',
       borderWidth: 1,
       borderColor: colors.border,
       shadowColor: '#000',
@@ -584,9 +591,9 @@ function createStyles(
       paddingVertical: spacing.sm,
       borderRadius: radius.sm,
     },
-    filterOptionActive: { backgroundColor: colors.primaryLight },
+    filterOptionActive: { backgroundColor: '#f0fdf4' },
     filterOptionText: { fontSize: typography.size.xs, color: colors.textSecondary },
-    filterOptionTextActive: { color: colors.primaryDark, fontWeight: '600' },
+    filterOptionTextActive: { color: '#059669', fontWeight: '600' },
     center: {
       minHeight: embedded ? 260 : 420,
       alignItems: 'center',
@@ -597,66 +604,112 @@ function createStyles(
     scroll: embedded ? {} : { flex: 1 },
     scrollContent: {
       paddingHorizontal: embedded ? 0 : spacing.lg,
-      paddingTop: spacing.sm,
-      gap: spacing.lg,
+      paddingTop: spacing.xs,
+      gap: spacing.md,
       paddingBottom: embedded ? insets.bottom + spacing.lg : insets.bottom + spacing.xl,
     },
     card: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
+      backgroundColor: '#ffffff',
+      borderRadius: 20,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: '#e5e7eb',
       padding: spacing.lg,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
+      elevation: 1,
     },
     statusOverview: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      paddingBottom: spacing.lg,
     },
     statusOverviewCopy: { flex: 1 },
-    statusOverviewTitle: { fontSize: typography.size.lg, fontWeight: '700' },
-    statusOverviewSummary: { fontSize: typography.size.xs, color: colors.textSecondary, lineHeight: 18, marginTop: spacing.xs },
-    metricsGrid: { gap: spacing.md },
-    metricRow: { flexDirection: 'row', gap: spacing.md },
-    metricCell: { flex: 1, minHeight: 112, alignItems: 'center', justifyContent: 'center', padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
-    metricHeading: { width: '100%', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: spacing.xs },
-    metricLabel: { flex: 1, fontSize: typography.size.xs, color: colors.textSecondary, textAlign: 'center' },
-    metricValue: { fontSize: typography.size.xl, fontWeight: '700', textAlign: 'center', marginTop: 2 },
-    metricDetail: { fontSize: typography.size.xxs, color: colors.textSecondary, textAlign: 'center', marginTop: 1 },
-    sectionBlock: { gap: spacing.sm },
-    sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
-    cardTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.textPrimary },
-    severityGrid: { flexDirection: 'row', gap: spacing.md },
-    severityItem: { flex: 1, alignItems: 'center', minWidth: 0, padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
-    severityLabel: { fontSize: typography.size.xs, fontWeight: '600', color: colors.textPrimary, marginTop: spacing.sm },
-    severityValue: { fontSize: typography.size.lg, fontWeight: '700', textAlign: 'center', marginTop: 2 },
+    statusOverviewTitle: { fontSize: 24, fontWeight: '800', color: '#111827' },
+    statusOverviewSummary: { fontSize: 13, color: '#6b7280', lineHeight: 19, marginTop: 4 },
+    metricsGrid: { gap: 12 },
+    metricRow: { flexDirection: 'row', gap: 12 },
+    metricCell: {
+      flex: 1,
+      minHeight: 100,
+      padding: spacing.md,
+      backgroundColor: '#ffffff',
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: '#e5e7eb',
+      justifyContent: 'space-between',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
+      elevation: 1,
+    },
+    metricHeading: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 6 },
+    metricLabel: { flex: 1, fontSize: 12, color: '#6b7280', fontWeight: '500' },
+    metricValue: { fontSize: 22, fontWeight: '800', textAlign: 'center', marginVertical: 4 },
+    metricDetail: { fontSize: 12, color: '#9ca3af', textAlign: 'center' },
+    sectionBlock: { gap: spacing.sm, marginTop: spacing.xs },
+    sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xs },
+    cardTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+    severityGrid: { flexDirection: 'row', gap: 12 },
+    severityItem: {
+      flex: 1,
+      alignItems: 'center',
+      minWidth: 0,
+      padding: 12,
+      backgroundColor: '#ffffff',
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: '#e5e7eb',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
+      elevation: 1,
+    },
+    severityIconWrap: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statusSummaryIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    severityLabel: { fontSize: typography.size.xs, fontWeight: '600', color: '#374151', marginTop: 6 },
+    severityValue: { fontSize: typography.size.md, fontWeight: '700', textAlign: 'center', marginTop: 2 },
     severityPercent: { fontSize: typography.size.xxs, fontWeight: '600', color: colors.textSecondary },
-    severityTrack: { width: '100%', height: 7, borderRadius: radius.full, backgroundColor: colors.surfaceMuted, overflow: 'hidden', marginTop: spacing.md },
+    severityTrack: { width: '100%', height: 6, borderRadius: radius.full, backgroundColor: '#f3f4f6', overflow: 'hidden', marginTop: 8 },
     severityFill: { height: '100%', borderRadius: radius.full },
     statusSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     statusSummaryCopy: { flex: 1 },
     statusSummaryTitle: { fontSize: typography.size.lg, fontWeight: '700' },
     statusSummaryText: { fontSize: typography.size.sm, color: colors.textSecondary, marginTop: 2 },
     statusScaleTrack: { height: 13, flexDirection: 'row', alignItems: 'center', marginTop: spacing.xl, position: 'relative', gap: 2 },
-    statusScaleSegment: { flex: 1, height: 9, borderRadius: radius.full },
+    statusScaleSegment: { flex: 1, height: 8, borderRadius: radius.full },
     statusMarker: { position: 'absolute', top: -3, width: 19, height: 19, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 3, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
     statusScaleLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm, gap: spacing.xs },
     statusScaleLabel: { flex: 1, fontSize: typography.size.xxs, fontWeight: '700', textAlign: 'center' },
-    statusCounts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
-    statusCountItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingRight: spacing.sm },
-    statusCountLabel: { fontSize: typography.size.xxs, color: colors.textSecondary },
-    statusCountValue: { fontSize: typography.size.xs, fontWeight: '600' },
-    alertCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: `${colors.danger}0d` },
+    statusCounts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
+    statusCountItem: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.full },
+    statusCountLabel: { fontSize: typography.size.xxs, color: colors.textSecondary, fontWeight: '500' },
+    statusCountValue: { fontSize: typography.size.xs, fontWeight: '700' },
+    alertCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 16, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
     alertCopy: { flex: 1 },
     alertTitle: { fontSize: typography.size.sm, fontWeight: '700', color: iconColors.danger },
     alertDescription: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
-    alertAction: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: `${iconColors.danger}66` },
+    alertAction: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: `${iconColors.danger}66`, backgroundColor: '#ffffff' },
     alertActionText: { fontSize: typography.size.xs, fontWeight: '600', color: iconColors.danger },
-    listRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+    listRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
     listRowLast: { borderBottomWidth: 0 },
-    rankBadge: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
-    rankText: { fontSize: typography.size.xs, fontWeight: '600', color: colors.textPrimary },
+    rankBadge: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ecfdf5' },
+    rankText: { fontSize: typography.size.xs, fontWeight: '700', color: '#059669' },
     listRowText: { flex: 1, fontSize: typography.size.sm, color: colors.textPrimary, fontWeight: '500' },
     listRowValue: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textSecondary },
     historyCopy: { flex: 1 },
