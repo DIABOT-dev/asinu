@@ -103,7 +103,7 @@ export function EmergencySOSButton() {
         <Animated.View style={[styles.progressRing, { width: ringWidth }]} />
 
         <Ionicons name="warning" size={20} color="#fff" />
-        <Text style={styles.label}>SOS</Text>
+        <Text style={styles.label}>{t('sosLabel')}</Text>
       </Pressable>
       <Text style={styles.hint}>{t('sosHint')}</Text>
     </View>

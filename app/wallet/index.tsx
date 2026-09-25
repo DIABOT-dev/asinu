@@ -227,6 +227,7 @@ export default function WalletScreen() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const handledOrderCodesRef = useRef(new Set<string>());
 
   const clearTimers = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -283,6 +284,8 @@ export default function WalletScreen() {
           setPayments(res.payments);
           const found = res.payments.find((p) => p.order_code === orderCode);
           if (found?.status === 'completed') {
+            if (handledOrderCodesRef.current.has(orderCode)) return;
+            handledOrderCodesRef.current.add(orderCode);
             setPollStatus('success');
             if (pollRef.current) clearInterval(pollRef.current);
             fetchBalance();

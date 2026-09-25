@@ -50,11 +50,12 @@ type WalletResult =
 
 function GiftHeader({ title, topInset }: { title: string; topInset: number }) {
   const router = useRouter();
+  const { t: tc } = useTranslation('common');
 
   return (
     <View style={[styles.header, { paddingTop: topInset + spacing.md }]}>
       <ScreenBackButton
-        accessibilityLabel="Quay lại"
+        accessibilityLabel={tc('back')}
         onPress={() => router.back()}
         style={[styles.backBtn, { top: topInset + spacing.md }]}
       />

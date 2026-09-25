@@ -66,7 +66,7 @@ export const Toast = ({ visible, message, type = 'success', duration = 2500, onH
       scale.setValue(0.85);
       opacity.setValue(0);
     }
-  }, [visible, duration]);
+  }, [duration, onHide, opacity, scale, visible]);
 
   // Defensive: nếu caller pass type lạ → fallback về success thay vì crash
   const cfg = CONFIG[type] || CONFIG.success;

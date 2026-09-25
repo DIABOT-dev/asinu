@@ -148,9 +148,9 @@ const formatMessageTime = (dateString?: string) => {
 };
 
 const formatHeaderDate = (
-  dateString?: string,
-  todayLabel = "Hôm nay",
-  locale = "vi-VN"
+  dateString: string | undefined,
+  todayLabel: string,
+  locale: string,
 ) => {
   const date = dateString ? new Date(dateString) : new Date();
   const validDate = isNaN(date.getTime()) ? new Date() : date;
@@ -573,12 +573,7 @@ export default function DoctorConsultationThreadScreen() {
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        showToast(
-          i18n.language === "vi"
-            ? "Vui lòng cấp quyền truy cập thư viện ảnh"
-            : "Please grant photo library access",
-          "error"
-        );
+        showToast(t("doctorConsultationPhotoPermission"), "error");
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -674,14 +669,10 @@ export default function DoctorConsultationThreadScreen() {
       (currentStatus !== "completed" || followUpOpen)
     : false;
   const statusLabel = taskStatus?.status
-    ? t(`doctorConsultationStatus_${taskStatus.status}`, {
-        defaultValue: t("doctorConsultationStatusUnknown"),
-      })
+    ? t(`doctorConsultationStatus_${taskStatus.status}`)
     : loading
     ? t("doctorConsultationWaiting")
-    : t("doctorConsultationStatus_completed", {
-        defaultValue: "Đã hoàn tất",
-      });
+    : t("doctorConsultationStatus_completed");
   const statusIsTerminal =
     !taskStatus ||
     ["completed", ...terminalStatuses].includes(taskStatus.status);
@@ -879,9 +870,7 @@ export default function DoctorConsultationThreadScreen() {
                   ]}
                 >
                   {statusIsTerminal
-                    ? t("doctorConsultationStatus_completed", {
-                        defaultValue: "Ca tư vấn đã hoàn tất",
-                      })
+                    ? t("doctorConsultationStatus_completed")
                     : statusLabel}
                 </Text>
               </View>
@@ -1166,10 +1155,9 @@ export default function DoctorConsultationThreadScreen() {
                               ]}
                             >
                               {voice.duration_ms
-                                ? `${Math.max(
-                                    1,
-                                    Math.round(voice.duration_ms / 1000)
-                                  )}s`
+                                ? t('doctorConsultationVoiceDuration', {
+                                    seconds: Math.max(1, Math.round(voice.duration_ms / 1000)),
+                                  })
                                 : t("doctorConsultationVoiceMessage")}
                             </Text>
                           </Pressable>
@@ -1381,10 +1369,9 @@ export default function DoctorConsultationThreadScreen() {
                           ]}
                         >
                           {voice.duration_ms
-                            ? `${Math.max(
-                                1,
-                                Math.round(voice.duration_ms / 1000)
-                              )}s`
+                            ? t('doctorConsultationVoiceDuration', {
+                                seconds: Math.max(1, Math.round(voice.duration_ms / 1000)),
+                              })
                             : t("doctorConsultationVoiceMessage")}
                         </Text>
                       </Pressable>

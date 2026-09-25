@@ -36,6 +36,8 @@
   "deletedMsg": "Connection removed",
   "deleteError": "Cannot delete connection",
   "editConnection": "Edit Connection",
+  "connectionActionsTitle": "Connection options",
+  "connectionActionsMessage": "Choose an action for {{name}}.",
   "currentInfo": "Current info:",
   "relationship": "Relationship",
   "relationshipPlaceholder": "Select relationship...",

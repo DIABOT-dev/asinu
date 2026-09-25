@@ -250,8 +250,8 @@ export default function FeedListScreen() {
               <View style={styles.emptyIconContainer}>
                 <Ionicons name="bookmark-outline" size={48} color={colors.textSecondary} />
               </View>
-              <Text style={styles.emptyTitle}>Mục ghi nhớ trống</Text>
-              <Text style={styles.emptySub}>Hãy bấm biểu tượng Lưu trong các bản tin để lưu giữ các hướng dẫn sức khỏe quan trọng của bác tại đây.</Text>
+              <Text style={styles.emptyTitle}>{tc('savedEmptyTitle')}</Text>
+              <Text style={styles.emptySub}>{tc('savedEmptyDescription')}</Text>
             </View>
           ) : (
             savedItems.map(item => (

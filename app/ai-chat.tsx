@@ -149,7 +149,7 @@ export default function AiChatScreen() {
   }), [isDark]);
   const screenOptions = useMemo(() => ({
     headerShown: true,
-    title: t('title') || 'Asinu AI',
+    title: t('title'),
     headerStyle: { backgroundColor: colors.background },
     headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' as const },
     headerShadowVisible: false,

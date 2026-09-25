@@ -245,7 +245,7 @@ export default function TreeScreen() {
             onPress={() => router.push('/(tabs)/profile')}
             style={styles.profileBtn}
             accessibilityRole="button"
-            accessibilityLabel="Hồ sơ"
+            accessibilityLabel={tc('tabProfile')}
             hitSlop={8}
           >
             <Avatar
@@ -392,7 +392,7 @@ export default function TreeScreen() {
         style={[styles.fabButton, { bottom: insets.bottom + 16 }]}
         onPress={() => router.push('/checkin')}
         accessibilityRole="button"
-        accessibilityLabel="Check-in"
+        accessibilityLabel={tc('checkinAction')}
       >
         <Ionicons name="add" size={28} color="#ffffff" />
       </Pressable>

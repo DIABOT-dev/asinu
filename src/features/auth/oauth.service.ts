@@ -95,7 +95,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
     // Android: server-side flow qua backend (Android OAuth client không hỗ trợ browser redirect)
     if (Platform.OS === 'android') {
       const apiBase = (process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
-      if (!apiBase) throw new Error('API base URL chưa được cấu hình');
+      if (!apiBase) throw new Error(t('apiBaseNotConfigured'));
 
       const codeVerifier = await generateCodeVerifier();
       const codeChallenge = await createCodeChallenge(codeVerifier);
@@ -445,7 +445,7 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
     }
 
     const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
-    if (!apiBase) return { type: 'error', error: 'API base URL chưa được cấu hình' };
+    if (!apiBase) return { type: 'error', error: t('apiBaseNotConfigured') };
 
     // Standard Login returns an OAuth access token on both platforms.
     const tokenData = await AccessToken.getCurrentAccessToken();

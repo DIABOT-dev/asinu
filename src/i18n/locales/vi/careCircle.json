@@ -36,6 +36,8 @@
   "deletedMsg": "Kết nối đã được xóa",
   "deleteError": "Không thể xóa kết nối",
   "editConnection": "Chỉnh sửa kết nối",
+  "connectionActionsTitle": "Tùy chọn kết nối",
+  "connectionActionsMessage": "Chọn thao tác với {{name}}.",
   "currentInfo": "Thông tin hiện tại:",
   "relationship": "Mối quan hệ",
   "relationshipPlaceholder": "Chọn mối quan hệ...",

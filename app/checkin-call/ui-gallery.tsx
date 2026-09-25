@@ -57,10 +57,10 @@ const COLORS = {
 };
 
 function TopBar({ title, onBack }: { title: string; onBack: () => void }) {
-  const { t } = useTranslation('common');
+  const { t: tc } = useTranslation('common');
   return (
     <View style={styles.topBar}>
-      <Pressable accessibilityRole="button" accessibilityLabel={t('back')} style={styles.iconButton} onPress={onBack}>
+      <Pressable accessibilityRole="button" accessibilityLabel={tc('back')} style={styles.iconButton} onPress={onBack}>
         <Ionicons name="chevron-back" size={24} color={COLORS.ink} />
       </Pressable>
       <Text style={styles.topBarTitle} numberOfLines={1}>{title}</Text>

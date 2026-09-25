@@ -51,27 +51,26 @@ const LEVEL_CONFIG: Record<HealthLevel, {
   },
 };
 
-const FACTOR_LABELS: Record<string, { vi: string; en: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  status_tired:          { vi: 'Bạn báo hơi mệt hôm nay', en: 'You reported feeling tired', icon: 'bed-outline', color: '#d97706' },
-  triage_severity_medium:{ vi: 'Mức độ sức khoẻ cần theo dõi', en: 'Health severity needs monitoring', icon: 'eye-outline', color: '#d97706' },
-  triage_severity_high:  { vi: 'Mức độ sức khoẻ nghiêm trọng', en: 'Serious health severity', icon: 'alert-circle-outline', color: '#dc2626' },
-  triage_severity_emergency: { vi: 'KHẨN CẤP — Gọi cấp cứu ngay', en: 'EMERGENCY — Call emergency now', icon: 'warning', color: '#991b1b' },
-  glucose_high:          { vi: 'Đường huyết cao hơn bình thường', en: 'Blood glucose above normal', icon: 'water-outline', color: '#d97706' },
-  glucose_very_high:     { vi: 'Đường huyết rất cao — cần chú ý', en: 'Very high blood glucose — attention needed', icon: 'water', color: '#dc2626' },
-  glucose_very_low:      { vi: 'Đường huyết thấp — nguy cơ hạ đường huyết', en: 'Low blood glucose — hypoglycemia risk', icon: 'water', color: '#dc2626' },
-  systolic_high:         { vi: 'Huyết áp cao hơn bình thường', en: 'Blood pressure above normal', icon: 'heart-outline', color: '#d97706' },
-  systolic_very_high:    { vi: 'Huyết áp rất cao — cần chú ý', en: 'Very high blood pressure — attention needed', icon: 'heart', color: '#dc2626' },
-  emergency_triggered:   { vi: 'Đã kích hoạt cảnh báo khẩn cấp', en: 'Emergency alert triggered', icon: 'warning-outline', color: '#dc2626' },
+const FACTOR_LABELS: Record<string, { labelKey: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  status_tired: { labelKey: 'healthFactorStatusTired', icon: 'bed-outline', color: '#d97706' },
+  triage_severity_medium: { labelKey: 'healthFactorSeverityMedium', icon: 'eye-outline', color: '#d97706' },
+  triage_severity_high: { labelKey: 'healthFactorSeverityHigh', icon: 'alert-circle-outline', color: '#dc2626' },
+  triage_severity_emergency: { labelKey: 'healthFactorSeverityEmergency', icon: 'warning', color: '#991b1b' },
+  glucose_high: { labelKey: 'healthFactorGlucoseHigh', icon: 'water-outline', color: '#d97706' },
+  glucose_very_high: { labelKey: 'healthFactorGlucoseVeryHigh', icon: 'water', color: '#dc2626' },
+  glucose_very_low: { labelKey: 'healthFactorGlucoseVeryLow', icon: 'water', color: '#dc2626' },
+  systolic_high: { labelKey: 'healthFactorSystolicHigh', icon: 'heart-outline', color: '#d97706' },
+  systolic_very_high: { labelKey: 'healthFactorSystolicVeryHigh', icon: 'heart', color: '#dc2626' },
+  emergency_triggered: { labelKey: 'healthFactorEmergencyTriggered', icon: 'warning-outline', color: '#dc2626' },
 };
 
 export const HealthScoreCard = React.memo(function HealthScoreCard({ level, factors, checkinDone }: HealthScoreCardProps) {
-  const { t, i18n } = useTranslation('home');
+  const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const config = LEVEL_CONFIG[level];
   const { isDark } = useThemeColors();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
-  const isVi = i18n.language === 'vi';
 
   const styles = useMemo(() => StyleSheet.create({
     card: {
@@ -155,7 +154,7 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
                   color={meta?.color || colors.textSecondary}
                 />
                 <Text style={[styles.factorText, { fontSize: scaledTypography.size.xs }]}>
-                  {meta ? (isVi ? meta.vi : meta.en) : factor}
+                  {meta ? t(meta.labelKey) : t('healthFactorUnknown')}
                 </Text>
               </View>
             );

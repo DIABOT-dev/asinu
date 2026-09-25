@@ -21,6 +21,26 @@ const flatten = (value, prefix = '') => {
   return result;
 };
 
+const flattenValues = (value, prefix = '') => {
+  const result = new Map();
+  for (const [key, child] of Object.entries(value)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (child && typeof child === 'object' && !Array.isArray(child)) {
+      for (const [nestedKey, nestedValue] of flattenValues(child, fullKey)) {
+        result.set(nestedKey, nestedValue);
+      }
+    } else {
+      result.set(fullKey, child);
+    }
+  }
+  return result;
+};
+
+const placeholders = (value) =>
+  typeof value === 'string'
+    ? [...value.matchAll(/\{\{([^{}]+)\}\}/g)].map((match) => match[1]).sort()
+    : [];
+
 const errors = [];
 const files = fs.readdirSync(path.join(localesDir, 'vi'))
   .filter((file) => file.endsWith('.json'))
@@ -46,11 +66,27 @@ for (const file of files) {
 
   const viKeys = flatten(vi);
   const enKeys = flatten(en);
+  const viValues = flattenValues(vi);
+  const enValues = flattenValues(en);
   for (const key of new Set([...viKeys.keys(), ...enKeys.keys()])) {
     if (!viKeys.has(key)) errors.push(`${file}: missing Vietnamese key ${key}`);
     if (!enKeys.has(key)) errors.push(`${file}: missing English key ${key}`);
     if (viKeys.has(key) && enKeys.has(key) && viKeys.get(key) !== enKeys.get(key)) {
       errors.push(`${file}: type mismatch for ${key}`);
+    }
+    if (!viValues.has(key) || !enValues.has(key)) continue;
+    if (typeof viValues.get(key) === 'string' && !viValues.get(key).trim()) {
+      errors.push(`${file}: empty Vietnamese value for ${key}`);
+    }
+    if (typeof enValues.get(key) === 'string' && !enValues.get(key).trim()) {
+      errors.push(`${file}: empty English value for ${key}`);
+    }
+    const viParams = placeholders(viValues.get(key));
+    const enParams = placeholders(enValues.get(key));
+    if (viParams.join('|') !== enParams.join('|')) {
+      errors.push(
+        `${file}: placeholder mismatch for ${key} (vi=${viParams.join(',')} en=${enParams.join(',')})`,
+      );
     }
   }
 }

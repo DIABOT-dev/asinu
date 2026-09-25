@@ -80,13 +80,11 @@ const SEVERITY_KEYS: SeverityKey[] = ['low', 'medium', 'high'];
 function formatDailyDate(dateStr: string, isVi: boolean): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
-  if (isVi) {
-    const days = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    return `${days[d.getDay()]}, ${dd}/${mm}`;
-  }
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: '2-digit', day: '2-digit' });
+  return d.toLocaleDateString(isVi ? 'vi-VN' : 'en-US', {
+    weekday: 'short',
+    month: '2-digit',
+    day: '2-digit',
+  });
 }
 
 type Props = {

@@ -194,7 +194,7 @@ export default function MealLogScreen() {
                         keyboardType="numeric"
                         value={carbsG}
                         onChangeText={setCarbsG}
-                        placeholder="g"
+                        placeholder={t('unitGram')}
                       />
                     </View>
                     <View style={styles.macroInput}>
@@ -203,7 +203,7 @@ export default function MealLogScreen() {
                         keyboardType="numeric"
                         value={proteinG}
                         onChangeText={setProteinG}
-                        placeholder="g"
+                        placeholder={t('unitGram')}
                       />
                     </View>
                     <View style={styles.macroInput}>
@@ -212,7 +212,7 @@ export default function MealLogScreen() {
                         keyboardType="numeric"
                         value={fatG}
                         onChangeText={setFatG}
-                        placeholder="g"
+                        placeholder={t('unitGram')}
                       />
                     </View>
                   </View>

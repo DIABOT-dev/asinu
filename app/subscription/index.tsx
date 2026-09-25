@@ -147,7 +147,7 @@ const PlanComparison = memo(function PlanComparison({
             <Ionicons name="person-outline" size={20} color="#64748b" />
           </View>
           <Text style={styles.freePlanTitle}>{t('free')}</Text>
-          <Text style={styles.freePrice}>0đ</Text>
+          <Text style={styles.freePrice}>{t('freePrice')}</Text>
           <Text style={styles.perMonthText}>{t('perMonth')}</Text>
         </View>
 
@@ -181,7 +181,7 @@ const PlanComparison = memo(function PlanComparison({
             <MaterialCommunityIcons name="crown" size={22} color="#f59e0b" />
           </View>
           <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
-          <Text style={styles.premiumPrice}>199K</Text>
+          <Text style={styles.premiumPrice}>{t('premiumPrice')}</Text>
           <Text style={styles.premiumPerMonthText}>{t('perMonth')}</Text>
         </View>
 
@@ -272,7 +272,7 @@ const HistoryCard = memo(function HistoryCard({
               <View key={sub.id} style={styles.historyItemRow}>
                 <View style={styles.historyItemCol}>
                   <Text style={styles.historyItemAmount}>
-                    {formatVND(sub.amount)}đ · {t('planMonth', { months: sub.plan_months })}
+                    {t('priceVnd', { amount: formatVND(sub.amount) })} · {t('planMonth', { months: sub.plan_months })}
                   </Text>
                   <Text style={styles.historyItemDate}>{formatDate(sub.created_at)}</Text>
                 </View>
@@ -318,6 +318,7 @@ export default function SubscriptionScreen() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const handledOrderCodesRef = useRef(new Set<string>());
   const clearTimers = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
@@ -364,6 +365,8 @@ export default function SubscriptionScreen() {
         if (res.ok) {
           const found = res.subscriptions.find(s => s.order_code === orderCode && s.status === 'completed');
           if (found) {
+            if (handledOrderCodesRef.current.has(orderCode)) return;
+            handledOrderCodesRef.current.add(orderCode);
             clearTimers();
             setPollStatus('success');
             setHistory(res.subscriptions);

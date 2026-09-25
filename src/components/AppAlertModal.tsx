@@ -9,6 +9,7 @@ import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { useTranslation } from 'react-i18next';
 
 export type AlertButton = {
   text: string;
@@ -31,12 +32,13 @@ type Props = {
 };
 
 export function AppAlertModal({ visible, title, message, buttons, icon, onDismiss }: Props) {
+  const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   const resolvedButtons: AlertButton[] =
-    buttons && buttons.length > 0 ? buttons : [{ text: 'OK', style: 'default' }];
+    buttons && buttons.length > 0 ? buttons : [{ text: t('ok'), style: 'default' }];
 
   const handlePress = (btn: AlertButton) => {
     onDismiss();

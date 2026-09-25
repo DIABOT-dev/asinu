@@ -243,7 +243,6 @@ export const SessionProvider = ({ children }: Props) => {
           type === "care_circle_rejected" ||
           type === "care_circle_removed" ||
           type === "care_circle_permission_changed" ||
-          type === "subscription_activated" ||
           type === "wallet_topup_success" ||
           type === "payment_failed" ||
           type === "wallet_low_balance" ||
@@ -255,7 +254,6 @@ export const SessionProvider = ({ children }: Props) => {
             type === "payment_failed" || type === "health_alert"
               ? "error"
               : type === "care_circle_accepted" ||
-                  type === "subscription_activated" ||
                   type === "wallet_topup_success" ||
                   type === "caregiver_confirmed"
                 ? "success"

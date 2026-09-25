@@ -47,6 +47,7 @@
   "genderFemale": "Female",
   "genderOther": "Other",
   "heightCm": "Height (cm)",
+  "heightValue": "{{value}} cm",
   "selectHeight": "Select height",
   "heightPlaceholder": "E.g.: 165",
   "heightError": "Height must be between 50–250 cm",

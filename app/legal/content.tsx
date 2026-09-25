@@ -5,11 +5,13 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { getLegalText } from '../../src/constants/LegalText';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, spacing } from '../../src/styles';
+import { useTranslation } from 'react-i18next';
 
 export default function LegalContentScreen() {
+  const { i18n } = useTranslation();
   const { type } = useLocalSearchParams<{ type?: string }>();
   const contentKey = type === 'privacy' ? 'privacy' : type === 'dataDeletion' ? 'dataDeletion' : 'terms';
-  const content = getLegalText('vi')[contentKey];
+  const content = getLegalText(i18n.language === 'en' ? 'en' : 'vi')[contentKey];
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 

@@ -1647,7 +1647,7 @@ export default function ProfileScreen() {
                       style={styles.statBoxInput}
                       value={editBloodType}
                       onChangeText={setEditBloodType}
-                      placeholder="O+"
+                      placeholder={t('bloodTypePlaceholder')}
                       placeholderTextColor={colors.textSecondary}
                       autoCapitalize="characters"
                       maxLength={4}
@@ -1758,24 +1758,24 @@ export default function ProfileScreen() {
 
             <View style={styles.diseaseChipsGrid}>
               {[
-                "Tiểu đường",
-                "Cao huyết áp",
-                "Tim mạch",
-                "Mỡ máu",
-                "Gút (Gout)",
-                "Hen suyễn",
-                "Dạ dày",
-                "Gan nhiễm mỡ",
+                { value: "Tiểu đường", labelKey: "diseaseDiabetes" },
+                { value: "Cao huyết áp", labelKey: "diseaseHypertension" },
+                { value: "Tim mạch", labelKey: "diseaseHeart" },
+                { value: "Mỡ máu", labelKey: "diseaseCholesterol" },
+                { value: "Gút (Gout)", labelKey: "diseaseGout" },
+                { value: "Hen suyễn", labelKey: "diseaseAsthma" },
+                { value: "Dạ dày", labelKey: "diseaseStomach" },
+                { value: "Gan nhiễm mỡ", labelKey: "diseaseFattyLiver" },
               ].map((item) => {
-                const selected = diseaseList.includes(item);
+                const selected = diseaseList.includes(item.value);
                 return (
                   <Pressable
-                    key={item}
+                    key={item.value}
                     style={[
                       styles.diseaseSelectChip,
                       selected && styles.diseaseSelectChipActive,
                     ]}
-                    onPress={() => toggleDisease(item)}
+                    onPress={() => toggleDisease(item.value)}
                   >
                     {selected && (
                       <Ionicons
@@ -1791,7 +1791,7 @@ export default function ProfileScreen() {
                         selected && styles.diseaseSelectChipTextActive,
                       ]}
                     >
-                      {item}
+                      {t(item.labelKey)}
                     </Text>
                   </Pressable>
                 );
@@ -1812,7 +1812,7 @@ export default function ProfileScreen() {
               >
                 <Ionicons name="add" size={18} color="#ffffff" />
                 <Text style={styles.addDiseaseBtnText}>
-                  {tc("add") || "Thêm"}
+                  {tc("add")}
                 </Text>
               </Pressable>
             </View>
@@ -1822,7 +1822,7 @@ export default function ProfileScreen() {
               onPress={() => setShowDiseasePicker(false)}
             >
               <Text style={styles.diseaseDoneBtnText}>
-                {tc("save") || "Xong"}
+                {tc("save")}
               </Text>
             </Pressable>
           </Pressable>

@@ -208,20 +208,20 @@ export default function CareCircleScreen() {
 
   const handleCancel = async (id: string) => {
     showAlert(
-      t('cancelInviteTitle') || 'Huỷ lời mời',
-      t('cancelInviteMsg') || 'Bạn có chắc muốn huỷ lời mời này?',
+      t('cancelInviteTitle'),
+      t('cancelInviteMsg'),
       [
         { text: tc('cancel'), style: 'cancel' },
         {
-          text: t('cancelInvite') || 'Huỷ lời mời',
+          text: t('cancelInvite'),
           style: 'destructive',
           onPress: async () => {
             try {
               setActionLoading(id);
               await cancelInvitation(id);
-              showToast(t('cancelSuccess') || 'Đã huỷ lời mời', 'success');
+              showToast(t('cancelSuccess'), 'success');
             } catch {
-              showToast(t('cancelError') || 'Không thể huỷ lời mời', 'error');
+              showToast(t('cancelError'), 'error');
             } finally {
               setActionLoading(null);
             }
@@ -688,7 +688,7 @@ export default function CareCircleScreen() {
                                 const options: any[] = [];
                                 if (isRequester) {
                                   options.push({
-                                    text: t('editConnection') || 'Chỉnh sửa kết nối',
+                                    text: t('editConnection'),
                                     onPress: () =>
                                       handleEditConnection({
                                         ...connection,
@@ -698,13 +698,13 @@ export default function CareCircleScreen() {
                                 }
                                 options.push(
                                   {
-                                    text: tc('delete') || 'Xóa',
+                                    text: tc('delete'),
                                     style: 'destructive',
                                     onPress: () => handleDeleteConnection(connection.id, otherName),
                                   },
-                                  { text: tc('cancel') || 'Hủy', style: 'cancel' }
+                                  { text: tc('cancel'), style: 'cancel' }
                                 );
-                                showAlert('Tùy chọn', `Thao tác với ${otherName}`, options);
+                                showAlert(t('connectionActionsTitle'), t('connectionActionsMessage', { name: otherName }), options);
                               }}
                               style={styles.moreActionsBtn}
                             >
@@ -784,7 +784,7 @@ export default function CareCircleScreen() {
                 ) : null}
                 {!profileTarget?.email && !profileTarget?.phone ? (
                   <Text style={styles.profileNoInfo}>
-                    {t('noContactInfo') || 'Không có thông tin liên hệ'}
+                    {t('noContactInfo')}
                   </Text>
                 ) : null}
               </View>
@@ -799,7 +799,7 @@ export default function CareCircleScreen() {
                 >
                   <Ionicons name="close-circle-outline" size={18} color={iconColors.danger} />
                   <Text style={styles.cancelInviteBtnText}>
-                    {t('cancelInvite') || 'Huỷ lời mời'}
+                    {t('cancelInvite')}
                   </Text>
                 </TouchableOpacity>
               ) : null}

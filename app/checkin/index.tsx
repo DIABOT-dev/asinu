@@ -45,29 +45,32 @@ const MAX_TRIAGE_QUESTIONS = 8;
 // ─── Local fallback questions (when network itself fails) ────────────────────
 
 const LOCAL_FALLBACK_INITIAL = [
-  { question: 'Mức độ mệt của bạn hiện tại thế nào?', questionEn: 'How severe is your tiredness right now?', options: ['nhẹ', 'trung bình', 'khá nặng', 'rất nặng'], optionsEn: ['mild', 'moderate', 'quite severe', 'very severe'], multiSelect: false },
-  { question: 'Bạn đang gặp triệu chứng nào?', questionEn: 'What symptoms are you experiencing?', options: ['mệt mỏi', 'chóng mặt', 'đau đầu', 'buồn nôn', 'khát nước', 'không rõ'], optionsEn: ['fatigue', 'dizziness', 'headache', 'nausea', 'thirst', 'not sure'], multiSelect: true },
-  { question: 'Tình trạng này bắt đầu từ khi nào?', questionEn: 'When did this start?', options: ['vừa mới', 'vài giờ trước', 'từ sáng', 'từ hôm qua'], optionsEn: ['just now', 'a few hours ago', 'since morning', 'since yesterday'], multiSelect: false },
-  { question: 'Bạn nghĩ điều gì có thể dẫn đến tình trạng này?', questionEn: 'What might have caused this?', options: ['ngủ ít', 'bỏ bữa', 'căng thẳng', 'quên uống thuốc', 'không rõ'], optionsEn: ['lack of sleep', 'skipped meals', 'stress', 'missed medication', 'not sure'], multiSelect: true },
-  { question: 'Bạn đã làm gì để cải thiện chưa?', questionEn: 'Have you done anything to feel better?', options: ['nghỉ ngơi', 'ăn uống', 'uống nước', 'uống thuốc', 'chưa làm gì'], optionsEn: ['rested', 'ate something', 'drank water', 'took medication', 'nothing yet'], multiSelect: true },
+  { questionKey: 'checkinFallbackInitial1Question', optionsKey: 'checkinFallbackInitial1Options', multiSelect: false },
+  { questionKey: 'checkinFallbackInitial2Question', optionsKey: 'checkinFallbackInitial2Options', multiSelect: true },
+  { questionKey: 'checkinFallbackInitial3Question', optionsKey: 'checkinFallbackInitial3Options', multiSelect: false },
+  { questionKey: 'checkinFallbackInitial4Question', optionsKey: 'checkinFallbackInitial4Options', multiSelect: true },
+  { questionKey: 'checkinFallbackInitial5Question', optionsKey: 'checkinFallbackInitial5Options', multiSelect: true },
 ];
 
 const LOCAL_FALLBACK_FOLLOWUP = [
-  { question: 'So với lần trước, bạn cảm thấy thế nào?', questionEn: 'Compared to before, how are you feeling now?', options: ['đã đỡ hơn', 'vẫn như cũ', 'mệt hơn trước'], optionsEn: ['better', 'about the same', 'worse'], multiSelect: false },
-  { question: 'Bạn có thêm triệu chứng nào mới không?', questionEn: 'Do you have any new symptoms?', options: ['đau đầu', 'chóng mặt', 'buồn nôn', 'khó thở', 'không có gì thêm'], optionsEn: ['headache', 'dizziness', 'nausea', 'shortness of breath', 'nothing new'], multiSelect: true },
-  { question: 'Bạn đã nghỉ ngơi hoặc ăn uống gì chưa?', questionEn: 'Have you rested or eaten anything?', options: ['đã nghỉ ngơi', 'đã ăn uống', 'đã uống thuốc', 'chưa làm gì'], optionsEn: ['rested', 'ate something', 'took medication', 'nothing yet'], multiSelect: true },
+  { questionKey: 'checkinFallbackFollowup1Question', optionsKey: 'checkinFallbackFollowup1Options', multiSelect: false },
+  { questionKey: 'checkinFallbackFollowup2Question', optionsKey: 'checkinFallbackFollowup2Options', multiSelect: true },
+  { questionKey: 'checkinFallbackFollowup3Question', optionsKey: 'checkinFallbackFollowup3Options', multiSelect: true },
 ];
 
-function getLocalFallbackQuestion(answerCount: number, isFollowUp: boolean, lang: string = 'vi') {
+function getLocalFallbackQuestion(
+  answerCount: number,
+  isFollowUp: boolean,
+  translate: (key: string, options?: Record<string, unknown>) => unknown,
+) {
   const bank = isFollowUp ? LOCAL_FALLBACK_FOLLOWUP : LOCAL_FALLBACK_INITIAL;
-  const isEn = lang === 'en';
 
   if (answerCount < bank.length) {
     const q = bank[answerCount];
     return {
       isDone: false,
-      question: isEn ? q.questionEn : q.question,
-      options: isEn ? q.optionsEn : q.options,
+      question: String(translate(q.questionKey)),
+      options: translate(q.optionsKey, { returnObjects: true }) as string[],
       multiSelect: q.multiSelect,
       _fallback: true,
     };
@@ -76,9 +79,9 @@ function getLocalFallbackQuestion(answerCount: number, isFollowUp: boolean, lang
   // All exhausted → done
   return {
     isDone: true,
-    summary: isEn ? 'Asinu has recorded your condition.' : 'Asinu đã ghi nhận tình trạng của bạn.',
+    summary: String(translate('checkinFallbackSummary')),
     severity: 'medium' as const,
-    recommendation: isEn ? 'Please rest and monitor. Asinu will check back later.' : 'Hãy nghỉ ngơi và theo dõi thêm. Asinu sẽ hỏi lại sau nhé.',
+    recommendation: String(translate('checkinFallbackRecommendation')),
     needsDoctor: false,
     _fallback: true,
   };
@@ -126,14 +129,14 @@ type BodyLocation = 'head' | 'chest' | 'abdomen' | 'limbs' | 'skin' | 'whole_bod
 // MaterialCommunityIcons vector — outline style, không có background filled.
 // Mỗi icon match ngữ nghĩa vùng cơ thể.
 type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-const BODY_LOCATION_OPTIONS: Array<{ key: BodyLocation; icon: MciName; vi: { label: string; desc: string }; en: { label: string; desc: string } }> = [
-  { key: 'head',       icon: 'head-outline',          vi: { label: 'Đầu',       desc: 'Đau đầu, chóng mặt, hoa mắt' },     en: { label: 'Head',       desc: 'Headache, dizziness, vision' } },
-  { key: 'chest',      icon: 'heart-pulse',           vi: { label: 'Ngực',      desc: 'Khó thở, đau ngực, hồi hộp' },      en: { label: 'Chest',      desc: 'Breathing, chest pain, palpitations' } },
-  { key: 'abdomen',    icon: 'stomach',               vi: { label: 'Bụng',      desc: 'Đau bụng, buồn nôn, tiêu hoá' },    en: { label: 'Abdomen',    desc: 'Stomach pain, nausea, digestion' } },
-  { key: 'limbs',      icon: 'arm-flex-outline',      vi: { label: 'Tay chân',  desc: 'Tê, đau khớp, yếu cơ' },            en: { label: 'Limbs',      desc: 'Numbness, joint pain, weakness' } },
-  { key: 'skin',       icon: 'hand-back-right-outline', vi: { label: 'Da',      desc: 'Ngứa, phát ban, vết bầm' },         en: { label: 'Skin',       desc: 'Itching, rash, bruising' } },
-  { key: 'whole_body', icon: 'human',                 vi: { label: 'Toàn thân', desc: 'Sốt, mệt mỏi, ớn lạnh' },           en: { label: 'Whole body', desc: 'Fever, fatigue, chills' } },
-  { key: 'mental',     icon: 'brain',                 vi: { label: 'Tinh thần', desc: 'Lo âu, mất ngủ, buồn bã' },         en: { label: 'Mental',     desc: 'Anxiety, insomnia, sadness' } },
+const BODY_LOCATION_OPTIONS: Array<{ key: BodyLocation; icon: MciName; labelKey: string; descKey: string }> = [
+  { key: 'head', icon: 'head-outline', labelKey: 'checkinLocationHead', descKey: 'checkinLocationHeadDesc' },
+  { key: 'chest', icon: 'heart-pulse', labelKey: 'checkinLocationChest', descKey: 'checkinLocationChestDesc' },
+  { key: 'abdomen', icon: 'stomach', labelKey: 'checkinLocationAbdomen', descKey: 'checkinLocationAbdomenDesc' },
+  { key: 'limbs', icon: 'arm-flex-outline', labelKey: 'checkinLocationLimbs', descKey: 'checkinLocationLimbsDesc' },
+  { key: 'skin', icon: 'hand-back-right-outline', labelKey: 'checkinLocationSkin', descKey: 'checkinLocationSkinDesc' },
+  { key: 'whole_body', icon: 'human', labelKey: 'checkinLocationWholeBody', descKey: 'checkinLocationWholeBodyDesc' },
+  { key: 'mental', icon: 'brain', labelKey: 'checkinLocationMental', descKey: 'checkinLocationMentalDesc' },
 ];
 
 export default function CheckinScreen() {
@@ -275,7 +278,7 @@ export default function CheckinScreen() {
   const handleLocationsConfirm = useCallback(async (locs: BodyLocation[], other: string) => {
     if (!pendingStatus) return;
     if (locs.length === 0 && !other.trim()) {
-      showAlert(t('error', { ns: 'common' }), language === 'vi' ? 'Chọn ít nhất 1 vùng hoặc gõ mô tả' : 'Pick at least 1 area or describe');
+      showAlert(t('error', { ns: 'common' }), t('checkinLocationRequired'));
       return;
     }
     if (!(await requestAiConsent())) return;
@@ -364,7 +367,7 @@ export default function CheckinScreen() {
       }
     } catch (err: any) {
       if (__DEV__) console.warn('[Checkin] triage fallback:', err?.message || err);
-      const fallback = getLocalFallbackQuestion(prevAnswers.length, isFollowUp, language);
+      const fallback = getLocalFallbackQuestion(prevAnswers.length, isFollowUp, t);
       if (fallback.isDone) {
         setTriageSummary({
           summary: fallback.summary || '',
@@ -516,7 +519,6 @@ export default function CheckinScreen() {
         {screen === 'location' && (
           <LocationScreen
             styles={styles}
-            language={language}
             onConfirm={handleLocationsConfirm}
             onBack={() => { setPendingStatus(null); setScreen('status'); }}
             loading={loading}
@@ -630,18 +632,16 @@ function StatusScreen({
 
 function LocationScreen({
   styles,
-  language,
   onConfirm,
   onBack,
   loading,
 }: {
   styles: Styles;
-  language: string;
   onConfirm: (locs: BodyLocation[], other: string) => void;
   onBack: () => void;
   loading: boolean;
 }) {
-  const isVi = language === 'vi';
+  const { t } = useTranslation('home');
   const [selected, setSelected] = useState<Set<BodyLocation>>(new Set());
   const [other, setOther] = useState('');
 
@@ -656,26 +656,23 @@ function LocationScreen({
 
   const count = selected.size + (other.trim() ? 1 : 0);
   const canConfirm = count > 0 && !loading;
-  const confirmLabel = isVi
-    ? (count > 0 ? `Tiếp tục (${count} mục đã chọn)` : 'Tiếp tục')
-    : (count > 0 ? `Continue (${count} selected)` : 'Continue');
+  const confirmLabel = count > 0
+    ? t('checkinLocationContinueCount', { count })
+    : t('checkinLocationContinue');
 
   return (
     <View style={styles.section}>
       <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
         <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.xs }}>
-          {isVi ? 'Khó chịu ở đâu?' : 'Where is the discomfort?'}
+          {t('checkinLocationTitle')}
         </Text>
         <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-          {isVi
-            ? 'Chọn 1 hoặc nhiều vùng. Có thể gõ thêm nếu chưa thấy mục phù hợp.'
-            : 'Pick one or more areas. You can also type a custom one below.'}
+          {t('checkinLocationDescription')}
         </Text>
       </View>
 
       <View style={{ gap: spacing.sm }}>
         {BODY_LOCATION_OPTIONS.map((opt) => {
-          const meta = isVi ? opt.vi : opt.en;
           const isSelected = selected.has(opt.key);
           return (
             <Pressable
@@ -713,10 +710,10 @@ function LocationScreen({
               />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 }}>
-                  {meta.label}
+                  {t(opt.labelKey)}
                 </Text>
                 <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  {meta.desc}
+                  {t(opt.descKey)}
                 </Text>
               </View>
             </Pressable>
@@ -727,7 +724,7 @@ function LocationScreen({
       {/* Free-text "Khác" — user gõ vùng tự do (đồng bộ kích thước với card body location ở trên) */}
       <View style={{ marginTop: spacing.lg }}>
         <Text style={{ color: colors.textSecondary, marginBottom: spacing.sm, fontSize: 13 }}>
-          {isVi ? 'Hoặc gõ vùng khác (vd: lưng dưới, môi, gối...)' : 'Or type other area (e.g. lower back, lips, knee...)'}
+          {t('checkinLocationOtherHint')}
         </Text>
         <View
           style={{
@@ -752,7 +749,7 @@ function LocationScreen({
           <TextInput
             value={other}
             onChangeText={setOther}
-            placeholder={isVi ? 'Vùng khác...' : 'Other area...'}
+            placeholder={t('checkinLocationOtherPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             editable={!loading}
             maxLength={200}
@@ -1208,10 +1205,11 @@ function stripEmojis(text: string): string {
 function extractRecordedSymptoms(
   session: CheckinSession | null,
   answers?: Array<{ question: string; answer: string }>,
-  isFine?: boolean
+  isFine?: boolean,
+  translate?: (key: string) => string,
 ): string {
   if (isFine) {
-    return 'Không ghi nhận triệu chứng bất thường, thể trạng ổn định';
+    return translate?.('checkinSymptomsStable') || '';
   }
 
   const foundSymptoms: string[] = [];
@@ -1265,13 +1263,13 @@ function extractRecordedSymptoms(
   }
 
   if (session?.current_status === 'tired') {
-    return 'Mệt mỏi, cần theo dõi thêm';
+    return translate?.('checkinSymptomsTired') || '';
   }
   if (session?.current_status === 'very_tired') {
-    return 'Khó thở, Đau ngực, Đau đầu, Chóng mặt, Buồn nôn, Đau bụng';
+    return translate?.('checkinSymptomsUrgentFallback') || '';
   }
 
-  return 'Khó thở, Đau ngực, Đau đầu, Chóng mặt, Buồn nôn, Đau bụng';
+  return translate?.('checkinSymptomsUrgentFallback') || '';
 }
 
 function CheckinHeroBadge({
@@ -1383,7 +1381,7 @@ function DoneScreen({
     Linking.openURL('tel:115').catch(() => {});
   };
 
-  const recordedSymptoms = extractRecordedSymptoms(session, answers, isFine);
+  const recordedSymptoms = extractRecordedSymptoms(session, answers, isFine, t);
 
   const cleanAdvice = stripEmojis(
     isEmergency

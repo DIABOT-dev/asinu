@@ -86,13 +86,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         });
       } else {
         set({
-          error: response.error || 'Failed to fetch',
+          error: 'notification_load_failed',
           loading: false,
           loadingMore: false,
         });
       }
     } catch (error) {
-      set({ error: 'Network error', loading: false, loadingMore: false });
+      set({ error: 'notification_load_failed', loading: false, loadingMore: false });
     } finally {
       set({ _fetching: false, loadingMore: false });
     }

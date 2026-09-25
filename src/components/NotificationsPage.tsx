@@ -32,12 +32,12 @@ type NotificationListItem =
   | { kind: 'header'; key: string; title: string }
   | { kind: 'notification'; key: string; notification: Notification };
 
-const FILTERS: Array<{ key: FilterKey; label: string; icon: IconName }> = [
-  { key: 'all', label: 'notificationFilterAll', icon: 'notifications-outline' },
-  { key: 'reminder', label: 'notificationFilterReminder', icon: 'alarm-outline' },
-  { key: 'health', label: 'notificationFilterHealth', icon: 'heart-outline' },
-  { key: 'activity', label: 'notificationFilterActivity', icon: 'pulse-outline' },
-  { key: 'system', label: 'notificationFilterSystem', icon: 'settings-outline' },
+const FILTERS: Array<{ key: FilterKey; labelKey: string; icon: IconName }> = [
+  { key: 'all', labelKey: 'notificationFilterAll', icon: 'notifications-outline' },
+  { key: 'reminder', labelKey: 'notificationFilterReminder', icon: 'alarm-outline' },
+  { key: 'health', labelKey: 'notificationFilterHealth', icon: 'heart-outline' },
+  { key: 'activity', labelKey: 'notificationFilterActivity', icon: 'pulse-outline' },
+  { key: 'system', labelKey: 'notificationFilterSystem', icon: 'settings-outline' },
 ];
 
 function getNotificationType(notification: Notification): string {
@@ -372,7 +372,7 @@ export function NotificationsPage() {
                     style={({ pressed }) => [styles.filterChip, active && styles.filterChipActive, pressed && styles.pressed]}
                   >
                     <Ionicons name={item.icon} size={17} color={active ? '#fff' : colors.textSecondary} />
-                    <Text style={[styles.filterText, active && styles.filterTextActive]}>{t(item.label)}</Text>
+                    <Text style={[styles.filterText, active && styles.filterTextActive]}>{t(item.labelKey)}</Text>
                   </Pressable>
                 );
               })}

@@ -74,16 +74,16 @@ export function IapPurchaseCard({ onPurchased }: Props) {
       const result = await purchaseSubscription(selected.id, selected);
       if (result.kind === 'success') {
         showAlert(
-          t('activationSuccess') || 'Kích hoạt thành công',
-          t('activationSuccessDesc') || 'Premium đã sẵn sàng. Cảm ơn bạn!',
-          [{ text: t('close') || 'Đóng', onPress: onPurchased }],
+          t('activationSuccess'),
+          t('activationSuccessDesc'),
+          [{ text: t('close'), onPress: onPurchased }],
         );
       } else if (result.kind === 'cancelled') {
         // Silent — user backed out of the sheet.
       } else {
         showAlert(
-          t('paymentFailed') || 'Thanh toán thất bại',
-          result.error || (t('paymentNetworkError') || 'Vui lòng thử lại.'),
+          t('paymentFailed'),
+          result.error || t('paymentNetworkError'),
         );
       }
     } finally {
@@ -97,16 +97,14 @@ export function IapPurchaseCard({ onPurchased }: Props) {
       const res = await restorePurchases();
       if (res.restored > 0) {
         showAlert(
-          t('restoreSuccess') || 'Khôi phục thành công',
-          t('restoreSuccessDesc', { count: res.restored }) ||
-            `Đã khôi phục ${res.restored} gói Premium.`,
-          [{ text: t('close') || 'Đóng', onPress: onPurchased }],
+          t('restoreSuccess'),
+          t('restoreSuccessDesc', { count: res.restored }),
+          [{ text: t('close'), onPress: onPurchased }],
         );
       } else {
         showAlert(
-          t('restoreNoneTitle') || 'Không tìm thấy gói nào',
-          t('restoreNoneBody') ||
-            'Không có giao dịch Premium nào liên kết với tài khoản cửa hàng ứng dụng này.',
+          t('restoreNoneTitle'),
+          t('restoreNoneBody'),
         );
       }
     } finally {
@@ -123,7 +121,7 @@ export function IapPurchaseCard({ onPurchased }: Props) {
           <View style={styles.loadingBox}>
             <ActivityIndicator color={colors.primary} />
             <Text style={styles.loadingText}>
-              {t('loadingPrices') || 'Đang tải gói Premium...'}
+              {t('loadingPrices')}
             </Text>
           </View>
         </View>
@@ -137,8 +135,7 @@ export function IapPurchaseCard({ onPurchased }: Props) {
       <>
         <View style={styles.card}>
           <Text style={styles.errorText}>
-            {t('iapNoProducts') ||
-              'Chưa thể tải gói Premium. Hãy kiểm tra kết nối hoặc thử lại sau.'}
+            {t('iapNoProducts')}
           </Text>
         </View>
         {alertModal}
@@ -150,7 +147,7 @@ export function IapPurchaseCard({ onPurchased }: Props) {
     <>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>
-          {t('chooseIapPlan') || 'Chọn gói Premium'}
+          {t('chooseIapPlan')}
         </Text>
 
         <View style={styles.options}>
@@ -167,14 +164,13 @@ export function IapPurchaseCard({ onPurchased }: Props) {
                 <View style={styles.optionHeader}>
                   <Text style={styles.optionMonths}>
                     {p.plan_months === 12
-                      ? t('planYear') || '1 năm'
-                      : t('planMonth', { months: p.plan_months }) ||
-                        `${p.plan_months} tháng`}
+                      ? t('planYear')
+                      : t('planMonth', { months: p.plan_months })}
                   </Text>
                   {p.plan_months === 12 && (
                     <View style={styles.bestBadge}>
                       <Text style={styles.bestBadgeText}>
-                        {t('bestValue') || 'Tiết kiệm nhất'}
+                        {t('bestValue')}
                       </Text>
                     </View>
                   )}
@@ -206,7 +202,7 @@ export function IapPurchaseCard({ onPurchased }: Props) {
               <View style={styles.ctaRow}>
                 <MaterialCommunityIcons name="crown" size={18} color={colors.premiumDark} />
                 <Text style={styles.ctaText}>
-                  {t('upgradeNow') || 'Nâng cấp ngay'}
+                  {t('upgradeNow')}
                 </Text>
               </View>
             )}
@@ -222,14 +218,13 @@ export function IapPurchaseCard({ onPurchased }: Props) {
             <ActivityIndicator size="small" color={colors.textSecondary} />
           ) : (
             <Text style={styles.restoreText}>
-              {t('restorePurchases') || 'Khôi phục mua hàng'}
+              {t('restorePurchases')}
             </Text>
           )}
         </Pressable>
 
         <Text style={styles.legalNote}>
-          {t('iapLegalNote') ||
-            'Thanh toán qua cửa hàng ứng dụng. Subscription tự gia hạn cho đến khi bạn hủy trong cài đặt cửa hàng.'}
+          {t('iapLegalNote')}
         </Text>
       </View>
       {alertModal}

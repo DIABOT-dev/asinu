@@ -47,6 +47,7 @@
   "genderFemale": "Nữ",
   "genderOther": "Khác",
   "heightCm": "Chiều cao (cm)",
+  "heightValue": "{{value}} cm",
   "selectHeight": "Chọn chiều cao",
   "heightPlaceholder": "VD: 165",
   "heightError": "Chiều cao phải từ 50–250 cm",

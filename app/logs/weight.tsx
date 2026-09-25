@@ -172,7 +172,7 @@ export default function WeightLogScreen() {
                       textAlign="center"
                       selectTextOnFocus
                     />
-                    <Text style={styles.bigUnit}>kg</Text>
+                    <Text style={styles.bigUnit}>{t('unitKg')}</Text>
                   </Animated.View>
                   {weightError ? (
                     <Text style={styles.errorText}>{weightError}</Text>
@@ -183,7 +183,7 @@ export default function WeightLogScreen() {
                     >
                       <Ionicons name="body-outline" size={16} color={bmiStatus.color} />
                       <Text style={[styles.statusText, { color: bmiStatus.color }]}>
-                        BMI {bmi} · {bmiStatus.label}
+                        {t('bmiResult', { bmi, status: bmiStatus.label })}
                       </Text>
                     </Animated.View>
                   ) : null}

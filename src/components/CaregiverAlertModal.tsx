@@ -60,13 +60,11 @@ export function CaregiverAlertModal() {
           setAlerts(activeAlerts);
           setCurrent(0);
         }
-        // Missed alerts → toast nhẹ, không popup modal alarming
-        for (const m of missedAlerts) {
-          showToast(
-            `📭 Bạn đã lỡ thông báo từ ${m.patientName}`,
-            'info',
-            5000,
-          );
+        // Show one summary toast even when several alerts were missed.
+        if (missedAlerts.length === 1) {
+          showToast(t('careAlertMissedOne', { name: missedAlerts[0].patientName }), 'info', 5000);
+        } else if (missedAlerts.length > 1) {
+          showToast(t('careAlertMissedMany', { count: missedAlerts.length }), 'info', 5000);
         }
         // Auto-confirm missed alerts để không show toast lặp lại lần fetch tiếp
         Promise.all(
@@ -79,7 +77,7 @@ export function CaregiverAlertModal() {
         );
       })
       .catch(() => {});
-  }, []);
+  }, [t]);
 
   // Fetch on mount
   useEffect(() => { fetchPendingAlerts(); }, [fetchPendingAlerts]);
@@ -120,13 +118,13 @@ export function CaregiverAlertModal() {
         body: { alert_id: alert.alertId, action },
       });
       // Toast feedback để caregiver biết hành động đã được ghi nhận
-      const patientName = alert.patientName || 'Người thân';
-      const FEEDBACK: Record<string, string> = {
-        seen:      `✓ Đã ghi nhận. ${patientName} sẽ thấy bạn đã xem.`,
-        on_my_way: `🚶 Đã báo ${patientName} bạn đang đến.`,
-        called:    `📞 Đã ghi nhận. ${patientName} biết bạn đã gọi.`,
+      const patientName = alert.patientName || t('careAlertFamilyFallback');
+      const feedback: Record<string, string> = {
+        seen: t('careAlertConfirmedSeen', { name: patientName }),
+        on_my_way: t('careAlertConfirmedOnWay', { name: patientName }),
+        called: t('careAlertConfirmedCalled', { name: patientName }),
       };
-      showToast(FEEDBACK[action] || t('careAlertConfirmed') || '✓', 'success', 3500);
+      showToast(feedback[action] || t('careAlertConfirmed'), 'success', 3500);
       // Move to next alert or close
       if (current + 1 < alerts.length) {
         setCurrent(c => c + 1);

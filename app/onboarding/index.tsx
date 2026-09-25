@@ -678,11 +678,7 @@ export default function OnboardingScreen() {
               {t(`step${step}Title` as any)}
             </Text>
             <Text style={styles.headerSubtitle}>
-              {step === 1 ? 'Cung cấp thông tin để Asinu hiểu bạn tốt hơn và chăm sóc phù hợp cho bạn.' :
-               step === 2 ? 'Chọn tất cả bệnh bạn đang có (nếu có)' :
-               step === 3 ? 'Giúp chúng tôi hiểu rõ hơn về lối sống của bạn.' :
-               step === 4 ? 'Thói quen ăn uống giúp chúng tôi đưa ra đề xuất phù hợp hơn.' :
-               'Có thể chọn nhiều'}
+              {t(`step${step}Subtitle`)}
             </Text>
           </View>
           <StepBadgeIllustration step={step} />
@@ -1118,7 +1114,7 @@ function Step1({
                     style={[stepStyles.birthYearOption, selected && stepStyles.birthYearOptionSelected]}
                   >
                     <Text style={[stepStyles.birthYearOptionText, selected && stepStyles.birthYearOptionTextSelected]}>
-                      {value} cm
+                      {t('heightValue', { value })}
                     </Text>
                     {selected && <Ionicons name="checkmark-circle" size={20} color="#008080" />}
                   </Pressable>

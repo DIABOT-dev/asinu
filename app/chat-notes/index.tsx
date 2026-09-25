@@ -199,7 +199,7 @@ export default function ChatNotesScreen() {
         <Pressable style={styles.dropdownOverlay} onPress={() => setShowPageSizeDropdown(false)}>
           <View style={styles.dropdownMenu}>
             <Text style={styles.dropdownTitle}>
-              {language === 'vi' ? 'Số bản ghi / trang' : 'Records per page'}
+              {t('recordsPerPage')}
             </Text>
             {PAGE_SIZE_OPTIONS.map((size) => (
               <Pressable
@@ -208,7 +208,7 @@ export default function ChatNotesScreen() {
                 onPress={() => handlePageSizeChange(size)}
               >
                 <Text style={[styles.dropdownItemText, pageSize === size && styles.dropdownItemTextActive]}>
-                  {size} {language === 'vi' ? 'bản ghi' : 'records'}
+                  {t('recordCount', { count: size })}
                 </Text>
                 {pageSize === size && <Ionicons name="checkmark" size={18} color={colors.primary} />}
               </Pressable>
@@ -300,7 +300,7 @@ export default function ChatNotesScreen() {
                   </Pressable>
                 </View>
                 <Pressable style={styles.pageSizeDropdownBtn} onPress={() => setShowPageSizeDropdown(true)}>
-                  <Text style={styles.pageSizeDropdownText}>{pageSize}/{language === 'vi' ? 'trang' : 'pg'}</Text>
+                  <Text style={styles.pageSizeDropdownText}>{t('pageSizeShort', { count: pageSize })}</Text>
                   <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textSecondary} />
                 </Pressable>
               </View>
