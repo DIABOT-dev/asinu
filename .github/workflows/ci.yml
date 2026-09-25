@@ -1,4 +1,4 @@
-name: ASINU CI
+name: Mobile CI
 
 on:
   push:
@@ -41,9 +41,6 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      # This is the same JavaScript bundle validation that EAS runs before
-      # the native iOS build. It catches Expo Router import incompatibilities
-      # in CI instead of waiting for a remote EAS build.
       - name: Expo iOS bundle check
         env:
           EXPO_PUBLIC_APP_ENV: staging
@@ -53,4 +50,15 @@ jobs:
           export_dir="${RUNNER_TEMP}/asinu-ios-export"
           node ./node_modules/expo/bin/cli export \
             --platform ios \
+            --output-dir "$export_dir"
+
+      - name: Expo Android bundle check
+        env:
+          EXPO_PUBLIC_APP_ENV: staging
+          EXPO_PUBLIC_API_BASE_URL: https://asinu.top
+          NODE_ENV: production
+        run: |
+          export_dir="${RUNNER_TEMP}/asinu-android-export"
+          node ./node_modules/expo/bin/cli export \
+            --platform android \
             --output-dir "$export_dir"

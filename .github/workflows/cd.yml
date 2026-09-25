@@ -1,0 +1,100 @@
+name: Mobile CD (EAS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile
+        type: choice
+        options: [development, preview, production]
+        default: preview
+      platform:
+        description: Target platform
+        type: choice
+        options: [android, ios, all]
+        default: ios
+  push:
+    tags:
+      - "mobile-v*"
+
+concurrency:
+  group: mobile-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_API_BASE_URL: https://asinu.top
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.18.1"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Require Expo token
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "Missing repository secret: EXPO_TOKEN" >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Quality gate
+        run: |
+          npm run type-check
+          npm run i18n:check
+          npm run lint:assets
+          npm run lint
+
+      - name: Install EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Resolve build target
+        id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PROFILE: ${{ inputs.profile }}
+          INPUT_PLATFORM: ${{ inputs.platform }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ]; then
+            echo "profile=production" >> "$GITHUB_OUTPUT"
+            echo "platform=all" >> "$GITHUB_OUTPUT"
+          else
+            echo "profile=$INPUT_PROFILE" >> "$GITHUB_OUTPUT"
+            echo "platform=$INPUT_PLATFORM" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build with EAS
+        run: |
+          eas build \
+            --platform "${{ steps.target.outputs.platform }}" \
+            --profile "${{ steps.target.outputs.profile }}" \
+            --non-interactive \
+            --wait
+
+      - name: Build summary
+        if: always()
+        run: |
+          {
+            echo "### Mobile CD"
+            echo "- Profile: ${{ steps.target.outputs.profile }}"
+            echo "- Platform: ${{ steps.target.outputs.platform }}"
+            echo "- Commit: $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
