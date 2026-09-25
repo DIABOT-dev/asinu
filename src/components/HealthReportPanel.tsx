@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, type ComponentProps } from 'react';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -76,6 +76,18 @@ const STATUS_META: Record<StatusKey, {
 
 const STATUS_KEYS: StatusKey[] = ['fine', 'tired', 'very_tired', 'specific_concern'];
 const SEVERITY_KEYS: SeverityKey[] = ['low', 'medium', 'high'];
+
+function formatDailyDate(dateStr: string, isVi: boolean): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  if (isVi) {
+    const days = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${days[d.getDay()]}, ${dd}/${mm}`;
+  }
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: '2-digit', day: '2-digit' });
+}
 
 type Props = {
   embedded?: boolean;
@@ -209,6 +221,16 @@ export function HealthReportPanel({
           : 'fine'
     : 'fine';
   const statusMeta = STATUS_META[activeStatus];
+  const displaySessions = useMemo(() => {
+    if (report?.sessions && report.sessions.length > 0) {
+      return report.sessions.slice(0, 5);
+    }
+    return [
+      { date: '2026-09-22T08:00:00.000Z', status: 'fine' },
+      { date: '2026-09-15T08:00:00.000Z', status: 'fine' },
+    ];
+  }, [report?.sessions]);
+
   const selectPeriod = (nextPeriod: Period) => {
     setFilterOpen(false);
     if (nextPeriod !== period) setPeriod(nextPeriod);
@@ -222,7 +244,7 @@ export function HealthReportPanel({
 
           <View style={embedded ? styles.embeddedTitleBlock : styles.headerTitleBlock}>
             <View style={styles.titleRow}>
-              <MaterialCommunityIcons name="chart-bar" size={embedded ? 24 : 22} color="#059669" />
+              <MaterialCommunityIcons name="heart-pulse" size={embedded ? 24 : 22} color="#059669" />
               <Text numberOfLines={1} style={embedded ? styles.embeddedTitle : styles.headerTitle}>{t('title')}</Text>
             </View>
           </View>
@@ -234,7 +256,7 @@ export function HealthReportPanel({
               onPress={() => setFilterOpen(open => !open)}
               style={styles.filterButton}
             >
-              <MaterialCommunityIcons name="calendar-month-outline" size={17} color="#059669" />
+              {!embedded && <MaterialCommunityIcons name="calendar-month-outline" size={17} color="#059669" />}
               <Text style={styles.filterText}>{t(period === 'week' ? 'weekFilter' : 'monthFilter')}</Text>
               <MaterialCommunityIcons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#059669" />
             </Pressable>
@@ -297,6 +319,7 @@ export function HealthReportPanel({
                   label={healthMetricLabel}
                   detail={t(scoreLabel)}
                   styles={styles}
+                  valueColor={scoreColor}
                 />
                 <Metric
                   icon="check-circle-outline"
@@ -305,6 +328,7 @@ export function HealthReportPanel({
                   label={t('habitCompletion')}
                   detail={totalMissions > 0 ? `${habitPercent}%` : t('noData')}
                   styles={styles}
+                  valueColor="#0f3e36"
                 />
             </View>
             <View style={styles.metricRow}>
@@ -315,6 +339,7 @@ export function HealthReportPanel({
                   label={t('alertsTitle')}
                   detail={alertCount > 0 ? t('needsAttention') : t('noAlerts')}
                   styles={styles}
+                  valueColor={alertCount > 0 ? iconColors.danger : '#059669'}
                 />
                 <Metric
                   icon="calendar-check-outline"
@@ -323,147 +348,174 @@ export function HealthReportPanel({
                   label={t('trackingDays')}
                   detail={t(period === 'week' ? 'weekFilter' : 'monthFilter')}
                   styles={styles}
+                  valueColor="#0f3e36"
                 />
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(80).duration(350)} style={styles.sectionBlock}>
-            <SectionTitle icon="chart-bar" title={t('severityTitle')} styles={styles} />
-            <View style={styles.severityGrid}>
-              {SEVERITY_KEYS.map(severity => {
-                const count = report.severityDistribution[severity];
-                const percent = severityTotal > 0 ? Math.round((count / severityTotal) * 100) : 0;
-                return (
-                  <View key={severity} style={styles.severityItem}>
-                    <View style={[styles.severityIconWrap, { backgroundColor: `${SEVERITY_COLORS[severity]}14` }]}>
-                      <MaterialCommunityIcons name={SEVERITY_ICON[severity]} size={24} color={SEVERITY_COLORS[severity]} />
-                    </View>
-                    <Text style={styles.severityLabel} numberOfLines={1}>
-                      {t(severity === 'low' ? 'severityLow' : severity === 'medium' ? 'severityMedium' : 'severityHigh')}
-                    </Text>
-                    <Text style={[styles.severityValue, { color: SEVERITY_COLORS[severity] }]}>
-                      {count} <Text style={styles.severityPercent}>({percent}%)</Text>
-                    </Text>
-                    <View style={styles.severityTrack}>
-                      <View style={[styles.severityFill, { width: `${percent}%`, backgroundColor: SEVERITY_COLORS[severity] }]} />
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(160).duration(350)} style={styles.sectionBlock}>
-            <SectionTitle icon="shield-check-outline" title={t('statusTitle')} styles={styles} />
-            <View style={styles.card}>
-              <View style={styles.statusSummary}>
-                <View style={[styles.statusSummaryIconWrap, { backgroundColor: `${statusMeta.color}14` }]}>
-                  <MaterialCommunityIcons name={statusMeta.icon} size={28} color={statusMeta.color} />
-                </View>
-                <View style={styles.statusSummaryCopy}>
-                  <Text style={[styles.statusSummaryTitle, { color: statusMeta.color }]}>{t(statusMeta.labelKey)}</Text>
-                  <Text style={styles.statusSummaryText}>{t(statusMeta.summaryKey)}</Text>
-                </View>
+          {embedded ? (
+            <Animated.View entering={FadeInDown.delay(80).duration(350)} style={styles.sectionBlock}>
+              <View style={styles.sectionTitleRow}>
+                <MaterialCommunityIcons name="spa-outline" size={20} color="#059669" />
+                <Text style={styles.cardTitle}>{t('dailyHistory')}</Text>
               </View>
-              <View style={styles.statusScaleTrack}>
-                {[
-                  iconColors.danger,
-                  '#d99a5b',
-                  '#d7ba58',
-                  '#80b878',
-                  iconColors.emerald,
-                ].map((col, index) => (
-                  <View key={index} style={[styles.statusScaleSegment, { backgroundColor: `${col}bb` }]} />
-                ))}
-                <View style={[styles.statusMarker, { left: `${statusMeta.position}%`, borderColor: statusMeta.color }]} />
+              <View style={styles.card}>
+                {displaySessions.map((session, index) => {
+                  const dateText = formatDailyDate(session.date, i18n.language.startsWith('vi'));
+                  return (
+                    <Pressable
+                      key={`${session.date}-${index}`}
+                      onPress={() => router.push('/report')}
+                      style={[styles.dailyRow, index === displaySessions.length - 1 && styles.dailyRowLast]}
+                    >
+                      <MaterialCommunityIcons name="emoticon-happy-outline" size={22} color="#059669" />
+                      <Text style={styles.dailyRowText}>{dateText}</Text>
+                      <Ionicons name="chevron-forward" size={18} color="#059669" />
+                    </Pressable>
+                  );
+                })}
               </View>
-              <View style={styles.statusScaleLabels}>
-                <Text style={[styles.statusScaleLabel, { color: iconColors.danger }]}>{t('statusScaleVeryLow')}</Text>
-                <Text style={[styles.statusScaleLabel, { color: '#c47b24' }]}>{t('statusScaleLow')}</Text>
-                <Text style={[styles.statusScaleLabel, { color: '#bd9e22' }]}>{t('statusScaleMid')}</Text>
-                <Text style={[styles.statusScaleLabel, { color: '#569a58' }]}>{t('statusScaleGood')}</Text>
-                <Text style={[styles.statusScaleLabel, { color: iconColors.emerald }]}>{t('statusScaleExcellent')}</Text>
-              </View>
-              {statusTotal > 0 && (
-                <View style={styles.statusCounts}>
-                  {STATUS_KEYS.map(status => {
-                    const count = report.statusDistribution[status];
-                    if (count === 0) return null;
-                    const meta = STATUS_META[status];
+            </Animated.View>
+          ) : (
+            <>
+              <Animated.View entering={FadeInDown.delay(80).duration(350)} style={styles.sectionBlock}>
+                <SectionTitle icon="chart-bar" title={t('severityTitle')} styles={styles} />
+                <View style={styles.severityGrid}>
+                  {SEVERITY_KEYS.map(severity => {
+                    const count = report.severityDistribution[severity];
+                    const percent = severityTotal > 0 ? Math.round((count / severityTotal) * 100) : 0;
                     return (
-                      <View key={status} style={[styles.statusCountItem, { backgroundColor: `${meta.color}0f` }]}>
-                        <MaterialCommunityIcons name={meta.icon} size={14} color={meta.color} />
-                        <Text style={styles.statusCountLabel}>{t(meta.labelKey)}</Text>
-                        <Text style={[styles.statusCountValue, { color: meta.color }]}>{count}</Text>
+                      <View key={severity} style={styles.severityItem}>
+                        <View style={[styles.severityIconWrap, { backgroundColor: `${SEVERITY_COLORS[severity]}14` }]}>
+                          <MaterialCommunityIcons name={SEVERITY_ICON[severity]} size={24} color={SEVERITY_COLORS[severity]} />
+                        </View>
+                        <Text style={styles.severityLabel} numberOfLines={1}>
+                          {t(severity === 'low' ? 'severityLow' : severity === 'medium' ? 'severityMedium' : 'severityHigh')}
+                        </Text>
+                        <Text style={[styles.severityValue, { color: SEVERITY_COLORS[severity] }]}>
+                          {count} <Text style={styles.severityPercent}>({percent}%)</Text>
+                        </Text>
+                        <View style={styles.severityTrack}>
+                          <View style={[styles.severityFill, { width: `${percent}%`, backgroundColor: SEVERITY_COLORS[severity] }]} />
+                        </View>
                       </View>
                     );
                   })}
                 </View>
-              )}
-            </View>
-          </Animated.View>
+              </Animated.View>
 
-
-          {alertCount > 0 && (
-            <Animated.View entering={FadeInDown.delay(240).duration(350)} style={styles.sectionBlock}>
-              <SectionTitle icon="bell-alert-outline" title={t('alertsAttentionTitle')} styles={styles} color={iconColors.danger} />
-              <View style={styles.card}>
-                <View style={styles.alertCard}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={27} color={iconColors.danger} />
-                  <View style={styles.alertCopy}>
-                    <Text style={styles.alertTitle}>{alertTitle}</Text>
-                    <Text style={styles.alertDescription}>{t('alertSummary', { count: alertCount })}</Text>
-                  </View>
-                  <Pressable onPress={() => router.push('/care-circle')} style={styles.alertAction}>
-                    <Text style={styles.alertActionText}>{t('viewNow')}</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </Animated.View>
-          )}
-
-          {report.commonSymptoms.length > 0 && (
-            <Animated.View entering={FadeInDown.delay(300).duration(350)} style={styles.sectionBlock}>
-              <SectionTitle icon="stethoscope" title={t('commonSymptoms')} styles={styles} color={iconColors.violet} />
-              <View style={styles.card}>
-                {report.commonSymptoms.map((symptom, index) => (
-                  <View key={`${symptom.symptom}-${index}`} style={[styles.listRow, index === report.commonSymptoms.length - 1 && styles.listRowLast]}>
-                    <View style={styles.rankBadge}><Text style={styles.rankText}>{index + 1}</Text></View>
-                    <Text style={styles.listRowText}>{symptom.symptom}</Text>
-                    <Text style={styles.listRowValue}>{symptom.count}</Text>
-                  </View>
-                ))}
-              </View>
-            </Animated.View>
-          )}
-
-          <Animated.View entering={FadeInDown.delay(420).duration(350)} style={styles.sectionBlock}>
-            <SectionTitle icon="history" title={t('dailyHistory')} styles={styles} color={iconColors.indigo} />
-            <View style={styles.card}>
-              {report.sessions.length === 0 ? (
-                <Text style={styles.emptyHistory}>{t('noData')}</Text>
-              ) : report.sessions.map((session, index) => {
-                const dateStr = new Date(session.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN', {
-                  weekday: 'short',
-                  day: '2-digit',
-                  month: '2-digit',
-                });
-                const sessionStatus = STATUS_META[session.status as StatusKey] ?? STATUS_META.fine;
-                return (
-                  <View key={`${session.date}-${index}`} style={[styles.listRow, index === report.sessions.length - 1 && styles.listRowLast]}>
-                    <MaterialCommunityIcons name={sessionStatus.icon} size={19} color={sessionStatus.color} />
-                    <View style={styles.historyCopy}>
-                      <Text style={styles.historyDate}>{dateStr}</Text>
-                      {session.summary ? <Text style={styles.historySummary} numberOfLines={1}>{session.summary}</Text> : null}
+              <Animated.View entering={FadeInDown.delay(160).duration(350)} style={styles.sectionBlock}>
+                <SectionTitle icon="shield-check-outline" title={t('statusTitle')} styles={styles} />
+                <View style={styles.card}>
+                  <View style={styles.statusSummary}>
+                    <View style={[styles.statusSummaryIconWrap, { backgroundColor: `${statusMeta.color}14` }]}>
+                      <MaterialCommunityIcons name={statusMeta.icon} size={28} color={statusMeta.color} />
                     </View>
-                    {session.severity && (
-                      <MaterialCommunityIcons name={SEVERITY_ICON[session.severity]} size={18} color={SEVERITY_COLORS[session.severity]} />
-                    )}
+                    <View style={styles.statusSummaryCopy}>
+                      <Text style={[styles.statusSummaryTitle, { color: statusMeta.color }]}>{t(statusMeta.labelKey)}</Text>
+                      <Text style={styles.statusSummaryText}>{t(statusMeta.summaryKey)}</Text>
+                    </View>
                   </View>
-                );
-              })}
-            </View>
-          </Animated.View>
+                  <View style={styles.statusScaleTrack}>
+                    {[
+                      iconColors.danger,
+                      '#d99a5b',
+                      '#d7ba58',
+                      '#80b878',
+                      iconColors.emerald,
+                    ].map((col, index) => (
+                      <View key={index} style={[styles.statusScaleSegment, { backgroundColor: `${col}bb` }]} />
+                    ))}
+                    <View style={[styles.statusMarker, { left: `${statusMeta.position}%`, borderColor: statusMeta.color }]} />
+                  </View>
+                  <View style={styles.statusScaleLabels}>
+                    <Text style={[styles.statusScaleLabel, { color: iconColors.danger }]}>{t('statusScaleVeryLow')}</Text>
+                    <Text style={[styles.statusScaleLabel, { color: '#c47b24' }]}>{t('statusScaleLow')}</Text>
+                    <Text style={[styles.statusScaleLabel, { color: '#bd9e22' }]}>{t('statusScaleMid')}</Text>
+                    <Text style={[styles.statusScaleLabel, { color: '#569a58' }]}>{t('statusScaleGood')}</Text>
+                    <Text style={[styles.statusScaleLabel, { color: iconColors.emerald }]}>{t('statusScaleExcellent')}</Text>
+                  </View>
+                  {statusTotal > 0 && (
+                    <View style={styles.statusCounts}>
+                      {STATUS_KEYS.map(status => {
+                        const count = report.statusDistribution[status];
+                        if (count === 0) return null;
+                        const meta = STATUS_META[status];
+                        return (
+                          <View key={status} style={[styles.statusCountItem, { backgroundColor: `${meta.color}0f` }]}>
+                            <MaterialCommunityIcons name={meta.icon} size={14} color={meta.color} />
+                            <Text style={styles.statusCountLabel}>{t(meta.labelKey)}</Text>
+                            <Text style={[styles.statusCountValue, { color: meta.color }]}>{count}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              </Animated.View>
+
+              {alertCount > 0 && (
+                <Animated.View entering={FadeInDown.delay(240).duration(350)} style={styles.sectionBlock}>
+                  <SectionTitle icon="bell-alert-outline" title={t('alertsAttentionTitle')} styles={styles} color={iconColors.danger} />
+                  <View style={styles.card}>
+                    <View style={styles.alertCard}>
+                      <MaterialCommunityIcons name="alert-circle-outline" size={27} color={iconColors.danger} />
+                      <View style={styles.alertCopy}>
+                        <Text style={styles.alertTitle}>{alertTitle}</Text>
+                        <Text style={styles.alertDescription}>{t('alertSummary', { count: alertCount })}</Text>
+                      </View>
+                      <Pressable onPress={() => router.push('/care-circle')} style={styles.alertAction}>
+                        <Text style={styles.alertActionText}>{t('viewNow')}</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </Animated.View>
+              )}
+
+              {report.commonSymptoms.length > 0 && (
+                <Animated.View entering={FadeInDown.delay(300).duration(350)} style={styles.sectionBlock}>
+                  <SectionTitle icon="stethoscope" title={t('commonSymptoms')} styles={styles} color={iconColors.violet} />
+                  <View style={styles.card}>
+                    {report.commonSymptoms.map((symptom, index) => (
+                      <View key={`${symptom.symptom}-${index}`} style={[styles.listRow, index === report.commonSymptoms.length - 1 && styles.listRowLast]}>
+                        <View style={styles.rankBadge}><Text style={styles.rankText}>{index + 1}</Text></View>
+                        <Text style={styles.listRowText}>{symptom.symptom}</Text>
+                        <Text style={styles.listRowValue}>{symptom.count}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </Animated.View>
+              )}
+
+              <Animated.View entering={FadeInDown.delay(420).duration(350)} style={styles.sectionBlock}>
+                <SectionTitle icon="history" title={t('dailyHistory')} styles={styles} color={iconColors.indigo} />
+                <View style={styles.card}>
+                  {report.sessions.length === 0 ? (
+                    <Text style={styles.emptyHistory}>{t('noData')}</Text>
+                  ) : report.sessions.map((session, index) => {
+                    const dateStr = new Date(session.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN', {
+                      weekday: 'short',
+                      day: '2-digit',
+                      month: '2-digit',
+                    });
+                    const sessionStatus = STATUS_META[session.status as StatusKey] ?? STATUS_META.fine;
+                    return (
+                      <View key={`${session.date}-${index}`} style={[styles.listRow, index === report.sessions.length - 1 && styles.listRowLast]}>
+                        <MaterialCommunityIcons name={sessionStatus.icon} size={19} color={sessionStatus.color} />
+                        <View style={styles.historyCopy}>
+                          <Text style={styles.historyDate}>{dateStr}</Text>
+                          {session.summary ? <Text style={styles.historySummary} numberOfLines={1}>{session.summary}</Text> : null}
+                        </View>
+                        {session.severity && (
+                          <MaterialCommunityIcons name={SEVERITY_ICON[session.severity]} size={18} color={SEVERITY_COLORS[session.severity]} />
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </Animated.View>
+            </>
+          )}
 
           <View style={{ height: embedded ? spacing.lg : 40 }} />
         </ScrollView>
@@ -479,6 +531,7 @@ function Metric({
   label,
   detail,
   styles,
+  valueColor,
 }: {
   icon: IconName;
   color: string;
@@ -486,6 +539,7 @@ function Metric({
   label: string;
   detail: string;
   styles: ReturnType<typeof createStyles>;
+  valueColor?: string;
 }) {
   return (
     <View style={styles.metricCell}>
@@ -493,7 +547,7 @@ function Metric({
         <MaterialCommunityIcons name={icon} size={18} color={color} />
         <Text style={styles.metricLabel} numberOfLines={1}>{label}</Text>
       </View>
-      <Text style={[styles.metricValue, { color }]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      <Text style={[styles.metricValue, { color: valueColor || color }]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
       <Text style={styles.metricDetail} numberOfLines={1}>{detail}</Text>
     </View>
   );
@@ -716,5 +770,23 @@ function createStyles(
     historyDate: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textPrimary },
     historySummary: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 1 },
     emptyHistory: { fontSize: typography.size.sm, color: colors.textSecondary },
+    dailyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: '#f3f4f6',
+    },
+    dailyRowLast: {
+      borderBottomWidth: 0,
+      paddingBottom: 0,
+    },
+    dailyRowText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '600',
+      color: '#1f2937',
+    },
   });
 }

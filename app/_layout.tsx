@@ -1,4 +1,5 @@
 import { Stack, usePathname, type NativeStackNavigationProp } from 'expo-router';
+import { registerGlobals } from '@livekit/react-native';
 import type { ParamListBase, RouteProp } from 'expo-router/react-navigation';
 import {
   useFonts,
@@ -35,6 +36,8 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { applyTheme, spacing } from '../src/styles';
 import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { trackScreenViewed } from '../src/lib/screenTracking';
+
+registerGlobals();
 
 type NavigationProp = NativeStackNavigationProp<ParamListBase>;
 type ScreenOptionsProps = {

@@ -115,8 +115,8 @@ export default function Index() {
           const response = await Notifications.getLastNotificationResponseAsync();
           if (response) {
             const ageSec = Date.now() / 1000 - response.notification.date;
-            if (ageSec < 60) {
-              const data = response.notification.request.content.data as Record<string, unknown>;
+            const data = response.notification.request.content.data as Record<string, unknown>;
+            if (ageSec < (data?.checkinCall === true ? 30 * 60 : 60)) {
               const route = routeFromNotificationData(data);
               if (route) {
                 if (typeof route === 'string') router.replace(route as any);

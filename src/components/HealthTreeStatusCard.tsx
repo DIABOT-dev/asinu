@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
@@ -98,7 +98,7 @@ export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatu
     <View style={[styles.card, { backgroundColor: background, borderColor: `${color}30` }]}>
       <View style={styles.headerRow}>
         <View style={[styles.iconWrap, { backgroundColor: `${color}18` }]}>
-          <Ionicons name={icon} size={28} color={color} />
+          <MaterialCommunityIcons name="tree-outline" size={28} color={color} />
         </View>
         <View style={styles.copy}>
           <Text style={[styles.title, { color: '#111827', fontSize: 18 }]}>
@@ -130,6 +130,7 @@ export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatu
             ) : null}
           </View>
         </View>
+        <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
       </View>
     </View>
   );

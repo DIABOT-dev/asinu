@@ -6,6 +6,7 @@ import { initReactI18next } from 'react-i18next';
 import enAuth from './locales/en/auth.json';
 import enCareCircle from './locales/en/careCircle.json';
 import enChat from './locales/en/chat.json';
+import enCheckinCall from './locales/en/checkinCall.json';
 import enCommon from './locales/en/common.json';
 import enHome from './locales/en/home.json';
 import enLogs from './locales/en/logs.json';
@@ -20,6 +21,7 @@ import enWallet from './locales/en/wallet.json';
 import viAuth from './locales/vi/auth.json';
 import viCareCircle from './locales/vi/careCircle.json';
 import viChat from './locales/vi/chat.json';
+import viCheckinCall from './locales/vi/checkinCall.json';
 import viCommon from './locales/vi/common.json';
 import viHome from './locales/vi/home.json';
 import viLogs from './locales/vi/logs.json';
@@ -46,6 +48,7 @@ const resources = {
     onboarding: viOnboarding,
     careCircle: viCareCircle,
     chat: viChat,
+    checkinCall: viCheckinCall,
     logs: viLogs,
     subscription: viSubscription,
     report: viReport,
@@ -62,6 +65,7 @@ const resources = {
     onboarding: enOnboarding,
     careCircle: enCareCircle,
     chat: enChat,
+    checkinCall: enCheckinCall,
     logs: enLogs,
     subscription: enSubscription,
     report: enReport,
@@ -101,6 +105,7 @@ const initI18n = async () => {
       'onboarding',
       'careCircle',
       'chat',
+      'checkinCall',
       'logs',
       'subscription',
       'report',

@@ -843,6 +843,34 @@ export default function ProfileScreen() {
                   <Text style={styles.rowLabel}>{t("reminderSchedule")}</Text>
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => router.push("/checkin-call/settings" as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowIconWrap}>
+                    <Ionicons name="call-outline" size={22} color="#07846d" />
+                  </View>
+                  <Text style={styles.rowLabel}>{t("checkinCall")}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                </TouchableOpacity>
+
+                {__DEV__ && (
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/checkin-call/ui-gallery" as any)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("checkinCallGalleryAccessibility")}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="color-palette-outline" size={22} color="#07846d" />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
               </View>
             </Animated.View>
 

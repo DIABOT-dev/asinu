@@ -1,4 +1,9 @@
 <resources>
     <string name="app_name">Asinu</string>
     <string name="appID">1593272240133048788</string>
+    <string name="checkin_call_title">Cuộc gọi Asinu</string>
+    <string name="checkin_call_urgent_title">Cảnh báo Asinu</string>
+    <string name="checkin_call_body">Asinu đang gọi, vui lòng mở ứng dụng.</string>
+    <string name="checkin_call_channel_name">Cuộc gọi check-in Asinu</string>
+    <string name="checkin_call_channel_description">Cuộc gọi check-in và cảnh báo cần người dùng phản hồi</string>
 </resources>

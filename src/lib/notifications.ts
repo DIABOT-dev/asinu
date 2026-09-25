@@ -265,6 +265,20 @@ export async function getExpoPushToken(): Promise<string | null> {
   }
 }
 
+/** Native Android FCM token used only for direct incoming-call delivery. */
+export async function getNativeFcmToken(): Promise<string | null> {
+  if (Platform.OS !== "android") return null;
+  try {
+    const token = await Notifications.getDevicePushTokenAsync();
+    return typeof token.data === "string" && token.data.length > 0
+      ? token.data
+      : null;
+  } catch (error) {
+    console.error("[PushToken] Error getting native FCM token:", error);
+    return null;
+  }
+}
+
 /**
  * Schedule a local notification (useful for testing or offline scenarios)
  */
@@ -370,6 +384,12 @@ export type NotificationRoute =
 export function routeFromNotificationData(
   data: Record<string, unknown> | null | undefined,
 ): NotificationRoute | null {
+  if (data?.checkinCall === true && typeof data.episodeId === 'string') {
+    return {
+      pathname: '/checkin-call/[episodeId]',
+      params: { episodeId: data.episodeId, attemptId: String(data.attemptId || '') },
+    };
+  }
   const type = data?.type as string | undefined;
   if (!type) return null;
 

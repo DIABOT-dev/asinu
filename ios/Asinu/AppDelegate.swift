@@ -21,6 +21,7 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
     ZaloSDK.sharedInstance().initialize(withAppId: "1593272240133048788")
+    VoipCallManager.shared.start()
 
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)

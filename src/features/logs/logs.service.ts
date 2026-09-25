@@ -1,5 +1,5 @@
 import i18n from '../../i18n';
-import { env } from '../../lib/env';
+import { apiClient } from '../../lib/apiClient';
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(key, { ns: 'logs', ...opts });
 
@@ -14,7 +14,7 @@ export const isHalfStepNumber = (value: number) => {
 
 class LogsService {
   // Real-time health monitoring khi user log data
-  async checkHealthOnLog(userId: string, logType: string, data: any) {
+  async checkHealthOnLog(_userId: string, logType: string, data: any) {
     try {
       // Check glucose levels ngay lập tức
       if (logType === 'glucose' && data.value) {
@@ -22,7 +22,7 @@ class LogsService {
         
         // Nguy hiểm cao nếu >250 hoặc <70
         if (glucoseValue > 250 || glucoseValue < 70) {
-          await this.sendHealthAlert(userId, {
+          await this.sendHealthAlert({
             type: 'glucose_critical',
             title: t('alertGlucoseCritical'),
             message: t('alertGlucoseMsg', { value: glucoseValue, level: glucoseValue > 250 ? t('levelTooHigh') : t('levelTooLow') }),
@@ -35,7 +35,7 @@ class LogsService {
         }
         // Cảnh báo nếu >180 hoặc <90 
         else if (glucoseValue > 180 || glucoseValue < 90) {
-          await this.sendHealthAlert(userId, {
+          await this.sendHealthAlert({
             type: 'glucose_warning', 
             title: t('alertGlucoseWarning'),
             message: t('alertGlucoseMsg', { value: glucoseValue, level: glucoseValue > 180 ? t('levelHigh') : t('levelLow') }),
@@ -55,7 +55,7 @@ class LogsService {
         
         // Nguy hiểm cao
         if (systolic >= 180 || diastolic >= 110) {
-          await this.sendHealthAlert(userId, {
+          await this.sendHealthAlert({
             type: 'blood_pressure_critical',
             title: t('alertBpCritical'),
             message: t('alertBpMsg', { sys: systolic, dia: diastolic, level: t('levelTooHigh') }),
@@ -69,7 +69,7 @@ class LogsService {
         }
         // Cảnh báo nếu cao
         else if (systolic >= 140 || diastolic >= 90) {
-          await this.sendHealthAlert(userId, {
+          await this.sendHealthAlert({
             type: 'blood_pressure_warning',
             title: t('alertBpWarning'),
             message: t('alertBpMsg', { sys: systolic, dia: diastolic, level: t('levelHigh') }),
@@ -87,10 +87,10 @@ class LogsService {
     }
   }
   
-  private async sendHealthAlert(userId: string, alertData: any) {
+  private async sendHealthAlert(alertData: any) {
     try {
       // Gửi notification cho user
-      await this.createNotification(userId, {
+      await this.createNotification({
         type: 'health_alert',
         title: alertData.title,
         message: alertData.message,
@@ -104,50 +104,30 @@ class LogsService {
       
       // Gửi cho care-circle nếu mức độ nguy hiểm
       if (alertData.severity === 'critical') {
-        await this.notifyCareCircle(userId, alertData);
+        await this.notifyCareCircle(alertData);
       }
     } catch (error) {
 
     }
   }
   
-  private async notifyCareCircle(userId: string, alertData: any) {
+  private async notifyCareCircle(alertData: any) {
     try {
-      const response = await fetch(`${env.apiBaseUrl}/api/health/alert-care-circle`, {
+      await apiClient('/api/health/alert-care-circle', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          alertData
-        })
+        body: { alertData }
       });
-      
-      if (!response.ok) {
-        throw new Error(t('cannotSendCareCircleAlert'));
-      }
     } catch (error) {
 
     }
   }
   
-  private async createNotification(userId: string, notification: any) {
+  private async createNotification(notification: any) {
     try {
-      const response = await fetch(`${env.apiBaseUrl}/api/notifications`, {
+      await apiClient('/api/notifications', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          ...notification
-        })
+        body: notification
       });
-      
-      if (!response.ok) {
-        throw new Error(t('cannotCreateNotification'));
-      }
     } catch (error) {
 
     }

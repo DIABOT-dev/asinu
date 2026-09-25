@@ -18,6 +18,7 @@ import {
   addNotificationResponseReceivedListener,
   checkNotificationPermission,
   getExpoPushToken,
+  getNativeFcmToken,
   requestNotificationPermissions,
   routeFromNotificationData,
   setBadgeCount,
@@ -30,6 +31,14 @@ import { CaregiverAlertModal } from "../components/CaregiverAlertModal";
 import { AppAlertModal } from "../components/AppAlertModal";
 import { apiClient } from "../lib/apiClient";
 import { env } from "../lib/env";
+import {
+  addVoipCallAnsweredListener,
+  addVoipTokenListener,
+  consumePendingVoipCall,
+  getVoipRegistration,
+  type VoipCallPayload,
+  type VoipRegistration,
+} from "../lib/voip";
 
 // ─── Session Context ──────────────────────────────────────────────────────────
 
@@ -59,14 +68,23 @@ export const SessionProvider = ({ children }: Props) => {
   const authToken = useAuthStore((state) => state.token);
   const profile = useAuthStore((state) => state.profile);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [nativeFcmToken, setNativeFcmToken] = useState<string | null>(null);
+  const [voipRegistration, setVoipRegistration] =
+    useState<VoipRegistration | null>(null);
   const [notificationPromptVisible, setNotificationPromptVisible] =
     useState(false);
 
   const syncExistingPushToken = useCallback(async () => {
+    const voip = await getVoipRegistration();
+    if (voip) setVoipRegistration(voip);
+
     const granted = await checkNotificationPermission();
     if (!granted) return;
 
-    const token = await getExpoPushToken();
+    const [token, fcmToken] = await Promise.all([
+      getExpoPushToken(),
+      getNativeFcmToken(),
+    ]);
     if (__DEV__)
       console.log(
         "[Session] Push token result:",
@@ -77,6 +95,7 @@ export const SessionProvider = ({ children }: Props) => {
       console.warn(
         "[Session] No push token obtained — notifications will not work remotely",
       );
+    if (fcmToken) setNativeFcmToken(fcmToken);
   }, []);
 
   const enableNotifications = useCallback(async () => {
@@ -93,16 +112,58 @@ export const SessionProvider = ({ children }: Props) => {
     syncExistingPushToken();
   }, [bootstrap, hydrated, syncExistingPushToken]);
 
-  // Save push token to backend whenever token or expoPushToken changes (handles login after app open)
+  // Save all platform-specific tokens whenever registration or login changes.
   useEffect(() => {
-    if (!authToken || !expoPushToken) return;
+    if (!authToken || (!expoPushToken && !nativeFcmToken && !voipRegistration?.token)) return;
     authApi
-      .updatePushToken(expoPushToken)
+      .updatePushToken(
+        expoPushToken,
+        nativeFcmToken,
+        voipRegistration?.token || null,
+        voipRegistration?.environment || null,
+      )
       .then(() => {
         if (__DEV__) console.log("[Session] Push token saved to server");
       })
       .catch(() => {});
-  }, [authToken, expoPushToken]);
+  }, [authToken, expoPushToken, nativeFcmToken, voipRegistration]);
+
+  const openVoipCall = useCallback((call: VoipCallPayload) => {
+    router.push({
+      pathname: "/checkin-call/[episodeId]",
+      params: {
+        episodeId: call.episodeId,
+        attemptId: call.attemptId,
+        nativeAnswered: "1",
+      },
+    } as any);
+  }, []);
+
+  // PushKit registration is independent from the regular notification prompt.
+  // Answer events open the in-app 1/2/3 screen; a persisted pending call covers
+  // the cold-start window before React Native has finished bootstrapping.
+  useEffect(() => {
+    const removeToken = addVoipTokenListener((registration) => {
+      setVoipRegistration(registration);
+      if (!registration && authToken) {
+        void authApi.updatePushToken(null, null, null, null, true).catch(() => {});
+      }
+    });
+    const removeAnswer = addVoipCallAnsweredListener((call) => {
+      if (authToken) openVoipCall(call);
+    });
+    return () => {
+      removeToken();
+      removeAnswer();
+    };
+  }, [authToken, openVoipCall]);
+
+  useEffect(() => {
+    if (!hydrated || !authToken) return;
+    void consumePendingVoipCall().then((call) => {
+      if (call) openVoipCall(call);
+    });
+  }, [authToken, hydrated, openVoipCall]);
 
   // Ask once after a completed sign-in, with an in-app explanation first.
   // This keeps push registration discoverable for care-circle alerts while
@@ -156,6 +217,12 @@ export const SessionProvider = ({ children }: Props) => {
         const type = data?.type as string | undefined;
         const title = notification.request.content.title || "";
         const body = notification.request.content.body || "";
+
+        if (data?.checkinCall === true && data?.kind === 'INCOMING_CALL') {
+          const route = routeFromNotificationData(data);
+          if (route) router.push(route as any);
+          return;
+        }
 
         // KHÔNG re-emit local cho caregiver_alert/emergency — backend đã gửi push
         // với categoryIdentifier='health_alert' (push.notification.service.js)
@@ -221,6 +288,11 @@ export const SessionProvider = ({ children }: Props) => {
     const sub = addNotificationResponseReceivedListener((response) => {
       const { actionIdentifier, notification } = response;
       const data = notification.request.content.data as Record<string, unknown>;
+
+      if (data?.checkinCall === true) {
+        if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) handleNotificationRoute(data);
+        return;
+      }
 
       // Action buttons on caregiver alert push notification
       if (actionIdentifier === "ACKNOWLEDGE") {

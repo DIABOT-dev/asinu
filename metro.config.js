@@ -3,7 +3,7 @@ const { getDefaultConfig } = require("@expo/metro-config");
 const config = getDefaultConfig(__dirname);
 
 config.resolver.unstable_enablePackageExports = false;
-config.resolver.resolverMainFields = ["react-native", "main", "module"];
+config.resolver.resolverMainFields = ["react-native", "browser", "main"];
 
 if (!config.resolver.sourceExts.includes("cjs")) {
   config.resolver.sourceExts.push("cjs");

@@ -1,0 +1,7 @@
+<resources>
+    <string name="checkin_call_title">Asinu call</string>
+    <string name="checkin_call_urgent_title">Asinu alert</string>
+    <string name="checkin_call_body">Asinu is calling. Please open the app.</string>
+    <string name="checkin_call_channel_name">Asinu check-in calls</string>
+    <string name="checkin_call_channel_description">Check-in calls and alerts that need a response</string>
+</resources>

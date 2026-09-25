@@ -91,10 +91,22 @@ export const authApi = {
       timeoutMs: 30000,
     }).then(res => res.profile);
   },
-  updatePushToken(pushToken: string) {
+  updatePushToken(
+    pushToken: string | null,
+    fcmToken: string | null = null,
+    voipToken: string | null = null,
+    voipEnvironment: 'sandbox' | 'production' | null = null,
+    clearVoipToken = false,
+  ) {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/profile/push-token', { 
       method: 'POST', 
-      body: { push_token: pushToken } 
+      body: {
+        push_token: pushToken,
+        fcm_token: fcmToken,
+        voip_token: voipToken,
+        voip_environment: voipEnvironment,
+        clear_voip_token: clearVoipToken,
+      }
     });
   },
   logout() {

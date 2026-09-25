@@ -64,6 +64,8 @@
     <string>d079afd832d0f03ff61ca921cfea04fc</string>
     <key>FacebookDisplayName</key>
     <string>Asinu</string>
+	<key>AsinuAPNSEnvironment</key>
+	<string>production</string>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
     <key>LSMinimumSystemVersion</key>
@@ -106,6 +108,12 @@
     </array>
     <key>UIRequiresFullScreen</key>
     <false/>
+    <key>UIBackgroundModes</key>
+    <array>
+      <string>fetch</string>
+      <string>remote-notification</string>
+      <string>voip</string>
+    </array>
     <key>UIStatusBarStyle</key>
     <string>UIStatusBarStyleDefault</string>
     <key>UISupportedInterfaceOrientations</key>

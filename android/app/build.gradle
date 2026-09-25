@@ -156,6 +156,9 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    // Exposed directly because Asinu's incoming-call service subclasses the
+    // Expo Firebase service and consumes RemoteMessage in app code.
+    implementation("com.google.firebase:firebase-messaging:25.0.1")
     implementation("me.zalo:sdk-core:+")
     implementation("me.zalo:sdk-auth:+")
     implementation("me.zalo:sdk-openapi:+")
