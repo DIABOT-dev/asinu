@@ -44,6 +44,55 @@ export default function CheckinCallScreen() {
   const accepted = useRef(false);
   const acceptPromise = useRef<ReturnType<typeof checkinCallApi.accept> | null>(null);
 
+  const resultCopy = (() => {
+    if (statusKey === 'statusUserOk') {
+      return {
+        title: t('result.userOkTitle'),
+        message: t('result.userOkMessage'),
+        state: t('result.resolved'),
+        success: true,
+      };
+    }
+    if (statusKey === 'statusUserMild') {
+      return {
+        title: t('result.mildTitle'),
+        message: t('result.mildMessage'),
+        state: t('result.notified'),
+        success: true,
+      };
+    }
+    if (statusKey === 'statusUserUrgent') {
+      return {
+        title: t('result.urgentTitle'),
+        message: t('result.urgentMessage'),
+        state: t('result.escalating'),
+        success: false,
+      };
+    }
+    if (statusKey === 'statusFamilyConfirmed') {
+      return {
+        title: t('result.familyConfirmedTitle'),
+        message: t('result.familyConfirmedMessage'),
+        state: t('result.accepted'),
+        success: true,
+      };
+    }
+    if (statusKey === 'statusFamilyUnavailable') {
+      return {
+        title: t('result.familyUnavailableTitle'),
+        message: t('result.familyUnavailableMessage'),
+        state: t('result.needsAttention'),
+        success: false,
+      };
+    }
+    return {
+      title: t('result.expiredTitle'),
+      message: t('result.expiredMessage'),
+      state: t('result.expired'),
+      success: false,
+    };
+  })();
+
   const play = useCallback(async (key: string) => {
     try {
       Speech.stop();
@@ -164,11 +213,22 @@ export default function CheckinCallScreen() {
     setBusy(true);
     setError('');
     try {
-      await checkinCallApi.answer(episodeId, choice);
+      const result = await checkinCallApi.answer(episodeId, choice);
       if (attempt?.id) await endVoipCall(attempt.id);
       setEnded(true);
       setRoom(null);
-      setStatusKey(choice === 1 ? 'statusUserOk' : choice === 2 ? 'statusUserMild' : 'statusUserUrgent');
+      const noEligibleFamily = ['EXHAUSTED', 'EXHAUSTED_MILD', 'EXHAUSTED_URGENT'].includes(
+        result.episode.state,
+      );
+      setStatusKey(
+        noEligibleFamily
+          ? 'statusFamilyUnavailable'
+          : choice === 1
+            ? 'statusUserOk'
+            : choice === 2
+              ? 'statusUserMild'
+              : 'statusUserUrgent',
+      );
       void play(choice === 1 ? 'user_ok' : choice === 2 ? 'user_mild' : 'user_urgent');
     } catch (e) {
       setError(getApiErrorMessage(e, t, 'errorSendChoice'));
@@ -273,14 +333,20 @@ export default function CheckinCallScreen() {
       {/* Screen 2: Kết quả cuộc gọi (Call Ended / Resolved - Image 2) */}
       {ended && (
         <View style={styles.resultFullWrapper}>
-          <Image
-            source={require('../../assets/images/checkin-call/checkin_success_art.png')}
-            style={styles.resultSuccessArt}
-            resizeMode="contain"
-          />
+          {resultCopy.success ? (
+            <Image
+              source={require('../../assets/images/checkin-call/checkin_success_art.png')}
+              style={styles.resultSuccessArt}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={styles.resultWarningIcon}>
+              <Ionicons name="time-outline" size={54} color="#b45309" />
+            </View>
+          )}
 
-          <Text style={styles.resultHeading}>{t('gallery.okResultTitle')}</Text>
-          <Text style={styles.resultSub}>{t('gallery.okResultMessage')}</Text>
+          <Text style={styles.resultHeading}>{resultCopy.title}</Text>
+          <Text style={styles.resultSub}>{resultCopy.message}</Text>
 
           <View style={styles.resultCard}>
             <View style={styles.resultRow}>
@@ -288,8 +354,15 @@ export default function CheckinCallScreen() {
                 <Ionicons name="person-circle-outline" size={26} color="#00897b" />
                 <Text style={styles.resultRowLabel}>{t('gallery.statusLabel')}</Text>
               </View>
-              <View style={styles.resultPill}>
-                <Text style={styles.resultPillTextResolved}>{t('gallery.resolved')}</Text>
+              <View style={[styles.resultPill, !resultCopy.success && styles.resultPillWarning]}>
+                <Text
+                  style={[
+                    styles.resultPillTextResolved,
+                    !resultCopy.success && styles.resultPillTextWarning,
+                  ]}
+                >
+                  {resultCopy.state}
+                </Text>
               </View>
             </View>
 
@@ -302,7 +375,11 @@ export default function CheckinCallScreen() {
               </View>
               <View style={styles.resultPill}>
                 <Text style={styles.resultPillTextTime}>
-                  {new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  {new Date().toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                  })}
                 </Text>
               </View>
             </View>
@@ -588,6 +665,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     zIndex: 2,
   },
+  resultWarningIcon: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    marginBottom: 16,
+    zIndex: 2,
+  },
   resultHeading: {
     fontSize: 22,
     fontWeight: '800',
@@ -647,6 +736,12 @@ const styles = StyleSheet.create({
     color: '#00897b',
     fontWeight: '700',
     fontSize: 13,
+  },
+  resultPillWarning: {
+    backgroundColor: '#fef3c7',
+  },
+  resultPillTextWarning: {
+    color: '#92400e',
   },
   resultPillTextTime: {
     color: '#0f3e36',

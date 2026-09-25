@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { checkinCallApi, type CheckinCallSettings } from '../../src/features/checkin-call/checkin-call.api';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
-import { simulateIncomingVoipCall } from '../../src/lib/voip';
+import { showToast } from '../../src/stores/toast.store';
 
 const FIELDS: Array<{
   key: keyof CheckinCallSettings;
@@ -43,7 +42,7 @@ export default function CheckinCallSettingsScreen() {
   const [value, setValue] = useState<CheckinCallSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [testingCallKit, setTestingCallKit] = useState(false);
+  const [testingCall, setTestingCall] = useState(false);
   const [activeField, setActiveField] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,21 +72,17 @@ export default function CheckinCallSettingsScreen() {
     }
   };
 
-  const testIosCallKit = async () => {
-    if (testingCallKit) return;
-    setTestingCallKit(true);
+  const testCheckinCall = async () => {
+    if (testingCall) return;
+    setTestingCall(true);
     setError('');
     try {
-      const active = await checkinCallApi.active().catch(() => ({ active: null }));
-      const ok = await simulateIncomingVoipCall({
-        episodeId: active.active?.id,
-        attemptId: active.active?.attempt_id,
-        severity: active.active?.severity || 'UNKNOWN',
-        kind: 'INCOMING_CALL',
-      });
-      if (!ok) setError(t('errorTestIos'));
+      await checkinCallApi.testCall();
+      showToast(t('testCallSent'), 'success', 4000);
+    } catch (e) {
+      setError(getApiErrorMessage(e, tc));
     } finally {
-      setTestingCallKit(false);
+      setTestingCall(false);
     }
   };
 
@@ -158,7 +153,7 @@ export default function CheckinCallSettingsScreen() {
           <View style={styles.toggleRow}>
             <View style={styles.toggleCopy}>
               <Text style={styles.toggleLabel}>{t('enable')}</Text>
-              <Text style={styles.toggleStatus}>{value.enabled ? t('active') : 'Đã tắt'}</Text>
+              <Text style={styles.toggleStatus}>{value.enabled ? t('active') : t('inactive')}</Text>
             </View>
             <Switch
               value={value.enabled}
@@ -247,9 +242,9 @@ export default function CheckinCallSettingsScreen() {
             )}
           </Pressable>
 
-          {__DEV__ && Platform.OS === 'ios' && (
-            <Pressable style={styles.testBtn} onPress={testIosCallKit} disabled={testingCallKit}>
-              <Text style={styles.testBtnText}>{testingCallKit ? t('testingIos') : t('testIos')}</Text>
+          {__DEV__ && (
+            <Pressable style={styles.testBtn} onPress={testCheckinCall} disabled={testingCall}>
+              <Text style={styles.testBtnText}>{testingCall ? t('testingCall') : t('testCall')}</Text>
             </Pressable>
           )}
         </View>

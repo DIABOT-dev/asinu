@@ -44,6 +44,13 @@ export const checkinCallApi = {
       body: settings,
     }),
   active: () => apiClient<{ ok: boolean; active: ActiveCheckinCall | null }>(BASE + '/active'),
+  testCall: () =>
+    apiClient<{
+      ok: boolean;
+      episode: CheckinCallEpisode;
+      attempt: CheckinCallAttempt;
+      delivery_state: string;
+    }>(BASE + '/test-call', { method: 'POST' }),
   episode: (id: string) =>
     apiClient<{ ok: boolean; episode: CheckinCallEpisode }>(BASE + '/episodes/' + id),
   attempt: (id: string) =>
