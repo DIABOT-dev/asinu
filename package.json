@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "i18n:check": "node scripts/check-i18n.mjs && node scripts/check-ui-copy.mjs",
+    "test:checkin-contract": "node scripts/check-checkin-api-contract.mjs",
     "build:android": "cd android && ./gradlew bundleRelease",
     "build:android:release": "npm run build:android",
     "lint:assets": "node scripts/check-assets.js",
