@@ -5,25 +5,20 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
+import {
+  checkinApi,
+  type PendingCaregiverAlert,
+} from '../features/checkin/checkin.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
-import { apiClient } from '../lib/apiClient';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { showToast } from '../stores/toast.store';
 
-interface PendingAlert {
-  alertId: number;
-  alertType: 'caregiver_alert' | 'emergency';
-  patientName: string;
-  currentStatus: string;
-  flowState: string;
-  sentAt: string;
-  state?: 'active' | 'missed';  // backend trả: active=urgent, missed=soft
-}
+type CaregiverAlertAction = 'seen' | 'on_my_way' | 'called';
 
 export function CaregiverAlertModal() {
   const { t, i18n } = useTranslation('common');
@@ -37,19 +32,24 @@ export function CaregiverAlertModal() {
     very_tired: t('careAlertStatusVeryTired'),
   };
 
-  const ACTIONS = [
+  const ACTIONS: Array<{
+    key: CaregiverAlertAction;
+    label: string;
+    icon: ComponentProps<typeof Ionicons>['name'];
+    color: string;
+  }> = [
     { key: 'seen',       label: t('careAlertActionSeen'),    icon: 'checkmark-circle-outline' as const, color: '#16a34a' },
     { key: 'on_my_way',  label: t('careAlertActionOnWay'),   icon: 'walk-outline'             as const, color: '#2563eb' },
     { key: 'called',     label: t('careAlertActionCalled'),  icon: 'call-outline'             as const, color: '#7c3aed' },
   ];
 
-  const [alerts, setAlerts] = useState<PendingAlert[]>([]);
+  const [alerts, setAlerts] = useState<PendingCaregiverAlert[]>([]);
   const [current, setCurrent] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const appStateRef = useRef(AppState.currentState);
 
   const fetchPendingAlerts = useCallback(() => {
-    apiClient<{ ok: boolean; alerts: PendingAlert[] }>('/api/mobile/checkin/pending-alerts')
+    checkinApi.getPendingAlerts()
       .then(res => {
         if (!res.alerts?.length) return;
         // Tách 'active' (modal urgent) vs 'missed' (toast soft).
@@ -69,10 +69,7 @@ export function CaregiverAlertModal() {
         // Auto-confirm missed alerts để không show toast lặp lại lần fetch tiếp
         Promise.all(
           missedAlerts.map(m =>
-            apiClient('/api/mobile/checkin/confirm-alert', {
-              method: 'POST',
-              body: { alert_id: m.alertId, action: 'seen' },
-            }).catch(() => {})
+            checkinApi.confirmAlert(m.alertId, 'seen').catch(() => {})
           )
         );
       })
@@ -110,13 +107,10 @@ export function CaregiverAlertModal() {
 
   const isEmergency = alert.alertType === 'emergency';
 
-  const handleConfirm = async (action: string) => {
+  const handleConfirm = async (action: CaregiverAlertAction) => {
     setConfirming(true);
     try {
-      await apiClient('/api/mobile/checkin/confirm-alert', {
-        method: 'POST',
-        body: { alert_id: alert.alertId, action },
-      });
+      await checkinApi.confirmAlert(alert.alertId, action);
       // Toast feedback để caregiver biết hành động đã được ghi nhận
       const patientName = alert.patientName || t('careAlertFamilyFallback');
       const feedback: Record<string, string> = {

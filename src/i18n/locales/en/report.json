@@ -25,6 +25,7 @@
   "severityLow": "Low",
   "severityMedium": "Medium",
   "severityHigh": "High",
+  "severityEmergency": "Emergency",
   "statusTitle": "Status Overview",
   "statusFine": "Fine",
   "statusTired": "Slightly tired",

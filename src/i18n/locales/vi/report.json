@@ -25,6 +25,7 @@
   "severityLow": "Nhẹ",
   "severityMedium": "Vừa",
   "severityHigh": "Nghiêm trọng",
+  "severityEmergency": "Khẩn cấp",
   "statusTitle": "Trạng thái báo cáo",
   "statusFine": "Ổn",
   "statusTired": "Hơi mệt",

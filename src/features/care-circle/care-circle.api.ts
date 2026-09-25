@@ -97,7 +97,7 @@ export type MemberHealthSummary = {
     current_status: string | null;
     flow_state: string | null;
     triage_summary: string | null;
-    triage_severity: 'low' | 'medium' | 'high' | null;
+    triage_severity: 'low' | 'medium' | 'high' | 'emergency' | null;
     family_alerted: boolean;
     emergency_triggered: boolean;
     created_at: string;
@@ -244,7 +244,7 @@ export const careCircleApi = {
         current_status: string | null;
         flow_state: 'monitoring' | 'follow_up' | 'high_alert' | 'resolved' | null;
         triage_summary: string | null;
-        triage_severity: 'low' | 'medium' | 'high' | null;
+        triage_severity: 'low' | 'medium' | 'high' | 'emergency' | null;
         family_alerted: boolean;
         emergency_triggered: boolean;
         resolved_at: string | null;

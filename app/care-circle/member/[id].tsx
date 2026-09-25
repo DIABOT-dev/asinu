@@ -95,6 +95,7 @@ const normalizeMemberReport = (raw: MemberHealthSummary['report']): HealthReport
       low: Number(severityDistribution.low || 0),
       medium: Number(severityDistribution.medium || 0),
       high: Number(severityDistribution.high || 0),
+      emergency: Number(severityDistribution.emergency || 0),
     },
     statusDistribution: {
       fine: Number(statusDistribution.fine || 0),
@@ -133,7 +134,7 @@ type CheckinSession = {
   current_status: string | null;
   flow_state: 'monitoring' | 'follow_up' | 'high_alert' | 'resolved' | null;
   triage_summary: string | null;
-  triage_severity: 'low' | 'medium' | 'high' | null;
+  triage_severity: 'low' | 'medium' | 'high' | 'emergency' | null;
   family_alerted: boolean;
   emergency_triggered: boolean;
   resolved_at: string | null;

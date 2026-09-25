@@ -421,20 +421,8 @@ export default function CheckinScreen() {
       }
     }
 
-    // Hard limit on frontend — force done if we've asked enough
-    if (newAnswers.length >= MAX_TRIAGE_QUESTIONS) {
-      setTriageSummary({
-        summary: '',
-        severity: 'medium',
-        recommendation: '',
-        needsDoctor: false,
-      });
-      setScreen('done');
-      // Still send final answers to backend to save
-      checkinApi.triage(session.id, newAnswers).catch(() => {});
-      return;
-    }
-
+    // Backend enforces the question limit and returns the persisted severity.
+    // Always await it so an emergency in the final answer cannot be shown as medium.
     await fetchNextQuestion(session, newAnswers);
   };
 

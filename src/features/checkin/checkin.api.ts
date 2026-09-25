@@ -2,6 +2,7 @@ import { apiClient } from '../../lib/apiClient';
 
 export type CheckinStatus = 'fine' | 'tired' | 'very_tired';
 export type FlowState = 'monitoring' | 'follow_up' | 'high_alert' | 'resolved';
+export type TriageSeverity = 'low' | 'medium' | 'high' | 'emergency';
 
 export interface CheckinSession {
   id: number;
@@ -12,7 +13,7 @@ export interface CheckinSession {
   flow_state: FlowState;
   triage_messages: Array<{ question: string; answer: string; options?: string[] }>;
   triage_summary: string | null;
-  triage_severity: 'low' | 'medium' | 'high' | null;
+  triage_severity: TriageSeverity | null;
   triage_completed_at: string | null;
   next_checkin_at: string | null;
   no_response_count: number;
@@ -39,7 +40,7 @@ export interface TriageResult {
   multiSelect?: boolean;
   // when done
   summary?: string;
-  severity?: 'low' | 'medium' | 'high';
+  severity?: TriageSeverity;
   recommendation?: string;
   needsDoctor?: boolean;
   needsFamilyAlert?: boolean;
@@ -91,12 +92,12 @@ export interface HealthReportData {
   sessions: Array<{
     date: string;
     status: string;
-    severity: 'low' | 'medium' | 'high' | null;
+    severity: TriageSeverity | null;
     summary: string | null;
     flowState: string;
     resolved: boolean;
   }>;
-  severityDistribution: { low: number; medium: number; high: number };
+  severityDistribution: { low: number; medium: number; high: number; emergency: number };
   statusDistribution: { fine: number; tired: number; very_tired: number; specific_concern: number };
   commonSymptoms: Array<{ symptom: string; count: number }>;
   alerts: { familyAlerted: number; emergencyTriggered: number };
@@ -110,6 +111,16 @@ export interface HealthScoreData {
   level: 'ok' | 'monitor' | 'danger';
   factors: string[];
   checkinDone: boolean;
+}
+
+export interface PendingCaregiverAlert {
+  alertId: number;
+  alertType: 'caregiver_alert' | 'emergency';
+  patientName: string;
+  currentStatus: string;
+  flowState: string;
+  sentAt: string;
+  state?: 'active' | 'missed';
 }
 
 export const checkinApi = {
@@ -161,6 +172,11 @@ export const checkinApi = {
       method: 'POST',
       body: { alert_id, action },
     }),
+
+  getPendingAlerts: () =>
+    apiClient<{ ok: boolean; alerts: PendingCaregiverAlert[] }>(
+      '/api/mobile/checkin/pending-alerts'
+    ),
 
   getReport: (period: 'week' | 'month' = 'week') =>
     apiClient<{ ok: boolean } & HealthReportData>(`/api/mobile/checkin/report?period=${period}`),

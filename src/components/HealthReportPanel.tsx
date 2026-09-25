@@ -21,7 +21,7 @@ import { useThemeColors } from '../hooks/useThemeColors';
 import { ScreenBackButton } from './ScreenHeaderButton';
 
 type Period = 'week' | 'month';
-type SeverityKey = 'low' | 'medium' | 'high';
+type SeverityKey = 'low' | 'medium' | 'high' | 'emergency';
 type StatusKey = 'fine' | 'tired' | 'very_tired' | 'specific_concern';
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -29,12 +29,21 @@ const SEVERITY_COLORS: Record<SeverityKey, string> = {
   low: iconColors.emerald,
   medium: iconColors.warning,
   high: iconColors.danger,
+  emergency: '#991b1b',
 };
 
 const SEVERITY_ICON: Record<SeverityKey, IconName> = {
   low: 'emoticon-happy-outline',
   medium: 'emoticon-neutral-outline',
   high: 'emoticon-sad-outline',
+  emergency: 'alert-octagon-outline',
+};
+
+const SEVERITY_LABEL_KEY: Record<SeverityKey, string> = {
+  low: 'severityLow',
+  medium: 'severityMedium',
+  high: 'severityHigh',
+  emergency: 'severityEmergency',
 };
 
 const STATUS_META: Record<StatusKey, {
@@ -75,7 +84,7 @@ const STATUS_META: Record<StatusKey, {
 };
 
 const STATUS_KEYS: StatusKey[] = ['fine', 'tired', 'very_tired', 'specific_concern'];
-const SEVERITY_KEYS: SeverityKey[] = ['low', 'medium', 'high'];
+const SEVERITY_KEYS: SeverityKey[] = ['low', 'medium', 'high', 'emergency'];
 
 function formatDailyDate(dateStr: string, isVi: boolean): string {
   const d = new Date(dateStr);
@@ -154,7 +163,10 @@ export function HealthReportPanel({
   }, [period, reportOverride, treeSummaryOverride]);
 
   const severityTotal = report
-    ? report.severityDistribution.low + report.severityDistribution.medium + report.severityDistribution.high
+    ? report.severityDistribution.low +
+      report.severityDistribution.medium +
+      report.severityDistribution.high +
+      report.severityDistribution.emergency
     : 0;
   const statusTotal = report
     ? Object.values(report.statusDistribution).reduce((total, count) => total + count, 0)
@@ -388,7 +400,7 @@ export function HealthReportPanel({
                           <MaterialCommunityIcons name={SEVERITY_ICON[severity]} size={24} color={SEVERITY_COLORS[severity]} />
                         </View>
                         <Text style={styles.severityLabel} numberOfLines={1}>
-                          {t(severity === 'low' ? 'severityLow' : severity === 'medium' ? 'severityMedium' : 'severityHigh')}
+                          {t(SEVERITY_LABEL_KEY[severity])}
                         </Text>
                         <Text style={[styles.severityValue, { color: SEVERITY_COLORS[severity] }]}>
                           {count} <Text style={styles.severityPercent}>({percent}%)</Text>
@@ -704,9 +716,10 @@ function createStyles(
     sectionBlock: { gap: spacing.sm, marginTop: spacing.xs },
     sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xs },
     cardTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-    severityGrid: { flexDirection: 'row', gap: 12 },
+    severityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     severityItem: {
-      flex: 1,
+      flexGrow: 1,
+      flexBasis: '45%',
       alignItems: 'center',
       minWidth: 0,
       padding: 12,

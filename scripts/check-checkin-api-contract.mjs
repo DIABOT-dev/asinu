@@ -92,6 +92,9 @@ expectCall(health.calls, {
   body: { alert_id: 456, action: 'on_my_way' },
 });
 
+checkinApi.getPendingAlerts();
+expectCall(health.calls, { path: '/api/mobile/checkin/pending-alerts' });
+
 checkinApi.getReport('month');
 expectCall(health.calls, { path: '/api/mobile/checkin/report?period=month' });
 
@@ -159,4 +162,4 @@ expectCall(call.calls, {
 });
 assert.equal(call.calls.length, 0);
 
-console.log('Check-in API contract passed: 21 frontend requests match the server contract.');
+console.log('Check-in API contract passed: 22 frontend requests match the server contract.');
