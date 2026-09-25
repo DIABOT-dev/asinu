@@ -83,7 +83,7 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
       .setVibrate(longArrayOf(0, 700, 300, 700, 300, 700))
 
     if (incomingCall) {
-      val ringSeconds = data["ringSeconds"]?.toLongOrNull()?.coerceIn(30, 120) ?: 60L
+      val ringSeconds = data["ringSeconds"]?.toLongOrNull()?.coerceIn(30, 180) ?: 60L
       builder
         .setFullScreenIntent(pendingIntent, true)
         .setTimeoutAfter(ringSeconds * 1000)
