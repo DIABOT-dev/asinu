@@ -270,65 +270,168 @@ export default function CheckinCallScreen() {
         </View>
       )}
 
-      {!!attempt && (joined || ended) && (
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.heading}>{t(attempt.target_role === 'FAMILY' ? 'familyHeading' : 'userHeading')}</Text>
-          <Text style={styles.status}>{t(statusKey)}</Text>
+      {/* Screen 2: Kết quả cuộc gọi (Call Ended / Resolved - Image 2) */}
+      {ended && (
+        <View style={styles.resultFullWrapper}>
+          <Image
+            source={require('../../assets/images/checkin-call/checkin_success_art.png')}
+            style={styles.resultSuccessArt}
+            resizeMode="contain"
+          />
+
+          <Text style={styles.resultHeading}>{t('gallery.okResultTitle')}</Text>
+          <Text style={styles.resultSub}>{t('gallery.okResultMessage')}</Text>
+
+          <View style={styles.resultCard}>
+            <View style={styles.resultRow}>
+              <View style={styles.resultRowLeft}>
+                <Ionicons name="person-circle-outline" size={26} color="#00897b" />
+                <Text style={styles.resultRowLabel}>{t('gallery.statusLabel')}</Text>
+              </View>
+              <View style={styles.resultPill}>
+                <Text style={styles.resultPillTextResolved}>{t('gallery.resolved')}</Text>
+              </View>
+            </View>
+
+            <View style={styles.resultDivider} />
+
+            <View style={styles.resultRow}>
+              <View style={styles.resultRowLeft}>
+                <Ionicons name="time-outline" size={24} color="#00897b" />
+                <Text style={styles.resultRowLabel}>{t('gallery.timeLabel')}</Text>
+              </View>
+              <View style={styles.resultPill}>
+                <Text style={styles.resultPillTextTime}>
+                  {new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Pressable style={styles.resultCloseBtn} onPress={() => router.back()}>
+            <Text style={styles.resultCloseBtnText}>{t('close', { ns: 'common' })}</Text>
+          </Pressable>
+
+          <Image
+            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+            style={styles.callBottomDeco}
+            resizeMode="cover"
+          />
+        </View>
+      )}
+
+      {/* Screen 1: Cuộc gọi người thân - Khẩn cấp (Family Urgent - Image 1) */}
+      {!!attempt && joined && !ended && attempt.target_role === 'FAMILY' && (
+        <ScrollView contentContainerStyle={styles.familyScrollContent}>
+          <View style={[styles.familyCard, attempt.severity === 'URGENT' ? styles.familyCardUrgent : styles.familyCardMild]}>
+            <View style={[styles.urgentBadgeCircle, attempt.severity === 'URGENT' ? styles.urgentBadgeCircleUrgent : styles.urgentBadgeCircleMild]}>
+              <Ionicons
+                name={attempt.severity === 'URGENT' ? 'warning-outline' : 'heart-outline'}
+                size={36}
+                color={attempt.severity === 'URGENT' ? '#dc2626' : '#d97706'}
+              />
+            </View>
+            <Text style={[styles.familyCardTitle, attempt.severity === 'URGENT' ? styles.familyCardTitleUrgent : styles.familyCardTitleMild]}>
+              {t(attempt.severity === 'URGENT' ? 'gallery.urgentFamilyTitle' : 'gallery.mildFamilyTitle')}
+            </Text>
+            <Text style={styles.familyCardSubtitle}>
+              {t(attempt.severity === 'URGENT' ? 'gallery.urgentFamilyMessage' : 'gallery.mildFamilyMessage')}
+            </Text>
+          </View>
+
           {!!error && <Text style={styles.error}>{error}</Text>}
-          {attempt.target_role === 'USER' && joined && !ended && (
-            <>
-              <Text style={styles.description}>{t('userInstruction')}</Text>
-              <Pressable style={[styles.button, styles.ok]} onPress={() => void answer(1)} disabled={busy}>
-                <Text style={styles.buttonText}>{t('choiceOk')}</Text>
-              </Pressable>
-              <Pressable style={[styles.button, styles.mild]} onPress={() => void answer(2)} disabled={busy}>
-                <Text style={styles.buttonText}>{t('choiceMild')}</Text>
-              </Pressable>
-              <Pressable style={[styles.button, styles.urgent]} onPress={() => void answer(3)} disabled={busy}>
-                <Text style={styles.buttonText}>{t('choiceUrgent')}</Text>
-              </Pressable>
-            </>
-          )}
-          {attempt.target_role === 'FAMILY' && joined && !ended && (
-            <>
-              <Text style={styles.description}>
-                {t(attempt.severity === 'URGENT' ? 'familyUrgentDescription' : attempt.severity === 'MILD' ? 'familyMildDescription' : 'familyUnknownDescription')}
-              </Text>
-              <Pressable style={[styles.button, styles.ok]} onPress={() => void confirm('ACCEPT_AND_CHECK')} disabled={busy}>
-                <Text style={styles.buttonText}>{t('confirmCheck')}</Text>
-              </Pressable>
-              <Pressable style={[styles.button, styles.mild]} onPress={() => void confirm('ON_MY_WAY')} disabled={busy}>
-                <Text style={styles.buttonText}>{t('confirmOnMyWay')}</Text>
-              </Pressable>
-              <Pressable style={[styles.button, styles.mild]} onPress={() => void confirm('CALLED_USER')} disabled={busy}>
-                <Text style={styles.buttonText}>{t('confirmCalled')}</Text>
-              </Pressable>
-            </>
-          )}
-          {joined && !ended && (
+
+          <View style={styles.familyActionsCol}>
             <Pressable
-              style={styles.replay}
-              onPress={() =>
-                void play(
-                  attempt.target_role === 'USER'
-                    ? 'user_prompt'
-                    : attempt.severity === 'URGENT'
-                      ? 'family_urgent'
-                      : attempt.severity === 'MILD'
-                        ? 'family_mild'
-                        : 'family_unknown',
-                )
-              }
+              style={[styles.familyActionBtn, attempt.severity === 'URGENT' ? styles.familyActionBtnUrgent : styles.familyActionBtnMild]}
+              onPress={() => void confirm('ACCEPT_AND_CHECK')}
+              disabled={busy}
             >
-              <Text style={styles.replayText}>{t('replay')}</Text>
+              {busy ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.familyActionTextUrgent}>{t('confirmCheck')}</Text>
+              )}
             </Pressable>
-          )}
-          {ended && (
-            <Pressable style={styles.replay} onPress={() => router.back()}>
-              <Text style={styles.replayText}>{t('close', { ns: 'common' })}</Text>
+            <Pressable
+              style={[styles.familyActionBtn, styles.familyActionBtnMint]}
+              onPress={() => void confirm('ON_MY_WAY')}
+              disabled={busy}
+            >
+              <Text style={styles.familyActionTextMint}>{t('confirmOnMyWay')}</Text>
             </Pressable>
-          )}
-          <Text style={styles.foot}>{t('safetyNote')}</Text>
+            <Pressable
+              style={[styles.familyActionBtn, styles.familyActionBtnMint]}
+              onPress={() => void confirm('CALLED_USER')}
+              disabled={busy}
+            >
+              <Text style={styles.familyActionTextMint}>{t('confirmCalled')}</Text>
+            </Pressable>
+          </View>
+
+          <Pressable
+            style={styles.replayRow}
+            onPress={() =>
+              void play(
+                attempt.severity === 'URGENT'
+                  ? 'family_urgent'
+                  : attempt.severity === 'MILD'
+                    ? 'family_mild'
+                    : 'family_unknown',
+              )
+            }
+          >
+            <Ionicons name="volume-high-outline" size={20} color="#00897b" />
+            <Text style={styles.replayRowText}>{t('replay')}</Text>
+          </Pressable>
+
+          <Text style={styles.familyFootnoteText}>{t('gallery.familyConfirmationNote')}</Text>
+
+          <Image
+            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+            style={styles.callBottomDeco}
+            resizeMode="cover"
+          />
+        </ScrollView>
+      )}
+
+      {/* User Connected State */}
+      {!!attempt && joined && !ended && attempt.target_role === 'USER' && (
+        <ScrollView contentContainerStyle={styles.familyScrollContent}>
+          <View style={styles.userCallCard}>
+            <View style={styles.userHeadsetIconWrap}>
+              <Ionicons name="headset-outline" size={32} color="#00897b" />
+            </View>
+            <Text style={styles.userCardTitle}>{t('userHeading')}</Text>
+            <Text style={styles.userCardSub}>{t('gallery.connectedInstruction')}</Text>
+          </View>
+
+          {!!error && <Text style={styles.error}>{error}</Text>}
+
+          <View style={styles.familyActionsCol}>
+            <Pressable style={[styles.userOptionBtn, styles.userOptionOk]} onPress={() => void answer(1)} disabled={busy}>
+              <Text style={styles.userOptionText}>{t('choiceOk')}</Text>
+            </Pressable>
+            <Pressable style={[styles.userOptionBtn, styles.userOptionMild]} onPress={() => void answer(2)} disabled={busy}>
+              <Text style={styles.userOptionText}>{t('choiceMild')}</Text>
+            </Pressable>
+            <Pressable style={[styles.userOptionBtn, styles.userOptionUrgent]} onPress={() => void answer(3)} disabled={busy}>
+              <Text style={styles.userOptionText}>{t('choiceUrgent')}</Text>
+            </Pressable>
+          </View>
+
+          <Pressable style={styles.replayRow} onPress={() => void play('user_prompt')}>
+            <Ionicons name="volume-high-outline" size={20} color="#00897b" />
+            <Text style={styles.replayRowText}>{t('replay')}</Text>
+          </Pressable>
+
+          <Text style={styles.familyFootnoteText}>{t('safetyNote')}</Text>
+
+          <Image
+            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+            style={styles.callBottomDeco}
+            resizeMode="cover"
+          />
         </ScrollView>
       )}
     </View>
@@ -467,5 +570,291 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 125,
     opacity: 0.9,
+  },
+
+  // Screen 2: Result (Image 2)
+  resultFullWrapper: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 40,
+    alignItems: 'center',
+    position: 'relative',
+    backgroundColor: '#f3fbf8',
+  },
+  resultSuccessArt: {
+    width: 140,
+    height: 110,
+    marginBottom: 10,
+    zIndex: 2,
+  },
+  resultHeading: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f3e36',
+    textAlign: 'center',
+    marginTop: 10,
+    zIndex: 2,
+  },
+  resultSub: {
+    fontSize: 15,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    zIndex: 2,
+  },
+  resultCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2f2ec',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginTop: 26,
+    zIndex: 2,
+    shadowColor: '#059669',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  resultRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  resultRowLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0f3e36',
+  },
+  resultPill: {
+    backgroundColor: '#e6f7f2',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  resultPillTextResolved: {
+    color: '#00897b',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  resultPillTextTime: {
+    color: '#0f3e36',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  resultDivider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 6,
+  },
+  resultCloseBtn: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#00897b',
+    borderRadius: 18,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 26,
+    zIndex: 2,
+    shadowColor: '#00897b',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  resultCloseBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Screen 1: Family Urgent Call (Image 1)
+  familyScrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 48,
+    alignItems: 'center',
+    position: 'relative',
+    backgroundColor: '#f3fbf8',
+  },
+  familyCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingVertical: 26,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 24,
+    zIndex: 2,
+  },
+  familyCardUrgent: {
+    backgroundColor: '#fff5f5',
+    borderColor: '#ffe4e6',
+  },
+  familyCardMild: {
+    backgroundColor: '#fffdf0',
+    borderColor: '#fef08a',
+  },
+  urgentBadgeCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderWidth: 5,
+  },
+  urgentBadgeCircleUrgent: {
+    backgroundColor: '#fee2e2',
+    borderColor: '#fff1f2',
+  },
+  urgentBadgeCircleMild: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fefce8',
+  },
+  familyCardTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  familyCardTitleUrgent: {
+    color: '#dc2626',
+  },
+  familyCardTitleMild: {
+    color: '#d97706',
+  },
+  familyCardSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  familyActionsCol: {
+    width: '100%',
+    maxWidth: 360,
+    gap: 12,
+    zIndex: 2,
+  },
+  familyActionBtn: {
+    height: 52,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  familyActionBtnUrgent: {
+    backgroundColor: '#c83244',
+  },
+  familyActionBtnMild: {
+    backgroundColor: '#d97706',
+  },
+  familyActionBtnMint: {
+    backgroundColor: '#e6f5f1',
+  },
+  familyActionTextUrgent: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  familyActionTextMint: {
+    color: '#0d6857',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  familyFootnoteText: {
+    color: '#64748b',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'left',
+    width: '100%',
+    maxWidth: 360,
+    marginTop: 16,
+    paddingHorizontal: 4,
+    zIndex: 2,
+  },
+  replayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    zIndex: 2,
+  },
+  replayRowText: {
+    color: '#00897b',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // User Connected View
+  userCallCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+    paddingVertical: 26,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 24,
+    zIndex: 2,
+  },
+  userHeadsetIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#d1fae5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  userCardTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#0f3e36',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  userCardSub: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  userOptionBtn: {
+    height: 54,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  userOptionOk: {
+    backgroundColor: '#00897b',
+  },
+  userOptionMild: {
+    backgroundColor: '#d97706',
+  },
+  userOptionUrgent: {
+    backgroundColor: '#c83244',
+  },
+  userOptionText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

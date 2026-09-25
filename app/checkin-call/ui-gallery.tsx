@@ -92,20 +92,24 @@ function ActionButton({ tone, children }: { tone: 'ok' | 'mild' | 'urgent' | 'ne
 
 function SettingsPreview() {
   const { t } = useTranslation('checkinCall');
-  const rows = [
-    [t('checkinTime'), '08:00'],
-    [t('fieldGrace'), t('gallery.graceValue')],
-    [t('fieldUserTimeout'), t('gallery.userTimeoutValue')],
-    [t('fieldFamilyRing'), t('gallery.familyRingValue')],
-    [t('fieldFamilyConfirm'), t('gallery.familyConfirmValue')],
-    [t('fieldMaxRounds'), t('gallery.roundValue')],
+  const rows: Array<{
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    value: string;
+  }> = [
+    { icon: 'call-outline', label: t('checkinTime'), value: '08:00' },
+    { icon: 'timer-outline', label: t('fieldGrace'), value: t('gallery.graceValue') },
+    { icon: 'time-outline', label: t('fieldUserTimeout'), value: t('gallery.userTimeoutValue') },
+    { icon: 'notifications-outline', label: t('fieldFamilyRing'), value: t('gallery.familyRingValue') },
+    { icon: 'stopwatch-outline', label: t('fieldFamilyConfirm'), value: t('gallery.familyConfirmValue') },
+    { icon: 'warning-outline', label: t('fieldMaxRounds'), value: t('gallery.roundValue') },
   ];
   return (
     <PreviewFrame note={t('gallery.nativePreviewNotice')}>
       <View style={styles.settingsCard}>
         <View style={styles.settingsHeaderBlock}>
           <View style={styles.settingsTitleRow}>
-            <Ionicons name="leaf-outline" size={22} color={COLORS.teal} />
+            <Ionicons name="headset-outline" size={24} color="#00897b" />
             <Text style={styles.settingsMainTitle}>{t('title')}</Text>
           </View>
           <Text style={styles.settingsMainSubtitle}>{t('subtitle')}</Text>
@@ -116,16 +120,19 @@ function SettingsPreview() {
             <Text style={styles.toggleLabel}>{t('enable')}</Text>
             <Text style={styles.toggleStatus}>{t('active')}</Text>
           </View>
-          <Switch value trackColor={{ false: '#cbd5e1', true: COLORS.teal }} />
+          <Switch value trackColor={{ false: '#cbd5e1', true: '#00897b' }} />
         </View>
 
         <View style={styles.divider} />
 
-        {rows.map(([label, value]) => (
-          <View style={styles.settingItemRow} key={label}>
-            <Text style={styles.settingItemLabel}>{label}</Text>
+        {rows.map((row) => (
+          <View style={styles.settingItemRow} key={row.label}>
+            <View style={styles.settingRowLeftGroup}>
+              <Ionicons name={row.icon} size={22} color="#00897b" style={styles.settingRowIcon} />
+              <Text style={styles.settingItemLabel}>{row.label}</Text>
+            </View>
             <View style={styles.pillBadge}>
-              <Text style={styles.pillBadgeText}>{value}</Text>
+              <Text style={styles.pillBadgeText}>{row.value}</Text>
             </View>
           </View>
         ))}
@@ -211,18 +218,48 @@ function UserCallPreview() {
 function FamilyPreview({ urgent }: { urgent: boolean }) {
   const { t } = useTranslation('checkinCall');
   return (
-    <PreviewFrame>
-      <View style={[styles.severityIcon, urgent ? styles.severityUrgent : styles.severityMild]}>
-        <Ionicons name={urgent ? 'warning-outline' : 'heart-outline'} size={30} color={urgent ? COLORS.red : COLORS.amber} />
+    <PreviewFrame note={t('gallery.nativePreviewNotice')}>
+      <View style={styles.familyWrapper}>
+        {/* Top card */}
+        <View style={[styles.familyCard, urgent ? styles.familyCardUrgent : styles.familyCardMild]}>
+          <View style={[styles.urgentBadgeCircle, urgent ? styles.urgentBadgeCircleUrgent : styles.urgentBadgeCircleMild]}>
+            <Ionicons
+              name={urgent ? 'warning-outline' : 'heart-outline'}
+              size={36}
+              color={urgent ? '#dc2626' : COLORS.amber}
+            />
+          </View>
+          <Text style={[styles.familyCardTitle, urgent ? styles.familyCardTitleUrgent : styles.familyCardTitleMild]}>
+            {t(urgent ? 'gallery.urgentFamilyTitle' : 'gallery.mildFamilyTitle')}
+          </Text>
+          <Text style={styles.familyCardSubtitle}>
+            {t(urgent ? 'gallery.urgentFamilyMessage' : 'gallery.mildFamilyMessage')}
+          </Text>
+        </View>
+
+        {/* 3 Action Buttons */}
+        <View style={styles.familyActionsCol}>
+          <View style={[styles.familyActionBtn, urgent ? styles.familyActionBtnUrgent : styles.familyActionBtnMild]}>
+            <Text style={styles.familyActionTextUrgent}>{t('confirmCheck')}</Text>
+          </View>
+          <View style={[styles.familyActionBtn, styles.familyActionBtnMint]}>
+            <Text style={styles.familyActionTextMint}>{t('confirmOnMyWay')}</Text>
+          </View>
+          <View style={[styles.familyActionBtn, styles.familyActionBtnMint]}>
+            <Text style={styles.familyActionTextMint}>{t('confirmCalled')}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.familyFootnoteText}>
+          {t('gallery.familyConfirmationNote')}
+        </Text>
+
+        <Image
+          source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+          style={styles.callBottomDeco}
+          resizeMode="cover"
+        />
       </View>
-      <Text style={styles.screenTitleCentered}>{t(urgent ? 'gallery.urgentFamilyTitle' : 'gallery.mildFamilyTitle')}</Text>
-      <View style={[styles.severityMessage, urgent ? styles.severityMessageUrgent : styles.severityMessageMild]}>
-        <Text style={styles.severityMessageText}>{t(urgent ? 'gallery.urgentFamilyMessage' : 'gallery.mildFamilyMessage')}</Text>
-      </View>
-      <ActionButton tone={urgent ? 'urgent' : 'ok'}>{t('confirmCheck')}</ActionButton>
-      <ActionButton tone="neutral">{t('confirmOnMyWay')}</ActionButton>
-      <ActionButton tone="neutral">{t('confirmCalled')}</ActionButton>
-      <Text style={styles.familyFootnote}>{t('gallery.familyConfirmationNote')}</Text>
     </PreviewFrame>
   );
 }
@@ -230,15 +267,54 @@ function FamilyPreview({ urgent }: { urgent: boolean }) {
 function ResultPreview() {
   const { t } = useTranslation('checkinCall');
   return (
-    <PreviewFrame>
-      <View style={styles.resultIcon}><Ionicons name="checkmark" size={38} color="#effcf8" /></View>
-      <Text style={styles.screenTitleCentered}>{t('gallery.okResultTitle')}</Text>
-      <Text style={styles.callStatus}>{t('gallery.okResultMessage')}</Text>
-      <View style={styles.resultSummary}>
-        <View><Text style={styles.resultLabel}>{t('gallery.statusLabel')}</Text><Text style={styles.resultValue}>{t('gallery.resolved')}</Text></View>
-        <Text style={styles.resultTime}>08:14</Text>
+    <PreviewFrame note={t('gallery.nativePreviewNotice')}>
+      <View style={styles.resultWrapper}>
+        {/* Top checkmark with leaves artwork */}
+        <Image
+          source={require('../../assets/images/checkin-call/checkin_success_art.png')}
+          style={styles.resultSuccessArt}
+          resizeMode="contain"
+        />
+
+        <Text style={styles.resultHeading}>{t('gallery.okResultTitle')}</Text>
+        <Text style={styles.resultSub}>{t('gallery.okResultMessage')}</Text>
+
+        {/* Info card */}
+        <View style={styles.resultCard}>
+          <View style={styles.resultRow}>
+            <View style={styles.resultRowLeft}>
+              <Ionicons name="person-circle-outline" size={26} color="#00897b" />
+              <Text style={styles.resultRowLabel}>{t('gallery.statusLabel')}</Text>
+            </View>
+            <View style={styles.resultPill}>
+              <Text style={styles.resultPillTextResolved}>{t('gallery.resolved')}</Text>
+            </View>
+          </View>
+
+          <View style={styles.resultDivider} />
+
+          <View style={styles.resultRow}>
+            <View style={styles.resultRowLeft}>
+              <Ionicons name="time-outline" size={24} color="#00897b" />
+              <Text style={styles.resultRowLabel}>{t('gallery.timeLabel')}</Text>
+            </View>
+            <View style={styles.resultPill}>
+              <Text style={styles.resultPillTextTime}>08:14</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Close Button */}
+        <View style={styles.resultCloseBtn}>
+          <Text style={styles.resultCloseBtnText}>{t('close', { ns: 'common' })}</Text>
+        </View>
+
+        <Image
+          source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+          style={styles.callBottomDeco}
+          resizeMode="cover"
+        />
       </View>
-      <ActionButton tone="neutral">{t('close', { ns: 'common' })}</ActionButton>
     </PreviewFrame>
   );
 }
@@ -561,7 +637,7 @@ const styles = StyleSheet.create({
   },
   toggleStatus: {
     fontSize: 13,
-    color: '#059669',
+    color: '#00897b',
     fontWeight: '600',
   },
   divider: {
@@ -575,18 +651,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f8fafc',
+    borderBottomColor: '#f1f5f9',
+  },
+  settingRowLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    paddingRight: 8,
+  },
+  settingRowIcon: {
+    width: 24,
+    textAlign: 'center',
   },
   settingItemLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#0f3e36',
+    fontWeight: '500',
+    color: '#475569',
     flex: 1,
   },
   pillBadge: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    backgroundColor: '#f0fdf9',
+    borderRadius: 12,
+    paddingHorizontal: 16,
     paddingVertical: 7,
   },
   pillBadgeText: {
@@ -595,13 +682,223 @@ const styles = StyleSheet.create({
     color: '#0f3e36',
   },
   saveBtn: {
-    backgroundColor: '#059669',
-    borderRadius: 14,
-    paddingVertical: 15,
+    backgroundColor: '#00897b',
+    borderRadius: 20,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 14,
   },
   saveBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Screen 4 - Family Urgent Call
+  familyWrapper: {
+    minHeight: 560,
+    backgroundColor: '#eff8f5',
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 28,
+    paddingBottom: 30,
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  familyCard: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    zIndex: 2,
+  },
+  familyCardUrgent: {
+    backgroundColor: '#fff5f5',
+    borderColor: '#ffe4e6',
+  },
+  familyCardMild: {
+    backgroundColor: '#fffdf0',
+    borderColor: '#fef08a',
+  },
+  urgentBadgeCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderWidth: 5,
+  },
+  urgentBadgeCircleUrgent: {
+    backgroundColor: '#fee2e2',
+    borderColor: '#fff1f2',
+  },
+  urgentBadgeCircleMild: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fefce8',
+  },
+  familyCardTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  familyCardTitleUrgent: {
+    color: '#dc2626',
+  },
+  familyCardTitleMild: {
+    color: COLORS.amber,
+  },
+  familyCardSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  familyActionsCol: {
+    width: '100%',
+    gap: 12,
+    zIndex: 2,
+  },
+  familyActionBtn: {
+    height: 50,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  familyActionBtnUrgent: {
+    backgroundColor: '#c83244',
+  },
+  familyActionBtnMild: {
+    backgroundColor: COLORS.amber,
+  },
+  familyActionBtnMint: {
+    backgroundColor: '#e6f5f1',
+  },
+  familyActionTextUrgent: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  familyActionTextMint: {
+    color: '#0d6857',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  familyFootnoteText: {
+    color: '#64748b',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'left',
+    alignSelf: 'flex-start',
+    marginTop: 16,
+    paddingHorizontal: 4,
+    zIndex: 2,
+  },
+
+  // Screen 5 - Result
+  resultWrapper: {
+    minHeight: 560,
+    backgroundColor: '#eff8f5',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 30,
+    paddingBottom: 30,
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  resultSuccessArt: {
+    width: 130,
+    height: 100,
+    marginBottom: 8,
+    zIndex: 2,
+  },
+  resultHeading: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#0f3e36',
+    textAlign: 'center',
+    marginTop: 8,
+    zIndex: 2,
+  },
+  resultSub: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    zIndex: 2,
+  },
+  resultCard: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2f2ec',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginTop: 22,
+    zIndex: 2,
+    shadowColor: '#059669',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  resultRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  resultRowLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0f3e36',
+  },
+  resultPill: {
+    backgroundColor: '#e6f7f2',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  resultPillTextResolved: {
+    color: '#00897b',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  resultPillTextTime: {
+    color: '#0f3e36',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  resultDivider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 6,
+  },
+  resultCloseBtn: {
+    width: '100%',
+    backgroundColor: '#00897b',
+    borderRadius: 18,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 22,
+    zIndex: 2,
+  },
+  resultCloseBtnText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
