@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   verify-and-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -34,10 +34,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "20.18.1"
           cache: npm

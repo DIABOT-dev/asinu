@@ -4,7 +4,7 @@ on:
     types: [opened, synchronize, reopened]
 jobs:
   label:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/labeler@v5
         with:
