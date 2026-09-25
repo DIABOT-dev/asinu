@@ -18,6 +18,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private var pushRegistry: PKPushRegistry?
   private var callsByUUID: [UUID: [String: String]] = [:]
   private var uuidByAttempt: [String: UUID] = [:]
+  private var ringTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
 
   private lazy var provider: CXProvider = {
     let configuration = CXProviderConfiguration(localizedName: "Asinu")
@@ -112,11 +113,14 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     let uuid = UUID()
     let severity = string(payload["severity"])
     let localizedTitle = string(payload["title"])
+    let configuredRingSeconds = Int(string(payload["ringSeconds"])) ?? 60
+    let ringSeconds = min(max(configuredRingSeconds, 30), 180)
     let call = [
       "episodeId": episodeId,
       "attemptId": attemptId,
       "severity": severity,
       "kind": kind,
+      "ringSeconds": String(ringSeconds),
     ]
     callsByUUID[uuid] = call
     uuidByAttempt[attemptId] = uuid
@@ -135,7 +139,11 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
       if let error { print("[AsinuVoip] CallKit report failed: \(error.localizedDescription)") }
       else { print("[AsinuVoip] CallKit incoming call reported") }
       #endif
-      if error != nil { self.removeCall(uuid: uuid) }
+      if error != nil {
+        self.removeCall(uuid: uuid)
+      } else {
+        self.scheduleRingTimeout(uuid: uuid, attemptId: attemptId, seconds: ringSeconds)
+      }
       completion()
     }
   }
@@ -195,6 +203,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
       return
     }
 
+    cancelRingTimeout(uuid: action.callUUID)
     UserDefaults.standard.set(call, forKey: pendingCallKey)
     NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: call)
     action.fulfill()
@@ -222,6 +231,8 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func providerDidReset(_ provider: CXProvider) {
+    ringTimeoutsByUUID.values.forEach { $0.cancel() }
+    ringTimeoutsByUUID.removeAll()
     callsByUUID.removeAll()
     uuidByAttempt.removeAll()
   }
@@ -235,6 +246,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   private func removeCall(uuid: UUID) {
+    cancelRingTimeout(uuid: uuid)
     guard let call = callsByUUID.removeValue(forKey: uuid) else { return }
     let attemptId = call["attemptId"] ?? ""
     if !attemptId.isEmpty { uuidByAttempt.removeValue(forKey: attemptId) }
@@ -243,6 +255,21 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
       UserDefaults.standard.removeObject(forKey: pendingCallKey)
     }
     NotificationCenter.default.post(name: .asinuVoipCallEnded, object: nil, userInfo: call)
+  }
+
+  private func scheduleRingTimeout(uuid: UUID, attemptId: String, seconds: Int) {
+    cancelRingTimeout(uuid: uuid)
+    let timeout = DispatchWorkItem { [weak self] in
+      guard let self, self.uuidByAttempt[attemptId] == uuid else { return }
+      self.provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
+      self.removeCall(uuid: uuid)
+    }
+    ringTimeoutsByUUID[uuid] = timeout
+    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(seconds), execute: timeout)
+  }
+
+  private func cancelRingTimeout(uuid: UUID) {
+    ringTimeoutsByUUID.removeValue(forKey: uuid)?.cancel()
   }
 
   private func string(_ value: Any?) -> String {
