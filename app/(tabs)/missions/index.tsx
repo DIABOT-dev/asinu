@@ -1,466 +1,717 @@
-import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
-﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
-import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-
-import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
+import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
-import { MissionHeroBanner } from '../../../src/components/MissionHeroBanner';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
 import { MissionsTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { useMissionActions } from '../../../src/features/missions/useMissionActions';
+import type { Mission } from '../../../src/features/missions/missions.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
-import { brandColors, colors, spacing } from '../../../src/styles';
-import { useThemeColors } from '../../../src/hooks/useThemeColors';
 
-const MISSION_ROUTES: Record<string, string> = {
+type MissionKey = 'daily_checkin' | 'log_bp' | 'log_glucose' | 'log_water' | 'log_weight';
+
+const MISSION_ORDER: MissionKey[] = [
+  'daily_checkin',
+  'log_bp',
+  'log_glucose',
+  'log_water',
+  'log_weight',
+];
+
+const MISSION_ROUTES: Record<MissionKey, string> = {
   daily_checkin: '/checkin',
-  log_glucose: '/logs/glucose',
   log_bp: '/logs/blood-pressure',
-  log_weight: '/logs/weight',
+  log_glucose: '/logs/glucose',
   log_water: '/logs/water',
+  log_weight: '/logs/weight',
+};
+
+const MISSION_CONFIG: Record<
+  MissionKey,
+  {
+    order: number;
+    badgeBg: string;
+    badgeColor: string;
+    art: any;
+    defaultGoal: number;
+    titleKey: string;
+    descKey: string;
+  }
+> = {
+  daily_checkin: {
+    order: 1,
+    badgeBg: '#dcfce7',
+    badgeColor: '#059669',
+    art: require('../../../assets/images/missions/mission_checkin_art.png'),
+    defaultGoal: 1,
+    titleKey: 'dailyCheckIn',
+    descKey: 'dailyCheckInDesc',
+  },
+  log_bp: {
+    order: 2,
+    badgeBg: '#ffe4e6',
+    badgeColor: '#f43f5e',
+    art: require('../../../assets/images/missions/mission_bp_art.png'),
+    defaultGoal: 2,
+    titleKey: 'measureBP',
+    descKey: 'measureBPDesc',
+  },
+  log_glucose: {
+    order: 3,
+    badgeBg: '#ede9fe',
+    badgeColor: '#6366f1',
+    art: require('../../../assets/images/missions/mission_glucose_art.png'),
+    defaultGoal: 2,
+    titleKey: 'measureGlucose',
+    descKey: 'measureGlucoseDesc',
+  },
+  log_water: {
+    order: 4,
+    badgeBg: '#e0f2fe',
+    badgeColor: '#0284c7',
+    art: require('../../../assets/images/missions/mission_water_art.png'),
+    defaultGoal: 4,
+    titleKey: 'waterIntake',
+    descKey: 'waterIntakeDesc',
+  },
+  log_weight: {
+    order: 5,
+    badgeBg: '#fef3c7',
+    badgeColor: '#d97706',
+    art: require('../../../assets/images/missions/mission_weight_art.png'),
+    defaultGoal: 1,
+    titleKey: 'weightMission',
+    descKey: 'weightMissionDesc',
+  },
+};
+
+type MissionItem = {
+  id: string;
+  missionKey: MissionKey;
+  title: string;
+  description: string;
+  progress: number;
+  goal: number;
+  status: 'active' | 'completed';
+  config: (typeof MISSION_CONFIG)[MissionKey];
 };
 
 export default function MissionsScreen() {
   const router = useRouter();
-  const { missions, status, isStale, errorState, fetchMissions } = useMissionActions();
+  const { missions, status, errorState, fetchMissions } = useMissionActions();
   const { t } = useTranslation('missions');
   const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
-  const padTop = insets.top + spacing.lg;
+  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+
+  const [tooltipMission, setTooltipMission] = useState<MissionItem | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const lastFetchRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
       const now = Date.now();
-      if (now - lastFetchRef.current < 3000) return;
+      if (now - lastFetchRef.current < 3000) {
+        return;
+      }
       lastFetchRef.current = now;
       const controller = new AbortController();
       fetchMissions(controller.signal);
       return () => controller.abort();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [fetchMissions])
   );
 
-  const [tooltipId, setTooltipId] = useState<string | null>(null);
-
-  const [refreshing, setRefreshing] = useState(false);
-  const showInitialSkeleton = status === 'loading' && missions.length === 0;
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     const controller = new AbortController();
     await fetchMissions(controller.signal);
     setRefreshing(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - fetchMissions is stable in Zustand
+  }, [fetchMissions]);
+
+  const orderedMissions: MissionItem[] = useMemo(() => {
+    const map = new Map<string, Mission>();
+    missions.forEach((m) => {
+      map.set(m.missionKey, m);
+    });
+
+    return MISSION_ORDER.map((key) => {
+      const existing = map.get(key);
+      const conf = MISSION_CONFIG[key];
+      return {
+        id: existing?.id || key,
+        missionKey: key,
+        title: existing?.title || t(conf.titleKey as any),
+        description: existing?.description || t(conf.descKey as any),
+        progress: existing ? existing.progress : 0,
+        goal: existing?.goal && existing.goal > 0 ? existing.goal : conf.defaultGoal,
+        status: existing?.status || 'active',
+        config: conf,
+      };
+    });
+  }, [missions, t]);
+
+  const showInitialSkeleton = status === 'loading' && missions.length === 0;
 
   return (
     <Screen>
-      {errorState === 'remote-failed' ? <OfflineBanner /> : null}
-      {errorState === 'no-data' && missions.length === 0 && !showInitialSkeleton ? (
-        <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
-      ) : null}
-      <RippleRefreshScrollView
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {showInitialSkeleton ? (
-          <MissionsTabSkeleton />
-        ) : (
-        <>
-        {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
-        
-        {/* Header Section */}
-        <Animated.View entering={FadeIn.delay(0).duration(400)}>
-          <MissionHeroBanner />
-        </Animated.View>
+      <View style={styles.root}>
+        {errorState === 'remote-failed' ? <OfflineBanner /> : null}
+        {errorState === 'no-data' && missions.length === 0 && !showInitialSkeleton ? (
+          <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
+        ) : null}
 
-        {/* Stats Row */}
-        <Animated.View entering={FadeIn.delay(100).duration(350)}>
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, styles.statCardActive]}>
-            <Ionicons name="time-outline" size={20} color={colors.premium} />
-            <Text style={styles.statValue}>{missions.filter(m => m.status !== 'completed').length}</Text>
-            <Text style={styles.statLabel}>{t('inProgress')}</Text>
-          </View>
-          <View style={[styles.statCard, styles.statCardCompleted]}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
-            <Text style={styles.statValue}>{missions.filter(m => m.status === 'completed').length}</Text>
-            <Text style={styles.statLabel}>{t('completed')}</Text>
-          </View>
-        </View>
-        </Animated.View>
+        {/* Top Header Background Illustration */}
+        <Image
+          source={require('../../../assets/images/missions/header_cross_heart.png')}
+          style={[styles.headerArt, { top: insets.top - 6 }]}
+          resizeMode="contain"
+        />
 
-        {/* Thông tin hướng dẫn */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoTitleRow}>
-            <Ionicons name="information-circle" size={18} color={colors.textSecondary} />
-            <Text style={styles.infoTitle}>{t('howItWorks')}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="refresh-circle" size={16} color={colors.primary} />
-            <Text style={styles.infoText}>{t('resetDaily')}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="leaf" size={16} color={colors.emerald} />
-            <Text style={styles.infoText}>{t('pointsToTree')}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="book" size={16} color={brandColors.violet} />
-            <Text style={styles.infoText}>{t('historyTracked')}</Text>
-          </View>
-        </View>
-
-        {/* Section Title */}
-        <View style={styles.sectionHeader}>
-          <Ionicons name="list" size={20} color={colors.textPrimary} />
-          <Text style={styles.sectionTitle}>{t('missionList')}</Text>
-        </View>
-
-        {missions.map((mission, index) => {
-          const progressRatio = mission.goal > 0 ? mission.progress / mission.goal : 0;
-          const isCompleted = mission.status === 'completed';
-          return (
-            <Animated.View key={mission.id} entering={FadeIn.delay(150 + index * 50).duration(300)}>
-            <Pressable
-              onPress={() => { setTooltipId(null); const route = MISSION_ROUTES[mission.missionKey]; if (route) router.push(route as any); }}
-              style={({ pressed }) => [styles.card, isCompleted && styles.cardCompleted, pressed && { opacity: 0.75 }]}
-            >
-              <View style={styles.cardHeader}>
-                <View style={[styles.missionNumberBadge, isCompleted && styles.missionNumberBadgeCompleted]}>
-                  {isCompleted ? (
-                    <Ionicons name="checkmark" size={16} color="#fff" />
-                  ) : (
-                    <Text style={styles.missionNumber}>{index + 1}</Text>
-                  )}
-                </View>
-                <View style={styles.cardTitleContainer}>
-                  <Text style={[styles.title, isCompleted && styles.titleCompleted]}>{mission.title}</Text>
-                  {tooltipId === mission.id && mission.description ? (
-                    <View style={styles.tooltip}>
-                      <Text style={styles.tooltipText}>{mission.description}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                {mission.description ? (
-                  <Pressable
-                    hitSlop={8}
-                    onPress={(e) => { e.stopPropagation(); setTooltipId(tooltipId === mission.id ? null : mission.id); }}
-                  >
-                    <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
-                  </Pressable>
-                ) : null}
+        <RippleRefreshScrollView
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: insets.top + 12,
+              paddingBottom: insets.bottom + 90,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Title Section */}
+          <Animated.View entering={FadeIn.duration(350)} style={styles.headerSection}>
+            <View style={styles.headerTopRow}>
+              <Pressable
+                style={styles.menuButton}
+                onPress={() => router.push('/profile' as any)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={tc('menu')}
+              >
+                <Ionicons name="menu" size={28} color="#0f3e36" />
+              </Pressable>
+              <View style={styles.headerTitleWrap}>
+                <Text style={styles.headerTitle}>{t('missionList')}</Text>
+                <Text style={styles.headerSubtitle}>{t('missionListSubtitle')}</Text>
               </View>
-              
-              <View style={styles.progressContainer}>
-                <View style={styles.progressRow}>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          width: `${Math.min(progressRatio * 100, 100)}%`,
-                          backgroundColor: isCompleted ? colors.emerald : colors.primary,
-                        },
+            </View>
+          </Animated.View>
+
+          {showInitialSkeleton ? (
+            <MissionsTabSkeleton />
+          ) : (
+            <>
+              {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
+
+              {/* Cards List */}
+              {orderedMissions.map((item, index) => {
+                const progressRatio = item.goal > 0 ? item.progress / item.goal : 0;
+                const isCompleted = item.status === 'completed' || item.progress >= item.goal;
+                const isInProgress = item.progress > 0 && !isCompleted;
+
+                return (
+                  <Animated.View
+                    key={item.missionKey}
+                    entering={FadeInDown.delay(100 + index * 60).duration(400)}
+                  >
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.card,
+                        pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
                       ]}
-                    />
-                  </View>
-                  <Text style={styles.progressText}>
-                    {mission.progress}/{mission.goal}
+                      onPress={() => {
+                        const route = MISSION_ROUTES[item.missionKey];
+                        if (route) {
+                          router.push(route as any);
+                        }
+                      }}
+                    >
+                      {/* Background Artwork */}
+                      <Image
+                        source={item.config.art}
+                        style={styles.cardBgArt}
+                        resizeMode="contain"
+                      />
+
+                      {/* Top-Right Info Button */}
+                      <Pressable
+                        style={styles.infoBtn}
+                        hitSlop={12}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setTooltipMission(item);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={tc('info')}
+                      >
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={22}
+                          color="#64748b"
+                        />
+                      </Pressable>
+
+                      {/* Card Content */}
+                      <View style={styles.cardContent}>
+                        {/* Title Row */}
+                        <View style={styles.cardHeaderRow}>
+                          <View
+                            style={[
+                              styles.badgeCircle,
+                              { backgroundColor: item.config.badgeBg },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.badgeNumber,
+                                { color: item.config.badgeColor },
+                              ]}
+                            >
+                              {item.config.order}
+                            </Text>
+                          </View>
+                          <View style={styles.cardTitleWrap}>
+                            <Text style={styles.cardTitle}>{item.title}</Text>
+                            <Text style={styles.cardSubtitle}>{item.description}</Text>
+                          </View>
+                        </View>
+
+                        {/* Progress Bar Row */}
+                        <View style={styles.progressRow}>
+                          <View style={styles.progressTrack}>
+                            <View
+                              style={[
+                                styles.progressFill,
+                                {
+                                  width: `${Math.min(progressRatio * 100, 100)}%`,
+                                  backgroundColor: isCompleted
+                                    ? '#00897b'
+                                    : item.config.badgeColor,
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.progressText}>
+                            {item.progress}/{item.goal}
+                          </Text>
+                        </View>
+
+                        {/* Status Badge */}
+                        <View style={styles.statusRow}>
+                          <View
+                            style={[
+                              styles.statusPill,
+                              isCompleted
+                                ? styles.statusPillCompleted
+                                : isInProgress
+                                ? styles.statusPillActive
+                                : styles.statusPillNotStarted,
+                            ]}
+                          >
+                            <Ionicons
+                              name={
+                                isCompleted
+                                  ? 'checkmark-circle'
+                                  : isInProgress
+                                  ? 'time-outline'
+                                  : 'ellipse-outline'
+                              }
+                              size={13}
+                              color={
+                                isCompleted
+                                  ? '#16a34a'
+                                  : isInProgress
+                                  ? '#ca8a04'
+                                  : '#475569'
+                              }
+                            />
+                            <Text
+                              style={[
+                                styles.statusText,
+                                isCompleted
+                                  ? styles.statusTextCompleted
+                                  : isInProgress
+                                  ? styles.statusTextActive
+                                  : styles.statusTextNotStarted,
+                              ]}
+                            >
+                              {isCompleted
+                                ? t('statusCompleted')
+                                : isInProgress
+                                ? t('statusInProgress')
+                                : t('statusNotStarted')}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </Pressable>
+                  </Animated.View>
+                );
+              })}
+            </>
+          )}
+        </RippleRefreshScrollView>
+
+        {/* Floating Action Button (+) */}
+        <View style={[styles.fabWrap, { bottom: insets.bottom + 22 }]}>
+          <Pressable
+            style={({ pressed }) => [styles.fabBtn, pressed && { opacity: 0.9 }]}
+            onPress={() => router.push('/reminder-config')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={tc('add')}
+          >
+            <Ionicons name="add" size={34} color="#ffffff" />
+          </Pressable>
+          <View style={styles.fabSparkle1} />
+          <View style={styles.fabSparkle2} />
+          <View style={styles.fabSparkle3} />
+        </View>
+
+        {/* Info Modal */}
+        <Modal
+          visible={!!tooltipMission}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setTooltipMission(null)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setTooltipMission(null)}>
+            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeader}>
+                <View
+                  style={[
+                    styles.modalBadge,
+                    { backgroundColor: tooltipMission?.config.badgeBg },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modalBadgeText,
+                      { color: tooltipMission?.config.badgeColor },
+                    ]}
+                  >
+                    {tooltipMission?.config.order}
                   </Text>
                 </View>
-                <View style={styles.statusRow}>
-                  <View style={[
-                    styles.statusBadge,
-                    isCompleted ? styles.statusBadgeCompleted
-                      : mission.progress > 0 ? styles.statusBadgeActive
-                      : styles.statusBadgeNotStarted
-                  ]}>
-                    <Ionicons
-                      name={isCompleted ? 'checkmark-circle' : mission.progress > 0 ? 'time' : 'ellipse-outline'}
-                      size={14}
-                      color={isCompleted ? colors.emerald : mission.progress > 0 ? colors.premium : colors.textSecondary}
-                    />
-                    <Text style={[
-                      styles.statusText,
-                      isCompleted ? styles.statusTextCompleted
-                        : mission.progress > 0 ? styles.statusTextActive
-                        : styles.statusTextNotStarted
-                    ]}>
-                      {isCompleted ? t('statusCompleted') : mission.progress > 0 ? t('statusInProgress') : t('statusNotStarted')}
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.modalTitle}>{tooltipMission?.title}</Text>
+                <Pressable onPress={() => setTooltipMission(null)} hitSlop={12}>
+                  <Ionicons name="close" size={22} color="#64748b" />
+                </Pressable>
               </View>
+              <Text style={styles.modalDesc}>{tooltipMission?.description}</Text>
             </Pressable>
-            </Animated.View>
-          );
-        })}
-        {status === 'loading' && missions.length > 0 && (
-          <View style={styles.loadingMore}>
-            <Text style={styles.loadingText}>{t('loadingData')}</Text>
-          </View>
-        )}
-        </>
-        )}
-      </RippleRefreshScrollView>
+          </Pressable>
+        </Modal>
+      </View>
     </Screen>
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
-  container: {
-    padding: spacing.lg,
-    gap: spacing.xl
-  },
-  // Header Card
-  headerCard: {
-    borderRadius: 20,
-    padding: spacing.xl,
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1
-  },
-  headerTitle: {
-    fontSize: typography.size.xl,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    marginBottom: spacing.xs
-  },
-  headerSubtitle: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary
-  },
-  // Stats Row
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.md
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: spacing.lg,
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderWidth: 1
-  },
-  statCardActive: {
-    backgroundColor: colors.premiumLight,
-    borderColor: colors.border,
-  },
-  statCardCompleted: {
-    backgroundColor: colors.emeraldLight,
-    borderColor: colors.border,
-  },
-  statValue: {
-    fontSize: typography.size.xl,
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  statLabel: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    fontWeight: '500'
-  },
-  // Info Card
-  infoCard: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    gap: spacing.sm
-  },
-  infoTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs
-  },
-  infoTitle: {
-    fontSize: typography.size.md,
-    fontWeight: '600',
-    color: colors.textPrimary
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm
-  },
-  infoText: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-    flex: 1
-  },
-  // Section Header
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: typography.size.md,
-    fontWeight: '600',
-    color: colors.textPrimary
-  },
-  // Mission Card
-  card: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2
-  },
-  cardCompleted: {
-    borderColor: colors.border,
-    backgroundColor: colors.emeraldLight,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md
-  },
-  missionNumberBadge: {
-    minWidth: 32,
-    minHeight: 32,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  missionNumberBadgeCompleted: {
-    backgroundColor: colors.emerald
-  },
-  missionNumber: {
-    fontSize: typography.size.md,
-    fontWeight: '700',
-    color: colors.primary
-  },
-  cardTitleContainer: {
-    flex: 1,
-    gap: spacing.xs
-  },
-  tooltip: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tooltipText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  title: {
-    fontSize: typography.size.md,
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  titleCompleted: {
-    color: colors.emeraldDark
-  },
-  description: {
-    color: colors.textSecondary,
-    fontSize: typography.size.sm
-  },
-  progressContainer: {
-    gap: spacing.sm
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.sm
-  },
-  progressTrack: {
-    flex: 1,
-    height: 10,
-    backgroundColor: colors.border,
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999
-  },
-  progressText: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontSize: typography.size.sm,
-    minWidth: 40,
-    textAlign: 'right',
-    paddingBottom: 2,
-  },
-  statusRow: {
-    flexDirection: 'row'
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 8
-  },
-  statusBadgeActive: {
-    backgroundColor: colors.premiumLight
-  },
-  statusBadgeCompleted: {
-    backgroundColor: colors.emeraldLight
-  },
-  statusText: {
-    fontSize: typography.size.xs,
-    fontWeight: '600'
-  },
-  statusTextActive: {
-    color: colors.premiumDark
-  },
-  statusTextCompleted: {
-    color: colors.emeraldDark
-  },
-  statusBadgeNotStarted: {
-    backgroundColor: colors.surfaceMuted
-  },
-  statusTextNotStarted: {
-    color: colors.textSecondary
-  },
-  loadingMore: {
-    padding: spacing.lg,
-    alignItems: 'center'
-  },
-  loadingText: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary
-  }
-});
+    root: {
+      flex: 1,
+      backgroundColor: '#f3fbf8',
+      position: 'relative',
+    },
+    headerArt: {
+      position: 'absolute',
+      right: 0,
+      width: 175,
+      height: 115,
+      zIndex: 1,
+      pointerEvents: 'none',
+      opacity: 0.9,
+    },
+    scrollContent: {
+      paddingHorizontal: 16,
+      gap: 14,
+    },
+
+    // Header
+    headerSection: {
+      marginBottom: 6,
+      zIndex: 2,
+    },
+    headerTopRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    menuButton: {
+      marginTop: 2,
+      padding: 4,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerTitleWrap: {
+      flex: 1,
+      paddingRight: 60,
+    },
+    headerTitle: {
+      fontSize: 25,
+      fontWeight: '800',
+      color: '#0f3e36',
+      letterSpacing: -0.3,
+    },
+    headerSubtitle: {
+      fontSize: 13,
+      color: '#476861',
+      lineHeight: 18,
+      marginTop: 4,
+      fontWeight: '500',
+    },
+
+    // Card
+    card: {
+      backgroundColor: '#ffffff',
+      borderRadius: 22,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      borderWidth: 1,
+      borderColor: '#eef5f2',
+      position: 'relative',
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOpacity: 0.035,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+    },
+    cardBgArt: {
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: 170,
+      height: '100%',
+      pointerEvents: 'none',
+    },
+    infoBtn: {
+      position: 'absolute',
+      right: 14,
+      top: 14,
+      zIndex: 6,
+    },
+    cardContent: {
+      zIndex: 2,
+    },
+    cardHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingRight: 80,
+    },
+    badgeCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    badgeNumber: {
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    cardTitleWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    cardTitle: {
+      fontSize: 16.5,
+      fontWeight: '700',
+      color: '#0f172a',
+    },
+    cardSubtitle: {
+      fontSize: 12.5,
+      color: '#64748b',
+      lineHeight: 16,
+    },
+
+    // Progress Bar
+    progressRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 14,
+      paddingRight: 60,
+    },
+    progressTrack: {
+      flex: 1,
+      height: 6.5,
+      backgroundColor: '#e2e8f0',
+      borderRadius: 999,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 999,
+    },
+    progressText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#0f172a',
+      minWidth: 28,
+      textAlign: 'right',
+    },
+
+    // Status Row
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 12,
+    },
+    statusPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 4.5,
+      borderRadius: 999,
+    },
+    statusPillNotStarted: {
+      backgroundColor: '#f8fafc',
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+    },
+    statusPillActive: {
+      backgroundColor: '#fefce8',
+      borderWidth: 1,
+      borderColor: '#fef08a',
+    },
+    statusPillCompleted: {
+      backgroundColor: '#f0fdf4',
+      borderWidth: 1,
+      borderColor: '#bbf7d0',
+    },
+    statusText: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    statusTextNotStarted: {
+      color: '#475569',
+    },
+    statusTextActive: {
+      color: '#a16207',
+      fontWeight: '600',
+    },
+    statusTextCompleted: {
+      color: '#15803d',
+      fontWeight: '600',
+    },
+
+    // Floating Action Button (+)
+    fabWrap: {
+      position: 'absolute',
+      right: 20,
+      zIndex: 20,
+    },
+    fabBtn: {
+      width: 54,
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: '#00897b',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#00897b',
+      shadowOpacity: 0.35,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 5,
+    },
+    fabSparkle1: {
+      position: 'absolute',
+      top: -3,
+      right: 0,
+      width: 6,
+      height: 2,
+      backgroundColor: '#00897b',
+      transform: [{ rotate: '45deg' }],
+      borderRadius: 1,
+    },
+    fabSparkle2: {
+      position: 'absolute',
+      top: 6,
+      right: -7,
+      width: 7,
+      height: 2,
+      backgroundColor: '#00897b',
+      borderRadius: 1,
+    },
+    fabSparkle3: {
+      position: 'absolute',
+      top: 15,
+      right: -5,
+      width: 6,
+      height: 2,
+      backgroundColor: '#00897b',
+      transform: [{ rotate: '-30deg' }],
+      borderRadius: 1,
+    },
+
+    // Modal
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    modalCard: {
+      width: '100%',
+      backgroundColor: '#ffffff',
+      borderRadius: 20,
+      padding: 20,
+      gap: 12,
+      shadowColor: '#000',
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    modalBadge: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalBadgeText: {
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    modalTitle: {
+      flex: 1,
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#0f172a',
+    },
+    modalDesc: {
+      fontSize: 14,
+      color: '#475569',
+      lineHeight: 20,
+    },
+  });
 }
