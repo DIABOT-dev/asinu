@@ -4,10 +4,10 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -34,9 +34,8 @@ import {
   requestNotificationPermissions,
 } from '../../src/lib/notifications';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, iconColors, radius, spacing } from '../../src/styles';
+import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 type TimeSlot = 'morning' | 'afternoon' | 'evening';
 
@@ -44,37 +43,41 @@ const SLOT_META: Array<{
   slot: TimeSlot;
   labelKey: string;
   descKey: string;
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  iconBg: string;
   iconColor: string;
   defaultTime: string;
   hourRange: [number, number];
+  bgArt: any;
 }> = [
   {
     slot: 'morning',
     labelKey: 'scheduleMorning',
     descKey: 'scheduleMorningDesc',
-    icon: 'weather-sunset-up',
+    iconBg: '#fffbeb',
     iconColor: '#f59e0b',
     defaultTime: '08:00',
     hourRange: [5, 11],
+    bgArt: require('../../assets/images/reminders/morning_bg_art.png'),
   },
   {
     slot: 'afternoon',
     labelKey: 'scheduleAfternoon',
     descKey: 'scheduleAfternoonDesc',
-    icon: 'weather-sunny',
-    iconColor: '#f97316',
+    iconBg: '#fff7ed',
+    iconColor: '#ea580c',
     defaultTime: '14:00',
     hourRange: [11, 17],
+    bgArt: require('../../assets/images/reminders/afternoon_bg_art.png'),
   },
   {
     slot: 'evening',
     labelKey: 'scheduleEvening',
     descKey: 'scheduleEveningDesc',
-    icon: 'weather-night',
-    iconColor: '#6366f1',
+    iconBg: '#f3e8ff',
+    iconColor: '#7c3aed',
     defaultTime: '21:00',
     hourRange: [17, 23],
+    bgArt: require('../../assets/images/reminders/evening_bg_art.png'),
   },
 ];
 
@@ -415,7 +418,7 @@ export default function ReminderConfigScreen() {
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs, pickerSlot]);
+  }, [prefs, pickerSlot, t]);
 
   const handleResetToAuto = useCallback(async (slot: TimeSlot) => {
     if (!prefs) return;
@@ -435,7 +438,7 @@ export default function ReminderConfigScreen() {
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs]);
+  }, [prefs, t]);
 
   const handlePickerCancel = useCallback(() => {
     setPickerSlot(null);
@@ -492,17 +495,29 @@ export default function ReminderConfigScreen() {
   }, [ensureNotificationAccess, prefs, t]);
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: t('scheduleTitle'),
-          headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' },
-          headerShadowVisible: false,
-          headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
-        }}
-      />
+    <View style={styles.root}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Top Header */}
+      <View style={[styles.topHeader, { paddingTop: insets.top + 8 }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('back', { ns: 'common' })}
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={12}
+        >
+          <Ionicons name="chevron-back" size={24} color="#0f3e36" />
+        </Pressable>
+        <Text style={styles.topHeaderTitle}>{t('scheduleTitle')}</Text>
+        <View style={styles.backButtonPlaceholder} />
+        <Image
+          source={require('../../assets/images/reminders/header_leaves.png')}
+          style={[styles.headerLeavesArt, { top: insets.top + 2 }]}
+          resizeMode="contain"
+        />
+      </View>
+
       {/* Time Picker */}
       <TimePickerModal
         visible={!!pickerSlot}
@@ -515,201 +530,510 @@ export default function ReminderConfigScreen() {
 
       {loading ? (
         <ScrollView
-          style={{ flex: 1, backgroundColor: colors.background }}
+          style={{ flex: 1 }}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
           showsVerticalScrollIndicator={false}
         >
           <ReminderConfigSkeleton />
         </ScrollView>
       ) : (
-        <ScrollView
-          style={{ flex: 1, backgroundColor: colors.background }}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Hero */}
-          <Animated.View entering={FadeIn.duration(400)}>
-            <View style={styles.heroCard}>
-              <MaterialCommunityIcons name="bell-ring-outline" size={28} color="#f59e0b" />
-              <View style={styles.heroTextWrap}>
-                <Text style={styles.heroTitle}>{t('scheduleTitle')}</Text>
-                <Text style={styles.heroSubtitle}>{t('scheduleHint')}</Text>
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Hero Banner Card */}
+            <Animated.View entering={FadeIn.duration(400)}>
+              <View style={styles.heroCard}>
+                <Image
+                  source={require('../../assets/images/reminders/hero_bell.png')}
+                  style={styles.heroBellImg}
+                  resizeMode="contain"
+                />
+                <View style={styles.heroTextWrap}>
+                  <Text style={styles.heroTitle}>{t('scheduleTitle')}</Text>
+                  <Text style={styles.heroSubtitle}>{t('scheduleHint')}</Text>
+                </View>
+                <Image
+                  source={require('../../assets/images/reminders/hero_deco.png')}
+                  style={styles.heroDecoArt}
+                  resizeMode="contain"
+                />
               </View>
-            </View>
-          </Animated.View>
+            </Animated.View>
 
-          {/* Reminders Toggle */}
-          <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-            <View style={styles.toggleCard}>
-              <MaterialCommunityIcons
-                name={remindersEnabled ? 'bell-check' : 'bell-off-outline'}
-                size={22}
-                color={remindersEnabled ? iconColors.emerald : colors.textSecondary}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.toggleTitle}>{t('taskReminders')}</Text>
-                <Text style={styles.toggleDesc}>{t('taskRemindersDesc')}</Text>
-              </View>
-              <Switch
-                value={remindersEnabled}
-                onValueChange={handleToggleReminders}
-                disabled={saving}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={colors.surface}
-              />
-            </View>
-          </Animated.View>
-
-          {/* Schedule Cards */}
-          {SLOT_META.map((meta, idx) => {
-            const disabled = !remindersEnabled;
-            const userTime = getTimeForSlot(meta.slot);
-            const effectiveTime = getEffectiveTime(meta.slot);
-            const isAuto = isAutoTime(meta.slot);
-
-            return (
-              <Animated.View key={meta.slot} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
-                <Pressable
-                  style={[styles.scheduleCard, disabled && { opacity: 0.5 }]}
-                  onPress={() => !disabled && setPickerSlot(meta.slot)}
-                  disabled={disabled}
-                >
-
-                  <View style={styles.scheduleTop}>
-                    <MaterialCommunityIcons name={meta.icon} size={24} color={meta.iconColor} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.scheduleLabel}>{t(meta.labelKey)}</Text>
-                      <Text style={styles.scheduleDesc}>{t(meta.descKey)}</Text>
-                    </View>
-                    {saving && <ActivityIndicator size="small" color={colors.primary} />}
+            {/* Reminders Toggle ("Nhắc nhiệm vụ" - WITHOUT > arrow) */}
+            <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+              <View style={styles.toggleCard}>
+                <View style={styles.toggleBellWrap}>
+                  <Ionicons name="notifications" size={26} color="#00897b" />
+                  <View style={styles.checkBadge}>
+                    <Ionicons name="checkmark" size={10} color="#ffffff" />
                   </View>
+                </View>
+                <View style={styles.toggleTextWrap}>
+                  <Text style={styles.toggleTitle}>{t('taskReminders')}</Text>
+                  <Text style={styles.toggleDesc}>{t('taskRemindersDesc')}</Text>
+                </View>
+                <Switch
+                  value={remindersEnabled}
+                  onValueChange={handleToggleReminders}
+                  disabled={saving}
+                  trackColor={{ false: '#cbd5e1', true: '#00897b' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            </Animated.View>
 
-                  <View style={styles.scheduleBottom}>
-                    <View style={styles.timeDisplaySmall}>
-                      <MaterialCommunityIcons name="clock-outline" size={18} color={meta.iconColor} />
-                      <Text style={[styles.timeText, { color: meta.iconColor }]}>{effectiveTime}</Text>
-                    </View>
+            {/* Schedule Cards */}
+            {SLOT_META.map((meta, idx) => {
+              const disabled = !remindersEnabled;
+              const effectiveTime = getEffectiveTime(meta.slot);
+              const isAuto = isAutoTime(meta.slot);
 
-                    {isAuto ? (
-                      <View style={styles.autoBadge}>
-                        <MaterialCommunityIcons name="auto-fix" size={12} color={colors.primary} />
-                        <Text style={styles.autoBadgeText}>{t('scheduleAuto')}</Text>
+              return (
+                <Animated.View key={meta.slot} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
+                  <Pressable
+                    style={[styles.scheduleCard, disabled && { opacity: 0.55 }]}
+                    onPress={() => !disabled && setPickerSlot(meta.slot)}
+                    disabled={disabled}
+                  >
+                    {/* Background Illustration */}
+                    <Image
+                      source={meta.bgArt}
+                      style={styles.cardBgArt}
+                      resizeMode="contain"
+                    />
+
+                    <View style={styles.cardMainRow}>
+                      {/* Left circular icon */}
+                      <View style={[styles.slotIconCircle, { backgroundColor: meta.iconBg }]}>
+                        {meta.slot === 'evening' ? (
+                          <MaterialCommunityIcons name="weather-night" size={26} color={meta.iconColor} />
+                        ) : meta.slot === 'afternoon' ? (
+                          <Ionicons name="sunny" size={26} color={meta.iconColor} />
+                        ) : (
+                          <Ionicons name="sunny-outline" size={26} color={meta.iconColor} />
+                        )}
                       </View>
-                    ) : (
-                      <Pressable
-                        style={styles.resetBtn}
-                        onPress={(e) => { e.stopPropagation(); handleResetToAuto(meta.slot); }}
-                        hitSlop={12}
-                      >
-                        <MaterialCommunityIcons name="refresh" size={14} color={colors.textSecondary} />
-                        <Text style={styles.resetBtnText}>{t('scheduleAuto')}</Text>
-                      </Pressable>
-                    )}
 
-                    <View style={styles.editBtnWrap}>
-                      <MaterialCommunityIcons name="pencil" size={16} color={meta.iconColor} />
+                      {/* Text & Pills */}
+                      <View style={styles.slotCopy}>
+                        <Text style={styles.slotTitle}>{t(meta.labelKey)}</Text>
+                        <Text style={styles.slotDesc}>{t(meta.descKey)}</Text>
+
+                        <View style={styles.pillsRow}>
+                          {/* Time pill */}
+                          <View
+                            style={[
+                              styles.pillBadge,
+                              meta.slot === 'evening' && styles.pillBadgeLavender,
+                            ]}
+                          >
+                            <Ionicons
+                              name="time-outline"
+                              size={14}
+                              color={meta.slot === 'evening' ? '#7c3aed' : '#00897b'}
+                            />
+                            <Text
+                              style={[
+                                styles.pillText,
+                                meta.slot === 'evening' && styles.pillTextLavender,
+                              ]}
+                            >
+                              {effectiveTime}
+                            </Text>
+                          </View>
+
+                          {/* Mode pill */}
+                          <View style={styles.pillBadge}>
+                            <MaterialCommunityIcons name="auto-fix" size={12} color="#00897b" />
+                            <Text style={styles.pillText}>{isAuto ? t('scheduleAuto') : t('scheduleAuto')}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Edit action: one clear affordance in the former chevron position */}
+                      <View style={styles.cardActionGroup}>
+                        <View style={styles.editBtnCircle}>
+                          <Ionicons name="pencil" size={16} color="#00897b" />
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </Pressable>
-              </Animated.View>
-            );
-          })}
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
 
-          {/* Info */}
-          <Animated.View entering={FadeInDown.delay(500).duration(400)}>
-            <View style={styles.infoCard}>
-              <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} />
-              <Text style={styles.infoText}>{t('scheduleHint')}</Text>
-            </View>
-          </Animated.View>
-        </ScrollView>
+            {/* Bottom Info Card */}
+            <Animated.View entering={FadeInDown.delay(500).duration(400)}>
+              <View style={styles.bottomInfoCard}>
+                <Ionicons name="information-circle-outline" size={20} color="#00897b" />
+                <Text style={styles.bottomInfoText}>{t('scheduleHint')}</Text>
+                <Image
+                  source={require('../../assets/images/reminders/hero_deco.png')}
+                  style={styles.bottomInfoDeco}
+                  resizeMode="contain"
+                />
+              </View>
+            </Animated.View>
+          </ScrollView>
+
+          {/* Floating Action Button (+) */}
+          <View style={styles.fabWrap}>
+            <Pressable
+              style={styles.fabBtn}
+              onPress={() => (!remindersEnabled ? null : setPickerSlot('morning'))}
+              disabled={!remindersEnabled}
+              hitSlop={8}
+            >
+              <Ionicons name="add" size={32} color="#ffffff" />
+            </Pressable>
+            {/* 3 small sparkle lines */}
+            <View style={styles.fabSparkle1} />
+            <View style={styles.fabSparkle2} />
+            <View style={styles.fabSparkle3} />
+          </View>
+        </View>
       )}
-    </>
+    </View>
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
-    scrollContent: { padding: spacing.lg, gap: spacing.md },
+    root: {
+      flex: 1,
+      backgroundColor: '#f3fbf8',
+    },
+    topHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      backgroundColor: '#f3fbf8',
+      position: 'relative',
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: '#ffffff',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+      borderWidth: 1,
+      borderColor: '#eef5f2',
+      zIndex: 2,
+    },
+    topHeaderTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: '#0f3e36',
+      textAlign: 'center',
+      flex: 1,
+      zIndex: 1,
+    },
+    backButtonPlaceholder: {
+      width: 40,
+      height: 40,
+    },
+    headerLeavesArt: {
+      position: 'absolute',
+      right: 0,
+      width: 110,
+      height: 60,
+      opacity: 0.85,
+      pointerEvents: 'none',
+    },
+    scrollContent: {
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      gap: 14,
+    },
 
     // Hero
     heroCard: {
+      backgroundColor: '#eaf8f3',
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: '#cceee2',
+      paddingVertical: 18,
+      paddingHorizontal: 18,
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: radius.xl,
-      padding: spacing.lg,
-      backgroundColor: colors.primaryLight,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: spacing.md,
+      gap: 14,
+      position: 'relative',
+      overflow: 'hidden',
     },
-    heroTextWrap: { flex: 1 },
-    heroTitle: { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
-    heroSubtitle: { fontSize: typography.size.xs, color: colors.textSecondary, lineHeight: 18, marginTop: 4 },
+    heroBellImg: {
+      width: 56,
+      height: 68,
+      zIndex: 2,
+    },
+    heroTextWrap: {
+      flex: 1,
+      zIndex: 2,
+      paddingRight: 10,
+    },
+    heroTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: '#0f3e36',
+    },
+    heroSubtitle: {
+      fontSize: 13,
+      color: '#475569',
+      lineHeight: 18,
+      marginTop: 4,
+    },
+    heroDecoArt: {
+      position: 'absolute',
+      right: 0,
+      bottom: 0,
+      width: 80,
+      height: 60,
+      opacity: 0.7,
+      pointerEvents: 'none',
+    },
 
-    // Toggle
+    // Toggle Card
     toggleCard: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: colors.surface, borderRadius: radius.xl,
-      padding: spacing.lg, borderWidth: 1.5, borderColor: colors.border, gap: spacing.md,
-    },
-    toggleTitle: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
-    toggleDesc: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2 },
-
-    // Schedule Cards
-    scheduleCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
+      backgroundColor: '#ffffff',
+      borderRadius: 22,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
       borderWidth: 1,
-      borderColor: colors.border,
-      gap: spacing.md,
-      shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 }, elevation: 2,
+      borderColor: '#eef5f2',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      shadowColor: '#000',
+      shadowOpacity: 0.03,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
     },
-    scheduleTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-    scheduleLabel: { fontSize: typography.size.md, fontWeight: '700', color: colors.textPrimary },
-    scheduleDesc: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
+    toggleBellWrap: {
+      width: 38,
+      height: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+    },
+    checkBadge: {
+      position: 'absolute',
+      right: 2,
+      bottom: 2,
+      width: 15,
+      height: 15,
+      borderRadius: 7.5,
+      backgroundColor: '#00897b',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: '#ffffff',
+    },
+    toggleTextWrap: {
+      flex: 1,
+    },
+    toggleTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#0f3e36',
+    },
+    toggleDesc: {
+      fontSize: 13,
+      color: '#64748b',
+      marginTop: 2,
+    },
 
-    scheduleBottom: {
-      flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap',
-      minWidth: 0, gap: spacing.sm,
-      backgroundColor: Platform.OS === 'android' ? '#F7FFFC' : 'rgba(255,255,255,0.7)',
-      borderRadius: radius.lg, padding: spacing.md,
+    // Schedule Card
+    scheduleCard: {
+      backgroundColor: '#ffffff',
+      borderRadius: 22,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      borderWidth: 1,
+      borderColor: '#eef5f2',
+      position: 'relative',
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
     },
-    timeDisplaySmall: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, minWidth: 0, gap: 6 },
-    timeText: { flexShrink: 1, fontSize: typography.size.lg, fontWeight: '800' },
+    cardBgArt: {
+      position: 'absolute',
+      right: 48,
+      top: 0,
+      bottom: 0,
+      width: 125,
+      height: '100%',
+      opacity: 0.9,
+      pointerEvents: 'none',
+    },
+    cardMainRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      zIndex: 2,
+    },
+    slotIconCircle: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    slotCopy: {
+      flex: 1,
+      gap: 3,
+    },
+    slotTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#0f3e36',
+    },
+    slotDesc: {
+      fontSize: 12.5,
+      color: '#64748b',
+      lineHeight: 16,
+    },
+    pillsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 4,
+    },
+    pillBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: '#e6f7f2',
+      borderRadius: 14,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    pillBadgeLavender: {
+      backgroundColor: '#f3e8ff',
+    },
+    pillText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#00897b',
+    },
+    pillTextLavender: {
+      color: '#7c3aed',
+    },
+    cardActionGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    editBtnCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#ffffff',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 5,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+      borderWidth: 1,
+      borderColor: '#eef5f2',
+    },
 
-    autoBadge: {
-      flexDirection: 'row', alignItems: 'center', flexShrink: 1, maxWidth: '100%', gap: 4,
-      backgroundColor: colors.primaryLight, borderRadius: radius.full,
-      paddingHorizontal: spacing.sm + 2, paddingVertical: 3,
+    // Bottom Info
+    bottomInfoCard: {
+      backgroundColor: '#eaf7f2',
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: '#cceee2',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      position: 'relative',
+      overflow: 'hidden',
+      marginTop: 2,
     },
-    autoBadgeText: { flexShrink: 1, fontSize: typography.size.xxs, fontWeight: '600', color: colors.primary },
+    bottomInfoText: {
+      fontSize: 12.5,
+      color: '#475569',
+      flex: 1,
+      lineHeight: 18,
+      zIndex: 2,
+    },
+    bottomInfoDeco: {
+      position: 'absolute',
+      right: 0,
+      bottom: 0,
+      width: 70,
+      height: 50,
+      opacity: 0.5,
+      pointerEvents: 'none',
+    },
 
-    resetBtn: {
-      flexDirection: 'row', alignItems: 'center', flexShrink: 1, maxWidth: '100%', gap: 3,
-      backgroundColor: colors.background, borderRadius: radius.full,
-      paddingHorizontal: spacing.sm + 2, paddingVertical: 3,
-      borderWidth: 1, borderColor: colors.border,
+    // FAB Button (+)
+    fabWrap: {
+      position: 'absolute',
+      right: 22,
+      bottom: 86,
+      zIndex: 10,
     },
-    resetBtnText: { flexShrink: 1, fontSize: typography.size.xxs, fontWeight: '600', color: colors.textSecondary },
-
-    editBtnWrap: {
-      marginLeft: 'auto',
-      flexShrink: 0,
-      width: 32, height: 32, borderRadius: 12,
-      backgroundColor: Platform.OS === 'android' ? '#F9FFFD' : 'rgba(255,255,255,0.8)',
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: colors.border,
+    fabBtn: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: '#00897b',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#00897b',
+      shadowOpacity: 0.35,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 5,
     },
-
-    // Info
-    infoCard: {
-      flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
-      backgroundColor: colors.primaryLight, borderRadius: radius.lg,
-      padding: spacing.md, borderWidth: 1, borderColor: colors.border,
+    fabSparkle1: {
+      position: 'absolute',
+      top: -3,
+      right: 0,
+      width: 6,
+      height: 2,
+      backgroundColor: '#00897b',
+      transform: [{ rotate: '45deg' }],
+      borderRadius: 1,
     },
-    infoText: { fontSize: typography.size.xs, color: colors.textSecondary, flex: 1, lineHeight: 18 },
+    fabSparkle2: {
+      position: 'absolute',
+      top: 6,
+      right: -7,
+      width: 7,
+      height: 2,
+      backgroundColor: '#00897b',
+      borderRadius: 1,
+    },
+    fabSparkle3: {
+      position: 'absolute',
+      top: 15,
+      right: -5,
+      width: 6,
+      height: 2,
+      backgroundColor: '#00897b',
+      transform: [{ rotate: '-30deg' }],
+      borderRadius: 1,
+    },
   });
 }
