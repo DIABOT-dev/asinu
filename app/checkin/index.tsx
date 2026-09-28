@@ -119,6 +119,39 @@ const STATUS_OPTIONS: Array<{
   },
 ];
 
+const STATUS_PALETTE: Record<
+  CheckinStatus,
+  {
+    bg: string;
+    border: string;
+    textColor: string;
+    iconColor: string;
+    subColor: string;
+  }
+> = {
+  fine: {
+    bg: '#eefaf5',
+    border: '#cceee2',
+    textColor: '#064e3b',
+    iconColor: '#059669',
+    subColor: '#0f766e',
+  },
+  tired: {
+    bg: '#fff7ed',
+    border: '#fed7aa',
+    textColor: '#9a3412',
+    iconColor: '#ea580c',
+    subColor: '#c2410c',
+  },
+  very_tired: {
+    bg: '#fef2f2',
+    border: '#fecaca',
+    textColor: '#991b1b',
+    iconColor: '#dc2626',
+    subColor: '#b91c1c',
+  },
+};
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 type Screen = 'status' | 'location' | 'triage' | 'done';
@@ -484,7 +517,7 @@ export default function CheckinScreen() {
 
       <ScrollView
         ref={mainScrollRef}
-        style={{ flex: 1, backgroundColor: '#F0FAF7' }}
+        style={{ flex: 1, backgroundColor: '#f3fbf8' }}
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 120 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -583,7 +616,7 @@ function StatusScreen({
       {/* Asinu avatar */}
       <Animated.View entering={FadeIn.duration(400)} style={styles.statusAvatarWrap}>
         <View style={styles.statusAvatar}>
-          <MaterialCommunityIcons name="heart-pulse" size={28} color={colors.primary} />
+          <MaterialCommunityIcons name="heart-pulse" size={36} color="#00897b" />
         </View>
       </Animated.View>
 
@@ -593,24 +626,32 @@ function StatusScreen({
       </Animated.View>
 
       <View style={styles.optionList}>
-        {STATUS_OPTIONS.map((opt, idx) => (
-          <Animated.View key={opt.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.statusCard,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-              ]}
-              onPress={() => handleSelect(opt.status)}
-            >
-              <MaterialCommunityIcons name={opt.icon} size={28} color={opt.color} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.statusLabel, { color: opt.color }]}>{t(opt.labelKey)}</Text>
-                <Text style={styles.statusSub}>{t(opt.sublabelKey)}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </Pressable>
-          </Animated.View>
-        ))}
+        {STATUS_OPTIONS.map((opt, idx) => {
+          const palette = STATUS_PALETTE[opt.status];
+          return (
+            <Animated.View key={opt.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.statusCard,
+                  {
+                    backgroundColor: palette.bg,
+                    borderColor: palette.border,
+                    borderWidth: 1.5,
+                  },
+                  pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] },
+                ]}
+                onPress={() => handleSelect(opt.status)}
+              >
+                <MaterialCommunityIcons name={opt.icon} size={30} color={palette.iconColor} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[styles.statusLabel, { color: palette.textColor }]}>{t(opt.labelKey)}</Text>
+                  <Text style={[styles.statusSub, { color: palette.subColor }]}>{t(opt.sublabelKey)}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={palette.iconColor} />
+              </Pressable>
+            </Animated.View>
+          );
+        })}
       </View>
     </View>
   );
@@ -672,20 +713,20 @@ function LocationScreen({
                   flexDirection: 'row',
                   alignItems: 'center',
                   padding: spacing.md,
-                  borderRadius: 16,
-                  backgroundColor: isSelected ? colors.primaryLight : colors.surface,
+                  borderRadius: 18,
+                  backgroundColor: isSelected ? '#eefaf5' : '#ffffff',
                   borderWidth: 1.5,
-                  borderColor: isSelected ? colors.primary : colors.border,
+                  borderColor: isSelected ? '#00897b' : '#e2e8f0',
                   gap: spacing.md,
-                  opacity: pressed || loading ? 0.7 : 1,
+                  opacity: pressed || loading ? 0.8 : 1,
                 },
               ]}
             >
               <View style={{
                 width: 22, height: 22, borderRadius: 6,
                 borderWidth: 2,
-                borderColor: isSelected ? colors.primary : colors.border,
-                backgroundColor: isSelected ? colors.primary : 'transparent',
+                borderColor: isSelected ? '#00897b' : '#cbd5e1',
+                backgroundColor: isSelected ? '#00897b' : 'transparent',
                 alignItems: 'center', justifyContent: 'center',
               }}>
                 {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
@@ -694,16 +735,17 @@ function LocationScreen({
               <MaterialCommunityIcons
                 name={opt.icon}
                 size={28}
-                color={isSelected ? colors.primary : colors.textSecondary}
+                color={isSelected ? '#00897b' : '#64748b'}
               />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: isSelected ? '#064e3b' : colors.textPrimary, marginBottom: 2 }}>
                   {t(opt.labelKey)}
                 </Text>
                 <Text style={{ fontSize: 12, color: colors.textSecondary }}>
                   {t(opt.descKey)}
                 </Text>
               </View>
+              <Ionicons name="chevron-forward" size={18} color={isSelected ? '#00897b' : '#cbd5e1'} />
             </Pressable>
           );
         })}
@@ -719,10 +761,10 @@ function LocationScreen({
             flexDirection: 'row',
             alignItems: 'center',
             padding: spacing.md,
-            borderRadius: 16,
-            backgroundColor: colors.surface,
+            borderRadius: 18,
+            backgroundColor: '#ffffff',
             borderWidth: 1.5,
-            borderColor: other.trim() ? colors.primary : colors.border,
+            borderColor: other.trim() ? '#00897b' : '#e2e8f0',
             gap: spacing.md,
           }}
         >
@@ -732,13 +774,13 @@ function LocationScreen({
           <MaterialCommunityIcons
             name="pencil-outline"
             size={28}
-            color={other.trim() ? colors.primary : colors.textSecondary}
+            color={other.trim() ? '#00897b' : '#64748b'}
           />
           <TextInput
             value={other}
             onChangeText={setOther}
             placeholder={t('checkinLocationOtherPlaceholder')}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor="#94a3b8"
             editable={!loading}
             maxLength={200}
             style={{
@@ -758,11 +800,11 @@ function LocationScreen({
         disabled={!canConfirm}
         style={({ pressed }) => [{
           marginTop: spacing.lg,
-          backgroundColor: canConfirm ? colors.primary : colors.border,
-          paddingVertical: spacing.md,
-          borderRadius: 14,
+          backgroundColor: canConfirm ? '#00897b' : '#cbd5e1',
+          paddingVertical: 15,
+          borderRadius: 18,
           alignItems: 'center',
-          opacity: pressed ? 0.85 : 1,
+          opacity: pressed ? 0.88 : 1,
         }]}
       >
         <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
@@ -1733,31 +1775,27 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     optionList: { gap: spacing.md, marginTop: spacing.sm },
 
     // ── Status screen ──
-    statusAvatarWrap: { alignItems: 'center' },
+    statusAvatarWrap: { alignItems: 'center', marginBottom: spacing.xs },
     statusAvatar: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
       alignItems: 'center',
       justifyContent: 'center',
     },
     statusCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: spacing.lg,
-      borderRadius: radius.xl,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
+      borderRadius: 20,
+      borderWidth: 1.5,
       gap: spacing.md,
-      shadowColor: '#000',
+      shadowColor: '#059669',
       shadowOpacity: 0.04,
-      shadowRadius: 6,
+      shadowRadius: 8,
       shadowOffset: { width: 0, height: 2 },
       elevation: 1,
     },
-    statusLabel: { fontSize: typography.size.md, fontWeight: '700' },
-    statusSub: { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
+    statusLabel: { fontSize: 17, fontWeight: '700', lineHeight: 22 },
+    statusSub: { fontSize: 13, marginTop: 3, lineHeight: 18 },
 
     // ── Triage / chat ──
     progressTrack: {
