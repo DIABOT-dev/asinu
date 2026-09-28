@@ -15,9 +15,18 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    env:
+      ASINU_BACKEND_DIR: _contracts/backend.asinu
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Checkout backend API routes
+        uses: actions/checkout@v7
+        with:
+          repository: DIABOT-dev/backend.asinu
+          ref: main
+          path: _contracts/backend.asinu
 
       - name: Setup Node.js
         uses: actions/setup-node@v7

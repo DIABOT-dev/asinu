@@ -31,10 +31,18 @@ jobs:
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EXPO_PUBLIC_API_BASE_URL: https://asinu.top
+      ASINU_BACKEND_DIR: _contracts/backend.asinu
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Checkout backend API routes
+        uses: actions/checkout@v7
+        with:
+          repository: DIABOT-dev/backend.asinu
+          ref: main
+          path: _contracts/backend.asinu
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
