@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LiveKitRoom } from '@livekit/react-native';
@@ -15,7 +15,7 @@ import {
   type CheckinCallTriageSelection,
   type CheckinCallTriageSymptom,
 } from '../../src/features/checkin-call/checkin-call.api';
-import { endVoipCall } from '../../src/lib/voip';
+import { endVoipCall, simulateIncomingVoipCall } from '../../src/lib/voip';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 
@@ -325,6 +325,25 @@ export default function CheckinCallScreen() {
     }
   };
 
+  const simulateNextFamilyCall = useCallback(async () => {
+    if (!__DEV__ || Platform.OS !== 'ios') return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 1200));
+    try {
+      const result = await checkinCallApi.active();
+      const active = result.active;
+      if (!active?.local_callkit_simulation || active.target_role !== 'FAMILY') return;
+      await stopAudio();
+      await simulateIncomingVoipCall({
+        episodeId: active.id,
+        attemptId: active.attempt_id,
+        severity: active.severity,
+        kind: 'INCOMING_CALL',
+      });
+    } catch {
+      // Development simulation must never change the persisted safety flow.
+    }
+  }, [stopAudio]);
+
   const submitTriage = async (
     intensity: TriageIntensity,
     location = selectedLocation,
@@ -354,6 +373,7 @@ export default function CheckinCallScreen() {
             : 'statusUserMild',
       );
       void play(intensity === 'URGENT' ? 'user_urgent' : 'user_mild');
+      if (!noEligibleFamily) void simulateNextFamilyCall();
     } catch (e) {
       setError(getApiErrorMessage(e, t, 'errorSendTriage'));
     } finally {
@@ -420,6 +440,7 @@ export default function CheckinCallScreen() {
               : 'statusUserUrgent',
       );
       void play(choice === 1 ? 'user_ok' : choice === 2 ? 'user_mild' : 'user_urgent');
+      if (choice !== 1 && !noEligibleFamily) void simulateNextFamilyCall();
     } catch (e) {
       setError(getApiErrorMessage(e, t, 'errorSendChoice'));
     } finally {
@@ -704,254 +725,320 @@ export default function CheckinCallScreen() {
       {/* User Connected State */}
       {!!attempt && joined && !ended && attempt.target_role === 'USER' && (
         <ScrollView contentContainerStyle={styles.familyScrollContent}>
-          <View style={styles.userCallCard}>
-            <View style={styles.userHeadsetIconWrap}>
-              <Ionicons name={triageOpen ? 'pulse-outline' : 'headset-outline'} size={32} color="#00897b" />
-            </View>
-            <Text style={styles.userCardTitle}>
-              {t(triageOpen ? `triage.${triageStep}Title` : 'userHeading')}
-            </Text>
-            <Text style={styles.userCardSub}>
-              {t(triageOpen ? `triage.${triageStep}Instruction` : 'gallery.connectedInstruction')}
-            </Text>
-          </View>
-
-          {!!error && <Text style={styles.error}>{error}</Text>}
-
           {!triageOpen ? (
-            <View style={styles.familyActionsCol}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('choiceOk')}
-                accessibilityState={{ disabled: busy }}
-                style={[styles.userOptionBtn, styles.userOptionOk]}
-                onPress={() => void answer(1)}
-                disabled={busy}
-              >
-                <Text style={styles.userOptionText}>{t('choiceOk')}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('choiceMild')}
-                accessibilityState={{ disabled: busy }}
-                style={[styles.userOptionBtn, styles.userOptionMild]}
-                onPress={() => void openTriage()}
-                disabled={busy}
-              >
-                <Text style={styles.userOptionText}>{t('choiceMild')}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('choiceUrgent')}
-                accessibilityState={{ disabled: busy }}
-                style={[styles.userOptionBtn, styles.userOptionUrgent]}
-                onPress={() => void answer(3, 'URGENT_UNSPECIFIED')}
-                disabled={busy}
-              >
-                <Text style={styles.userOptionText}>{t('choiceUrgent')}</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.familyActionsCol}>
-              <Text style={styles.triageProgress}>
-                {t('triage.progress', {
-                  current: triageStep === 'location' ? 1 : triageStep === 'symptom' ? 2 : 3,
-                })}
-              </Text>
+            <View style={styles.userCallCard}>
+              <Image
+                source={require('../../assets/images/checkin-call/checkin_call_hero_art.png')}
+                style={styles.userCallHeroArt}
+                resizeMode="contain"
+              />
+              <Text style={styles.userCardTitle}>{t('userHeading')}</Text>
+              <Text style={styles.userCardSub}>{t('gallery.connectedInstruction')}</Text>
 
-              {triageStep !== 'location' && (
+              {!!error && <Text style={styles.error}>{error}</Text>}
+
+              <View style={styles.userCardOptionsCol}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t(
-                    triageStep === 'intensity'
-                      ? 'triage.changeSymptom'
-                      : 'triage.changeLocation',
-                  )}
+                  accessibilityLabel={t('choiceOk')}
                   accessibilityState={{ disabled: busy }}
-                  style={styles.triageBackButton}
-                  onPress={() => void goBackInTriage()}
+                  style={({ pressed }) => [
+                    styles.userChoiceCard,
+                    styles.userChoiceCardOk,
+                    pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] },
+                  ]}
+                  onPress={() => void answer(1)}
                   disabled={busy}
                 >
-                  <Ionicons name="arrow-back" size={18} color="#087f6d" />
-                  <Text style={styles.triageBackButtonText}>
-                    {t(
+                  <View style={styles.userChoiceDirectIcon}>
+                    <Ionicons name="happy-outline" size={28} color="#059669" />
+                  </View>
+                  <Text style={[styles.userChoiceText, styles.userChoiceTextOk]}>
+                    {t('choiceOk')}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={20} color="#059669" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('choiceMild')}
+                  accessibilityState={{ disabled: busy }}
+                  style={({ pressed }) => [
+                    styles.userChoiceCard,
+                    styles.userChoiceCardMild,
+                    pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] },
+                  ]}
+                  onPress={() => void openTriage()}
+                  disabled={busy}
+                >
+                  <View style={styles.userChoiceDirectIcon}>
+                    <MaterialCommunityIcons name="emoticon-neutral-outline" size={28} color="#ea580c" />
+                  </View>
+                  <Text style={[styles.userChoiceText, styles.userChoiceTextMild]}>
+                    {t('choiceMild')}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={20} color="#ea580c" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('choiceUrgent')}
+                  accessibilityState={{ disabled: busy }}
+                  style={({ pressed }) => [
+                    styles.userChoiceCard,
+                    styles.userChoiceCardUrgent,
+                    pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] },
+                  ]}
+                  onPress={() => void answer(3, 'URGENT_UNSPECIFIED')}
+                  disabled={busy}
+                >
+                  <View style={styles.userChoiceDirectIcon}>
+                    <MaterialCommunityIcons name="plus-circle-outline" size={28} color="#dc2626" />
+                  </View>
+                  <Text style={[styles.userChoiceText, styles.userChoiceTextUrgent]}>
+                    {t('choiceUrgent')}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={20} color="#dc2626" />
+                </Pressable>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('replay')}
+                style={styles.replayPill}
+                onPress={() => void play('user_prompt')}
+                disabled={busy}
+              >
+                <Ionicons name="volume-high" size={20} color="#0284c7" />
+                <Text style={styles.replayPillText}>{t('replay')}</Text>
+              </Pressable>
+
+              <View style={styles.safetyFooterRow}>
+                <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
+                <Text style={styles.safetyFooterText}>{t('safetyNote')}</Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.userCallCard}>
+                <View style={styles.userHeadsetIconWrap}>
+                  <Ionicons name="pulse-outline" size={32} color="#00897b" />
+                </View>
+                <Text style={styles.userCardTitle}>
+                  {t(`triage.${triageStep}Title`)}
+                </Text>
+                <Text style={styles.userCardSub}>
+                  {t(`triage.${triageStep}Instruction`)}
+                </Text>
+              </View>
+
+              {!!error && <Text style={styles.error}>{error}</Text>}
+
+              <View style={styles.familyActionsCol}>
+                <Text style={styles.triageProgress}>
+                  {t('triage.progress', {
+                    current: triageStep === 'location' ? 1 : triageStep === 'symptom' ? 2 : 3,
+                  })}
+                </Text>
+
+                {triageStep !== 'location' && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(
                       triageStep === 'intensity'
                         ? 'triage.changeSymptom'
                         : 'triage.changeLocation',
                     )}
-                  </Text>
-                </Pressable>
-              )}
-
-              {triageStep === 'location' && triageContext?.has_recent_context && (
-                <View style={styles.triageContextNote}>
-                  <Ionicons name="time-outline" size={18} color="#087f6d" />
-                  <Text style={styles.triageContextNoteText}>{t('triage.recentContext')}</Text>
-                </View>
-              )}
-
-              {triageStep === 'location' &&
-                triageContext?.locations.map((location) => (
-                  <Pressable
-                    key={location.key}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('triage.locationAccessibilityLabel', {
-                      label: location.label,
-                      description: location.desc,
-                    })}
-                    accessibilityHint={location.recent ? t('triage.recentAccessibilityHint') : undefined}
                     accessibilityState={{ disabled: busy }}
-                    style={[styles.triageOptionBtn, styles.triageOptionNeutral]}
-                    onPress={() => void chooseLocation(location)}
+                    style={styles.triageBackButton}
+                    onPress={() => void goBackInTriage()}
                     disabled={busy}
                   >
-                    <MaterialCommunityIcons
-                      name={LOCATION_ICONS[location.key] || 'human'}
-                      size={26}
-                      color="#087f6d"
-                    />
-                    <View style={styles.triageOptionCopy}>
-                      <View style={styles.triageOptionTitleRow}>
-                        <Text style={styles.triageOptionTitle}>{location.label}</Text>
-                        {location.recent && (
-                          <View style={styles.recentBadge}>
-                            <Text style={styles.recentBadgeText}>{t('triage.recentBadge')}</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.triageOptionDescription}>{location.desc}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#64748b" />
-                  </Pressable>
-                ))}
-
-              {triageStep === 'symptom' &&
-                selectedLocation?.symptoms.map((symptom) => (
-                  <Pressable
-                    key={symptom.key}
-                    accessibilityRole="button"
-                    accessibilityLabel={symptom.label}
-                    accessibilityHint={
-                      symptom.urgent
-                        ? t('triage.urgentAccessibilityHint')
-                        : symptom.recent
-                          ? t('triage.recentAccessibilityHint')
-                          : undefined
-                    }
-                    accessibilityState={{ disabled: busy }}
-                    style={[
-                      styles.triageOptionBtn,
-                      symptom.urgent ? styles.triageOptionUrgent : styles.triageOptionNeutral,
-                    ]}
-                    onPress={() => void chooseSymptom(symptom)}
-                    disabled={busy}
-                  >
-                    <Ionicons
-                      name={symptom.urgent ? 'warning-outline' : 'pulse-outline'}
-                      size={24}
-                      color={symptom.urgent ? '#b42335' : '#9a5b05'}
-                    />
-                    <View style={styles.triageOptionCopy}>
-                      <View style={styles.triageOptionTitleRow}>
-                        <Text style={styles.triageOptionTitle}>{symptom.label}</Text>
-                        {symptom.recent && (
-                          <View style={styles.recentBadge}>
-                            <Text style={styles.recentBadgeText}>{t('triage.recentBadge')}</Text>
-                          </View>
-                        )}
-                        {symptom.urgent && (
-                          <View style={styles.urgentBadge}>
-                            <Text style={styles.urgentBadgeText}>{t('triage.urgentBadge')}</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#64748b" />
-                  </Pressable>
-                ))}
-
-              {triageStep === 'intensity' && (
-                <>
-                  <View style={styles.triageSelectionSummary}>
-                    <Text style={styles.triageSelectionLabel}>{t('triage.selected')}</Text>
-                    <Text style={styles.triageSelectionValue}>
-                      {selectedLocation?.label} · {selectedSymptom?.label}
+                    <Ionicons name="arrow-back" size={18} color="#087f6d" />
+                    <Text style={styles.triageBackButtonText}>
+                      {t(
+                        triageStep === 'intensity'
+                          ? 'triage.changeSymptom'
+                          : 'triage.changeLocation',
+                      )}
                     </Text>
+                  </Pressable>
+                )}
+
+                {triageStep === 'location' && triageContext?.has_recent_context && (
+                  <View style={styles.triageContextNote}>
+                    <Ionicons name="time-outline" size={18} color="#087f6d" />
+                    <Text style={styles.triageContextNoteText}>{t('triage.recentContext')}</Text>
                   </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('triage.intensityMild')}
-                    accessibilityHint={t('triage.intensityMildDesc')}
-                    accessibilityState={{ disabled: busy }}
-                    style={[styles.triageOptionBtn, styles.triageOptionMild]}
-                    onPress={() => void submitTriage('MILD')}
-                    disabled={busy}
-                  >
-                    <Ionicons name="leaf-outline" size={24} color="#7c4707" />
-                    <View style={styles.triageOptionCopy}>
-                      <Text style={styles.triageOptionMildText}>{t('triage.intensityMild')}</Text>
-                      <Text style={styles.triageOptionDescription}>{t('triage.intensityMildDesc')}</Text>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('triage.intensityModerate')}
-                    accessibilityHint={t('triage.intensityModerateDesc')}
-                    accessibilityState={{ disabled: busy }}
-                    style={[styles.triageOptionBtn, styles.triageOptionMild]}
-                    onPress={() => void submitTriage('MODERATE')}
-                    disabled={busy}
-                  >
-                    <Ionicons name="alert-circle-outline" size={24} color="#7c4707" />
-                    <View style={styles.triageOptionCopy}>
-                      <Text style={styles.triageOptionMildText}>{t('triage.intensityModerate')}</Text>
-                      <Text style={styles.triageOptionDescription}>{t('triage.intensityModerateDesc')}</Text>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('triage.intensityUrgent')}
-                    accessibilityHint={t('triage.intensityUrgentDesc')}
-                    accessibilityState={{ disabled: busy }}
-                    style={[styles.triageOptionBtn, styles.triageOptionUrgent]}
-                    onPress={() => void submitTriage('URGENT')}
-                    disabled={busy}
-                  >
-                    <Ionicons name="warning-outline" size={24} color="#b42335" />
-                    <View style={styles.triageOptionCopy}>
-                      <Text style={styles.triageOptionUrgentText}>{t('triage.intensityUrgent')}</Text>
-                      <Text style={styles.triageOptionDescription}>{t('triage.intensityUrgentDesc')}</Text>
-                    </View>
-                  </Pressable>
-                </>
-              )}
+                )}
 
-              {busy && <ActivityIndicator color="#087f6d" />}
-              <Text style={styles.triageGuarantee}>{t('triageGuarantee')}</Text>
-            </View>
+                {triageStep === 'location' &&
+                  triageContext?.locations.map((location) => (
+                    <Pressable
+                      key={location.key}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('triage.locationAccessibilityLabel', {
+                        label: location.label,
+                        description: location.desc,
+                      })}
+                      accessibilityHint={location.recent ? t('triage.recentAccessibilityHint') : undefined}
+                      accessibilityState={{ disabled: busy }}
+                      style={[styles.triageOptionBtn, styles.triageOptionNeutral]}
+                      onPress={() => void chooseLocation(location)}
+                      disabled={busy}
+                    >
+                      <MaterialCommunityIcons
+                        name={LOCATION_ICONS[location.key] || 'human'}
+                        size={26}
+                        color="#087f6d"
+                      />
+                      <View style={styles.triageOptionCopy}>
+                        <View style={styles.triageOptionTitleRow}>
+                          <Text style={styles.triageOptionTitle}>{location.label}</Text>
+                          {location.recent && (
+                            <View style={styles.recentBadge}>
+                              <Text style={styles.recentBadgeText}>{t('triage.recentBadge')}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.triageOptionDescription}>{location.desc}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </Pressable>
+                  ))}
+
+                {triageStep === 'symptom' &&
+                  selectedLocation?.symptoms.map((symptom) => (
+                    <Pressable
+                      key={symptom.key}
+                      accessibilityRole="button"
+                      accessibilityLabel={symptom.label}
+                      accessibilityHint={
+                        symptom.urgent
+                          ? t('triage.urgentAccessibilityHint')
+                          : symptom.recent
+                            ? t('triage.recentAccessibilityHint')
+                            : undefined
+                      }
+                      accessibilityState={{ disabled: busy }}
+                      style={[
+                        styles.triageOptionBtn,
+                        symptom.urgent ? styles.triageOptionUrgent : styles.triageOptionNeutral,
+                      ]}
+                      onPress={() => void chooseSymptom(symptom)}
+                      disabled={busy}
+                    >
+                      <Ionicons
+                        name={symptom.urgent ? 'warning-outline' : 'pulse-outline'}
+                        size={24}
+                        color={symptom.urgent ? '#dc2626' : '#087f6d'}
+                      />
+                      <View style={styles.triageOptionCopy}>
+                        <View style={styles.triageOptionTitleRow}>
+                          <Text style={styles.triageOptionTitle}>{symptom.label}</Text>
+                          {symptom.recent && (
+                            <View style={styles.recentBadge}>
+                              <Text style={styles.recentBadgeText}>{t('triage.recentBadge')}</Text>
+                            </View>
+                          )}
+                          {symptom.urgent && (
+                            <View style={styles.urgentBadge}>
+                              <Text style={styles.urgentBadgeText}>{t('triage.urgentBadge')}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                    </Pressable>
+                  ))}
+
+                {triageStep === 'intensity' && (
+                  <>
+                    <View style={styles.triageSelectionSummary}>
+                      <Text style={styles.triageSelectionLabel}>{t('triage.selected')}</Text>
+                      <Text style={styles.triageSelectionValue}>
+                        {selectedLocation?.label} · {selectedSymptom?.label}
+                      </Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('triage.intensityMild')}
+                      accessibilityHint={t('triage.intensityMildDesc')}
+                      accessibilityState={{ disabled: busy }}
+                      style={[styles.triageOptionBtn, styles.triageOptionMild]}
+                      onPress={() => void submitTriage('MILD')}
+                      disabled={busy}
+                    >
+                      <Ionicons name="leaf-outline" size={24} color="#ea580c" />
+                      <View style={styles.triageOptionCopy}>
+                        <Text style={styles.triageOptionMildText}>{t('triage.intensityMild')}</Text>
+                        <Text style={styles.triageOptionDescription}>{t('triage.intensityMildDesc')}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#ea580c" />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('triage.intensityModerate')}
+                      accessibilityHint={t('triage.intensityModerateDesc')}
+                      accessibilityState={{ disabled: busy }}
+                      style={[styles.triageOptionBtn, styles.triageOptionMild]}
+                      onPress={() => void submitTriage('MODERATE')}
+                      disabled={busy}
+                    >
+                      <Ionicons name="alert-circle-outline" size={24} color="#ea580c" />
+                      <View style={styles.triageOptionCopy}>
+                        <Text style={styles.triageOptionMildText}>{t('triage.intensityModerate')}</Text>
+                        <Text style={styles.triageOptionDescription}>{t('triage.intensityModerateDesc')}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#ea580c" />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('triage.intensityUrgent')}
+                      accessibilityHint={t('triage.intensityUrgentDesc')}
+                      accessibilityState={{ disabled: busy }}
+                      style={[styles.triageOptionBtn, styles.triageOptionUrgent]}
+                      onPress={() => void submitTriage('URGENT')}
+                      disabled={busy}
+                    >
+                      <Ionicons name="warning-outline" size={24} color="#dc2626" />
+                      <View style={styles.triageOptionCopy}>
+                        <Text style={styles.triageOptionUrgentText}>{t('triage.intensityUrgent')}</Text>
+                        <Text style={styles.triageOptionDescription}>{t('triage.intensityUrgentDesc')}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#dc2626" />
+                    </Pressable>
+                  </>
+                )}
+
+                {busy && <ActivityIndicator color="#087f6d" />}
+                <Text style={styles.triageGuarantee}>{t('triageGuarantee')}</Text>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('replay')}
+                style={styles.replayPill}
+                onPress={() =>
+                  void play(
+                    triageStep === 'location'
+                      ? 'triage_location_prompt'
+                      : triageStep === 'symptom'
+                        ? 'triage_symptom_prompt'
+                        : 'triage_intensity_prompt',
+                  )
+                }
+              >
+                <Ionicons name="volume-high" size={20} color="#0284c7" />
+                <Text style={styles.replayPillText}>{t('replay')}</Text>
+              </Pressable>
+
+              <View style={styles.safetyFooterRow}>
+                <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
+                <Text style={styles.safetyFooterText}>{t('safetyNote')}</Text>
+              </View>
+            </>
           )}
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('replay')}
-            style={styles.replayRow}
-            onPress={() =>
-              void play(
-                !triageOpen
-                  ? 'user_prompt'
-                  : triageStep === 'location'
-                    ? 'triage_location_prompt'
-                    : triageStep === 'symptom'
-                      ? 'triage_symptom_prompt'
-                      : 'triage_intensity_prompt',
-              )
-            }
-          >
-            <Ionicons name="volume-high-outline" size={20} color="#00897b" />
-            <Text style={styles.replayRowText}>{t('replay')}</Text>
-          </Pressable>
-
-          <Text style={styles.familyFootnoteText}>{t('safetyNote')}</Text>
 
           <Image
             source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
@@ -1367,16 +1454,27 @@ const styles = StyleSheet.create({
   // User Connected View
   userCallCard: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 390,
     backgroundColor: '#ffffff',
-    borderRadius: 24,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#d1fae5',
-    paddingVertical: 26,
+    borderColor: '#e2f2ec',
+    paddingTop: 16,
+    paddingBottom: 22,
     paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
     zIndex: 2,
+    shadowColor: '#059669',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  userCallHeroArt: {
+    width: '100%',
+    height: 110,
+    marginBottom: 8,
   },
   userHeadsetIconWrap: {
     width: 64,
@@ -1388,7 +1486,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   userCardTitle: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: '800',
     color: '#0f3e36',
     textAlign: 'center',
@@ -1399,6 +1497,87 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 18,
+    paddingHorizontal: 6,
+  },
+  userCardOptionsCol: {
+    width: '100%',
+    gap: 12,
+  },
+  userChoiceCard: {
+    width: '100%',
+    minHeight: 66,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  userChoiceCardOk: {
+    backgroundColor: '#eefaf5',
+    borderColor: '#cceee2',
+  },
+  userChoiceCardMild: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#fed7aa',
+  },
+  userChoiceCardUrgent: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  userChoiceDirectIcon: {
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userChoiceText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  userChoiceTextOk: {
+    color: '#064e3b',
+  },
+  userChoiceTextMild: {
+    color: '#9a3412',
+  },
+  userChoiceTextUrgent: {
+    color: '#991b1b',
+  },
+  replayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#e0f2fe',
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  replayPillText: {
+    color: '#0284c7',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  safetyFooterRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e2e8f0',
+    paddingTop: 14,
+    marginTop: 4,
+  },
+  safetyFooterText: {
+    flex: 1,
+    color: '#64748b',
+    fontSize: 12,
+    lineHeight: 17,
   },
   userOptionBtn: {
     height: 54,
@@ -1425,7 +1604,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 64,
     borderRadius: 18,
-    borderWidth: 1,
+    borderWidth: 1.5,
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -1433,16 +1612,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   triageOptionMild: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fcd34d',
+    backgroundColor: '#fff7ed',
+    borderColor: '#fed7aa',
   },
   triageOptionUrgent: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fda4af',
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
   },
   triageOptionNeutral: {
-    backgroundColor: '#ffffff',
-    borderColor: '#dbe7e4',
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
   },
   triageOptionCopy: {
     flex: 1,

@@ -2,6 +2,7 @@ import AVFAudio
 import CallKit
 import Foundation
 import PushKit
+import Security
 import UIKit
 
 extension Notification.Name {
@@ -34,6 +35,14 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }()
 
   var environment: String {
+    if let task = SecTaskCreateFromSelf(nil),
+       let entitlement = SecTaskCopyValueForEntitlement(
+         task,
+         "aps-environment" as CFString,
+         nil
+       ) as? String {
+      return entitlement == "production" ? "production" : "sandbox"
+    }
     let configured = Bundle.main.object(forInfoDictionaryKey: "AsinuAPNSEnvironment") as? String
     return configured == "production" ? "production" : "sandbox"
   }

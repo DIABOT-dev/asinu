@@ -74,6 +74,7 @@ export type ActiveCheckinCall = CheckinCallEpisode & {
   attempt_id: string;
   target_role: 'USER' | 'FAMILY';
   attempt_state: string;
+  local_callkit_simulation: boolean;
 };
 
 export type CheckinCallAttempt = {
@@ -100,13 +101,20 @@ export const checkinCallApi = {
       body: settings,
     }),
   active: () => apiClient<{ ok: boolean; active: ActiveCheckinCall | null }>(BASE + '/active'),
-  testCall: () =>
+  testCall: (options: { localSimulation?: boolean } = {}) =>
     apiClient<{
       ok: boolean;
       episode: CheckinCallEpisode;
       attempt: CheckinCallAttempt;
       delivery_state: string;
-    }>(BASE + '/test-call', { method: 'POST', body: { single_device: true } }),
+      local_simulation: boolean;
+    }>(BASE + '/test-call', {
+      method: 'POST',
+      body: {
+        single_device: true,
+        ...(options.localSimulation === true ? { local_simulation: true } : {}),
+      },
+    }),
   episode: (id: string) =>
     apiClient<{ ok: boolean; episode: CheckinCallEpisode }>(BASE + '/episodes/' + id),
   attempt: (id: string) =>

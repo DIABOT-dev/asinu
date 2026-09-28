@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import { checkinCallApi, type CheckinCallSettings } from '../../src/features/che
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 import { showToast } from '../../src/stores/toast.store';
+import { simulateIncomingVoipCall } from '../../src/lib/voip';
 
 const FIELDS: Array<{
   key: keyof CheckinCallSettings;
@@ -85,8 +87,20 @@ export default function CheckinCallSettingsScreen() {
     setTestingCall(true);
     setError('');
     try {
-      await checkinCallApi.testCall();
-      showToast(t('testCallSent'), 'success', 4000);
+      const localSimulation = __DEV__ && Platform.OS === 'ios';
+      const result = await checkinCallApi.testCall({ localSimulation });
+      if (localSimulation) {
+        const shown = await simulateIncomingVoipCall({
+          episodeId: result.episode.id,
+          attemptId: result.attempt.id,
+          severity: result.episode.severity,
+          kind: 'INCOMING_CALL',
+        });
+        if (!shown) throw new Error(t('errorTestIos'));
+        showToast(t('testCallOpened'), 'success', 4000);
+      } else {
+        showToast(t('testCallSent'), 'success', 4000);
+      }
     } catch (e) {
       setError(getApiErrorMessage(e, tc));
     } finally {
