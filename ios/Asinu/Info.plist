@@ -65,7 +65,7 @@
     <key>FacebookDisplayName</key>
     <string>Asinu</string>
 	<key>AsinuAPNSEnvironment</key>
-	<string>production</string>
+	<string>$(APS_ENVIRONMENT)</string>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
     <key>LSMinimumSystemVersion</key>

@@ -32,8 +32,14 @@ jobs:
       - name: Type-check
         run: npm run type-check
 
+      - name: Full API contract
+        run: npm run test:api-contract
+
       - name: Check-in API contract
         run: npm run test:checkin-contract
+
+      - name: Check-in native readiness
+        run: npm run test:checkin-native
 
       - name: i18n check
         run: npm run i18n:check

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import ts from 'typescript';
-import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = process.cwd();
 
 function loadApi(relativePath) {
   const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
@@ -26,6 +26,8 @@ function loadApi(relativePath) {
     if (id.endsWith('/lib/apiClient') || id.endsWith('lib/apiClient')) return { apiClient };
     throw new Error(`Unexpected dependency in ${relativePath}: ${id}`);
   };
+  // This isolated harness evaluates transpiled API modules with a stubbed request client.
+  // eslint-disable-next-line no-new-func
   new Function('require', 'module', 'exports', output)(localRequire, module, module.exports);
   return { exports: module.exports, calls };
 }
@@ -126,7 +128,11 @@ expectCall(call.calls, {
 checkinCallApi.active();
 expectCall(call.calls, { path: '/api/mobile/checkin-call/active' });
 checkinCallApi.testCall();
-expectCall(call.calls, { path: '/api/mobile/checkin-call/test-call', method: 'POST' });
+expectCall(call.calls, {
+  path: '/api/mobile/checkin-call/test-call',
+  method: 'POST',
+  body: { single_device: true },
+});
 checkinCallApi.episode('episode-1');
 expectCall(call.calls, { path: '/api/mobile/checkin-call/episodes/episode-1' });
 checkinCallApi.attempt('attempt-1');
@@ -136,6 +142,27 @@ expectCall(call.calls, {
   path: '/api/mobile/checkin-call/episodes/episode-1/answer',
   method: 'POST',
   body: { choice: 3 },
+});
+checkinCallApi.answer('episode-1', 2, 'MILD_FATIGUE');
+expectCall(call.calls, {
+  path: '/api/mobile/checkin-call/episodes/episode-1/answer',
+  method: 'POST',
+  body: { choice: 2, issue_category: 'MILD_FATIGUE' },
+});
+checkinCallApi.startTriage('episode-1');
+expectCall(call.calls, {
+  path: '/api/mobile/checkin-call/episodes/episode-1/triage/start',
+  method: 'POST',
+});
+checkinCallApi.completeTriage('episode-1', {
+  body_location: 'head',
+  symptom: 'dizziness',
+  intensity: 'MILD',
+});
+expectCall(call.calls, {
+  path: '/api/mobile/checkin-call/episodes/episode-1/triage/complete',
+  method: 'POST',
+  body: { body_location: 'head', symptom: 'dizziness', intensity: 'MILD' },
 });
 checkinCallApi.seen('attempt-1');
 expectCall(call.calls, {
@@ -162,4 +189,4 @@ expectCall(call.calls, {
 });
 assert.equal(call.calls.length, 0);
 
-console.log('Check-in API contract passed: 22 frontend requests match the server contract.');
+console.log('Check-in API contract passed: 25 frontend requests match the server contract.');

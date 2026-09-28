@@ -17,6 +17,7 @@ type PreviewId =
   | 'incoming-ios'
   | 'incoming-android'
   | 'user-call'
+  | 'quick-triage'
   | 'family-mild'
   | 'family-urgent'
   | 'result'
@@ -36,10 +37,11 @@ const PREVIEW_META: Array<Omit<PreviewDefinition, 'title' | 'description' | 'bad
   { id: 'incoming-ios', index: '02', titleKey: 'gallery.iosTitle', descriptionKey: 'gallery.iosDescription', icon: 'logo-apple', badgeKey: 'gallery.badgeNative' },
   { id: 'incoming-android', index: '03', titleKey: 'gallery.androidTitle', descriptionKey: 'gallery.androidDescription', icon: 'logo-android', badgeKey: 'gallery.badgeNative' },
   { id: 'user-call', index: '04', titleKey: 'gallery.userTitle', descriptionKey: 'gallery.userDescription', icon: 'person-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'family-mild', index: '05', titleKey: 'gallery.mildTitle', descriptionKey: 'gallery.mildDescription', icon: 'people-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'family-urgent', index: '06', titleKey: 'gallery.urgentTitle', descriptionKey: 'gallery.urgentDescription', icon: 'warning-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'result', index: '07', titleKey: 'gallery.resultTitle', descriptionKey: 'gallery.resultDescription', icon: 'checkmark-circle-outline', badgeKey: 'gallery.badgeState' },
-  { id: 'error', index: '08', titleKey: 'gallery.errorTitle', descriptionKey: 'gallery.errorDescription', icon: 'alert-circle-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'quick-triage', index: '05', titleKey: 'gallery.triageTitle', descriptionKey: 'gallery.triageDescription', icon: 'pulse-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'family-mild', index: '06', titleKey: 'gallery.mildTitle', descriptionKey: 'gallery.mildDescription', icon: 'people-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'family-urgent', index: '07', titleKey: 'gallery.urgentTitle', descriptionKey: 'gallery.urgentDescription', icon: 'warning-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'result', index: '08', titleKey: 'gallery.resultTitle', descriptionKey: 'gallery.resultDescription', icon: 'checkmark-circle-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'error', index: '09', titleKey: 'gallery.errorTitle', descriptionKey: 'gallery.errorDescription', icon: 'alert-circle-outline', badgeKey: 'gallery.badgeState' },
 ];
 
 const COLORS = {
@@ -215,6 +217,27 @@ function UserCallPreview() {
   );
 }
 
+function QuickTriagePreview() {
+  const { t } = useTranslation('checkinCall');
+  return (
+    <PreviewFrame>
+      <View style={styles.callHeaderIcon}><Ionicons name="pulse-outline" size={29} color={COLORS.teal} /></View>
+      <Text style={styles.screenTitleCentered}>{t('triage.locationTitle')}</Text>
+      <Text style={styles.callStatus}>{t('triage.locationInstruction')}</Text>
+      <View style={styles.previewContextNote}>
+        <Ionicons name="time-outline" size={17} color={COLORS.teal} />
+        <Text style={styles.previewContextNoteText}>{t('triage.recentContext')}</Text>
+      </View>
+      <ActionButton tone="neutral">{t('gallery.triageHeadExample')}</ActionButton>
+      <ActionButton tone="neutral">{t('gallery.triageChestExample')}</ActionButton>
+      <ActionButton tone="neutral">{t('gallery.triageWholeBodyExample')}</ActionButton>
+      <Text style={styles.triageGuaranteePreview}>{t('triageGuarantee')}</Text>
+      <View style={styles.replayRow}><Ionicons name="volume-high-outline" size={20} color={COLORS.teal} /><Text style={styles.replayText}>{t('replay')}</Text></View>
+      <SafetyNote />
+    </PreviewFrame>
+  );
+}
+
 function FamilyPreview({ urgent }: { urgent: boolean }) {
   const { t } = useTranslation('checkinCall');
   return (
@@ -235,6 +258,12 @@ function FamilyPreview({ urgent }: { urgent: boolean }) {
           <Text style={styles.familyCardSubtitle}>
             {t(urgent ? 'gallery.urgentFamilyMessage' : 'gallery.mildFamilyMessage')}
           </Text>
+          <View style={styles.galleryReportedIssueBox}>
+            <Text style={styles.galleryReportedIssueLabel}>{t('reportedIssue')}</Text>
+            <Text style={styles.galleryReportedIssueValue}>
+              {t(urgent ? 'issue.URGENT_RED_FLAG' : 'issue.MILD_FATIGUE')}
+            </Text>
+          </View>
         </View>
 
         {/* 3 Action Buttons */}
@@ -360,6 +389,7 @@ export default function CheckinCallUiGalleryScreen() {
       case 'incoming-ios': return <IncomingPreview platform="ios" />;
       case 'incoming-android': return <IncomingPreview platform="android" />;
       case 'user-call': return <UserCallPreview />;
+      case 'quick-triage': return <QuickTriagePreview />;
       case 'family-mild': return <FamilyPreview urgent={false} />;
       case 'family-urgent': return <FamilyPreview urgent />;
       case 'result': return <ResultPreview />;
@@ -758,6 +788,49 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  galleryReportedIssueBox: {
+    width: '100%',
+    marginTop: 14,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 3,
+  },
+  galleryReportedIssueLabel: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  galleryReportedIssueValue: {
+    color: '#1e293b',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  previewContextNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: COLORS.tealSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  previewContextNoteText: {
+    flex: 1,
+    color: '#0d6857',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  triageGuaranteePreview: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginTop: 2,
   },
   familyActionsCol: {
     width: '100%',

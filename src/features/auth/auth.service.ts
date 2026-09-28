@@ -2,7 +2,6 @@ import i18n from '../../i18n';
 import { apiClient } from '../../lib/apiClient';
 import { Profile } from './auth.store';
 import { authenticateWithProvider, OAuthProvider } from './oauth.service';
-import { PHONE_AUTH_ENABLED } from './auth.flags';
 import { Platform } from 'react-native';
 
 export type SocialProvider = 'google' | 'apple' | 'zalo' | 'facebook';
@@ -31,28 +30,10 @@ const createZeroOtpError = (message: string) =>
   });
 
 export const authService = {
-  async submitPhoneAuth(payload: PhoneAuthPayload): Promise<ZeroOtpResponse> {
-    if (!PHONE_AUTH_ENABLED) {
-      throw createZeroOtpError(i18n.t('phoneAuthUnavailable', { ns: 'auth' }));
-    }
-
-    const response = await apiClient<{ ok: boolean; token: string; user: { id: string; email?: string } }>(
-      '/api/mobile/auth/phone',
-      {
-        method: 'POST',
-        body: { phone_number: payload.phone },
-      },
-    );
-
-    return {
-      token: response.token,
-      profile: {
-        id: response.user.id,
-        name: response.user.email?.split('@')[0] || i18n.t('defaultUser', { ns: 'auth' }),
-        email: response.user.email,
-        phone: payload.phone,
-      },
-    };
+  async submitPhoneAuth(_payload: PhoneAuthPayload): Promise<ZeroOtpResponse> {
+    // Phone authentication has no verified backend/OTP contract yet. Keep it
+    // fail-closed instead of retaining a dormant request to a non-existent API.
+    throw createZeroOtpError(i18n.t('phoneAuthUnavailable', { ns: 'auth' }));
   },
   async submitSocialAuth(payload: SocialAuthPayload): Promise<ZeroOtpResponse> {
     try {

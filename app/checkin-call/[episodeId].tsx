@@ -1,18 +1,30 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LiveKitRoom } from '@livekit/react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Speech from 'expo-speech';
 import { Audio } from '../../src/lib/audio';
-import { checkinCallApi, type CheckinCallAttempt } from '../../src/features/checkin-call/checkin-call.api';
+import {
+  checkinCallApi,
+  type CheckinCallAttempt,
+  type CheckinCallIssueCategory,
+  type CheckinCallTriageContext,
+  type CheckinCallTriageLocation,
+  type CheckinCallTriageSelection,
+  type CheckinCallTriageSymptom,
+} from '../../src/features/checkin-call/checkin-call.api';
 import { endVoipCall } from '../../src/lib/voip';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 
 const AUDIO_TRANSLATION_KEYS: Record<string, string> = {
   user_prompt: 'audio.userPrompt',
+  triage_prompt: 'audio.triagePrompt',
+  triage_location_prompt: 'audio.triageLocationPrompt',
+  triage_symptom_prompt: 'audio.triageSymptomPrompt',
+  triage_intensity_prompt: 'audio.triageIntensityPrompt',
   user_ok: 'audio.userOk',
   user_mild: 'audio.userMild',
   user_urgent: 'audio.userUrgent',
@@ -23,6 +35,19 @@ const AUDIO_TRANSLATION_KEYS: Record<string, string> = {
 };
 
 const CLOSED = new Set(['RESOLVED', 'EXHAUSTED', 'EXHAUSTED_MILD', 'EXHAUSTED_URGENT', 'CANCELLED']);
+
+type TriageStep = 'location' | 'symptom' | 'intensity';
+type TriageIntensity = CheckinCallTriageSelection['intensity'];
+
+const LOCATION_ICONS: Record<string, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
+  head: 'head-outline',
+  chest: 'heart-pulse',
+  abdomen: 'stomach',
+  limbs: 'arm-flex-outline',
+  skin: 'hand-back-right-outline',
+  whole_body: 'human',
+  mental: 'brain',
+};
 
 export default function CheckinCallScreen() {
   const router = useRouter();
@@ -37,9 +62,15 @@ export default function CheckinCallScreen() {
   const [joined, setJoined] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ended, setEnded] = useState(false);
+  const [triageOpen, setTriageOpen] = useState(false);
+  const [triageStep, setTriageStep] = useState<TriageStep>('location');
+  const [triageContext, setTriageContext] = useState<CheckinCallTriageContext | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<CheckinCallTriageLocation | null>(null);
+  const [selectedSymptom, setSelectedSymptom] = useState<CheckinCallTriageSymptom | null>(null);
   const [error, setError] = useState('');
   const [statusKey, setStatusKey] = useState('statusPreparing');
   const sound = useRef<Awaited<ReturnType<typeof Audio.Sound.createAsync>>['sound'] | null>(null);
+  const playbackVersion = useRef(0);
   const loadedAudio = useRef(new Set<string>());
   const accepted = useRef(false);
   const acceptPromise = useRef<ReturnType<typeof checkinCallApi.accept> | null>(null);
@@ -93,10 +124,26 @@ export default function CheckinCallScreen() {
     };
   })();
 
+  const stopAudio = useCallback(async () => {
+    playbackVersion.current += 1;
+    Speech.stop();
+    const current = sound.current;
+    sound.current = null;
+    try {
+      await current?.unloadAsync();
+    } catch {
+      // The player may already be released by a call-end event.
+    }
+  }, []);
+
   const play = useCallback(async (key: string) => {
+    const version = playbackVersion.current + 1;
+    playbackVersion.current = version;
     try {
       Speech.stop();
-      await sound.current?.unloadAsync();
+      const previous = sound.current;
+      sound.current = null;
+      await previous?.unloadAsync();
       const localizedKey = language + '-' + key;
       const uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'checkin-call-' + localizedKey + '.mp3';
       if (!loadedAudio.current.has(localizedKey)) {
@@ -109,10 +156,16 @@ export default function CheckinCallScreen() {
         }
         loadedAudio.current.add(localizedKey);
       }
+      if (playbackVersion.current !== version) return;
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
       const created = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
-      sound.current = created.sound;
+      if (playbackVersion.current !== version) {
+        await created.sound.unloadAsync();
+      } else {
+        sound.current = created.sound;
+      }
     } catch {
+      if (playbackVersion.current !== version) return;
       // Device speech is a safety fallback if the cached VieNeu asset is unavailable.
       Speech.speak(t(AUDIO_TRANSLATION_KEYS[key] || 'audio.userRetry'), {
         language: language === 'en' ? 'en-US' : 'vi-VN',
@@ -147,6 +200,16 @@ export default function CheckinCallScreen() {
           setStatusKey('statusEnded');
           return;
         }
+        if (
+          result.attempt.target_role === 'USER' &&
+          result.attempt.episode_state === 'TRIAGE_USER'
+        ) {
+          const triageResult = await checkinCallApi.startTriage(episodeId);
+          if (!live) return;
+          setTriageContext(triageResult.triage);
+          setTriageOpen(true);
+          setTriageStep('location');
+        }
         if (result.attempt.target_role === 'FAMILY') void checkinCallApi.seen(id).catch(() => {});
         try {
           const connection = await checkinCallApi.token(id);
@@ -161,18 +224,19 @@ export default function CheckinCallScreen() {
     void load();
     return () => {
       live = false;
-      Speech.stop();
-      void sound.current?.unloadAsync();
+      void stopAudio();
     };
-  }, [episodeId, incomingAttemptId, t]);
+  }, [episodeId, incomingAttemptId, stopAudio, t]);
 
+  const pollingAttemptId = attempt?.id;
   useEffect(() => {
-    if (!attempt || ended) return;
+    if (!pollingAttemptId || ended) return;
     const interval = setInterval(() => {
-      void checkinCallApi.attempt(attempt.id).then(({ attempt: latest }) => {
+      void checkinCallApi.attempt(pollingAttemptId).then(({ attempt: latest }) => {
         setAttempt(latest);
         if (CLOSED.has(latest.episode_state) || ['CANCELLED', 'EXPIRED', 'COMPLETED'].includes(latest.state)) {
           void endVoipCall(latest.id);
+          void stopAudio();
           setEnded(true);
           setRoom(null);
           setStatusKey('statusEnded');
@@ -180,7 +244,7 @@ export default function CheckinCallScreen() {
       }).catch(() => {});
     }, 3000);
     return () => clearInterval(interval);
-  }, [attempt?.id, ended]);
+  }, [pollingAttemptId, ended, stopAudio]);
 
   const onConnected = useCallback(() => {
     setStatusKey('statusConnected');
@@ -193,7 +257,12 @@ export default function CheckinCallScreen() {
     if (!accepted.current) {
       accepted.current = true;
       acceptPromise.current = checkinCallApi.accept(attempt.id);
-      void acceptPromise.current.then(({ state }) => {
+      void acceptPromise.current.then(({ state, confirm_deadline }) => {
+        if (confirm_deadline) {
+          setAttempt((current) =>
+            current ? { ...current, confirm_deadline } : current,
+          );
+        }
         if (state === 'URGENT_ACKNOWLEDGED') setStatusKey('statusUrgentAccepted');
       }).catch(() => {
         accepted.current = false;
@@ -201,19 +270,140 @@ export default function CheckinCallScreen() {
         setStatusKey('statusAcceptFailed');
       });
     }
-    void play(attempt.target_role === 'USER' ? 'user_prompt' : attempt.severity === 'URGENT' ? 'family_urgent' : attempt.severity === 'MILD' ? 'family_mild' : 'family_unknown');
+    void play(
+      attempt.target_role === 'USER'
+        ? attempt.episode_state === 'TRIAGE_USER'
+          ? 'triage_location_prompt'
+          : 'user_prompt'
+        : attempt.severity === 'URGENT'
+          ? 'family_urgent'
+          : attempt.severity === 'MILD'
+            ? 'family_mild'
+            : 'family_unknown',
+    );
   }, [attempt, joined, play, room]);
 
   useEffect(() => {
     if (answeredFromCallKit && attempt && !joined && !ended) join();
   }, [answeredFromCallKit, attempt, ended, join, joined]);
 
-  const answer = async (choice: 1 | 2 | 3) => {
+  useEffect(() => {
+    if (
+      !joined ||
+      ended ||
+      busy ||
+      triageOpen ||
+      attempt?.target_role !== 'USER' ||
+      !attempt.confirm_deadline
+    ) {
+      return;
+    }
+    const retryAt = new Date(attempt.confirm_deadline).getTime() - 15_000;
+    const delay = retryAt - Date.now();
+    if (!Number.isFinite(delay) || delay <= 0) return;
+    const timer = setTimeout(() => void play('user_retry'), delay);
+    return () => clearTimeout(timer);
+  }, [attempt?.confirm_deadline, attempt?.target_role, busy, ended, joined, play, triageOpen]);
+
+  const openTriage = async () => {
     if (busy || !episodeId) return;
     setBusy(true);
     setError('');
     try {
-      const result = await checkinCallApi.answer(episodeId, choice);
+      await stopAudio();
+      const result = await checkinCallApi.startTriage(episodeId);
+      setTriageContext(result.triage);
+      setSelectedLocation(null);
+      setSelectedSymptom(null);
+      setTriageStep('location');
+      setTriageOpen(true);
+      void play('triage_location_prompt');
+    } catch (e) {
+      setError(getApiErrorMessage(e, t, 'errorStartTriage'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitTriage = async (
+    intensity: TriageIntensity,
+    location = selectedLocation,
+    symptom = selectedSymptom,
+  ) => {
+    if (busy || !episodeId || !location || !symptom) return;
+    setBusy(true);
+    setError('');
+    try {
+      await stopAudio();
+      const result = await checkinCallApi.completeTriage(episodeId, {
+        body_location: location.key,
+        symptom: symptom.key,
+        intensity,
+      });
+      if (attempt?.id) await endVoipCall(attempt.id);
+      setEnded(true);
+      setRoom(null);
+      const noEligibleFamily = ['EXHAUSTED', 'EXHAUSTED_MILD', 'EXHAUSTED_URGENT'].includes(
+        result.episode.state,
+      );
+      setStatusKey(
+        noEligibleFamily
+          ? 'statusFamilyUnavailable'
+          : intensity === 'URGENT'
+            ? 'statusUserUrgent'
+            : 'statusUserMild',
+      );
+      void play(intensity === 'URGENT' ? 'user_urgent' : 'user_mild');
+    } catch (e) {
+      setError(getApiErrorMessage(e, t, 'errorSendTriage'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const chooseLocation = async (location: CheckinCallTriageLocation) => {
+    if (busy) return;
+    await stopAudio();
+    setSelectedLocation(location);
+    setSelectedSymptom(null);
+    setTriageStep('symptom');
+    void play('triage_symptom_prompt');
+  };
+
+  const chooseSymptom = async (symptom: CheckinCallTriageSymptom) => {
+    if (busy) return;
+    await stopAudio();
+    setSelectedSymptom(symptom);
+    if (symptom.urgent) {
+      await submitTriage('URGENT', selectedLocation, symptom);
+      return;
+    }
+    setTriageStep('intensity');
+    void play('triage_intensity_prompt');
+  };
+
+  const goBackInTriage = async () => {
+    if (busy || triageStep === 'location') return;
+    await stopAudio();
+    if (triageStep === 'intensity') {
+      setSelectedSymptom(null);
+      setTriageStep('symptom');
+      void play('triage_symptom_prompt');
+      return;
+    }
+    setSelectedLocation(null);
+    setSelectedSymptom(null);
+    setTriageStep('location');
+    void play('triage_location_prompt');
+  };
+
+  const answer = async (choice: 1 | 2 | 3, issueCategory?: CheckinCallIssueCategory) => {
+    if (busy || !episodeId) return;
+    setBusy(true);
+    setError('');
+    try {
+      await stopAudio();
+      const result = await checkinCallApi.answer(episodeId, choice, issueCategory);
       if (attempt?.id) await endVoipCall(attempt.id);
       setEnded(true);
       setRoom(null);
@@ -242,6 +432,7 @@ export default function CheckinCallScreen() {
     setBusy(true);
     setError('');
     try {
+      await stopAudio();
       if (acceptPromise.current) await acceptPromise.current;
       else if (!accepted.current) await checkinCallApi.accept(attempt.id);
       await checkinCallApi.confirmFamily(episodeId, action);
@@ -308,13 +499,27 @@ export default function CheckinCallScreen() {
           </View>
 
           <View style={styles.callButtonsRow}>
-            <Pressable style={styles.callButtonWrap} onPress={() => router.back()}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('gallery.decline')}
+              style={styles.callButtonWrap}
+              onPress={() => {
+                void stopAudio();
+                void endVoipCall(attempt.id);
+                router.back();
+              }}
+            >
               <View style={[styles.callCircle, styles.decline]}>
                 <Ionicons name="call" size={28} color="#ffffff" style={styles.hangupIcon} />
               </View>
               <Text style={styles.callButtonLabel}>{t('gallery.decline')}</Text>
             </Pressable>
-            <Pressable style={styles.callButtonWrap} onPress={join}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('gallery.accept')}
+              style={styles.callButtonWrap}
+              onPress={join}
+            >
               <View style={[styles.callCircle, styles.accept]}>
                 <Ionicons name="call" size={28} color="#ffffff" />
               </View>
@@ -385,7 +590,12 @@ export default function CheckinCallScreen() {
             </View>
           </View>
 
-          <Pressable style={styles.resultCloseBtn} onPress={() => router.back()}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('close', { ns: 'common' })}
+            style={styles.resultCloseBtn}
+            onPress={() => router.back()}
+          >
             <Text style={styles.resultCloseBtnText}>{t('close', { ns: 'common' })}</Text>
           </Pressable>
 
@@ -414,12 +624,23 @@ export default function CheckinCallScreen() {
             <Text style={styles.familyCardSubtitle}>
               {t(attempt.severity === 'URGENT' ? 'gallery.urgentFamilyMessage' : 'gallery.mildFamilyMessage')}
             </Text>
+            {!!(attempt.triage_display?.summary || attempt.issue_category) && (
+              <View style={styles.reportedIssueBox}>
+                <Text style={styles.reportedIssueLabel}>{t('reportedIssue')}</Text>
+                <Text style={styles.reportedIssueValue}>
+                  {attempt.triage_display?.summary || t(`issue.${attempt.issue_category}`)}
+                </Text>
+              </View>
+            )}
           </View>
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
           <View style={styles.familyActionsCol}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('confirmCheck')}
+              accessibilityState={{ disabled: busy }}
               style={[styles.familyActionBtn, attempt.severity === 'URGENT' ? styles.familyActionBtnUrgent : styles.familyActionBtnMild]}
               onPress={() => void confirm('ACCEPT_AND_CHECK')}
               disabled={busy}
@@ -431,6 +652,9 @@ export default function CheckinCallScreen() {
               )}
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('confirmOnMyWay')}
+              accessibilityState={{ disabled: busy }}
               style={[styles.familyActionBtn, styles.familyActionBtnMint]}
               onPress={() => void confirm('ON_MY_WAY')}
               disabled={busy}
@@ -438,6 +662,9 @@ export default function CheckinCallScreen() {
               <Text style={styles.familyActionTextMint}>{t('confirmOnMyWay')}</Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('confirmCalled')}
+              accessibilityState={{ disabled: busy }}
               style={[styles.familyActionBtn, styles.familyActionBtnMint]}
               onPress={() => void confirm('CALLED_USER')}
               disabled={busy}
@@ -447,6 +674,8 @@ export default function CheckinCallScreen() {
           </View>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('replay')}
             style={styles.replayRow}
             onPress={() =>
               void play(
@@ -477,27 +706,247 @@ export default function CheckinCallScreen() {
         <ScrollView contentContainerStyle={styles.familyScrollContent}>
           <View style={styles.userCallCard}>
             <View style={styles.userHeadsetIconWrap}>
-              <Ionicons name="headset-outline" size={32} color="#00897b" />
+              <Ionicons name={triageOpen ? 'pulse-outline' : 'headset-outline'} size={32} color="#00897b" />
             </View>
-            <Text style={styles.userCardTitle}>{t('userHeading')}</Text>
-            <Text style={styles.userCardSub}>{t('gallery.connectedInstruction')}</Text>
+            <Text style={styles.userCardTitle}>
+              {t(triageOpen ? `triage.${triageStep}Title` : 'userHeading')}
+            </Text>
+            <Text style={styles.userCardSub}>
+              {t(triageOpen ? `triage.${triageStep}Instruction` : 'gallery.connectedInstruction')}
+            </Text>
           </View>
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
-          <View style={styles.familyActionsCol}>
-            <Pressable style={[styles.userOptionBtn, styles.userOptionOk]} onPress={() => void answer(1)} disabled={busy}>
-              <Text style={styles.userOptionText}>{t('choiceOk')}</Text>
-            </Pressable>
-            <Pressable style={[styles.userOptionBtn, styles.userOptionMild]} onPress={() => void answer(2)} disabled={busy}>
-              <Text style={styles.userOptionText}>{t('choiceMild')}</Text>
-            </Pressable>
-            <Pressable style={[styles.userOptionBtn, styles.userOptionUrgent]} onPress={() => void answer(3)} disabled={busy}>
-              <Text style={styles.userOptionText}>{t('choiceUrgent')}</Text>
-            </Pressable>
-          </View>
+          {!triageOpen ? (
+            <View style={styles.familyActionsCol}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('choiceOk')}
+                accessibilityState={{ disabled: busy }}
+                style={[styles.userOptionBtn, styles.userOptionOk]}
+                onPress={() => void answer(1)}
+                disabled={busy}
+              >
+                <Text style={styles.userOptionText}>{t('choiceOk')}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('choiceMild')}
+                accessibilityState={{ disabled: busy }}
+                style={[styles.userOptionBtn, styles.userOptionMild]}
+                onPress={() => void openTriage()}
+                disabled={busy}
+              >
+                <Text style={styles.userOptionText}>{t('choiceMild')}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('choiceUrgent')}
+                accessibilityState={{ disabled: busy }}
+                style={[styles.userOptionBtn, styles.userOptionUrgent]}
+                onPress={() => void answer(3, 'URGENT_UNSPECIFIED')}
+                disabled={busy}
+              >
+                <Text style={styles.userOptionText}>{t('choiceUrgent')}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.familyActionsCol}>
+              <Text style={styles.triageProgress}>
+                {t('triage.progress', {
+                  current: triageStep === 'location' ? 1 : triageStep === 'symptom' ? 2 : 3,
+                })}
+              </Text>
 
-          <Pressable style={styles.replayRow} onPress={() => void play('user_prompt')}>
+              {triageStep !== 'location' && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(
+                    triageStep === 'intensity'
+                      ? 'triage.changeSymptom'
+                      : 'triage.changeLocation',
+                  )}
+                  accessibilityState={{ disabled: busy }}
+                  style={styles.triageBackButton}
+                  onPress={() => void goBackInTriage()}
+                  disabled={busy}
+                >
+                  <Ionicons name="arrow-back" size={18} color="#087f6d" />
+                  <Text style={styles.triageBackButtonText}>
+                    {t(
+                      triageStep === 'intensity'
+                        ? 'triage.changeSymptom'
+                        : 'triage.changeLocation',
+                    )}
+                  </Text>
+                </Pressable>
+              )}
+
+              {triageStep === 'location' && triageContext?.has_recent_context && (
+                <View style={styles.triageContextNote}>
+                  <Ionicons name="time-outline" size={18} color="#087f6d" />
+                  <Text style={styles.triageContextNoteText}>{t('triage.recentContext')}</Text>
+                </View>
+              )}
+
+              {triageStep === 'location' &&
+                triageContext?.locations.map((location) => (
+                  <Pressable
+                    key={location.key}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('triage.locationAccessibilityLabel', {
+                      label: location.label,
+                      description: location.desc,
+                    })}
+                    accessibilityHint={location.recent ? t('triage.recentAccessibilityHint') : undefined}
+                    accessibilityState={{ disabled: busy }}
+                    style={[styles.triageOptionBtn, styles.triageOptionNeutral]}
+                    onPress={() => void chooseLocation(location)}
+                    disabled={busy}
+                  >
+                    <MaterialCommunityIcons
+                      name={LOCATION_ICONS[location.key] || 'human'}
+                      size={26}
+                      color="#087f6d"
+                    />
+                    <View style={styles.triageOptionCopy}>
+                      <View style={styles.triageOptionTitleRow}>
+                        <Text style={styles.triageOptionTitle}>{location.label}</Text>
+                        {location.recent && (
+                          <View style={styles.recentBadge}>
+                            <Text style={styles.recentBadgeText}>{t('triage.recentBadge')}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.triageOptionDescription}>{location.desc}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                  </Pressable>
+                ))}
+
+              {triageStep === 'symptom' &&
+                selectedLocation?.symptoms.map((symptom) => (
+                  <Pressable
+                    key={symptom.key}
+                    accessibilityRole="button"
+                    accessibilityLabel={symptom.label}
+                    accessibilityHint={
+                      symptom.urgent
+                        ? t('triage.urgentAccessibilityHint')
+                        : symptom.recent
+                          ? t('triage.recentAccessibilityHint')
+                          : undefined
+                    }
+                    accessibilityState={{ disabled: busy }}
+                    style={[
+                      styles.triageOptionBtn,
+                      symptom.urgent ? styles.triageOptionUrgent : styles.triageOptionNeutral,
+                    ]}
+                    onPress={() => void chooseSymptom(symptom)}
+                    disabled={busy}
+                  >
+                    <Ionicons
+                      name={symptom.urgent ? 'warning-outline' : 'pulse-outline'}
+                      size={24}
+                      color={symptom.urgent ? '#b42335' : '#9a5b05'}
+                    />
+                    <View style={styles.triageOptionCopy}>
+                      <View style={styles.triageOptionTitleRow}>
+                        <Text style={styles.triageOptionTitle}>{symptom.label}</Text>
+                        {symptom.recent && (
+                          <View style={styles.recentBadge}>
+                            <Text style={styles.recentBadgeText}>{t('triage.recentBadge')}</Text>
+                          </View>
+                        )}
+                        {symptom.urgent && (
+                          <View style={styles.urgentBadge}>
+                            <Text style={styles.urgentBadgeText}>{t('triage.urgentBadge')}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#64748b" />
+                  </Pressable>
+                ))}
+
+              {triageStep === 'intensity' && (
+                <>
+                  <View style={styles.triageSelectionSummary}>
+                    <Text style={styles.triageSelectionLabel}>{t('triage.selected')}</Text>
+                    <Text style={styles.triageSelectionValue}>
+                      {selectedLocation?.label} · {selectedSymptom?.label}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('triage.intensityMild')}
+                    accessibilityHint={t('triage.intensityMildDesc')}
+                    accessibilityState={{ disabled: busy }}
+                    style={[styles.triageOptionBtn, styles.triageOptionMild]}
+                    onPress={() => void submitTriage('MILD')}
+                    disabled={busy}
+                  >
+                    <Ionicons name="leaf-outline" size={24} color="#7c4707" />
+                    <View style={styles.triageOptionCopy}>
+                      <Text style={styles.triageOptionMildText}>{t('triage.intensityMild')}</Text>
+                      <Text style={styles.triageOptionDescription}>{t('triage.intensityMildDesc')}</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('triage.intensityModerate')}
+                    accessibilityHint={t('triage.intensityModerateDesc')}
+                    accessibilityState={{ disabled: busy }}
+                    style={[styles.triageOptionBtn, styles.triageOptionMild]}
+                    onPress={() => void submitTriage('MODERATE')}
+                    disabled={busy}
+                  >
+                    <Ionicons name="alert-circle-outline" size={24} color="#7c4707" />
+                    <View style={styles.triageOptionCopy}>
+                      <Text style={styles.triageOptionMildText}>{t('triage.intensityModerate')}</Text>
+                      <Text style={styles.triageOptionDescription}>{t('triage.intensityModerateDesc')}</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('triage.intensityUrgent')}
+                    accessibilityHint={t('triage.intensityUrgentDesc')}
+                    accessibilityState={{ disabled: busy }}
+                    style={[styles.triageOptionBtn, styles.triageOptionUrgent]}
+                    onPress={() => void submitTriage('URGENT')}
+                    disabled={busy}
+                  >
+                    <Ionicons name="warning-outline" size={24} color="#b42335" />
+                    <View style={styles.triageOptionCopy}>
+                      <Text style={styles.triageOptionUrgentText}>{t('triage.intensityUrgent')}</Text>
+                      <Text style={styles.triageOptionDescription}>{t('triage.intensityUrgentDesc')}</Text>
+                    </View>
+                  </Pressable>
+                </>
+              )}
+
+              {busy && <ActivityIndicator color="#087f6d" />}
+              <Text style={styles.triageGuarantee}>{t('triageGuarantee')}</Text>
+            </View>
+          )}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('replay')}
+            style={styles.replayRow}
+            onPress={() =>
+              void play(
+                !triageOpen
+                  ? 'user_prompt'
+                  : triageStep === 'location'
+                    ? 'triage_location_prompt'
+                    : triageStep === 'symptom'
+                      ? 'triage_symptom_prompt'
+                      : 'triage_intensity_prompt',
+              )
+            }
+          >
             <Ionicons name="volume-high-outline" size={20} color="#00897b" />
             <Text style={styles.replayRowText}>{t('replay')}</Text>
           </Pressable>
@@ -839,6 +1288,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  reportedIssueBox: {
+    width: '100%',
+    marginTop: 16,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 3,
+  },
+  reportedIssueLabel: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  reportedIssueValue: {
+    color: '#1e293b',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 21,
+  },
   familyActionsCol: {
     width: '100%',
     maxWidth: 360,
@@ -951,5 +1420,148 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  triageOptionBtn: {
+    width: '100%',
+    minHeight: 64,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  triageOptionMild: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fcd34d',
+  },
+  triageOptionUrgent: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fda4af',
+  },
+  triageOptionNeutral: {
+    backgroundColor: '#ffffff',
+    borderColor: '#dbe7e4',
+  },
+  triageOptionCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  triageOptionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  triageOptionTitle: {
+    color: '#1e293b',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  triageOptionDescription: {
+    color: '#64748b',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  triageProgress: {
+    color: '#087f6d',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  triageBackButton: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#e6f5f1',
+  },
+  triageBackButtonText: {
+    color: '#087f6d',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  triageContextNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#e6f5f1',
+  },
+  triageContextNoteText: {
+    flex: 1,
+    color: '#0d6857',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  recentBadge: {
+    borderRadius: 10,
+    backgroundColor: '#e6f5f1',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  recentBadgeText: {
+    color: '#0d6857',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  urgentBadge: {
+    borderRadius: 10,
+    backgroundColor: '#ffe4e6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  urgentBadgeText: {
+    color: '#9f2433',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  triageSelectionSummary: {
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 3,
+  },
+  triageSelectionLabel: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  triageSelectionValue: {
+    color: '#1e293b',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  triageOptionMildText: {
+    flex: 1,
+    color: '#7c4707',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  triageOptionUrgentText: {
+    flex: 1,
+    color: '#9f2433',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  triageGuarantee: {
+    color: '#64748b',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
 });

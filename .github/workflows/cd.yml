@@ -56,6 +56,9 @@ jobs:
       - name: Quality gate
         run: |
           npm run type-check
+          npm run test:api-contract
+          npm run test:checkin-contract
+          npm run test:checkin-native
           npm run i18n:check
           npm run lint:assets
           npm run lint
