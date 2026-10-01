@@ -20,9 +20,9 @@ export const iapApi = {
   },
 
   /**
-   * Send the platform receipt to the backend for verification + Premium
-   * activation. Backend verifies with Apple / Google and writes to
-   * iap_receipts + subscriptions atomically. Idempotent by
+   * Send the platform receipt to the backend for verification and activation.
+   * Backend verifies with Apple / Google and writes the receipt and household
+   * entitlement. Idempotent by
    * transaction_id; replaying the same receipt is safe.
    */
   async verifyReceipt(payload: IapVerifyRequest) {

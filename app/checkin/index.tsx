@@ -32,7 +32,6 @@ import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInp
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { chatApi } from '../../src/features/chat/chat.api';
-import { usePremium } from '../../src/hooks/usePremium';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
@@ -907,17 +906,14 @@ function TriageScreen({
   greeting?: { displayText: string; templateId: string } | null;
 }) {
   const { t } = useTranslation('home');
-  const { t: tc } = useTranslation('common');
   const [custom, setCustom] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
 
   // Voice recording
-  const { isPremium } = usePremium();
   const { language } = useLanguageStore();
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const recordingRef = useRef<any>(null);
   const recordingStartRef = useRef<number>(0);
   const maxMeteringRef = useRef<number>(-160);
@@ -932,10 +928,6 @@ function TriageScreen({
   }, []);
 
   const handleMicPress = async () => {
-    if (!isPremium) {
-      setShowUpgradeModal(true);
-      return;
-    }
     if (isRecording) {
       // Stop recording
       setIsRecording(false);
@@ -1199,13 +1191,8 @@ function TriageScreen({
                   <MaterialCommunityIcons
                     name={isRecording ? 'stop-circle' : 'microphone'}
                     size={22}
-                    color={isRecording ? '#fff' : isPremium ? colors.primary : colors.textSecondary}
+                    color={isRecording ? '#fff' : colors.primary}
                   />
-                )}
-                {!isPremium && !isRecording && !isTranscribing && (
-                  <View style={styles.micPremiumBadge}>
-                    <MaterialCommunityIcons name="crown" size={8} color="#fff" />
-                  </View>
                 )}
               </Pressable>
               <View style={styles.inputWrap}>
@@ -1249,32 +1236,6 @@ function TriageScreen({
         )}
       </View>
 
-      {/* Premium upgrade modal for voice */}
-      <Modal
-        visible={showUpgradeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowUpgradeModal(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowUpgradeModal(false)} />
-          <View style={styles.modalCard}>
-            <MaterialCommunityIcons name="microphone" size={32} color={colors.premium} />
-            <Text style={styles.modalTitle}>{tc('voicePremiumTitle')}</Text>
-            <Text style={styles.modalDesc}>{tc('voicePremiumDesc')}</Text>
-            <Pressable
-              style={styles.modalUpgradeBtn}
-              onPress={() => setShowUpgradeModal(false)}
-            >
-              <MaterialCommunityIcons name="crown" size={16} color="#fff" />
-              <Text style={styles.modalUpgradeText}>{tc('voiceUpgrade')}</Text>
-            </Pressable>
-            <Pressable style={styles.modalCancelBtn} onPress={() => setShowUpgradeModal(false)}>
-              <Text style={styles.modalCancelText}>{tc('later')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -2196,19 +2157,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     micBtnActive: {
       backgroundColor: colors.danger,
     },
-    micPremiumBadge: {
-      position: 'absolute',
-      top: -2,
-      right: -2,
-      width: 16,
-      height: 16,
-      borderRadius: 8,
-      backgroundColor: colors.premium,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1.5,
-      borderColor: colors.background,
-    },
     inputWrap: {
       flex: 1,
       backgroundColor: colors.surface,
@@ -2224,58 +2172,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.textPrimary,
     },
 
-    // Premium modal
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.xl,
-    },
-    modalCard: {
-      width: '100%',
-      backgroundColor: colors.surface,
-      borderRadius: 24,
-      padding: spacing.xxl,
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    modalTitle: {
-      fontSize: typography.size.md,
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    modalDesc: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 21,
-    },
-    modalUpgradeBtn: {
-      backgroundColor: colors.premium,
-      borderRadius: radius.full,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.xxl,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      alignSelf: 'stretch',
-      justifyContent: 'center',
-      marginTop: spacing.sm,
-    },
-    modalUpgradeText: {
-      color: '#fff',
-      fontSize: typography.size.sm,
-      fontWeight: '700',
-    },
-    modalCancelBtn: {
-      paddingVertical: spacing.sm,
-    },
-    modalCancelText: {
-      color: colors.textSecondary,
-      fontSize: typography.size.sm,
-      fontWeight: '600',
-    },
 
     // Confirm button
     confirmWrap: {

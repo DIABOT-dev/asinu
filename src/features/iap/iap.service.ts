@@ -162,7 +162,7 @@ export async function initializeIap(): Promise<void> {
         });
 
         if (verify.ok) {
-          // Backend activated Premium — safe to finalize the platform tx.
+          // Backend activated the selected An Tam plan — finalize the Store transaction.
           try {
             await iap.finishTransaction({ purchase, isConsumable: false });
           } catch (e) {
@@ -304,10 +304,10 @@ export async function purchaseSubscription(productId: string, product?: LocalPro
     };
   }
 
-  // Android subscription requires the offerToken from the product's
-  // subscriptionOfferDetailsAndroid[0].offerToken. Pull it from the
-  // cached native product fetched earlier; if missing, try a fresh fetch.
+  // Android requires an offer token. Prefer the base plan so a promotional
+  // offer is never applied accidentally without Store eligibility checks.
   let androidOfferToken: string | undefined;
+  let previousPurchaseToken: string | undefined;
   if (Platform.OS === 'android') {
     let np = product?.nativeProduct;
     if (!np) {
@@ -317,7 +317,15 @@ export async function purchaseSubscription(productId: string, product?: LocalPro
       } catch {}
     }
     const offers = (np as any)?.subscriptionOfferDetailsAndroid;
-    androidOfferToken = offers?.[0]?.offerToken;
+    const baseOffer = offers?.find((offer: any) => !offer.offerId) ?? offers?.[0];
+    androidOfferToken = baseOffer?.offerToken;
+    try {
+      const activePurchases = (await iap.getAvailablePurchases()) ?? [];
+      const current = activePurchases.find(
+        purchase => purchase.productId !== productId && purchase.productId.startsWith('asinu.antam')
+      );
+      previousPurchaseToken = current?.purchaseToken ?? undefined;
+    } catch {}
     if (!androidOfferToken) {
       logIap('purchase blocked: missing Android offer token', {
         productId,
@@ -345,6 +353,8 @@ export async function purchaseSubscription(productId: string, product?: LocalPro
           android: {
             skus: [productId],
             subscriptionOffers: androidOfferToken ? [{ sku: productId, offerToken: androidOfferToken }] : [],
+            purchaseTokenAndroid: previousPurchaseToken,
+            replacementModeAndroid: previousPurchaseToken ? 2 : undefined,
           },
         },
       });
@@ -423,11 +433,19 @@ export async function restorePurchases(): Promise<{
   }
 }
 
+export async function openOfferCodeRedemption(): Promise<void> {
+  const iap = getExpoIap();
+  if (Platform.OS === 'ios') {
+    if (!iap) throw new Error('Native IAP module unavailable.');
+    await iap.presentCodeRedemptionSheetIOS();
+    return;
+  }
+  const { Linking } = require('react-native') as typeof import('react-native');
+  await Linking.openURL('https://play.google.com/redeem');
+}
+
 // Helper exposed for tests / debug.
 export const _iapInternals = {
-  resolveProductId(plan: 'monthly' | 'yearly'): string {
-    return plan === 'monthly' ? env.iapProductMonthly : env.iapProductYearly;
-  },
   platformKey(): 'apple' | 'google' {
     return Platform.OS === 'ios' ? 'apple' : 'google';
   },

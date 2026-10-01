@@ -7,7 +7,12 @@ export type IapPlatform = 'apple' | 'google';
 
 export type IapProduct = {
   id: string;
+  plan_code: 'antam_2' | 'antam_4' | 'antam_8';
+  plan_name: string;
+  billing_period: 'monthly' | 'yearly';
   plan_months: number;
+  protected_members: number;
+  consultation_credits: number;
   display_price_vnd: number;
 };
 
@@ -35,7 +40,8 @@ export type IapVerifyRequest = {
 export type IapVerifySuccess = {
   ok: true;
   expiresAt: string;
-  planMonths: number;
+  planCode: IapProduct['plan_code'];
+  billingPeriod: IapProduct['billing_period'];
   platform: IapPlatform;
   alreadyProcessed?: boolean;
 };

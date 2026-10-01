@@ -7,7 +7,6 @@ import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
 import { AiDataConsentModal, hasAiDataConsent } from '../src/components/AiDataConsentModal';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from '../src/components/MedicalDisclaimerModal';
 import { chatApi } from '../src/features/chat/chat.api';
-import { apiClient } from '../src/lib/apiClient';
 import { navigation } from '../src/lib/navigation';
 import { colors } from '../src/styles';
 import { useThemeColors } from '../src/hooks/useThemeColors';
@@ -18,15 +17,6 @@ import { ScreenBackButton } from '../src/components/ScreenHeaderButton';
 export default function AiChatScreen() {
   const { t } = useTranslation('chat');
   const router = useRouter();
-  const [isPremium, setIsPremium] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    apiClient<{ isPremium: boolean }>('/api/subscriptions/status', { signal: controller.signal })
-      .then((res) => setIsPremium(res.isPremium))
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
 
   const greetingMessage: ChatBubble = useMemo(() => ({
     id: 'greeting',
@@ -170,10 +160,8 @@ export default function AiChatScreen() {
             assistantAvatar={avatars.assistant}
             userAvatar={avatars.user}
             isTyping={isTyping}
-            isPremium={isPremium}
             onSend={handleSend}
             onBeforeVoiceRecording={requestAiConsent}
-            onUpgradePress={() => router.push('/subscription')}
           />
         </SafeAreaView>
       </KeyboardAvoidingView>

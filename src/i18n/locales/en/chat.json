@@ -3,7 +3,7 @@
   "errorReply": "Sorry, I can't answer right now.",
   "systemBusy": "Sorry, the system is busy. Please try again later.",
   "errorDisabled": "The chatbot will be available in a future release.",
-  "errorPremiumOnly": "Chatbot is available for Premium subscribers only. Upgrade to continue.",
+  "errorPremiumOnly": "Chat is temporarily unavailable.",
   "errorDailyLimit": "You have reached the daily limit of {{limit}} messages. See you tomorrow!",
   "errorTokenLimit": "You have used this month's chat quota. Consider upgrading for more.",
   "title": "Chat with Asinu",

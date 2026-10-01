@@ -2,15 +2,14 @@ import { apiClient } from '../../lib/apiClient';
 
 export type ChatbotFlags = {
   enabled: boolean;
-  premium_only: boolean;
-  available: boolean;       // pre-computed: enabled AND tier-allowed AND daily_limit > 0
-  daily_limit: number;
+  available: boolean;
+  daily_limit: number | null;
+  unlimited: boolean;
 };
 
 export type CareCircleFlags = {
   enabled: boolean;
-  free_limit: number;
-  premium_limit: number;
+  connection_limit: number;
   caregiver_alert_enabled: boolean;
   caregiver_view_logs_enabled: boolean;
   caregiver_ack_enabled: boolean;
@@ -33,7 +32,8 @@ export type FeatureFlags = {
   // /checkin/triage flow; 'script' = the cached script-driven flow under
   // /checkin/script/*. Default to 'ai' if missing so older backends behave.
   checkin?: { mode: 'ai' | 'script' };
-  tier?: 'free' | 'premium';
+  tier?: 'free' | 'antam';
+  plan_code?: 'free' | 'antam_2' | 'antam_4' | 'antam_8';
 };
 
 export const flagsApi = {

@@ -11,6 +11,7 @@ import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { Avatar } from '../../../src/components/Avatar';
 import { HealthJournalCalendar } from '../../../src/components/HealthJournalCalendar';
 import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
+import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
 import { PineTreeIllustration } from '../../../src/components/PineTreeIllustration';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
@@ -323,6 +324,8 @@ export default function TreeScreen() {
             </View>
           </View>
         </View>
+
+        <EarlySignalCard refreshKey={journalRefreshKey} />
 
         {/* Nhật ký check-in theo tháng, mở chi tiết từng ngày ngay trong bottom sheet. */}
         <HealthJournalCalendar refreshKey={journalRefreshKey} />

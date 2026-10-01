@@ -4,8 +4,7 @@ import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, StatusBar
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatApi } from '../features/chat/chat.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
-import { apiClient, ApiError } from '../lib/apiClient';
-import { router } from 'expo-router';
+import { ApiError } from '../lib/apiClient';
 import { navigation } from '../lib/navigation';
 import { useFlagsStore } from '../features/app-config/flags.store';
 import { colors, spacing } from '../styles';
@@ -40,15 +39,6 @@ function chatbotErrorMessage(err: unknown, t: (k: string) => string): string | n
   switch (err.code) {
     case 'CHATBOT_DISABLED':
       return t('chat:errorDisabled');
-    case 'SUBSCRIPTION_REQUIRED':
-      return t('chat:errorPremiumOnly');
-    case 'CHATBOT_DAILY_LIMIT_EXCEEDED': {
-      const limit = err.data?.daily_limit;
-      const tpl = t('chat:errorDailyLimit');
-      return typeof limit === 'number' ? tpl.replace('{{limit}}', String(limit)) : tpl;
-    }
-    case 'CHATBOT_TOKEN_LIMIT_EXCEEDED':
-      return t('chat:errorTokenLimit');
     default:
       return null;
   }
@@ -110,22 +100,11 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
   const hasLoadedHistory = useRef(false);
   const lastVisibleRef = useRef(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
   const [showMedicalDisclaimer, setShowMedicalDisclaimer] = useState(false);
   const medicalDisclaimerShown = useRef(false);
   const [showAiConsent, setShowAiConsent] = useState(false);
   const pendingMessageRef = useRef<string | null>(null);
   const scaledTypography = useScaledTypography();
-  const hasFetchedPremium = useRef(false);
-
-  useEffect(() => {
-    if (!visible) return;
-    if (hasFetchedPremium.current) return;
-    hasFetchedPremium.current = true;
-    apiClient<{ isPremium?: boolean }>('/api/subscriptions/status')
-      .then((data) => { if (data?.isPremium) setIsPremium(true); })
-      .catch(() => {});
-  }, [visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -253,10 +232,8 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
             <AiChatLayout
               messages={messages}
               isTyping={isTyping}
-              isPremium={isPremium}
               onSend={handleSend}
               onBeforeVoiceRecording={requestAiConsent}
-              onUpgradePress={() => { onClose(); router.push('/subscription'); }}
             />
           </View>
         </View>

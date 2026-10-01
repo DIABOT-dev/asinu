@@ -28,6 +28,14 @@
   "noConnectionsHint": "Invite family to monitor and care for family health together",
   "acceptSuccess": "Invitation accepted",
   "acceptError": "Cannot accept invitation",
+  "quickInviteEyebrow": "INVITATION FROM FAMILY",
+  "quickInviteTitle": "Join this Care Circle?",
+  "quickInviteWantsToConnect": "wants to connect and support you",
+  "quickInviteExplanation": "If you accept, this person can view health information and receive alerts according to the invitation permissions.",
+  "quickAccept": "Accept connection",
+  "quickLater": "Later",
+  "quickAcceptSuccess": "Connected with {{name}}",
+  "quickAcceptError": "Could not accept this invitation. Please try again.",
   "rejectSuccess": "Invitation declined",
   "rejectError": "Cannot decline invitation",
   "confirmDelete": "Confirm delete",
@@ -177,5 +185,7 @@
   "checkinFlowMonitoring": "Monitoring",
   "checkinFlowFollowUp": "Following up",
   "checkinFlowHighAlert": "High alert",
-  "checkinTriageSummary": "Summary"
+  "checkinTriageSummary": "Summary",
+  "viewAnTamPlans": "View An Tam plans",
+  "quickUnknownSender": "Family member"
 }

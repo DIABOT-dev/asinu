@@ -28,6 +28,14 @@
   "noConnectionsHint": "Mời người thân để cùng nhau theo dõi và chăm sóc sức khỏe gia đình",
   "acceptSuccess": "Đã chấp nhận lời mời",
   "acceptError": "Không thể chấp nhận lời mời",
+  "quickInviteEyebrow": "LỜI MỜI TỪ NGƯỜI THÂN",
+  "quickInviteTitle": "Đồng ý vào Vòng kết nối?",
+  "quickInviteWantsToConnect": "muốn kết nối và đồng hành cùng bạn",
+  "quickInviteExplanation": "Khi đồng ý, người này có thể xem thông tin sức khỏe và nhận cảnh báo theo các quyền trong lời mời.",
+  "quickAccept": "Đồng ý kết nối",
+  "quickLater": "Để sau",
+  "quickAcceptSuccess": "Đã kết nối với {{name}}",
+  "quickAcceptError": "Chưa thể đồng ý lời mời. Vui lòng thử lại.",
   "rejectSuccess": "Lời mời đã bị từ chối",
   "rejectError": "Không thể từ chối lời mời",
   "confirmDelete": "Xác nhận xóa",
@@ -177,5 +185,7 @@
   "checkinFlowMonitoring": "Theo dõi",
   "checkinFlowFollowUp": "Đang theo dõi tiếp",
   "checkinFlowHighAlert": "Cảnh báo cao",
-  "checkinTriageSummary": "Tóm tắt"
+  "checkinTriageSummary": "Tóm tắt",
+  "viewAnTamPlans": "Xem gói An Tâm",
+  "quickUnknownSender": "Người thân"
 }

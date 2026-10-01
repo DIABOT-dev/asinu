@@ -451,7 +451,7 @@ export function routeFromNotificationData(
     return "/care-circle";
   }
 
-  // Subscription / Premium lifecycle
+  // Subscription / An Tâm lifecycle
   if (
     type === "subscription_activated" ||
     type === "subscription_expiring_soon" ||

@@ -1,6 +1,6 @@
 /**
  * Plain "Restore purchases" link — Apple Guideline 3.1.1 requires this
- * to be reachable even when the user IS premium (e.g. they switched
+ * to be reachable even when the user has an active plan (e.g. they switched
  * App Store account, or signed into a different Asinu account on the
  * same device). Hidden when env.paymentMethod !== 'iap'.
  */

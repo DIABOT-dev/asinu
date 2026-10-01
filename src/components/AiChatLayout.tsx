@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
   Pressable,
   StyleSheet,
   View,
@@ -34,10 +33,8 @@ export type AiChatLayoutProps = {
   assistantAvatar?: string;
   userAvatar?: string;
   isTyping?: boolean;
-  isPremium?: boolean;
   onSend?: (message: string) => void;
   onBeforeVoiceRecording: () => Promise<boolean>;
-  onUpgradePress?: () => void;
 };
 
 export const AiChatLayout = ({
@@ -45,10 +42,8 @@ export const AiChatLayout = ({
   assistantAvatar,
   userAvatar,
   isTyping = false,
-  isPremium = false,
   onSend,
   onBeforeVoiceRecording,
-  onUpgradePress,
 }: AiChatLayoutProps) => {
   const { t } = useTranslation(['chat', 'common']);
   const { isDark } = useThemeColors();
@@ -156,80 +151,6 @@ export const AiChatLayout = ({
     micButtonActive: {
       backgroundColor: colors.danger,
     },
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.xl,
-    },
-    modalCard: {
-      width: '100%',
-      backgroundColor: colors.surface,
-      borderRadius: 24,
-      padding: spacing.xxl,
-      alignItems: 'center',
-      gap: spacing.md,
-      shadowColor: '#000',
-      shadowOpacity: 0.2,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 12,
-    },
-    modalIconWrap: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: spacing.xs,
-    },
-    modalTitle: {
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    modalDesc: {
-      color: colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 21,
-    },
-    featureList: {
-      alignSelf: 'stretch',
-      gap: spacing.sm,
-      marginVertical: spacing.xs,
-    },
-    featureRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    featureText: {
-      color: colors.textPrimary,
-      flex: 1,
-    },
-    upgradeBtn: {
-      backgroundColor: colors.premium,
-      borderRadius: radius.full,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.xxl,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      alignSelf: 'stretch',
-      justifyContent: 'center',
-      marginTop: spacing.sm,
-    },
-    upgradeBtnText: {
-      color: '#fff',
-      fontWeight: '700',
-    },
-    cancelBtn: {
-      paddingVertical: spacing.sm,
-    },
-    cancelBtnText: {
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
   }), [isDark]);
   const [draft, setDraft] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -332,13 +253,7 @@ export const AiChatLayout = ({
 
   // ─── Mic handler ───────────────────────────────────────────────────
 
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
   const handleMicPress = async () => {
-    if (!isPremium) {
-      setShowUpgradeModal(true);
-      return;
-    }
     if (isRecording) {
       setIsRecording(false);
       try {
@@ -564,52 +479,6 @@ export const AiChatLayout = ({
         </Pressable>
       </View>
 
-      {/* Modal Premium */}
-      <Modal
-        visible={showUpgradeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowUpgradeModal(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setShowUpgradeModal(false)}
-          />
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
-              <MaterialCommunityIcons name="crown" size={Math.round(scaledTypography.scaledSize.xl * 1.2)} color={colors.premium} />
-            </View>
-            <Text style={[styles.modalTitle, { fontSize: scaledTypography.size.md }]}>{t('common:voicePremiumTitle')}</Text>
-            <Text style={[styles.modalDesc, { fontSize: scaledTypography.size.sm }]}>{t('common:voicePremiumDesc')}</Text>
-            <View style={styles.featureList}>
-              {[
-                t('common:voicePremiumFeature1'),
-                t('common:voicePremiumFeature2'),
-                t('common:voicePremiumFeature3'),
-              ].map((f) => (
-                <View key={f} style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={scaledTypography.scaledSize.sm} color={colors.emerald} />
-                  <Text style={[styles.featureText, { fontSize: scaledTypography.size.sm }]}>{f}</Text>
-                </View>
-              ))}
-            </View>
-            <Pressable
-              style={styles.upgradeBtn}
-              onPress={() => {
-                setShowUpgradeModal(false);
-                setTimeout(() => onUpgradePress?.(), 350);
-              }}
-            >
-              <MaterialCommunityIcons name="crown" size={scaledTypography.scaledSize.md} color="#fff" />
-              <Text style={[styles.upgradeBtnText, { fontSize: scaledTypography.size.sm }]}>{t('common:voiceUpgrade')}</Text>
-            </Pressable>
-            <Pressable style={styles.cancelBtn} onPress={() => setShowUpgradeModal(false)}>
-              <Text style={[styles.cancelBtnText, { fontSize: scaledTypography.size.sm }]}>{t('common:later')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };

@@ -1,344 +1,219 @@
-/**
- * UI block rendered on /subscription when env.paymentMethod === 'iap'.
- *
- * Reads the backend catalogue + local native-store price,
- * shows a picker between monthly / yearly, fires the platform purchase
- * sheet, and on success refreshes the parent screen's premium status.
- *
- * Lives in features/iap (not in /app) so the same card can be embedded
- * in onboarding paywalls later without duplicating logic.
- */
-
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppAlertModal, useAppAlert } from '../../components/AppAlertModal';
 import { ScaledText as Text } from '../../components/ScaledText';
 import { colors, radius, spacing, typography } from '../../styles';
-import { env } from '../../lib/env';
 import {
   fetchAvailableProducts,
+  openOfferCodeRedemption,
   purchaseSubscription,
   restorePurchases,
   type LocalProduct,
 } from './iap.service';
 
 type Props = {
-  /** Called after a successful purchase so the parent can refresh status. */
+  currentPlanCode?: string;
+  currentBillingPeriod?: 'monthly' | 'yearly' | null;
   onPurchased?: () => void;
 };
 
-function formatVND(n: number): string {
-  return n.toLocaleString('vi-VN');
-}
+const formatVnd = (value: number) => `${value.toLocaleString('vi-VN')}đ`;
 
-export function IapPurchaseCard({ onPurchased }: Props) {
+export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod, onPurchased }: Props) {
   const { t } = useTranslation('subscription');
   const { alertState, showAlert, dismissAlert } = useAppAlert();
-
   const [products, setProducts] = useState<LocalProduct[]>([]);
+  const [period, setPeriod] = useState<'monthly' | 'yearly'>('yearly');
+  const [selectedPlan, setSelectedPlan] = useState('antam_2');
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [purchasing, setPurchasing] = useState(false);
-  const [restoring, setRestoring] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  // Load products on mount. Falls back to backend-only when StoreKit /
-  // Native store pricing may be unavailable in some environments; UI can still show a VND price.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await fetchAvailableProducts();
-        if (cancelled) return;
-        setProducts(list);
-        // Default-select the yearly plan if present, otherwise the first.
-        const def =
-          list.find(p => p.id === env.iapProductYearly) ?? list[0];
-        setSelectedId(def?.id ?? null);
-      } catch (err) {
-        console.warn('[iap] failed to load products:', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    let active = true;
+    fetchAvailableProducts()
+      .then((items) => active && setProducts(items))
+      .catch(() => active && setProducts([]))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
   }, []);
 
-  const selected = products.find(p => p.id === selectedId);
+  const choices = useMemo(
+    () => products.filter((product) => product.billing_period === period),
+    [period, products]
+  );
+  const selected = choices.find((product) => product.plan_code === selectedPlan) ?? choices[0];
+  const selectedIsCurrent =
+    selected?.plan_code === currentPlanCode && selected?.billing_period === currentBillingPeriod;
 
-  const handlePurchase = useCallback(async () => {
+  const buy = useCallback(async () => {
     if (!selected) return;
-    setPurchasing(true);
+    setBusy(true);
     try {
       const result = await purchaseSubscription(selected.id, selected);
       if (result.kind === 'success') {
-        showAlert(
-          t('activationSuccess'),
-          t('activationSuccessDesc'),
-          [{ text: t('close'), onPress: onPurchased }],
-        );
-      } else if (result.kind === 'cancelled') {
-        // Silent — user backed out of the sheet.
-      } else {
-        showAlert(
-          t('paymentFailed'),
-          result.error || t('paymentNetworkError'),
-        );
+        showAlert(t('iapActivatedTitle'), t('iapActivatedBody', { plan: selected.plan_name }), [
+          { text: t('close'), onPress: onPurchased },
+        ]);
+      } else if (result.kind === 'failed') {
+        showAlert(t('iapPaymentFailed'), result.error);
       }
     } finally {
-      setPurchasing(false);
+      setBusy(false);
     }
-  }, [selected, t, onPurchased, showAlert]);
+  }, [onPurchased, selected, showAlert, t]);
 
-  const handleRestore = useCallback(async () => {
-    setRestoring(true);
+  const restore = useCallback(async () => {
+    setBusy(true);
     try {
-      const res = await restorePurchases();
-      if (res.restored > 0) {
-        showAlert(
-          t('restoreSuccess'),
-          t('restoreSuccessDesc', { count: res.restored }),
-          [{ text: t('close'), onPress: onPurchased }],
-        );
-      } else {
-        showAlert(
-          t('restoreNoneTitle'),
-          t('restoreNoneBody'),
-        );
-      }
+      const result = await restorePurchases();
+      showAlert(
+        result.restored > 0 ? t('iapRestoredTitle') : t('iapNotFoundTitle'),
+        result.restored > 0
+          ? t('iapRestoredBody', { count: result.restored })
+          : t('iapNotFoundBody'),
+        result.restored > 0 ? [{ text: t('close'), onPress: onPurchased }] : undefined
+      );
     } finally {
-      setRestoring(false);
+      setBusy(false);
     }
-  }, [t, onPurchased, showAlert]);
+  }, [onPurchased, showAlert, t]);
 
-  const alertModal = <AppAlertModal {...alertState} onDismiss={dismissAlert} />;
-
-  if (loading) {
-    return (
-      <>
-        <View style={styles.card}>
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color={colors.primary} />
-            <Text style={styles.loadingText}>
-              {t('loadingPrices')}
-            </Text>
-          </View>
-        </View>
-        {alertModal}
-      </>
-    );
-  }
-
-  if (products.length === 0) {
-    return (
-      <>
-        <View style={styles.card}>
-          <Text style={styles.errorText}>
-            {t('iapNoProducts')}
-          </Text>
-        </View>
-        {alertModal}
-      </>
-    );
-  }
+  const redeem = useCallback(async () => {
+    try {
+      await openOfferCodeRedemption();
+    } catch {
+      showAlert(t('iapRedeemFailedTitle'), t('iapRedeemFailedBody'));
+    }
+  }, [showAlert, t]);
 
   return (
-    <>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>
-          {t('chooseIapPlan')}
-        </Text>
+    <View style={styles.card}>
+      <View style={styles.headingRow}>
+        <View>
+          <Text style={styles.eyebrow}>{t('iapEyebrow')}</Text>
+          <Text style={styles.title}>{t('iapChooseTitle')}</Text>
+        </View>
+        <MaterialCommunityIcons name="shield-check" size={32} color={colors.primary} />
+      </View>
 
-        <View style={styles.options}>
-          {products.map(p => {
-            const isSelected = p.id === selectedId;
-            const priceLabel =
-              p.localizedPrice ?? `${formatVND(p.display_price_vnd)}đ`;
+      <View style={styles.periodSwitch}>
+        {(['yearly', 'monthly'] as const).map((value) => (
+          <Pressable
+            key={value}
+            style={[styles.periodButton, period === value && styles.periodButtonActive]}
+            onPress={() => setPeriod(value)}
+          >
+            <Text style={[styles.periodText, period === value && styles.periodTextActive]}>
+              {value === 'yearly' ? t('iapYearly') : t('iapMonthly')}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={styles.loading} />
+      ) : (
+        <View style={styles.planList}>
+          {choices.map((product) => {
+            const active = product.plan_code === selected?.plan_code;
+            const current =
+              currentPlanCode === product.plan_code && currentBillingPeriod === product.billing_period;
             return (
               <Pressable
-                key={p.id}
-                style={[styles.option, isSelected && styles.optionSelected]}
-                onPress={() => setSelectedId(p.id)}
+                key={product.id}
+                style={[styles.plan, active && styles.planActive]}
+                onPress={() => setSelectedPlan(product.plan_code)}
               >
-                <View style={styles.optionHeader}>
-                  <Text style={styles.optionMonths}>
-                    {p.plan_months === 12
-                      ? t('planYear')
-                      : t('planMonth', { months: p.plan_months })}
-                  </Text>
-                  {p.plan_months === 12 && (
-                    <View style={styles.bestBadge}>
-                      <Text style={styles.bestBadgeText}>
-                        {t('bestValue')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.optionPrice}>{priceLabel}</Text>
-                {isSelected && (
-                  <View style={styles.checkmark}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color={colors.premiumDark}
-                    />
+                <View style={styles.planTop}>
+                  <View style={[styles.radio, active && styles.radioActive]}>
+                    {active && <View style={styles.radioDot} />}
                   </View>
-                )}
+                  <View style={styles.planCopy}>
+                    <Text style={styles.planName}>{product.plan_name}</Text>
+                    <Text style={styles.planMeta}>
+                      {t('iapProtectMembers', { count: product.protected_members })}
+                      {product.consultation_credits > 0
+                        ? t('iapGiftCredits', { count: product.consultation_credits })
+                        : ''}
+                    </Text>
+                  </View>
+                  {current && <Text style={styles.currentBadge}>{t('iapCurrent')}</Text>}
+                </View>
+                <Text style={styles.price}>
+                  {product.localizedPrice ?? formatVnd(product.display_price_vnd)}
+                  <Text style={styles.pricePeriod}>{period === 'yearly' ? t('iapPerYear') : t('iapPerMonth')}</Text>
+                </Text>
               </Pressable>
             );
           })}
         </View>
+      )}
 
-        <Pressable
-          style={styles.cta}
-          disabled={purchasing || !selected}
-          onPress={handlePurchase}
-        >
-          <View style={styles.ctaGradient}>
-            {purchasing ? (
-              <ActivityIndicator color={colors.premiumDark} />
-            ) : (
-              <View style={styles.ctaRow}>
-                <MaterialCommunityIcons name="crown" size={18} color={colors.premiumDark} />
-                <Text style={styles.ctaText}>
-                  {t('upgradeNow')}
-                </Text>
-              </View>
-            )}
-          </View>
-        </Pressable>
-
-        <Pressable
-          style={styles.restoreBtn}
-          disabled={restoring}
-          onPress={handleRestore}
-        >
-          {restoring ? (
-            <ActivityIndicator size="small" color={colors.textSecondary} />
-          ) : (
-            <Text style={styles.restoreText}>
-              {t('restorePurchases')}
+      <Pressable
+        style={[styles.buyButton, (!selected || busy || selectedIsCurrent) && styles.disabled]}
+        onPress={buy}
+        disabled={!selected || busy || selectedIsCurrent}
+      >
+        {busy ? <ActivityIndicator color="#fff" /> : (
+          <>
+            <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
+            <Text style={styles.buyText}>
+              {selectedIsCurrent
+                ? t('iapCurrentExact')
+                : t('iapContinue', { plan: selected?.plan_name ?? t('premium') })}
             </Text>
-          )}
-        </Pressable>
+          </>
+        )}
+      </Pressable>
 
-        <Text style={styles.legalNote}>
-          {t('iapLegalNote')}
+      <View style={styles.links}>
+        <Pressable onPress={redeem}><Text style={styles.link}>{t('iapOfferCode')}</Text></Pressable>
+        <View style={styles.linkDivider} />
+        <Pressable onPress={restore}><Text style={styles.link}>{t('iapRestore')}</Text></Pressable>
+      </View>
+      <View style={styles.legalRow}>
+        <Ionicons name="information-circle-outline" size={15} color={colors.textSecondary} />
+        <Text style={styles.legal}>
+          {t('iapLegal')}
         </Text>
       </View>
-      {alertModal}
-    </>
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cardTitle: {
-    fontSize: typography.size.sm,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  loadingBox: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
-  },
-  loadingText: {
-    color: colors.textSecondary,
-    fontSize: typography.size.xs,
-  },
-  errorText: {
-    color: colors.textSecondary,
-    fontSize: typography.size.sm,
-    textAlign: 'center',
-    paddingVertical: spacing.md,
-  },
-
-  options: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  option: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-  },
-  optionSelected: {
-    borderColor: colors.premium,
-    backgroundColor: colors.premiumLight,
-  },
-  optionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  optionMonths: {
-    fontSize: typography.size.sm,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  bestBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-    backgroundColor: colors.premiumLight,
-  },
-  bestBadgeText: {
-    color: colors.premiumDark,
-    fontSize: typography.size.xs,
-    fontWeight: '700',
-  },
-  optionPrice: {
-    fontSize: typography.size.md,
-    fontWeight: '800',
-    color: colors.premiumDark,
-  },
-  checkmark: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-  },
-
-  cta: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
-  ctaGradient: { paddingVertical: spacing.md, alignItems: 'center', borderRadius: radius.lg, backgroundColor: colors.premiumLight },
-  ctaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  ctaText: { color: colors.premiumDark, fontWeight: '800', fontSize: typography.size.sm },
-
-  restoreBtn: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginTop: spacing.sm,
-  },
-  restoreText: {
-    color: colors.textSecondary,
-    fontSize: typography.size.xs,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-
-  legalNote: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginTop: spacing.sm,
-  },
+  card: { marginTop: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
+  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  eyebrow: { fontSize: typography.size.xxs, fontWeight: '800', color: colors.primary, letterSpacing: 1 },
+  title: { marginTop: 3, fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
+  periodSwitch: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, padding: 4, borderRadius: radius.lg },
+  periodButton: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: radius.md },
+  periodButtonActive: { backgroundColor: colors.surface },
+  periodText: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textSecondary },
+  periodTextActive: { color: colors.primaryDark },
+  loading: { paddingVertical: spacing.xl },
+  planList: { gap: spacing.sm },
+  plan: { padding: spacing.md, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface },
+  planActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  planTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  radioActive: { borderColor: colors.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  planCopy: { flex: 1 },
+  planName: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
+  planMeta: { marginTop: 2, fontSize: typography.size.xs, color: colors.textSecondary },
+  currentBadge: { fontSize: typography.size.xxs, fontWeight: '800', color: colors.primaryDark, backgroundColor: colors.surface, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.full },
+  price: { marginTop: spacing.sm, marginLeft: 28, fontSize: typography.size.lg, fontWeight: '900', color: colors.primaryDark },
+  pricePeriod: { fontSize: typography.size.xs, fontWeight: '600', color: colors.textSecondary },
+  buyButton: { minHeight: 52, borderRadius: radius.lg, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  buyText: { color: '#fff', fontSize: typography.size.sm, fontWeight: '800' },
+  disabled: { opacity: 0.55 },
+  links: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.sm },
+  link: { color: colors.primaryDark, fontSize: typography.size.xs, fontWeight: '700' },
+  linkDivider: { width: 1, height: 14, backgroundColor: colors.border },
+  legalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs },
+  legal: { flex: 1, fontSize: typography.size.xxs, lineHeight: 17, color: colors.textSecondary },
 });

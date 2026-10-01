@@ -20,6 +20,7 @@ import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverla
 import { AsinuEmergencyFAB } from '../asinu-brain-extension/ui/AsinuEmergencyFAB';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { GlobalToastHost } from '../src/components/GlobalToastHost';
+import { CareCircleInvitationModal } from '../src/components/CareCircleInvitationModal';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { CarePulseProvider } from '../src/features/care-pulse';
 import { WellnessProvider } from '../src/features/wellness';
@@ -149,6 +150,7 @@ export default function RootLayout() {
                 />
               </Stack>
               <GlobalToastHost />
+              <CareCircleInvitationModal />
               <AsinuBrainOverlayHost />
               <EmergencyFABGate />
             </CarePulseProvider>

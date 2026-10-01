@@ -17,7 +17,7 @@ const REFRESH_BY_TYPE: Record<string, string[]> = {
   care_circle_removed:             ['careCircle', 'notifications'],
   care_circle_permission_changed:  ['careCircle', 'notifications'],
 
-  // ── Subscription / Premium ──
+  // ── Subscription / An Tâm ──
   subscription_activated:    ['profile', 'notifications'],
   subscription_expiring_soon:['notifications'],
   subscription_expired:      ['profile', 'notifications'],

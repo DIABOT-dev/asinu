@@ -1,14 +1,11 @@
-import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
- * VoiceLogButton — Premium feature
+ * VoiceLogButton — free in Asinu V2
  * Ghi am → Whisper transcribe → AI parse → dien form tu dong
  *
- * - Nguoi dung thuong: hien thi nut co lock, khi an hien modal yeu cau nang cap
- * - Nguoi dung premium: ghi am binh thuong
  * - Validation: neu AI khong nhan ra so lieu hop le → bao loi, khong dien form
  */
 
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 // Audio lazy-loaded only when recording starts
 import { Audio } from '@/lib/audio';
 
@@ -16,7 +13,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   StyleSheet,
   View,
@@ -31,7 +27,6 @@ import Animated, {
 import { useTranslation } from 'react-i18next';
 import { AppAlertModal, useAppAlert } from './AppAlertModal';
 import { ScaledText as Text } from './ScaledText';
-import { usePremium } from '../hooks/usePremium';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { VoiceLogType, VoiceParseResult, voiceParseLogs } from '../features/logs/voice.api';
 import { colors, radius, spacing } from '../styles';
@@ -64,13 +59,10 @@ function validateParsed(result: VoiceParseResult, t: (key: string) => string): s
 }
 
 export function VoiceLogButton({ logType, onParsed, onError }: Props) {
-  const router = useRouter();
-  const { isPremium, loading: premiumLoading } = usePremium();
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
   const [state, setState] = useState<RecordState>('idle');
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const recordingRef = useRef<any>(null);
@@ -167,14 +159,6 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
   };
 
   const handlePress = () => {
-    if (premiumLoading) return;
-
-    // Chua premium → hien modal nang cap
-    if (!isPremium) {
-      setShowUpgradeModal(true);
-      return;
-    }
-
     if (state === 'recording') {
       stopAndProcess();
     } else if (state === 'idle' || state === 'error') {
@@ -182,23 +166,11 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
     }
   };
 
-  const isDisabled = state === 'processing' || premiumLoading;
+  const isDisabled = state === 'processing';
 
   // --- UI helpers ---
 
-  const iconBg = !isPremium
-    ? colors.primaryLight
-    : state === 'recording'
-    ? colors.primary
-    : state === 'done'
-    ? colors.emeraldLight
-    : state === 'error'
-    ? '#fef2f2'
-    : colors.primaryLight;
-
   const renderIcon = () => {
-    if (premiumLoading) return <ActivityIndicator size="small" color={colors.primary} />;
-    if (!isPremium) return <Ionicons name="mic" size={22} color={colors.primary} />;
     if (state === 'processing') return <ActivityIndicator size="small" color={colors.primary} />;
     if (state === 'done') return <Ionicons name="checkmark" size={22} color={colors.emerald} />;
     if (state === 'recording') return <Ionicons name="stop" size={22} color="#fff" />;
@@ -264,59 +236,7 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
         {/* Chi hien khi dang ghi */}
         {state === 'recording' && <View style={styles.recDot} />}
 
-        {/* Badge Premium khi chua nang cap */}
-        {!isPremium && !premiumLoading && (
-          <View style={styles.premiumBadge}>
-            <MaterialCommunityIcons name="crown" size={12} color="#fff" />
-          </View>
-        )}
       </Pressable>
-
-      {/* Modal nang cap Premium */}
-      <Modal
-        visible={showUpgradeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowUpgradeModal(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setShowUpgradeModal(false)}
-          />
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
-              <MaterialCommunityIcons name="crown" size={36} color={colors.premium} />
-            </View>
-            <Text style={styles.modalTitle}>{t('voicePremiumTitle')}</Text>
-            <Text style={styles.modalDesc}>{t('voicePremiumDesc')}</Text>
-            <View style={styles.featureList}>
-              {[t('voicePremiumFeature1'), t('voicePremiumFeature2'), t('voicePremiumFeature3')].map((f) => (
-                <View key={f} style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.emerald} />
-                  <Text style={styles.featureText}>{f}</Text>
-                </View>
-              ))}
-            </View>
-            <Pressable
-              style={styles.upgradeBtn}
-              onPress={() => {
-                setShowUpgradeModal(false);
-                setTimeout(() => router.push('/subscription'), 350);
-              }}
-            >
-              <MaterialCommunityIcons name="crown" size={18} color="#fff" />
-              <Text style={styles.upgradeBtnText}>{t('voiceUpgrade')}</Text>
-            </Pressable>
-            <Pressable
-              style={styles.cancelBtn}
-              onPress={() => setShowUpgradeModal(false)}
-            >
-              <Text style={styles.cancelBtnText}>{t('later')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -380,95 +300,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       height: 10,
       borderRadius: 5,
       backgroundColor: colors.danger,
-    },
-    premiumBadge: {
-      backgroundColor: colors.premium,
-      borderRadius: radius.full,
-      paddingHorizontal: 6,
-      paddingVertical: 3,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-    },
-    // Modal
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.xl,
-    },
-    modalCard: {
-      width: '100%',
-      backgroundColor: colors.surface,
-      borderRadius: 24,
-      padding: spacing.xxl,
-      alignItems: 'center',
-      gap: spacing.md,
-      shadowColor: '#000',
-      shadowOpacity: 0.2,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 12,
-    },
-    modalIconWrap: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: spacing.xs,
-    },
-    modalTitle: {
-      fontSize: typography.size.lg,
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    modalDesc: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 21,
-    },
-    featureList: {
-      alignSelf: 'stretch',
-      gap: spacing.sm,
-      marginVertical: spacing.xs,
-    },
-    featureRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    featureText: {
-      fontSize: typography.size.sm,
-      color: colors.textPrimary,
-      flex: 1,
-    },
-    upgradeBtn: {
-      backgroundColor: colors.premium,
-      borderRadius: radius.full,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.xxl,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      alignSelf: 'stretch',
-      justifyContent: 'center',
-      marginTop: spacing.sm,
-    },
-    upgradeBtnText: {
-      color: '#fff',
-      fontSize: typography.size.sm,
-      fontWeight: '700',
-    },
-    cancelBtn: {
-      paddingVertical: spacing.sm,
-    },
-    cancelBtnText: {
-      color: colors.textSecondary,
-      fontSize: typography.size.sm,
-      fontWeight: '600',
     },
   });
 }

@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../features/auth/auth.store";
+import { useCareCircle } from "../features/care-circle";
 import { authApi } from "../features/auth/auth.api";
 import * as Notifications from "expo-notifications";
 import {
@@ -67,6 +68,13 @@ export const SessionProvider = ({ children }: Props) => {
   const hydrated = useAuthStore((state) => state.hydrated);
   const authToken = useAuthStore((state) => state.token);
   const profile = useAuthStore((state) => state.profile);
+  const hasPendingCareInvite = useCareCircle((state) =>
+    state.invitations.some(
+      (invitation) =>
+        invitation.status === "pending" &&
+        String(invitation.addressee_id) === String(profile?.id),
+    ),
+  );
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [nativeFcmToken, setNativeFcmToken] = useState<string | null>(null);
   const [voipRegistration, setVoipRegistration] =
@@ -387,7 +395,7 @@ export const SessionProvider = ({ children }: Props) => {
     <SessionContext.Provider value={value}>
       {children}
       <AppAlertModal
-        visible={notificationPromptVisible}
+        visible={notificationPromptVisible && !hasPendingCareInvite}
         title={t("pushPermissionTitle")}
         message={t("pushPermissionDesc")}
         buttons={[

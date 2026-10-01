@@ -234,8 +234,8 @@ export default function InviteScreen() {
       showToast(t('inviteSentSuccess'), 'success');
       setTimeout(() => router.back(), 1500);
     } catch (error: any) {
-      // Connection limit exceeded → show premium upgrade modal
-      if (error.statusCode === 403 || error.message?.includes('premium') || error.message?.includes('Premium')) {
+      // Connection limit exceeded → show the An Tam plan screen.
+      if (error.statusCode === 403 || error.code === 'CARE_CIRCLE_LIMIT') {
         setShowUpgradeModal(true);
       } else {
         showToast(getApiErrorMessage(error, t, 'cannotSendInvite'), 'error');
@@ -477,7 +477,7 @@ export default function InviteScreen() {
         </View>
       )}
 
-      {/* Premium upgrade modal — connection limit */}
+      {/* An Tam upgrade modal — connection limit */}
       <Modal visible={showUpgradeModal} transparent animationType="fade" onRequestClose={() => setShowUpgradeModal(false)}>
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowUpgradeModal(false)} />
@@ -494,8 +494,8 @@ export default function InviteScreen() {
                 router.push('/subscription');
               }}
             >
-              <MaterialCommunityIcons name="crown" size={16} color="#fff" />
-              <Text style={styles.modalUpgradeText}>{tc('voiceUpgrade')}</Text>
+              <MaterialCommunityIcons name="shield-check" size={16} color="#fff" />
+              <Text style={styles.modalUpgradeText}>{t('viewAnTamPlans')}</Text>
             </Pressable>
             <Pressable style={styles.modalCancelBtn} onPress={() => setShowUpgradeModal(false)}>
               <Text style={styles.modalCancelText}>{tc('later')}</Text>

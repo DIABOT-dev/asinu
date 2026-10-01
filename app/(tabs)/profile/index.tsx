@@ -94,8 +94,10 @@ import {
 } from "../../../src/stores/health-feed-preference";
 
 type SubStatus = {
-  tier: "free" | "premium";
-  isPremium: boolean;
+  tier: "free" | "antam";
+  planCode: "free" | "antam_2" | "antam_4" | "antam_8";
+  planName: string;
+  isAnTam: boolean;
   expiresAt: string | null;
 };
 
@@ -541,25 +543,19 @@ export default function ProfileScreen() {
   };
 
   const planBenefits = useMemo(() => {
-    if (subStatus?.isPremium) {
+    if (subStatus?.isAnTam) {
       return [
-        { icon: "check-circle", text: t("benefitCircle3") },
-        { icon: "check-circle", text: t("benefitChatUnlimited") },
-        { icon: "check-circle", text: t("benefitLogUnlimited") },
-        { icon: "check-circle", text: t("benefitCheckinDaily") },
-        { icon: "check-circle", text: t("benefitSosAlert") },
-        { icon: "check-circle", text: t("benefitMetricsLog") },
+        { icon: "check-circle", text: t("antamBenefitCall") },
+        { icon: "check-circle", text: t("antamBenefitSignal") },
+        { icon: "check-circle", text: t("antamBenefitFamily") },
       ];
     }
     return [
-      { icon: "check", text: t("benefitCircle1") },
-      { icon: "check", text: t("benefitChat1000") },
-      { icon: "check", text: t("benefitLog30Days") },
-      { icon: "check", text: t("benefitCheckinDaily") },
-      { icon: "check", text: t("benefitSosAlert") },
-      { icon: "check", text: t("benefitMetricsLog") },
+      { icon: "check", text: t("freeBenefitHistory") },
+      { icon: "check", text: t("freeBenefitVoice") },
+      { icon: "check", text: t("freeBenefitSignal") },
     ];
-  }, [subStatus?.isPremium, t]);
+  }, [subStatus?.isAnTam, t]);
 
   return (
     <Screen>
@@ -652,9 +648,7 @@ export default function ProfileScreen() {
                     />
                     <Text style={styles.planBadgeText}>
                       {t("accountPlan", {
-                        plan: subStatus?.isPremium
-                          ? t("planPremium")
-                          : t("planFree"),
+                        plan: subStatus?.planName || t("planFree"),
                       })}
                     </Text>
                   </TouchableOpacity>
@@ -1324,7 +1318,7 @@ export default function ProfileScreen() {
                 style={[
                   styles.planIconBig,
                   {
-                    backgroundColor: subStatus?.isPremium
+                    backgroundColor: subStatus?.isAnTam
                       ? colors.premiumLight
                       : colors.primaryLight,
                   },
@@ -1332,21 +1326,21 @@ export default function ProfileScreen() {
               >
                 <MaterialCommunityIcons
                   name={
-                    subStatus?.isPremium ? "crown" : "shield-account-outline"
+                    subStatus?.isAnTam ? "shield-check" : "shield-account-outline"
                   }
                   size={28}
                   color={
-                    subStatus?.isPremium ? colors.premiumDark : colors.primary
+                    subStatus?.isAnTam ? colors.premiumDark : colors.primary
                   }
                 />
               </View>
               <Text style={styles.planInfoTitle}>
-                {subStatus?.isPremium ? t("planPremium") : t("planFree")}
+                {subStatus?.planName || t("planFree")}
               </Text>
               <Text style={styles.planInfoSubtitle}>
-                {subStatus?.isPremium
-                  ? t("planPremiumDesc")
-                  : t("planFreeDesc")}
+                {subStatus?.isAnTam
+                  ? t("antamActiveDesc")
+                  : t("freeHealthDesc")}
               </Text>
             </View>
 
@@ -1357,7 +1351,7 @@ export default function ProfileScreen() {
                     name={b.icon as any}
                     size={18}
                     color={
-                      subStatus?.isPremium ? colors.premium : colors.success
+                      subStatus?.isAnTam ? colors.premium : colors.success
                     }
                   />
                   <Text style={styles.benefitText}>{b.text}</Text>
@@ -1372,7 +1366,7 @@ export default function ProfileScreen() {
               >
                 <Text style={styles.planCloseBtnText}>{tc("close")}</Text>
               </Pressable>
-              {!subStatus?.isPremium && (
+              {!subStatus?.isAnTam && (
                 <Pressable
                   style={styles.planUpgradeBtn}
                   onPress={() => {
@@ -1381,7 +1375,7 @@ export default function ProfileScreen() {
                   }}
                 >
                   <Text style={styles.planUpgradeBtnText}>
-                    {t("upgradePremium")}
+                    {t("chooseAnTam")}
                   </Text>
                 </Pressable>
               )}
