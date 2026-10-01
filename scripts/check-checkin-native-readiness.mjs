@@ -19,7 +19,11 @@ expectText('ios/Asinu/Asinu.entitlements', '<key>aps-environment</key>', 'iOS pu
 expectText('ios/Asinu/Info.plist', '<string>voip</string>', 'iOS VoIP background mode exists');
 expectText('ios/Asinu/VoipCallManager.swift', 'PKPushRegistryDelegate', 'PushKit manager is compiled');
 expectText('ios/Asinu/VoipCallManager.swift', 'CXProviderDelegate', 'CallKit provider is compiled');
-expectText('ios/Asinu/VoipCallManager.swift', 'SecTaskCopyValueForEntitlement', 'PushKit reports the signed APNs environment');
+expectText(
+  'ios/Asinu/VoipCallManager.swift',
+  'object(forInfoDictionaryKey: "AsinuAPNSEnvironment")',
+  'PushKit reports the build-configured APNs environment'
+);
 expectText('android/app/src/main/AndroidManifest.xml', 'android.permission.POST_NOTIFICATIONS', 'Android notification permission exists');
 expectText('android/app/src/main/AndroidManifest.xml', 'android.permission.USE_FULL_SCREEN_INTENT', 'Android full-screen intent permission exists');
 expectText('android/app/src/main/AndroidManifest.xml', '.notifications.AsinuFirebaseMessagingService', 'Android native FCM service is registered');

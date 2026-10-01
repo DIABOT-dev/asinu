@@ -2,7 +2,6 @@ import AVFAudio
 import CallKit
 import Foundation
 import PushKit
-import Security
 import UIKit
 
 extension Notification.Name {
@@ -22,7 +21,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private var ringTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
 
   private lazy var provider: CXProvider = {
-    let configuration = CXProviderConfiguration(localizedName: "Asinu")
+    let configuration = CXProviderConfiguration()
     configuration.supportsVideo = false
     configuration.maximumCallGroups = 1
     configuration.maximumCallsPerCallGroup = 1
@@ -35,14 +34,6 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }()
 
   var environment: String {
-    if let task = SecTaskCreateFromSelf(nil),
-       let entitlement = SecTaskCopyValueForEntitlement(
-         task,
-         "aps-environment" as CFString,
-         nil
-       ) as? String {
-      return entitlement == "production" ? "production" : "sandbox"
-    }
     let configured = Bundle.main.object(forInfoDictionaryKey: "AsinuAPNSEnvironment") as? String
     return configured == "production" ? "production" : "sandbox"
   }
