@@ -10,6 +10,8 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from '@/lib/audio';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -31,6 +33,7 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
+import { checkinCallApi } from '../../src/features/checkin-call/checkin-call.api';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -40,7 +43,6 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 const MAX_TRIAGE_QUESTIONS = 8;
-type CheckinConclusionSound = Awaited<ReturnType<typeof Audio.Sound.createAsync>>['sound'];
 
 // ─── Local fallback questions (when network itself fails) ────────────────────
 
@@ -627,7 +629,6 @@ export default function CheckinScreen() {
             triageSummary={triageSummary}
             isFollowUp={isFollowUp}
             answers={answers}
-            isPreview={isResultPreview}
             onClose={() => router.back()}
           />
         )}
@@ -1378,7 +1379,6 @@ function DoneScreen({
   triageSummary,
   isFollowUp,
   answers,
-  isPreview = false,
   onClose,
 }: {
   styles: Styles;
@@ -1386,81 +1386,23 @@ function DoneScreen({
   triageSummary: TriageSummaryView | null;
   isFollowUp: boolean;
   answers?: Array<{ question: string; answer: string }>;
-  isPreview?: boolean;
   onClose: () => void;
 }) {
-  const { t } = useTranslation('home');
+  const { t, i18n } = useTranslation('home');
   const router = useRouter();
-  const conclusionSoundRef = useRef<CheckinConclusionSound | null>(null);
-  const conclusionSoundPlayedRef = useRef(false);
-  const [soundReplayKey, setSoundReplayKey] = useState(0);
+  const conclusionSpeechPlayedRef = useRef(false);
+  const conclusionPlaybackVersionRef = useRef(0);
+  const conclusionSoundRef = useRef<
+    Awaited<ReturnType<typeof Audio.Sound.createAsync>>['sound'] | null
+  >(null);
+  const conclusionAudioCacheRef = useRef<{ text: string; uri: string } | null>(null);
+  const [speechReplayKey, setSpeechReplayKey] = useState(0);
+  const [isSpeakingConclusion, setIsSpeakingConclusion] = useState(false);
   const isFine = session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
 
   const isEmergency = triageSummary?.severity === 'emergency';
   const isHigh = triageSummary?.severity === 'high';
   const isMedium = triageSummary?.severity === 'medium';
-  const conclusionSoundSource = isEmergency || isHigh
-    ? require('../../assets/sounds/asinu_alert.wav')
-    : isMedium
-      ? require('../../assets/sounds/asinu_care.wav')
-      : require('../../assets/sounds/asinu_milestone.wav');
-
-  useEffect(() => {
-    let mounted = true;
-    const timer = setTimeout(() => {
-      if (!mounted || conclusionSoundPlayedRef.current) {
-        return;
-      }
-      conclusionSoundPlayedRef.current = true;
-
-      (async () => {
-        try {
-          await Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-            playsInSilentModeIOS: true,
-          });
-          const { sound } = await Audio.Sound.createAsync(conclusionSoundSource, {
-            shouldPlay: true,
-          });
-          if (!mounted) {
-            await sound.unloadAsync();
-            return;
-          }
-
-          conclusionSoundRef.current = sound;
-          sound.setOnPlaybackStatusUpdate((status) => {
-            if (!status.didJustFinish) {
-              return;
-            }
-            if (conclusionSoundRef.current === sound) {
-              conclusionSoundRef.current = null;
-            }
-            sound.unloadAsync().catch(() => {});
-          });
-        } catch (error: unknown) {
-          if (__DEV__) {
-            console.warn(
-              '[Checkin] conclusion sound:',
-              error instanceof Error ? error.message : String(error),
-            );
-          }
-        }
-      })();
-    }, 220);
-
-    return () => {
-      mounted = false;
-      clearTimeout(timer);
-      const sound = conclusionSoundRef.current;
-      conclusionSoundRef.current = null;
-      sound?.unloadAsync?.().catch(() => {});
-    };
-  }, [conclusionSoundSource, soundReplayKey]);
-
-  const replayConclusionSound = () => {
-    conclusionSoundPlayedRef.current = false;
-    setSoundReplayKey((value) => value + 1);
-  };
 
   // Severity configurations
   const pillBg = isEmergency
@@ -1528,53 +1470,216 @@ function DoneScreen({
       ? t('checkinDoctorNoticeFine')
       : t('checkinDoctorNoticeDefault')
   );
+  const cleanSummary = stripEmojis(triageSummary?.summary || '');
+  const shouldReadSummary = cleanSummary && cleanSummary !== recordedSymptoms;
+
+  const conclusionSpeechText = [
+    t('checkinDoneNoted'),
+    pillText,
+    cleanSubtitle,
+    shouldReadSummary ? `${t('checkinResultSummaryLabel')}: ${cleanSummary}` : '',
+    `${t('checkinRecordedSymptoms')}: ${recordedSymptoms}`,
+    `${t('checkinAdvice')}: ${cleanAdvice}`,
+    doctorNoticeText,
+  ]
+    .map((part) => stripEmojis(String(part)).replace(/[.!?]+$/g, '').trim())
+    .filter(Boolean)
+    .join('. ') + '.';
+
+  useEffect(() => {
+    let mounted = true;
+    let playbackVersion = 0;
+    const timer = setTimeout(() => {
+      if (!mounted || conclusionSpeechPlayedRef.current || !conclusionSpeechText) {
+        return;
+      }
+      conclusionSpeechPlayedRef.current = true;
+      playbackVersion = conclusionPlaybackVersionRef.current + 1;
+      conclusionPlaybackVersionRef.current = playbackVersion;
+
+      const isCurrentPlayback = () =>
+        mounted && conclusionPlaybackVersionRef.current === playbackVersion;
+
+      const stopCurrentAudio = async () => {
+        await Speech.stop();
+        const current = conclusionSoundRef.current;
+        conclusionSoundRef.current = null;
+        try {
+          await current?.unloadAsync();
+        } catch {
+          // The previous player may already have released itself after finishing.
+        }
+      };
+
+      const speakWithSystemVoice = () => {
+        if (!isCurrentPlayback()) {
+          return;
+        }
+        Speech.speak(conclusionSpeechText, {
+          language: i18n.resolvedLanguage?.startsWith('en') ? 'en-US' : 'vi-VN',
+          pitch: 1,
+          rate: 0.88,
+          volume: 1,
+          useApplicationAudioSession: true,
+          onStart: () => {
+            if (isCurrentPlayback()) {
+              setIsSpeakingConclusion(true);
+            }
+          },
+          onDone: () => {
+            if (isCurrentPlayback()) {
+              setIsSpeakingConclusion(false);
+            }
+          },
+          onStopped: () => {
+            if (isCurrentPlayback()) {
+              setIsSpeakingConclusion(false);
+            }
+          },
+          onError: (error) => {
+            if (isCurrentPlayback()) {
+              setIsSpeakingConclusion(false);
+            }
+            if (__DEV__) {
+              console.warn('[Checkin] system conclusion TTS:', error.message);
+            }
+          },
+        });
+      };
+
+      const startConclusionSpeech = async () => {
+        try {
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            playsInSilentModeIOS: true,
+          });
+          await stopCurrentAudio();
+          if (!isCurrentPlayback()) {
+            return;
+          }
+
+          // Ngọc Lan is a Vietnamese VieNeu voice. Keep English on the device voice
+          // until an English backend voice is configured.
+          if (i18n.resolvedLanguage?.startsWith('en')) {
+            speakWithSystemVoice();
+            return;
+          }
+
+          setIsSpeakingConclusion(true);
+          let uri = conclusionAudioCacheRef.current?.text === conclusionSpeechText
+            ? conclusionAudioCacheRef.current.uri
+            : null;
+          if (!uri) {
+            const result = await checkinCallApi.conclusionAudio(conclusionSpeechText);
+            if (!isCurrentPlayback()) {
+              return;
+            }
+            uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory)
+              + `checkin-conclusion-${session?.id ?? 'preview'}.mp3`;
+            await FileSystem.writeAsStringAsync(uri, result.base64, { encoding: 'base64' });
+            conclusionAudioCacheRef.current = { text: conclusionSpeechText, uri };
+          }
+          if (!isCurrentPlayback()) {
+            return;
+          }
+
+          const created = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
+          if (!isCurrentPlayback()) {
+            await created.sound.unloadAsync();
+            return;
+          }
+          conclusionSoundRef.current = created.sound;
+          created.sound.setOnPlaybackStatusUpdate((status) => {
+            if (!status.didJustFinish || !isCurrentPlayback()) {
+              return;
+            }
+            setIsSpeakingConclusion(false);
+            if (conclusionSoundRef.current === created.sound) {
+              conclusionSoundRef.current = null;
+            }
+            created.sound.unloadAsync().catch(() => {});
+          });
+        } catch (error: unknown) {
+          if (!isCurrentPlayback()) {
+            return;
+          }
+          if (__DEV__) {
+            console.warn(
+              '[Checkin] Ngọc Lan conclusion TTS, using system fallback:',
+              error instanceof Error ? error.message : String(error),
+            );
+          }
+          speakWithSystemVoice();
+        }
+      };
+      startConclusionSpeech().catch(() => {});
+    }, 220);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+      conclusionPlaybackVersionRef.current += 1;
+      Speech.stop().catch(() => {});
+      const current = conclusionSoundRef.current;
+      conclusionSoundRef.current = null;
+      current?.unloadAsync().catch(() => {});
+    };
+  }, [conclusionSpeechText, i18n.resolvedLanguage, session?.id, speechReplayKey]);
+
+  const replayConclusionSpeech = () => {
+    conclusionSpeechPlayedRef.current = false;
+    setSpeechReplayKey((value) => value + 1);
+  };
 
   return (
     <View style={{ gap: 18 }}>
-      {isPreview && (
-        <View
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          paddingVertical: 11,
+          paddingHorizontal: 14,
+          borderRadius: 16,
+          backgroundColor: '#E6F7F5',
+          borderWidth: 1,
+          borderColor: '#BFE8E2',
+        }}
+      >
+        <Ionicons
+          name={isSpeakingConclusion ? 'volume-high' : 'volume-high-outline'}
+          size={21}
+          color="#007F6D"
+        />
+        <Text
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 10,
-            paddingVertical: 11,
-            paddingHorizontal: 14,
-            borderRadius: 16,
-            backgroundColor: '#E6F7F5',
-            borderWidth: 1,
-            borderColor: '#BFE8E2',
+            flex: 1,
+            color: '#0F5F54',
+            fontSize: 13,
+            lineHeight: 18,
+            fontWeight: '600',
           }}
         >
-          <Ionicons name="volume-high-outline" size={21} color="#007F6D" />
-          <Text
-            style={{
-              flex: 1,
-              color: '#0F5F54',
-              fontSize: 13,
-              lineHeight: 18,
-              fontWeight: '600',
-            }}
-          >
-            {t('checkinResultPreviewNotice')}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('checkinReplaySound')}
-            hitSlop={8}
-            onPress={replayConclusionSound}
-            style={({ pressed }) => ({
-              minWidth: 44,
-              minHeight: 44,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 22,
-              backgroundColor: pressed ? '#BFE8E2' : '#D4F1EC',
-            })}
-          >
-            <Ionicons name="refresh" size={21} color="#007F6D" />
-          </Pressable>
-        </View>
-      )}
+          {t('checkinResultPreviewNotice')}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('checkinReplaySound')}
+          accessibilityState={{ busy: isSpeakingConclusion }}
+          hitSlop={8}
+          onPress={replayConclusionSpeech}
+          style={({ pressed }) => ({
+            minWidth: 44,
+            minHeight: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 22,
+            backgroundColor: pressed ? '#BFE8E2' : '#D4F1EC',
+          })}
+        >
+          <Ionicons name="refresh" size={21} color="#007F6D" />
+        </Pressable>
+      </View>
 
       {/* Background watermark cross top right */}
       <View style={{ position: 'absolute', top: -16, right: -10 }} pointerEvents="none">

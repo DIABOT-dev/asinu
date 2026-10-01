@@ -1,5 +1,5 @@
 {
-  "title": "Gói Miễn phí & An Tâm",
+  "title": "Gói Premium",
   "headerSubtitle": "Sống khỏe hơn mỗi ngày\ncùng công nghệ AI",
   "quoteHeader": "Vì một phiên bản khỏe mạnh hơn của bạn ♡",
   "currentPlan": "Gói hiện tại",
@@ -11,7 +11,7 @@
   "freePrice": "0đ",
   "premiumPrice": "199.000đ",
   "priceVnd": "{{amount}}đ",
-  "premium": "An Tâm",
+  "premium": "Premium",
   "expiresAt": "Hết hạn: {{date}}",
   "upgradeNow": "Nâng cấp ngay",
   "priceNote": "Thanh toán qua App Store hoặc Google Play",

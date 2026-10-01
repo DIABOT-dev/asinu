@@ -151,4 +151,10 @@ export const checkinCallApi = {
     apiClient<{ ok: boolean; token: string; url: string; room: string }>(BASE + '/attempts/' + attemptId + '/token'),
   audio: (key: string) =>
     apiClient<{ ok: boolean; mimeType: string; base64: string }>(BASE + '/audio/' + key, { timeoutMs: 30000 }),
+  conclusionAudio: (text: string) =>
+    apiClient<{ ok: boolean; mimeType: string; base64: string }>(BASE + '/audio/conclusion', {
+      method: 'POST',
+      body: { text },
+      timeoutMs: 30000,
+    }),
 };

@@ -95,7 +95,7 @@ export default function DoctorConsultationHistoryScreen() {
   const { t: tHome, i18n } = useTranslation("home");
   const { t: tSettings } = useTranslation("settings");
   const { t: tCommon } = useTranslation("common");
-  const { colors, isDark } = useThemeColors();
+  const { colors } = useThemeColors();
   const scaledTypography = useScaledTypography();
   const insets = useSafeAreaInsets();
   const [tasks, setTasks] = useState<ConsultationTask[]>([]);
@@ -103,8 +103,8 @@ export default function DoctorConsultationHistoryScreen() {
   const [error, setError] = useState(false);
 
   const styles = useMemo(
-    () => createStyles(colors, scaledTypography.scaledSize, isDark),
-    [colors, isDark, scaledTypography.scaledSize],
+    () => createStyles(colors, scaledTypography.size),
+    [colors, scaledTypography.size],
   );
 
   const loadHistory = useCallback(async () => {
@@ -246,14 +246,15 @@ export default function DoctorConsultationHistoryScreen() {
             onPress={() => router.back()}
             accessibilityLabel={tCommon("back")}
           />
-          <View style={styles.headerCopy}>
-            <Text style={styles.headerTitle}>
-              {tSettings("doctorConsultationHistory")}
-            </Text>
-            <Text style={styles.headerHint}>
-              {tSettings("doctorConsultationHistoryDescription")}
-            </Text>
-          </View>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+            numberOfLines={1}
+            style={styles.headerTitle}
+          >
+            {tSettings("doctorConsultationHistory")}
+          </Text>
+          <View pointerEvents="none" style={styles.headerSpacer} />
         </View>
 
         <FlatList
@@ -314,29 +315,25 @@ export default function DoctorConsultationHistoryScreen() {
 
 function createStyles(
   colors: ReturnType<typeof useThemeColors>["colors"],
-  scaledSize: ReturnType<typeof useScaledTypography>["scaledSize"],
-  isDark: boolean,
+  textSize: ReturnType<typeof useScaledTypography>["size"],
 ) {
   return StyleSheet.create({
     page: { flex: 1 },
     header: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
+      gap: 8,
+      minHeight: 44,
       paddingHorizontal: 16,
-      paddingBottom: 14,
+      paddingBottom: 12,
     },
-    headerCopy: { flex: 1 },
+    headerSpacer: { height: 40, width: 40 },
     headerTitle: {
       color: colors.textPrimary,
-      fontSize: scaledSize.xl,
+      flex: 1,
+      fontSize: textSize.lg,
       fontWeight: "800",
-    },
-    headerHint: {
-      color: colors.textSecondary,
-      fontSize: scaledSize.sm,
-      lineHeight: scaledSize.sm + 6,
-      marginTop: 3,
+      textAlign: "center",
     },
     listContent: { paddingHorizontal: 16, gap: 10 },
     taskCard: {
@@ -359,13 +356,13 @@ function createStyles(
     taskBody: { flex: 1, minWidth: 0 },
     taskTitle: {
       color: colors.textPrimary,
-      fontSize: scaledSize.md,
+      fontSize: textSize.md,
       fontWeight: "700",
     },
     taskPreview: {
       color: colors.textSecondary,
-      fontSize: scaledSize.sm,
-      lineHeight: scaledSize.sm + 5,
+      fontSize: textSize.sm,
+      lineHeight: textSize.sm + 5,
       marginTop: 4,
     },
     taskMetaRow: {
@@ -378,16 +375,16 @@ function createStyles(
     taskDate: {
       color: colors.textSecondary,
       flex: 1,
-      fontSize: scaledSize.xs,
-      lineHeight: scaledSize.xs + 5,
+      fontSize: textSize.xs,
+      lineHeight: textSize.xs + 5,
       minWidth: 96,
     },
     status: {
       flexShrink: 1,
       borderRadius: 999,
-      fontSize: scaledSize.xs,
+      fontSize: textSize.xs,
       fontWeight: "700",
-      lineHeight: scaledSize.xs + 5,
+      lineHeight: textSize.xs + 5,
       overflow: "hidden",
       paddingHorizontal: 8,
       paddingVertical: 3,
@@ -406,13 +403,13 @@ function createStyles(
     },
     stateTitle: {
       color: colors.textPrimary,
-      fontSize: scaledSize.md,
+      fontSize: textSize.md,
       fontWeight: "700",
       textAlign: "center",
     },
     stateText: {
       color: colors.textSecondary,
-      fontSize: scaledSize.sm,
+      fontSize: textSize.sm,
       textAlign: "center",
     },
     retry: {
@@ -423,7 +420,7 @@ function createStyles(
     },
     retryText: {
       color: colors.primary,
-      fontSize: scaledSize.sm,
+      fontSize: textSize.sm,
       fontWeight: "700",
     },
   });
