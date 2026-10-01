@@ -130,7 +130,45 @@ export type CreateInvitationPayload = {
   };
 };
 
+export type CareCircleQrToken = {
+  token: string;
+  value: string;
+  expiresAt: string;
+};
+
+export type CareCircleQrPreview = {
+  name: string;
+  avatarUrl: string | null;
+  expiresAt: string;
+};
+
+export type CreateQrInvitationPayload = Omit<CreateInvitationPayload, 'addressee_id'> & {
+  token: string;
+};
+
 export const careCircleApi = {
+  async createQrToken() {
+    return apiClient<{ ok: boolean } & CareCircleQrToken>('/api/care-circle/qr-token', {
+      method: 'POST',
+    });
+  },
+
+  async previewQrToken(token: string) {
+    const response = await apiClient<{ ok: boolean; preview: CareCircleQrPreview }>(
+      '/api/care-circle/qr-token/preview',
+      { method: 'POST', body: { token } }
+    );
+    return response.preview;
+  },
+
+  async createInvitationFromQr(payload: CreateQrInvitationPayload) {
+    const response = await apiClient<{ ok: boolean; invitation: CareCircleInvitation }>(
+      '/api/care-circle/qr-token/invitations',
+      { method: 'POST', body: payload }
+    );
+    return response.invitation;
+  },
+
   // Create invitation
   async createInvitation(payload: CreateInvitationPayload) {
 

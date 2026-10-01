@@ -434,6 +434,37 @@ export default function CareCircleScreen() {
                 </View>
               </TouchableOpacity>
 
+              <View style={styles.qrActionsRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('myQrTitle')}
+                  onPress={() => router.push('/care-circle/qr' as never)}
+                  style={({ pressed }) => [styles.qrAction, pressed && styles.qrActionPressed]}
+                >
+                  <View style={styles.qrActionIcon}>
+                    <Ionicons name="qr-code-outline" size={23} color="#087F73" />
+                  </View>
+                  <View style={styles.qrActionCopy}>
+                    <Text style={styles.qrActionTitle}>{t('myQrTitle')}</Text>
+                    <Text numberOfLines={2} style={styles.qrActionSubtitle}>{t('myQrShortHint')}</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('scanQr')}
+                  onPress={() => router.push('/care-circle/scan' as never)}
+                  style={({ pressed }) => [styles.qrAction, pressed && styles.qrActionPressed]}
+                >
+                  <View style={styles.qrActionIcon}>
+                    <Ionicons name="scan-outline" size={23} color="#087F73" />
+                  </View>
+                  <View style={styles.qrActionCopy}>
+                    <Text style={styles.qrActionTitle}>{t('scanQr')}</Text>
+                    <Text numberOfLines={2} style={styles.qrActionSubtitle}>{t('scanQrShortHint')}</Text>
+                  </View>
+                </Pressable>
+              </View>
+
               {/* Received Invitations (if any) */}
               {receivedInvitations.length > 0 && (
                 <View style={styles.section}>
@@ -1076,7 +1107,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       backgroundColor: '#E8F7F4',
       marginHorizontal: spacing.lg,
-      marginBottom: spacing.lg,
+      marginBottom: spacing.sm,
       borderRadius: 22,
       paddingVertical: 8,
       paddingHorizontal: 12,
@@ -1120,6 +1151,52 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: 13,
       fontWeight: '600',
       color: '#FFFFFF',
+    },
+    qrActionsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginBottom: spacing.lg,
+      marginHorizontal: spacing.lg,
+    },
+    qrAction: {
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderColor: '#DCEAE7',
+      borderRadius: 18,
+      borderWidth: 1,
+      flex: 1,
+      flexDirection: 'row',
+      gap: spacing.sm,
+      minHeight: 74,
+      padding: spacing.sm,
+    },
+    qrActionPressed: {
+      opacity: 0.8,
+      transform: [{ scale: 0.985 }],
+    },
+    qrActionIcon: {
+      alignItems: 'center',
+      backgroundColor: '#E1F6F2',
+      borderRadius: 15,
+      height: 44,
+      justifyContent: 'center',
+      width: 44,
+    },
+    qrActionCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    qrActionTitle: {
+      color: colors.textPrimary,
+      fontSize: 13,
+      fontWeight: '800',
+      lineHeight: 17,
+    },
+    qrActionSubtitle: {
+      color: colors.textSecondary,
+      fontSize: 10.5,
+      lineHeight: 14,
+      marginTop: 2,
     },
     // Active Connections Section
     activeSection: {

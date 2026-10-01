@@ -5,6 +5,7 @@ import {
   CareCircleConnection,
   CareCircleInvitation,
   CreateInvitationPayload,
+  CreateQrInvitationPayload,
 } from './care-circle.api';
 
 const t = (key: string) => i18n.t(key, { ns: 'careCircle' });
@@ -19,6 +20,7 @@ interface CareCircleStore {
   fetchInvitations: (silent?: boolean) => Promise<void>;
   fetchConnections: (silent?: boolean) => Promise<void>;
   createInvitation: (payload: CreateInvitationPayload) => Promise<CareCircleInvitation>;
+  createInvitationFromQr: (payload: CreateQrInvitationPayload) => Promise<CareCircleInvitation>;
   cancelInvitation: (invitationId: string) => Promise<void>;
   acceptInvitation: (invitationId: string) => Promise<CareCircleConnection>;
   rejectInvitation: (invitationId: string) => Promise<void>;
@@ -80,6 +82,20 @@ export const useCareCircle = create<CareCircleStore>((set, get) => ({
       const invitation = await careCircleApi.createInvitation(payload);
       // Optimistic insert — bất kỳ screen nào đang subscribe state này đều
       // thấy lời mời mới ngay lập tức, không cần refetch.
+      set({ invitations: [invitation, ...get().invitations] });
+      return invitation;
+    } catch (err: any) {
+      set({ error: err?.message || t('cannotCreateInvitation') });
+      throw err;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  createInvitationFromQr: async (payload) => {
+    try {
+      set({ loading: true, error: null });
+      const invitation = await careCircleApi.createInvitationFromQr(payload);
       set({ invitations: [invitation, ...get().invitations] });
       return invitation;
     } catch (err: any) {

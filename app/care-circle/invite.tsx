@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
@@ -21,7 +21,7 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { showToast } from '../../src/stores/toast.store';
-import { careCircleApi, useCareCircle } from '../../src/features/care-circle';
+import { careCircleApi, type CareCircleQrPreview, useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing, brandColors} from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
@@ -65,6 +65,8 @@ const PERM_META = [
 
 export default function InviteScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ qrToken?: string | string[] }>();
+  const qrToken = Array.isArray(params.qrToken) ? params.qrToken[0] : params.qrToken;
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
@@ -73,13 +75,23 @@ export default function InviteScreen() {
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const profile = useAuthStore(state => state.profile);
-  const { createInvitation, loading, invitations, connections, fetchInvitations, fetchConnections } = useCareCircle();
+  const {
+    createInvitation,
+    createInvitationFromQr,
+    loading,
+    invitations,
+    connections,
+    fetchInvitations,
+    fetchConnections,
+  } = useCareCircle();
 
   const [phoneQuery, setPhoneQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchedUser, setSearchedUser] = useState<SearchUser | null>(null);
   const [searchError, setSearchError] = useState('');
   const [selectedUser, setSelectedUser] = useState<SearchUser | null>(null);
+  const [qrPreview, setQrPreview] = useState<CareCircleQrPreview | null>(null);
+  const [qrLoading, setQrLoading] = useState(Boolean(qrToken));
   const [selectedRelationship, setSelectedRelationship] = useState<DropdownOption | null>(null);
   const [selectedRole, setSelectedRole] = useState<DropdownOption | null>(null);
   const [customRelationship, setCustomRelationship] = useState('');
@@ -96,6 +108,7 @@ export default function InviteScreen() {
     phoneQuery.trim() ||
     searchedUser ||
     selectedUser ||
+    qrPreview ||
     selectedRelationship ||
     selectedRole ||
     customRelationship.trim() ||
@@ -214,10 +227,28 @@ export default function InviteScreen() {
     fetchConnections(true);
   }, []);
 
+  useEffect(() => {
+    if (!qrToken) return;
+    let active = true;
+    setQrLoading(true);
+    setSearchError('');
+    careCircleApi.previewQrToken(qrToken)
+      .then((preview) => {
+        if (active) setQrPreview(preview);
+      })
+      .catch((error) => {
+        if (active) setSearchError(getApiErrorMessage(error, t, 'qrPreviewError'));
+      })
+      .finally(() => {
+        if (active) setQrLoading(false);
+      });
+    return () => { active = false; };
+  }, [qrToken, t]);
+
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const handleSend = async () => {
-    if (!selectedUser) {
+    if (!selectedUser && !qrPreview) {
       const message = phoneQuery.trim()
         ? t('pleaseSearchAndSelectRecipient')
         : t('pleaseEnterPhoneToInvite');
@@ -225,12 +256,16 @@ export default function InviteScreen() {
       return;
     }
     try {
-      await createInvitation({
-        addressee_id: selectedUser.id,
+      const invitationData = {
         relationship_type: selectedRelationship?.label || customRelationship || undefined,
         role: selectedRole?.label || customRole || undefined,
         permissions,
-      });
+      };
+      if (qrToken && qrPreview) {
+        await createInvitationFromQr({ token: qrToken, ...invitationData });
+      } else if (selectedUser) {
+        await createInvitation({ addressee_id: selectedUser.id, ...invitationData });
+      }
       showToast(t('inviteSentSuccess'), 'success');
       setTimeout(() => router.back(), 1500);
     } catch (error: any) {
@@ -258,7 +293,7 @@ export default function InviteScreen() {
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ScrollView
           style={{ flex: 1, backgroundColor: 'transparent' }}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: selectedUser ? insets.bottom + 96 : spacing.xl }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: (selectedUser || qrPreview) ? insets.bottom + 96 : spacing.xl }]}
           keyboardShouldPersistTaps="handled"
         >
         <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.md }}>
@@ -268,14 +303,48 @@ export default function InviteScreen() {
             <Text style={styles.heroSubtitle}>{t('inviteSubtitle')}</Text>
           </View>
 
-        {/* ─── Phone Search ─── */}
+        {/* ─── Recipient ─── */}
         <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <MaterialCommunityIcons name="phone-outline" size={18} color={iconColors.indigo} />
-              <Text style={styles.cardTitle}>{t('searchByPhone')}</Text>
+              <MaterialCommunityIcons
+                name={qrToken ? 'qrcode-scan' : 'phone-outline'}
+                size={18}
+                color={iconColors.indigo}
+              />
+              <Text style={styles.cardTitle}>{qrToken ? t('qrRecipient') : t('searchByPhone')}</Text>
             </View>
 
-            <View style={styles.phoneSearchRow}>
+            {qrToken ? (
+              <>
+                {qrLoading ? (
+                  <View style={styles.qrRecipientLoading}>
+                    <ActivityIndicator color={colors.primary} />
+                    <Text style={styles.foundUserPhone}>{t('qrChecking')}</Text>
+                  </View>
+                ) : qrPreview ? (
+                  <View style={styles.selectedUserCard}>
+                    <View style={styles.selectedUserAvatar}>
+                      <MaterialCommunityIcons name="account-check" size={22} color="#F7FFFD" />
+                    </View>
+                    <View style={styles.foundUserInfo}>
+                      <Text style={styles.foundUserName}>{qrPreview.name}</Text>
+                      <Text style={styles.foundUserPhone}>{t('qrVerifiedPerson')}</Text>
+                    </View>
+                    <Ionicons name="shield-checkmark" size={22} color={colors.primary} />
+                  </View>
+                ) : null}
+                {!qrLoading && !qrPreview ? (
+                  <Pressable
+                    onPress={() => router.replace('/care-circle/scan' as never)}
+                    style={({ pressed }) => [styles.scanAgainButton, pressed && { opacity: 0.82 }]}
+                  >
+                    <Ionicons name="scan" size={19} color={colors.primary} />
+                    <Text style={styles.scanAgainText}>{t('scanAgain')}</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : (
+            <><View style={styles.phoneSearchRow}>
               <View style={styles.phoneInputWrap}>
                 <TextInput
                   style={[styles.comboInput, { fontSize: 15 }]}
@@ -346,6 +415,8 @@ export default function InviteScreen() {
                   <Ionicons name="close" size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
+            )}
+            </>
             )}
 
             {searchError ? (
@@ -456,7 +527,7 @@ export default function InviteScreen() {
       </ScrollView>
       </View>
 
-      {selectedUser && (
+      {(selectedUser || qrPreview) && (
         <View style={[styles.stickyActions, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
           <Pressable
             style={({ pressed }) => [styles.sendBtn, pressed && { opacity: 0.85 }]}
@@ -683,6 +754,26 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    qrRecipientLoading: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+      minHeight: 64,
+      paddingHorizontal: spacing.sm,
+    },
+    scanAgainButton: {
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      gap: spacing.xs,
+      minHeight: 44,
+      paddingHorizontal: spacing.sm,
+    },
+    scanAgainText: {
+      color: colors.primary,
+      fontSize: typography.size.sm,
+      fontWeight: '700',
     },
     clearBtn: {
       width: 28,

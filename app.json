@@ -95,6 +95,13 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Asinu chỉ dùng camera khi bạn quét mã QR để kết nối người thân.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp"
