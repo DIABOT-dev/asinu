@@ -1,18 +1,28 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { Screen } from '../../src/components/Screen';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
+import { SubscriptionFAQ } from '../../src/components/SubscriptionFAQ';
 import { IapPurchaseCard } from '../../src/features/iap/IapPurchaseCard';
 import { careCircleApi, type CareCircleConnection } from '../../src/features/care-circle/care-circle.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
+import { useScaledTypography } from '../../src/hooks/useScaledTypography';
+import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { apiClient, getApiErrorMessage } from '../../src/lib/apiClient';
 import { showToast } from '../../src/stores/toast.store';
-import { colors, radius, spacing, typography } from '../../src/styles';
+import { colors, radius, spacing } from '../../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
+
+const CROWN_HERO = require('../../assets/images/subscription/crown_hero.png');
+const LEAVES_LEFT = require('../../assets/images/subscription/header_leaves_left.png');
 
 type PlanCode = 'free' | 'antam_2' | 'antam_4' | 'antam_8';
 type SubscriptionStatus = {
@@ -57,6 +67,155 @@ const AN_TAM_FEATURES = [
   'v2AnTamFeature5',
 ];
 
+function formatDate(value: string | null, language: string) {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return date.toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN');
+}
+
+type CurrentPlanCardProps = {
+  status: SubscriptionStatus | null;
+  loading: boolean;
+  language: string;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const CurrentPlanCard = memo(function CurrentPlanCard({
+  status,
+  loading,
+  language,
+  t,
+  styles,
+}: CurrentPlanCardProps) {
+  return (
+    <View style={styles.currentPlanCard}>
+      <View style={styles.currentAvatarWrap}>
+        <Ionicons name="person" size={20} color="#059669" />
+      </View>
+      <View style={styles.currentPlanInfo}>
+        <View style={styles.currentPlanTitleRow}>
+          <Text style={styles.currentPlanLabel}>{t('v2CurrentPlan')}</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <View style={styles.currentPlanBadge}>
+              <Text style={styles.currentPlanBadgeText}>
+                {status?.planName ?? t('v2FreePlan')}
+              </Text>
+            </View>
+          )}
+        </View>
+        {!loading && (
+          <Text style={styles.currentPlanSub}>
+            {status?.isAnTam
+              ? t('v2PaidMeta', {
+                  used: status.protectedMemberCount,
+                  limit: status.protectedMemberLimit,
+                  expiry: status.expiresAt
+                    ? t('v2PaidExpiry', { date: formatDate(status.expiresAt, language) })
+                    : '',
+                })
+              : t('v2FreeMeta')}
+          </Text>
+        )}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+    </View>
+  );
+});
+
+type FeatureItem = {
+  icon?: React.ReactNode;
+  text: string;
+};
+
+type PlanComparisonProps = {
+  freeFeatures: FeatureItem[];
+  anTamFeatures: FeatureItem[];
+  freeIsCurrent: boolean;
+  onChoosePlan: () => void;
+  t: (key: string) => string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const PlanComparison = memo(function PlanComparison({
+  freeFeatures,
+  anTamFeatures,
+  freeIsCurrent,
+  onChoosePlan,
+  t,
+  styles,
+}: PlanComparisonProps) {
+  return (
+    <View style={styles.comparisonRow}>
+      <View style={styles.freeCard}>
+        <View style={styles.planCardHeader}>
+          <View style={styles.freeAvatar}>
+            <Ionicons name="person-outline" size={20} color="#64748b" />
+          </View>
+          <Text style={styles.freePlanTitle}>{t('v2FreePlan')}</Text>
+          <Text style={styles.freePrice}>{t('freePrice')}</Text>
+          <Text style={styles.perMonthText}>{t('perMonth')}</Text>
+        </View>
+        <View style={styles.featureList}>
+          {freeFeatures.map((item) => (
+            <View key={item.text} style={styles.comparisonFeatureRow}>
+              <View style={styles.featureIconWrap}>{item.icon}</View>
+              <Text style={styles.featureText}>{item.text}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.freeCTABox}>
+          <Text style={styles.freeCTAText}>
+            {freeIsCurrent ? t('currentlyUsing') : t('v2FreeTitle')}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.premiumCard}>
+        <View style={styles.popularBadge}>
+          <Text style={styles.popularBadgeText}>{t('mostPopular')}</Text>
+        </View>
+        <View style={styles.planCardHeader}>
+          <View style={styles.premiumAvatar}>
+            <MaterialCommunityIcons name="crown" size={22} color="#f59e0b" />
+          </View>
+          <Text style={styles.premiumPlanTitle}>{t('features.premiumTitle')}</Text>
+          <Text style={styles.planPeriodOptions}>{t('iapMonthly')} · {t('iapYearly')}</Text>
+        </View>
+        <View style={styles.featureList}>
+          {anTamFeatures.map((item) => (
+            <View key={item.text} style={styles.comparisonFeatureRow}>
+              <Ionicons name="checkmark-circle" size={16} color="#ea580c" style={styles.premiumCheckIcon} />
+              <Text style={styles.premiumFeatureText}>{item.text}</Text>
+            </View>
+          ))}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onChoosePlan}
+          style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+        >
+          <LinearGradient
+            colors={['#f97316', '#ea580c']}
+            end={{ x: 1, y: 0 }}
+            start={{ x: 0, y: 0 }}
+            style={styles.premiumCTABtn}
+          >
+            <Text style={styles.premiumCTAText}>{t('iapChooseTitle')}</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
+    </View>
+  );
+});
+
 function memberFromConnection(connection: CareCircleConnection, currentUserId: number, fallbackName: string) {
   const currentIsRequester = Number(connection.requester_id) === currentUserId;
   return {
@@ -71,6 +230,15 @@ function memberFromConnection(connection: CareCircleConnection, currentUserId: n
 export default function SubscriptionScreen() {
   const { t, i18n } = useTranslation('subscription');
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const scaledTypography = useScaledTypography();
+  const { isDark } = useThemeColors();
+  const styles = useMemo(
+    () => createStyles(scaledTypography, isDark),
+    [isDark, scaledTypography],
+  );
+  const scrollRef = useRef<ScrollView>(null);
+  const purchaseSectionYRef = useRef(0);
   const currentUserId = Number(useAuthStore((state) => state.profile?.id) || 0);
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
@@ -96,7 +264,9 @@ export default function SubscriptionScreen() {
     }
   }, [t]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh().catch(() => {});
+  }, [refresh]);
 
   const candidates = useMemo(() => {
     const activeIds = new Set(household?.members.map((member) => member.userId) ?? []);
@@ -137,118 +307,179 @@ export default function SubscriptionScreen() {
     }
   }, [refresh, t]);
 
+  const freeFeatures = useMemo<FeatureItem[]>(() => [
+    { icon: <Ionicons name="pulse-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[0]) },
+    { icon: <Ionicons name="time-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[1]) },
+    { icon: <Ionicons name="chatbubble-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[2]) },
+    { icon: <Ionicons name="analytics-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[3]) },
+    { icon: <Ionicons name="checkmark-circle-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[4]) },
+  ], [t]);
+
+  const anTamFeatures = useMemo<FeatureItem[]>(
+    () => AN_TAM_FEATURES.map((feature) => ({ text: t(feature) })),
+    [t],
+  );
+
+  const handleChoosePlan = useCallback(() => {
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, purchaseSectionYRef.current - spacing.sm),
+      animated: true,
+    });
+  }, []);
+
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <Stack.Screen options={{
-        headerShown: true,
-        title: t('v2PageTitle'),
-        headerShadowVisible: false,
-        headerStyle: { backgroundColor: colors.background },
-        headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
-      }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.hero}>
-          <View style={styles.heroIcon}><MaterialCommunityIcons name="shield-check" size={31} color="#fff" /></View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroTitle}>{t('v2HeroTitle')}</Text>
-            <Text style={styles.heroBody}>{t('v2HeroBody')}</Text>
-          </View>
-        </View>
-
-        <View style={styles.currentCard}>
-          <Text style={styles.sectionLabel}>{t('v2CurrentPlan')}</Text>
-          {loading ? <ActivityIndicator color={colors.primary} /> : (
-            <>
-              <View style={styles.currentRow}>
-                <Text style={styles.currentName}>{status?.planName ?? t('v2FreePlan')}</Text>
-                <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>{t('v2Active')}</Text></View>
-              </View>
-              <Text style={styles.currentMeta}>
-                {status?.isAnTam
-                  ? t('v2PaidMeta', {
-                      used: status.protectedMemberCount,
-                      limit: status.protectedMemberLimit,
-                      expiry: status.expiresAt
-                        ? t('v2PaidExpiry', {
-                            date: new Date(status.expiresAt).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN'),
-                          })
-                        : '',
-                    })
-                  : t('v2FreeMeta')}
+    <Screen>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + spacing.sm }]}
+        keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={Platform.OS === 'android'}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View entering={FadeInDown.duration(280)}>
+          <View style={styles.headerRow}>
+            <View pointerEvents="none" style={styles.leavesLeftWrap}>
+              <Image
+                cachePolicy="memory-disk"
+                contentFit="contain"
+                priority="high"
+                source={LEAVES_LEFT}
+                style={styles.leavesLeftImg}
+              />
+            </View>
+            <ScreenBackButton onPress={() => router.back()} />
+            <View style={styles.headerTextCol}>
+              <Text numberOfLines={2} style={styles.headerTitle}>
+                {t('features.premiumTitle')}
               </Text>
-            </>
-          )}
-        </View>
-
-        <View style={styles.featureCard}>
-          <Text style={styles.cardTitle}>{t('v2FreeTitle')}</Text>
-          {FREE_FEATURES.map((feature) => (
-            <View key={feature} style={styles.featureRow}>
-              <Ionicons name="checkmark-circle" size={19} color={colors.success} />
-              <Text style={styles.featureText}>{t(feature)}</Text>
+              <Text numberOfLines={2} style={styles.headerSubtitle}>
+                {t('v2HeroTitle')}
+              </Text>
             </View>
-          ))}
-        </View>
-
-        <View style={styles.featureCard}>
-          <Text style={styles.cardTitle}>{t('v2AnTamTitle')}</Text>
-          {AN_TAM_FEATURES.map((feature) => (
-            <View key={feature} style={styles.featureRow}>
-              <MaterialCommunityIcons name="shield-check" size={19} color={colors.primary} />
-              <Text style={styles.featureText}>{t(feature)}</Text>
+            <View pointerEvents="none" style={styles.crownArtWrap}>
+              <Image
+                cachePolicy="memory-disk"
+                contentFit="contain"
+                priority="high"
+                source={CROWN_HERO}
+                style={styles.crownHeroImg}
+              />
             </View>
-          ))}
-        </View>
-
-        <IapPurchaseCard
-          currentPlanCode={status?.planCode}
-          currentBillingPeriod={status?.billingPeriod}
-          onPurchased={refresh}
-        />
-
-        <View style={styles.householdCard}>
-          <View style={styles.householdHeader}>
-            <View style={styles.householdTitleCopy}>
-              <Text style={styles.cardTitle}>{t('v2ProtectedPeople')}</Text>
-              <Text style={styles.householdMeta}>{t('v2SlotsUsed', { used: household?.protectedMemberCount ?? 0, limit: household?.protectedMemberLimit ?? 1 })}</Text>
-            </View>
-            {status?.isOwner && status.isAnTam && (
-              <Pressable
-                style={styles.addButton}
-                disabled={
-                  (household?.protectedMemberCount ?? 0) >=
-                    (household?.protectedMemberLimit ?? 1) &&
-                  !(household?.members ?? []).some(
-                    (member) => member.userId === household?.ownerUserId
-                  )
-                }
-                onPress={() => setMemberModal(true)}
-              >
-                <Ionicons name="add" size={18} color="#fff" />
-                <Text style={styles.addText}>{t('v2Add')}</Text>
-              </Pressable>
-            )}
           </View>
-          {(household?.members ?? []).map((member) => (
-            <View key={member.userId} style={styles.memberRow}>
-              <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{member.name.trim().charAt(0).toUpperCase()}</Text></View>
-              <View style={styles.memberCopy}>
-                <Text style={styles.memberName}>{member.name}</Text>
-                <Text style={styles.memberRole}>{member.userId === household?.ownerUserId ? t('v2Owner') : t('v2Protected')}</Text>
+
+          <CurrentPlanCard
+            language={i18n.language}
+            loading={loading}
+            status={status}
+            styles={styles}
+            t={t}
+          />
+
+          <PlanComparison
+            anTamFeatures={anTamFeatures}
+            freeFeatures={freeFeatures}
+            freeIsCurrent={!status?.isAnTam}
+            onChoosePlan={handleChoosePlan}
+            styles={styles}
+            t={t}
+          />
+
+          <View
+            onLayout={(event) => {
+              purchaseSectionYRef.current = event.nativeEvent.layout.y;
+            }}
+          >
+            <IapPurchaseCard
+              currentBillingPeriod={status?.billingPeriod}
+              currentPlanCode={status?.planCode}
+              onPurchased={refresh}
+            />
+          </View>
+
+          <View style={styles.householdCard}>
+            <View style={styles.householdHeader}>
+              <View style={styles.householdTitleWrap}>
+                <View style={styles.householdIconCircle}>
+                  <Ionicons name="people" size={18} color="#059669" />
+                </View>
+                <View style={styles.householdTitleCopy}>
+                  <Text style={styles.cardTitle}>{t('v2ProtectedPeople')}</Text>
+                  <View style={styles.slotsPill}>
+                    <Text style={styles.slotsPillText}>
+                      {t('v2SlotsUsed', {
+                        used: household?.protectedMemberCount ?? 0,
+                        limit: household?.protectedMemberLimit ?? 1,
+                      })}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              {status?.isOwner && member.userId !== household?.ownerUserId && (
-                <Pressable onPress={() => removeMember(member.userId)} disabled={memberBusy === member.userId}>
-                  {memberBusy === member.userId
-                    ? <ActivityIndicator size="small" color={colors.textSecondary} />
-                    : <Ionicons name="close-circle-outline" size={22} color={colors.textSecondary} />}
+              {status?.isOwner && status.isAnTam && (
+                <Pressable
+                  style={styles.addButton}
+                  disabled={
+                    (household?.protectedMemberCount ?? 0) >=
+                      (household?.protectedMemberLimit ?? 1) &&
+                    !(household?.members ?? []).some(
+                      (member) => member.userId === household?.ownerUserId
+                    )
+                  }
+                  onPress={() => setMemberModal(true)}
+                >
+                  <Ionicons name="add" size={16} color="#fff" />
+                  <Text style={styles.addText}>{t('v2Add')}</Text>
                 </Pressable>
               )}
             </View>
-          ))}
-          {!status?.isAnTam && <Text style={styles.freeHint}>{t('v2FreeHint')}</Text>}
-        </View>
 
-        <Text style={styles.footerNote}>{t('v2EmergencyContactHint')}</Text>
+            <View style={styles.membersList}>
+              {(household?.members ?? []).map((member) => (
+                <View key={member.userId} style={styles.memberRow}>
+                  <View style={styles.memberAvatar}>
+                    <Text style={styles.memberInitial}>
+                      {member.name.trim().charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.memberCopy}>
+                    <Text style={styles.memberName}>{member.name}</Text>
+                    <View style={styles.memberRoleBadge}>
+                      <Text style={styles.memberRoleText}>
+                        {member.userId === household?.ownerUserId ? t('v2Owner') : t('v2Protected')}
+                      </Text>
+                    </View>
+                  </View>
+                  {status?.isOwner && member.userId !== household?.ownerUserId && (
+                    <Pressable
+                      onPress={() => removeMember(member.userId)}
+                      disabled={memberBusy === member.userId}
+                      style={styles.removeBtn}
+                    >
+                      {memberBusy === member.userId ? (
+                        <ActivityIndicator size="small" color={colors.textSecondary} />
+                      ) : (
+                        <Ionicons name="close-circle-outline" size={22} color="#94a3b8" />
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            {!status?.isAnTam && (
+              <View style={styles.freeHintCard}>
+                <Ionicons name="leaf-outline" size={18} color="#059669" />
+                <Text style={styles.freeHintText}>{t('v2FreeHint')}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.faqWrapper}>
+            <SubscriptionFAQ />
+          </View>
+
+          <Text style={styles.footerNote}>{t('v2EmergencyContactHint')}</Text>
+        </Animated.View>
       </ScrollView>
 
       <Modal visible={memberModal} transparent animationType="slide" onRequestClose={() => setMemberModal(false)}>
@@ -271,50 +502,400 @@ export default function SubscriptionScreen() {
           ))}
         </View>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingBottom: 48 },
-  hero: { padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.primaryDark, flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-  heroIcon: { width: 54, height: 54, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
-  heroCopy: { flex: 1 },
-  heroTitle: { color: '#fff', fontSize: typography.size.lg, fontWeight: '900' },
-  heroBody: { marginTop: 5, color: 'rgba(255,255,255,0.84)', fontSize: typography.size.sm, lineHeight: 20 },
-  currentCard: { marginTop: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
-  sectionLabel: { fontSize: typography.size.xxs, fontWeight: '800', letterSpacing: 1, color: colors.textSecondary },
-  currentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  currentName: { fontSize: typography.size.xl, fontWeight: '900', color: colors.textPrimary },
-  activeBadge: { backgroundColor: colors.emeraldLight, paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.full },
-  activeBadgeText: { color: colors.emerald, fontSize: typography.size.xxs, fontWeight: '800' },
-  currentMeta: { color: colors.textSecondary, fontSize: typography.size.sm },
-  featureCard: { marginTop: spacing.md, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
-  cardTitle: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
-  featureRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  featureText: { flex: 1, fontSize: typography.size.sm, lineHeight: 20, color: colors.textSecondary },
-  householdCard: { marginTop: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  householdHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
-  householdTitleCopy: { gap: 3 },
-  householdMeta: { fontSize: typography.size.xs, color: colors.textSecondary },
-  addButton: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.full },
-  addText: { color: '#fff', fontSize: typography.size.xs, fontWeight: '800' },
-  memberRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
-  memberAvatar: { width: 36, height: 36, borderRadius: 14, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  memberInitial: { color: colors.primaryDark, fontWeight: '900' },
-  memberCopy: { flex: 1 },
-  memberName: { color: colors.textPrimary, fontSize: typography.size.sm, fontWeight: '700' },
-  memberRole: { marginTop: 2, color: colors.textSecondary, fontSize: typography.size.xs },
-  freeHint: { marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.primaryLight, color: colors.primaryDark, fontSize: typography.size.xs, lineHeight: 18 },
-  footerNote: { marginTop: spacing.md, textAlign: 'center', color: colors.textSecondary, fontSize: typography.size.xs },
-  backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(15,23,42,0.45)' },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.xl, paddingBottom: 38, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.surface },
-  sheetHandle: { width: 42, height: 5, borderRadius: 3, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.lg },
-  sheetTitle: { fontSize: typography.size.lg, fontWeight: '900', color: colors.textPrimary },
-  sheetBody: { marginTop: 4, marginBottom: spacing.md, fontSize: typography.size.sm, color: colors.textSecondary },
-  candidateRow: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
-  candidateName: { flex: 1, fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
-  emptyCandidate: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.primaryLight, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  emptyCandidateText: { color: colors.primaryDark, fontWeight: '800', fontSize: typography.size.sm },
-});
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
+  return StyleSheet.create({
+    scrollContent: {
+      paddingBottom: 90,
+      paddingHorizontal: 16,
+    },
+    headerRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      minHeight: 112,
+      paddingBottom: 8,
+      paddingTop: 6,
+      position: 'relative',
+    },
+    leavesLeftWrap: {
+      height: 85,
+      left: -14,
+      position: 'absolute',
+      top: -8,
+      width: 140,
+      zIndex: 0,
+    },
+    leavesLeftImg: { height: '100%', width: '100%' },
+    headerTextCol: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingLeft: 10,
+      paddingRight: 142,
+      zIndex: 1,
+    },
+    headerTitle: {
+      color: isDark ? '#f8fafc' : '#0f172a',
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+      lineHeight: 28,
+    },
+    headerSubtitle: {
+      color: isDark ? '#94a3b8' : '#047857',
+      fontSize: 12,
+      fontWeight: '500',
+      lineHeight: 17,
+      marginTop: 2,
+    },
+    crownArtWrap: {
+      height: 90,
+      position: 'absolute',
+      right: -4,
+      top: 4,
+      width: 158,
+      zIndex: 1,
+    },
+    crownHeroImg: { height: '100%', width: '100%' },
+    currentPlanCard: {
+      alignItems: 'center',
+      backgroundColor: isDark ? colors.surface : '#fffdfa',
+      borderColor: isDark ? colors.border : '#e2e8f0',
+      borderRadius: 18,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 4,
+      padding: 14,
+    },
+    currentAvatarWrap: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
+      borderRadius: 21,
+      height: 42,
+      justifyContent: 'center',
+      width: 42,
+    },
+    currentPlanInfo: { flex: 1, minWidth: 0 },
+    currentPlanTitleRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      minWidth: 0,
+    },
+    currentPlanLabel: {
+      color: isDark ? '#f8fafc' : '#0f172a',
+      flexShrink: 1,
+      fontSize: 14.5,
+      fontWeight: '700',
+      lineHeight: 20,
+    },
+    currentPlanBadge: {
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      borderRadius: 12,
+      flexShrink: 0,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    },
+    currentPlanBadgeText: { color: '#059669', fontSize: 11, fontWeight: '700' },
+    currentPlanSub: {
+      color: isDark ? '#94a3b8' : '#64748b',
+      flexShrink: 1,
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 2,
+    },
+    comparisonRow: {
+      alignItems: 'stretch',
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 14,
+    },
+    freeCard: {
+      backgroundColor: isDark ? colors.surface : '#fffdfa',
+      borderColor: isDark ? colors.border : '#e2e8f0',
+      borderRadius: 20,
+      borderWidth: 1,
+      flex: 1,
+      justifyContent: 'space-between',
+      padding: 12,
+    },
+    premiumCard: {
+      backgroundColor: isDark ? '#1c1917' : '#fffbf5',
+      borderColor: '#f59e0b',
+      borderRadius: 20,
+      borderWidth: 1.5,
+      flex: 1,
+      justifyContent: 'space-between',
+      padding: 12,
+      position: 'relative',
+    },
+    popularBadge: {
+      backgroundColor: '#ea580c',
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      position: 'absolute',
+      right: 12,
+      top: -10,
+      zIndex: 2,
+    },
+    popularBadgeText: { color: '#fffaf5', fontSize: 10, fontWeight: '700' },
+    planCardHeader: { alignItems: 'center', paddingBottom: 8, paddingTop: 4 },
+    freeAvatar: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#334155' : '#f1f5f9',
+      borderRadius: 22,
+      height: 44,
+      justifyContent: 'center',
+      marginBottom: 6,
+      width: 44,
+    },
+    premiumAvatar: {
+      alignItems: 'center',
+      backgroundColor: '#fef3c7',
+      borderRadius: 22,
+      height: 44,
+      justifyContent: 'center',
+      marginBottom: 6,
+      width: 44,
+    },
+    freePlanTitle: {
+      color: isDark ? '#f8fafc' : '#0f172a',
+      fontSize: 14.5,
+      fontWeight: '700',
+    },
+    premiumPlanTitle: { color: '#ea580c', fontSize: 14.5, fontWeight: '700', textAlign: 'center' },
+    freePrice: {
+      color: isDark ? '#f8fafc' : '#0f172a',
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+      marginTop: 2,
+    },
+    perMonthText: { color: '#94a3b8', fontSize: 11, marginTop: -2 },
+    planPeriodOptions: { color: '#ea580c', fontSize: 11, marginTop: 5, opacity: 0.82 },
+    featureList: { gap: 9, marginVertical: 10 },
+    comparisonFeatureRow: { alignItems: 'flex-start', flexDirection: 'row' },
+    featureIconWrap: { alignItems: 'center', marginRight: 6, width: 18 },
+    featureText: {
+      color: isDark ? '#cbd5e1' : '#475569',
+      flex: 1,
+      fontSize: 11,
+      lineHeight: 16,
+    },
+    premiumCheckIcon: { marginRight: 6, marginTop: 1 },
+    premiumFeatureText: {
+      color: isDark ? '#f8fafc' : '#1e293b',
+      flex: 1,
+      fontSize: 11,
+      fontWeight: '600',
+      lineHeight: 16,
+    },
+    freeCTABox: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      borderRadius: 12,
+      marginTop: 6,
+      minHeight: 42,
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+      paddingVertical: 8,
+    },
+    freeCTAText: { color: '#64748b', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+    premiumCTABtn: {
+      alignItems: 'center',
+      borderRadius: 12,
+      justifyContent: 'center',
+      marginTop: 6,
+      minHeight: 42,
+      paddingHorizontal: 6,
+      paddingVertical: 8,
+    },
+    premiumCTAText: { color: '#fffaf5', fontSize: 12, fontWeight: '700', textAlign: 'center' },
+    cardTitle: { color: colors.textPrimary, fontSize: typography.size.md, fontWeight: '800' },
+    householdCard: {
+      backgroundColor: isDark ? colors.surface : '#ffffff',
+      borderColor: isDark ? colors.border : '#e2e8f0',
+      borderRadius: radius.xxl,
+      borderWidth: 1,
+      marginTop: spacing.lg,
+      padding: spacing.lg,
+      shadowColor: '#0f172a',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.2 : 0.04,
+      shadowRadius: 12,
+      elevation: 2,
+    },
+    householdHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: spacing.md,
+    },
+    householdTitleWrap: {
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+      gap: 10,
+    },
+    householdIconCircle: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#064e3b' : '#ecfdf5',
+      borderRadius: 18,
+      height: 36,
+      justifyContent: 'center',
+      width: 36,
+    },
+    householdTitleCopy: {
+      flex: 1,
+      gap: 4,
+    },
+    slotsPill: {
+      alignSelf: 'flex-start',
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    },
+    slotsPillText: {
+      color: isDark ? '#94a3b8' : '#64748b',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    addButton: {
+      alignItems: 'center',
+      backgroundColor: '#059669',
+      borderRadius: radius.full,
+      flexDirection: 'row',
+      gap: 4,
+      minHeight: 36,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      shadowColor: '#059669',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    addText: { color: '#ffffff', fontSize: typography.size.xs, fontWeight: '800' },
+    membersList: {
+      gap: 0,
+    },
+    memberRow: {
+      alignItems: 'center',
+      borderTopColor: isDark ? colors.border : '#f1f5f9',
+      borderTopWidth: 1,
+      flexDirection: 'row',
+      gap: 12,
+      minHeight: 62,
+      paddingVertical: 6,
+    },
+    memberAvatar: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
+      borderRadius: 20,
+      height: 40,
+      justifyContent: 'center',
+      width: 40,
+    },
+    memberInitial: { color: '#047857', fontSize: 16, fontWeight: '900' },
+    memberCopy: { flex: 1, gap: 3 },
+    memberName: { color: isDark ? '#f8fafc' : '#0f172a', fontSize: typography.size.sm, fontWeight: '700' },
+    memberRoleBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: isDark ? '#1e293b' : '#ecfdf5',
+      borderColor: isDark ? '#334155' : '#a7f3d0',
+      borderRadius: 6,
+      borderWidth: 1,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+    },
+    memberRoleText: { color: '#047857', fontSize: 10.5, fontWeight: '700' },
+    removeBtn: {
+      padding: 6,
+    },
+    freeHintCard: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#064e3b18' : '#f0fdf4',
+      borderColor: isDark ? '#064e3b' : '#bbf7d0',
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: spacing.md,
+      padding: 12,
+    },
+    freeHintText: {
+      color: isDark ? '#a7f3d0' : '#065f46',
+      flex: 1,
+      fontSize: typography.size.xs,
+      fontWeight: '600',
+      lineHeight: 18,
+    },
+    faqWrapper: { marginTop: 16 },
+    footerNote: {
+      color: colors.textSecondary,
+      fontSize: typography.size.xs,
+      marginTop: spacing.md,
+      textAlign: 'center',
+    },
+    backdrop: {
+      backgroundColor: 'rgba(15,23,42,0.45)',
+      bottom: 0,
+      left: 0,
+      position: 'absolute',
+      right: 0,
+      top: 0,
+    },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      bottom: 0,
+      left: 0,
+      padding: spacing.xl,
+      paddingBottom: 38,
+      position: 'absolute',
+      right: 0,
+    },
+    sheetHandle: {
+      alignSelf: 'center',
+      backgroundColor: colors.border,
+      borderRadius: 3,
+      height: 5,
+      marginBottom: spacing.lg,
+      width: 42,
+    },
+    sheetTitle: { color: colors.textPrimary, fontSize: typography.size.lg, fontWeight: '900' },
+    sheetBody: {
+      color: colors.textSecondary,
+      fontSize: typography.size.sm,
+      marginBottom: spacing.md,
+      marginTop: 4,
+    },
+    candidateRow: {
+      alignItems: 'center',
+      borderTopColor: colors.border,
+      borderTopWidth: 1,
+      flexDirection: 'row',
+      gap: spacing.sm,
+      minHeight: 60,
+    },
+    candidateName: { color: colors.textPrimary, flex: 1, fontSize: typography.size.sm, fontWeight: '700' },
+    emptyCandidate: {
+      alignItems: 'center',
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.lg,
+      flexDirection: 'row',
+      gap: spacing.sm,
+      justifyContent: 'center',
+      minHeight: 52,
+      padding: spacing.lg,
+    },
+    emptyCandidateText: { color: colors.primaryDark, fontSize: typography.size.sm, fontWeight: '800' },
+  });
+}

@@ -12,6 +12,7 @@ import { Image as ExpoImage } from 'expo-image';
 import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { Avatar } from '../../../src/components/Avatar';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
+import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
 import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
@@ -941,6 +942,11 @@ export default function HomeScreen() {
             <DailyCheckinCard />
             <InstantCheckinCard />
           </View>
+        </Animated.View>
+
+        {/* Tín hiệu sớm là tính năng miễn phí khi người dùng chủ động xem. */}
+        <Animated.View entering={FadeIn.delay(130).duration(350)}>
+          <EarlySignalCard />
         </Animated.View>
 
         {renderHealthFeedBlock()}
