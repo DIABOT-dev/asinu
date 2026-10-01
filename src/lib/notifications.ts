@@ -108,6 +108,7 @@ export interface NotificationData {
     | "message"
     | "engagement"
     | "health_feed"
+    | "early_signal"
     | "doctor_message";
   invitationId?: string;
   senderId?: string;
@@ -130,8 +131,8 @@ async function configureNotificationChannels(): Promise<void> {
 
   await Promise.allSettled(
     NOTIFICATION_CHANNEL_IDS.map((id) =>
-      Notifications.deleteNotificationChannelAsync(id),
-    ),
+      Notifications.deleteNotificationChannelAsync(id)
+    )
   );
 
   await Notifications.setNotificationChannelAsync("reminder", {
@@ -294,7 +295,7 @@ export async function checkNotificationPermission(): Promise<boolean> {
 export async function scheduleLocalNotification(
   title: string,
   body: string,
-  data?: NotificationData,
+  data?: NotificationData
 ) {
   try {
     await Notifications.scheduleNotificationAsync({
@@ -319,7 +320,7 @@ export async function scheduleLocalNotification(
 export async function reNotifyAsLocal(
   title: string,
   body: string,
-  data: Record<string, unknown>,
+  data: Record<string, unknown>
 ): Promise<void> {
   try {
     await Notifications.scheduleNotificationAsync({
@@ -340,7 +341,7 @@ export async function reNotifyAsLocal(
  * Add a listener for when notifications are received while app is in foreground
  */
 export function addNotificationReceivedListener(
-  callback: (notification: Notifications.Notification) => void,
+  callback: (notification: Notifications.Notification) => void
 ) {
   const subscription = Notifications.addNotificationReceivedListener(
     (notification) => {
@@ -354,7 +355,7 @@ export function addNotificationReceivedListener(
 
       // Call custom callback
       callback(notification);
-    },
+    }
   );
 
   return subscription;
@@ -364,7 +365,7 @@ export function addNotificationReceivedListener(
  * Add a listener for when user taps on a notification
  */
 export function addNotificationResponseReceivedListener(
-  callback: (response: Notifications.NotificationResponse) => void,
+  callback: (response: Notifications.NotificationResponse) => void
 ) {
   return Notifications.addNotificationResponseReceivedListener(callback);
 }
@@ -379,19 +380,34 @@ export function addNotificationResponseReceivedListener(
  * decides default).
  */
 export type NotificationRoute =
-  string | { pathname: string; params?: Record<string, string> };
+  | string
+  | { pathname: string; params?: Record<string, string> };
 
 export function routeFromNotificationData(
-  data: Record<string, unknown> | null | undefined,
+  data: Record<string, unknown> | null | undefined
 ): NotificationRoute | null {
-  if (data?.checkinCall === true && typeof data.episodeId === 'string') {
+  if (data?.checkinCall === true && typeof data.episodeId === "string") {
     return {
-      pathname: '/checkin-call/[episodeId]',
-      params: { episodeId: data.episodeId, attemptId: String(data.attemptId || '') },
+      pathname: "/checkin-call/[episodeId]",
+      params: {
+        episodeId: data.episodeId,
+        attemptId: String(data.attemptId || ""),
+      },
     };
   }
   const type = data?.type as string | undefined;
   if (!type) return null;
+
+  if (type === "early_signal") {
+    const userId = data?.userId as string;
+    if (userId) {
+      return {
+        pathname: "/early-signal/[userId]",
+        params: { userId },
+      };
+    }
+    return "/(tabs)/tree";
+  }
 
   // Check-in
   if (type === "morning_checkin") return "/checkin";

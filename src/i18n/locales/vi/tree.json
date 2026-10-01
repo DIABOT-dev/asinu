@@ -89,7 +89,13 @@
   "earlyRedFlagTitle": "Có dấu hiệu cần hỗ trợ khẩn cấp",
   "earlyCall115": "Gọi 115 ngay",
   "earlyFamilySent": "✓ Đã báo cho gia đình",
+  "earlyFamilyUnavailable": "Chưa có người thân đủ quyền nhận cảnh báo",
   "earlyFound": "Asinu nhận thấy",
   "earlySpecialty": "Nên kiểm tra tại: {{specialty}}",
-  "earlyUnderstood": "Đã hiểu"
+  "earlyUnderstood": "Đã hiểu",
+  "earlyWeeklyFor": "Tín hiệu sớm tuần này: {{name}}",
+  "earlyFor": "Tín hiệu sớm: {{name}}",
+  "earlyCallPerson": "Gọi cho {{name}}",
+  "earlyConsult": "Tham vấn dr.asinu",
+  "earlyRetry": "Thử lại"
 }

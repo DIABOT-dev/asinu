@@ -89,7 +89,13 @@
   "earlyRedFlagTitle": "Signs may require emergency help",
   "earlyCall115": "Call 115 now",
   "earlyFamilySent": "✓ Family notified",
+  "earlyFamilyUnavailable": "No authorized family contact is available",
   "earlyFound": "Asinu noticed",
   "earlySpecialty": "Suggested specialty: {{specialty}}",
-  "earlyUnderstood": "Understood"
+  "earlyUnderstood": "Understood",
+  "earlyWeeklyFor": "This week's Early Signals: {{name}}",
+  "earlyFor": "Early Signals: {{name}}",
+  "earlyCallPerson": "Call {{name}}",
+  "earlyConsult": "Consult dr.asinu",
+  "earlyRetry": "Try again"
 }
