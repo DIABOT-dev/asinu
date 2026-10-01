@@ -171,6 +171,8 @@
   "v2ChooseProtectedBody": "Người này cần có trong Vòng kết nối của bạn.",
   "v2InviteToCircle": "Mời người thân vào Vòng kết nối",
   "v2Relative": "Người thân",
+  "v2LoadError": "Chưa thể tải thông tin gói. Vui lòng kiểm tra kết nối và thử lại.",
+  "v2MemberUpdateError": "Chưa thể cập nhật người được bảo vệ. Vui lòng thử lại.",
   "iapEyebrow": "TỔNG ĐÀI VIÊN AI",
   "iapChooseTitle": "Chọn gói An Tâm",
   "iapYearly": "Theo năm",

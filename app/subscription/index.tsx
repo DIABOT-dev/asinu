@@ -9,7 +9,8 @@ import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { IapPurchaseCard } from '../../src/features/iap/IapPurchaseCard';
 import { careCircleApi, type CareCircleConnection } from '../../src/features/care-circle/care-circle.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { apiClient } from '../../src/lib/apiClient';
+import { apiClient, getApiErrorMessage } from '../../src/lib/apiClient';
+import { showToast } from '../../src/stores/toast.store';
 import { colors, radius, spacing, typography } from '../../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
@@ -88,10 +89,12 @@ export default function SubscriptionScreen() {
       setStatus(nextStatus);
       setHousehold(nextHousehold);
       setConnections(nextConnections);
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t, 'v2LoadError'), 'error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -112,10 +115,12 @@ export default function SubscriptionScreen() {
       setHousehold(next);
       setMemberModal(false);
       await refresh();
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t, 'v2MemberUpdateError'), 'error');
     } finally {
       setMemberBusy(null);
     }
-  }, [refresh]);
+  }, [refresh, t]);
 
   const removeMember = useCallback(async (userId: number) => {
     setMemberBusy(userId);
@@ -125,10 +130,12 @@ export default function SubscriptionScreen() {
       });
       setHousehold(next);
       await refresh();
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t, 'v2MemberUpdateError'), 'error');
     } finally {
       setMemberBusy(null);
     }
-  }, [refresh]);
+  }, [refresh, t]);
 
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>

@@ -171,6 +171,8 @@
   "v2ChooseProtectedBody": "This person must be in your Care Circle.",
   "v2InviteToCircle": "Invite family to your Care Circle",
   "v2Relative": "Family member",
+  "v2LoadError": "Plan information could not be loaded. Check your connection and try again.",
+  "v2MemberUpdateError": "The protected person could not be updated. Please try again.",
   "iapEyebrow": "AI CALL CENTER",
   "iapChooseTitle": "Choose an An Tam plan",
   "iapYearly": "Yearly",
