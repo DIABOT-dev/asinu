@@ -299,10 +299,10 @@ export default function TreeScreen() {
           </View>
         </View>
 
-        {/* Health Tree Status Card */}
-        <HealthTreeStatusCard score={healthScore} />
+        {/* Tạm ẩn trạng thái trống "Chưa check-in hôm nay"; vẫn hiện kết quả sau khi check-in. */}
+        {healthScore?.checkinDone ? <HealthTreeStatusCard score={healthScore} /> : null}
 
-        {/* Trạng thái check-in và dấu hiệu cần chú ý */}
+        {/* Tạm ẩn hai thẻ "Chưa xong" và "0 dấu hiệu cần chú ý".
         <View style={styles.scoreRow}>
           <View style={styles.scoreCard}>
             <Ionicons name="checkmark-circle" size={28} color="#059669" />
@@ -324,6 +324,7 @@ export default function TreeScreen() {
             </View>
           </View>
         </View>
+        */}
 
         <EarlySignalCard refreshKey={journalRefreshKey} />
 

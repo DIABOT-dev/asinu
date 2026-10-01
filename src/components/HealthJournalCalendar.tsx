@@ -220,7 +220,8 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
         </View>
         <View style={styles.titleCopy}>
           <Text style={styles.title}>{t('journalTitle')}</Text>
-          <Text style={styles.subtitle}>{t('journalSubtitle')}</Text>
+          {/* Tạm ẩn mô tả "Xem lại trạng thái check-in theo từng ngày". */}
+          {/* <Text style={styles.subtitle}>{t('journalSubtitle')}</Text> */}
         </View>
       </View>
 
@@ -259,52 +260,41 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
           </Pressable>
         </View>
 
-        <LinearGradient
-          colors={
-            hasMonthCheckins
-              ? isDark
+        {loading || hasMonthCheckins ? (
+          <LinearGradient
+            colors={
+              isDark
                 ? ['#0f766e', '#115e59']
                 : ['#13b8a6', '#079889']
-              : [colors.primaryLight, colors.primaryLight]
-          }
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.summaryCard}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.primaryDark} />
-          ) : hasMonthCheckins ? (
-            <>
-              <Text style={styles.summaryTitle}>
-                {attentionDays > 0
-                  ? t('journalSummaryAttention', { fine: fineDays, attention: attentionDays })
-                  : t('journalSummaryFine', { fine: fineDays })}
-              </Text>
-              <View style={styles.summaryMetaRow}>
-                <View style={styles.summaryDot} />
-                <Text style={styles.summaryMeta}>
-                  {latestSession
-                    ? t('journalLatestStatus', {
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.summaryCard}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.primaryDark} />
+            ) : (
+              <>
+                <Text style={styles.summaryTitle}>
+                  {attentionDays > 0
+                    ? t('journalSummaryAttention', { fine: fineDays, attention: attentionDays })
+                    : t('journalSummaryFine', { fine: fineDays })}
+                </Text>
+                {latestSession ? (
+                  <View style={styles.summaryMetaRow}>
+                    <View style={styles.summaryDot} />
+                    <Text style={styles.summaryMeta}>
+                      {t('journalLatestStatus', {
                         status: statusLabel(normalizeStatus(latestSession.status)),
-                      })
-                    : t('journalNoCheckin')}
-                </Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.emptySummaryTitleRow}>
-                <Ionicons name="calendar-outline" size={20} color={colors.primaryDark} />
-                <Text style={[styles.summaryTitle, styles.emptySummaryTitle]}>
-                  {t('journalNoCheckin')}
-                </Text>
-              </View>
-              <Text style={[styles.summaryMeta, styles.emptySummaryMeta]}>
-                {t('journalNoCheckinHint')}
-              </Text>
-            </>
-          )}
-        </LinearGradient>
+                      })}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            )}
+          </LinearGradient>
+        ) : null}
+        {/* Tạm ẩn thẻ "Chưa có check-in trong tháng này" khi tháng đang xem chưa có dữ liệu. */}
 
         {error ? (
           <View style={styles.errorState}>
@@ -384,12 +374,26 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
                     backgroundColor: STATUS_COLORS[status].background,
                     borderColor: STATUS_COLORS[status].border,
                   }]} />
-                  <Text style={styles.legendText}>{statusLabel(status)}</Text>
+                  <Text
+                    style={styles.legendText}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}
+                  >
+                    {statusLabel(status)}
+                  </Text>
                 </View>
               ))}
               <View style={styles.legendItem}>
                 <View style={[styles.legendSwatch, styles.legendMissing]} />
-                <Text style={styles.legendText}>{t('journalStatusMissing')}</Text>
+                <Text
+                  style={styles.legendText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  {t('journalStatusMissing')}
+                </Text>
               </View>
             </View>
           </>
@@ -708,14 +712,25 @@ function createStyles(
     dayTextMissing: { color: palette.textSecondary, fontWeight: '600' },
     legendRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
+      alignItems: 'flex-start',
       paddingTop: spacing.xs,
     },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    legendItem: {
+      flex: 1,
+      minWidth: 0,
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 2,
+    },
     legendSwatch: { width: 16, height: 16, borderRadius: 5, borderWidth: 1 },
     legendMissing: { backgroundColor: 'transparent', borderColor: palette.border, borderStyle: 'dashed' },
-    legendText: { fontSize: typography.size.xxs, color: palette.textSecondary },
+    legendText: {
+      width: '100%',
+      fontSize: typography.size.xxs,
+      color: palette.textSecondary,
+      textAlign: 'center',
+      fontWeight: '600',
+    },
     errorState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
     errorText: { fontSize: typography.size.sm, color: palette.textSecondary, textAlign: 'center' },
     retryButton: { paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: radius.full, backgroundColor: palette.primaryLight },
