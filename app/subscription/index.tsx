@@ -1,1261 +1,320 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Stack } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
-import {
-  ActivityIndicator,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'expo-image';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
-import { Screen } from '../../src/components/Screen';
-import { SubscriptionFAQ } from '../../src/components/SubscriptionFAQ';
-import { RestoreLink } from '../../src/features/iap/RestoreLink';
-import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { apiClient, ApiError, getApiErrorMessage } from '../../src/lib/apiClient';
-import { env } from '../../src/lib/env';
-import { colors, radius, spacing } from '../../src/styles';
-import { showToast } from '../../src/stores/toast.store';
-import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
-import { PLANS, formatVND } from '../../src/features/subscription/plans';
+import { IapPurchaseCard } from '../../src/features/iap/IapPurchaseCard';
+import { careCircleApi, type CareCircleConnection } from '../../src/features/care-circle/care-circle.api';
+import { useAuthStore } from '../../src/features/auth/auth.store';
+import { apiClient, getApiErrorMessage } from '../../src/lib/apiClient';
+import { showToast } from '../../src/stores/toast.store';
+import { colors, radius, spacing, typography } from '../../src/styles';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
-// Assets
-const CROWN_HERO = require('../../assets/images/subscription/crown_hero.png');
-const PHONE_HERO = require('../../assets/images/subscription/phone_hero.png');
-const LEAVES_LEFT = require('../../assets/images/subscription/header_leaves_left.png');
-
-// Types
+type PlanCode = 'free' | 'antam_2' | 'antam_4' | 'antam_8';
 type SubscriptionStatus = {
-  ok?: boolean;
-  tier?: 'free' | 'premium' | 'antam';
-  planCode?: string;
-  planName?: string;
-  isPremium?: boolean;
-  isAnTam?: boolean;
-  expiresAt?: string | null;
-  voiceUsedThisMonth?: number;
-  voiceMonthlyLimit?: number;
+  ok: boolean;
+  planCode: PlanCode;
+  planName: string;
+  tier: 'free' | 'antam';
+  isAnTam: boolean;
+  isOwner: boolean;
+  ownerUserId: number;
+  protectedMemberLimit: number;
+  protectedMemberCount: number;
+  connectionLimit: number;
+  billingPeriod: 'monthly' | 'yearly' | null;
+  expiresAt: string | null;
+  consultationCredits: number;
+};
+type ProtectedMember = { userId: number; name: string; avatarUrl: string | null; addedAt: string };
+type Household = {
+  ok: boolean;
+  ownerUserId: number;
+  planCode: PlanCode;
+  planName: string;
+  protectedMemberLimit: number;
+  protectedMemberCount: number;
+  members: ProtectedMember[];
 };
 
-type QRData = {
-  order_code: string;
-  qr_url: string;
-  amount: number;
-  description: string;
-  expires_at: string;
-  plan_months: number;
-  discount: number;
-};
+const FREE_FEATURES = [
+  'v2FreeFeature1',
+  'v2FreeFeature2',
+  'v2FreeFeature3',
+  'v2FreeFeature4',
+  'v2FreeFeature5',
+];
 
-type SubRecord = {
-  id: number;
-  order_code: string;
-  amount: string;
-  status: 'pending' | 'completed' | 'failed';
-  plan_months: number;
-  subscription_end: string | null;
-  created_at: string;
-};
+const AN_TAM_FEATURES = [
+  'v2AnTamFeature1',
+  'v2AnTamFeature2',
+  'v2AnTamFeature3',
+  'v2AnTamFeature4',
+  'v2AnTamFeature5',
+];
 
-function formatDate(d: string | null) {
-  if (!d) return '';
-  const date = new Date(d);
-  if (Number.isNaN(date.getTime())) return '';
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `${day}/${month}/${date.getFullYear()}`;
+function memberFromConnection(connection: CareCircleConnection, currentUserId: number, fallbackName: string) {
+  const currentIsRequester = Number(connection.requester_id) === currentUserId;
+  return {
+    userId: Number(currentIsRequester ? connection.addressee_id : connection.requester_id),
+    name:
+      (currentIsRequester ? connection.addressee_full_name : connection.requester_full_name) ||
+      (currentIsRequester ? connection.addressee_name : connection.requester_name) ||
+      fallbackName,
+  };
 }
-
-function formatCountdown(s: number) {
-  const m = Math.floor(s / 60);
-  return `${m}:${(s % 60).toString().padStart(2, '0')}`;
-}
-
-function statusColor(s: SubRecord['status']) {
-  if (s === 'completed') return colors.success;
-  if (s === 'failed') return colors.danger;
-  return colors.warning;
-}
-
-// ── Memoized Subcomponents for Zero-Jank Rendering ──
-
-type CurrentPlanCardProps = {
-  status: SubscriptionStatus | null;
-  t: (key: string, options?: any) => string;
-  styles: ReturnType<typeof createStyles>;
-};
-
-const CurrentPlanCard = memo(function CurrentPlanCard({ status, t, styles }: CurrentPlanCardProps) {
-  const isPaid = Boolean(
-    status?.isPremium || status?.isAnTam || (status?.tier && status.tier !== 'free'),
-  );
-  const planBadgeText = status?.planName || (isPaid ? t('premium') : t('free'));
-
-  return (
-    <View style={styles.currentPlanCard}>
-      <View style={styles.currentAvatarWrap}>
-        <Ionicons name="person" size={20} color="#059669" />
-      </View>
-      <View style={styles.currentPlanInfo}>
-        <View style={styles.currentPlanTitleRow}>
-          <Text style={styles.currentPlanLabel}>{t('currentPlan')}</Text>
-          <View style={styles.currentPlanBadge}>
-            <Text style={styles.currentPlanBadgeText}>{planBadgeText}</Text>
-          </View>
-        </View>
-        <Text style={styles.currentPlanSub}>
-          {isPaid && status?.expiresAt
-            ? t('expiresAt', { date: formatDate(status.expiresAt) })
-            : t('currentPlanDesc')}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-    </View>
-  );
-});
-
-type FeatureItem = {
-  icon?: React.ReactNode;
-  text: string;
-  dim?: boolean;
-};
-
-type PlanComparisonProps = {
-  freeFeatures: FeatureItem[];
-  premiumFeatures: FeatureItem[];
-  onUpgradePress: () => void;
-  t: (key: string) => string;
-  styles: ReturnType<typeof createStyles>;
-};
-
-const PlanComparison = memo(function PlanComparison({
-  freeFeatures,
-  premiumFeatures,
-  onUpgradePress,
-  t,
-  styles,
-}: PlanComparisonProps) {
-  return (
-    <View style={styles.comparisonRow}>
-      {/* Free Plan Card */}
-      <View style={styles.freeCard}>
-        <View style={styles.planCardHeader}>
-          <View style={styles.freeAvatar}>
-            <Ionicons name="person-outline" size={20} color="#64748b" />
-          </View>
-          <Text style={styles.freePlanTitle}>{t('free')}</Text>
-          <Text style={styles.freePrice}>{t('freePrice')}</Text>
-          <Text style={styles.perMonthText}>{t('perMonth')}</Text>
-        </View>
-
-        <View style={styles.featureList}>
-          {freeFeatures.map((item, idx) => (
-            <View key={idx} style={styles.featureRow}>
-              <View style={styles.featureIconWrap}>{item.icon}</View>
-              <Text
-                style={[styles.featureText, item.dim && styles.featureTextDim]}
-                numberOfLines={2}
-              >
-                {item.text}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.freeCTABox}>
-          <Text style={styles.freeCTAText}>{t('currentlyUsing')}</Text>
-        </View>
-      </View>
-
-      {/* Premium Plan Card (Highlighted) */}
-      <View style={styles.premiumCard}>
-        <View style={styles.popularBadge}>
-          <Text style={styles.popularBadgeText}>{t('mostPopular')}</Text>
-        </View>
-
-        <View style={styles.planCardHeader}>
-          <View style={styles.premiumAvatar}>
-            <MaterialCommunityIcons name="crown" size={22} color="#f59e0b" />
-          </View>
-          <Text style={styles.premiumPlanTitle}>{t('premium')}</Text>
-          <Text style={styles.premiumPrice}>{t('premiumPrice')}</Text>
-          <Text style={styles.premiumPerMonthText}>{t('perMonth')}</Text>
-        </View>
-
-        <View style={styles.featureList}>
-          {premiumFeatures.map((item, idx) => (
-            <View key={idx} style={styles.featureRow}>
-              <Ionicons name="checkmark-circle" size={16} color="#ea580c" style={styles.premiumCheckIcon} />
-              <Text style={styles.premiumFeatureText} numberOfLines={2}>
-                {item.text}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <Pressable
-          onPress={onUpgradePress}
-          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-        >
-          <LinearGradient
-            colors={['#f97316', '#ea580c']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.premiumCTABtn}
-          >
-            <Text style={styles.premiumCTAText}>{t('upgradeNow')} →</Text>
-          </LinearGradient>
-        </Pressable>
-      </View>
-    </View>
-  );
-});
-
-type ComingSoonCardProps = {
-  t: (key: string) => string;
-  styles: ReturnType<typeof createStyles>;
-};
-
-const ComingSoonCard = memo(function ComingSoonCard({ t, styles }: ComingSoonCardProps) {
-  return (
-    <View style={styles.comingSoonCard}>
-      <View style={styles.sproutIconWrap}>
-        <MaterialCommunityIcons name="sprout" size={22} color="#059669" />
-      </View>
-      <View style={styles.comingSoonTextCol}>
-        <Text style={styles.comingSoonTitle}>{t('upgradeComingSoonTitle')}</Text>
-        <Text style={styles.comingSoonBody}>{t('upgradeComingSoonBody')}</Text>
-      </View>
-      <Image
-        source={PHONE_HERO}
-        style={styles.phoneArtImg}
-        contentFit="contain"
-        cachePolicy="memory-disk"
-        priority="normal"
-      />
-    </View>
-  );
-});
-
-type HistoryCardProps = {
-  history: SubRecord[];
-  loadingHistory: boolean;
-  t: (key: string, options?: any) => string;
-  statusLabel: (s: SubRecord['status']) => string;
-  styles: ReturnType<typeof createStyles>;
-};
-
-const HistoryCard = memo(function HistoryCard({
-  history,
-  loadingHistory,
-  t,
-  statusLabel,
-  styles,
-}: HistoryCardProps) {
-  return (
-    <View style={styles.historyCard}>
-      <View style={styles.receiptIconWrap}>
-        <Ionicons name="receipt-outline" size={20} color="#059669" />
-      </View>
-      <View style={styles.historyContentWrap}>
-        <Text style={styles.historyTitle}>{t('historyTitle')}</Text>
-        {loadingHistory ? (
-          <ActivityIndicator size="small" color={colors.primary} style={styles.historyLoading} />
-        ) : history.length === 0 ? (
-          <Text style={styles.historyEmptyText}>{t('noHistory')}</Text>
-        ) : (
-          <View style={styles.historyItemsList}>
-            {history.slice(0, 3).map((sub) => (
-              <View key={sub.id} style={styles.historyItemRow}>
-                <View style={styles.historyItemCol}>
-                  <Text style={styles.historyItemAmount}>
-                    {t('priceVnd', { amount: formatVND(sub.amount) })} · {t('planMonth', { months: sub.plan_months })}
-                  </Text>
-                  <Text style={styles.historyItemDate}>{formatDate(sub.created_at)}</Text>
-                </View>
-                <View style={[styles.historyStatusPill, { backgroundColor: statusColor(sub.status) + '20' }]}>
-                  <Text style={[styles.historyStatusText, { color: statusColor(sub.status) }]}>
-                    {statusLabel(sub.status)}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    </View>
-  );
-});
-
-// ── Main Screen Component ──
 
 export default function SubscriptionScreen() {
-  const { t } = useTranslation('subscription');
-  const { t: tc } = useTranslation('common');
+  const { t, i18n } = useTranslation('subscription');
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const scaledTypography = useScaledTypography();
-  const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
-
+  const currentUserId = Number(useAuthStore((state) => state.profile?.id) || 0);
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
-  const [loadingStatus, setLoadingStatus] = useState(true);
-  const [selectedPlan, setSelectedPlan] = useState(1);
-  const [qr, setQr] = useState<QRData | null>(null);
-  const [creatingQR, setCreatingQR] = useState(false);
-  const [history, setHistory] = useState<SubRecord[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-  const [pollStatus, setPollStatus] = useState<'idle' | 'polling' | 'success'>('idle');
-  const [showPayMethodModal, setShowPayMethodModal] = useState(false);
-  const [showWalletConfirm, setShowWalletConfirm] = useState(false);
-  const [walletBalance, setWalletBalance] = useState<string>('0');
-  const [walletPayResult, setWalletPayResult] = useState<'idle' | 'loading' | 'success' | 'failed'>('idle');
-  const [walletPayError, setWalletPayError] = useState<string>('');
+  const [household, setHousehold] = useState<Household | null>(null);
+  const [connections, setConnections] = useState<CareCircleConnection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [memberModal, setMemberModal] = useState(false);
+  const [memberBusy, setMemberBusy] = useState<number | null>(null);
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const handledOrderCodesRef = useRef(new Set<string>());
-  const clearTimers = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (pollRef.current) clearInterval(pollRef.current);
-  }, []);
-
-  const fetchStatus = useCallback(async () => {
+  const refresh = useCallback(async () => {
     try {
-      const res = await apiClient<SubscriptionStatus>('/api/subscriptions/status');
-      setStatus(res);
-    } catch { /* silent */ } finally { setLoadingStatus(false); }
-  }, []);
-
-  const fetchHistory = useCallback(async () => {
-    setLoadingHistory(true);
-    try {
-      const res = await apiClient<{ ok: boolean; subscriptions: SubRecord[] }>('/api/subscriptions/history?limit=10');
-      if (res.ok) setHistory(res.subscriptions);
-    } catch { /* silent */ } finally { setLoadingHistory(false); }
-  }, []);
-
-  useEffect(() => {
-    fetchStatus();
-    fetchHistory();
-    return () => clearTimers();
-  }, [fetchStatus, fetchHistory, clearTimers]);
-
-  const startCountdown = useCallback((expiresAt: string) => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    const tick = () => {
-      const rem = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-      setCountdown(rem);
-      if (rem <= 0 && timerRef.current) clearInterval(timerRef.current);
-    };
-    tick();
-    timerRef.current = setInterval(tick, 1000);
-  }, []);
-
-  const startPolling = useCallback((orderCode: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    setPollStatus('polling');
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await apiClient<{ ok: boolean; subscriptions: SubRecord[] }>('/api/subscriptions/history?limit=5');
-        if (res.ok) {
-          const found = res.subscriptions.find(s => s.order_code === orderCode && s.status === 'completed');
-          if (found) {
-            if (handledOrderCodesRef.current.has(orderCode)) return;
-            handledOrderCodesRef.current.add(orderCode);
-            clearTimers();
-            setPollStatus('success');
-            setHistory(res.subscriptions);
-            fetchStatus();
-            showToast(t('subscriptionSuccess'), 'success');
-          }
-        }
-      } catch { /* silent */ }
-    }, 5000);
-  }, [clearTimers, fetchStatus, t]);
-
-  const handleCreateQR = useCallback(async () => {
-    setCreatingQR(true);
-    try {
-      const res = await apiClient<QRData>('/api/subscriptions/qr', { method: 'POST', body: { months: selectedPlan } });
-      setQr(res);
-      setPollStatus('idle');
-      startCountdown(res.expires_at);
-      startPolling(res.order_code);
-      showToast(t('qrCreated'), 'success');
-    } catch {
-      showToast(t('paymentNetworkError'), 'error');
-    } finally { setCreatingQR(false); }
-  }, [selectedPlan, startCountdown, startPolling, t]);
-
-  const handleCancelQR = useCallback(() => { clearTimers(); setQr(null); setPollStatus('idle'); }, [clearTimers]);
-
-  const handleOpenPayMethod = useCallback(async () => {
-    setShowPayMethodModal(true);
-    try {
-      const res = await apiClient<{ ok: boolean; balance: string }>('/api/payments/balance');
-      if (res.ok) setWalletBalance(res.balance);
-    } catch {}
-  }, []);
-
-  const handleWalletPay = useCallback(async () => {
-    setWalletPayResult('loading');
-    setWalletPayError('');
-    try {
-      const res = await apiClient<{ ok: boolean; message?: string }>('/api/subscriptions/wallet', {
-        method: 'POST',
-        body: { months: selectedPlan },
-      });
-      if (res.ok) {
-        setWalletPayResult('success');
-        fetchStatus();
-        fetchHistory();
-        showToast(t('subscriptionSuccess'), 'success');
-      } else {
-        setWalletPayResult('failed');
-        setWalletPayError(res.message ?? t('paymentFailed'));
-      }
-    } catch (err) {
-      setWalletPayResult('failed');
-      if (err instanceof ApiError) {
-        const message = getApiErrorMessage(err, tc, 'errorServer');
-        setWalletPayError(message);
-      } else {
-        setWalletPayError(t('paymentNetworkError'));
-      }
+      const [nextStatus, nextHousehold, nextConnections] = await Promise.all([
+        apiClient<SubscriptionStatus>('/api/subscriptions/status'),
+        apiClient<Household>('/api/subscription-household'),
+        careCircleApi.getConnections(),
+      ]);
+      setStatus(nextStatus);
+      setHousehold(nextHousehold);
+      setConnections(nextConnections);
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t, 'v2LoadError'), 'error');
+    } finally {
+      setLoading(false);
     }
-  }, [selectedPlan, fetchStatus, fetchHistory, t, tc]);
-
-  const handleUpgradePress = useCallback(() => {
-    if (env.paymentMethod === 'sepay') {
-      handleOpenPayMethod();
-    } else if (env.paymentMethod === 'iap') {
-      showToast(t('chooseIapPlan'), 'info');
-    } else {
-      showToast(t('upgradeComingSoonTitle'), 'info');
-    }
-  }, [handleOpenPayMethod, t]);
-
-  const isQrExpired = qr ? countdown <= 0 && pollStatus !== 'success' : false;
-  const activePlan = PLANS.find(p => p.months === selectedPlan) ?? PLANS[0];
-
-  const statusLabel = useCallback((s: SubRecord['status']) => {
-    if (s === 'completed') return t('statusCompleted');
-    if (s === 'failed') return t('statusFailed');
-    return t('statusPending');
   }, [t]);
 
-  // Feature lists matching the screenshot
-  const freeFeatures = useMemo<FeatureItem[]>(() => [
-    { icon: <Ionicons name="calendar-outline" size={15} color={colors.textSecondary} />, text: t('features.history30d') },
-    { icon: <Ionicons name="chatbubble-outline" size={15} color={colors.textSecondary} />, text: t('features.chatHistory30d') },
-    { icon: <MaterialCommunityIcons name="cube-outline" size={15} color={colors.textSecondary} />, text: t('features.chatContext50') },
-    { icon: <Ionicons name="people-outline" size={15} color={colors.textSecondary} />, text: t('features.connectionsFree') },
-    { icon: <Ionicons name="mic-off-outline" size={15} color="#94a3b8" />, text: t('features.voiceChatNo'), dim: true },
-    { icon: <Ionicons name="mic-off-outline" size={15} color="#94a3b8" />, text: t('features.voiceLogNo'), dim: true },
-    { icon: <Ionicons name="mic-off-outline" size={15} color="#94a3b8" />, text: t('features.voiceTranscribeNo'), dim: true },
-  ], [t]);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-  const premiumFeatures = useMemo<FeatureItem[]>(() => [
-    { text: t('features.history365d') },
-    { text: t('features.chatHistory365d') },
-    { text: t('features.chatContext300') },
-    { text: t('features.connections3') },
-    { text: t('features.voiceChat5k') },
-    { text: t('features.voiceLogYes') },
-    { text: t('features.voiceTranscribeYes') },
-  ], [t]);
+  const candidates = useMemo(() => {
+    const activeIds = new Set(household?.members.map((member) => member.userId) ?? []);
+    return connections
+      .map((connection) => memberFromConnection(connection, currentUserId, t('v2Relative')))
+      .filter((member) => member.userId > 0 && !activeIds.has(member.userId));
+  }, [connections, currentUserId, household?.members, t]);
 
-  const handleBack = useCallback(() => router.back(), [router]);
-  const handleGiftPress = useCallback(() => router.push('/subscription/gift' as any), [router]);
+  const addMember = useCallback(async (userId: number) => {
+    setMemberBusy(userId);
+    try {
+      const next = await apiClient<Household>('/api/subscription-household/members', {
+        method: 'POST',
+        body: { user_id: userId },
+      });
+      setHousehold(next);
+      setMemberModal(false);
+      await refresh();
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t, 'v2MemberUpdateError'), 'error');
+    } finally {
+      setMemberBusy(null);
+    }
+  }, [refresh, t]);
+
+  const removeMember = useCallback(async (userId: number) => {
+    setMemberBusy(userId);
+    try {
+      const next = await apiClient<Household>(`/api/subscription-household/members/${userId}`, {
+        method: 'DELETE',
+      });
+      setHousehold(next);
+      await refresh();
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t, 'v2MemberUpdateError'), 'error');
+    } finally {
+      setMemberBusy(null);
+    }
+  }, [refresh, t]);
 
   return (
-    <Screen>
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + spacing.sm }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        scrollEventThrottle={16}
-        removeClippedSubviews={Platform.OS === 'android'}
-      >
-        <Animated.View entering={FadeInDown.duration(280)}>
-          {/* ── Top Header with 3D Crown Art & Left Leaves ── */}
-          <View style={styles.headerRow}>
-            {/* Decorative leaf vine behind back button */}
-            <View style={styles.leavesLeftWrap} pointerEvents="none">
-              <Image
-                source={LEAVES_LEFT}
-                style={styles.leavesLeftImg}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-                priority="high"
-              />
-            </View>
+    <SafeAreaView style={styles.screen} edges={['bottom']}>
+      <Stack.Screen options={{
+        headerShown: true,
+        title: t('v2PageTitle'),
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: colors.background },
+        headerLeft: () => <ScreenBackButton onPress={() => router.back()} />,
+      }} />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.hero}>
+          <View style={styles.heroIcon}><MaterialCommunityIcons name="shield-check" size={31} color="#fff" /></View>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroTitle}>{t('v2HeroTitle')}</Text>
+            <Text style={styles.heroBody}>{t('v2HeroBody')}</Text>
+          </View>
+        </View>
 
-            <ScreenBackButton onPress={handleBack} />
-            <View style={styles.headerTextCol}>
-              <Text style={styles.headerTitle}>{t('title')}</Text>
-              <Text style={styles.headerSubtitle} numberOfLines={2}>
-                {t('headerSubtitle')}
+        <View style={styles.currentCard}>
+          <Text style={styles.sectionLabel}>{t('v2CurrentPlan')}</Text>
+          {loading ? <ActivityIndicator color={colors.primary} /> : (
+            <>
+              <View style={styles.currentRow}>
+                <Text style={styles.currentName}>{status?.planName ?? t('v2FreePlan')}</Text>
+                <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>{t('v2Active')}</Text></View>
+              </View>
+              <Text style={styles.currentMeta}>
+                {status?.isAnTam
+                  ? t('v2PaidMeta', {
+                      used: status.protectedMemberCount,
+                      limit: status.protectedMemberLimit,
+                      expiry: status.expiresAt
+                        ? t('v2PaidExpiry', {
+                            date: new Date(status.expiresAt).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN'),
+                          })
+                        : '',
+                    })
+                  : t('v2FreeMeta')}
               </Text>
-            </View>
-            <View style={styles.crownArtWrap} pointerEvents="none">
-              <Image
-                source={CROWN_HERO}
-                style={styles.crownHeroImg}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-                priority="high"
-              />
-            </View>
-          </View>
-
-          {/* ── Gói hiện tại (Current Plan Card) ── */}
-          <CurrentPlanCard status={status} t={t} styles={styles} />
-
-          {/* ── Two-Column Plan Comparison (Miễn phí vs Premium) ── */}
-          <PlanComparison
-            freeFeatures={freeFeatures}
-            premiumFeatures={premiumFeatures}
-            onUpgradePress={handleUpgradePress}
-            t={t}
-            styles={styles}
-          />
-
-          {/* ── FAQ Section (Câu hỏi thường gặp) ── */}
-          <View style={styles.faqWrapper}>
-            <SubscriptionFAQ />
-          </View>
-
-          {/* ── Coming Soon Banner (Tính năng nâng cấp sắp ra mắt) ── */}
-          <ComingSoonCard t={t} styles={styles} />
-
-          {/* ── Registration History Card (Lịch sử đăng ký) ── */}
-          <HistoryCard
-            history={history}
-            loadingHistory={loadingHistory}
-            t={t}
-            statusLabel={statusLabel}
-            styles={styles}
-          />
-
-          {/* Restore Purchases Link for Store Guidelines */}
-          {Boolean(
-            status?.isPremium || status?.isAnTam || (status?.tier && status.tier !== 'free'),
-          ) && (
-            <View style={styles.restoreWrap}>
-              <RestoreLink onRestored={() => { fetchStatus(); fetchHistory(); }} />
-            </View>
+            </>
           )}
+        </View>
 
-          {/* Gift Premium Entry if SePay enabled */}
-          {env.paymentMethod === 'sepay' && (
-            <Pressable
-              onPress={handleGiftPress}
-              style={({ pressed }) => [styles.giftCard, { opacity: pressed ? 0.8 : 1 }]}
-            >
-              <View style={styles.giftIconWrap}>
-                <Ionicons name="gift" size={20} color="#d97706" />
+        <View style={styles.featureCard}>
+          <Text style={styles.cardTitle}>{t('v2FreeTitle')}</Text>
+          {FREE_FEATURES.map((feature) => (
+            <View key={feature} style={styles.featureRow}>
+              <Ionicons name="checkmark-circle" size={19} color={colors.success} />
+              <Text style={styles.featureText}>{t(feature)}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.featureCard}>
+          <Text style={styles.cardTitle}>{t('v2AnTamTitle')}</Text>
+          {AN_TAM_FEATURES.map((feature) => (
+            <View key={feature} style={styles.featureRow}>
+              <MaterialCommunityIcons name="shield-check" size={19} color={colors.primary} />
+              <Text style={styles.featureText}>{t(feature)}</Text>
+            </View>
+          ))}
+        </View>
+
+        <IapPurchaseCard
+          currentPlanCode={status?.planCode}
+          currentBillingPeriod={status?.billingPeriod}
+          onPurchased={refresh}
+        />
+
+        <View style={styles.householdCard}>
+          <View style={styles.householdHeader}>
+            <View style={styles.householdTitleCopy}>
+              <Text style={styles.cardTitle}>{t('v2ProtectedPeople')}</Text>
+              <Text style={styles.householdMeta}>{t('v2SlotsUsed', { used: household?.protectedMemberCount ?? 0, limit: household?.protectedMemberLimit ?? 1 })}</Text>
+            </View>
+            {status?.isOwner && status.isAnTam && (
+              <Pressable
+                style={styles.addButton}
+                disabled={
+                  (household?.protectedMemberCount ?? 0) >=
+                    (household?.protectedMemberLimit ?? 1) &&
+                  !(household?.members ?? []).some(
+                    (member) => member.userId === household?.ownerUserId
+                  )
+                }
+                onPress={() => setMemberModal(true)}
+              >
+                <Ionicons name="add" size={18} color="#fff" />
+                <Text style={styles.addText}>{t('v2Add')}</Text>
+              </Pressable>
+            )}
+          </View>
+          {(household?.members ?? []).map((member) => (
+            <View key={member.userId} style={styles.memberRow}>
+              <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{member.name.trim().charAt(0).toUpperCase()}</Text></View>
+              <View style={styles.memberCopy}>
+                <Text style={styles.memberName}>{member.name}</Text>
+                <Text style={styles.memberRole}>{member.userId === household?.ownerUserId ? t('v2Owner') : t('v2Protected')}</Text>
               </View>
-              <View style={styles.giftContentWrap}>
-                <Text style={styles.giftTitle}>{t('giftEntry')}</Text>
-                <Text style={styles.giftDesc}>{t('giftEntryDesc')}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-            </Pressable>
-          )}
-        </Animated.View>
+              {status?.isOwner && member.userId !== household?.ownerUserId && (
+                <Pressable onPress={() => removeMember(member.userId)} disabled={memberBusy === member.userId}>
+                  {memberBusy === member.userId
+                    ? <ActivityIndicator size="small" color={colors.textSecondary} />
+                    : <Ionicons name="close-circle-outline" size={22} color={colors.textSecondary} />}
+                </Pressable>
+              )}
+            </View>
+          ))}
+          {!status?.isAnTam && <Text style={styles.freeHint}>{t('v2FreeHint')}</Text>}
+        </View>
+
+        <Text style={styles.footerNote}>{t('v2EmergencyContactHint')}</Text>
       </ScrollView>
 
-      {/* ── QR Payment Section Modal (SePay) ── */}
-      {qr && (
-        <Modal visible transparent animationType="fade" onRequestClose={handleCancelQR}>
-          <Pressable style={styles.payModalOverlay} onPress={handleCancelQR}>
-            <Pressable style={styles.payModalBox} onPress={() => {}}>
-              {pollStatus === 'success' ? (
-                <View style={styles.successBox}>
-                  <Ionicons name="checkmark-circle" size={56} color={colors.success} />
-                  <Text style={styles.successTitle}>{t('activationSuccess')}</Text>
-                  <Text style={styles.successDesc}>{t('activationSuccessDesc')}</Text>
-                </View>
-              ) : isQrExpired ? (
-                <View style={styles.expiredBox}>
-                  <Ionicons name="time-outline" size={40} color={colors.danger} />
-                  <Text style={styles.expiredText}>{t('qrExpired')}</Text>
-                  <Pressable style={styles.retryBtn} onPress={handleCreateQR}>
-                    <Text style={styles.retryBtnText}>{t('generateQR')}</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.payModalTitle}>{t('paymentQR')}</Text>
-                  <Image source={{ uri: qr.qr_url }} style={styles.qrImage} contentFit="contain" />
-                  <View style={styles.countdownRow}>
-                    <Ionicons name="time-outline" size={14} color={colors.warning} />
-                    <Text style={styles.countdownText}>{t('countdown', { time: formatCountdown(countdown) })}</Text>
-                  </View>
-                  <View style={styles.noteBox}>
-                    <Text style={styles.noteLabel}>{t('transferNote')}</Text>
-                    <Text style={styles.noteValue}>{qr.description}</Text>
-                  </View>
-                  <View style={styles.noteBox}>
-                    <Text style={styles.noteLabel}>{t('amountLabel', { plan: t('planMonth', { months: qr.plan_months }) })}</Text>
-                    <Text style={[styles.noteValue, { color: '#ea580c' }]}>{formatVND(qr.amount)}đ</Text>
-                  </View>
-                  <View style={styles.pollingRow}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={styles.pollingText}>{t('polling')}</Text>
-                  </View>
-                  <Pressable style={styles.cancelBtn} onPress={handleCancelQR}>
-                    <Text style={styles.cancelBtnText}>{t('cancelQR')}</Text>
-                  </Pressable>
-                </>
-              )}
+      <Modal visible={memberModal} transparent animationType="slide" onRequestClose={() => setMemberModal(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setMemberModal(false)} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>{t('v2ChooseProtected')}</Text>
+          <Text style={styles.sheetBody}>{t('v2ChooseProtectedBody')}</Text>
+          {candidates.length === 0 ? (
+            <Pressable style={styles.emptyCandidate} onPress={() => { setMemberModal(false); router.push('/care-circle/invite' as any); }}>
+              <Ionicons name="person-add-outline" size={23} color={colors.primary} />
+              <Text style={styles.emptyCandidateText}>{t('v2InviteToCircle')}</Text>
             </Pressable>
-          </Pressable>
-        </Modal>
-      )}
-
-      {/* ── Modal chọn phương thức thanh toán ── */}
-      <Modal visible={showPayMethodModal} transparent animationType="fade" onRequestClose={() => setShowPayMethodModal(false)}>
-        <Pressable style={styles.payModalOverlay} onPress={() => setShowPayMethodModal(false)}>
-          <Pressable style={styles.payModalBox} onPress={() => {}}>
-            <Text style={styles.payModalTitle}>{t('chooseMethod')}</Text>
-
-            <Pressable
-              style={styles.payMethodBtn}
-              onPress={() => { setShowPayMethodModal(false); setShowWalletConfirm(true); }}
-            >
-              <View style={styles.payMethodIcon}>
-                <MaterialCommunityIcons name="wallet" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.payMethodTextWrap}>
-                <Text style={styles.payMethodLabel}>{t('walletDeduct')}</Text>
-                <Text style={styles.payMethodSub}>{t('walletBalance', { amount: formatVND(walletBalance) })}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          ) : candidates.map((candidate) => (
+            <Pressable key={candidate.userId} style={styles.candidateRow} onPress={() => addMember(candidate.userId)}>
+              <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{candidate.name.charAt(0).toUpperCase()}</Text></View>
+              <Text style={styles.candidateName}>{candidate.name}</Text>
+              {memberBusy === candidate.userId ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="add-circle" size={24} color={colors.primary} />}
             </Pressable>
-
-            <Pressable
-              style={styles.payMethodBtn}
-              onPress={() => { setShowPayMethodModal(false); handleCreateQR(); }}
-            >
-              <View style={styles.payMethodIcon}>
-                <MaterialCommunityIcons name="qrcode-scan" size={24} color="#ea580c" />
-              </View>
-              <View style={styles.payMethodTextWrap}>
-                <Text style={styles.payMethodLabel}>{t('scanQR')}</Text>
-                <Text style={styles.payMethodSub}>{t('bankTransfer')}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </Pressable>
-
-            <Pressable style={styles.payCancelBtn} onPress={() => setShowPayMethodModal(false)}>
-              <Text style={styles.payCancelText}>{t('cancel')}</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
+          ))}
+        </View>
       </Modal>
-
-      {/* ── Modal xác nhận thanh toán bằng ví ── */}
-      <Modal visible={showWalletConfirm} transparent animationType="fade" onRequestClose={() => setShowWalletConfirm(false)}>
-        <Pressable style={styles.payModalOverlay} onPress={() => setShowWalletConfirm(false)}>
-          <Pressable style={styles.payModalBox} onPress={() => {}}>
-            {walletPayResult === 'success' ? (
-              <View style={styles.walletResultBox}>
-                <Ionicons name="checkmark-circle" size={56} color={colors.success} />
-                <Text style={styles.walletResultTitle}>{t('subscriptionSuccess')}</Text>
-                <Text style={styles.walletResultDesc}>{t('planActivated', { months: activePlan.months })}</Text>
-                <Pressable
-                  style={styles.confirmOkBtn}
-                  onPress={() => { setShowWalletConfirm(false); setWalletPayResult('idle'); }}
-                >
-                  <Text style={styles.confirmOkText}>{t('close')}</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <MaterialCommunityIcons name="wallet-outline" size={36} color={colors.primary} style={styles.walletIconSelf} />
-                <Text style={styles.payModalTitle}>{t('confirmSubscription')}</Text>
-                <Text style={styles.confirmDesc}>
-                  {t('confirmSubscriptionMsg', { months: activePlan.months, price: formatVND(activePlan.price) })}
-                </Text>
-                <View style={styles.confirmBalanceRow}>
-                  <Text style={styles.confirmBalanceLabel}>{t('currentBalance')}</Text>
-                  <Text style={styles.confirmBalanceValue}>{formatVND(walletBalance)}{t('currency')}</Text>
-                </View>
-                {walletPayResult === 'failed' && (
-                  <View style={styles.walletErrorBox}>
-                    <Ionicons name="alert-circle" size={16} color={colors.danger} />
-                    <Text style={styles.walletErrorText}>{walletPayError}</Text>
-                  </View>
-                )}
-                <View style={styles.confirmActions}>
-                  <Pressable
-                    style={styles.confirmCancelBtn}
-                    onPress={() => { setShowWalletConfirm(false); setShowPayMethodModal(true); }}
-                    disabled={walletPayResult === 'loading'}
-                  >
-                    <Text style={styles.confirmCancelText}>{t('goBack')}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.confirmOkBtn, walletPayResult === 'failed' && styles.confirmRetryBtn]}
-                    onPress={handleWalletPay}
-                    disabled={walletPayResult === 'loading'}
-                  >
-                    {walletPayResult === 'loading' ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text style={styles.confirmOkText}>{walletPayResult === 'failed' ? t('retry') : t('confirm')}</Text>
-                    )}
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
-  return StyleSheet.create({
-    scrollContent: {
-      paddingBottom: 90,
-      paddingHorizontal: 16,
-    },
-    headerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      position: 'relative',
-      minHeight: 112,
-      paddingTop: 6,
-      paddingBottom: 8,
-    },
-    leavesLeftWrap: {
-      position: 'absolute',
-      left: -14,
-      top: -8,
-      width: 140,
-      height: 85,
-      zIndex: 0,
-    },
-    leavesLeftImg: {
-      width: '100%',
-      height: '100%',
-    },
-    headerTextCol: {
-      flex: 1,
-      paddingLeft: 10,
-      paddingRight: 180,
-      justifyContent: 'center',
-      zIndex: 1,
-    },
-    headerTitle: {
-      fontSize: 22,
-      fontWeight: '800',
-      letterSpacing: -0.4,
-      color: isDark ? '#f8fafc' : '#0f172a',
-    },
-    headerSubtitle: {
-      fontSize: 12,
-      fontWeight: '500',
-      lineHeight: 17,
-      color: isDark ? '#94a3b8' : '#047857',
-      marginTop: 2,
-    },
-    crownArtWrap: {
-      position: 'absolute',
-      right: -4,
-      top: 4,
-      width: 180,
-      height: 90,
-      zIndex: 1,
-    },
-    crownHeroImg: {
-      width: '100%',
-      height: '100%',
-    },
-
-    // Current plan card
-    currentPlanCard: {
-      backgroundColor: isDark ? colors.surface : '#ffffff',
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: isDark ? colors.border : '#e2e8f0',
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      marginTop: 4,
-    },
-    currentAvatarWrap: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    currentPlanInfo: {
-      flex: 1,
-      minWidth: 0,
-    },
-    currentPlanTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flexWrap: 'wrap',
-      minWidth: 0,
-      gap: 8,
-    },
-    currentPlanLabel: {
-      flexShrink: 1,
-      fontSize: 14.5,
-      fontWeight: '700',
-      color: isDark ? '#f8fafc' : '#0f172a',
-      lineHeight: 20,
-    },
-    currentPlanBadge: {
-      flexShrink: 0,
-      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 12,
-    },
-    currentPlanBadgeText: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: '#059669',
-    },
-    currentPlanSub: {
-      flexShrink: 1,
-      fontSize: 12,
-      color: isDark ? '#94a3b8' : '#64748b',
-      lineHeight: 17,
-      marginTop: 2,
-    },
-
-    // Comparison row
-    comparisonRow: {
-      flexDirection: 'row',
-      gap: 12,
-      marginTop: 14,
-      alignItems: 'stretch',
-    },
-    freeCard: {
-      flex: 1,
-      backgroundColor: isDark ? colors.surface : '#ffffff',
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: isDark ? colors.border : '#e2e8f0',
-      padding: 12,
-      justifyContent: 'space-between',
-    },
-    premiumCard: {
-      flex: 1,
-      backgroundColor: isDark ? '#1c1917' : '#fffbf5',
-      borderRadius: 20,
-      borderWidth: 1.5,
-      borderColor: '#f59e0b',
-      padding: 12,
-      justifyContent: 'space-between',
-      position: 'relative',
-    },
-    popularBadge: {
-      position: 'absolute',
-      top: -10,
-      right: 12,
-      backgroundColor: '#ea580c',
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 10,
-      zIndex: 2,
-    },
-    popularBadgeText: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: '#ffffff',
-    },
-    planCardHeader: {
-      alignItems: 'center',
-      paddingTop: 4,
-      paddingBottom: 8,
-    },
-    freeAvatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: isDark ? '#334155' : '#f1f5f9',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 6,
-    },
-    premiumAvatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: '#fef3c7',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 6,
-    },
-    freePlanTitle: {
-      fontSize: 14.5,
-      fontWeight: '700',
-      color: isDark ? '#f8fafc' : '#0f172a',
-    },
-    premiumPlanTitle: {
-      fontSize: 14.5,
-      fontWeight: '700',
-      color: '#ea580c',
-    },
-    freePrice: {
-      fontSize: 22,
-      fontWeight: '800',
-      color: isDark ? '#f8fafc' : '#0f172a',
-      marginTop: 2,
-      letterSpacing: -0.5,
-    },
-    premiumPrice: {
-      fontSize: 22,
-      fontWeight: '800',
-      color: '#ea580c',
-      marginTop: 2,
-      letterSpacing: -0.5,
-    },
-    perMonthText: {
-      fontSize: 11,
-      color: '#94a3b8',
-      marginTop: -2,
-    },
-    premiumPerMonthText: {
-      fontSize: 11,
-      color: '#ea580c',
-      opacity: 0.8,
-      marginTop: -2,
-    },
-    featureList: {
-      marginVertical: 10,
-      gap: 9,
-    },
-    featureRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    featureIconWrap: {
-      width: 18,
-      alignItems: 'center',
-      marginRight: 6,
-    },
-    featureText: {
-      flex: 1,
-      fontSize: 11,
-      color: isDark ? '#cbd5e1' : '#475569',
-      lineHeight: 15,
-    },
-    featureTextDim: {
-      color: '#94a3b8',
-    },
-    premiumCheckIcon: {
-      marginRight: 6,
-    },
-    premiumFeatureText: {
-      flex: 1,
-      fontSize: 11,
-      fontWeight: '600',
-      color: isDark ? '#f8fafc' : '#1e293b',
-      lineHeight: 15,
-    },
-    freeCTABox: {
-      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
-      borderRadius: 12,
-      paddingVertical: 10,
-      alignItems: 'center',
-      marginTop: 6,
-    },
-    freeCTAText: {
-      fontSize: 12.5,
-      fontWeight: '600',
-      color: '#64748b',
-    },
-    premiumCTABtn: {
-      borderRadius: 12,
-      paddingVertical: 10,
-      alignItems: 'center',
-      marginTop: 6,
-    },
-    premiumCTAText: {
-      fontSize: 12.5,
-      fontWeight: '700',
-      color: '#ffffff',
-    },
-
-    faqWrapper: {
-      marginTop: 16,
-    },
-
-    // Coming soon card
-    comingSoonCard: {
-      backgroundColor: isDark ? '#064e3b20' : '#e6f7ef',
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: isDark ? '#047857' : '#a7f3d0',
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 14,
-      position: 'relative',
-      overflow: 'hidden',
-      minHeight: 96,
-    },
-    sproutIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 10,
-    },
-    comingSoonTextCol: {
-      flex: 1,
-      paddingRight: 142,
-    },
-    comingSoonTitle: {
-      fontSize: 13.5,
-      fontWeight: '700',
-      color: isDark ? '#34d399' : '#047857',
-    },
-    comingSoonBody: {
-      fontSize: 11.5,
-      color: isDark ? '#a7f3d0' : '#065f46',
-      marginTop: 2,
-      lineHeight: 16,
-    },
-    phoneArtImg: {
-      position: 'absolute',
-      right: 4,
-      top: '50%',
-      transform: [{ translateY: -34 }],
-      width: 136,
-      height: 68,
-    },
-
-    // History card
-    historyCard: {
-      backgroundColor: isDark ? colors.surface : '#ffffff',
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: isDark ? colors.border : '#e2e8f0',
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 12,
-      marginTop: 12,
-    },
-    receiptIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    historyContentWrap: {
-      flex: 1,
-    },
-    historyTitle: {
-      fontSize: 14.5,
-      fontWeight: '700',
-      color: isDark ? '#f8fafc' : '#0f172a',
-    },
-    historyLoading: {
-      alignSelf: 'flex-start',
-      marginTop: 4,
-    },
-    historyEmptyText: {
-      fontSize: 12,
-      color: '#94a3b8',
-      marginTop: 4,
-    },
-    historyItemsList: {
-      marginTop: 8,
-      gap: 8,
-    },
-    historyItemRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingTop: 6,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: isDark ? colors.border : '#f1f5f9',
-    },
-    historyItemCol: {
-      flex: 1,
-    },
-    historyItemAmount: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: isDark ? '#f8fafc' : '#1e293b',
-    },
-    historyItemDate: {
-      fontSize: 11.5,
-      color: '#94a3b8',
-      marginTop: 1,
-    },
-    historyStatusPill: {
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 8,
-    },
-    historyStatusText: {
-      fontSize: 11,
-      fontWeight: '600',
-    },
-
-    restoreWrap: {
-      marginTop: 14,
-      alignItems: 'center',
-    },
-
-    // Gift card
-    giftCard: {
-      backgroundColor: isDark ? colors.surface : '#ffffff',
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: isDark ? colors.border : '#e2e8f0',
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      marginTop: 12,
-    },
-    giftIconWrap: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    giftContentWrap: {
-      flex: 1,
-    },
-    giftTitle: {
-      fontSize: 14.5,
-      fontWeight: '700',
-      color: isDark ? '#f8fafc' : '#1e293b',
-    },
-    giftDesc: {
-      fontSize: 12,
-      color: '#64748b',
-      marginTop: 1,
-    },
-
-    // Modals
-    payModalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.45)',
-      justifyContent: 'center',
-      paddingHorizontal: spacing.xl,
-    },
-    payModalBox: {
-      backgroundColor: isDark ? colors.surface : '#ffffff',
-      borderRadius: 24,
-      padding: spacing.xl,
-      gap: spacing.sm,
-    },
-    payModalTitle: {
-      fontSize: typography.size.md,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      textAlign: 'center',
-      marginBottom: spacing.sm,
-    },
-    payMethodBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: spacing.lg,
-      borderRadius: 16,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    payMethodIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    payMethodTextWrap: {
-      flex: 1,
-    },
-    payMethodLabel: {
-      fontSize: typography.size.sm,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    payMethodSub: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-      marginTop: 2,
-    },
-    payCancelBtn: {
-      alignItems: 'center',
-      paddingVertical: spacing.md,
-      marginTop: spacing.xs,
-    },
-    payCancelText: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
-
-    qrImage: { width: '100%', height: 220, marginBottom: spacing.md },
-    countdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: spacing.md },
-    countdownText: { color: colors.warning, fontSize: typography.size.xs, fontWeight: '600' },
-    noteBox: { backgroundColor: colors.surfaceMuted, borderRadius: radius.sm, padding: spacing.md, marginBottom: spacing.sm },
-    noteLabel: { fontSize: typography.size.xs, color: colors.textSecondary, marginBottom: 2 },
-    noteValue: { fontSize: typography.size.sm, color: colors.textPrimary, fontWeight: '700' },
-    pollingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm },
-    pollingText: { color: colors.textSecondary, fontSize: typography.size.xs },
-    cancelBtn: { alignItems: 'center', marginTop: spacing.md, padding: spacing.sm },
-    cancelBtnText: { color: colors.danger, fontSize: typography.size.xs, fontWeight: '600' },
-    expiredBox: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
-    expiredText: { color: colors.danger, fontSize: typography.size.sm, fontWeight: '600' },
-    retryBtn: { backgroundColor: colors.premium, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.md },
-    retryBtnText: { color: '#fff', fontSize: typography.size.xs, fontWeight: '700' },
-    successBox: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
-    successTitle: { color: colors.success, fontSize: typography.size.md, fontWeight: '700' },
-    successDesc: { color: colors.textSecondary, fontSize: typography.size.sm, textAlign: 'center' },
-
-    walletIconSelf: { alignSelf: 'center', marginBottom: spacing.sm },
-    confirmDesc: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-    confirmBalanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, marginTop: spacing.xs },
-    confirmBalanceLabel: { fontSize: typography.size.sm, color: colors.textSecondary },
-    confirmBalanceValue: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
-    confirmActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-    confirmCancelBtn: { flex: 1, paddingVertical: spacing.md, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
-    confirmCancelText: { fontSize: typography.size.sm, fontWeight: '600', color: colors.textSecondary },
-    confirmOkBtn: { flex: 1, paddingVertical: spacing.md, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center' },
-    confirmRetryBtn: { backgroundColor: colors.warning },
-    confirmOkText: { fontSize: typography.size.sm, fontWeight: '700', color: '#fff' },
-
-    walletResultBox: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
-    walletResultTitle: { fontSize: typography.size.md, fontWeight: '700', color: colors.success },
-    walletResultDesc: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center' },
-
-    walletErrorBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.danger + '15', borderRadius: 10, padding: spacing.md, marginTop: spacing.xs },
-    walletErrorText: { flex: 1, fontSize: typography.size.xs, color: colors.danger, fontWeight: '500' },
-  });
-}
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.lg, paddingBottom: 48 },
+  hero: { padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.primaryDark, flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+  heroIcon: { width: 54, height: 54, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  heroCopy: { flex: 1 },
+  heroTitle: { color: '#fff', fontSize: typography.size.lg, fontWeight: '900' },
+  heroBody: { marginTop: 5, color: 'rgba(255,255,255,0.84)', fontSize: typography.size.sm, lineHeight: 20 },
+  currentCard: { marginTop: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
+  sectionLabel: { fontSize: typography.size.xxs, fontWeight: '800', letterSpacing: 1, color: colors.textSecondary },
+  currentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  currentName: { fontSize: typography.size.xl, fontWeight: '900', color: colors.textPrimary },
+  activeBadge: { backgroundColor: colors.emeraldLight, paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.full },
+  activeBadgeText: { color: colors.emerald, fontSize: typography.size.xxs, fontWeight: '800' },
+  currentMeta: { color: colors.textSecondary, fontSize: typography.size.sm },
+  featureCard: { marginTop: spacing.md, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
+  cardTitle: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
+  featureRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  featureText: { flex: 1, fontSize: typography.size.sm, lineHeight: 20, color: colors.textSecondary },
+  householdCard: { marginTop: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  householdHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
+  householdTitleCopy: { gap: 3 },
+  householdMeta: { fontSize: typography.size.xs, color: colors.textSecondary },
+  addButton: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.full },
+  addText: { color: '#fff', fontSize: typography.size.xs, fontWeight: '800' },
+  memberRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  memberAvatar: { width: 36, height: 36, borderRadius: 14, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  memberInitial: { color: colors.primaryDark, fontWeight: '900' },
+  memberCopy: { flex: 1 },
+  memberName: { color: colors.textPrimary, fontSize: typography.size.sm, fontWeight: '700' },
+  memberRole: { marginTop: 2, color: colors.textSecondary, fontSize: typography.size.xs },
+  freeHint: { marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.primaryLight, color: colors.primaryDark, fontSize: typography.size.xs, lineHeight: 18 },
+  footerNote: { marginTop: spacing.md, textAlign: 'center', color: colors.textSecondary, fontSize: typography.size.xs },
+  backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(15,23,42,0.45)' },
+  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.xl, paddingBottom: 38, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.surface },
+  sheetHandle: { width: 42, height: 5, borderRadius: 3, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.lg },
+  sheetTitle: { fontSize: typography.size.lg, fontWeight: '900', color: colors.textPrimary },
+  sheetBody: { marginTop: 4, marginBottom: spacing.md, fontSize: typography.size.sm, color: colors.textSecondary },
+  candidateRow: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  candidateName: { flex: 1, fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
+  emptyCandidate: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.primaryLight, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  emptyCandidateText: { color: colors.primaryDark, fontWeight: '800', fontSize: typography.size.sm },
+});
