@@ -50,6 +50,7 @@ const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
 const SHOW_CHECKIN_CALL_UI_GALLERY = false;
+const SHOW_CHECKIN_RESULT_PREVIEW = true;
 
 const DeleteAccountModal = React.lazy(
   () => import("../../../src/components/DeleteAccountModal"),
@@ -993,6 +994,38 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionHeading}>{ts("title")}</Text>
               </View>
               <View style={styles.cardsStack}>
+                {SHOW_CHECKIN_RESULT_PREVIEW && (
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/checkin",
+                        params: { mode: "result_preview" },
+                      } as any)
+                    }
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("checkinResultPreviewAccessibility")}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="volume-high-outline"
+                        size={22}
+                        color="#07846d"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>
+                      {t("checkinResultPreview")}
+                    </Text>
+                    <Text style={styles.rowMeta}>{t("previewLabel")}</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color="#94a3b8"
+                    />
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
                   style={styles.actionCard}
                   onPress={() =>

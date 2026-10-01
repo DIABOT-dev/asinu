@@ -157,6 +157,28 @@ const STATUS_PALETTE: Record<
 
 type Screen = 'status' | 'location' | 'triage' | 'done';
 
+const createResultPreviewSession = (question: string, symptoms: string): CheckinSession => {
+  const now = new Date().toISOString();
+  return {
+    id: -1,
+    user_id: -1,
+    session_date: now.slice(0, 10),
+    initial_status: 'tired',
+    current_status: 'tired',
+    flow_state: 'monitoring',
+    triage_messages: [{ question, answer: symptoms }],
+    triage_summary: symptoms,
+    triage_severity: 'medium',
+    triage_completed_at: now,
+    next_checkin_at: null,
+    no_response_count: 0,
+    family_alerted: false,
+    emergency_triggered: false,
+    resolved_at: null,
+    created_at: now,
+  };
+};
+
 // T2 Body Location options — match backend body-location.js BODY_LOCATIONS enum
 type BodyLocation = 'head' | 'chest' | 'abdomen' | 'limbs' | 'skin' | 'whole_body' | 'mental';
 
@@ -182,20 +204,34 @@ export default function CheckinScreen() {
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const { language } = useLanguageStore();
-  const params = useLocalSearchParams<{ checkin_id?: string; mode?: string; preset_status?: string }>();
+  const params = useLocalSearchParams<{
+    checkin_id?: string;
+    mode?: string;
+    preset_status?: string;
+  }>();
   const isFollowUp = params.mode === 'followup';
   const isRandom = params.mode === 'random';
+  const isResultPreview = params.mode === 'result_preview';
   const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
   const presetStatus = params.preset_status as CheckinStatus | undefined;
 
-  const [screen, setScreen]       = useState<Screen>('status');
-  const [loading, setLoading]     = useState(!isFollowUp && !existingCheckinId && !isRandom);
-  const [session, setSession]     = useState<CheckinSession | null>(null);
+  const [screen, setScreen] = useState<Screen>(isResultPreview ? 'done' : 'status');
+  const [loading, setLoading] = useState(
+    !isResultPreview && !isFollowUp && !existingCheckinId && !isRandom,
+  );
+  const [session, setSession] = useState<CheckinSession | null>(() =>
+    isResultPreview
+      ? createResultPreviewSession(
+          String(t('checkinResultPreviewQuestion')),
+          String(t('checkinResultPreviewSymptoms')),
+        )
+      : null,
+  );
 
   // Auto-detect: đã check-in hôm nay chưa? Nếu rồi → redirect đúng mode
   // Random mode: bỏ qua check, luôn cho check-in
   useEffect(() => {
-    if (isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
+    if (isResultPreview || isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
     let mounted = true;
     checkinApi.getToday()
       .then(res => {
@@ -226,7 +262,16 @@ export default function CheckinScreen() {
   }, [presetStatus, loading]);
 
   // Triage state
-  const [answers, setAnswers]      = useState<Array<{ question: string; answer: string }>>([]);
+  const [answers, setAnswers] = useState<Array<{ question: string; answer: string }>>(() =>
+    isResultPreview
+      ? [
+          {
+            question: String(t('checkinResultPreviewQuestion')),
+            answer: String(t('checkinResultPreviewSymptoms')),
+          },
+        ]
+      : [],
+  );
   const [currentQ, setCurrentQ]    = useState<string>('');
   const [currentOpts, setCurrentOpts] = useState<string[]>([]);
   const [currentOptsGrouped, setCurrentOptsGrouped] = useState<TriageOptionGroup[] | null>(null);
@@ -234,7 +279,16 @@ export default function CheckinScreen() {
   const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
   const [customAnswer, setCustomAnswer] = useState('');
   const mainScrollRef = useRef<ScrollView>(null);
-  const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(null);
+  const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(() =>
+    isResultPreview
+      ? {
+          summary: String(t('checkinResultPreviewSymptoms')),
+          severity: 'medium',
+          recommendation: String(t('checkinMonitorAdvice')),
+          needsDoctor: false,
+        }
+      : null,
+  );
   // Track user scroll position để chỉ auto scrollToEnd khi user đang ở bottom
   // (vd: tin AI mới về). KHÔNG đẩy xuống nếu user đang đọc options ở giữa list.
   const userAtBottomRef = useRef(true);
@@ -505,7 +559,11 @@ export default function CheckinScreen() {
           }}
           numberOfLines={1}
         >
-          {isFollowUp ? t('checkinHeaderFollowUp') : t('checkinHeaderTitle')}
+          {isResultPreview
+            ? t('checkinResultPreviewHeader')
+            : isFollowUp
+              ? t('checkinHeaderFollowUp')
+              : t('checkinHeaderTitle')}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -570,6 +628,7 @@ export default function CheckinScreen() {
             triageSummary={triageSummary}
             isFollowUp={isFollowUp}
             answers={answers}
+            isPreview={isResultPreview}
             onClose={() => router.back()}
           />
         )}
@@ -1358,6 +1417,7 @@ function DoneScreen({
   triageSummary,
   isFollowUp,
   answers,
+  isPreview = false,
   onClose,
 }: {
   styles: Styles;
@@ -1365,12 +1425,14 @@ function DoneScreen({
   triageSummary: TriageSummaryView | null;
   isFollowUp: boolean;
   answers?: Array<{ question: string; answer: string }>;
+  isPreview?: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation('home');
   const router = useRouter();
   const conclusionSoundRef = useRef<CheckinConclusionSound | null>(null);
   const conclusionSoundPlayedRef = useRef(false);
+  const [soundReplayKey, setSoundReplayKey] = useState(0);
   const isFine = session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
 
   const isEmergency = triageSummary?.severity === 'emergency';
@@ -1432,7 +1494,12 @@ function DoneScreen({
       conclusionSoundRef.current = null;
       sound?.unloadAsync?.().catch(() => {});
     };
-  }, [conclusionSoundSource]);
+  }, [conclusionSoundSource, soundReplayKey]);
+
+  const replayConclusionSound = () => {
+    conclusionSoundPlayedRef.current = false;
+    setSoundReplayKey((value) => value + 1);
+  };
 
   // Severity configurations
   const pillBg = isEmergency
@@ -1503,6 +1570,51 @@ function DoneScreen({
 
   return (
     <View style={{ gap: 18 }}>
+      {isPreview && (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            paddingVertical: 11,
+            paddingHorizontal: 14,
+            borderRadius: 16,
+            backgroundColor: '#E6F7F5',
+            borderWidth: 1,
+            borderColor: '#BFE8E2',
+          }}
+        >
+          <Ionicons name="volume-high-outline" size={21} color="#007F6D" />
+          <Text
+            style={{
+              flex: 1,
+              color: '#0F5F54',
+              fontSize: 13,
+              lineHeight: 18,
+              fontWeight: '600',
+            }}
+          >
+            {t('checkinResultPreviewNotice')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('checkinReplaySound')}
+            hitSlop={8}
+            onPress={replayConclusionSound}
+            style={({ pressed }) => ({
+              minWidth: 44,
+              minHeight: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 22,
+              backgroundColor: pressed ? '#BFE8E2' : '#D4F1EC',
+            })}
+          >
+            <Ionicons name="refresh" size={21} color="#007F6D" />
+          </Pressable>
+        </View>
+      )}
+
       {/* Background watermark cross top right */}
       <View style={{ position: 'absolute', top: -16, right: -10 }} pointerEvents="none">
         <Svg width={76} height={76} viewBox="0 0 24 24">
