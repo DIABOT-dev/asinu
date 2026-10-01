@@ -323,9 +323,7 @@ export default function InviteScreen() {
                   </View>
                 ) : qrPreview ? (
                   <View style={styles.selectedUserCard}>
-                    <View style={styles.selectedUserAvatar}>
-                      <MaterialCommunityIcons name="account-check" size={22} color="#F7FFFD" />
-                    </View>
+                    <MaterialCommunityIcons name="account-check-outline" size={32} color={colors.primary} />
                     <View style={styles.foundUserInfo}>
                       <Text style={styles.foundUserName}>{qrPreview.name}</Text>
                       <Text style={styles.foundUserPhone}>{t('qrVerifiedPerson')}</Text>
@@ -399,9 +397,7 @@ export default function InviteScreen() {
             {/* Selected user */}
             {selectedUser && (
               <View style={styles.selectedUserCard}>
-                <View style={styles.selectedUserAvatar}>
-                  <MaterialCommunityIcons name="account-check" size={22} color="#fff" />
-                </View>
+                <MaterialCommunityIcons name="account-check-outline" size={32} color={colors.primary} />
                 <View style={styles.foundUserInfo}>
                   <Text style={styles.foundUserName}>{selectedUser.name}</Text>
                   {selectedUser.phone && (
@@ -746,14 +742,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderColor: colors.border,
       backgroundColor: colors.primaryLight,
       gap: spacing.md,
-    },
-    selectedUserAvatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     qrRecipientLoading: {
       alignItems: 'center',

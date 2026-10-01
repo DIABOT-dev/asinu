@@ -441,9 +441,7 @@ export default function CareCircleScreen() {
                   onPress={() => router.push('/care-circle/qr' as never)}
                   style={({ pressed }) => [styles.qrAction, pressed && styles.qrActionPressed]}
                 >
-                  <View style={styles.qrActionIcon}>
-                    <Ionicons name="qr-code-outline" size={23} color="#087F73" />
-                  </View>
+                  <Ionicons name="qr-code-outline" size={28} color="#087F73" />
                   <View style={styles.qrActionCopy}>
                     <Text style={styles.qrActionTitle}>{t('myQrTitle')}</Text>
                     <Text numberOfLines={2} style={styles.qrActionSubtitle}>{t('myQrShortHint')}</Text>
@@ -455,9 +453,7 @@ export default function CareCircleScreen() {
                   onPress={() => router.push('/care-circle/scan' as never)}
                   style={({ pressed }) => [styles.qrAction, pressed && styles.qrActionPressed]}
                 >
-                  <View style={styles.qrActionIcon}>
-                    <Ionicons name="scan-outline" size={23} color="#087F73" />
-                  </View>
+                  <Ionicons name="scan-outline" size={28} color="#087F73" />
                   <View style={styles.qrActionCopy}>
                     <Text style={styles.qrActionTitle}>{t('scanQr')}</Text>
                     <Text numberOfLines={2} style={styles.qrActionSubtitle}>{t('scanQrShortHint')}</Text>
@@ -1173,14 +1169,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     qrActionPressed: {
       opacity: 0.8,
       transform: [{ scale: 0.985 }],
-    },
-    qrActionIcon: {
-      alignItems: 'center',
-      backgroundColor: '#E1F6F2',
-      borderRadius: 15,
-      height: 44,
-      justifyContent: 'center',
-      width: 44,
     },
     qrActionCopy: {
       flex: 1,

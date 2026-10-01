@@ -78,7 +78,7 @@ export default function CareCircleQrScreen() {
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
-        <ScreenBackButton onPress={() => router.back()} />
+        <ScreenBackButton onPress={() => router.back()} style={styles.headerIconButton} />
         <Text style={styles.headerTitle}>{t('myQrTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -88,9 +88,7 @@ export default function CareCircleQrScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.intro}>
-          <View style={styles.introIcon}>
-            <Ionicons name="people-outline" size={28} color={colors.primary} />
-          </View>
+          <Ionicons name="people-outline" size={32} color={colors.primary} />
           <View style={styles.introCopy}>
             <Text style={styles.title}>{t('myQrHeading')}</Text>
             <Text style={styles.subtitle}>{t('myQrDescription')}</Text>
@@ -182,9 +180,9 @@ function createStyles(
     header: { alignItems: 'center', flexDirection: 'row', minHeight: 62, paddingHorizontal: spacing.lg },
     headerTitle: { color: colors.textPrimary, flex: 1, fontSize: typography.size.lg, fontWeight: '800', textAlign: 'center' },
     headerSpacer: { width: 44 },
+    headerIconButton: { backgroundColor: 'transparent', borderWidth: 0, elevation: 0, shadowOpacity: 0 },
     content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.md },
     intro: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
-    introIcon: { alignItems: 'center', backgroundColor: colors.primaryLight, borderRadius: 20, height: 52, justifyContent: 'center', width: 52 },
     introCopy: { flex: 1 },
     title: { color: colors.textPrimary, fontSize: typography.size.xl, fontWeight: '900', lineHeight: 30 },
     subtitle: { color: colors.textSecondary, fontSize: typography.size.sm, lineHeight: 20, marginTop: 3 },
