@@ -87,15 +87,29 @@ export type TriageSummaryView = {
 
 export interface HealthReportData {
   period: 'week' | 'month';
+  month?: string;
   totalDays: number;
   checkinDays: number;
   sessions: Array<{
+    id?: number;
     date: string;
     status: string;
+    currentStatus?: string;
     severity: TriageSeverity | null;
     summary: string | null;
     flowState: string;
     resolved: boolean;
+    resolvedAt?: string | null;
+    createdAt?: string | null;
+    lastResponseAt?: string | null;
+    triageCompletedAt?: string | null;
+    bodyLocations?: string[];
+    bodyLocationOther?: string | null;
+    messages?: Array<{
+      question?: string;
+      answer?: string | string[];
+      timestamp?: string;
+    }>;
   }>;
   severityDistribution: { low: number; medium: number; high: number; emergency: number };
   statusDistribution: { fine: number; tired: number; very_tired: number; specific_concern: number };
@@ -178,8 +192,12 @@ export const checkinApi = {
       '/api/mobile/checkin/pending-alerts'
     ),
 
-  getReport: (period: 'week' | 'month' = 'week') =>
-    apiClient<{ ok: boolean } & HealthReportData>(`/api/mobile/checkin/report?period=${period}`),
+  getReport: (period: 'week' | 'month' = 'week', month?: string) => {
+    const monthQuery = period === 'month' && month ? `&month=${encodeURIComponent(month)}` : '';
+    return apiClient<{ ok: boolean } & HealthReportData>(
+      `/api/mobile/checkin/report?period=${period}${monthQuery}`
+    );
+  },
 
   getHealthScore: () =>
     apiClient<{ ok: boolean } & HealthScoreData>('/api/mobile/health-score'),

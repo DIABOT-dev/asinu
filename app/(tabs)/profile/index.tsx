@@ -49,6 +49,7 @@ const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
+const SHOW_CHECKIN_CALL_UI_GALLERY = false;
 
 const DeleteAccountModal = React.lazy(
   () => import("../../../src/components/DeleteAccountModal"),
@@ -158,7 +159,7 @@ export default function ProfileScreen() {
     };
   }, []);
 
-  const handleToggleHealthFeed = useCallback(
+  const saveHealthFeedPreference = useCallback(
     async (enabled: boolean) => {
       setHealthFeedEnabled(enabled);
       try {
@@ -172,6 +173,29 @@ export default function ProfileScreen() {
       }
     },
     [ts],
+  );
+
+  const handleToggleHealthFeed = useCallback(
+    (enabled: boolean) => {
+      if (!enabled) {
+        void saveHealthFeedPreference(false);
+        return;
+      }
+
+      showAlert(
+        t("healthFeed"),
+        ts("healthFeedToggleDesc"),
+        [
+          { text: tc("cancel"), style: "cancel" },
+          {
+            text: ts("healthFeedEnableAction"),
+            onPress: () => void saveHealthFeedPreference(true),
+          },
+        ],
+        { name: "newspaper-variant-outline", color: colors.primary },
+      );
+    },
+    [saveHealthFeedPreference, showAlert, t, tc, ts],
   );
 
   const handleToggleAiConsent = useCallback(
@@ -856,7 +880,7 @@ export default function ProfileScreen() {
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                 </TouchableOpacity>
 
-                {__DEV__ && (
+                {__DEV__ && SHOW_CHECKIN_CALL_UI_GALLERY && (
                   <TouchableOpacity
                     style={styles.actionCard}
                     onPress={() => router.push("/checkin-call/ui-gallery" as any)}
@@ -905,12 +929,7 @@ export default function ProfileScreen() {
                       color="#8b5cf6"
                     />
                   </View>
-                  <View style={styles.toggleCopy}>
-                    <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
-                    <Text style={styles.toggleDescription}>
-                      {ts("healthFeedToggleDesc")}
-                    </Text>
-                  </View>
+                  <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
                   <Switch
                     value={healthFeedEnabled}
                     onValueChange={handleToggleHealthFeed}
@@ -1977,13 +1996,7 @@ export default function ProfileScreen() {
         }}
       />
 
-      <AppAlertModal
-        visible={alertState.visible}
-        title={alertState.title}
-        message={alertState.message}
-        buttons={alertState.buttons}
-        onDismiss={dismissAlert}
-      />
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
 
       {/* ==================== LOGOUT CONFIRM MODAL ==================== */}
       <Modal
@@ -2388,17 +2401,6 @@ function createStyles(
       color: textSecondaryCol,
       marginRight: 6,
     },
-    toggleCopy: {
-      flex: 1,
-      minWidth: 0,
-      marginRight: 10,
-    },
-    toggleDescription: {
-      fontSize: 12,
-      color: textSecondaryCol,
-      marginTop: 2,
-    },
-
     // Delete Account Card (Destructive in System Section)
     deleteAccountCard: {
       marginHorizontal: 16,

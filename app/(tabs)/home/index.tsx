@@ -43,6 +43,8 @@ import React from 'react';
 const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
 // Temporarily hide the missions section on the home screen.
 const SHOW_HOME_MISSIONS = false;
+// Temporarily hide the health tree and every section below it on the home screen.
+const SHOW_HOME_BELOW_TREE = false;
 
 
 function InfoButton({ text, styles }: { text: string; styles: any }) {
@@ -610,7 +612,6 @@ export default function HomeScreen() {
   const [healthFeedEnabled, setHealthFeedEnabled] = useState(false);
   const [healthFeedVisible, setHealthFeedVisible] = useState(true);
   const [healthFeedItems, setHealthFeedItems] = useState<any[]>([]);
-  const unreadHealthFeedItems = healthFeedItems.filter(item => !item.read_at);
 
   useFocusEffect(
     useCallback(() => {
@@ -696,9 +697,9 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {unreadHealthFeedItems.length > 0 ? (
+        {healthFeedItems.length > 0 ? (
           <View style={styles.healthFeedList}>
-            {unreadHealthFeedItems.slice(0, 2).map((item) => {
+            {healthFeedItems.slice(0, 2).map((item) => {
               const isRead = !!item.read_at;
               const isWarning = item.severity_level === 'warning' || item.priority >= 100;
 
@@ -769,6 +770,8 @@ export default function HomeScreen() {
                       isWarning && styles.healthFeedCardWarning,
                     ]}
                     onPress={() => handleHomePress(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.title}. ${item.message}`}
                   >
                     <View style={styles.healthFeedIconWrapper}>
                       {getIcon(item.feed_type)}
@@ -932,9 +935,12 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {/* Daily check-in takes the former metrics position. */}
+        {/* Immediate and quick-positive check-ins share the former metrics position. */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
-          <DailyCheckinCard />
+          <View style={styles.checkinStack}>
+            <DailyCheckinCard />
+            <InstantCheckinCard />
+          </View>
         </Animated.View>
 
         {renderHealthFeedBlock()}
@@ -966,6 +972,8 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {SHOW_HOME_BELOW_TREE && (
+        <>
         {/* Tree Section */}
         <Animated.View entering={FadeIn.delay(260).duration(350)}>
         <View style={styles.sectionHeaderRow}>
@@ -1000,11 +1008,6 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={18} color={iconColors.primary} />
           </Pressable>
         </View>
-        </Animated.View>
-
-        {/* Immediate check-in entry point, available before the next scheduled check-in. */}
-        <Animated.View entering={FadeIn.delay(290).duration(350)}>
-          <InstantCheckinCard />
         </Animated.View>
 
         {/* Metrics Row */}
@@ -1170,6 +1173,8 @@ export default function HomeScreen() {
         </Animated.View>
         </>
         )}
+        </>
+        )}
       </RippleRefreshScrollView>
 {isChatOpen && (
         <Suspense fallback={null}>
@@ -1212,6 +1217,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
     gap: spacing.xl
+  },
+  checkinStack: {
+    gap: spacing.sm,
   },
   headerActions: {
     position: 'absolute',

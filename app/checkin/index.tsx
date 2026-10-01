@@ -41,6 +41,7 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
 const MAX_TRIAGE_QUESTIONS = 8;
+type CheckinConclusionSound = Awaited<ReturnType<typeof Audio.Sound.createAsync>>['sound'];
 
 // ─── Local fallback questions (when network itself fails) ────────────────────
 
@@ -603,7 +604,7 @@ function StatusScreen({
 
   const handleSelect = (status: CheckinStatus) => {
     // This option is only a temporary placeholder while the abnormal-symptom
-    // flow is being built. The home "Tôi ổn" shortcut still uses preset_status.
+    // flow is being built.
     if (status === 'fine') {
       showToast(t('checkinAbnormalUnavailable'), 'info');
       return;
@@ -1368,11 +1369,70 @@ function DoneScreen({
 }) {
   const { t } = useTranslation('home');
   const router = useRouter();
+  const conclusionSoundRef = useRef<CheckinConclusionSound | null>(null);
+  const conclusionSoundPlayedRef = useRef(false);
   const isFine = session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
 
   const isEmergency = triageSummary?.severity === 'emergency';
   const isHigh = triageSummary?.severity === 'high';
   const isMedium = triageSummary?.severity === 'medium';
+  const conclusionSoundSource = isEmergency || isHigh
+    ? require('../../assets/sounds/asinu_alert.wav')
+    : isMedium
+      ? require('../../assets/sounds/asinu_care.wav')
+      : require('../../assets/sounds/asinu_milestone.wav');
+
+  useEffect(() => {
+    let mounted = true;
+    const timer = setTimeout(() => {
+      if (!mounted || conclusionSoundPlayedRef.current) {
+        return;
+      }
+      conclusionSoundPlayedRef.current = true;
+
+      (async () => {
+        try {
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            playsInSilentModeIOS: true,
+          });
+          const { sound } = await Audio.Sound.createAsync(conclusionSoundSource, {
+            shouldPlay: true,
+          });
+          if (!mounted) {
+            await sound.unloadAsync();
+            return;
+          }
+
+          conclusionSoundRef.current = sound;
+          sound.setOnPlaybackStatusUpdate((status) => {
+            if (!status.didJustFinish) {
+              return;
+            }
+            if (conclusionSoundRef.current === sound) {
+              conclusionSoundRef.current = null;
+            }
+            sound.unloadAsync().catch(() => {});
+          });
+        } catch (error: unknown) {
+          if (__DEV__) {
+            console.warn(
+              '[Checkin] conclusion sound:',
+              error instanceof Error ? error.message : String(error),
+            );
+          }
+        }
+      })();
+    }, 220);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+      const sound = conclusionSoundRef.current;
+      conclusionSoundRef.current = null;
+      sound?.unloadAsync?.().catch(() => {});
+    };
+  }, [conclusionSoundSource]);
 
   // Severity configurations
   const pillBg = isEmergency

@@ -9,7 +9,7 @@ import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { Avatar } from '../../../src/components/Avatar';
-import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
+import { HealthJournalCalendar } from '../../../src/components/HealthJournalCalendar';
 import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { PineTreeIllustration } from '../../../src/components/PineTreeIllustration';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
@@ -28,6 +28,7 @@ import { checkinApi, type HealthScoreData } from '../../../src/features/checkin/
 import React from 'react';
 
 const C1TrendChart = React.lazy(() => import('../../../src/ui-kit/C1TrendChart').then(m => ({ default: m.C1TrendChart })));
+const SHOW_ACTIVITY_HISTORY = false;
 
 function FloatingSnow({ x, delay = 0, size = 16, duration = 3000 }: any) {
   const translateY = useSharedValue(-20);
@@ -195,6 +196,7 @@ export default function TreeScreen() {
   );
 
   const [refreshing, setRefreshing] = useState(false);
+  const [journalRefreshKey, setJournalRefreshKey] = useState(0);
   const showInitialSkeleton = useInitialLoadingGate(
     status !== 'loading' || Boolean(summary || healthScore),
     650,
@@ -208,6 +210,7 @@ export default function TreeScreen() {
       fetchLogs(controller.signal),
       checkinApi.getHealthScore().then((result) => setHealthScore(result)).catch(() => {}),
     ]);
+    setJournalRefreshKey((value) => value + 1);
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -321,8 +324,8 @@ export default function TreeScreen() {
           </View>
         </View>
 
-        {/* Báo cáo sức khoẻ - nhúng nguyên khối */}
-        <HealthReportPanel embedded healthScoreOverride={healthScore} />
+        {/* Nhật ký check-in theo tháng, mở chi tiết từng ngày ngay trong bottom sheet. */}
+        <HealthJournalCalendar refreshKey={journalRefreshKey} />
 
         {/* Section Header */}
         <View style={styles.sectionHeader}>
@@ -354,33 +357,34 @@ export default function TreeScreen() {
           ))}
         </View>
         
-        {/* Activity Chart */}
-        <View style={styles.chartSection}>
-          <View style={styles.chartHeader}>
-            <View style={styles.chartTitleRow}>
-              <Ionicons name="trending-up" size={20} color="#059669" />
-              <Text style={styles.chartLabel}>{t('activityChart7Days')}</Text>
-              <Pressable hitSlop={8} onPress={() => setChartTooltip(v => !v)}>
-                <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
-              </Pressable>
+        {SHOW_ACTIVITY_HISTORY ? (
+          <View style={styles.chartSection}>
+            <View style={styles.chartHeader}>
+              <View style={styles.chartTitleRow}>
+                <Ionicons name="trending-up" size={20} color="#059669" />
+                <Text style={styles.chartLabel}>{t('activityChart7Days')}</Text>
+                <Pressable hitSlop={8} onPress={() => setChartTooltip(v => !v)}>
+                  <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              {chartTooltip && (
+                <View style={styles.chartTooltip}>
+                  <Text style={styles.chartTooltipText}>{t('chartExplain')}</Text>
+                </View>
+              )}
             </View>
-            {chartTooltip && (
-              <View style={styles.chartTooltip}>
-                <Text style={styles.chartTooltipText}>{t('chartExplain')}</Text>
+            {showChart ? (
+              <Suspense fallback={<View style={{ height: 200 }} />}>
+                <C1TrendChart data={chartData} title={t('activityScore')} unit={t('scoreUnit')} />
+              </Suspense>
+            ) : (
+              <View style={styles.placeholderCard}>
+                <Ionicons name="analytics" size={32} color={colors.textSecondary} />
+                <Text style={styles.placeholderText}>{t('noChartData')}</Text>
               </View>
             )}
           </View>
-          {showChart ? (
-            <Suspense fallback={<View style={{ height: 200 }} />}>
-              <C1TrendChart data={chartData} title={t('activityScore')} unit={t('scoreUnit')} />
-            </Suspense>
-          ) : (
-            <View style={styles.placeholderCard}>
-              <Ionicons name="analytics" size={32} color={colors.textSecondary} />
-              <Text style={styles.placeholderText}>{t('noChartData')}</Text>
-            </View>
-          )}
-        </View>
+        ) : null}
 
         </>
         )}

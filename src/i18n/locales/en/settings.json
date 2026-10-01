@@ -61,6 +61,7 @@
   "languageEn": "English",
   "aiDataConsentSettings": "Asinu AI data permission",
   "healthFeedToggleDesc": "Receive health reminders from Asinu",
+  "healthFeedEnableAction": "Enable feed",
   "healthFeedEnabled": "Health feed enabled",
   "healthFeedDisabled": "Health feed disabled",
   "aiDataConsentGranted": "Asinu AI permission granted",

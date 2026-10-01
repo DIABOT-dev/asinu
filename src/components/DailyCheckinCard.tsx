@@ -1,7 +1,7 @@
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
  * DailyCheckinCard
- * - No session today → show morning prompt
+ * - No session today → show the quick "I'm fine" action
  * - Session exists, next_checkin_at in future → hide (user already responded)
  * - Session exists, next_checkin_at passed → show follow-up prompt
  * - Session resolved → hide
@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { checkinApi, type CheckinSession } from '../features/checkin/checkin.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -19,7 +19,7 @@ import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
 // Cache session across hot reloads to prevent flash
-let _cachedSession: CheckinSession | null | undefined = undefined;
+let _cachedSession: CheckinSession | null | undefined;
 
 export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   const router = useRouter();
@@ -47,33 +47,35 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
     return null; // Don't show loading spinner, wait silently
   }
 
-  // No session today → initial morning check-in
+  // Keep the quick positive check-in available alongside the immediate flow.
   if (!session) {
     return (
       <Pressable
-        style={({ pressed }) => [styles.card, styles.cardPrompt, pressed && { opacity: 0.9 }]}
+        style={({ pressed }) => [styles.card, styles.cardFine, pressed && { opacity: 0.9 }]}
         onPress={() => router.push({ pathname: '/checkin', params: { preset_status: 'fine' } })}
+        accessibilityRole="button"
+        accessibilityLabel={t('checkinFine')}
       >
         <View style={styles.row}>
-          <Ionicons name="heart-half" size={24} color={colors.primary} />
+          <Ionicons name="checkmark-circle" size={42} color={colors.primary} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.promptTitle}>{t('checkinFine')}</Text>
+            <Text style={styles.fineTitle}>{t('checkinFine')}</Text>
             <Text style={styles.sub}>{t('checkinFineSub')}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+          <Ionicons name="chevron-forward" size={26} color={colors.primary} />
         </View>
       </Pressable>
     );
   }
 
-  // Session resolved → nothing to show
-  if (session.resolved_at) return null;
+  if (session.resolved_at) {
+    return null;
+  }
 
   // Triage not completed (user exited mid-flow) → show card to continue
   const triageIncomplete = session.initial_status !== 'fine' && !session.triage_completed_at;
 
-  // next_checkin_at in future → user already responded, hide card
-  // BUT if triage is incomplete, still show card
+  // The user already responded; wait until the scheduled follow-up.
   if (!triageIncomplete && session.next_checkin_at && new Date(session.next_checkin_at) > new Date()) {
     return null;
   }
@@ -119,12 +121,12 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
       accessibilityLabel={t('checkinInstantTitle')}
     >
       <View style={styles.row}>
-        <Ionicons name="pulse" size={24} color={colors.premiumDark} />
+        <Ionicons name="pulse" size={34} color={colors.premiumDark} />
         <View style={{ flex: 1 }}>
           <Text style={styles.instantTitle}>{t('checkinInstantTitle')}</Text>
           <Text style={styles.sub}>{t('checkinInstantSub')}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.premiumDark} />
+        <Ionicons name="chevron-forward" size={24} color={colors.premiumDark} />
       </View>
     </Pressable>
   );
@@ -139,26 +141,34 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderWidth: 1.5,
       borderColor: colors.border,
     },
-    cardPrompt: {
-      borderColor: colors.border,
-      backgroundColor: colors.primaryLight,
-    },
     cardFollowUp: {
       borderColor: colors.border,
       backgroundColor: colors.premiumLight,
     },
+    cardFine: {
+      minHeight: 120,
+      justifyContent: 'center',
+      borderRadius: radius.xl,
+      borderColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+      paddingVertical: spacing.xl,
+    },
     cardInstant: {
+      minHeight: 104,
+      justifyContent: 'center',
+      borderRadius: radius.xl,
       borderColor: colors.premiumDark,
       backgroundColor: colors.premiumLight,
+      paddingVertical: spacing.xl,
     },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
     },
-    promptTitle:  { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary },
     followTitle:  { fontSize: typography.size.sm, fontWeight: '700', color: '#d97706' },
-    instantTitle: { fontSize: typography.size.sm, fontWeight: '700', color: colors.premiumDark },
+    fineTitle:    { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
+    instantTitle: { fontSize: typography.size.md, fontWeight: '800', color: colors.premiumDark },
     sub:          { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
   });
 }
