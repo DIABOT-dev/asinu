@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
@@ -10,9 +10,9 @@ import { colors, radius, spacing, typography } from '../styles';
 type Props = { refreshKey?: number };
 
 const presentation = {
-  monitor: { labelKey: 'earlyMonitor', color: '#047857', background: '#ecfdf5', icon: 'leaf-outline' as const },
-  see_doctor: { labelKey: 'earlySeeDoctor', color: '#b45309', background: '#fffbeb', icon: 'medical-outline' as const },
-  urgent: { labelKey: 'earlyUrgent', color: '#dc2626', background: '#fef2f2', icon: 'warning-outline' as const },
+  monitor: { labelKey: 'earlyMonitor', color: '#047857', icon: 'leaf-outline' as const },
+  see_doctor: { labelKey: 'earlySeeDoctor', color: '#b45309', icon: 'medical-outline' as const },
+  urgent: { labelKey: 'earlyUrgent', color: '#dc2626', icon: 'warning-outline' as const },
 };
 
 export function EarlySignalCard({ refreshKey = 0 }: Props) {
@@ -51,11 +51,21 @@ export function EarlySignalCard({ refreshKey = 0 }: Props) {
   return (
     <>
       <Pressable
-        style={[styles.card, assessment && { borderColor: view.color + '40', backgroundColor: view.background }]}
+        style={[
+          styles.card,
+          assessment && {
+            borderColor: view.color + '26',
+            backgroundColor: view.color + '08',
+          },
+        ]}
         onPress={() => assessment ? setOpen(true) : evaluate()}
       >
-        <View style={[styles.icon, { backgroundColor: assessment ? view.color : colors.primary }]}>
-          <MaterialCommunityIcons name="radar" size={23} color="#fff" />
+        <View style={styles.icon}>
+          <MaterialCommunityIcons
+            name="radar"
+            size={27}
+            color={assessment ? view.color : colors.primary}
+          />
         </View>
         <View style={styles.copy}>
           <View style={styles.titleRow}>
@@ -82,7 +92,7 @@ export function EarlySignalCard({ refreshKey = 0 }: Props) {
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.sheetTitleRow}>
-            <View style={[styles.sheetIcon, { backgroundColor: view.background }]}>
+            <View style={styles.sheetIcon}>
               <Ionicons name={view.icon} size={27} color={view.color} />
             </View>
             <View style={styles.copy}>
