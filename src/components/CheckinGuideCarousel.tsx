@@ -23,7 +23,7 @@ import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { colors, radius, spacing } from '../styles';
 
-export const CHECKIN_GUIDE_STORAGE_KEY = 'checkin-guide:v1';
+export const CHECKIN_GUIDE_STORAGE_KEY = 'checkin-guide:v2';
 
 function getCheckinGuideStorageKey(userId?: string | null): string {
   return userId ? `${CHECKIN_GUIDE_STORAGE_KEY}:${userId}` : CHECKIN_GUIDE_STORAGE_KEY;

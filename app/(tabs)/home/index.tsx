@@ -28,6 +28,7 @@ import { Screen } from '../../../src/components/Screen';
 import { StateError } from '../../../src/components/state/StateError';
 import { HomeTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { ChartFrameSkeleton } from '../../../src/components/state/ChartFrameSkeleton';
+import { CheckinGuideCarousel, hasSeenCheckinGuide } from '../../../src/components/CheckinGuideCarousel';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useFlagsStore, selectIsChatbotAvailable } from '../../../src/features/app-config/flags.store';
 import { useHomeViewModel } from '../../../src/features/home/home.vm';
@@ -481,6 +482,7 @@ export default function HomeScreen() {
     refreshAll
   } = useHomeViewModel();
   const profile = useAuthStore((state) => state.profile);
+  const [showCheckinGuide, setShowCheckinGuide] = useState(false);
   const unreadCount = useNotificationStore(s => s.unreadCount);
   const fetchFromBackend = useNotificationStore(s => s.fetchFromBackend);
   const insets = useSafeAreaInsets();
@@ -488,6 +490,21 @@ export default function HomeScreen() {
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const padTop = insets.top + spacing.lg;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile?.id) return;
+
+      let active = true;
+      hasSeenCheckinGuide(profile.id).then((seen) => {
+        if (active) setShowCheckinGuide(!seen);
+      });
+
+      return () => {
+        active = false;
+      };
+    }, [profile?.id]),
+  );
 
   // Re-fetch when screen focuses, but throttle to avoid jank on quick tab switches
   const lastFetchRef = useRef(0);
@@ -835,6 +852,15 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <CheckinGuideCarousel
+        visible={showCheckinGuide}
+        onClose={() => setShowCheckinGuide(false)}
+        onStartCheckin={() => {
+          setShowCheckinGuide(false);
+          router.push('/checkin');
+        }}
+      />
 
       {isOffline ? <OfflineBanner /> : null}
       
