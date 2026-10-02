@@ -512,8 +512,6 @@ function createStyles(
       textAlign: 'center',
     },
     footerBar: {
-      borderTopColor: isDark ? '#1e293b' : '#f1f5f9',
-      borderTopWidth: 1,
       paddingBottom: Math.max(insets.bottom, 16),
       paddingHorizontal: 20,
       paddingTop: 14,
