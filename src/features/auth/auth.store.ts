@@ -66,6 +66,8 @@ type AuthState = {
   logout: () => Promise<void>;
 };
 
+let bootstrapInFlight: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
       profile: null,
       token: null,
@@ -74,47 +76,56 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       setHydrated: (value: boolean) => set({ hydrated: value }),
 
       async bootstrap() {
-        set({ loading: true, error: undefined });
+        if (bootstrapInFlight) return bootstrapInFlight;
 
-        try {
-          // Remove sensitive values written in plaintext by older versions.
-          await localCache.clearLegacyPlaintextCache();
+        const task = (async () => {
+          set({ loading: true, error: undefined });
 
-          // Restore the token only from OS-protected storage.
-          const savedToken = await tokenStore.loadToken();
-
-          if (!savedToken) {
-            // No token found, user is logged out
-
-            set({ loading: false, profile: null, token: null, hydrated: true });
-            return;
-          }
-
-          // Token exists, restore it
-          set({ token: savedToken });
-
-          // Fetch lightweight profile for bootstrap (1 query, no care circle / health data)
           try {
-            const profile = await authApi.fetchBasicProfile();
-            if (profile?.languagePreference) {
-              useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
-            }
-            if (profile?.id) localCache.setUserId(profile.id);
-            // The API profile intentionally does not expose the auth provider.
-            // Preserve it from the persisted session for provider-specific flows.
-            const authProvider = get().profile?.authProvider;
-            set({
-              profile: profile ? { ...profile, authProvider } : profile,
-              loading: false,
-              hydrated: true,
-            });
-          } catch (err) {
-            // If profile fetch fails but we have token, keep the token but clear profile
-            set({ profile: null, loading: false, hydrated: true });
-          }
-        } catch (error) {
+            // Remove sensitive values written in plaintext by older versions.
+            await localCache.clearLegacyPlaintextCache();
 
-          set({ loading: false, error: (error as Error).message, hydrated: true });
+            // Restore the token only from OS-protected storage.
+            const savedToken = await tokenStore.loadToken();
+
+            if (!savedToken) {
+              // No token found, user is logged out
+              set({ loading: false, profile: null, token: null, hydrated: true });
+              return;
+            }
+
+            // Token exists, restore it
+            set({ token: savedToken });
+
+            // Fetch lightweight profile for bootstrap (1 query, no care circle / health data)
+            try {
+              const profile = await authApi.fetchBasicProfile();
+              if (profile?.languagePreference) {
+                useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
+              }
+              if (profile?.id) localCache.setUserId(profile.id);
+              // The API profile intentionally does not expose the auth provider.
+              // Preserve it from the persisted session for provider-specific flows.
+              const authProvider = get().profile?.authProvider;
+              set({
+                profile: profile ? { ...profile, authProvider } : profile,
+                loading: false,
+                hydrated: true,
+              });
+            } catch (err) {
+              // If profile fetch fails but we have token, keep the token but clear profile
+              set({ profile: null, loading: false, hydrated: true });
+            }
+          } catch (error) {
+            set({ loading: false, error: (error as Error).message, hydrated: true });
+          }
+        })();
+
+        bootstrapInFlight = task;
+        try {
+          await task;
+        } finally {
+          if (bootstrapInFlight === task) bootstrapInFlight = null;
         }
       },
 

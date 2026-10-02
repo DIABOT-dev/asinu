@@ -137,14 +137,17 @@ export const SessionProvider = ({ children }: Props) => {
     }
   }, [syncExistingPushToken, t]);
 
-  // Initial setup: bootstrap + non-prompting notification setup.
+  // Bootstrap belongs at the root so every entry route shares one session startup.
+  useEffect(() => {
+    setupNotificationHandler();
+    void bootstrap();
+  }, [bootstrap]);
+
+  // Push registration needs the restored auth session, so run it after hydration.
   useEffect(() => {
     if (!hydrated) return;
-
-    bootstrap();
-    setupNotificationHandler();
-    syncExistingPushToken();
-  }, [bootstrap, hydrated, syncExistingPushToken]);
+    void syncExistingPushToken();
+  }, [hydrated, syncExistingPushToken]);
 
   // Save all platform-specific tokens whenever registration or login changes.
   useEffect(() => {

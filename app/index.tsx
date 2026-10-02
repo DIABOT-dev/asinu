@@ -34,7 +34,7 @@ export default function Index() {
   const navigationState = useRootNavigationState();
   const profile = useAuthStore((state) => state.profile);
   const loading = useAuthStore((state) => state.loading);
-  const bootstrap = useAuthStore((state) => state.bootstrap);
+  const hydrated = useAuthStore((state) => state.hydrated);
   const isNavReady = Boolean(navigationState?.key);
   const insets = useSafeAreaInsets();
 
@@ -45,14 +45,12 @@ export default function Index() {
 
   const [consentReady, setConsentReady] = useState(false);
   const [showConsent, setShowConsent]   = useState(false);
-  const [bootstrapStarted, setBootstrapStarted] = useState(false);
-  const [bootstrapComplete, setBootstrapComplete] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const progressValue = useRef(new Animated.Value(0)).current;
 
-  const progressTarget = !bootstrapStarted
+  const progressTarget = !hydrated && !loading
     ? 0.08
-    : !bootstrapComplete || loading
+    : !hydrated || loading
       ? 0.45
       : !consentReady
         ? 0.72
@@ -80,13 +78,11 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    setBootstrapStarted(true);
-    void bootstrap().finally(() => setBootstrapComplete(true));
     hasDataConsent().then((consented) => {
       if (!consented) setShowConsent(true);
       setConsentReady(true);
     });
-  }, [bootstrap]);
+  }, []);
 
   useEffect(() => {
     const listenerId = progressValue.addListener(({ value }) => {
@@ -106,7 +102,7 @@ export default function Index() {
   }, [progressTarget, progressValue]);
 
   useEffect(() => {
-    if (!isNavReady || loading || !consentReady || showConsent) return;
+    if (!hydrated || !isNavReady || loading || !consentReady || showConsent) return;
     const task = InteractionManager.runAfterInteractions(async () => {
       // Cold-start deep link: nếu user mở app bằng cách tap notification,
       // ưu tiên route đó thay vì replace về home (nếu không sẽ ghi đè).
@@ -135,7 +131,7 @@ export default function Index() {
       }
     });
     return () => task.cancel();
-  }, [isNavReady, loading, profile, router, consentReady, showConsent]);
+  }, [hydrated, isNavReady, loading, profile, router, consentReady, showConsent]);
 
   return (
     <LinearGradient
