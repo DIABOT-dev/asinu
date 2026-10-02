@@ -16,6 +16,7 @@ import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
+import { ScreenBackButton } from '../../../src/components/ScreenHeaderButton';
 import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
 import { MissionsTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
@@ -198,15 +199,16 @@ export default function MissionsScreen() {
           {/* Header Title Section */}
           <Animated.View entering={FadeIn.duration(350)} style={styles.headerSection}>
             <View style={styles.headerTopRow}>
-              <Pressable
-                style={styles.menuButton}
-                onPress={() => router.push('/profile' as any)}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel={tc('menu')}
-              >
-                <Ionicons name="menu" size={28} color="#0f3e36" />
-              </Pressable>
+              <ScreenBackButton
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace('/home' as any);
+                  }
+                }}
+                style={styles.backButton}
+              />
               <View style={styles.headerTitleWrap}>
                 <Text style={styles.headerTitle}>{t('missionList')}</Text>
                 <Text style={styles.headerSubtitle}>{t('missionListSubtitle')}</Text>
@@ -455,11 +457,8 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'flex-start',
       gap: 12,
     },
-    menuButton: {
+    backButton: {
       marginTop: 2,
-      padding: 4,
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     headerTitleWrap: {
       flex: 1,
