@@ -193,6 +193,8 @@
   "iapActivatedBody": "{{plan}} is ready to protect your family.",
   "iapPaymentFailed": "Payment could not be completed",
   "iapPaymentFailedBody": "The Store did not complete the purchase. Check your Store account and try again.",
+  "iapStorePendingTitle": "Plan pending Store availability",
+  "iapStorePendingBody": "{{plan}} remains visible so you can review its benefits and price. Payment will open when the App Store or Google Play provides this plan.",
   "iapRestoredTitle": "Purchases restored",
   "iapNotFoundTitle": "No purchase found",
   "iapRestoredBody": "Restored {{count}} subscription(s).",

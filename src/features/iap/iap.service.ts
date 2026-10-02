@@ -21,6 +21,7 @@ import { Platform } from 'react-native';
 import type { Purchase, SubscriptionProduct } from 'expo-iap';
 import { env } from '../../lib/env';
 import { iapApi } from './iap.api';
+import { FALLBACK_IAP_PRODUCTS } from './iap.catalog';
 import type { IapProduct, IapVerifyResponse } from './iap.types';
 
 /**
@@ -51,8 +52,8 @@ function getExpoIap(): ExpoIapModule | null {
 
 export type LocalProduct = IapProduct & {
   // Localised price formatted by the platform (e.g. "199.000 ₫" on iOS,
-  // "₫199,000" on Android). Products without a native Store match are
-  // intentionally omitted from the purchase screen.
+  // "₫199,000" on Android). A missing native product means the plan remains
+  // visible for reference but cannot open a purchase sheet yet.
   localizedPrice?: string;
   // Kept so Android subscription purchase can pass the right offerToken.
   nativeProduct?: SubscriptionProduct;
@@ -260,29 +261,43 @@ export async function teardownIap(): Promise<void> {
 /**
  * Fetch products for the upgrade screen. Combines the backend's static
  * catalogue (canonical product IDs + VND display price) with the platform
- * store's localized price. Only products returned by the native Store are
- * purchasable; this prevents a stale local/backend product from being shown.
+ * store's localized price. The full catalogue always remains visible; only
+ * products returned by the native Store are purchasable.
  */
 export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
-  const backendCatalog = await iapApi.fetchProducts();
+  let catalog: IapProduct[] = [...FALLBACK_IAP_PRODUCTS];
+  try {
+    const backendCatalog = await iapApi.fetchProducts();
+    if (backendCatalog.ok && backendCatalog.products.length > 0) {
+      catalog = backendCatalog.products;
+    }
+  } catch (err) {
+    logIap('backend catalogue unavailable; using display fallback', {
+      error: describeIapError(err),
+    });
+  }
 
-  if (env.paymentMethod !== 'iap') return [];
+  if (env.paymentMethod !== 'iap') {
+    return catalog;
+  }
 
   let iap = getExpoIap();
-  if (!iap) return [];
+  if (!iap) {
+    return catalog;
+  }
   if (!connected) {
     await initializeIap();
     iap = getExpoIap();
   }
   if (!connected || !iap) {
     logIap('fetch products unavailable', {
-      productIds: backendCatalog.products.map(p => p.id),
+      productIds: catalog.map(p => p.id),
     });
-    return [];
+    return catalog;
   }
 
   try {
-    const skus = backendCatalog.products.map(p => p.id);
+    const skus = catalog.map(p => p.id);
     logIap('fetch products start', { skus });
     const native = (await iap.fetchProducts({ skus, type: 'subs' })) ?? [];
     logIap('fetch products success', {
@@ -290,20 +305,22 @@ export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
       returnedProducts: native.map((n: any) => n.id ?? n.productId),
     });
 
-    return backendCatalog.products.flatMap(bp => {
+    return catalog.map(bp => {
       const match = native.find((n: any) => n.id === bp.id || n.productId === bp.id);
-      if (!match) return [];
-      return [{
+      if (!match) {
+        return bp;
+      }
+      return {
         ...bp,
         localizedPrice: (match as any)?.displayPrice ?? (match as any)?.localizedPrice,
         nativeProduct: match as SubscriptionProduct,
-      }];
+      };
     });
   } catch (err) {
     logIap('fetch products failed', {
       error: describeIapError(err),
     });
-    return [];
+    return catalog;
   }
 }
 

@@ -193,6 +193,8 @@
   "iapActivatedBody": "{{plan}} đã sẵn sàng để bảo vệ gia đình.",
   "iapPaymentFailed": "Chưa thể thanh toán",
   "iapPaymentFailedBody": "Store chưa hoàn tất giao dịch. Hãy kiểm tra tài khoản Store và thử lại.",
+  "iapStorePendingTitle": "Gói đang chờ Store cung cấp",
+  "iapStorePendingBody": "{{plan}} vẫn được hiển thị để bạn xem đầy đủ quyền lợi và giá. Thanh toán sẽ mở khi App Store hoặc Google Play cung cấp gói này.",
   "iapRestoredTitle": "Đã khôi phục giao dịch",
   "iapNotFoundTitle": "Không tìm thấy giao dịch",
   "iapRestoredBody": "Đã khôi phục {{count}} gói đăng ký.",

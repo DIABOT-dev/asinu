@@ -8,6 +8,7 @@ import { AppAlertModal, useAppAlert } from "../../components/AppAlertModal";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { colors, radius, spacing, typography } from "../../styles";
+import { FALLBACK_IAP_PRODUCTS } from "./iap.catalog";
 import {
   fetchAvailableProducts,
   purchaseSubscription,
@@ -45,7 +46,9 @@ export function IapPurchaseCard({
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(isDark), [isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
-  const [products, setProducts] = useState<LocalProduct[]>([]);
+  const [products, setProducts] = useState<LocalProduct[]>(() => [
+    ...FALLBACK_IAP_PRODUCTS,
+  ]);
   const [period, setPeriod] = useState<"monthly" | "yearly">("yearly");
   const [selectedPlan, setSelectedPlan] = useState("antam_4");
   const [loading, setLoading] = useState(true);
@@ -111,7 +114,16 @@ export function IapPurchaseCard({
   }, [products]);
 
   const buy = useCallback(async () => {
-    if (!selected) return;
+    if (!selected) {
+      return;
+    }
+    if (!selected.nativeProduct) {
+      showAlert(
+        t("iapStorePendingTitle"),
+        t("iapStorePendingBody", { plan: selected.plan_name })
+      );
+      return;
+    }
     setBusy(true);
     try {
       const result = await purchaseSubscription(selected.id, selected);
@@ -350,10 +362,12 @@ export function IapPurchaseCard({
       </View>
 
       {/* Plans grid */}
-      {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
-      ) : planRows.length === 0 ? (
-        <Text style={styles.noProducts}>{t("iapNoProducts")}</Text>
+      {planRows.length === 0 ? (
+        loading ? (
+          <ActivityIndicator color={colors.primary} style={styles.loading} />
+        ) : (
+          <Text style={styles.noProducts}>{t("iapNoProducts")}</Text>
+        )
       ) : (
         <View style={styles.gridWrap}>
           {planRows.map((row) => (
