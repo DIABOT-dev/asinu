@@ -205,7 +205,7 @@ function SettingsPreview() {
             <Text style={styles.toggleLabel}>{t('enable')}</Text>
             <Text style={styles.toggleStatus}>{t('active')}</Text>
           </View>
-          <Switch value trackColor={{ false: '#cbd5e1', true: '#00897b' }} />
+          <Switch disabled value trackColor={{ false: '#cbd5e1', true: '#00897b' }} />
         </View>
 
         <View style={styles.divider} />
@@ -222,9 +222,9 @@ function SettingsPreview() {
           </View>
         ))}
 
-        <Pressable style={styles.saveBtn}>
+        <View style={styles.saveBtn}>
           <Text style={styles.saveBtnText}>{t('saveSettings')}</Text>
-        </Pressable>
+        </View>
       </View>
     </PreviewFrame>
   );

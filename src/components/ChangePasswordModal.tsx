@@ -92,7 +92,7 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={handleClose}>
-          <Pressable style={styles.card} onPress={() => {}}>
+          <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
             <View style={styles.header}>
               <View style={styles.iconWrap}>
                 <Ionicons name="key-outline" size={24} color={iconColors.primary} />

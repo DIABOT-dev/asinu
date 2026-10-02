@@ -199,7 +199,7 @@ export default function LoginEmailScreen() {
           {/* Font size modal */}
           {showFontModal && (
             <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
-              <Pressable style={styles.fontModalCard} onPress={() => {}}>
+              <Pressable style={styles.fontModalCard} onPress={(event) => event.stopPropagation()}>
                 <Text style={styles.fontModalTitle}>{ts('fontSize')}</Text>
                 <View style={styles.fontSizeRow}>
                   {FONT_SIZE_OPTIONS.map((opt) => (

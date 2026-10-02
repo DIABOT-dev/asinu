@@ -67,6 +67,7 @@ jobs:
           npm run test:api-contract
           npm run test:checkin-contract
           npm run test:checkin-native
+          npm run test:interactions
           npm run i18n:check
           npm run lint:assets
           npm run lint

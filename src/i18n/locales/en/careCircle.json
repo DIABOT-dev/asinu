@@ -222,5 +222,11 @@
   "scanQrDescription": "Hold your phone steady. Asinu will detect it automatically.",
   "qrPreviewError": "Could not check this QR code. Please try again.",
   "qrRecipient": "Person you scanned",
-  "qrVerifiedPerson": "Verified from QR code"
+  "qrVerifiedPerson": "Verified from QR code",
+  "cameraPermissionFeature1": "Instant loved ones connection",
+  "cameraPermissionFeatureDesc1": "Scan QR codes to quickly add family members to your Care Circle.",
+  "cameraPermissionFeature2": "Complete privacy & security",
+  "cameraPermissionFeatureDesc2": "The camera only turns on while scanning. No photos or videos are stored.",
+  "cameraPermissionLater": "Maybe later",
+  "cameraPermissionNeedSettings": "Camera permission is turned off. Please open device Settings to allow camera access for Asinu."
 }

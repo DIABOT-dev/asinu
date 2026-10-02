@@ -1,5 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -10,6 +11,7 @@ import { ScreenBackButton } from '../../../components/ScreenHeaderButton';
 import { ScaledText as Text } from '../../../components/ScaledText';
 import { useGuardedRouter as useRouter } from '../../../hooks/useGuardedRouter';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { getApiErrorMessage } from '../../../lib/apiClient';
 import { radius, spacing } from '../../../styles';
 import { careCircleApi } from '../care-circle.api';
@@ -35,7 +37,8 @@ function CareCircleScanScreen() {
   const inboundHandled = useRef(false);
   const insets = useSafeAreaInsets();
   const typography = useScaledTypography();
-  const styles = useMemo(() => createStyles(typography), [typography]);
+  const { isDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(typography, isDark), [typography, isDark]);
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -82,67 +85,181 @@ function CareCircleScanScreen() {
     return (
       <View style={styles.permissionScreen}>
         <Stack.Screen options={{ headerShown: false }} />
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#071a18', '#0c2824', '#071a18']
+              : ['#f0fbf8', '#f8fdfb', '#eef9f5']
+          }
+          style={StyleSheet.absoluteFill}
+        />
         <View style={[styles.permissionHeader, { paddingTop: insets.top + spacing.xs }]}>
           <ScreenBackButton onPress={() => router.back()} style={styles.headerIconButton} />
           <Text style={styles.permissionHeaderTitle}>{t('scanQrTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
-        <View style={styles.permissionContent}>
-          {error ? (
-            <>
-              <Ionicons name="alert-circle-outline" size={44} color="#B42318" />
-              <Text style={styles.permissionTitle}>{t('qrCannotUse')}</Text>
-              <Text style={styles.permissionBody}>{error}</Text>
-              <Pressable
-                onPress={() => router.replace('/care-circle/scan' as never)}
-                style={({ pressed }) => [styles.permissionButton, pressed && styles.pressed]}
-              >
-                <Ionicons name="scan" size={21} color="#F7FFFD" />
-                <Text style={styles.permissionButtonText}>{t('scanAgain')}</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <ActivityIndicator size="large" color="#087F73" />
-              <Text style={styles.permissionTitle}>{t('qrChecking')}</Text>
-            </>
-          )}
+        <View style={styles.permissionContentScroll}>
+          <View style={styles.permissionCard}>
+            {error ? (
+              <>
+                <View style={styles.errorIconBadge}>
+                  <Ionicons name="alert-circle-outline" size={42} color="#EF4444" />
+                </View>
+                <Text style={styles.permissionTitle}>{t('qrCannotUse')}</Text>
+                <Text style={styles.permissionBody}>{error}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('scanAgain')}
+                  onPress={() => router.replace('/care-circle/scan' as never)}
+                  style={({ pressed }) => [styles.actionButtonWrap, pressed && styles.pressed]}
+                >
+                  <LinearGradient
+                    colors={['#087F73', '#059669']}
+                    end={{ x: 1, y: 0 }}
+                    start={{ x: 0, y: 0 }}
+                    style={styles.permissionButton}
+                  >
+                    <Ionicons name="scan" size={20} color="#F7FFFD" />
+                    <Text style={styles.permissionButtonText}>{t('scanAgain')}</Text>
+                  </LinearGradient>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <ActivityIndicator size="large" color="#087F73" />
+                <Text style={[styles.permissionTitle, { marginTop: spacing.md }]}>{t('qrChecking')}</Text>
+              </>
+            )}
+          </View>
         </View>
       </View>
     );
   }
 
   if (!permission) {
-    return <View style={styles.permissionScreen}><ActivityIndicator size="large" color="#2CC7B5" /></View>;
+    return (
+      <View style={styles.permissionLoadingScreen}>
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#071a18', '#0c2824', '#071a18']
+              : ['#f0fbf8', '#f8fdfb', '#eef9f5']
+          }
+          style={StyleSheet.absoluteFill}
+        />
+        <ActivityIndicator size="large" color="#087F73" />
+      </View>
+    );
   }
 
   if (!permission.granted) {
+    const canAskAgain = permission.canAskAgain;
+
     return (
       <View style={styles.permissionScreen}>
         <Stack.Screen options={{ headerShown: false }} />
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#071a18', '#0c2824', '#071a18']
+              : ['#f0fbf8', '#f8fdfb', '#eef9f5']
+          }
+          style={StyleSheet.absoluteFill}
+        />
+
         <View style={[styles.permissionHeader, { paddingTop: insets.top + spacing.xs }]}>
           <ScreenBackButton onPress={() => router.back()} style={styles.headerIconButton} />
           <Text style={styles.permissionHeaderTitle}>{t('scanQrTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
-        <View style={styles.permissionContent}>
-          <Ionicons name="camera-outline" size={44} color="#087F73" />
-          <Text style={styles.permissionTitle}>{t('cameraPermissionTitle')}</Text>
-          <Text style={styles.permissionBody}>{t('cameraPermissionDescription')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('allowCamera')}
-            onPress={() => requestPermission().catch(() => {})}
-            style={({ pressed }) => [styles.permissionButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="camera" size={21} color="#F7FFFD" />
-            <Text style={styles.permissionButtonText}>{t('allowCamera')}</Text>
-          </Pressable>
-          {!permission.canAskAgain ? (
-            <Pressable onPress={() => Linking.openSettings().catch(() => {})} style={styles.settingsButton}>
-              <Text style={styles.settingsText}>{t('openSettings')}</Text>
+
+        <View style={styles.permissionContentScroll}>
+          <View style={styles.permissionCard}>
+            <View style={styles.heroBadgeContainer}>
+              <View style={styles.heroBadgeOuter}>
+                <LinearGradient
+                  colors={isDark ? ['#0d9488', '#059669'] : ['#087F73', '#10B981']}
+                  end={{ x: 1, y: 1 }}
+                  start={{ x: 0, y: 0 }}
+                  style={styles.heroBadgeGradient}
+                >
+                  <Ionicons name="camera" size={38} color="#FFFFFF" />
+                </LinearGradient>
+              </View>
+              <View style={styles.floatingShieldBadge}>
+                <MaterialCommunityIcons name="shield-check" size={17} color="#FFFFFF" />
+              </View>
+            </View>
+
+            <Text style={styles.permissionTitle}>{t('cameraPermissionTitle')}</Text>
+            <Text style={styles.permissionBody}>
+              {canAskAgain
+                ? t('cameraPermissionDescription')
+                : t('cameraPermissionNeedSettings')}
+            </Text>
+
+            <View style={styles.featureContainer}>
+              <View style={styles.featureRow}>
+                <View style={styles.featureIconBadge}>
+                  <Ionicons name="qr-code-outline" size={20} color="#087F73" />
+                </View>
+                <View style={styles.featureTextWrap}>
+                  <Text style={styles.featureTitle}>{t('cameraPermissionFeature1')}</Text>
+                  <Text style={styles.featureDesc}>{t('cameraPermissionFeatureDesc1')}</Text>
+                </View>
+              </View>
+
+              <View style={styles.featureDivider} />
+
+              <View style={styles.featureRow}>
+                <View style={[styles.featureIconBadge, styles.featureIconBadgeShield]}>
+                  <MaterialCommunityIcons name="shield-check-outline" size={21} color="#059669" />
+                </View>
+                <View style={styles.featureTextWrap}>
+                  <Text style={styles.featureTitle}>{t('cameraPermissionFeature2')}</Text>
+                  <Text style={styles.featureDesc}>{t('cameraPermissionFeatureDesc2')}</Text>
+                </View>
+              </View>
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={canAskAgain ? t('allowCamera') : t('openSettings')}
+              onPress={() => {
+                if (canAskAgain) {
+                  requestPermission().catch(() => {});
+                } else {
+                  Linking.openSettings().catch(() => {});
+                }
+              }}
+              style={({ pressed }) => [styles.actionButtonWrap, pressed && styles.pressed]}
+            >
+              <LinearGradient
+                colors={['#087F73', '#059669']}
+                end={{ x: 1, y: 0 }}
+                start={{ x: 0, y: 0 }}
+                style={styles.permissionButton}
+              >
+                <Ionicons
+                  name={canAskAgain ? 'camera' : 'settings-outline'}
+                  size={20}
+                  color="#F7FFFD"
+                />
+                <Text style={styles.permissionButtonText}>
+                  {canAskAgain ? t('allowCamera') : t('openSettings')}
+                </Text>
+              </LinearGradient>
             </Pressable>
-          ) : null}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('cameraPermissionLater')}
+              onPress={() => router.back()}
+              style={({ pressed }) => [styles.laterButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.laterButtonText}>{t('cameraPermissionLater')}</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -225,21 +342,202 @@ function CareCircleScanScreen() {
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
   return StyleSheet.create({
     screen: { backgroundColor: '#071A18', flex: 1 },
-    permissionScreen: { backgroundColor: '#F4FBF9', flex: 1 },
-    permissionHeader: { alignItems: 'center', flexDirection: 'row', minHeight: 62, paddingHorizontal: spacing.lg },
-    permissionHeaderTitle: { color: '#102A27', flex: 1, fontSize: typography.size.lg, fontWeight: '800', textAlign: 'center' },
+    permissionScreen: {
+      backgroundColor: isDark ? '#071a18' : '#F4FBF9',
+      flex: 1,
+    },
+    permissionLoadingScreen: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#071a18' : '#F4FBF9',
+      flex: 1,
+      justifyContent: 'center',
+    },
+    permissionHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      minHeight: 62,
+      paddingHorizontal: spacing.lg,
+    },
+    permissionHeaderTitle: {
+      color: isDark ? '#f8fafc' : '#102A27',
+      flex: 1,
+      fontSize: typography.size.lg,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
     headerSpacer: { width: 44 },
-    headerIconButton: { backgroundColor: 'transparent', borderWidth: 0, elevation: 0, shadowOpacity: 0 },
-    permissionContent: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: spacing.xl },
-    permissionTitle: { color: '#102A27', fontSize: typography.size.xl, fontWeight: '900', marginTop: spacing.lg, textAlign: 'center' },
-    permissionBody: { color: '#5D716E', fontSize: typography.size.sm, lineHeight: 21, marginTop: spacing.sm, maxWidth: 330, textAlign: 'center' },
-    permissionButton: { alignItems: 'center', backgroundColor: '#087F73', borderRadius: radius.lg, flexDirection: 'row', gap: spacing.sm, justifyContent: 'center', marginTop: spacing.xl, minHeight: 52, paddingHorizontal: spacing.xl },
-    permissionButtonText: { color: '#F7FFFD', fontSize: typography.size.md, fontWeight: '800' },
-    settingsButton: { marginTop: spacing.md, minHeight: 44, padding: spacing.sm },
-    settingsText: { color: '#087F73', fontSize: typography.size.sm, fontWeight: '700' },
+    headerIconButton: {
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.85)',
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0',
+      borderWidth: 1,
+    },
+    permissionContentScroll: {
+      alignItems: 'center',
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+    },
+    permissionCard: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#0d2522' : '#ffffff',
+      borderColor: isDark ? 'rgba(44, 199, 181, 0.2)' : '#e6f4f1',
+      borderRadius: 24,
+      borderWidth: 1,
+      maxWidth: 420,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.xl,
+      shadowColor: '#087F73',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.3 : 0.08,
+      shadowRadius: 20,
+      elevation: 4,
+      width: '100%',
+    },
+    heroBadgeContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+      position: 'relative',
+    },
+    heroBadgeOuter: {
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(8, 127, 115, 0.2)' : '#E6F8F5',
+      borderColor: isDark ? 'rgba(44, 199, 181, 0.3)' : '#bbf2e7',
+      borderRadius: 50,
+      borderWidth: 1.5,
+      height: 100,
+      justifyContent: 'center',
+      width: 100,
+    },
+    heroBadgeGradient: {
+      alignItems: 'center',
+      borderRadius: 36,
+      height: 72,
+      justifyContent: 'center',
+      shadowColor: '#087F73',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      width: 72,
+    },
+    floatingShieldBadge: {
+      alignItems: 'center',
+      backgroundColor: '#10B981',
+      borderColor: isDark ? '#0d2522' : '#ffffff',
+      borderRadius: 15,
+      borderWidth: 2.5,
+      bottom: -2,
+      height: 30,
+      justifyContent: 'center',
+      position: 'absolute',
+      right: -2,
+      width: 30,
+    },
+    permissionTitle: {
+      color: isDark ? '#f8fafc' : '#102A27',
+      fontSize: typography.size.xl,
+      fontWeight: '900',
+      marginTop: spacing.xs,
+      textAlign: 'center',
+    },
+    permissionBody: {
+      color: isDark ? '#94a3b8' : '#5D716E',
+      fontSize: typography.size.sm,
+      lineHeight: 20,
+      marginTop: spacing.xs,
+      maxWidth: 320,
+      textAlign: 'center',
+    },
+    featureContainer: {
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F7FDFB',
+      borderColor: isDark ? 'rgba(44, 199, 181, 0.15)' : '#E6F6F2',
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      marginTop: spacing.lg,
+      padding: spacing.md,
+      width: '100%',
+    },
+    featureRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    featureIconBadge: {
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(8, 127, 115, 0.25)' : '#E6F8F5',
+      borderRadius: 20,
+      height: 40,
+      justifyContent: 'center',
+      width: 40,
+    },
+    featureIconBadgeShield: {
+      backgroundColor: isDark ? 'rgba(5, 150, 105, 0.25)' : '#ECFDF5',
+    },
+    featureTextWrap: {
+      flex: 1,
+    },
+    featureTitle: {
+      color: isDark ? '#e2e8f0' : '#134e4a',
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+    },
+    featureDesc: {
+      color: isDark ? '#94a3b8' : '#64748b',
+      fontSize: typography.size.xs,
+      lineHeight: 16,
+      marginTop: 2,
+    },
+    featureDivider: {
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#E6F4F0',
+      height: 1,
+      marginVertical: spacing.sm,
+    },
+    actionButtonWrap: {
+      borderRadius: radius.xl,
+      marginTop: spacing.xl,
+      overflow: 'hidden',
+      width: '100%',
+    },
+    permissionButton: {
+      alignItems: 'center',
+      borderRadius: radius.xl,
+      flexDirection: 'row',
+      gap: spacing.sm,
+      justifyContent: 'center',
+      minHeight: 52,
+      paddingHorizontal: spacing.xl,
+      width: '100%',
+    },
+    permissionButtonText: {
+      color: '#F7FFFD',
+      fontSize: typography.size.md,
+      fontWeight: '800',
+    },
+    laterButton: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.sm,
+      minHeight: 38,
+      paddingHorizontal: spacing.md,
+    },
+    laterButtonText: {
+      color: isDark ? '#94a3b8' : '#087F73',
+      fontSize: typography.size.sm,
+      fontWeight: '700',
+    },
+    errorIconBadge: {
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+      borderRadius: 36,
+      height: 72,
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+      width: 72,
+    },
     scrimTop: { backgroundColor: 'rgba(4, 20, 18, 0.58)', height: '24%', left: 0, position: 'absolute', right: 0, top: 0 },
     scrimBottom: { backgroundColor: 'rgba(4, 20, 18, 0.72)', bottom: 0, height: '32%', left: 0, position: 'absolute', right: 0 },
     cameraHeader: { alignItems: 'center', flexDirection: 'row', left: 0, paddingHorizontal: spacing.lg, position: 'absolute', right: 0, top: 0 },

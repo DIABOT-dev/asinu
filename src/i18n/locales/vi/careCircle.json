@@ -222,5 +222,11 @@
   "scanQrDescription": "Giữ điện thoại ổn định, Asinu sẽ tự nhận diện.",
   "qrPreviewError": "Không thể kiểm tra mã QR. Vui lòng thử lại.",
   "qrRecipient": "Người bạn vừa quét",
-  "qrVerifiedPerson": "Đã xác minh từ mã QR"
+  "qrVerifiedPerson": "Đã xác minh từ mã QR",
+  "cameraPermissionFeature1": "Kết nối người thân tức thì",
+  "cameraPermissionFeatureDesc1": "Quét mã QR để thêm người thân vào Vòng tròn quan tâm nhanh chóng.",
+  "cameraPermissionFeature2": "Bảo mật & an tâm tuyệt đối",
+  "cameraPermissionFeatureDesc2": "Camera chỉ mở khi bạn quét mã, không lưu ảnh hay video vào máy.",
+  "cameraPermissionLater": "Để sau",
+  "cameraPermissionNeedSettings": "Bạn đã tắt quyền camera. Vui lòng mở Cài đặt thiết bị để cho phép Asinu sử dụng camera."
 }

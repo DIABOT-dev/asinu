@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -491,6 +492,17 @@ export default function WalletScreen() {
     } finally { setCreatingQR(false); }
   }, [amount, t, clearTimers, startCountdown, startPolling]);
 
+  const handleCopyTransferNote = useCallback(async () => {
+    if (!qr?.description) return;
+
+    try {
+      await Clipboard.setStringAsync(qr.description);
+      showToast(t('transferNoteCopied'), 'success');
+    } catch {
+      showToast(t('transferNoteCopyFailed'), 'error');
+    }
+  }, [qr?.description, t]);
+
   const isExpired = qr ? countdown <= 0 : false;
   const minuteStr = Math.floor(countdown / 60).toString().padStart(2, '0');
   const secondStr = (countdown % 60).toString().padStart(2, '0');
@@ -780,7 +792,12 @@ export default function WalletScreen() {
                       <ScaledText style={styles.noteLabel}>{t('transferNote')}</ScaledText>
                       <View style={styles.noteValueRow}>
                         <ScaledText style={styles.noteValue}>{qr.description}</ScaledText>
-                        <Pressable hitSlop={8}>
+                        <Pressable
+                          accessibilityLabel={t('copyTransferNote')}
+                          accessibilityRole="button"
+                          hitSlop={8}
+                          onPress={() => void handleCopyTransferNote()}
+                        >
                           <Ionicons name="copy-outline" size={16} color="#059669" />
                         </Pressable>
                       </View>

@@ -159,7 +159,7 @@ export default function RegisterScreen() {
         {/* Font size modal (if triggered) */}
         {showFontModal && (
           <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
-            <Pressable style={styles.fontModalCard} onPress={() => {}}>
+            <Pressable style={styles.fontModalCard} onPress={(event) => event.stopPropagation()}>
               <Text style={styles.fontModalTitle}>{ts('fontSize')}</Text>
               <View style={styles.fontSizeRow}>
                 {FONT_SIZE_OPTIONS.map((opt) => (

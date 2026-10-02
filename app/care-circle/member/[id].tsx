@@ -436,8 +436,7 @@ export default function MemberLogsScreen() {
 
                   {/* Connect doctor CTA — animated pulse + glow giống AsinuChatSticker.
                       Compact size cho session card. Context header đã hiển thị tên
-                      patient → button không cần personalize.
-                      TODO(future): wire onPress mở booking screen. */}
+                      patient → button không cần personalize. */}
                   {(session.emergency_triggered
                     || session.triage_severity === 'high'
                     || session.triage_severity === 'medium') && (() => {
@@ -451,9 +450,7 @@ export default function MemberLogsScreen() {
                           variant={isUrgent ? 'urgent' : 'default'}
                           text={ctaText}
                           compact
-                          onPress={() => {
-                            // Placeholder cho tính năng tương lai.
-                          }}
+                          onPress={() => router.push('/doctor-consultation')}
                         />
                       </View>
                     );

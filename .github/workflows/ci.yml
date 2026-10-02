@@ -50,6 +50,9 @@ jobs:
       - name: Check-in native readiness
         run: npm run test:checkin-native
 
+      - name: Interaction and navigation check
+        run: npm run test:interactions
+
       - name: i18n check
         run: npm run i18n:check
 

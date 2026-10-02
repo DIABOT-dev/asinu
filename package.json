@@ -16,6 +16,7 @@
     "test:api-contract": "node scripts/check-api-contract.mjs",
     "test:checkin-contract": "node scripts/check-checkin-api-contract.mjs",
     "test:checkin-native": "node scripts/check-checkin-native-readiness.mjs",
+    "test:interactions": "node scripts/check-interactions.mjs",
     "build:android": "cd android && ./gradlew bundleRelease",
     "build:android:release": "npm run build:android",
     "lint:assets": "node scripts/check-assets.js",

@@ -552,7 +552,7 @@ export default function OnboardingScreen() {
           onRequestClose={() => setShowFontModal(false)}
         >
           <Pressable style={styles.fontModalOverlay} onPress={() => setShowFontModal(false)}>
-            <Pressable style={styles.fontModalCard} onPress={() => {}}>
+            <Pressable style={styles.fontModalCard} onPress={(event) => event.stopPropagation()}>
               <View style={styles.preferenceHeader}>
                 <Text style={[styles.fontModalTitle, { fontSize: scaledTypography.size.md }]}>
                   {t('settings')}
@@ -1035,7 +1035,7 @@ function Step1({
           style={stepStyles.birthYearModalOverlay}
           onPress={() => setShowBirthYearPicker(false)}
         >
-          <Pressable style={stepStyles.birthYearModalCard} onPress={() => {}}>
+          <Pressable style={stepStyles.birthYearModalCard} onPress={(event) => event.stopPropagation()}>
             <View style={stepStyles.birthYearModalHeader}>
               <Text style={stepStyles.birthYearModalTitle}>{t('selectBirthYear')}</Text>
               <Pressable
@@ -1085,7 +1085,7 @@ function Step1({
           style={stepStyles.birthYearModalOverlay}
           onPress={() => setShowHeightPicker(false)}
         >
-          <Pressable style={stepStyles.birthYearModalCard} onPress={() => {}}>
+          <Pressable style={stepStyles.birthYearModalCard} onPress={(event) => event.stopPropagation()}>
             <View style={stepStyles.birthYearModalHeader}>
               <Text style={stepStyles.birthYearModalTitle}>{t('selectHeight')}</Text>
               <Pressable
