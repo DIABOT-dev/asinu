@@ -696,9 +696,10 @@ function createStyles(isDark: boolean) {
     },
     gridPriceWrap: {
       alignItems: "center",
-      height: 38,
       justifyContent: "center",
       marginTop: 2,
+      minHeight: 38,
+      paddingVertical: 2,
     },
     gridPriceText: {
       color: isDark ? "#f8fafc" : "#0f172a",

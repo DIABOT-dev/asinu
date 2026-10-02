@@ -2525,10 +2525,12 @@ function createStyles(
       borderRadius: 999,
       borderWidth: 1.5,
       borderColor: isDark ? "#7f1d1d" : "#fca5a5",
-      height: 52,
+      minHeight: 52,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 10,
     },
     logoutButtonText: {
       fontSize: 16,
@@ -3226,7 +3228,7 @@ function createStyles(
       width: "100%",
     },
     logoutModalBtn: {
-      height: 48,
+      minHeight: 48,
       borderRadius: 16,
       overflow: "hidden",
     },
@@ -3235,6 +3237,8 @@ function createStyles(
       backgroundColor: isDark ? "#334155" : "#f1f5f9",
       alignItems: "center",
       justifyContent: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 9,
     },
     logoutModalBtnCancelText: {
       fontSize: 15,
@@ -3255,6 +3259,7 @@ function createStyles(
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 12,
+      paddingVertical: 9,
     },
     logoutModalBtnConfirmText: {
       fontSize: 15,

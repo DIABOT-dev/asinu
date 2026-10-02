@@ -968,8 +968,9 @@ function createStyles(
     },
     planPriceWrap: {
       alignItems: "center",
-      height: 40,
       justifyContent: "center",
+      minHeight: 40,
+      paddingVertical: 2,
     },
     freePrice: {
       color: isDark ? "#f8fafc" : "#0f172a",

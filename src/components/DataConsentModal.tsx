@@ -7,6 +7,7 @@ import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { useFontSizeStore } from '../stores/font-size.store';
 
 export const DATA_CONSENT_KEY = '@asinu/data_consent_v1';
 
@@ -32,9 +33,11 @@ type Props = {
 export function DataConsentModal({ visible, onAgree, onDecline }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
+  const fontScale = useFontSizeStore((state) => state.scale);
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const items = [t('dataConsentItem1'), t('dataConsentItem2'), t('dataConsentItem3'), t('dataConsentItem4')];
+  const shouldStackActions = fontScale === 'large' || fontScale === 'xlarge';
 
   const handleAgree = async () => {
     await saveDataConsent();
@@ -45,48 +48,59 @@ export function DataConsentModal({ visible, onAgree, onDecline }: Props) {
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onDecline}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Ionicons name="shield-checkmark" size={36} color={colors.primary} />
+          <ScrollView
+            contentContainerStyle={styles.cardContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Ionicons name="shield-checkmark" size={36} color={colors.primary} />
 
-          <Text style={styles.title}>
-            {t('dataConsentTitle')}
-          </Text>
-
-          <Text style={styles.intro}>
-            {t('dataConsentIntro')}
-          </Text>
-
-          <View style={styles.dataBox}>
-            <Text style={styles.dataBoxLabel}>
-              {t('dataConsentLabel')}
+            <Text style={styles.title}>
+              {t('dataConsentTitle')}
             </Text>
-            {items.map((item, i) => (
-              <View key={i} style={styles.dataRow}>
-                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-                <Text style={styles.dataText}>{item}</Text>
-              </View>
-            ))}
-          </View>
 
-          <Text style={styles.note}>
-            {t('dataConsentNote')}
-          </Text>
+            <Text style={styles.intro}>
+              {t('dataConsentIntro')}
+            </Text>
 
-          <View style={styles.buttons}>
-            <Pressable style={[styles.btn, styles.btnSecondary]} onPress={onDecline}>
-              <Text style={styles.btnSecondaryText}>
-                {t('decline')}
+            <View style={styles.dataBox}>
+              <Text style={styles.dataBoxLabel}>
+                {t('dataConsentLabel')}
               </Text>
-            </Pressable>
-            <Pressable style={[styles.btn, styles.btnPrimary]} onPress={handleAgree}>
-              <Text style={styles.btnPrimaryText}>
-                {t('iAgree')}
-              </Text>
-            </Pressable>
-          </View>
+              {items.map((item, i) => (
+                <View key={i} style={styles.dataRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                  <Text style={styles.dataText}>{item}</Text>
+                </View>
+              ))}
+            </View>
 
-          <Text style={styles.footer}>
-            {t('dataConsentFooter')}
-          </Text>
+            <Text style={styles.note}>
+              {t('dataConsentNote')}
+            </Text>
+
+            <View style={[styles.buttons, shouldStackActions && styles.buttonsStacked]}>
+              <Pressable
+                style={[styles.btn, styles.btnSecondary, shouldStackActions && styles.btnStacked]}
+                onPress={onDecline}
+              >
+                <Text style={styles.btnSecondaryText}>
+                  {t('decline')}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.btn, styles.btnPrimary, shouldStackActions && styles.btnStacked]}
+                onPress={() => { void handleAgree(); }}
+              >
+                <Text style={styles.btnPrimaryText}>
+                  {t('iAgree')}
+                </Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.footer}>
+              {t('dataConsentFooter')}
+            </Text>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -104,14 +118,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.surface,
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
-      padding: spacing.xxl,
-      gap: spacing.md,
-      paddingBottom: spacing.xxl + 16,
+      maxHeight: '92%',
+      overflow: 'hidden',
       shadowColor: '#000',
       shadowOpacity: 0.2,
       shadowRadius: 24,
       shadowOffset: { width: 0, height: -4 },
       elevation: 12,
+    },
+    cardContent: {
+      padding: spacing.xxl,
+      gap: spacing.md,
+      paddingBottom: spacing.xxl + 16,
     },
     title: {
       fontSize: typography.size.lg,
@@ -159,12 +177,21 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.md,
       marginTop: spacing.xs,
     },
+    buttonsStacked: {
+      flexDirection: 'column',
+    },
     btn: {
       flex: 1,
+      minHeight: 48,
       paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
       borderRadius: radius.full,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    btnStacked: {
+      flex: 0,
+      width: '100%',
     },
     btnSecondary: {
       backgroundColor: colors.surfaceMuted,

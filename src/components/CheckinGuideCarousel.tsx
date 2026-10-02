@@ -4,24 +4,25 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useAuthStore } from '../features/auth/auth.store';
-import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useThemeColors } from '../hooks/useThemeColors';
-import { colors, radius, spacing } from '../styles';
+import { useFontSizeStore } from '../stores/font-size.store';
+import { colors } from '../styles';
 
 export const CHECKIN_GUIDE_STORAGE_KEY = 'checkin-guide:v2';
 
@@ -132,16 +133,24 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
   const { t } = useTranslation('home');
   const userId = useAuthStore((state) => state.profile?.id);
   const insets = useSafeAreaInsets();
-  const scaledTypography = useScaledTypography();
+  const fontSizePreference = useFontSizeStore((state) => state.scale);
   const { isDark } = useThemeColors();
+  const { height: viewportHeight, width: viewportWidth } = useWindowDimensions();
+  const compactLayout = viewportHeight < 720
+    || fontSizePreference === 'large'
+    || fontSizePreference === 'xlarge';
+  const imageCardHeight = Math.max(
+    150,
+    Math.min(compactLayout ? 190 : 250, Math.round(viewportHeight * (compactLayout ? 0.25 : 0.3))),
+  );
 
   const styles = useMemo(
-    () => createStyles(scaledTypography, isDark, insets),
-    [scaledTypography, isDark, insets],
+    () => createStyles(isDark, insets, compactLayout, imageCardHeight),
+    [isDark, insets, compactLayout, imageCardHeight],
   );
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(Dimensions.get('window').width);
+  const [containerWidth, setContainerWidth] = useState(viewportWidth);
   const flatListRef = useRef<FlatList<CheckinGuideSlide>>(null);
 
   const handleScroll = useCallback(
@@ -190,7 +199,12 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
   const renderSlideItem = useCallback(
     ({ item }: { item: CheckinGuideSlide }) => {
       return (
-        <View style={[styles.slideContainer, { width: containerWidth }]}>
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={styles.slideContainer}
+          showsVerticalScrollIndicator={false}
+          style={{ width: containerWidth }}
+        >
           {/* Card with illustration */}
           <View style={styles.imageCard}>
             <Image
@@ -212,7 +226,7 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
             <Text style={styles.slideTitle}>{t(item.titleKey)}</Text>
             <Text style={styles.slideDesc}>{t(item.descKey)}</Text>
           </View>
-        </View>
+        </ScrollView>
       );
     },
     [containerWidth, styles, t],
@@ -361,12 +375,11 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
 });
 
 function createStyles(
-  typography: ReturnType<typeof useScaledTypography>,
   isDark: boolean,
   insets: ReturnType<typeof useSafeAreaInsets>,
+  compactLayout: boolean,
+  imageCardHeight: number,
 ) {
-  const isWeb = Platform.OS === 'web';
-
   return StyleSheet.create({
     modalOverlay: {
       alignItems: 'center',
@@ -408,9 +421,10 @@ function createStyles(
     headerBar: {
       alignItems: 'center',
       flexDirection: 'row',
+      gap: 8,
       justifyContent: 'space-between',
       paddingHorizontal: 20,
-      paddingTop: 16,
+      paddingTop: compactLayout ? 10 : 16,
       paddingBottom: 8,
     },
     headerLeftBadge: {
@@ -420,12 +434,15 @@ function createStyles(
       borderRadius: 14,
       borderWidth: 1,
       flexDirection: 'row',
+      flexShrink: 1,
       gap: 6,
+      maxWidth: '68%',
       paddingHorizontal: 10,
       paddingVertical: 5,
     },
     headerLeftText: {
       color: colors.primary,
+      flexShrink: 1,
       fontSize: 12,
       fontWeight: '700',
     },
@@ -451,17 +468,18 @@ function createStyles(
     },
     slideContainer: {
       alignItems: 'center',
-      flex: 1,
+      flexGrow: 1,
       justifyContent: 'flex-start',
       paddingHorizontal: 20,
-      paddingTop: 10,
+      paddingBottom: 4,
+      paddingTop: compactLayout ? 4 : 10,
     },
     imageCard: {
       backgroundColor: isDark ? '#1e293b' : '#f8fafc',
       borderColor: isDark ? '#334155' : '#e2e8f0',
       borderRadius: 22,
       borderWidth: 1,
-      height: 250,
+      height: imageCardHeight,
       overflow: 'hidden',
       width: '100%',
       ...Platform.select({
@@ -483,13 +501,13 @@ function createStyles(
     },
     contentWrap: {
       alignItems: 'center',
-      marginTop: 20,
+      marginTop: compactLayout ? 10 : 20,
       paddingHorizontal: 10,
       width: '100%',
     },
     stepBadge: {
       borderRadius: 12,
-      marginBottom: 10,
+      marginBottom: compactLayout ? 6 : 10,
       paddingHorizontal: 10,
       paddingVertical: 4,
     },
@@ -502,7 +520,7 @@ function createStyles(
       fontSize: 21,
       fontWeight: '800',
       letterSpacing: -0.4,
-      marginBottom: 10,
+      marginBottom: compactLayout ? 6 : 10,
       textAlign: 'center',
     },
     slideDesc: {
@@ -514,13 +532,13 @@ function createStyles(
     footerBar: {
       paddingBottom: Math.max(insets.bottom, 16),
       paddingHorizontal: 20,
-      paddingTop: 14,
+      paddingTop: compactLayout ? 8 : 14,
     },
     dotsRow: {
       alignItems: 'center',
       flexDirection: 'row',
       justifyContent: 'center',
-      marginBottom: 14,
+      marginBottom: compactLayout ? 8 : 14,
     },
     dot: {
       borderRadius: 4,
@@ -548,9 +566,10 @@ function createStyles(
       borderRadius: 16,
       flexDirection: 'row',
       gap: 6,
-      height: 48,
       justifyContent: 'center',
+      minHeight: 48,
       paddingHorizontal: 16,
+      paddingVertical: 8,
     },
     prevBtnPressed: {
       opacity: 0.75,
@@ -570,9 +589,10 @@ function createStyles(
       flex: 1,
       flexDirection: 'row',
       gap: 6,
-      height: 48,
       justifyContent: 'center',
+      minHeight: 48,
       paddingHorizontal: 20,
+      paddingVertical: 8,
     },
     nextBtnPressed: {
       opacity: 0.85,
@@ -591,9 +611,10 @@ function createStyles(
       borderRadius: 16,
       flexDirection: 'row',
       gap: 8,
-      height: 48,
       justifyContent: 'center',
+      minHeight: 48,
       paddingHorizontal: 20,
+      paddingVertical: 8,
     },
     startBtnText: {
       color: '#ffffff',

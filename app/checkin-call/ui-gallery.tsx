@@ -5,12 +5,12 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
   View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 
 type PreviewId =
   | 'settings'
@@ -1202,10 +1202,12 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   familyActionBtn: {
-    height: 50,
+    minHeight: 50,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     width: '100%',
   },
   familyActionBtnUrgent: {
@@ -1347,9 +1349,11 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#00897b',
     borderRadius: 18,
-    height: 50,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     marginTop: 22,
     zIndex: 2,
   },

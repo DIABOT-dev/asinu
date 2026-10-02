@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LiveKitRoom } from '@livekit/react-native';
@@ -18,6 +18,7 @@ import {
 import { endVoipCall, simulateIncomingVoipCall } from '../../src/lib/voip';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 
 const AUDIO_TRANSLATION_KEYS: Record<string, string> = {
   user_prompt: 'audio.userPrompt',
@@ -1247,12 +1248,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
     paddingVertical: 8,
   },
   resultRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
     gap: 10,
+    minWidth: 0,
   },
   resultRowLabel: {
     fontSize: 15,
@@ -1262,6 +1266,8 @@ const styles = StyleSheet.create({
   resultPill: {
     backgroundColor: '#e6f7f2',
     borderRadius: 12,
+    flexShrink: 1,
+    maxWidth: '50%',
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
@@ -1269,6 +1275,7 @@ const styles = StyleSheet.create({
     color: '#00897b',
     fontWeight: '700',
     fontSize: 13,
+    textAlign: 'center',
   },
   resultPillWarning: {
     backgroundColor: '#fef3c7',
@@ -1291,9 +1298,11 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     backgroundColor: '#00897b',
     borderRadius: 18,
-    height: 52,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     marginTop: 26,
     zIndex: 2,
     shadowColor: '#00897b',
@@ -1390,10 +1399,12 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   familyActionBtn: {
-    height: 52,
+    minHeight: 52,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     width: '100%',
   },
   familyActionBtnUrgent: {
@@ -1567,10 +1578,12 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   userOptionBtn: {
-    height: 54,
+    minHeight: 54,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     width: '100%',
   },
   userOptionOk: {

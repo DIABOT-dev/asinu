@@ -1013,7 +1013,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: '#D6F2EB',
-      height: 168,
+      minHeight: 168,
       position: 'relative',
       justifyContent: 'center',
     },

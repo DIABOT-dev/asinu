@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +14,7 @@ import { AppAlertModal } from '../../src/components/AppAlertModal';
 import { checkinCallApi, type CheckinCallSettings } from '../../src/features/checkin-call/checkin-call.api';
 import { apiClient, getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
+import { ScaledText as Text } from '../../src/components/ScaledText';
 
 const FIELDS: Array<{
   key: keyof CheckinCallSettings;

@@ -349,7 +349,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   feedCardRead: {
-    opacity: 0.65,
     backgroundColor: '#f8fafc',
   },
   feedCardWarning: {

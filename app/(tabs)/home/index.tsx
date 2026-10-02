@@ -1816,11 +1816,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.sm,
   },
   healthFeedCard: {
-    height: 80,
+    minHeight: 80,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderWidth: 1.5,
     borderColor: colors.border,
     shadowColor: '#000',
@@ -1830,7 +1831,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     marginBottom: 2,
   },
   healthFeedCardRead: {
-    opacity: 0.65,
     backgroundColor: '#f8fafc',
   },
   healthFeedCardWarning: {
