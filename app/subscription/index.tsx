@@ -251,7 +251,7 @@ const PlanComparison = memo(function PlanComparison({
             />
           </View>
           <Text style={styles.premiumPlanTitle}>
-            {t("features.premiumTitle")}
+            {t("v2AnTamPlanName")}
           </Text>
           <View style={styles.planPriceWrap}>
             <Text style={styles.planPeriodOptions}>

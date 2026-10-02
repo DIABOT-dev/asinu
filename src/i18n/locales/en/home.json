@@ -423,5 +423,23 @@
   "alreadyCheckedIn": "You've already checked in today",
   "alreadyCheckedInSub": "Asinu will remind you when it's time for an update",
   "emergencyAlertError": "Could not send alert. Please try again.",
-  "doctorConsultationJoinVideo": "Join video consultation"
+  "doctorConsultationJoinVideo": "Join video consultation",
+  "checkinGuide": {
+    "badge": "User Guide",
+    "stepBadge": "Step {{current}}/{{total}}",
+    "skip": "Skip",
+    "next": "Next",
+    "prev": "Back",
+    "start": "Start Check-in",
+    "slide1Title": "Daily Check-in",
+    "slide1Desc": "Daily check-ins help Asinu record your wellness, detect health trends early, and notify family members when care is needed.",
+    "slide2Title": "If You're Feeling Well",
+    "slide2Desc": "When you feel healthy and normal, simply tap the large “I'm fine” button to complete your check-in in just a few seconds.",
+    "slide3Title": "If Noticing Unusual Signs",
+    "slide3Desc": "If your body feels unusual, select “Tired”, “Very tired”, or “Abnormal sign” so Asinu can listen and support you promptly.",
+    "slide4Title": "Answer a Few Quick Questions",
+    "slide4Desc": "Asinu will ask 2–4 adaptive, easy-to-tap questions to accurately understand your current state and suggest next steps.",
+    "slide5Title": "See & Listen to Results",
+    "slide5Desc": "Review clear conclusions on screen, listen to comforting voice guidance from Ngoc Lan, and follow personalized care recommendations."
+  }
 }

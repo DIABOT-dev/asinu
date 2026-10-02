@@ -115,5 +115,8 @@
   "privacyStatus_processing": "Đang xử lý",
   "privacyStatus_completed": "Đã hoàn tất",
   "privacyStatus_failed": "Thất bại",
-  "privacyStatus_unknown": "Không xác định"
+  "privacyStatus_unknown": "Không xác định",
+  "userGuide": "Hướng dẫn sử dụng",
+  "checkinGuide": "Hướng dẫn check-in",
+  "checkinGuideDesc": "Xem lại các bước check-in sức khỏe"
 }

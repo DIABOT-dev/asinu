@@ -423,5 +423,23 @@
   "alreadyCheckedIn": "Hôm nay mình đã nắm tình hình của bạn rồi",
   "alreadyCheckedInSub": "Mình sẽ ghé hỏi thăm lại khi cần nhé",
   "emergencyAlertError": "Không thể gửi cảnh báo. Vui lòng thử lại.",
-  "doctorConsultationJoinVideo": "Tham gia phòng tư vấn video"
+  "doctorConsultationJoinVideo": "Tham gia phòng tư vấn video",
+  "checkinGuide": {
+    "badge": "Hướng dẫn sử dụng",
+    "stepBadge": "Bước {{current}}/{{total}}",
+    "skip": "Bỏ qua",
+    "next": "Tiếp tục",
+    "prev": "Quay lại",
+    "start": "Bắt đầu check-in",
+    "slide1Title": "Check-in mỗi ngày",
+    "slide1Desc": "Check-in giúp Asinu ghi nhận tình trạng trong ngày, phát hiện sớm dấu hiệu bất thường và chăm sóc sức khỏe của bác chu đáo hơn.",
+    "slide2Title": "Nếu bác đang ổn",
+    "slide2Desc": "Khi cảm thấy bình thường và khỏe mạnh, bác chỉ cần bấm nút lớn “Tôi ổn” để hoàn tất ngay chỉ trong vài giây.",
+    "slide3Title": "Nếu có dấu hiệu bất thường",
+    "slide3Desc": "Nếu thấy cơ thể khác lạ, hãy chọn “Hơi mệt”, “Rất mệt” hoặc “Có sự bất thường” để Asinu lắng nghe và hỗ trợ kịp thời.",
+    "slide4Title": "Trả lời một vài câu ngắn",
+    "slide4Desc": "Asinu sẽ hỏi thích ứng khoảng 2–4 câu ngắn gọn, dễ trả lời để hiểu rõ tình trạng hiện tại của bác.",
+    "slide5Title": "Xem và nghe kết quả",
+    "slide5Desc": "Hiển thị kết luận sức khỏe rõ ràng, phát giọng đọc ấm áp của Ngọc Lan và gợi ý các bước chăm sóc tiếp theo."
+  }
 }

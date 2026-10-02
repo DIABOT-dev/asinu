@@ -9,7 +9,6 @@ import { useThemeColors } from "../../hooks/useThemeColors";
 import { colors, radius, spacing, typography } from "../../styles";
 import {
   fetchAvailableProducts,
-  openOfferCodeRedemption,
   purchaseSubscription,
   restorePurchases,
   type LocalProduct,
@@ -204,6 +203,10 @@ export function IapPurchaseCard({
     setBusy(true);
     try {
       const result = await restorePurchases();
+      if (result.restored === 0 && result.errors.length > 0) {
+        showAlert(t("iapRestoreFailedTitle"), t("iapRestoreFailedBody"));
+        return;
+      }
       showAlert(
         result.restored > 0 ? t("iapRestoredTitle") : t("iapNotFoundTitle"),
         result.restored > 0
@@ -218,12 +221,8 @@ export function IapPurchaseCard({
     }
   }, [onPurchased, showAlert, t]);
 
-  const redeem = useCallback(async () => {
-    try {
-      await openOfferCodeRedemption();
-    } catch {
-      showAlert(t("iapRedeemFailedTitle"), t("iapRedeemFailedBody"));
-    }
+  const redeem = useCallback(() => {
+    showAlert(t("iapOfferCodeComingSoonTitle"), t("iapOfferCodeComingSoonBody"));
   }, [showAlert, t]);
 
   const renderCard = (product?: LocalProduct) => {

@@ -35,6 +35,8 @@ export function RestoreLink({ onRestored }: Props) {
           t('restoreSuccessDesc', { count: res.restored }),
           [{ text: t('close'), onPress: onRestored }],
         );
+      } else if (res.errors.length > 0) {
+        showAlert(t('iapRestoreFailedTitle'), t('iapRestoreFailedBody'));
       } else {
         showAlert(t('restoreNoneTitle'), t('restoreNoneBody'));
       }

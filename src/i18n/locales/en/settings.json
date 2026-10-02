@@ -115,5 +115,8 @@
   "privacyStatus_processing": "Processing",
   "privacyStatus_completed": "Completed",
   "privacyStatus_failed": "Failed",
-  "privacyStatus_unknown": "Unknown"
+  "privacyStatus_unknown": "Unknown",
+  "userGuide": "User Guide",
+  "checkinGuide": "Check-in Guide",
+  "checkinGuideDesc": "Review daily health check-in steps"
 }

@@ -41,6 +41,8 @@ import { showToast } from '../../src/stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
+import { CheckinGuideCarousel, hasSeenCheckinGuide } from '../../src/components/CheckinGuideCarousel';
+import { useAuthStore } from '../../src/features/auth/auth.store';
 
 const MAX_TRIAGE_QUESTIONS = 4;
 
@@ -217,17 +219,43 @@ export default function CheckinScreen() {
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
+  const userId = useAuthStore((state) => state.profile?.id);
   const { language } = useLanguageStore();
   const params = useLocalSearchParams<{
     checkin_id?: string;
     mode?: string;
     preset_status?: string;
+    guide?: string;
   }>();
   const isFollowUp = params.mode === 'followup';
   const isRandom = params.mode === 'random';
   const isResultPreview = params.mode === 'result_preview';
   const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
   const presetStatus = params.preset_status as CheckinStatus | undefined;
+
+  const [showGuideModal, setShowGuideModal] = useState(params.guide === '1');
+  const [guideCheckComplete, setGuideCheckComplete] = useState(params.guide === '1');
+
+  useEffect(() => {
+    if (params.guide === '1') {
+      setShowGuideModal(true);
+      setGuideCheckComplete(true);
+      return;
+    }
+    let isMounted = true;
+    setGuideCheckComplete(false);
+    hasSeenCheckinGuide(userId).then((seen) => {
+      if (isMounted) {
+        if (!seen && !isResultPreview) {
+          setShowGuideModal(true);
+        }
+        setGuideCheckComplete(true);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [params.guide, isResultPreview, userId]);
 
   const [screen, setScreen] = useState<Screen>(isResultPreview ? 'done' : 'status');
   const [loading, setLoading] = useState(
@@ -245,6 +273,7 @@ export default function CheckinScreen() {
   // Auto-detect: đã check-in hôm nay chưa? Nếu rồi → redirect đúng mode
   // Random mode: bỏ qua check, luôn cho check-in
   useEffect(() => {
+    if (!guideCheckComplete || showGuideModal) return;
     if (isResultPreview || isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
     let mounted = true;
     checkinApi.getToday()
@@ -265,7 +294,7 @@ export default function CheckinScreen() {
       })
       .catch(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, []);
+  }, [existingCheckinId, guideCheckComplete, isFollowUp, isRandom, isResultPreview, router, showGuideModal]);
 
   // Auto-start nếu có preset_status từ FAB
   const presetHandled = useRef(false);
@@ -636,13 +665,35 @@ export default function CheckinScreen() {
               ? t('checkinHeaderFollowUp')
               : t('checkinHeaderTitle')}
         </Text>
-        <View style={{ width: 40 }} />
+        <Pressable
+          accessibilityLabel={t('checkinGuide.badge')}
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={() => setShowGuideModal(true)}
+          style={{
+            alignItems: 'center',
+            backgroundColor: '#ffffff',
+            borderColor: '#e2e8f0',
+            borderRadius: 20,
+            borderWidth: 1,
+            height: 40,
+            justifyContent: 'center',
+            width: 40,
+          }}
+        >
+          <Ionicons name="help-circle-outline" size={22} color={colors.primary} />
+        </Pressable>
       </View>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <AiDataConsentModal
         visible={showAiConsent}
         onAgree={handleAiConsentAgree}
         onDecline={handleAiConsentDecline}
+      />
+      <CheckinGuideCarousel
+        visible={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+        onStartCheckin={() => setShowGuideModal(false)}
       />
 
       <ScrollView
