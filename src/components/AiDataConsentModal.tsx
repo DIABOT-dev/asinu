@@ -1,13 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useFontSizeStore } from '../stores/font-size.store';
 import { useThemeColors } from '../hooks/useThemeColors';
-import { colors, radius, spacing } from '../styles';
+import { radius, spacing } from '../styles';
 
 export const AI_DATA_CONSENT_KEY = '@asinu/ai_data_consent_v1';
 
@@ -34,8 +34,23 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
   const typography = useScaledTypography();
   const fontScale = useFontSizeStore((state) => state.scale);
   const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(typography), [typography, isDark]);
-  const dataItems = [t('aiDataConsentItem1'), t('aiDataConsentItem2'), t('aiDataConsentItem3')];
+  const styles = useMemo(() => createStyles(typography, isDark), [typography, isDark]);
+
+  const dataItems = [
+    {
+      icon: 'chatbubble-ellipses-outline' as const,
+      text: t('aiDataConsentItem1'),
+    },
+    {
+      icon: 'mic-outline' as const,
+      text: t('aiDataConsentItem2'),
+    },
+    {
+      icon: 'pulse-outline' as const,
+      text: t('aiDataConsentItem3'),
+    },
+  ];
+
   const shouldStackActions = fontScale === 'large' || fontScale === 'xlarge';
 
   const handleAgree = async () => {
@@ -53,36 +68,110 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="sparkles-outline" size={28} color={colors.primary} />
-            </View>
-            <Text style={styles.title}>{t('aiDataConsentTitle')}</Text>
-            <Text style={styles.intro}>{t('aiDataConsentIntro')}</Text>
+          {/* Close button X */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('close')}
+            hitSlop={12}
+            style={styles.closeButton}
+            onPress={onDecline}
+          >
+            <Ionicons name="close" size={24} color={isDark ? '#94a3b8' : '#64748b'} />
+          </Pressable>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>{t('aiDataConsentLabel')}</Text>
-              {dataItems.map((item) => (
-                <View key={item} style={styles.row}>
-                  <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />
-                  <Text style={styles.rowText}>{item}</Text>
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Header: Mascot Image on left, Title block on right */}
+            <View style={styles.headerRow}>
+              <View style={styles.mascotWrapper}>
+                <Image
+                  source={require('../../assets/images/asinu_ai_privacy_mascot.png')}
+                  style={styles.mascotImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.headerTextCol}>
+                <Text style={styles.titlePart1}>{t('aiDataConsentTitlePart1')}</Text>
+                <Text style={styles.titlePart2}>{t('aiDataConsentTitlePart2')}</Text>
+                <Text style={styles.intro}>{t('aiDataConsentIntro')}</Text>
+              </View>
+            </View>
+
+            {/* Mint Card: Data items list without icon background circles */}
+            <View style={styles.mintCard}>
+              <View style={styles.mintCardHeader}>
+                <Ionicons
+                  name="shield-checkmark"
+                  size={20}
+                  color={isDark ? '#34d399' : '#059669'}
+                  style={styles.noBgIcon}
+                />
+                <Text style={styles.mintCardTitle}>{t('aiDataConsentLabel')}</Text>
+              </View>
+
+              {dataItems.map((item, index) => (
+                <View key={item.text}>
+                  <View style={styles.dataItemRow}>
+                    <Ionicons
+                      name={item.icon}
+                      size={20}
+                      color={isDark ? '#2dd4bf' : '#087F73'}
+                      style={styles.noBgIcon}
+                    />
+                    <Text style={styles.dataItemText}>{item.text}</Text>
+                  </View>
+                  {index < dataItems.length - 1 && <View style={styles.dataItemDivider} />}
                 </View>
               ))}
             </View>
 
-            <View style={styles.infoRow}>
-              <Ionicons name="locate-outline" size={18} color={colors.primary} />
-              <Text style={styles.infoText}>{t('aiDataConsentPurpose')}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="business-outline" size={18} color={colors.primary} />
-              <Text style={styles.infoText}>{t('aiDataConsentRecipient')}</Text>
-            </View>
-            <Text style={styles.optional}>{t('aiDataConsentOptional')}</Text>
+            {/* Purpose & Recipient Info rows without icon background circles */}
+            <View style={styles.infoSection}>
+              <View style={styles.infoRow}>
+                <Ionicons
+                  name="sparkles-outline"
+                  size={20}
+                  color={isDark ? '#38bdf8' : '#0284c7'}
+                  style={styles.noBgIcon}
+                />
+                <Text style={styles.infoTextContainer}>
+                  <Text style={styles.infoBoldLabel}>{t('aiDataConsentPurposeLabel')} </Text>
+                  <Text style={styles.infoValueText}>{t('aiDataConsentPurposeValue')}</Text>
+                </Text>
+              </View>
 
+              <View style={styles.infoRow}>
+                <Ionicons
+                  name="business-outline"
+                  size={20}
+                  color={isDark ? '#38bdf8' : '#0284c7'}
+                  style={styles.noBgIcon}
+                />
+                <Text style={styles.infoTextContainer}>
+                  <Text style={styles.infoBoldLabel}>{t('aiDataConsentRecipientLabel')} </Text>
+                  <Text style={styles.infoValueText}>{t('aiDataConsentRecipientValue')}</Text>
+                </Text>
+              </View>
+            </View>
+
+            {/* Subtle Divider */}
+            <View style={styles.footerDivider} />
+
+            {/* Footer Disclaimer */}
+            <View style={styles.footerRow}>
+              <Ionicons
+                name="shield-outline"
+                size={16}
+                color={isDark ? '#64748b' : '#94a3b8'}
+                style={styles.noBgIcon}
+              />
+              <Text style={styles.footerText}>{t('aiDataConsentFooter')}</Text>
+            </View>
+
+            {/* Action Buttons: Decline & Allow ("Cho phép") */}
             <View style={[styles.actions, shouldStackActions && styles.actionsStacked]}>
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={t('aiDataConsentDecline')}
                 style={[
                   styles.button,
                   styles.declineButton,
@@ -94,6 +183,7 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
               </Pressable>
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={t('aiDataConsentAgree')}
                 style={[
                   styles.button,
                   styles.agreeButton,
@@ -101,11 +191,10 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
                 ]}
                 onPress={() => { void handleAgree(); }}
               >
-                <Ionicons name="checkmark" size={18} color={colors.surface} />
                 <Text style={styles.agreeText}>{t('aiDataConsentAgree')}</Text>
+                <Ionicons name="arrow-forward" size={18} color="#ffffff" />
               </Pressable>
             </View>
-            <Text style={styles.footer}>{t('aiDataConsentFooter')}</Text>
           </ScrollView>
         </View>
       </View>
@@ -113,89 +202,176 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
+  const cardBg = isDark ? '#1e293b' : '#ffffff';
+  const textPrimary = isDark ? '#f8fafc' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#475569';
+  const mintBg = isDark ? 'rgba(8, 184, 162, 0.12)' : '#f0fbf8';
+  const mintBorder = isDark ? 'rgba(45, 212, 191, 0.25)' : '#ccfbf1';
+  const mintTitle = isDark ? '#5eead4' : '#134e4a';
+  const itemDivider = isDark ? 'rgba(45, 212, 191, 0.15)' : '#e2f4f0';
+  const declineBg = isDark ? '#334155' : '#f1f5f9';
+  const declineText = isDark ? '#f8fafc' : '#334155';
+  const agreeBg = isDark ? '#0d9488' : '#087F73';
+  const footerBorder = isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9';
+
   return StyleSheet.create({
     backdrop: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      padding: spacing.lg,
-      backgroundColor: 'rgba(0,0,0,0.55)',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.lg,
+      backgroundColor: 'rgba(15, 23, 42, 0.65)',
     },
     card: {
       width: '100%',
-      maxHeight: '90%',
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
+      maxWidth: 420,
+      maxHeight: '92%',
+      backgroundColor: cardBg,
+      borderRadius: radius.xxl ?? 28,
+      paddingTop: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.lg,
+      position: 'relative',
       shadowColor: '#000',
-      shadowOpacity: 0.2,
-      shadowRadius: 24,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 14,
+      shadowOpacity: 0.22,
+      shadowRadius: 28,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 16,
     },
-    content: {
-      gap: spacing.md,
-      paddingBottom: spacing.xs,
-    },
-    iconWrap: {
-      alignSelf: 'center',
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+    closeButton: {
+      position: 'absolute',
+      top: 14,
+      right: 14,
+      zIndex: 10,
+      width: 36,
+      height: 36,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    title: {
-      color: colors.textPrimary,
-      fontSize: typography.size.lg,
-      lineHeight: 28,
+    content: {
+      gap: spacing.md,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.xs,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingRight: spacing.sm,
+    },
+    mascotWrapper: {
+      width: 105,
+      height: 115,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mascotImage: {
+      width: '100%',
+      height: '100%',
+    },
+    headerTextCol: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    titlePart1: {
+      color: textPrimary,
+      fontSize: typography.size.md + 1,
+      fontWeight: '700',
+      lineHeight: 22,
+    },
+    titlePart2: {
+      color: agreeBg,
+      fontSize: typography.size.lg + 3,
       fontWeight: '800',
-      textAlign: 'center',
+      lineHeight: 30,
+      marginTop: 2,
     },
     intro: {
-      color: colors.textSecondary,
-      fontSize: typography.size.sm,
-      lineHeight: 21,
-      textAlign: 'center',
+      color: textSecondary,
+      fontSize: typography.size.xs,
+      lineHeight: 18,
+      marginTop: 6,
     },
-    section: {
+    mintCard: {
+      backgroundColor: mintBg,
+      borderColor: mintBorder,
+      borderWidth: 1,
+      borderRadius: radius.lg,
       padding: spacing.md,
       gap: spacing.sm,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceMuted,
     },
-    sectionLabel: {
-      color: colors.textPrimary,
-      fontSize: typography.size.xs,
+    mintCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs + 2,
+      marginBottom: 2,
+    },
+    mintCardTitle: {
+      color: mintTitle,
+      fontSize: typography.size.xs + 1,
       fontWeight: '700',
     },
-    row: {
+    dataItemRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: spacing.sm,
+      paddingVertical: 2,
     },
-    rowText: {
+    noBgIcon: {
+      marginTop: 1,
+    },
+    dataItemText: {
       flex: 1,
-      color: colors.textSecondary,
+      color: textSecondary,
       fontSize: typography.size.xs,
-      lineHeight: 19,
+      lineHeight: 18.5,
+    },
+    dataItemDivider: {
+      height: 1,
+      backgroundColor: itemDivider,
+      marginVertical: 4,
+    },
+    infoSection: {
+      gap: spacing.sm,
+      paddingHorizontal: spacing.xs,
     },
     infoRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: spacing.sm,
     },
-    infoText: {
+    infoTextContainer: {
       flex: 1,
-      color: colors.textSecondary,
       fontSize: typography.size.xs,
       lineHeight: 19,
     },
-    optional: {
-      color: colors.textSecondary,
+    infoBoldLabel: {
+      color: textPrimary,
+      fontWeight: '700',
       fontSize: typography.size.xs,
-      lineHeight: 18,
+    },
+    infoValueText: {
+      color: textSecondary,
+      fontSize: typography.size.xs,
+    },
+    footerDivider: {
+      height: 1,
+      backgroundColor: footerBorder,
+      marginTop: -2,
+    },
+    footerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.xs,
+    },
+    footerText: {
+      color: isDark ? '#64748b' : '#94a3b8',
+      fontSize: typography.size.xs - 0.5,
+      lineHeight: 16,
       textAlign: 'center',
     },
     actions: {
@@ -215,40 +391,31 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       justifyContent: 'center',
       flexDirection: 'row',
       gap: spacing.xs,
-      paddingHorizontal: spacing.sm,
+      paddingHorizontal: spacing.md,
     },
     stackedButton: {
       flex: 0,
       width: '100%',
-      minHeight: 52,
+      minHeight: 50,
       paddingHorizontal: spacing.md,
     },
     declineButton: {
-      backgroundColor: colors.surfaceMuted,
+      backgroundColor: declineBg,
     },
     declineText: {
-      flexShrink: 1,
-      color: colors.textSecondary,
-      fontSize: typography.size.xs,
+      color: declineText,
+      fontSize: typography.size.sm,
       fontWeight: '700',
       textAlign: 'center',
     },
     agreeButton: {
-      backgroundColor: colors.primary,
+      backgroundColor: agreeBg,
+      flex: 1.15,
     },
     agreeText: {
-      flexShrink: 1,
-      color: colors.surface,
-      fontSize: typography.size.xs,
+      color: '#ffffff',
+      fontSize: typography.size.sm,
       fontWeight: '700',
-      lineHeight: 18,
-      textAlign: 'center',
-    },
-    footer: {
-      color: colors.textSecondary,
-      fontSize: typography.size.xs,
-      lineHeight: 18,
-      opacity: 0.75,
       textAlign: 'center',
     },
   });
