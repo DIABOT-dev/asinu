@@ -51,7 +51,13 @@ checkinApi.start('fine');
 expectCall(health.calls, {
   path: '/api/mobile/checkin/start',
   method: 'POST',
-  body: { status: 'fine', body_locations: null, body_location_other: null },
+  body: {
+    status: 'fine',
+    body_locations: null,
+    body_location_other: null,
+    restart: false,
+    source: 'scheduled',
+  },
 });
 
 checkinApi.start('tired', ['head', 'chest'], 'đau nhẹ');
@@ -62,6 +68,21 @@ expectCall(health.calls, {
     status: 'tired',
     body_locations: ['head', 'chest'],
     body_location_other: 'đau nhẹ',
+    restart: false,
+    source: 'scheduled',
+  },
+});
+
+checkinApi.start('specific_concern', null, null, true);
+expectCall(health.calls, {
+  path: '/api/mobile/checkin/start',
+  method: 'POST',
+  body: {
+    status: 'specific_concern',
+    body_locations: null,
+    body_location_other: null,
+    restart: true,
+    source: 'instant',
   },
 });
 
@@ -72,11 +93,14 @@ expectCall(health.calls, {
   body: { checkin_id: 123, status: 'fine' },
 });
 
-checkinApi.triage(123, [{ question: 'Mức độ?', answer: 'Nhẹ' }]);
+checkinApi.triage(123, [{ step: 'progression', question: 'Mức độ?', answer: 'Nhẹ' }]);
 expectCall(health.calls, {
   path: '/api/mobile/checkin/triage',
   method: 'POST',
-  body: { checkin_id: 123, previous_answers: [{ question: 'Mức độ?', answer: 'Nhẹ' }] },
+  body: {
+    checkin_id: 123,
+    previous_answers: [{ step: 'progression', question: 'Mức độ?', answer: 'Nhẹ' }],
+  },
   timeoutMs: 30000,
 });
 
@@ -127,12 +151,6 @@ expectCall(call.calls, {
 });
 checkinCallApi.active();
 expectCall(call.calls, { path: '/api/mobile/checkin-call/active' });
-checkinCallApi.testCall();
-expectCall(call.calls, {
-  path: '/api/mobile/checkin-call/test-call',
-  method: 'POST',
-  body: { single_device: true },
-});
 checkinCallApi.episode('episode-1');
 expectCall(call.calls, { path: '/api/mobile/checkin-call/episodes/episode-1' });
 checkinCallApi.attempt('attempt-1');

@@ -1,8 +1,14 @@
 import { apiClient } from '../../lib/apiClient';
 
-export type CheckinStatus = 'fine' | 'tired' | 'very_tired';
+export type CheckinStatus = 'fine' | 'specific_concern' | 'tired' | 'very_tired';
 export type FlowState = 'monitoring' | 'follow_up' | 'high_alert' | 'resolved';
 export type TriageSeverity = 'low' | 'medium' | 'high' | 'emergency';
+
+export type TriageAnswer = {
+  step?: string;
+  question: string;
+  answer: string;
+};
 
 export interface CheckinSession {
   id: number;
@@ -11,7 +17,7 @@ export interface CheckinSession {
   initial_status: CheckinStatus;
   current_status: CheckinStatus;
   flow_state: FlowState;
-  triage_messages: Array<{ question: string; answer: string; options?: string[] }>;
+  triage_messages: Array<TriageAnswer & { options?: string[] }>;
   triage_summary: string | null;
   triage_severity: TriageSeverity | null;
   triage_completed_at: string | null;
@@ -35,6 +41,7 @@ export interface TriageResult {
   isDone: boolean;
   // when not done
   question?: string;
+  step?: string;
   options?: string[];
   optionsGrouped?: TriageOptionGroup[] | null; // T3 group theo body location
   multiSelect?: boolean;
@@ -144,7 +151,8 @@ export const checkinApi = {
   start: (
     status: CheckinStatus,
     bodyLocations?: string[] | null,
-    bodyLocationOther?: string | null
+    bodyLocationOther?: string | null,
+    restart = false,
   ) =>
     apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/start', {
       method: 'POST',
@@ -152,6 +160,8 @@ export const checkinApi = {
         status,
         body_locations: bodyLocations && bodyLocations.length > 0 ? bodyLocations : null,
         body_location_other: bodyLocationOther || null,
+        restart,
+        source: restart ? 'instant' : 'scheduled',
       },
     }),
 
@@ -161,7 +171,7 @@ export const checkinApi = {
       body: { checkin_id, status },
     }),
 
-  triage: (checkin_id: number, previous_answers: Array<{ question: string; answer: string }>) =>
+  triage: (checkin_id: number, previous_answers: TriageAnswer[]) =>
     apiClient<TriageResult>('/api/mobile/checkin/triage', {
       method: 'POST',
       body: { checkin_id, previous_answers },

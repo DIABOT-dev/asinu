@@ -32,7 +32,7 @@ import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDat
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
-import { checkinApi, type CheckinStatus, type CheckinSession, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
+import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { checkinCallApi } from '../../src/features/checkin-call/checkin-call.api';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
@@ -42,22 +42,20 @@ import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 
-const MAX_TRIAGE_QUESTIONS = 8;
+const MAX_TRIAGE_QUESTIONS = 4;
 
 // ─── Local fallback questions (when network itself fails) ────────────────────
 
 const LOCAL_FALLBACK_INITIAL = [
-  { questionKey: 'checkinFallbackInitial1Question', optionsKey: 'checkinFallbackInitial1Options', multiSelect: false },
-  { questionKey: 'checkinFallbackInitial2Question', optionsKey: 'checkinFallbackInitial2Options', multiSelect: true },
-  { questionKey: 'checkinFallbackInitial3Question', optionsKey: 'checkinFallbackInitial3Options', multiSelect: false },
-  { questionKey: 'checkinFallbackInitial4Question', optionsKey: 'checkinFallbackInitial4Options', multiSelect: true },
-  { questionKey: 'checkinFallbackInitial5Question', optionsKey: 'checkinFallbackInitial5Options', multiSelect: true },
+  { step: 'symptoms', questionKey: 'checkinFallbackInitial2Question', optionsKey: 'checkinFallbackInitial2Options', multiSelect: true },
+  { step: 'onset', questionKey: 'checkinFallbackInitial3Question', optionsKey: 'checkinFallbackInitial3Options', multiSelect: false },
+  { step: 'progression', questionKey: 'checkinFallbackProgressionQuestion', optionsKey: 'checkinFallbackProgressionOptions', multiSelect: false },
+  { step: 'red_flags', questionKey: 'checkinFallbackRedFlagsQuestion', optionsKey: 'checkinFallbackRedFlagsOptions', multiSelect: true },
 ];
 
 const LOCAL_FALLBACK_FOLLOWUP = [
-  { questionKey: 'checkinFallbackFollowup1Question', optionsKey: 'checkinFallbackFollowup1Options', multiSelect: false },
-  { questionKey: 'checkinFallbackFollowup2Question', optionsKey: 'checkinFallbackFollowup2Options', multiSelect: true },
-  { questionKey: 'checkinFallbackFollowup3Question', optionsKey: 'checkinFallbackFollowup3Options', multiSelect: true },
+  { step: 'followup_status', questionKey: 'checkinFallbackFollowup1Question', optionsKey: 'checkinFallbackFollowup1Options', multiSelect: false },
+  { step: 'followup_detail', questionKey: 'checkinFallbackFollowup2Question', optionsKey: 'checkinFallbackFollowup2Options', multiSelect: true },
 ];
 
 function getLocalFallbackQuestion(
@@ -71,6 +69,7 @@ function getLocalFallbackQuestion(
     const q = bank[answerCount];
     return {
       isDone: false,
+      step: q.step,
       question: String(translate(q.questionKey)),
       options: translate(q.optionsKey, { returnObjects: true }) as string[],
       multiSelect: q.multiSelect,
@@ -100,6 +99,13 @@ const STATUS_OPTIONS: Array<{
 }> = [
   {
     status: 'fine',
+    icon: 'check-circle-outline',
+    labelKey: 'checkinFine',
+    sublabelKey: 'checkinFineSub',
+    color: iconColors.emerald,
+  },
+  {
+    status: 'specific_concern',
     icon: 'alert-circle-outline',
     labelKey: 'checkinAbnormal',
     sublabelKey: 'checkinAbnormalSub',
@@ -137,6 +143,13 @@ const STATUS_PALETTE: Record<
     textColor: '#064e3b',
     iconColor: '#059669',
     subColor: '#0f766e',
+  },
+  specific_concern: {
+    bg: '#fffaf0',
+    border: '#f5d9a8',
+    textColor: '#92400e',
+    iconColor: '#d97706',
+    subColor: '#a16207',
   },
   tired: {
     bg: '#fff7ed',
@@ -263,7 +276,7 @@ export default function CheckinScreen() {
   }, [presetStatus, loading]);
 
   // Triage state
-  const [answers, setAnswers] = useState<Array<{ question: string; answer: string }>>(() =>
+  const [answers, setAnswers] = useState<TriageAnswer[]>(() =>
     isResultPreview
       ? [
           {
@@ -274,6 +287,7 @@ export default function CheckinScreen() {
       : [],
   );
   const [currentQ, setCurrentQ]    = useState<string>('');
+  const [currentStep, setCurrentStep] = useState<string>('');
   const [currentOpts, setCurrentOpts] = useState<string[]>([]);
   const [currentOptsGrouped, setCurrentOptsGrouped] = useState<TriageOptionGroup[] | null>(null);
   const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
@@ -305,10 +319,28 @@ export default function CheckinScreen() {
   const [currentContinuity, setCurrentContinuity] = useState<{ text: string; templateId: string } | null>(null);
   const [currentGreeting, setCurrentGreeting] = useState<{ displayText: string; templateId: string } | null>(null);
   const [showAiConsent, setShowAiConsent] = useState(false);
-  const requestAiConsent = useCallback(async (): Promise<boolean> => {
+  const pendingAiActionRef = useRef<null | (() => void | Promise<void>)>(null);
+  const requestAiConsent = useCallback(async (
+    resumeAfterConsent?: () => void | Promise<void>,
+  ): Promise<boolean> => {
     if (await hasAiDataConsent()) return true;
+    pendingAiActionRef.current = resumeAfterConsent || null;
     setShowAiConsent(true);
     return false;
+  }, []);
+
+  const handleAiConsentAgree = useCallback(() => {
+    setShowAiConsent(false);
+    const pendingAction = pendingAiActionRef.current;
+    pendingAiActionRef.current = null;
+    if (pendingAction) {
+      Promise.resolve(pendingAction()).catch(() => {});
+    }
+  }, []);
+
+  const handleAiConsentDecline = useCallback(() => {
+    pendingAiActionRef.current = null;
+    setShowAiConsent(false);
   }, []);
 
   // ─── Status select ─────────────────────────────────────────────────────────
@@ -321,7 +353,10 @@ export default function CheckinScreen() {
   const handleStatusSelect = useCallback(async (status: CheckinStatus) => {
     // Followup: vẫn flow cũ (đã có session)
     if (isFollowUp && existingCheckinId) {
-      if (status !== 'fine' && !(await requestAiConsent())) return;
+      if (
+        status !== 'fine' &&
+        !(await requestAiConsent(() => handleStatusSelect(status)))
+      ) return;
       setLoading(true);
       try {
         const res = await checkinApi.followUp(existingCheckinId, status);
@@ -342,11 +377,11 @@ export default function CheckinScreen() {
       return;
     }
 
-    // Initial: 'fine' → start ngay, skip T2 location
+    // "Tôi ổn" completes immediately without sending health details to AI.
     if (status === 'fine') {
       setLoading(true);
       try {
-        const res = await checkinApi.start(status);
+        const res = await checkinApi.start(status, null, null, isRandom);
         setSession(res.session);
         setScreen('done');
         showToast(t('checkinSaved'), 'success');
@@ -359,7 +394,26 @@ export default function CheckinScreen() {
       return;
     }
 
-    // Initial 'tired' / 'very_tired' → đi sang T2 Location, KHÔNG INSERT DB ngay
+    // A specific concern starts with the symptom question. Requiring a body
+    // location first made the path longer and did not fit concerns such as
+    // dizziness, fatigue or a general change in condition.
+    if (status === 'specific_concern') {
+      if (!(await requestAiConsent(() => handleStatusSelect(status)))) return;
+      setLoading(true);
+      try {
+        const res = await checkinApi.start(status, null, null, isRandom);
+        setSession(res.session);
+        setScreen('triage');
+        await fetchNextQuestion(res.session, [], true);
+      } catch (err: any) {
+        if (__DEV__) console.warn('[Checkin] handleStatusSelect concern:', err?.message || err);
+        showAlert(t('error', { ns: 'common' }), t('checkinError'));
+        setLoading(false);
+      }
+      return;
+    }
+
+    // "Hơi mệt" / "Rất mệt" keep the body-location shortcut.
     setPendingStatus(status);
     setScreen('location');
   }, [isFollowUp, existingCheckinId, requestAiConsent]);
@@ -370,10 +424,15 @@ export default function CheckinScreen() {
       showAlert(t('error', { ns: 'common' }), t('checkinLocationRequired'));
       return;
     }
-    if (!(await requestAiConsent())) return;
+    if (!(await requestAiConsent(() => handleLocationsConfirm(locs, other)))) return;
     setLoading(true);
     try {
-      const res = await checkinApi.start(pendingStatus, locs, other.trim() || null);
+      const res = await checkinApi.start(
+        pendingStatus,
+        locs,
+        other.trim() || null,
+        isRandom,
+      );
       setSession(res.session);
       setScreen('triage');
       await fetchNextQuestion(res.session, [], true);
@@ -386,8 +445,8 @@ export default function CheckinScreen() {
 
   // ─── Triage ────────────────────────────────────────────────────────────────
 
-  const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: typeof answers, skipLoadingStart = false) => {
-    if (!(await requestAiConsent())) {
+  const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: TriageAnswer[], skipLoadingStart = false) => {
+    if (!(await requestAiConsent(() => fetchNextQuestion(sess, prevAnswers, skipLoadingStart)))) {
       setLoading(false);
       return;
     }
@@ -416,6 +475,7 @@ export default function CheckinScreen() {
         setCurrentContinuity(result._continuity || null);
         setCurrentGreeting(result._greeting || null);
         const newQ = result.question || '';
+        setCurrentStep(result.step || `legacy_${prevAnswers.length + 1}`);
         // Khi câu hỏi MỚI về (khác câu trước) → reset userAtBottom=true để
         // onContentSizeChange tự scroll xuống tin mới (user thường muốn xem).
         if (newQ !== lastQuestionIdRef.current) {
@@ -458,15 +518,19 @@ export default function CheckinScreen() {
       if (__DEV__) console.warn('[Checkin] triage fallback:', err?.message || err);
       const fallback = getLocalFallbackQuestion(prevAnswers.length, isFollowUp, t);
       if (fallback.isDone) {
-        setTriageSummary({
-          summary: fallback.summary || '',
-          severity: (fallback as any).severity || 'medium',
-          recommendation: (fallback as any).recommendation || '',
-          needsDoctor: (fallback as any).needsDoctor ?? false,
-        });
-        setScreen('done');
-        showToast(t('checkinSaved'), 'success');
+        const retryAnswers = prevAnswers.slice(0, -1);
+        const retryFallback = getLocalFallbackQuestion(retryAnswers.length, isFollowUp, t);
+        setAnswers(retryAnswers);
+        if (!retryFallback.isDone) {
+          setCurrentStep(retryFallback.step || `fallback_${retryAnswers.length + 1}`);
+          setCurrentQ(retryFallback.question || '');
+          setCurrentOpts(retryFallback.options || []);
+          setCurrentOptsGrouped(null);
+          setCurrentMultiSelect(retryFallback.multiSelect ?? false);
+        }
+        showAlert(t('error', { ns: 'common' }), t('checkinSyncError'));
       } else {
+        setCurrentStep(fallback.step || `fallback_${prevAnswers.length + 1}`);
         setCurrentQ(fallback.question || '');
         setCurrentOpts(fallback.options || []);
         setCurrentOptsGrouped(null);
@@ -486,9 +550,15 @@ export default function CheckinScreen() {
     const eveningGoodAnswers = [t('checkinEveningGreat'), t('checkinEveningOk')];
     const eveningBadAnswers = [t('checkinEveningTired'), t('checkinEveningBad')];
     const isEveningGood = currentQ === t('checkinEveningQuestion') && eveningGoodAnswers.includes(trimmedAnswer);
-    if (!isEveningGood && !(await requestAiConsent())) return;
+    if (
+      !isEveningGood &&
+      !(await requestAiConsent(() => handleAnswer(trimmedAnswer)))
+    ) return;
 
-    const newAnswers = [...answers, { question: currentQ, answer: trimmedAnswer }];
+    const newAnswers = [
+      ...answers,
+      { step: currentStep || undefined, question: currentQ, answer: trimmedAnswer },
+    ];
     setAnswers(newAnswers);
 
     if (currentQ === t('checkinEveningQuestion')) {
@@ -571,8 +641,8 @@ export default function CheckinScreen() {
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <AiDataConsentModal
         visible={showAiConsent}
-        onAgree={() => setShowAiConsent(false)}
-        onDecline={() => setShowAiConsent(false)}
+        onAgree={handleAiConsentAgree}
+        onDecline={handleAiConsentDecline}
       />
 
       <ScrollView
@@ -661,16 +731,6 @@ function StatusScreen({
     return t('checkinGreetingEvening');
   };
 
-  const handleSelect = (status: CheckinStatus) => {
-    // This option is only a temporary placeholder while the abnormal-symptom
-    // flow is being built.
-    if (status === 'fine') {
-      showToast(t('checkinAbnormalUnavailable'), 'info');
-      return;
-    }
-    onSelect(status);
-  };
-
   return (
     <View style={styles.section}>
       {/* Asinu avatar */}
@@ -700,7 +760,7 @@ function StatusScreen({
                   },
                   pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] },
                 ]}
-                onPress={() => handleSelect(opt.status)}
+                onPress={() => onSelect(opt.status)}
               >
                 <MaterialCommunityIcons name={opt.icon} size={30} color={palette.iconColor} />
                 <View style={{ flex: 1, minWidth: 0 }}>
@@ -898,7 +958,7 @@ function TriageScreen({
   optionsGrouped?: TriageOptionGroup[] | null;
   multiSelect: boolean;
   allowFreeText?: boolean;
-  answers: Array<{ question: string; answer: string }>;
+  answers: TriageAnswer[];
   loading: boolean;
   onAnswer: (a: string) => void;
   onBeforeAi: () => Promise<boolean>;
@@ -1256,7 +1316,7 @@ function stripEmojis(text: string): string {
 
 function extractRecordedSymptoms(
   session: CheckinSession | null,
-  answers?: Array<{ question: string; answer: string }>,
+  answers?: TriageAnswer[],
   isFine?: boolean,
   translate?: (key: string) => string,
 ): string {
@@ -1385,7 +1445,7 @@ function DoneScreen({
   session: CheckinSession | null;
   triageSummary: TriageSummaryView | null;
   isFollowUp: boolean;
-  answers?: Array<{ question: string; answer: string }>;
+  answers?: TriageAnswer[];
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation('home');
