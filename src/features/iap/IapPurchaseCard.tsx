@@ -12,7 +12,6 @@ import { FALLBACK_IAP_PRODUCTS } from "./iap.catalog";
 import {
   fetchAvailableProducts,
   purchaseSubscription,
-  redeemOfferCode,
   restorePurchases,
   type LocalProduct,
 } from "./iap.service";
@@ -162,14 +161,6 @@ export function IapPurchaseCard({
       setBusy(false);
     }
   }, [onPurchased, showAlert, t]);
-
-  const redeem = useCallback(async () => {
-    try {
-      await redeemOfferCode();
-    } catch {
-      showAlert(t("iapRedeemFailedTitle"), t("iapRedeemFailedBody"));
-    }
-  }, [showAlert, t]);
 
   const renderCard = (product?: LocalProduct) => {
     if (!product) return null;
@@ -424,25 +415,10 @@ export function IapPurchaseCard({
 
       {/* Sub links */}
       <View style={styles.links}>
-        <Pressable onPress={redeem} style={styles.linkButton}>
-          <Ionicons name="pricetag-outline" size={13} color="#059669" />
-          <Text style={styles.linkText}>{t("iapOfferCode")}</Text>
-        </Pressable>
-        <View style={styles.linkDivider} />
         <Pressable onPress={restore} style={styles.linkButton}>
           <Ionicons name="refresh-outline" size={13} color="#059669" />
           <Text style={styles.linkText}>{t("iapRestore")}</Text>
         </Pressable>
-      </View>
-
-      {/* Legal row */}
-      <View style={styles.legalRow}>
-        <Ionicons
-          name="information-circle-outline"
-          size={14}
-          color={isDark ? "#64748b" : "#94a3b8"}
-        />
-        <Text style={styles.legal}>{t("iapLegal")}</Text>
       </View>
 
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
@@ -769,23 +745,6 @@ function createStyles(isDark: boolean) {
       color: "#059669",
       fontSize: typography.size.xs,
       fontWeight: "700",
-    },
-    linkDivider: {
-      backgroundColor: isDark ? colors.border : "#e2e8f0",
-      height: 14,
-      width: 1,
-    },
-    legalRow: {
-      alignItems: "flex-start",
-      flexDirection: "row",
-      gap: 6,
-      paddingHorizontal: 4,
-    },
-    legal: {
-      color: isDark ? "#64748b" : "#94a3b8",
-      flex: 1,
-      fontSize: 10.5,
-      lineHeight: 15,
     },
   });
 }
