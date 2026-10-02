@@ -43,7 +43,6 @@ const CROWN_HERO = require("../../assets/images/subscription/crown_hero.png");
 const LEAVES_LEFT = require("../../assets/images/subscription/header_leaves_left.png");
 const PLAN_FREE_IMG = require("../../assets/images/subscription/plan_free.png");
 const PLAN_ANTAM_IMG = require("../../assets/images/subscription/plan_antam.png");
-const PLAN_ANTAM_1_IMG = require("../../assets/images/subscription/plan_antam_1.png");
 const PLAN_ANTAM_2_IMG = require("../../assets/images/subscription/plan_antam_2.png");
 const PLAN_ANTAM_4_IMG = require("../../assets/images/subscription/plan_antam_4.png");
 const PLAN_ANTAM_8_IMG = require("../../assets/images/subscription/plan_antam_8.png");
@@ -68,8 +67,6 @@ function getFallbackProtectedAvatar(userId: number, index: number) {
 
 function getPlanImageByCode(planCode?: PlanCode, isAnTam?: boolean) {
   switch (planCode) {
-    case "antam_1":
-      return PLAN_ANTAM_1_IMG;
     case "antam_2":
       return PLAN_ANTAM_2_IMG;
     case "antam_4":
@@ -83,7 +80,7 @@ function getPlanImageByCode(planCode?: PlanCode, isAnTam?: boolean) {
   }
 }
 
-type PlanCode = "free" | "antam_1" | "antam_2" | "antam_4" | "antam_8";
+type PlanCode = "free" | "antam_2" | "antam_4" | "antam_8";
 type SubscriptionStatus = {
   ok: boolean;
   planCode: PlanCode;

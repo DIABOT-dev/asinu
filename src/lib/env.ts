@@ -11,14 +11,9 @@ const paymentMethod: PaymentMethod =
     ? (rawPaymentMethod as PaymentMethod)
     : 'hidden';
 
-const iapProductMonthly = process.env.EXPO_PUBLIC_IAP_PRODUCT_MONTHLY ?? 'asinu.premium.monthly';
-const iapProductYearly = process.env.EXPO_PUBLIC_IAP_PRODUCT_YEARLY ?? 'asinu.premium.yearly';
-
 export const env = {
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000',
   doctorTenantId: process.env.EXPO_PUBLIC_DOCTOR_TENANT_ID ?? 'clinic-demo',
   disableChartsRaw,
   paymentMethod,
-  iapProductMonthly,
-  iapProductYearly,
 };

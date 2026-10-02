@@ -51,8 +51,8 @@ function getExpoIap(): ExpoIapModule | null {
 
 export type LocalProduct = IapProduct & {
   // Localised price formatted by the platform (e.g. "199.000 ₫" on iOS,
-  // "₫199,000" on Android). Falls back to the backend's display price
-  // when the native lib is unavailable.
+  // "₫199,000" on Android). Products without a native Store match are
+  // intentionally omitted from the purchase screen.
   localizedPrice?: string;
   // Kept so Android subscription purchase can pass the right offerToken.
   nativeProduct?: SubscriptionProduct;
@@ -60,10 +60,35 @@ export type LocalProduct = IapProduct & {
 
 export type PurchaseResult = { kind: 'success'; verify: IapVerifyResponse } | { kind: 'cancelled' } | { kind: 'failed'; error: string };
 
+const ANDROID_REPLACEMENT_MODE = {
+  CHARGE_PRORATED_PRICE: 2,
+  DEFERRED: 6,
+} as const;
+
+function planSize(productId: string): number {
+  const match = productId.match(/\.antam(2|4|8)\./);
+  return match ? Number(match[1]) : 0;
+}
+
+function androidReplacementMode(currentProductId: string, targetProductId: string): number {
+  const currentSize = planSize(currentProductId);
+  const targetSize = planSize(targetProductId);
+  const movesToSmallerPlan = currentSize > 0 && targetSize > 0 && targetSize < currentSize;
+  const movesFromYearlyToMonthly =
+    currentSize === targetSize &&
+    currentProductId.endsWith('.yearly') &&
+    targetProductId.endsWith('.monthly');
+
+  return movesToSmallerPlan || movesFromYearlyToMonthly
+    ? ANDROID_REPLACEMENT_MODE.DEFERRED
+    : ANDROID_REPLACEMENT_MODE.CHARGE_PRORATED_PRICE;
+}
+
 // ─── Connection state ─────────────────────────────────────────────────
 
 let connected = false;
 let initError: string | null = null;
+let initPromise: Promise<void> | null = null;
 let purchaseSub: { remove: () => void } | null = null;
 let errorSub: { remove: () => void } | null = null;
 
@@ -120,7 +145,7 @@ function resolveAllPending(result: PurchaseResult) {
  * be called once at app startup (e.g. in /app/_layout.tsx) before any
  * upgrade UI is shown.
  */
-export async function initializeIap(): Promise<void> {
+async function initializeIapConnection(): Promise<void> {
   if (env.paymentMethod !== 'iap') {
     return;
   }
@@ -206,6 +231,15 @@ export async function initializeIap(): Promise<void> {
   }
 }
 
+export function initializeIap(): Promise<void> {
+  if (!initPromise) {
+    initPromise = initializeIapConnection().finally(() => {
+      initPromise = null;
+    });
+  }
+  return initPromise;
+}
+
 export async function teardownIap(): Promise<void> {
   if (!connected) return;
   try {
@@ -217,6 +251,7 @@ export async function teardownIap(): Promise<void> {
     errorSub = null;
     connected = false;
     initError = null;
+    initPromise = null;
   }
 }
 
@@ -225,18 +260,25 @@ export async function teardownIap(): Promise<void> {
 /**
  * Fetch products for the upgrade screen. Combines the backend's static
  * catalogue (canonical product IDs + VND display price) with the platform
- * store's localized price. Falls back to backend-only when expo-iap is
- * unavailable so the UI can still render a price.
+ * store's localized price. Only products returned by the native Store are
+ * purchasable; this prevents a stale local/backend product from being shown.
  */
 export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
   const backendCatalog = await iapApi.fetchProducts();
 
-  const iap = getExpoIap();
-  if (env.paymentMethod !== 'iap' || !connected || !iap) {
-    logIap('fetch products skipped: using backend catalog', {
+  if (env.paymentMethod !== 'iap') return [];
+
+  let iap = getExpoIap();
+  if (!iap) return [];
+  if (!connected) {
+    await initializeIap();
+    iap = getExpoIap();
+  }
+  if (!connected || !iap) {
+    logIap('fetch products unavailable', {
       productIds: backendCatalog.products.map(p => p.id),
     });
-    return backendCatalog.products;
+    return [];
   }
 
   try {
@@ -248,19 +290,20 @@ export async function fetchAvailableProducts(): Promise<LocalProduct[]> {
       returnedProducts: native.map((n: any) => n.id ?? n.productId),
     });
 
-    return backendCatalog.products.map(bp => {
+    return backendCatalog.products.flatMap(bp => {
       const match = native.find((n: any) => n.id === bp.id || n.productId === bp.id);
-      return {
+      if (!match) return [];
+      return [{
         ...bp,
         localizedPrice: (match as any)?.displayPrice ?? (match as any)?.localizedPrice,
-        nativeProduct: match as SubscriptionProduct | undefined,
-      };
+        nativeProduct: match as SubscriptionProduct,
+      }];
     });
   } catch (err) {
-    logIap('fetch products failed: falling back to backend prices', {
+    logIap('fetch products failed', {
       error: describeIapError(err),
     });
-    return backendCatalog.products;
+    return [];
   }
 }
 
@@ -283,6 +326,13 @@ export async function purchaseSubscription(productId: string, product?: LocalPro
   if (env.paymentMethod !== 'iap') {
     logIap('purchase blocked: payment method disabled', { productId });
     return { kind: 'failed', error: 'IAP mode is not enabled' };
+  }
+  if (!product?.nativeProduct) {
+    logIap('purchase blocked: product unavailable in native Store', { productId });
+    return {
+      kind: 'failed',
+      error: 'This subscription is not available in the Store yet.',
+    };
   }
   let iap = getExpoIap();
   if (!iap) {
@@ -308,14 +358,9 @@ export async function purchaseSubscription(productId: string, product?: LocalPro
   // offer is never applied accidentally without Store eligibility checks.
   let androidOfferToken: string | undefined;
   let previousPurchaseToken: string | undefined;
+  let previousProductId: string | undefined;
   if (Platform.OS === 'android') {
-    let np = product?.nativeProduct;
-    if (!np) {
-      try {
-        const native = (await iap.fetchProducts({ skus: [productId], type: 'subs' })) ?? [];
-        np = native[0] as SubscriptionProduct | undefined;
-      } catch {}
-    }
+    const np = product.nativeProduct;
     const offers = (np as any)?.subscriptionOfferDetailsAndroid;
     const baseOffer = offers?.find((offer: any) => !offer.offerId) ?? offers?.[0];
     androidOfferToken = baseOffer?.offerToken;
@@ -325,6 +370,7 @@ export async function purchaseSubscription(productId: string, product?: LocalPro
         purchase => purchase.productId !== productId && purchase.productId.startsWith('asinu.antam')
       );
       previousPurchaseToken = current?.purchaseToken ?? undefined;
+      previousProductId = current?.productId;
     } catch {}
     if (!androidOfferToken) {
       logIap('purchase blocked: missing Android offer token', {
@@ -354,7 +400,10 @@ export async function purchaseSubscription(productId: string, product?: LocalPro
             skus: [productId],
             subscriptionOffers: androidOfferToken ? [{ sku: productId, offerToken: androidOfferToken }] : [],
             purchaseTokenAndroid: previousPurchaseToken,
-            replacementModeAndroid: previousPurchaseToken ? 2 : undefined,
+            replacementModeAndroid:
+              previousPurchaseToken && previousProductId
+                ? androidReplacementMode(previousProductId, productId)
+                : undefined,
           },
         },
       });
@@ -379,6 +428,26 @@ export async function purchaseSubscription(productId: string, product?: LocalPro
       }
     }
   });
+}
+
+export async function redeemOfferCode(): Promise<void> {
+  if (env.paymentMethod !== 'iap') {
+    throw new Error('IAP mode is not enabled');
+  }
+  const iap = getExpoIap();
+  if (!iap) {
+    throw new Error('Native IAP module unavailable. Use a development build.');
+  }
+
+  if (Platform.OS === 'ios') {
+    await iap.presentCodeRedemptionSheetIOS();
+    return;
+  }
+  if (Platform.OS === 'android') {
+    await iap.openRedeemOfferCodeAndroid();
+    return;
+  }
+  throw new Error('Offer-code redemption is not supported on this platform');
 }
 
 // ─── Restore ─────────────────────────────────────────────────────────
@@ -431,17 +500,6 @@ export async function restorePurchases(): Promise<{
   } catch (err: any) {
     return { restored: 0, errors: [err?.message || String(err)] };
   }
-}
-
-export async function openOfferCodeRedemption(): Promise<void> {
-  const iap = getExpoIap();
-  if (Platform.OS === 'ios') {
-    if (!iap) throw new Error('Native IAP module unavailable.');
-    await iap.presentCodeRedemptionSheetIOS();
-    return;
-  }
-  const { Linking } = require('react-native') as typeof import('react-native');
-  await Linking.openURL('https://play.google.com/redeem');
 }
 
 // Helper exposed for tests / debug.

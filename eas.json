@@ -15,6 +15,7 @@
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "dev",
+        "EXPO_PUBLIC_API_BASE_URL": "https://erethismic-ernestine-misgivingly.ngrok-free.dev",
         "EXPO_PUBLIC_PAYMENT_METHOD": "iap",
         "NODE_ENV": "development"
       }
@@ -27,6 +28,7 @@
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "dev",
+        "EXPO_PUBLIC_API_BASE_URL": "https://erethismic-ernestine-misgivingly.ngrok-free.dev",
         "EXPO_PUBLIC_PAYMENT_METHOD": "iap",
         "NODE_ENV": "development"
       }
@@ -79,9 +81,9 @@
     "production": {
       "ios": {
         "ascAppId": "6758967197",
-        "ascApiKeyPath": "/Users/ducytcg123456/Downloads/AuthKey_3682LHLM96.p8",
+        "ascApiKeyPath": "/Users/ducytcg123456/Downloads/AuthKey_N47Y8P5CNA.p8",
         "ascApiKeyIssuerId": "f1da654a-5a59-4fd6-aa48-6653455fcc48",
-        "ascApiKeyId": "3682LHLM96"
+        "ascApiKeyId": "N47Y8P5CNA"
       }
     }
   }

@@ -11,14 +11,17 @@ import { colors, radius, spacing, typography } from "../../styles";
 import {
   fetchAvailableProducts,
   purchaseSubscription,
+  redeemOfferCode,
   restorePurchases,
   type LocalProduct,
 } from "./iap.service";
 
-const PLAN_ANTAM_1_IMG = require("../../../assets/images/subscription/plan_antam_1.png");
 const PLAN_ANTAM_2_IMG = require("../../../assets/images/subscription/plan_antam_2.png");
 const PLAN_ANTAM_4_IMG = require("../../../assets/images/subscription/plan_antam_4.png");
 const PLAN_ANTAM_8_IMG = require("../../../assets/images/subscription/plan_antam_8.png");
+
+const PLAN_ORDER = ["antam_2", "antam_4", "antam_8"] as const;
+const SUPPORTED_PLAN_CODES = new Set<string>(PLAN_ORDER);
 
 type Props = {
   currentPlanCode?: string;
@@ -33,89 +36,6 @@ const formatVnd = (value: number, language: string) =>
     maximumFractionDigits: 0,
   }).format(value);
 
-const DEFAULT_PRODUCTS: LocalProduct[] = [
-  {
-    id: "asinu.antam1.yearly",
-    plan_code: "antam_1",
-    plan_name: "An Tâm 1",
-    billing_period: "yearly",
-    plan_months: 12,
-    protected_members: 1,
-    consultation_credits: 1,
-    display_price_vnd: 699000,
-  },
-  {
-    id: "asinu.antam1.monthly",
-    plan_code: "antam_1",
-    plan_name: "An Tâm 1",
-    billing_period: "monthly",
-    plan_months: 1,
-    protected_members: 1,
-    consultation_credits: 0,
-    display_price_vnd: 89000,
-  },
-  {
-    id: "asinu.antam2.yearly",
-    plan_code: "antam_2",
-    plan_name: "An Tâm 2",
-    billing_period: "yearly",
-    plan_months: 12,
-    protected_members: 2,
-    consultation_credits: 2,
-    display_price_vnd: 1199000,
-  },
-  {
-    id: "asinu.antam2.monthly",
-    plan_code: "antam_2",
-    plan_name: "An Tâm 2",
-    billing_period: "monthly",
-    plan_months: 1,
-    protected_members: 2,
-    consultation_credits: 0,
-    display_price_vnd: 149000,
-  },
-  {
-    id: "asinu.antam4.yearly",
-    plan_code: "antam_4",
-    plan_name: "An Tâm 4",
-    billing_period: "yearly",
-    plan_months: 12,
-    protected_members: 4,
-    consultation_credits: 4,
-    display_price_vnd: 1499000,
-  },
-  {
-    id: "asinu.antam4.monthly",
-    plan_code: "antam_4",
-    plan_name: "An Tâm 4",
-    billing_period: "monthly",
-    plan_months: 1,
-    protected_members: 4,
-    consultation_credits: 0,
-    display_price_vnd: 199000,
-  },
-  {
-    id: "asinu.antam8.yearly",
-    plan_code: "antam_8",
-    plan_name: "An Tâm 8",
-    billing_period: "yearly",
-    plan_months: 12,
-    protected_members: 8,
-    consultation_credits: 8,
-    display_price_vnd: 1799000,
-  },
-  {
-    id: "asinu.antam8.monthly",
-    plan_code: "antam_8",
-    plan_name: "An Tâm 8",
-    billing_period: "monthly",
-    plan_months: 1,
-    protected_members: 8,
-    consultation_credits: 0,
-    display_price_vnd: 249000,
-  },
-];
-
 export function IapPurchaseCard({
   currentPlanCode = "free",
   currentBillingPeriod,
@@ -125,7 +45,7 @@ export function IapPurchaseCard({
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(isDark), [isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
-  const [products, setProducts] = useState<LocalProduct[]>(DEFAULT_PRODUCTS);
+  const [products, setProducts] = useState<LocalProduct[]>([]);
   const [period, setPeriod] = useState<"monthly" | "yearly">("yearly");
   const [selectedPlan, setSelectedPlan] = useState("antam_4");
   const [loading, setLoading] = useState(true);
@@ -136,22 +56,17 @@ export function IapPurchaseCard({
     fetchAvailableProducts()
       .then((items) => {
         if (!active) return;
-        if (items && items.length > 0) {
-          const merged = DEFAULT_PRODUCTS.map((def) => {
-            const found = items.find(
-              (it) =>
-                it.plan_code === def.plan_code &&
-                it.billing_period === def.billing_period
-            );
-            return found ? { ...def, ...found } : def;
+        const supported = (items ?? [])
+          .filter((item) => SUPPORTED_PLAN_CODES.has(item.plan_code))
+          .sort((a, b) => {
+            const planDiff = PLAN_ORDER.indexOf(a.plan_code) - PLAN_ORDER.indexOf(b.plan_code);
+            if (planDiff !== 0) return planDiff;
+            return a.billing_period === "yearly" ? -1 : 1;
           });
-          setProducts(merged);
-        } else {
-          setProducts(DEFAULT_PRODUCTS);
-        }
+        setProducts(supported);
       })
       .catch(() => {
-        if (active) setProducts(DEFAULT_PRODUCTS);
+        if (active) setProducts([]);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -171,20 +86,29 @@ export function IapPurchaseCard({
     selected?.plan_code === currentPlanCode &&
     selected?.billing_period === currentBillingPeriod;
 
-  const row1 = useMemo(
-    () =>
-      choices.filter(
-        (p) => p.plan_code === "antam_1" || p.plan_code === "antam_2"
-      ),
-    [choices]
-  );
-  const row2 = useMemo(
-    () =>
-      choices.filter(
-        (p) => p.plan_code === "antam_4" || p.plan_code === "antam_8"
-      ),
-    [choices]
-  );
+  const planRows = useMemo(() => {
+    const rows: LocalProduct[][] = [];
+    for (let index = 0; index < choices.length; index += 2) {
+      rows.push(choices.slice(index, index + 2));
+    }
+    return rows;
+  }, [choices]);
+
+  const yearlySavings = useMemo(() => {
+    const percentages = PLAN_ORDER.map((planCode) => {
+      const monthly = products.find(
+        (product) => product.plan_code === planCode && product.billing_period === "monthly"
+      );
+      const yearly = products.find(
+        (product) => product.plan_code === planCode && product.billing_period === "yearly"
+      );
+      if (!monthly || !yearly || monthly.display_price_vnd <= 0) return null;
+      return Math.round((1 - yearly.display_price_vnd / (monthly.display_price_vnd * 12)) * 100);
+    }).filter((value): value is number => value !== null && value > 0);
+
+    if (percentages.length === 0) return null;
+    return { min: Math.min(...percentages), max: Math.max(...percentages) };
+  }, [products]);
 
   const buy = useCallback(async () => {
     if (!selected) return;
@@ -198,7 +122,7 @@ export function IapPurchaseCard({
           [{ text: t("close"), onPress: onPurchased }]
         );
       } else if (result.kind === "failed") {
-        showAlert(t("iapPaymentFailed"), result.error);
+        showAlert(t("iapPaymentFailed"), t("iapPaymentFailedBody"));
       }
     } finally {
       setBusy(false);
@@ -227,8 +151,12 @@ export function IapPurchaseCard({
     }
   }, [onPurchased, showAlert, t]);
 
-  const redeem = useCallback(() => {
-    showAlert(t("iapOfferCodeComingSoonTitle"), t("iapOfferCodeComingSoonBody"));
+  const redeem = useCallback(async () => {
+    try {
+      await redeemOfferCode();
+    } catch {
+      showAlert(t("iapRedeemFailedTitle"), t("iapRedeemFailedBody"));
+    }
   }, [showAlert, t]);
 
   const renderCard = (product?: LocalProduct) => {
@@ -242,9 +170,6 @@ export function IapPurchaseCard({
     const getPlanAvatar = () => {
       let source = PLAN_ANTAM_4_IMG;
       switch (product.plan_code) {
-        case "antam_1":
-          source = PLAN_ANTAM_1_IMG;
-          break;
         case "antam_2":
           source = PLAN_ANTAM_2_IMG;
           break;
@@ -399,7 +324,9 @@ export function IapPurchaseCard({
           </Text>
           <View style={styles.savingsBadge}>
             <Text style={styles.savingsBadgeText}>
-              {t("iapYearlyDiscountBadge")}
+              {yearlySavings
+                ? t("iapYearlyDiscountBadge", yearlySavings)
+                : t("iapYearlyValueBadge")}
             </Text>
           </View>
         </Pressable>
@@ -422,19 +349,18 @@ export function IapPurchaseCard({
         </Pressable>
       </View>
 
-      {/* 2x2 Plans Grid */}
+      {/* Plans grid */}
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
+      ) : planRows.length === 0 ? (
+        <Text style={styles.noProducts}>{t("iapNoProducts")}</Text>
       ) : (
         <View style={styles.gridWrap}>
-          <View style={styles.gridRow}>
-            {renderCard(row1[0])}
-            {renderCard(row1[1])}
-          </View>
-          <View style={styles.gridRow}>
-            {renderCard(row2[0])}
-            {renderCard(row2[1])}
-          </View>
+          {planRows.map((row) => (
+            <View key={row.map((product) => product.id).join(":")} style={styles.gridRow}>
+              {row.map((product) => renderCard(product))}
+            </View>
+          ))}
         </View>
       )}
 
@@ -621,6 +547,14 @@ function createStyles(isDark: boolean) {
     },
     loading: {
       paddingVertical: spacing.xl,
+    },
+    noProducts: {
+      color: isDark ? "#cbd5e1" : "#475569",
+      fontSize: typography.size.sm,
+      lineHeight: 21,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.lg,
+      textAlign: "center",
     },
     gridWrap: {
       gap: 12,

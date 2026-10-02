@@ -257,7 +257,7 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
 
 export const logsApi = {
   async fetchRecent(options?: { signal?: AbortSignal }) {
-    const response = await apiClient<LogsResponse>('/api/mobile/logs', {
+    const response = await apiClient<LogsResponse>('/api/mobile/logs?all=1', {
       retry: { attempts: 2, initialDelayMs: 500 },
       signal: options?.signal
     });
