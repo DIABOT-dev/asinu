@@ -632,7 +632,7 @@ export default function CheckinCallScreen() {
       {!!attempt && joined && !ended && attempt.target_role === 'FAMILY' && (
         <ScrollView contentContainerStyle={styles.familyScrollContent}>
           <View style={[styles.familyCard, attempt.severity === 'URGENT' ? styles.familyCardUrgent : styles.familyCardMild]}>
-            <View style={[styles.urgentBadgeCircle, attempt.severity === 'URGENT' ? styles.urgentBadgeCircleUrgent : styles.urgentBadgeCircleMild]}>
+            <View style={styles.urgentBadgeCircle}>
               <Ionicons
                 name={attempt.severity === 'URGENT' ? 'warning-outline' : 'heart-outline'}
                 size={36}
@@ -1207,9 +1207,6 @@ const styles = StyleSheet.create({
     borderRadius: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fef3c7',
-    borderWidth: 1,
-    borderColor: '#fde68a',
     marginBottom: 16,
     zIndex: 2,
   },
@@ -1347,15 +1344,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    borderWidth: 5,
-  },
-  urgentBadgeCircleUrgent: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fff1f2',
-  },
-  urgentBadgeCircleMild: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#fefce8',
   },
   familyCardTitle: {
     fontSize: 21,
@@ -1480,7 +1468,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#d1fae5',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,

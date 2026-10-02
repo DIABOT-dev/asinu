@@ -421,6 +421,10 @@ export function routeFromNotificationData(
     return "/checkin";
   }
   if (type === "health_alert") {
+    const needsDoctor =
+      data?.needsDoctor === true || data?.needsDoctor === "true";
+    if (needsDoctor) return "/doctor-consultation";
+
     const alertType = (data?.alertType as string) || "";
     if (alertType.includes("glucose")) return "/logs/glucose";
     if (alertType.includes("blood_pressure")) return "/logs/blood-pressure";

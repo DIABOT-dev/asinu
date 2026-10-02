@@ -25,7 +25,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
@@ -1395,12 +1395,6 @@ function CheckinHeroBadge({
   const isHigh = severity === 'high';
   const isMedium = severity === 'medium';
 
-  const badgeBg = isEmergency || isHigh
-    ? '#FEE2E2'
-    : isMedium
-    ? '#FEF3C7'
-    : '#E6F7F5';
-
   const accentColor = isEmergency || isHigh
     ? '#DC2626'
     : isMedium
@@ -1409,24 +1403,13 @@ function CheckinHeroBadge({
 
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 10 }}>
-      <View style={{ width: 110, height: 110, alignItems: 'center', justifyContent: 'center' }}>
-        <Svg width={110} height={110} viewBox="0 0 110 110" style={StyleSheet.absoluteFill}>
-          {/* Burst ray dashes around the circle */}
-          <Path d="M 55 10 L 55 18" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
-          <Path d="M 23 23 L 29 29" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
-          <Path d="M 87 23 L 81 29" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
-          <Path d="M 12 55 L 20 55" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
-          <Path d="M 98 55 L 90 55" stroke={accentColor} strokeWidth={3.5} strokeLinecap="round" />
-          {/* Soft circle base */}
-          <Circle cx={55} cy={55} r={42} fill={badgeBg} />
-        </Svg>
-
+      <View style={{ width: 64, height: 64, alignItems: 'center', justifyContent: 'center' }}>
         {isFine ? (
-          <Ionicons name="checkmark-circle" size={46} color={accentColor} />
+          <Ionicons name="checkmark-circle" size={52} color={accentColor} />
         ) : isEmergency || isHigh ? (
-          <Ionicons name="warning" size={46} color={accentColor} />
+          <Ionicons name="warning" size={52} color={accentColor} />
         ) : (
-          <Ionicons name="information-circle" size={46} color={accentColor} />
+          <Ionicons name="information-circle" size={52} color={accentColor} />
         )}
       </View>
     </View>
@@ -2454,14 +2437,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.danger + '22',
       borderRadius: radius.lg,
       padding: spacing.md,
-    },
-    doctorIcon: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: '#dc2626',
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     doctorText: { fontSize: typography.size.xs, color: '#991b1b', fontWeight: '700', flex: 1 },
 

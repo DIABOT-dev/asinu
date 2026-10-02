@@ -946,7 +946,7 @@ export default function HomeScreen() {
 
         {/* Tín hiệu sớm là tính năng miễn phí khi người dùng chủ động xem. */}
         <Animated.View entering={FadeIn.delay(130).duration(350)}>
-          <EarlySignalCard />
+          <EarlySignalCard healthScore={healthScore} />
         </Animated.View>
 
         {renderHealthFeedBlock()}

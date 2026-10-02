@@ -396,7 +396,7 @@ export function HealthReportPanel({
                     const percent = severityTotal > 0 ? Math.round((count / severityTotal) * 100) : 0;
                     return (
                       <View key={severity} style={styles.severityItem}>
-                        <View style={[styles.severityIconWrap, { backgroundColor: `${SEVERITY_COLORS[severity]}14` }]}>
+                        <View style={styles.severityIconWrap}>
                           <MaterialCommunityIcons name={SEVERITY_ICON[severity]} size={24} color={SEVERITY_COLORS[severity]} />
                         </View>
                         <Text style={styles.severityLabel} numberOfLines={1}>
@@ -418,7 +418,7 @@ export function HealthReportPanel({
                 <SectionTitle icon="shield-check-outline" title={t('statusTitle')} styles={styles} />
                 <View style={styles.card}>
                   <View style={styles.statusSummary}>
-                    <View style={[styles.statusSummaryIconWrap, { backgroundColor: `${statusMeta.color}14` }]}>
+                    <View style={styles.statusSummaryIconWrap}>
                       <MaterialCommunityIcons name={statusMeta.icon} size={28} color={statusMeta.color} />
                     </View>
                     <View style={styles.statusSummaryCopy}>

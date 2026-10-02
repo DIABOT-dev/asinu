@@ -186,7 +186,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: 24,
-      backgroundColor: colors.primaryLight,
       marginBottom: spacing.md,
     },
     eyebrow: {

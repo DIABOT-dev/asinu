@@ -138,7 +138,6 @@ export default function TreeScreen() {
       meta: glucoseLog?.recordedAt ? t('latest', { time: formatTime(glucoseLog.recordedAt) }) : t('noDataYet'),
       icon: 'water' as const,
       textColor: '#2563eb',
-      bgColor: '#eff6ff',
     },
     {
       key: 'blood-pressure',
@@ -151,7 +150,6 @@ export default function TreeScreen() {
       meta: bpLog?.recordedAt ? t('latest', { time: formatTime(bpLog.recordedAt) }) : t('noDataYet'),
       icon: 'heart-pulse' as const,
       textColor: '#e11d48',
-      bgColor: '#fff1f2',
     },
     {
       key: 'weight',
@@ -161,7 +159,6 @@ export default function TreeScreen() {
       meta: weightLog?.recordedAt ? t('latest', { time: formatTime(weightLog.recordedAt) }) : t('noDataYet'),
       icon: 'scale-bathroom' as const,
       textColor: '#7e22ce',
-      bgColor: '#faf5ff',
     },
     {
       key: 'water',
@@ -171,7 +168,6 @@ export default function TreeScreen() {
       meta: waterLog?.volume_ml ? t('todayLabel') : t('noDataYet'),
       icon: 'cup-water' as const,
       textColor: '#0f766e',
-      bgColor: '#f0fdfa',
     }
   ], [glucoseLog, bpLog, weightLog, waterLog, t, tc]);
 
@@ -326,7 +322,10 @@ export default function TreeScreen() {
         </View>
         */}
 
-        <EarlySignalCard refreshKey={journalRefreshKey} />
+        <EarlySignalCard
+          refreshKey={journalRefreshKey}
+          healthScore={healthScore}
+        />
 
         {/* Nhật ký check-in theo tháng, mở chi tiết từng ngày ngay trong bottom sheet. */}
         <HealthJournalCalendar refreshKey={journalRefreshKey} />
@@ -342,7 +341,7 @@ export default function TreeScreen() {
           {metrics.map((metric) => (
             <View key={metric.key} style={styles.metricItem}>
               <View style={styles.metricTop}>
-                <View style={[styles.metricIconWrap, { backgroundColor: metric.bgColor }]}>
+                <View style={styles.metricIconWrap}>
                   <MaterialCommunityIcons name={metric.icon} size={18} color={metric.textColor} />
                 </View>
                 <Text style={styles.metricTitle} numberOfLines={1}>{metric.title}</Text>

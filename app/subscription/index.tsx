@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
@@ -23,8 +23,10 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 const CROWN_HERO = require('../../assets/images/subscription/crown_hero.png');
 const LEAVES_LEFT = require('../../assets/images/subscription/header_leaves_left.png');
+const PLAN_FREE_IMG = require('../../assets/images/subscription/plan_free.png');
+const PLAN_ANTAM_IMG = require('../../assets/images/subscription/plan_antam.png');
 
-type PlanCode = 'free' | 'antam_2' | 'antam_4' | 'antam_8';
+type PlanCode = 'free' | 'antam_1' | 'antam_2' | 'antam_4' | 'antam_8';
 type SubscriptionStatus = {
   ok: boolean;
   planCode: PlanCode;
@@ -82,6 +84,8 @@ type CurrentPlanCardProps = {
   status: SubscriptionStatus | null;
   loading: boolean;
   language: string;
+  userName?: string;
+  avatarUrl?: string;
   t: (key: string, options?: Record<string, unknown>) => string;
   styles: ReturnType<typeof createStyles>;
 };
@@ -90,13 +94,28 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
   status,
   loading,
   language,
+  userName,
+  avatarUrl,
   t,
   styles,
 }: CurrentPlanCardProps) {
+  const initial = (userName || '').trim().charAt(0).toUpperCase();
+
   return (
     <View style={styles.currentPlanCard}>
       <View style={styles.currentAvatarWrap}>
-        <Ionicons name="person" size={20} color="#059669" />
+        {avatarUrl ? (
+          <Image
+            cachePolicy="memory-disk"
+            contentFit="cover"
+            source={{ uri: avatarUrl }}
+            style={styles.currentAvatarImg}
+          />
+        ) : initial ? (
+          <Text style={styles.currentAvatarInitial}>{initial}</Text>
+        ) : (
+          <Ionicons name="person" size={20} color="#059669" />
+        )}
       </View>
       <View style={styles.currentPlanInfo}>
         <View style={styles.currentPlanTitleRow}>
@@ -125,7 +144,6 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
           </Text>
         )}
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
     </View>
   );
 });
@@ -157,16 +175,25 @@ const PlanComparison = memo(function PlanComparison({
       <View style={styles.freeCard}>
         <View style={styles.planCardHeader}>
           <View style={styles.freeAvatar}>
-            <Ionicons name="person-outline" size={20} color="#64748b" />
+            <Image
+              cachePolicy="memory-disk"
+              contentFit="contain"
+              source={PLAN_FREE_IMG}
+              style={styles.planBadgeImg}
+            />
           </View>
           <Text style={styles.freePlanTitle}>{t('v2FreePlan')}</Text>
-          <Text style={styles.freePrice}>{t('freePrice')}</Text>
-          <Text style={styles.perMonthText}>{t('perMonth')}</Text>
+          <View style={styles.planPriceWrap}>
+            <Text style={styles.freePrice}>{t('freePrice')}</Text>
+            <Text style={styles.perMonthText}>{t('perMonth')}</Text>
+          </View>
         </View>
         <View style={styles.featureList}>
           {freeFeatures.map((item) => (
             <View key={item.text} style={styles.comparisonFeatureRow}>
-              <View style={styles.featureIconWrap}>{item.icon}</View>
+              <View style={styles.featureIconWrap}>
+                <Ionicons name="checkmark-circle" size={16} color="#059669" />
+              </View>
               <Text style={styles.featureText}>{item.text}</Text>
             </View>
           ))}
@@ -184,15 +211,24 @@ const PlanComparison = memo(function PlanComparison({
         </View>
         <View style={styles.planCardHeader}>
           <View style={styles.premiumAvatar}>
-            <MaterialCommunityIcons name="crown" size={22} color="#f59e0b" />
+            <Image
+              cachePolicy="memory-disk"
+              contentFit="contain"
+              source={PLAN_ANTAM_IMG}
+              style={styles.planBadgeImg}
+            />
           </View>
           <Text style={styles.premiumPlanTitle}>{t('features.premiumTitle')}</Text>
-          <Text style={styles.planPeriodOptions}>{t('iapMonthly')} · {t('iapYearly')}</Text>
+          <View style={styles.planPriceWrap}>
+            <Text style={styles.planPeriodOptions}>{t('iapMonthly')} · {t('iapYearly')}</Text>
+          </View>
         </View>
         <View style={styles.featureList}>
           {anTamFeatures.map((item) => (
             <View key={item.text} style={styles.comparisonFeatureRow}>
-              <Ionicons name="checkmark-circle" size={16} color="#ea580c" style={styles.premiumCheckIcon} />
+              <View style={styles.featureIconWrap}>
+                <Ionicons name="checkmark-circle" size={16} color="#ea580c" />
+              </View>
               <Text style={styles.premiumFeatureText}>{item.text}</Text>
             </View>
           ))}
@@ -239,13 +275,16 @@ export default function SubscriptionScreen() {
   );
   const scrollRef = useRef<ScrollView>(null);
   const purchaseSectionYRef = useRef(0);
-  const currentUserId = Number(useAuthStore((state) => state.profile?.id) || 0);
+  const profile = useAuthStore((state) => state.profile);
+  const currentUserId = Number(profile?.id || 0);
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
   const [connections, setConnections] = useState<CareCircleConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [memberModal, setMemberModal] = useState(false);
   const [memberBusy, setMemberBusy] = useState<number | null>(null);
+  const [showPurchaseSection, setShowPurchaseSection] = useState(false);
+  const isFirstRevealRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -307,13 +346,10 @@ export default function SubscriptionScreen() {
     }
   }, [refresh, t]);
 
-  const freeFeatures = useMemo<FeatureItem[]>(() => [
-    { icon: <Ionicons name="pulse-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[0]) },
-    { icon: <Ionicons name="time-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[1]) },
-    { icon: <Ionicons name="chatbubble-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[2]) },
-    { icon: <Ionicons name="analytics-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[3]) },
-    { icon: <Ionicons name="checkmark-circle-outline" size={15} color="#64748b" />, text: t(FREE_FEATURES[4]) },
-  ], [t]);
+  const freeFeatures = useMemo<FeatureItem[]>(
+    () => FREE_FEATURES.map((feature) => ({ text: t(feature) })),
+    [t],
+  );
 
   const anTamFeatures = useMemo<FeatureItem[]>(
     () => AN_TAM_FEATURES.map((feature) => ({ text: t(feature) })),
@@ -321,11 +357,16 @@ export default function SubscriptionScreen() {
   );
 
   const handleChoosePlan = useCallback(() => {
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, purchaseSectionYRef.current - spacing.sm),
-      animated: true,
-    });
-  }, []);
+    if (!showPurchaseSection) {
+      isFirstRevealRef.current = true;
+      setShowPurchaseSection(true);
+    } else {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, purchaseSectionYRef.current - spacing.sm),
+        animated: true,
+      });
+    }
+  }, [showPurchaseSection]);
 
   return (
     <Screen>
@@ -369,11 +410,13 @@ export default function SubscriptionScreen() {
           </View>
 
           <CurrentPlanCard
+            avatarUrl={profile?.avatarUrl}
             language={i18n.language}
             loading={loading}
             status={status}
             styles={styles}
             t={t}
+            userName={profile?.name}
           />
 
           <PlanComparison
@@ -385,17 +428,30 @@ export default function SubscriptionScreen() {
             t={t}
           />
 
-          <View
-            onLayout={(event) => {
-              purchaseSectionYRef.current = event.nativeEvent.layout.y;
-            }}
-          >
-            <IapPurchaseCard
-              currentBillingPeriod={status?.billingPeriod}
-              currentPlanCode={status?.planCode}
-              onPurchased={refresh}
-            />
-          </View>
+          {showPurchaseSection && (
+            <Animated.View
+              entering={FadeInDown.duration(400).springify()}
+              onLayout={(event) => {
+                const layoutY = event.nativeEvent.layout.y;
+                purchaseSectionYRef.current = layoutY;
+                if (isFirstRevealRef.current) {
+                  isFirstRevealRef.current = false;
+                  setTimeout(() => {
+                    scrollRef.current?.scrollTo({
+                      y: Math.max(0, layoutY - spacing.sm),
+                      animated: true,
+                    });
+                  }, 80);
+                }
+              }}
+            >
+              <IapPurchaseCard
+                currentBillingPeriod={status?.billingPeriod}
+                currentPlanCode={status?.planCode}
+                onPurchased={refresh}
+              />
+            </Animated.View>
+          )}
 
           <View style={styles.householdCard}>
             <View style={styles.householdHeader}>
@@ -576,7 +632,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       borderRadius: 21,
       height: 42,
       justifyContent: 'center',
+      overflow: 'hidden',
       width: 42,
+    },
+    currentAvatarImg: {
+      borderRadius: 21,
+      height: 42,
+      width: 42,
+    },
+    currentAvatarInitial: {
+      color: '#047857',
+      fontSize: 18,
+      fontWeight: '800',
     },
     currentPlanInfo: { flex: 1, minWidth: 0 },
     currentPlanTitleRow: {
@@ -644,50 +711,75 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       zIndex: 2,
     },
     popularBadgeText: { color: '#fffaf5', fontSize: 10, fontWeight: '700' },
-    planCardHeader: { alignItems: 'center', paddingBottom: 8, paddingTop: 4 },
+    planCardHeader: {
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      minHeight: 136,
+      paddingBottom: 4,
+      paddingTop: 4,
+    },
     freeAvatar: {
       alignItems: 'center',
-      backgroundColor: isDark ? '#334155' : '#f1f5f9',
-      borderRadius: 22,
-      height: 44,
+      height: 60,
       justifyContent: 'center',
       marginBottom: 6,
-      width: 44,
+      width: 60,
     },
     premiumAvatar: {
       alignItems: 'center',
-      backgroundColor: '#fef3c7',
-      borderRadius: 22,
-      height: 44,
+      height: 60,
       justifyContent: 'center',
       marginBottom: 6,
-      width: 44,
+      width: 60,
+    },
+    planBadgeImg: {
+      height: 58,
+      width: 58,
     },
     freePlanTitle: {
       color: isDark ? '#f8fafc' : '#0f172a',
       fontSize: 14.5,
       fontWeight: '700',
+      textAlign: 'center',
     },
-    premiumPlanTitle: { color: '#ea580c', fontSize: 14.5, fontWeight: '700', textAlign: 'center' },
+    premiumPlanTitle: {
+      color: '#ea580c',
+      fontSize: 14.5,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    planPriceWrap: {
+      alignItems: 'center',
+      height: 40,
+      justifyContent: 'center',
+    },
     freePrice: {
       color: isDark ? '#f8fafc' : '#0f172a',
-      fontSize: 22,
+      fontSize: 20,
       fontWeight: '800',
       letterSpacing: -0.5,
-      marginTop: 2,
     },
     perMonthText: { color: '#94a3b8', fontSize: 11, marginTop: -2 },
-    planPeriodOptions: { color: '#ea580c', fontSize: 11, marginTop: 5, opacity: 0.82 },
-    featureList: { gap: 9, marginVertical: 10 },
-    comparisonFeatureRow: { alignItems: 'flex-start', flexDirection: 'row' },
-    featureIconWrap: { alignItems: 'center', marginRight: 6, width: 18 },
+    planPeriodOptions: { color: '#ea580c', fontSize: 11, textAlign: 'center', opacity: 0.9 },
+    featureList: { gap: 10, marginVertical: 10 },
+    comparisonFeatureRow: {
+      alignItems: 'flex-start',
+      flexDirection: 'row',
+      minHeight: 38,
+    },
+    featureIconWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 6,
+      marginTop: 1,
+      width: 18,
+    },
     featureText: {
       color: isDark ? '#cbd5e1' : '#475569',
       flex: 1,
       fontSize: 11,
       lineHeight: 16,
     },
-    premiumCheckIcon: { marginRight: 6, marginTop: 1 },
     premiumFeatureText: {
       color: isDark ? '#f8fafc' : '#1e293b',
       flex: 1,

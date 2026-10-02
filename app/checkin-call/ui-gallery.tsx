@@ -239,7 +239,7 @@ function NativeIncomingPreview({ platform }: { platform: 'ios' | 'android' }) {
         <Text style={[styles.incomingEyebrow, ios && styles.incomingTextMuted]}>
           {t(ios ? 'gallery.iosSystemLabel' : 'gallery.androidSystemLabel')}
         </Text>
-        <View style={[styles.callAvatar, ios && styles.callAvatarDark]}>
+        <View style={styles.callAvatar}>
           <Ionicons name={ios ? 'logo-apple' : 'call-outline'} size={34} color={ios ? '#dce9e5' : COLORS.teal} />
         </View>
         <Text style={[styles.incomingTitle, ios && styles.incomingTextLight]}>{t('userHeading')}</Text>
@@ -421,7 +421,7 @@ function FamilyPreview({ severity }: { severity: 'UNKNOWN' | 'MILD' | 'URGENT' }
       <View style={styles.familyWrapper}>
         {/* Top card */}
         <View style={[styles.familyCard, urgent ? styles.familyCardUrgent : unknown ? styles.familyCardUnknown : styles.familyCardMild]}>
-          <View style={[styles.urgentBadgeCircle, urgent ? styles.urgentBadgeCircleUrgent : unknown ? styles.urgentBadgeCircleUnknown : styles.urgentBadgeCircleMild]}>
+          <View style={styles.urgentBadgeCircle}>
             <Ionicons
               name={urgent ? 'warning-outline' : unknown ? 'help-outline' : 'heart-outline'}
               size={36}
@@ -565,7 +565,7 @@ function ExpiredPreview() {
   const { t } = useTranslation('checkinCall');
   return (
     <PreviewFrame>
-      <View style={[styles.severityIcon, styles.severityUrgent]}><Ionicons name="time-outline" size={31} color={COLORS.red} /></View>
+      <View style={styles.severityIcon}><Ionicons name="time-outline" size={31} color={COLORS.red} /></View>
       <Text style={styles.screenTitleCentered}>{t('gallery.expiredTitle')}</Text>
       <Text style={styles.callStatus}>{t('gallery.expiredMessage')}</Text>
       <ActionButton tone="neutral">{t('back', { ns: 'common' })}</ActionButton>
@@ -596,10 +596,7 @@ function ConnectionStatesPreview() {
       <View style={styles.stateList}>
         {states.map((state) => (
           <View style={styles.stateRow} key={state.key}>
-            <View style={[
-              styles.stateIcon,
-              state.tone === 'ok' ? styles.stateIconOk : state.tone === 'error' ? styles.stateIconError : styles.stateIconNeutral,
-            ]}>
+            <View style={styles.stateIcon}>
               <Ionicons
                 name={state.icon}
                 size={21}
@@ -717,7 +714,7 @@ const styles = StyleSheet.create({
   listRow: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.line, paddingVertical: 12 },
   listRowPressed: { backgroundColor: '#e9f3f0' },
   listIndex: { width: 24, color: '#78908c', fontSize: 12, fontWeight: '700' },
-  listIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.tealSoft },
+  listIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   listCopy: { flex: 1, gap: 4 },
   listTitleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   listTitle: { color: COLORS.ink, fontSize: 16, fontWeight: '700', flexShrink: 1 },
@@ -827,8 +824,7 @@ const styles = StyleSheet.create({
   incomingEyebrow: { color: COLORS.muted, fontSize: 12, letterSpacing: 1.5, fontWeight: '800' },
   incomingTextLight: { color: '#f2faf7' },
   incomingTextMuted: { color: '#b8c8c4' },
-  callAvatar: { width: 78, height: 78, borderRadius: 39, alignItems: 'center', justifyContent: 'center', backgroundColor: '#d6ebe5', marginTop: 34 },
-  callAvatarDark: { backgroundColor: '#29443e' },
+  callAvatar: { width: 78, height: 78, borderRadius: 39, alignItems: 'center', justifyContent: 'center', marginTop: 34 },
   incomingTitle: { color: COLORS.ink, fontSize: 25, lineHeight: 32, fontWeight: '700', textAlign: 'center', marginTop: 24 },
   incomingSubtitle: { color: COLORS.muted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 6 },
   callActions: { width: '100%', flexDirection: 'row', justifyContent: 'space-around', marginTop: 'auto' },
@@ -838,20 +834,18 @@ const styles = StyleSheet.create({
   accept: { backgroundColor: '#168a64' },
   hangupIcon: { transform: [{ rotate: '135deg' }] },
   callActionLabel: { color: COLORS.ink, fontSize: 13, fontWeight: '600' },
-  callHeaderIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', backgroundColor: COLORS.tealSoft, marginTop: 14 },
+  callHeaderIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 14 },
   callStatus: { color: COLORS.muted, fontSize: 15, lineHeight: 23, textAlign: 'center', marginBottom: 6 },
   replayRow: { minHeight: 48, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   replayText: { color: COLORS.teal, fontSize: 15, fontWeight: '700' },
   safetyNote: { color: COLORS.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 8 },
   severityIcon: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 12 },
-  severityMild: { backgroundColor: COLORS.amberSoft },
-  severityUrgent: { backgroundColor: COLORS.redSoft },
   severityMessage: { borderRadius: 14, padding: 14, borderWidth: 1 },
   severityMessageMild: { backgroundColor: '#fff8eb', borderColor: '#ecd6aa' },
   severityMessageUrgent: { backgroundColor: '#fff0f2', borderColor: '#edc2c8' },
   severityMessageText: { color: COLORS.ink, fontSize: 14, lineHeight: 21, fontWeight: '600', textAlign: 'center' },
   familyFootnote: { color: COLORS.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  resultIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', backgroundColor: COLORS.teal, marginTop: 18 },
+  resultIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 18 },
   resultSummary: { minHeight: 70, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: COLORS.line, paddingVertical: 12 },
   resultLabel: { color: COLORS.muted, fontSize: 12 },
   resultValue: { color: COLORS.teal, fontSize: 16, fontWeight: '700', marginTop: 3 },
@@ -861,9 +855,6 @@ const styles = StyleSheet.create({
   stateList: { gap: 10 },
   stateRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.line, paddingVertical: 9 },
   stateIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  stateIconNeutral: { backgroundColor: '#e8efed' },
-  stateIconOk: { backgroundColor: COLORS.tealSoft },
-  stateIconError: { backgroundColor: COLORS.redSoft },
   stateText: { flex: 1, color: COLORS.ink, fontSize: 14, lineHeight: 20, fontWeight: '600' },
 
   // Screen 2 - Incoming
@@ -1115,19 +1106,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    borderWidth: 5,
-  },
-  urgentBadgeCircleUrgent: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fff1f2',
-  },
-  urgentBadgeCircleMild: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#fefce8',
-  },
-  urgentBadgeCircleUnknown: {
-    backgroundColor: COLORS.tealSoft,
-    borderColor: '#edf8f5',
   },
   familyCardTitle: {
     fontSize: 20,
@@ -1287,7 +1265,6 @@ const styles = StyleSheet.create({
     borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.amberSoft,
     marginBottom: 8,
     zIndex: 2,
   },

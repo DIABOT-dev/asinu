@@ -23,23 +23,123 @@ type Props = {
 
 const formatVnd = (value: number) => `${value.toLocaleString('vi-VN')}đ`;
 
+const DEFAULT_PRODUCTS: LocalProduct[] = [
+  {
+    id: 'asinu.antam1.yearly',
+    plan_code: 'antam_1',
+    plan_name: 'An Tâm 1',
+    billing_period: 'yearly',
+    plan_months: 12,
+    protected_members: 1,
+    consultation_credits: 1,
+    display_price_vnd: 699000,
+  },
+  {
+    id: 'asinu.antam1.monthly',
+    plan_code: 'antam_1',
+    plan_name: 'An Tâm 1',
+    billing_period: 'monthly',
+    plan_months: 1,
+    protected_members: 1,
+    consultation_credits: 0,
+    display_price_vnd: 89000,
+  },
+  {
+    id: 'asinu.antam2.yearly',
+    plan_code: 'antam_2',
+    plan_name: 'An Tâm 2',
+    billing_period: 'yearly',
+    plan_months: 12,
+    protected_members: 2,
+    consultation_credits: 2,
+    display_price_vnd: 1199000,
+  },
+  {
+    id: 'asinu.antam2.monthly',
+    plan_code: 'antam_2',
+    plan_name: 'An Tâm 2',
+    billing_period: 'monthly',
+    plan_months: 1,
+    protected_members: 2,
+    consultation_credits: 0,
+    display_price_vnd: 149000,
+  },
+  {
+    id: 'asinu.antam4.yearly',
+    plan_code: 'antam_4',
+    plan_name: 'An Tâm 4',
+    billing_period: 'yearly',
+    plan_months: 12,
+    protected_members: 4,
+    consultation_credits: 4,
+    display_price_vnd: 1499000,
+  },
+  {
+    id: 'asinu.antam4.monthly',
+    plan_code: 'antam_4',
+    plan_name: 'An Tâm 4',
+    billing_period: 'monthly',
+    plan_months: 1,
+    protected_members: 4,
+    consultation_credits: 0,
+    display_price_vnd: 199000,
+  },
+  {
+    id: 'asinu.antam8.yearly',
+    plan_code: 'antam_8',
+    plan_name: 'An Tâm 8',
+    billing_period: 'yearly',
+    plan_months: 12,
+    protected_members: 8,
+    consultation_credits: 8,
+    display_price_vnd: 1799000,
+  },
+  {
+    id: 'asinu.antam8.monthly',
+    plan_code: 'antam_8',
+    plan_name: 'An Tâm 8',
+    billing_period: 'monthly',
+    plan_months: 1,
+    protected_members: 8,
+    consultation_credits: 0,
+    display_price_vnd: 249000,
+  },
+];
+
 export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod, onPurchased }: Props) {
   const { t } = useTranslation('subscription');
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(isDark), [isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
-  const [products, setProducts] = useState<LocalProduct[]>([]);
+  const [products, setProducts] = useState<LocalProduct[]>(DEFAULT_PRODUCTS);
   const [period, setPeriod] = useState<'monthly' | 'yearly'>('yearly');
-  const [selectedPlan, setSelectedPlan] = useState('antam_2');
+  const [selectedPlan, setSelectedPlan] = useState('antam_4');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
     fetchAvailableProducts()
-      .then((items) => active && setProducts(items))
-      .catch(() => active && setProducts([]))
-      .finally(() => active && setLoading(false));
+      .then((items) => {
+        if (!active) return;
+        if (items && items.length > 0) {
+          const merged = DEFAULT_PRODUCTS.map((def) => {
+            const found = items.find(
+              (it) => it.plan_code === def.plan_code && it.billing_period === def.billing_period
+            );
+            return found ? { ...def, ...found } : def;
+          });
+          setProducts(merged);
+        } else {
+          setProducts(DEFAULT_PRODUCTS);
+        }
+      })
+      .catch(() => {
+        if (active) setProducts(DEFAULT_PRODUCTS);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -52,6 +152,15 @@ export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod
   const selected = choices.find((product) => product.plan_code === selectedPlan) ?? choices[0];
   const selectedIsCurrent =
     selected?.plan_code === currentPlanCode && selected?.billing_period === currentBillingPeriod;
+
+  const row1 = useMemo(
+    () => choices.filter((p) => p.plan_code === 'antam_1' || p.plan_code === 'antam_2'),
+    [choices]
+  );
+  const row2 = useMemo(
+    () => choices.filter((p) => p.plan_code === 'antam_4' || p.plan_code === 'antam_8'),
+    [choices]
+  );
 
   const buy = useCallback(async () => {
     if (!selected) return;
@@ -94,6 +203,121 @@ export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod
     }
   }, [showAlert, t]);
 
+  const renderCard = (product?: LocalProduct) => {
+    if (!product) return null;
+    const active = product.plan_code === (selected?.plan_code ?? selectedPlan);
+    const current =
+      currentPlanCode === product.plan_code && currentBillingPeriod === product.billing_period;
+    const isPopular = product.plan_code === 'antam_4';
+
+    const getPlanAvatar = () => {
+      switch (product.plan_code) {
+        case 'antam_1':
+          return (
+            <View style={[styles.gridCardAvatar, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5' }]}>
+              <Ionicons name="person" size={20} color="#059669" />
+            </View>
+          );
+        case 'antam_2':
+          return (
+            <View style={[styles.gridCardAvatar, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5' }]}>
+              <Ionicons name="people" size={20} color="#059669" />
+            </View>
+          );
+        case 'antam_4':
+          return (
+            <View style={[styles.gridCardAvatar, { backgroundColor: isDark ? '#431407' : '#fff7ed' }]}>
+              <Ionicons name="heart" size={20} color="#ea580c" />
+            </View>
+          );
+        case 'antam_8':
+        default:
+          return (
+            <View style={[styles.gridCardAvatar, { backgroundColor: isDark ? '#082f49' : '#f0f9ff' }]}>
+              <MaterialCommunityIcons name="shield-crown" size={22} color="#0284c7" />
+            </View>
+          );
+      }
+    };
+
+    const features = [
+      t('iapProtectMembersShort', { count: product.protected_members }),
+      period === 'yearly' && product.consultation_credits > 0
+        ? t('iapConsultationCount', { count: product.consultation_credits })
+        : t('iapNoConsultation'),
+      t('iapAiCallcenterShort'),
+      t('iapEarlySignalsShort'),
+    ];
+
+    return (
+      <Pressable
+        key={product.id}
+        style={[
+          styles.gridCard,
+          active && styles.gridCardActive,
+          isPopular && !active && styles.gridCardPopularBorder,
+        ]}
+        onPress={() => setSelectedPlan(product.plan_code)}
+      >
+        {isPopular && (
+          <View style={styles.popularBadge}>
+            <Text style={styles.popularBadgeText}>{t('mostPopular')}</Text>
+          </View>
+        )}
+
+        <View style={styles.gridCardHeader}>
+          {getPlanAvatar()}
+          <Text style={[styles.gridCardTitle, active && styles.gridCardTitleActive]}>
+            {product.plan_name}
+          </Text>
+          <View style={styles.gridPriceWrap}>
+            <Text style={[styles.gridPriceText, active && styles.gridPriceTextActive]}>
+              {product.localizedPrice ?? formatVnd(product.display_price_vnd)}
+            </Text>
+            <Text style={styles.gridPricePeriod}>
+              {period === 'yearly' ? t('iapPerYear') : t('iapPerMonth')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.gridFeatureList}>
+          {features.map((item, idx) => (
+            <View key={idx} style={styles.gridFeatureRow}>
+              <View style={styles.gridFeatureIconWrap}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={15}
+                  color={active ? (isPopular ? '#ea580c' : '#059669') : '#059669'}
+                />
+              </View>
+              <Text
+                numberOfLines={2}
+                style={[styles.gridFeatureText, active && styles.gridFeatureTextActive]}
+              >
+                {item}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={active ? styles.cardActivePill : styles.cardInactivePill}>
+          {active ? (
+            <View style={styles.pillRow}>
+              <Ionicons name="checkmark" size={13} color="#fff" />
+              <Text style={styles.cardActivePillText}>
+                {current ? t('iapCurrent') : t('iapSelected')}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.cardInactivePillText}>
+              {current ? t('iapCurrent') : t('iapSelectPlan')}
+            </Text>
+          )}
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
     <View style={styles.card}>
       {/* Header */}
@@ -103,8 +327,8 @@ export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod
             <Ionicons name="sparkles" size={12} color="#059669" />
             <Text style={styles.eyebrow}>{t('iapEyebrow')}</Text>
           </View>
-          <Text style={styles.title}>{t('iapChooseTitle')}</Text>
-          <Text style={styles.subtitle}>{t('v2HeroBody')}</Text>
+          <Text style={styles.title}>{t('iapPackageSectionTitle')}</Text>
+          <Text style={styles.subtitle}>{t('iapPackageSectionSubtitle')}</Text>
         </View>
         <View style={styles.headerIconWrap}>
           <MaterialCommunityIcons name="shield-check" size={26} color="#059669" />
@@ -121,7 +345,7 @@ export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod
             {t('iapYearly')}
           </Text>
           <View style={styles.savingsBadge}>
-            <Text style={styles.savingsBadgeText}>-20%</Text>
+            <Text style={styles.savingsBadgeText}>{t('iapYearlyDiscountBadge')}</Text>
           </View>
         </Pressable>
 
@@ -135,87 +359,19 @@ export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod
         </Pressable>
       </View>
 
-      {/* Plans List */}
+      {/* 2x2 Plans Grid */}
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
       ) : (
-        <View style={styles.planList}>
-          {choices.map((product) => {
-            const active = product.plan_code === (selected?.plan_code ?? selectedPlan);
-            const current =
-              currentPlanCode === product.plan_code && currentBillingPeriod === product.billing_period;
-            const isPopular = product.plan_code === 'antam_4';
-            return (
-              <Pressable
-                key={product.id}
-                style={[
-                  styles.plan,
-                  active && styles.planActive,
-                  isPopular && !active && styles.planPopularBorder,
-                ]}
-                onPress={() => setSelectedPlan(product.plan_code)}
-              >
-                {isPopular && (
-                  <View style={styles.popularBadge}>
-                    <Text style={styles.popularBadgeText}>{t('mostPopular')}</Text>
-                  </View>
-                )}
-
-                <View style={styles.planTopRow}>
-                  <View
-                    style={[
-                      styles.planAvatar,
-                      product.plan_code === 'antam_2' && styles.avatarAntam2,
-                      product.plan_code === 'antam_4' && styles.avatarAntam4,
-                      product.plan_code === 'antam_8' && styles.avatarAntam8,
-                    ]}
-                  >
-                    {product.plan_code === 'antam_4' ? (
-                      <Ionicons name="heart" size={18} color="#ea580c" />
-                    ) : product.plan_code === 'antam_8' ? (
-                      <MaterialCommunityIcons name="shield-crown" size={20} color="#0284c7" />
-                    ) : (
-                      <Ionicons name="people" size={18} color="#059669" />
-                    )}
-                  </View>
-
-                  <View style={styles.planCopy}>
-                    <View style={styles.planTitleRow}>
-                      <Text style={styles.planName}>{product.plan_name}</Text>
-                      {current && (
-                        <View style={styles.currentBadge}>
-                          <Text style={styles.currentBadgeText}>{t('iapCurrent')}</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.planMeta}>
-                      {t('iapProtectMembers', { count: product.protected_members })}
-                      {product.consultation_credits > 0
-                        ? t('iapGiftCredits', { count: product.consultation_credits })
-                        : ''}
-                    </Text>
-                  </View>
-
-                  <View style={styles.radioWrap}>
-                    {active ? (
-                      <Ionicons name="checkmark-circle" size={24} color="#059669" />
-                    ) : (
-                      <View style={styles.radioUnchecked} />
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.planPriceRow}>
-                  <Text style={styles.price}>
-                    {product.localizedPrice ?? formatVnd(product.display_price_vnd)}
-                    <Text style={styles.pricePeriod}>
-                      {' '}{period === 'yearly' ? t('iapPerYear') : t('iapPerMonth')}
-                    </Text>
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
+        <View style={styles.gridWrap}>
+          <View style={styles.gridRow}>
+            {renderCard(row1[0])}
+            {renderCard(row1[1])}
+          </View>
+          <View style={styles.gridRow}>
+            {renderCard(row2[0])}
+            {renderCard(row2[1])}
+          </View>
         </View>
       )}
 
@@ -226,7 +382,7 @@ export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod
         disabled={!selected || busy || selectedIsCurrent}
       >
         <LinearGradient
-          colors={['#059669', '#047857']}
+          colors={selected?.plan_code === 'antam_4' ? ['#f97316', '#ea580c'] : ['#059669', '#047857']}
           end={{ x: 1, y: 0 }}
           start={{ x: 0, y: 0 }}
           style={styles.buyButtonGradient}
@@ -239,7 +395,7 @@ export function IapPurchaseCard({ currentPlanCode = 'free', currentBillingPeriod
               <Text style={styles.buyText}>
                 {selectedIsCurrent
                   ? t('iapCurrentExact')
-                  : t('iapContinue', { plan: selected?.plan_name ?? t('premium') })}
+                  : `${t('iapContinue', { plan: selected?.plan_name ?? t('premium') })} · ${selected?.localizedPrice ?? formatVnd(selected?.display_price_vnd ?? 0)}`}
               </Text>
               <Ionicons name="arrow-forward" size={16} color="#fff" />
             </>
@@ -329,7 +485,6 @@ function createStyles(isDark: boolean) {
     },
     headerIconWrap: {
       alignItems: 'center',
-      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
       borderRadius: 20,
       height: 40,
       justifyContent: 'center',
@@ -384,27 +539,34 @@ function createStyles(isDark: boolean) {
     loading: {
       paddingVertical: spacing.xl,
     },
-    planList: {
-      gap: spacing.sm + 2,
+    gridWrap: {
+      gap: 12,
     },
-    plan: {
-      backgroundColor: isDark ? colors.surface : '#ffffff',
+    gridRow: {
+      alignItems: 'stretch',
+      flexDirection: 'row',
+      gap: 10,
+    },
+    gridCard: {
+      backgroundColor: isDark ? colors.surface : '#fffdfa',
       borderColor: isDark ? colors.border : '#e2e8f0',
-      borderRadius: 18,
+      borderRadius: 20,
       borderWidth: 1.5,
-      padding: 14,
+      flex: 1,
+      justifyContent: 'space-between',
+      padding: 12,
       position: 'relative',
     },
-    planActive: {
-      backgroundColor: isDark ? '#064e3b18' : '#f0fdf4',
-      borderColor: '#059669',
-      shadowColor: '#059669',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.12,
-      shadowRadius: 6,
-      elevation: 2,
+    gridCardActive: {
+      backgroundColor: isDark ? '#1c1917' : '#fffbf5',
+      borderColor: '#ea580c',
+      shadowColor: '#ea580c',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 3,
     },
-    planPopularBorder: {
+    gridCardPopularBorder: {
       borderColor: '#fed7aa',
     },
     popularBadge: {
@@ -413,97 +575,124 @@ function createStyles(isDark: boolean) {
       paddingHorizontal: 8,
       paddingVertical: 3,
       position: 'absolute',
-      right: 14,
+      right: 10,
       top: -10,
       zIndex: 2,
     },
     popularBadgeText: {
       color: '#fffaf5',
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: '800',
     },
-    planTopRow: {
+    gridCardHeader: {
       alignItems: 'center',
-      flexDirection: 'row',
-      gap: 12,
+      justifyContent: 'flex-start',
+      minHeight: 116,
+      paddingBottom: 4,
+      paddingTop: 4,
     },
-    planAvatar: {
+    gridCardAvatar: {
       alignItems: 'center',
-      borderRadius: 18,
-      height: 36,
+      borderRadius: 22,
+      height: 44,
       justifyContent: 'center',
-      width: 36,
+      marginBottom: 6,
+      width: 44,
     },
-    avatarAntam2: {
-      backgroundColor: isDark ? '#064e3b' : '#ecfdf5',
-    },
-    avatarAntam4: {
-      backgroundColor: isDark ? '#431407' : '#fff7ed',
-    },
-    avatarAntam8: {
-      backgroundColor: isDark ? '#082f49' : '#f0f9ff',
-    },
-    planCopy: {
-      flex: 1,
-    },
-    planTitleRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: 8,
-    },
-    planName: {
+    gridCardTitle: {
       color: isDark ? '#f8fafc' : '#0f172a',
-      fontSize: typography.size.sm + 1,
-      fontWeight: '800',
-    },
-    currentBadge: {
-      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
-      borderRadius: 8,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-    },
-    currentBadgeText: {
-      color: '#065f46',
-      fontSize: 10,
+      fontSize: 14,
       fontWeight: '700',
+      textAlign: 'center',
     },
-    planMeta: {
-      color: isDark ? '#94a3b8' : '#64748b',
-      fontSize: typography.size.xs - 0.5,
-      lineHeight: 16,
+    gridCardTitleActive: {
+      color: '#ea580c',
+    },
+    gridPriceWrap: {
+      alignItems: 'center',
+      height: 38,
+      justifyContent: 'center',
       marginTop: 2,
     },
-    radioWrap: {
+    gridPriceText: {
+      color: isDark ? '#f8fafc' : '#0f172a',
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+    },
+    gridPriceTextActive: {
+      color: '#ea580c',
+    },
+    gridPricePeriod: {
+      color: isDark ? '#94a3b8' : '#64748b',
+      fontSize: 10.5,
+      marginTop: -2,
+    },
+    gridFeatureList: {
+      gap: 8,
+      marginVertical: 10,
+    },
+    gridFeatureRow: {
+      alignItems: 'flex-start',
+      flexDirection: 'row',
+      minHeight: 28,
+    },
+    gridFeatureIconWrap: {
       alignItems: 'center',
       justifyContent: 'center',
-      width: 28,
+      marginRight: 5,
+      marginTop: 1,
+      width: 16,
     },
-    radioUnchecked: {
-      borderColor: isDark ? '#475569' : '#cbd5e1',
-      borderRadius: 11,
-      borderWidth: 1.5,
-      height: 22,
-      width: 22,
+    gridFeatureText: {
+      color: isDark ? '#cbd5e1' : '#475569',
+      flex: 1,
+      fontSize: 10.5,
+      lineHeight: 14.5,
     },
-    planPriceRow: {
-      marginTop: 8,
-      paddingLeft: 48,
+    gridFeatureTextActive: {
+      color: isDark ? '#f8fafc' : '#1e293b',
+      fontWeight: '600',
     },
-    price: {
-      color: isDark ? '#34d399' : '#059669',
-      fontSize: 18,
-      fontWeight: '800',
-      letterSpacing: -0.3,
+    cardActivePill: {
+      alignItems: 'center',
+      backgroundColor: '#ea580c',
+      borderRadius: 10,
+      justifyContent: 'center',
+      marginTop: 6,
+      minHeight: 34,
+      paddingHorizontal: 6,
+      paddingVertical: 6,
     },
-    pricePeriod: {
+    cardActivePillText: {
+      color: '#fffaf5',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    cardInactivePill: {
+      alignItems: 'center',
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      borderRadius: 10,
+      justifyContent: 'center',
+      marginTop: 6,
+      minHeight: 34,
+      paddingHorizontal: 6,
+      paddingVertical: 6,
+    },
+    cardInactivePillText: {
       color: isDark ? '#94a3b8' : '#64748b',
-      fontSize: typography.size.xs,
-      fontWeight: '500',
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    pillRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 4,
     },
     buyButtonWrap: {
       borderRadius: 16,
       overflow: 'hidden',
-      shadowColor: '#059669',
+      shadowColor: '#ea580c',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.25,
       shadowRadius: 8,
@@ -524,9 +713,9 @@ function createStyles(isDark: boolean) {
       fontWeight: '800',
     },
     disabled: {
+      elevation: 0,
       opacity: 0.55,
       shadowOpacity: 0,
-      elevation: 0,
     },
     links: {
       alignItems: 'center',

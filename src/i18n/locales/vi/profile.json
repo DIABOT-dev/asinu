@@ -29,9 +29,6 @@
   "sectionActions": "Thao tác",
   "reminderSchedule": "Giờ nhắc nhở",
   "checkinCall": "Tổng đài check-in",
-  "checkinResultPreview": "Xem thử kết quả check-in",
-  "checkinResultPreviewAccessibility": "Mở màn hình xem thử kết quả check-in và âm thanh kết luận",
-  "previewLabel": "Bản xem thử",
   "checkinCallGallery": "Thiết kế giao diện tổng đài",
   "checkinCallGalleryAccessibility": "Mở thư viện giao diện tổng đài",
   "healthFeed": "Bản tin sức khỏe",
@@ -138,5 +135,8 @@
   "freeBenefitSignal": "Check-in và Tín hiệu sớm khi tự bấm xem",
   "antamActiveDesc": "Tổng đài viên AI và Tín hiệu sớm tự động đang hoạt động.",
   "freeHealthDesc": "Mọi tính năng theo dõi sức khỏe đều miễn phí.",
+  "premiumFeatureLockedTitle": "Bạn chưa có quyền sử dụng",
+  "checkinCallLockedDesc": "Cấu hình Tổng đài check-in thuộc gói An Tâm. Hãy nâng cấp để Asinu có thể gọi kiểm tra khi bạn bỏ lỡ check-in.",
+  "requiresAnTam": "Cần gói An Tâm",
   "chooseAnTam": "Chọn gói An Tâm"
 }

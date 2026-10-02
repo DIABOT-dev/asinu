@@ -5,6 +5,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
+import { useFontSizeStore } from '../stores/font-size.store';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { colors, radius, spacing } from '../styles';
 
@@ -31,9 +32,11 @@ type Props = {
 export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
   const { t } = useTranslation('common');
   const typography = useScaledTypography();
+  const fontScale = useFontSizeStore((state) => state.scale);
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(typography), [typography, isDark]);
   const dataItems = [t('aiDataConsentItem1'), t('aiDataConsentItem2'), t('aiDataConsentItem3')];
+  const shouldStackActions = fontScale === 'large' || fontScale === 'xlarge';
 
   const handleAgree = async () => {
     await saveAiDataConsent();
@@ -77,11 +80,27 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
             </View>
             <Text style={styles.optional}>{t('aiDataConsentOptional')}</Text>
 
-            <View style={styles.actions}>
-              <Pressable style={[styles.button, styles.declineButton]} onPress={onDecline}>
+            <View style={[styles.actions, shouldStackActions && styles.actionsStacked]}>
+              <Pressable
+                accessibilityRole="button"
+                style={[
+                  styles.button,
+                  styles.declineButton,
+                  shouldStackActions && styles.stackedButton,
+                ]}
+                onPress={onDecline}
+              >
                 <Text style={styles.declineText}>{t('aiDataConsentDecline')}</Text>
               </Pressable>
-              <Pressable style={[styles.button, styles.agreeButton]} onPress={() => { void handleAgree(); }}>
+              <Pressable
+                accessibilityRole="button"
+                style={[
+                  styles.button,
+                  styles.agreeButton,
+                  shouldStackActions && styles.stackedButton,
+                ]}
+                onPress={() => { void handleAgree(); }}
+              >
                 <Ionicons name="checkmark" size={18} color={colors.surface} />
                 <Text style={styles.agreeText}>{t('aiDataConsentAgree')}</Text>
               </Pressable>
@@ -184,6 +203,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       gap: spacing.sm,
       marginTop: spacing.xs,
     },
+    actionsStacked: {
+      flexDirection: 'column',
+    },
     button: {
       minHeight: 48,
       minWidth: 0,
@@ -194,6 +216,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       gap: spacing.xs,
       paddingHorizontal: spacing.sm,
+    },
+    stackedButton: {
+      flex: 0,
+      width: '100%',
+      minHeight: 52,
+      paddingHorizontal: spacing.md,
     },
     declineButton: {
       backgroundColor: colors.surfaceMuted,

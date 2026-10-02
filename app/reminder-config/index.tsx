@@ -43,7 +43,6 @@ const SLOT_META: Array<{
   slot: TimeSlot;
   labelKey: string;
   descKey: string;
-  iconBg: string;
   iconColor: string;
   defaultTime: string;
   hourRange: [number, number];
@@ -53,7 +52,6 @@ const SLOT_META: Array<{
     slot: 'morning',
     labelKey: 'scheduleMorning',
     descKey: 'scheduleMorningDesc',
-    iconBg: '#fffbeb',
     iconColor: '#f59e0b',
     defaultTime: '08:00',
     hourRange: [5, 11],
@@ -63,7 +61,6 @@ const SLOT_META: Array<{
     slot: 'afternoon',
     labelKey: 'scheduleAfternoon',
     descKey: 'scheduleAfternoonDesc',
-    iconBg: '#fff7ed',
     iconColor: '#ea580c',
     defaultTime: '14:00',
     hourRange: [11, 17],
@@ -73,7 +70,6 @@ const SLOT_META: Array<{
     slot: 'evening',
     labelKey: 'scheduleEvening',
     descKey: 'scheduleEveningDesc',
-    iconBg: '#f3e8ff',
     iconColor: '#7c3aed',
     defaultTime: '21:00',
     hourRange: [17, 23],
@@ -568,9 +564,6 @@ export default function ReminderConfigScreen() {
               <View style={styles.toggleCard}>
                 <View style={styles.toggleBellWrap}>
                   <Ionicons name="notifications" size={26} color="#00897b" />
-                  <View style={styles.checkBadge}>
-                    <Ionicons name="checkmark" size={10} color="#ffffff" />
-                  </View>
                 </View>
                 <View style={styles.toggleTextWrap}>
                   <Text style={styles.toggleTitle}>{t('taskReminders')}</Text>
@@ -608,7 +601,7 @@ export default function ReminderConfigScreen() {
 
                     <View style={styles.cardMainRow}>
                       {/* Left circular icon */}
-                      <View style={[styles.slotIconCircle, { backgroundColor: meta.iconBg }]}>
+                      <View style={styles.slotIconCircle}>
                         {meta.slot === 'evening' ? (
                           <MaterialCommunityIcons name="weather-night" size={26} color={meta.iconColor} />
                         ) : meta.slot === 'afternoon' ? (
@@ -826,19 +819,6 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-    },
-    checkBadge: {
-      position: 'absolute',
-      right: 2,
-      bottom: 2,
-      width: 15,
-      height: 15,
-      borderRadius: 7.5,
-      backgroundColor: '#00897b',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1.5,
-      borderColor: '#ffffff',
     },
     toggleTextWrap: {
       flex: 1,

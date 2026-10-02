@@ -101,20 +101,6 @@ export const checkinCallApi = {
       body: settings,
     }),
   active: () => apiClient<{ ok: boolean; active: ActiveCheckinCall | null }>(BASE + '/active'),
-  testCall: (options: { localSimulation?: boolean } = {}) =>
-    apiClient<{
-      ok: boolean;
-      episode: CheckinCallEpisode;
-      attempt: CheckinCallAttempt;
-      delivery_state: string;
-      local_simulation: boolean;
-    }>(BASE + '/test-call', {
-      method: 'POST',
-      body: {
-        single_device: true,
-        ...(options.localSimulation === true ? { local_simulation: true } : {}),
-      },
-    }),
   episode: (id: string) =>
     apiClient<{ ok: boolean; episode: CheckinCallEpisode }>(BASE + '/episodes/' + id),
   attempt: (id: string) =>

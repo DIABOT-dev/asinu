@@ -5,7 +5,10 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Image,
+  type LayoutChangeEvent,
+  Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -26,30 +29,72 @@ import { colors, spacing } from '../../src/styles';
 
 // ---- types ----
 type QRData = { order_code: string; qr_url: string; amount: number; description: string; expires_at: string };
-type Payment = { id: number; order_code: string; amount: string; status: 'pending' | 'completed' | 'failed'; created_at: string; completed_at: string | null };
+type Payment = {
+  id: number;
+  order_code: string;
+  amount: string;
+  status: 'pending' | 'completed' | 'failed';
+  qr_url: string;
+  description: string;
+  expires_at: string;
+  created_at: string;
+  completed_at: string | null;
+};
 type BalanceRes = { ok: boolean; balance: string };
 type QRRes = { ok: boolean; order_code: string; qr_url: string; amount: number; description: string; expires_at: string };
 type HistoryRes = { ok: boolean; payments: Payment[]; total: number };
+type PaymentDisplayStatus = Payment['status'] | 'expired';
+
+const HISTORY_PREVIEW_COUNT = 3;
+const HISTORY_PAGE_SIZE = 50;
+const QR_VALIDITY_MS = 5 * 60 * 1000;
 
 function formatVND(val: number | string, language = 'vi'): string {
   const n = typeof val === 'string' ? parseFloat(val) : val;
   if (isNaN(n)) return '0';
   return n.toLocaleString(language === 'en' ? 'en-US' : 'vi-VN');
 }
-function formatStatus(status: Payment['status'], t: (k: string) => string): string {
+function formatStatus(status: PaymentDisplayStatus, t: (k: string) => string): string {
   if (status === 'completed') return t('completed');
   if (status === 'failed') return t('failed');
+  if (status === 'expired') return t('expired');
   return t('pending');
 }
-function statusColor(status: Payment['status']): string {
+function statusColor(status: PaymentDisplayStatus): string {
   if (status === 'completed') return colors.success;
-  if (status === 'failed') return colors.danger;
+  if (status === 'failed' || status === 'expired') return colors.danger;
   return colors.warning;
 }
-function statusIcon(status: Payment['status']): string {
+function statusIcon(status: PaymentDisplayStatus): string {
   if (status === 'completed') return 'checkmark-circle';
   if (status === 'failed') return 'close-circle';
+  if (status === 'expired') return 'time-outline';
   return 'time';
+}
+
+function parseTimestamp(value: string): number | null {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getEffectiveQrExpiry(expiresAt: string, createdAt: string | number): number {
+  const backendExpiry = parseTimestamp(expiresAt);
+  const createdTimestamp = typeof createdAt === 'number' ? createdAt : parseTimestamp(createdAt);
+  const fiveMinuteExpiry = createdTimestamp === null ? null : createdTimestamp + QR_VALIDITY_MS;
+
+  if (backendExpiry === null) return fiveMinuteExpiry ?? 0;
+  if (fiveMinuteExpiry === null) return backendExpiry;
+  return Math.min(backendExpiry, fiveMinuteExpiry);
+}
+
+function getPaymentDisplayStatus(payment: Payment, nowMs: number): PaymentDisplayStatus {
+  if (
+    payment.status === 'pending'
+    && nowMs >= getEffectiveQrExpiry(payment.expires_at, payment.created_at)
+  ) {
+    return 'expired';
+  }
+  return payment.status;
 }
 
 // ── Exact SVG Icons for 4 Quick Amount Cards ─────────────
@@ -219,20 +264,47 @@ export default function WalletScreen() {
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [creatingQR, setCreatingQR] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [pollStatus, setPollStatus] = useState<'idle' | 'polling' | 'success'>('idle');
+  const [historyNowMs, setHistoryNowMs] = useState(() => Date.now());
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const hasPendingPayments = payments.some((payment) => payment.status === 'pending');
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const modalPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const handledOrderCodesRef = useRef(new Set<string>());
+  const scrollViewRef = useRef<ScrollView>(null);
+  const qrSectionOffsetRef = useRef<number | null>(null);
+  const revealQrWhenReadyRef = useRef(false);
 
   const clearTimers = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
+    if (modalPollRef.current) clearInterval(modalPollRef.current);
   }, []);
+
+  const scrollToQrSection = useCallback(() => {
+    const offset = qrSectionOffsetRef.current;
+    if (offset === null) {
+      revealQrWhenReadyRef.current = true;
+      return;
+    }
+    revealQrWhenReadyRef.current = false;
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: Math.max(0, offset - spacing.md), animated: true });
+    });
+  }, []);
+
+  const handleQrSectionLayout = useCallback((event: LayoutChangeEvent) => {
+    qrSectionOffsetRef.current = event.nativeEvent.layout.y;
+    if (revealQrWhenReadyRef.current) scrollToQrSection();
+  }, [scrollToQrSection]);
 
   const fetchBalance = useCallback(async () => {
     try {
@@ -241,35 +313,71 @@ export default function WalletScreen() {
     } catch {} finally { setLoadingBalance(false); }
   }, []);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async (loadAll = false) => {
     setLoadingHistory(true);
     try {
-      const res = await apiClient<HistoryRes>('/api/payments/history?limit=10');
-      if (res.ok) setPayments(res.payments);
-    } catch {} finally { setLoadingHistory(false); }
+      const first = await apiClient<HistoryRes>(
+        `/api/payments/history?limit=${loadAll ? HISTORY_PAGE_SIZE : 10}`,
+      );
+      if (!first.ok) return false;
+
+      const allPayments = [...first.payments];
+      if (loadAll) {
+        for (let page = 2; allPayments.length < first.total; page += 1) {
+          const next = await apiClient<HistoryRes>(
+            `/api/payments/history?page=${page}&limit=${HISTORY_PAGE_SIZE}`,
+          );
+          if (!next.ok || next.payments.length === 0) break;
+          allPayments.push(...next.payments);
+        }
+      }
+
+      if (mountedRef.current) {
+        setPayments(allPayments);
+        setHistoryTotal(first.total);
+      }
+      return true;
+    } catch {
+      return false;
+    } finally {
+      if (mountedRef.current) setLoadingHistory(false);
+    }
   }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchBalance(), fetchHistory()]);
+    await Promise.all([fetchBalance(), fetchHistory(historyExpanded)]);
     setRefreshing(false);
-  }, [fetchBalance, fetchHistory]);
+  }, [fetchBalance, fetchHistory, historyExpanded]);
 
   useEffect(() => {
     fetchBalance();
     fetchHistory();
-    return () => { clearTimers(); mountedRef.current = false; };
-  }, []);
+    return () => {
+      clearTimers();
+      mountedRef.current = false;
+    };
+  }, [clearTimers, fetchBalance, fetchHistory]);
+
+  useEffect(() => {
+    if (!hasPendingPayments) return undefined;
+    setHistoryNowMs(Date.now());
+    const historyClock = setInterval(() => setHistoryNowMs(Date.now()), 1000);
+    return () => clearInterval(historyClock);
+  }, [hasPendingPayments]);
 
   const startCountdown = useCallback((expiresAt: string) => {
     if (timerRef.current) clearInterval(timerRef.current);
     const tick = () => {
       const remaining = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
       setCountdown(remaining);
-      if (remaining <= 0 && timerRef.current) clearInterval(timerRef.current);
+      if (remaining <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (pollRef.current) clearInterval(pollRef.current);
+      }
+      return remaining;
     };
-    tick();
-    timerRef.current = setInterval(tick, 1000);
+    if (tick() > 0) timerRef.current = setInterval(tick, 1000);
   }, []);
 
   const startPolling = useCallback((orderCode: string) => {
@@ -296,6 +404,67 @@ export default function WalletScreen() {
     }, 5000);
   }, [fetchBalance, t]);
 
+  const startModalPolling = useCallback((orderCode: string) => {
+    if (modalPollRef.current) clearInterval(modalPollRef.current);
+
+    const poll = async () => {
+      try {
+        const res = await apiClient<HistoryRes>(`/api/payments/history?limit=${HISTORY_PAGE_SIZE}`);
+        if (!mountedRef.current || !res.ok) return;
+        setPayments(res.payments);
+        setHistoryTotal(res.total);
+
+        const found = res.payments.find((payment) => payment.order_code === orderCode);
+        if (found) {
+          setSelectedPayment((current) => (
+            current?.order_code === orderCode ? found : current
+          ));
+        }
+        if (found?.status === 'completed') {
+          if (!handledOrderCodesRef.current.has(orderCode)) {
+            handledOrderCodesRef.current.add(orderCode);
+            fetchBalance();
+            showToast(t('paymentSuccess'), 'success');
+          }
+          if (modalPollRef.current) clearInterval(modalPollRef.current);
+        } else if (found?.status === 'failed') {
+          if (modalPollRef.current) clearInterval(modalPollRef.current);
+        }
+      } catch {}
+    };
+
+    modalPollRef.current = setInterval(poll, 5000);
+    poll().catch(() => {});
+  }, [fetchBalance, t]);
+
+  const handleOpenPendingPayment = useCallback((payment: Payment) => {
+    const now = Date.now();
+    if (getPaymentDisplayStatus(payment, now) !== 'pending') return;
+    setHistoryNowMs(now);
+    setSelectedPayment(payment);
+    startModalPolling(payment.order_code);
+  }, [startModalPolling]);
+
+  const handleCloseQrModal = useCallback(() => {
+    setSelectedPayment(null);
+    if (modalPollRef.current) clearInterval(modalPollRef.current);
+  }, []);
+
+  const handleToggleHistory = useCallback(async () => {
+    if (historyExpanded) {
+      setHistoryExpanded(false);
+      return;
+    }
+    if (payments.length < historyTotal) {
+      const loaded = await fetchHistory(true);
+      if (!loaded) {
+        showToast(t('loadError'), 'error');
+        return;
+      }
+    }
+    setHistoryExpanded(true);
+  }, [fetchHistory, historyExpanded, historyTotal, payments.length, t]);
+
   const handleGenerateQR = useCallback(async () => {
     const num = parseInt(amount.replace(/[^0-9]/g, ''), 10);
     if (!num || num < 1000) { setError(t('amountMin')); return; }
@@ -307,9 +476,12 @@ export default function WalletScreen() {
     try {
       const res = await apiClient<QRRes>('/api/payments/qr', { method: 'POST', body: { amount: num } });
       if (res.ok) {
-        setQr({ order_code: res.order_code, qr_url: res.qr_url, amount: res.amount, description: res.description, expires_at: res.expires_at });
-        startCountdown(res.expires_at);
-        startPolling(res.order_code);
+        const effectiveExpiry = getEffectiveQrExpiry(res.expires_at, Date.now());
+        const effectiveExpiresAt = new Date(effectiveExpiry).toISOString();
+        revealQrWhenReadyRef.current = true;
+        setQr({ order_code: res.order_code, qr_url: res.qr_url, amount: res.amount, description: res.description, expires_at: effectiveExpiresAt });
+        startCountdown(effectiveExpiresAt);
+        if (effectiveExpiry > Date.now()) startPolling(res.order_code);
         showToast(t('qrCreated'), 'success');
       } else {
         setError(t('createQRError'));
@@ -322,10 +494,26 @@ export default function WalletScreen() {
   const isExpired = qr ? countdown <= 0 : false;
   const minuteStr = Math.floor(countdown / 60).toString().padStart(2, '0');
   const secondStr = (countdown % 60).toString().padStart(2, '0');
+  const visiblePayments = historyExpanded ? payments : payments.slice(0, HISTORY_PREVIEW_COUNT);
+  const modalPayment = selectedPayment
+    ? payments.find((payment) => payment.order_code === selectedPayment.order_code) ?? selectedPayment
+    : null;
+  const modalStatus = modalPayment ? getPaymentDisplayStatus(modalPayment, historyNowMs) : null;
+  const modalRemaining = modalPayment
+    ? Math.max(0, Math.ceil((getEffectiveQrExpiry(modalPayment.expires_at, modalPayment.created_at) - historyNowMs) / 1000))
+    : 0;
+  const modalMinuteStr = Math.floor(modalRemaining / 60).toString().padStart(2, '0');
+  const modalSecondStr = (modalRemaining % 60).toString().padStart(2, '0');
+
+  useEffect(() => {
+    if (modalStatus !== 'expired') return;
+    if (modalPollRef.current) clearInterval(modalPollRef.current);
+  }, [modalStatus]);
 
   return (
     <Screen style={styles.screenBg}>
       <RippleRefreshScrollView
+        nativeScrollRef={scrollViewRef}
         refreshing={refreshing}
         onRefresh={onRefresh}
         contentContainerStyle={styles.scroll}
@@ -542,7 +730,7 @@ export default function WalletScreen() {
 
         {/* ══ QR Display Section ══ */}
         {qr && (
-          <View style={styles.sectionCard}>
+          <View style={styles.sectionCard} onLayout={handleQrSectionLayout}>
             {pollStatus === 'success' ? (
               <View style={styles.successBox}>
                 <Ionicons name="checkmark-circle" size={68} color="#10B981" />
@@ -617,9 +805,30 @@ export default function WalletScreen() {
               <MaterialCommunityIcons name="file-document-outline" size={22} color="#059669" />
               <ScaledText style={styles.sectionTitle}>{t('history')}</ScaledText>
             </View>
-            <Pressable onPress={() => {}} hitSlop={8}>
-              <ScaledText style={styles.seeAllText}>{t('seeAll')} &gt;</ScaledText>
-            </Pressable>
+            {historyTotal > HISTORY_PREVIEW_COUNT && (
+              <Pressable
+                onPress={handleToggleHistory}
+                disabled={loadingHistory}
+                hitSlop={8}
+                accessibilityRole="button"
+                style={styles.historyToggle}
+              >
+                {loadingHistory ? (
+                  <ActivityIndicator size="small" color="#059669" />
+                ) : (
+                  <>
+                    <ScaledText style={styles.seeAllText}>
+                      {t(historyExpanded ? 'showLess' : 'seeAll')}
+                    </ScaledText>
+                    <Ionicons
+                      name={historyExpanded ? 'chevron-up' : 'chevron-forward'}
+                      size={15}
+                      color="#059669"
+                    />
+                  </>
+                )}
+              </Pressable>
+            )}
           </View>
 
           {loadingHistory ? (
@@ -641,24 +850,151 @@ export default function WalletScreen() {
               <ScaledText style={styles.emptySub}>{t('historyEmptyDescription')}</ScaledText>
             </View>
           ) : (
-            payments.map((p, idx) => (
-              <View key={p.id} style={[styles.paymentRow, idx === payments.length - 1 && { borderBottomWidth: 0 }]}>
-                <Ionicons name={statusIcon(p.status) as any} size={20} color={statusColor(p.status)} />
-                <View style={styles.paymentInfo}>
-                  <ScaledText style={styles.paymentAmount}>+{formatVND(p.amount, i18n.language)} {t('balanceUnit')}</ScaledText>
-                  <ScaledText style={styles.paymentDate}>
-                    {new Date(p.created_at).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </ScaledText>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: statusColor(p.status) + '15' }]}>
-                  <View style={[styles.statusDot, { backgroundColor: statusColor(p.status) }]} />
-                  <ScaledText style={[styles.statusText, { color: statusColor(p.status) }]}>{formatStatus(p.status, t)}</ScaledText>
-                </View>
-              </View>
-            ))
+            visiblePayments.map((p, idx) => {
+              const displayStatus = getPaymentDisplayStatus(p, historyNowMs);
+              const canOpenQr = displayStatus === 'pending';
+              const displayColor = statusColor(displayStatus);
+              return (
+                <Pressable
+                  key={p.id}
+                  disabled={!canOpenQr}
+                  onPress={() => handleOpenPendingPayment(p)}
+                  accessibilityRole={canOpenQr ? 'button' : undefined}
+                  accessibilityLabel={canOpenQr ? t('openPendingQR') : undefined}
+                  style={({ pressed }) => [
+                    styles.paymentRow,
+                    pressed && canOpenQr && styles.paymentRowPressed,
+                    idx === visiblePayments.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <Ionicons name={statusIcon(displayStatus) as any} size={20} color={displayColor} />
+                  <View style={styles.paymentInfo}>
+                    <ScaledText style={styles.paymentAmount}>+{formatVND(p.amount, i18n.language)} {t('balanceUnit')}</ScaledText>
+                    <ScaledText style={styles.paymentDate}>
+                      {new Date(p.created_at).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </ScaledText>
+                    {canOpenQr && (
+                      <ScaledText style={styles.pendingOpenHint}>{t('openPendingQR')}</ScaledText>
+                    )}
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: displayColor + '15' }]}>
+                    <View style={[styles.statusDot, { backgroundColor: displayColor }]} />
+                    <ScaledText style={[styles.statusText, { color: displayColor }]}>{formatStatus(displayStatus, t)}</ScaledText>
+                  </View>
+                  {canOpenQr && (
+                    <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+                  )}
+                </Pressable>
+              );
+            })
           )}
         </View>
       </RippleRefreshScrollView>
+
+      <Modal
+        visible={modalPayment !== null}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={handleCloseQrModal}
+      >
+        <View
+          style={[
+            styles.modalRoot,
+            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
+          ]}
+        >
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={handleCloseQrModal}
+            accessibilityRole="button"
+            accessibilityLabel={t('closeQR')}
+          />
+          <View style={styles.qrModalCard}>
+            <View style={styles.qrModalHeader}>
+              <View style={[styles.sectionHeaderLeft, styles.qrModalTitleWrap]}>
+                <Ionicons name="scan-outline" size={20} color="#059669" />
+                <ScaledText style={[styles.sectionTitle, styles.qrModalTitle]}>{t('scanQR')}</ScaledText>
+              </View>
+              <Pressable
+                style={styles.qrModalCloseIcon}
+                onPress={handleCloseQrModal}
+                accessibilityRole="button"
+                accessibilityLabel={t('closeQR')}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={24} color="#475569" />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={styles.qrModalScroll}
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.qrModalContent}
+            >
+              {modalPayment && modalStatus === 'completed' ? (
+                <View style={styles.successBox}>
+                  <Ionicons name="checkmark-circle" size={68} color={colors.success} />
+                  <ScaledText style={styles.successTitle}>{t('paymentSuccess')}</ScaledText>
+                  <ScaledText style={styles.successSub}>
+                    +{formatVND(modalPayment.amount, i18n.language)} {t('balanceUnit')}
+                  </ScaledText>
+                </View>
+              ) : modalPayment && (modalStatus === 'expired' || modalStatus === 'failed') ? (
+                <View style={styles.expiredBox}>
+                  <Ionicons
+                    name={modalStatus === 'expired' ? 'time-outline' : 'close-circle-outline'}
+                    size={42}
+                    color={colors.danger}
+                  />
+                  <ScaledText style={styles.expiredText}>
+                    {t(modalStatus === 'expired' ? 'expired' : 'failed')}
+                  </ScaledText>
+                </View>
+              ) : modalPayment ? (
+                <>
+                  <View style={styles.qrWrapper}>
+                    <View style={styles.qrContainer}>
+                      <Image source={{ uri: modalPayment.qr_url }} style={styles.qrImage} resizeMode="contain" />
+                    </View>
+                    <View style={styles.qrAmountBadge}>
+                      <ScaledText style={styles.qrAmountText}>
+                        {formatVND(modalPayment.amount, i18n.language)} {t('balanceUnit')}
+                      </ScaledText>
+                    </View>
+                  </View>
+
+                  <View style={styles.countdownRow}>
+                    <Ionicons name="time-outline" size={14} color={modalRemaining < 60 ? colors.danger : '#D97706'} />
+                    <ScaledText style={[styles.countdownText, modalRemaining < 60 && { color: colors.danger }]}>
+                      {t('expiresIn', { minutes: modalMinuteStr, seconds: modalSecondStr })}
+                    </ScaledText>
+                  </View>
+
+                  <View style={styles.noteBox}>
+                    <ScaledText style={styles.noteLabel}>{t('transferNote')}</ScaledText>
+                    <ScaledText style={styles.noteValue}>{modalPayment.description}</ScaledText>
+                  </View>
+
+                  <View style={styles.pendingRow}>
+                    <ActivityIndicator size="small" color="#059669" />
+                    <ScaledText style={styles.pendingText}>{t('paymentPending')}</ScaledText>
+                  </View>
+                </>
+              ) : null}
+            </ScrollView>
+
+            <Pressable
+              style={styles.closeQrButton}
+              onPress={handleCloseQrModal}
+              accessibilityRole="button"
+            >
+              <ScaledText style={styles.closeQrButtonText}>{t('closeQR')}</ScaledText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -813,6 +1149,13 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       fontSize: scaledTypography.size.xs + 1,
       color: '#059669',
       fontWeight: '600',
+    },
+    historyToggle: {
+      minHeight: 32,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 2,
     },
 
     // ── Quick Amounts Grid (2x2) ────────────────────────
@@ -1093,6 +1436,75 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       fontSize: scaledTypography.size.sm,
     },
 
+    // ── Pending QR Modal ─────────────────────────────────
+    modalRoot: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+    },
+    modalBackdrop: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: 'rgba(15, 23, 42, 0.52)',
+    },
+    qrModalCard: {
+      width: '100%',
+      maxHeight: '100%',
+      backgroundColor: '#FFFFFF',
+      borderRadius: 24,
+      padding: spacing.lg,
+      shadowColor: '#0F172A',
+      shadowOpacity: 0.18,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 10,
+    },
+    qrModalHeader: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: spacing.sm,
+    },
+    qrModalCloseIcon: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    qrModalTitleWrap: {
+      flex: 1,
+      minWidth: 0,
+      paddingRight: spacing.sm,
+    },
+    qrModalTitle: {
+      flexShrink: 1,
+    },
+    qrModalScroll: {
+      flexShrink: 1,
+    },
+    qrModalContent: {
+      paddingTop: spacing.xs,
+    },
+    closeQrButton: {
+      minHeight: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderRadius: 14,
+      backgroundColor: '#059669',
+    },
+    closeQrButtonText: {
+      color: '#FFFFFF',
+      fontSize: scaledTypography.size.sm,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+
     // ── History Section ──────────────────────────────────
     emptyWrap: {
       alignItems: 'center',
@@ -1120,12 +1532,15 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
     },
     paymentRow: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       minWidth: 0,
       gap: 12,
       paddingVertical: 12,
       borderBottomWidth: 1,
       borderBottomColor: '#F3F4F6',
+    },
+    paymentRowPressed: {
+      opacity: 0.65,
     },
     paymentInfo: {
       flex: 1,
@@ -1144,6 +1559,12 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       color: '#6B7280',
       marginTop: 2,
       lineHeight: scaledTypography.size.xs + 5,
+    },
+    pendingOpenHint: {
+      marginTop: 3,
+      color: '#047857',
+      fontSize: scaledTypography.size.xs,
+      fontWeight: '600',
     },
     statusBadge: {
       flexDirection: 'row',

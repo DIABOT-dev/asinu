@@ -162,6 +162,7 @@ interface PullRefreshScrollViewProps extends ScrollViewProps {
   refreshing: boolean;
   onRefresh: () => void;
   rippleColor?: string;
+  nativeScrollRef?: React.RefObject<ScrollView | null>;
   children: React.ReactNode;
 }
 
@@ -169,12 +170,14 @@ export function RippleRefreshScrollView({
   refreshing,
   onRefresh,
   rippleColor = colors.primary,
+  nativeScrollRef,
   children,
   contentContainerStyle,
   ...scrollProps
 }: PullRefreshScrollViewProps) {
   return (
     <ScrollView
+      ref={nativeScrollRef}
       {...scrollProps}
       contentContainerStyle={contentContainerStyle}
       showsVerticalScrollIndicator={false}

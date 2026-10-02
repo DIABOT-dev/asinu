@@ -7,7 +7,7 @@ export type IapPlatform = 'apple' | 'google';
 
 export type IapProduct = {
   id: string;
-  plan_code: 'antam_2' | 'antam_4' | 'antam_8';
+  plan_code: 'antam_1' | 'antam_2' | 'antam_4' | 'antam_8';
   plan_name: string;
   billing_period: 'monthly' | 'yearly';
   plan_months: number;

@@ -29,9 +29,6 @@
   "sectionActions": "Actions",
   "reminderSchedule": "Reminder Schedule",
   "checkinCall": "Check-in calls",
-  "checkinResultPreview": "Preview check-in result",
-  "checkinResultPreviewAccessibility": "Open the check-in result and conclusion sound preview",
-  "previewLabel": "Preview",
   "checkinCallGallery": "Design call interfaces",
   "checkinCallGalleryAccessibility": "Open the check-in call interface gallery",
   "healthFeed": "Health Feed",
@@ -138,5 +135,8 @@
   "freeBenefitSignal": "Check-in and on-demand Early Signals",
   "antamActiveDesc": "The AI call center and automatic Early Signals are active.",
   "freeHealthDesc": "All health tracking features are free.",
+  "premiumFeatureLockedTitle": "This feature is not available yet",
+  "checkinCallLockedDesc": "Check-in call settings are included with An Tam. Upgrade so Asinu can call to check on you after a missed check-in.",
+  "requiresAnTam": "An Tam required",
   "chooseAnTam": "Choose An Tam"
 }

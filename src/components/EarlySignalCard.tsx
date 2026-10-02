@@ -15,9 +15,13 @@ import {
   earlySignalApi,
   type EarlySignalAssessment,
 } from "../features/early-signal/early-signal.api";
+import type { HealthScoreData } from "../features/checkin/checkin.api";
 import { colors, radius, spacing, typography } from "../styles";
 
-type Props = { refreshKey?: number };
+type Props = {
+  refreshKey?: number;
+  healthScore?: HealthScoreData | null;
+};
 
 const presentation = {
   monitor: {
@@ -37,7 +41,13 @@ const presentation = {
   },
 };
 
-export function EarlySignalCard({ refreshKey = 0 }: Props) {
+const attentionPresentation = {
+  labelKey: "earlyAttention",
+  color: "#b45309",
+  icon: "alert-circle-outline" as const,
+};
+
+export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
   const { t } = useTranslation("tree");
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [assessment, setAssessment] = useState<EarlySignalAssessment | null>(
@@ -73,10 +83,60 @@ export function EarlySignalCard({ refreshKey = 0 }: Props) {
     }
   }, [showAlert, t]);
 
-  const view = useMemo(
-    () => presentation[assessment?.severity ?? "monitor"],
-    [assessment?.severity]
+  const hasCurrentAttention = Boolean(healthScore?.factors.length);
+  const currentSignalLabels = useMemo(
+    () =>
+      (healthScore?.factors ?? []).map((factor) => {
+        switch (factor) {
+          case "emergency_triggered":
+            return t("earlyFactorEmergency");
+          case "triage_severity_emergency":
+            return t("earlyFactorTriageEmergency");
+          case "triage_severity_high":
+            return t("earlyFactorTriageHigh");
+          case "glucose_very_high":
+            return t("earlyFactorGlucoseVeryHigh");
+          case "glucose_very_low":
+            return t("earlyFactorGlucoseVeryLow");
+          case "systolic_very_high":
+            return t("earlyFactorSystolicVeryHigh");
+          case "status_tired":
+            return t("earlyFactorStatusTired");
+          case "triage_severity_medium":
+            return t("earlyFactorTriageMedium");
+          case "glucose_high":
+            return t("earlyFactorGlucoseHigh");
+          case "systolic_high":
+            return t("earlyFactorSystolicHigh");
+          default:
+            return t("earlyFactorOther");
+        }
+      }),
+    [healthScore?.factors, t]
   );
+  const showsCurrentAttention =
+    hasCurrentAttention && (!assessment || assessment.severity === "monitor");
+  const view = useMemo(
+    () =>
+      showsCurrentAttention
+        ? attentionPresentation
+        : presentation[assessment?.severity ?? "monitor"],
+    [assessment?.severity, showsCurrentAttention]
+  );
+  const summary = showsCurrentAttention
+    ? t("earlyCurrentAttention", { count: currentSignalLabels.length })
+    : assessment?.summary ?? t("earlyEmpty");
+  const visibleSignals = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...(showsCurrentAttention ? currentSignalLabels : []),
+          ...(assessment?.signals ?? []),
+        ])
+      ),
+    [assessment?.signals, currentSignalLabels, showsCurrentAttention]
+  );
+  const canOpenDetails = Boolean(assessment || showsCurrentAttention);
 
   if (assessment?.is_red_flag) {
     return (
@@ -124,33 +184,36 @@ export function EarlySignalCard({ refreshKey = 0 }: Props) {
   return (
     <>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${t("earlyTitle")}. ${t(view.labelKey)}. ${summary}`}
         style={[
           styles.card,
-          assessment && {
+          canOpenDetails && {
             borderColor: view.color + "26",
             backgroundColor: view.color + "08",
           },
         ]}
-        onPress={() => (assessment ? setOpen(true) : evaluate())}
+        onPress={() => (canOpenDetails ? setOpen(true) : evaluate())}
+        disabled={evaluating}
       >
         <View style={styles.icon}>
           <MaterialCommunityIcons
             name="radar"
             size={27}
-            color={assessment ? view.color : colors.primary}
+            color={view.color}
           />
         </View>
         <View style={styles.copy}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>{t("earlyTitle")}</Text>
-            {assessment && (
+            {canOpenDetails && (
               <Text style={[styles.level, { color: view.color }]}>
                 {t(view.labelKey)}
               </Text>
             )}
           </View>
-          <Text style={styles.body} numberOfLines={assessment ? 2 : 3}>
-            {assessment?.summary ?? t("earlyEmpty")}
+          <Text style={styles.body} numberOfLines={canOpenDetails ? 2 : 3}>
+            {summary}
           </Text>
         </View>
         {loading || evaluating ? (
@@ -175,7 +238,7 @@ export function EarlySignalCard({ refreshKey = 0 }: Props) {
       )}
 
       <Modal
-        visible={open && Boolean(assessment)}
+        visible={open && canOpenDetails}
         transparent
         animationType="slide"
         onRequestClose={() => setOpen(false)}
@@ -212,11 +275,11 @@ export function EarlySignalCard({ refreshKey = 0 }: Props) {
             </View>
           ) : (
             <>
-              <Text style={styles.summary}>{assessment?.summary}</Text>
-              {!!assessment?.signals.length && (
+              <Text style={styles.summary}>{summary}</Text>
+              {!!visibleSignals.length && (
                 <View style={styles.signalsBox}>
                   <Text style={styles.boxLabel}>{t("earlyFound")}</Text>
-                  {assessment.signals.map((signal) => (
+                  {visibleSignals.map((signal) => (
                     <View key={signal} style={styles.signalRow}>
                       <View
                         style={[styles.dot, { backgroundColor: view.color }]}
@@ -235,7 +298,9 @@ export function EarlySignalCard({ refreshKey = 0 }: Props) {
               )}
             </>
           )}
-          <Text style={styles.disclaimer}>{assessment?.disclaimer}</Text>
+          <Text style={styles.disclaimer}>
+            {assessment?.disclaimer ?? t("earlyDisclaimer")}
+          </Text>
           <Pressable style={styles.closeButton} onPress={() => setOpen(false)}>
             <Text style={styles.closeText}>{t("earlyUnderstood")}</Text>
           </Pressable>

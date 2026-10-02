@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,11 +11,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppAlertModal } from '../../src/components/AppAlertModal';
 import { checkinCallApi, type CheckinCallSettings } from '../../src/features/checkin-call/checkin-call.api';
-import { getApiErrorMessage } from '../../src/lib/apiClient';
+import { apiClient, getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
-import { showToast } from '../../src/stores/toast.store';
-import { simulateIncomingVoipCall } from '../../src/lib/voip';
 
 const FIELDS: Array<{
   key: keyof CheckinCallSettings;
@@ -50,21 +48,37 @@ export default function CheckinCallSettingsScreen() {
   const { t } = useTranslation('checkinCall');
   const { t: tc } = useTranslation('common');
   const [value, setValue] = useState<CheckinCallSettings | null>(null);
+  const [access, setAccess] = useState<'loading' | 'granted' | 'denied' | 'error'>('loading');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [testingCall, setTestingCall] = useState(false);
   const [activeField, setActiveField] = useState<string | null>(null);
 
   useEffect(() => {
-    checkinCallApi
-      .settings()
-      .then((result) =>
+    let active = true;
+    apiClient<{ isAnTam: boolean; callCenterEnabled?: boolean }>('/api/subscriptions/status')
+      .then(async (status) => {
+        if (!active) return;
+        const allowed = status.callCenterEnabled ?? status.isAnTam;
+        if (!allowed) {
+          setAccess('denied');
+          return;
+        }
+        setAccess('granted');
+        const result = await checkinCallApi.settings();
+        if (!active) return;
         setValue({
           ...result.settings,
           checkin_time: result.settings.checkin_time.slice(0, 5),
-        })
-      )
-      .catch((e) => setError(getApiErrorMessage(e, tc)));
+        });
+      })
+      .catch((e) => {
+        if (!active) return;
+        setAccess('error');
+        setError(getApiErrorMessage(e, tc));
+      });
+    return () => {
+      active = false;
+    };
   }, [tc]);
 
   const save = async () => {
@@ -79,32 +93,6 @@ export default function CheckinCallSettingsScreen() {
       setError(getApiErrorMessage(e, tc));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const testCheckinCall = async () => {
-    if (testingCall) return;
-    setTestingCall(true);
-    setError('');
-    try {
-      const localSimulation = __DEV__ && Platform.OS === 'ios';
-      const result = await checkinCallApi.testCall({ localSimulation });
-      if (localSimulation) {
-        const shown = await simulateIncomingVoipCall({
-          episodeId: result.episode.id,
-          attemptId: result.attempt.id,
-          severity: result.episode.severity,
-          kind: 'INCOMING_CALL',
-        });
-        if (!shown) throw new Error(t('errorTestIos'));
-        showToast(t('testCallOpened'), 'success', 4000);
-      } else {
-        showToast(t('testCallSent'), 'success', 4000);
-      }
-    } catch (e) {
-      setError(getApiErrorMessage(e, tc));
-    } finally {
-      setTestingCall(false);
     }
   };
 
@@ -127,6 +115,28 @@ export default function CheckinCallSettingsScreen() {
     if (next < field.min) next = field.max;
     setValue({ ...value, [field.key]: next });
   };
+
+  if (access === 'denied') {
+    return (
+      <View style={styles.center}>
+        <AppAlertModal
+          visible
+          title={t('accessRequiredTitle')}
+          message={t('accessRequiredBody')}
+          icon={{ name: 'lock-outline', color: '#c2410c' }}
+          buttons={[
+            { text: tc('later'), style: 'cancel' },
+            { text: t('viewPlans'), onPress: () => router.replace('/subscription') },
+          ]}
+          onDismiss={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace('/(tabs)/profile')
+          }
+        />
+      </View>
+    );
+  }
 
   if (!value) {
     return (
@@ -302,18 +312,6 @@ export default function CheckinCallSettingsScreen() {
             )}
           </Pressable>
 
-          {__DEV__ && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('testCall')}
-              accessibilityState={{ disabled: testingCall }}
-              style={styles.testBtn}
-              onPress={testCheckinCall}
-              disabled={testingCall}
-            >
-              <Text style={styles.testBtnText}>{testingCall ? t('testingCall') : t('testCall')}</Text>
-            </Pressable>
-          )}
         </View>
       </ScrollView>
     </View>
@@ -468,18 +466,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
-  },
-  testBtn: {
-    marginTop: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#059669',
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  testBtnText: {
-    color: '#059669',
-    fontWeight: '700',
-    fontSize: 14,
   },
 });

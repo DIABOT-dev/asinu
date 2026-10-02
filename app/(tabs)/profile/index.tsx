@@ -50,7 +50,6 @@ const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
 const SHOW_CHECKIN_CALL_UI_GALLERY = false;
-const SHOW_CHECKIN_RESULT_PREVIEW = true;
 
 const DeleteAccountModal = React.lazy(
   () => import("../../../src/components/DeleteAccountModal"),
@@ -98,6 +97,7 @@ type SubStatus = {
   planCode: "free" | "antam_2" | "antam_4" | "antam_8";
   planName: string;
   isAnTam: boolean;
+  callCenterEnabled?: boolean;
   expiresAt: string | null;
 };
 
@@ -310,6 +310,11 @@ export default function ProfileScreen() {
       if (!profileReadyRef.current) setProfileReady(false);
       fetchLogs(controller.signal);
       fetchMissions(controller.signal);
+      apiClient<SubStatus>("/api/subscriptions/status")
+        .then((status) => {
+          if (!cancelled) setSubStatus(status);
+        })
+        .catch(() => {});
       authApi
         .fetchProfile()
         .then((fullProfile) => {
@@ -349,6 +354,9 @@ export default function ProfileScreen() {
         .then((p) => {
           if (p) useAuthStore.setState({ profile: p });
         })
+        .catch(() => {}),
+      apiClient<SubStatus>("/api/subscriptions/status")
+        .then(setSubStatus)
         .catch(() => {}),
     ]);
     setRefreshing(false);
@@ -556,6 +564,28 @@ export default function ProfileScreen() {
       { icon: "check", text: t("freeBenefitSignal") },
     ];
   }, [subStatus?.isAnTam, t]);
+
+  const hasCheckinCallAccess =
+    subStatus?.callCenterEnabled ?? subStatus?.isAnTam ?? false;
+
+  const handleCheckinCallPress = useCallback(() => {
+    if (hasCheckinCallAccess) {
+      router.push("/checkin-call/settings" as any);
+      return;
+    }
+    showAlert(
+      t("premiumFeatureLockedTitle"),
+      t("checkinCallLockedDesc"),
+      [
+        { text: tc("later"), style: "cancel" },
+        {
+          text: t("chooseAnTam"),
+          onPress: () => router.push("/subscription"),
+        },
+      ],
+      { name: "lock-outline", color: colors.premiumDark },
+    );
+  }, [hasCheckinCallAccess, router, showAlert, t, tc]);
 
   return (
     <Screen>
@@ -864,15 +894,44 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/checkin-call/settings" as any)}
+                  style={[
+                    styles.actionCard,
+                    !hasCheckinCallAccess && styles.actionCardLocked,
+                  ]}
+                  onPress={handleCheckinCallPress}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    hasCheckinCallAccess
+                      ? t("checkinCall")
+                      : `${t("checkinCall")}. ${t("requiresAnTam")}`
+                  }
                 >
                   <View style={styles.rowIconWrap}>
-                    <Ionicons name="call-outline" size={22} color="#07846d" />
+                    <Ionicons
+                      name={hasCheckinCallAccess ? "call-outline" : "lock-closed-outline"}
+                      size={22}
+                      color={hasCheckinCallAccess ? "#07846d" : "#94a3b8"}
+                    />
                   </View>
-                  <Text style={styles.rowLabel}>{t("checkinCall")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  <Text
+                    style={[
+                      styles.rowLabel,
+                      !hasCheckinCallAccess && styles.rowLabelLocked,
+                    ]}
+                  >
+                    {t("checkinCall")}
+                  </Text>
+                  {!hasCheckinCallAccess && (
+                    <View style={styles.lockedBadge}>
+                      <Text style={styles.lockedBadgeText}>{t("requiresAnTam")}</Text>
+                    </View>
+                  )}
+                  <Ionicons
+                    name={hasCheckinCallAccess ? "chevron-forward" : "lock-closed"}
+                    size={16}
+                    color="#94a3b8"
+                  />
                 </TouchableOpacity>
 
                 {__DEV__ && SHOW_CHECKIN_CALL_UI_GALLERY && (
@@ -988,38 +1047,6 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionHeading}>{ts("title")}</Text>
               </View>
               <View style={styles.cardsStack}>
-                {SHOW_CHECKIN_RESULT_PREVIEW && (
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/checkin",
-                        params: { mode: "result_preview" },
-                      } as any)
-                    }
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("checkinResultPreviewAccessibility")}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons
-                        name="volume-high-outline"
-                        size={22}
-                        color="#07846d"
-                      />
-                    </View>
-                    <Text style={styles.rowLabel}>
-                      {t("checkinResultPreview")}
-                    </Text>
-                    <Text style={styles.rowMeta}>{t("previewLabel")}</Text>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={16}
-                      color="#94a3b8"
-                    />
-                  </TouchableOpacity>
-                )}
-
                 <TouchableOpacity
                   style={styles.actionCard}
                   onPress={() =>
@@ -1314,16 +1341,7 @@ export default function ProfileScreen() {
         >
           <Pressable style={styles.planInfoCard} onPress={() => {}}>
             <View style={{ alignItems: "center", gap: 8 }}>
-              <View
-                style={[
-                  styles.planIconBig,
-                  {
-                    backgroundColor: subStatus?.isAnTam
-                      ? colors.premiumLight
-                      : colors.primaryLight,
-                  },
-                ]}
-              >
+              <View style={styles.planIconBig}>
                 <MaterialCommunityIcons
                   name={
                     subStatus?.isAnTam ? "shield-check" : "shield-account-outline"
@@ -2410,6 +2428,12 @@ function createStyles(
       shadowRadius: 3,
       elevation: 1,
     },
+    actionCardLocked: {
+      backgroundColor: isDark ? "#1f2937" : "#f8fafc",
+      borderColor: isDark ? "#374151" : "#e2e8f0",
+      shadowOpacity: 0,
+      elevation: 0,
+    },
     rowIconWrap: {
       width: 28,
       height: 28,
@@ -2422,6 +2446,23 @@ function createStyles(
       fontSize: 15,
       fontWeight: "600",
       color: textPrimaryCol,
+    },
+    rowLabelLocked: {
+      color: textSecondaryCol,
+    },
+    lockedBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      marginRight: 8,
+      borderRadius: 999,
+      backgroundColor: isDark ? "#422006" : "#fff7ed",
+      borderWidth: 1,
+      borderColor: isDark ? "#78350f" : "#fed7aa",
+    },
+    lockedBadgeText: {
+      color: isDark ? "#fdba74" : "#c2410c",
+      fontSize: 11,
+      fontWeight: "700",
     },
     rowMeta: {
       fontSize: 13,

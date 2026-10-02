@@ -66,7 +66,7 @@ export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatu
     return (
       <View style={styles.compactCard}>
         <View style={styles.headerRow}>
-          <View style={[styles.compactIconWrap, { backgroundColor: `${color}18` }]}>
+          <View style={styles.compactIconWrap}>
             <Ionicons name={icon} size={24} color={color} />
           </View>
           <View style={styles.copy}>
@@ -97,7 +97,7 @@ export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatu
   return (
     <View style={[styles.card, { backgroundColor: background, borderColor: `${color}30` }]}>
       <View style={styles.headerRow}>
-        <View style={[styles.iconWrap, { backgroundColor: `${color}18` }]}>
+        <View style={styles.iconWrap}>
           <MaterialCommunityIcons name="tree-outline" size={28} color={color} />
         </View>
         <View style={styles.copy}>
