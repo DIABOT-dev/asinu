@@ -202,6 +202,7 @@ function EmergencyFABGate() {
     || pathname.startsWith('/login')
     || pathname.startsWith('/register')
     || pathname.startsWith('/legal')
+    || pathname.startsWith('/doctor-consultation')
     || pathname.includes('care-circle')
   ) return null;
   return <AsinuEmergencyFAB />;

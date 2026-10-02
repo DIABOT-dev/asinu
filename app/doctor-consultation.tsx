@@ -470,6 +470,13 @@ export default function DoctorConsultationScreen() {
         {/* Top Header Bar with Standard Back Button */}
         <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
           <ScreenBackButton onPress={handleHeaderBack} />
+          <Text
+            numberOfLines={1}
+            style={[styles.topBarTitle, { color: colors.textPrimary }]}
+          >
+            {t("doctorConsultationHeaderTitle")}
+          </Text>
+          <View style={styles.topBarSpacer} />
         </View>
 
         {/* 3-Step Wizard Navigation Stepper matching Mockup exactly */}
@@ -478,6 +485,7 @@ export default function DoctorConsultationScreen() {
           <Pressable
             accessibilityLabel={t("doctorConsultationStepCondition")}
             accessibilityRole="tab"
+            accessibilityState={{ selected: currentStep === 1 }}
             onPress={() => setCurrentStep(1)}
             style={styles.stepTabItem}
           >
@@ -526,7 +534,14 @@ export default function DoctorConsultationScreen() {
           <Pressable
             accessibilityLabel={t("doctorConsultationStepSpecialist")}
             accessibilityRole="tab"
-            onPress={() => setCurrentStep(2)}
+            accessibilityState={{ selected: currentStep === 2 }}
+            onPress={() => {
+              if (currentStep === 3) {
+                setCurrentStep(2);
+              } else if (currentStep === 1) {
+                handleStep1Next();
+              }
+            }}
             style={styles.stepTabItem}
           >
             <View style={styles.stepTabContent}>
@@ -574,7 +589,14 @@ export default function DoctorConsultationScreen() {
           <Pressable
             accessibilityLabel={t("doctorConsultationStepReview")}
             accessibilityRole="tab"
-            onPress={() => setCurrentStep(3)}
+            accessibilityState={{ selected: currentStep === 3 }}
+            onPress={() => {
+              if (currentStep === 1) {
+                handleStep1Next();
+              } else if (currentStep === 2) {
+                handleStep2Next();
+              }
+            }}
             style={styles.stepTabItem}
           >
             <View style={styles.stepTabContent}>
@@ -615,7 +637,10 @@ export default function DoctorConsultationScreen() {
 
         {/* Wizard Scrollable Content */}
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -708,6 +733,7 @@ export default function DoctorConsultationScreen() {
                         onPress={() => setSymptomOnset(value)}
                         style={[
                           styles.optionPillFlex,
+                          styles.optionPillTwoColumn,
                           {
                             backgroundColor: selected
                               ? "#EDFAF8"
@@ -1772,7 +1798,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingTop: Platform.OS === "ios" ? 52 : 16,
-    paddingBottom: 4,
+    paddingBottom: 10,
+  },
+  topBarTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "800",
+    marginHorizontal: 10,
+    textAlign: "center",
+  },
+  topBarSpacer: {
+    width: 40,
   },
   stepperContainer: {
     borderBottomColor: "#E2ECE9",
@@ -1788,11 +1824,11 @@ const styles = StyleSheet.create({
   },
   stepTabContent: {
     alignItems: "center",
-    flexDirection: "row",
+    flexDirection: "column",
     minWidth: 0,
-    gap: 6,
-    paddingBottom: 10,
-    paddingTop: 8,
+    gap: 3,
+    paddingBottom: 9,
+    paddingTop: 6,
   },
   stepBadge: {
     alignItems: "center",
@@ -1821,9 +1857,8 @@ const styles = StyleSheet.create({
     color: "#64748B",
   },
   stepTitle: {
-    flexShrink: 1,
-    fontSize: 13.5,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 16,
     textAlign: "center",
   },
   stepTitleActive: {
@@ -1845,17 +1880,16 @@ const styles = StyleSheet.create({
     right: 8,
   },
   content: {
-    gap: 14,
-    padding: 16,
-    paddingBottom: 40,
+    gap: 12,
+    padding: 14,
   },
   heroCard: {
-    alignItems: "center",
+    alignItems: "stretch",
     borderRadius: 20,
     borderWidth: 1,
-    flexDirection: "row",
+    flexDirection: "column",
     overflow: "hidden",
-    padding: 16,
+    padding: 14,
   },
   heroLeft: {
     flex: 1.3,
@@ -1874,16 +1908,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   heroDivider: {
-    height: 48,
-    marginHorizontal: 12,
-    width: 1,
+    height: 1,
+    marginVertical: 10,
+    width: "100%",
   },
   heroRight: {
     alignItems: "center",
-    flex: 1,
     flexDirection: "row",
     gap: 8,
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
     minWidth: 0,
   },
   heroRightText: {
@@ -1892,12 +1925,12 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: "700",
     lineHeight: 17,
-    textAlign: "center",
+    textAlign: "left",
   },
   card: {
     borderRadius: 20,
     borderWidth: 1,
-    padding: 16,
+    padding: 14,
   },
   cardHeaderRow: {
     alignItems: "center",
@@ -1937,7 +1970,8 @@ const styles = StyleSheet.create({
   },
   optionRow4: {
     flexDirection: "row",
-    gap: 6,
+    flexWrap: "wrap",
+    gap: 8,
     marginBottom: 6,
   },
   optionRow3: {
@@ -1955,6 +1989,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     paddingHorizontal: 4,
     paddingVertical: 7,
+  },
+  optionPillTwoColumn: {
+    flexBasis: "45%",
   },
   optionPillTextSmall: {
     fontSize: 12,
@@ -1983,9 +2020,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#3A968B",
     borderRadius: 16,
     elevation: 2,
-    height: 52,
     justifyContent: "center",
     marginTop: 4,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     shadowColor: "#3A968B",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
@@ -2217,9 +2256,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     flexDirection: "row",
     gap: 8,
-    height: 52,
     justifyContent: "center",
     marginTop: 4,
+    minHeight: 52,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   uploadPhotoBtnText: {
     color: "#3A968B",
@@ -2270,8 +2311,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     flex: 0.6,
-    height: 52,
     justifyContent: "center",
+    minHeight: 52,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
   },
   secondaryNavBtnText: {
     flexShrink: 1,
@@ -2285,8 +2328,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     elevation: 2,
     flex: 1,
-    height: 52,
     justifyContent: "center",
+    minHeight: 52,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     shadowColor: "#3A968B",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
@@ -2303,8 +2348,8 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   summaryTableRow: {
-    alignItems: "flex-start",
-    flexDirection: "row",
+    alignItems: "stretch",
+    flexDirection: "column",
     paddingVertical: 10,
   },
   summaryTableKey: {
@@ -2312,8 +2357,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     lineHeight: 20,
-    marginRight: 12,
-    width: 112,
+    marginBottom: 3,
   },
   summaryTableVal: {
     color: "#0F2F38",
@@ -2364,7 +2408,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   consentCheckboxRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     gap: 10,
     marginTop: 12,
@@ -2375,6 +2419,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     height: 20,
     justifyContent: "center",
+    marginTop: 3,
     width: 20,
   },
   consentCheckboxText: {
@@ -2389,8 +2434,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     elevation: 2,
     flex: 1,
-    height: 52,
     justifyContent: "center",
+    minHeight: 52,
+    paddingVertical: 10,
     shadowColor: "#3A968B",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
