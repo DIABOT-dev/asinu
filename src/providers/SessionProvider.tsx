@@ -33,6 +33,10 @@ import { AppAlertModal } from "../components/AppAlertModal";
 import { apiClient } from "../lib/apiClient";
 import { env } from "../lib/env";
 import {
+  getNotificationPreferences,
+  updateNotificationPreferences,
+} from "../features/notifications/notifications.api";
+import {
   addVoipCallAnsweredListener,
   addVoipTokenListener,
   consumePendingVoipCall,
@@ -87,7 +91,16 @@ export const SessionProvider = ({ children }: Props) => {
     if (voip) setVoipRegistration(voip);
 
     const granted = await checkNotificationPermission();
-    if (!granted) return;
+    if (!granted) {
+      setExpoPushToken(null);
+      setNativeFcmToken(null);
+      if (authToken) {
+        await authApi
+          .updatePushToken(null, null, null, null, false, true)
+          .catch(() => {});
+      }
+      return;
+    }
 
     const [token, fcmToken] = await Promise.all([
       getExpoPushToken(),
@@ -104,12 +117,25 @@ export const SessionProvider = ({ children }: Props) => {
         "[Session] No push token obtained — notifications will not work remotely",
       );
     if (fcmToken) setNativeFcmToken(fcmToken);
-  }, []);
+  }, [authToken]);
 
   const enableNotifications = useCallback(async () => {
     const granted = await requestNotificationPermissions();
-    if (granted) await syncExistingPushToken();
-  }, [syncExistingPushToken]);
+    if (!granted) {
+      showToast(t("notificationPermDesc"), "info");
+      return;
+    }
+
+    try {
+      await Promise.all([
+        syncExistingPushToken(),
+        updateNotificationPreferences({ reminders_enabled: true }),
+      ]);
+      showToast(t("scheduleSaved"), "success");
+    } catch {
+      showToast(t("scheduleSaveError"), "error");
+    }
+  }, [syncExistingPushToken, t]);
 
   // Initial setup: bootstrap + non-prompting notification setup.
   useEffect(() => {
@@ -181,12 +207,19 @@ export const SessionProvider = ({ children }: Props) => {
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const promptKey = `@asinu/notification_permission_prompted:${profile.id}`;
+    // Version the prompt because older builds only requested the OS permission
+    // and forgot to opt the user into backend reminder delivery.
+    const promptKey = `@asinu/notification_permission_prompted:v2:${profile.id}`;
 
     const prepareNotificationAccess = async () => {
-      if (await checkNotificationPermission()) {
+      const [permissionGranted, preferences] = await Promise.all([
+        checkNotificationPermission(),
+        getNotificationPreferences().catch(() => null),
+      ]);
+
+      if (permissionGranted) {
         await syncExistingPushToken();
-        return;
+        if (preferences?.reminders_enabled) return;
       }
 
       if (await AsyncStorage.getItem(promptKey)) return;

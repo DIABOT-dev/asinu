@@ -97,6 +97,7 @@ export const authApi = {
     voipToken: string | null = null,
     voipEnvironment: 'sandbox' | 'production' | null = null,
     clearVoipToken = false,
+    clearRegularPushTokens = false,
   ) {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/profile/push-token', { 
       method: 'POST', 
@@ -106,6 +107,7 @@ export const authApi = {
         voip_token: voipToken,
         voip_environment: voipEnvironment,
         clear_voip_token: clearVoipToken,
+        clear_push_tokens: clearRegularPushTokens,
       }
     });
   },
