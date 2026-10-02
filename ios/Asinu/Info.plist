@@ -8,8 +8,10 @@
     <true/>
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleDisplayName</key>
-    <string>Asinu</string>
+	<key>CFBundleDisplayName</key>
+	<string>Asinu</string>
+	<key>CFBundleAllowMixedLocalizations</key>
+	<true/>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>

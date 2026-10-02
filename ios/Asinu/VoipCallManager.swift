@@ -126,8 +126,13 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     uuidByAttempt[attemptId] = uuid
 
     let update = CXCallUpdate()
-    update.remoteHandle = CXHandle(type: .generic, value: "Check-in")
-    update.localizedCallerName = localizedTitle.isEmpty ? "Asinu Check-in" : localizedTitle
+    update.remoteHandle = CXHandle(
+      type: .generic,
+      value: NSLocalizedString("checkin_call_handle", comment: "CallKit check-in handle")
+    )
+    update.localizedCallerName = localizedTitle.isEmpty
+      ? NSLocalizedString("checkin_call_title", comment: "CallKit check-in title")
+      : localizedTitle
     update.hasVideo = false
     update.supportsDTMF = false
     update.supportsHolding = false

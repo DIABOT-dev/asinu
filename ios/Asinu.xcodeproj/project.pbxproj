@@ -21,6 +21,8 @@
 		A51000010000000000000001 /* VoipCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A51000020000000000000001 /* VoipCallManager.swift */; };
 		A51000030000000000000001 /* AsinuVoipModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A51000040000000000000001 /* AsinuVoipModule.swift */; };
 		A51000050000000000000001 /* AsinuVoipModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A51000060000000000000001 /* AsinuVoipModule.m */; };
+		A52000010000000000000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A52000020000000000000001 /* InfoPlist.strings */; };
+		A52000030000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A52000040000000000000001 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +46,10 @@
 		A51000020000000000000001 /* VoipCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VoipCallManager.swift; path = Asinu/VoipCallManager.swift; sourceTree = "<group>"; };
 		A51000040000000000000001 /* AsinuVoipModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AsinuVoipModule.swift; path = Asinu/AsinuVoipModule.swift; sourceTree = "<group>"; };
 		A51000060000000000000001 /* AsinuVoipModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AsinuVoipModule.m; path = Asinu/AsinuVoipModule.m; sourceTree = "<group>"; };
+		A52000050000000000000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A52000060000000000000001 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A52000070000000000000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A52000080000000000000001 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,6 +144,8 @@
 			isa = PBXGroup;
 			children = (
 				BB2F792C24A3F905000567C9 /* Expo.plist */,
+				A52000020000000000000001 /* InfoPlist.strings */,
+				A52000040000000000000001 /* Localizable.strings */,
 			);
 			name = Supporting;
 			path = Asinu/Supporting;
@@ -197,6 +205,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				vi,
 				Base,
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
@@ -222,10 +231,33 @@
 				267A091270DF4109BC89039B /* asinu_care.wav in Resources */,
 				5CF1EE4827E745C0943C1521 /* asinu_milestone.wav in Resources */,
 				9F34B6DDA6819A754362285F /* PrivacyInfo.xcprivacy in Resources */,
+				A52000010000000000000001 /* InfoPlist.strings in Resources */,
+				A52000030000000000000001 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		A52000020000000000000001 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A52000050000000000000001 /* en */,
+				A52000060000000000000001 /* vi */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		A52000040000000000000001 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A52000070000000000000001 /* en */,
+				A52000080000000000000001 /* vi */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {

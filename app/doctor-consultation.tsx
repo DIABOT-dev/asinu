@@ -82,7 +82,9 @@ type DoctorReviewsResponse = {
 type PendingAttachment = { uri: string; name: string; mimeType: string };
 
 const createSubmissionTaskId = () =>
-  `doctor-task:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+  `doctor-task:${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 14)}`;
 const PENDING_SUBMISSION_KEY = "@asinu/doctor-consultation/pending-task-id";
 const createClientMessageId = () => {
   const cryptoObject = (
@@ -95,7 +97,7 @@ const createClientMessageId = () => {
       const random = Math.floor(Math.random() * 16);
       const value = character === "x" ? random : (random & 0x3) | 0x8;
       return value.toString(16);
-    },
+    }
   );
 };
 
@@ -119,13 +121,13 @@ const isActiveConsultation = (task: {
   if (task.status && ACTIVE_CONSULTATION_STATUSES.has(task.status)) return true;
   return Boolean(
     task.status === "completed" &&
-    task.follow_up_until &&
-    new Date(task.follow_up_until).getTime() > Date.now(),
+      task.follow_up_until &&
+      new Date(task.follow_up_until).getTime() > Date.now()
   );
 };
 
 export default function DoctorConsultationScreen() {
-  const { t } = useTranslation("home");
+  const { t, i18n } = useTranslation("home");
   const router = useRouter();
   const { colors, isDark } = useThemeColors();
   const profile = useAuthStore((state) => state.profile);
@@ -146,7 +148,7 @@ export default function DoctorConsultationScreen() {
     DoctorRecommendation[]
   >([]);
   const [preferredDoctorId, setPreferredDoctorId] = useState<string | null>(
-    null,
+    null
   );
   const [specialties, setSpecialties] = useState<DoctorSpecialty[]>([]);
   // Tenant routing is intentionally opaque to patients. It is only retained
@@ -163,14 +165,19 @@ export default function DoctorConsultationScreen() {
     "improving" | "stable" | "worsening" | ""
   >("");
   const [severity, setSeverity] = useState<"mild" | "moderate" | "severe" | "">(
-    "",
+    ""
   );
   const [emergencyConfirmed, setEmergencyConfirmed] = useState(false);
   const [pendingAttachment, setPendingAttachment] =
     useState<PendingAttachment | null>(null);
-  const [reviewDoctor, setReviewDoctor] = useState<DoctorRecommendation | null>(null);
+  const [reviewDoctor, setReviewDoctor] = useState<DoctorRecommendation | null>(
+    null
+  );
   const [reviews, setReviews] = useState<DoctorReview[]>([]);
-  const [reviewSummary, setReviewSummary] = useState({ averageRating: 0, ratingCount: 0 });
+  const [reviewSummary, setReviewSummary] = useState({
+    averageRating: 0,
+    ratingCount: 0,
+  });
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const submissionTaskIdRef = useRef<string | null>(null);
@@ -186,7 +193,7 @@ export default function DoctorConsultationScreen() {
   const loadTasks = async (tenantId = selectedTenantId) => {
     try {
       const response = await apiClient<DoctorTaskListResponse>(
-        `/api/doctor/tasks?tenant_id=${encodeURIComponent(tenantId)}`,
+        `/api/doctor/tasks?tenant_id=${encodeURIComponent(tenantId)}`
       );
       const nextTasks = response.data?.tasks ?? [];
       const current = nextTasks.find(isActiveConsultation) ?? null;
@@ -207,7 +214,9 @@ export default function DoctorConsultationScreen() {
         const items = response.data?.items ?? [];
         setSpecialties(items);
         setSelectedSpecialty((current) =>
-          items.some((item) => item.code === current) ? current : items[0]?.code || "",
+          items.some((item) => item.code === current)
+            ? current
+            : items[0]?.code || ""
         );
       })
       .catch(() => {
@@ -226,18 +235,15 @@ export default function DoctorConsultationScreen() {
   useEffect(() => {
     if (!selectedSpecialty) return;
     setPreferredDoctorId(null);
-    void apiClient<DoctorRecommendationResponse>(
-      "/api/doctor/specialists",
-      {
-        method: "POST",
-        body: {
-          specialty: selectedSpecialty,
-          service_flow: "clinical",
-          priority: "normal",
-          limit: 6,
-        },
+    void apiClient<DoctorRecommendationResponse>("/api/doctor/specialists", {
+      method: "POST",
+      body: {
+        specialty: selectedSpecialty,
+        service_flow: "clinical",
+        priority: "normal",
+        limit: 6,
       },
-    )
+    })
       .then((response) => {
         setRecommendations(response.data?.items ?? []);
         setEstimatedWaitMinutes(response.data?.estimatedWaitMinutes ?? null);
@@ -251,11 +257,14 @@ export default function DoctorConsultationScreen() {
   const openReviews = async (doctor: DoctorRecommendation) => {
     setReviewDoctor(doctor);
     setReviews([]);
-    setReviewSummary({ averageRating: doctor.reputation || 0, ratingCount: doctor.ratingCount || 0 });
+    setReviewSummary({
+      averageRating: doctor.reputation || 0,
+      ratingCount: doctor.ratingCount || 0,
+    });
     setReviewsLoading(true);
     try {
       const response = await apiClient<DoctorReviewsResponse>(
-        `/api/doctor/specialists/${encodeURIComponent(doctor.doctorId)}/reviews`,
+        `/api/doctor/specialists/${encodeURIComponent(doctor.doctorId)}/reviews`
       );
       setReviews(response.data?.items ?? []);
       if (response.data?.summary) setReviewSummary(response.data.summary);
@@ -336,7 +345,7 @@ export default function DoctorConsultationScreen() {
             preferred_doctor_id: preferredDoctorId,
             task_id: submissionTaskId,
           },
-        },
+        }
       );
       const taskId = response.data?.task_id;
       if (taskId) {
@@ -349,9 +358,11 @@ export default function DoctorConsultationScreen() {
           } as any);
           await apiClient(
             `/api/doctor/tasks/${encodeURIComponent(
-              taskId,
+              taskId
             )}/attachments?tenant_id=${encodeURIComponent(
-              selectedDoctor?.routingTenantId || recommendations[0]?.routingTenantId || selectedTenantId,
+              selectedDoctor?.routingTenantId ||
+                recommendations[0]?.routingTenantId ||
+                selectedTenantId
             )}`,
             {
               method: "POST",
@@ -362,7 +373,7 @@ export default function DoctorConsultationScreen() {
                   (submissionAttachmentMessageIdRef.current =
                     createClientMessageId()),
               },
-            },
+            }
           );
         }
         showToast(t("doctorConsultationSuccess"), "success");
@@ -371,7 +382,9 @@ export default function DoctorConsultationScreen() {
         await AsyncStorage.removeItem(PENDING_SUBMISSION_KEY);
         setPendingAttachment(null);
         const routingTenantId =
-          selectedDoctor?.routingTenantId || recommendations[0]?.routingTenantId || selectedTenantId;
+          selectedDoctor?.routingTenantId ||
+          recommendations[0]?.routingTenantId ||
+          selectedTenantId;
         router.replace({
           pathname: "/doctor-consultation/[taskId]",
           params: { taskId, tenantId: routingTenantId },
@@ -382,7 +395,7 @@ export default function DoctorConsultationScreen() {
     } catch (error) {
       showToast(
         getApiErrorMessage(error, t, "doctorConsultationError"),
-        "error",
+        "error"
       );
     } finally {
       setIsSubmitting(false);
@@ -390,10 +403,10 @@ export default function DoctorConsultationScreen() {
   };
 
   const selectedDoctor = recommendations.find(
-    (doctor) => doctor.doctorId === preferredDoctorId,
+    (doctor) => doctor.doctorId === preferredDoctorId
   );
   const selectedSpecialtyItem = specialties.find(
-    (specialty) => specialty.code === selectedSpecialty,
+    (specialty) => specialty.code === selectedSpecialty
   );
   const visibleSpecialties = specialties;
   const getSpecialtyLabel = (specialty: DoctorSpecialty) =>
@@ -475,8 +488,8 @@ export default function DoctorConsultationScreen() {
                   currentStep === 1
                     ? styles.stepBadgeActive
                     : currentStep > 1
-                      ? styles.stepBadgeCompleted
-                      : styles.stepBadgeInactive,
+                    ? styles.stepBadgeCompleted
+                    : styles.stepBadgeInactive,
                 ]}
               >
                 {currentStep > 1 ? (
@@ -523,8 +536,8 @@ export default function DoctorConsultationScreen() {
                   currentStep === 2
                     ? styles.stepBadgeActive
                     : currentStep > 2
-                      ? styles.stepBadgeCompleted
-                      : styles.stepBadgeInactive,
+                    ? styles.stepBadgeCompleted
+                    : styles.stepBadgeInactive,
                 ]}
               >
                 {currentStep > 2 ? (
@@ -638,11 +651,7 @@ export default function DoctorConsultationScreen() {
                 />
 
                 <View style={styles.heroRight}>
-                  <Ionicons
-                    name="people"
-                    size={28}
-                    color="#3A968B"
-                  />
+                  <Ionicons name="people" size={28} color="#3A968B" />
                   <Text style={styles.heroRightText}>
                     {t("doctorConsultationHeroBadge")}
                   </Text>
@@ -703,13 +712,13 @@ export default function DoctorConsultationScreen() {
                             backgroundColor: selected
                               ? "#EDFAF8"
                               : isDark
-                                ? colors.background
-                                : "#FFFFFF",
+                              ? colors.background
+                              : "#FFFFFF",
                             borderColor: selected
                               ? "#3A968B"
                               : isDark
-                                ? colors.border
-                                : "#E2ECE9",
+                              ? colors.border
+                              : "#E2ECE9",
                           },
                         ]}
                       >
@@ -720,8 +729,8 @@ export default function DoctorConsultationScreen() {
                               color: selected
                                 ? "#3A968B"
                                 : isDark
-                                  ? colors.textSecondary
-                                  : "#2D4348",
+                                ? colors.textSecondary
+                                : "#2D4348",
                               fontWeight: selected ? "700" : "500",
                             },
                           ]}
@@ -754,13 +763,13 @@ export default function DoctorConsultationScreen() {
                               backgroundColor: selected
                                 ? "#EDFAF8"
                                 : isDark
-                                  ? colors.background
-                                  : "#FFFFFF",
+                                ? colors.background
+                                : "#FFFFFF",
                               borderColor: selected
                                 ? "#3A968B"
                                 : isDark
-                                  ? colors.border
-                                  : "#E2ECE9",
+                                ? colors.border
+                                : "#E2ECE9",
                             },
                           ]}
                         >
@@ -771,8 +780,8 @@ export default function DoctorConsultationScreen() {
                                 color: selected
                                   ? "#3A968B"
                                   : isDark
-                                    ? colors.textSecondary
-                                    : "#2D4348",
+                                  ? colors.textSecondary
+                                  : "#2D4348",
                                 fontWeight: selected ? "700" : "500",
                               },
                             ]}
@@ -782,7 +791,7 @@ export default function DoctorConsultationScreen() {
                           </Text>
                         </Pressable>
                       );
-                    },
+                    }
                   )}
                 </View>
 
@@ -805,13 +814,13 @@ export default function DoctorConsultationScreen() {
                             backgroundColor: selected
                               ? "#EDFAF8"
                               : isDark
-                                ? colors.background
-                                : "#FFFFFF",
+                              ? colors.background
+                              : "#FFFFFF",
                             borderColor: selected
                               ? "#3A968B"
                               : isDark
-                                ? colors.border
-                                : "#E2ECE9",
+                              ? colors.border
+                              : "#E2ECE9",
                           },
                         ]}
                       >
@@ -822,8 +831,8 @@ export default function DoctorConsultationScreen() {
                               color: selected
                                 ? "#3A968B"
                                 : isDark
-                                  ? colors.textSecondary
-                                  : "#2D4348",
+                                ? colors.textSecondary
+                                : "#2D4348",
                               fontWeight: selected ? "700" : "500",
                             },
                           ]}
@@ -941,70 +950,70 @@ export default function DoctorConsultationScreen() {
                     </Text>
                   ) : (
                     visibleSpecialties.map((specialty) => {
-                    const selected = specialty.code === selectedSpecialty;
-                    return (
-                      <Pressable
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        key={specialty.code}
-                        onPress={() => setSelectedSpecialty(specialty.code)}
-                        style={[
-                          styles.selectableItem,
-                          {
-                            backgroundColor: selected
-                              ? isDark
-                                ? "rgba(58,150,139,0.15)"
-                                : "#EDFAF8"
-                              : isDark
+                      const selected = specialty.code === selectedSpecialty;
+                      return (
+                        <Pressable
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
+                          key={specialty.code}
+                          onPress={() => setSelectedSpecialty(specialty.code)}
+                          style={[
+                            styles.selectableItem,
+                            {
+                              backgroundColor: selected
+                                ? isDark
+                                  ? "rgba(58,150,139,0.15)"
+                                  : "#EDFAF8"
+                                : isDark
                                 ? colors.background
                                 : "#FFFFFF",
-                            borderColor: selected
-                              ? "#3A968B"
-                              : isDark
+                              borderColor: selected
+                                ? "#3A968B"
+                                : isDark
                                 ? colors.border
                                 : "#D4E2DF",
-                          },
-                        ]}
-                      >
-                        <View style={styles.selectableItemLeft}>
-                          {selected ? (
-                            <View style={styles.radioActiveRing}>
-                              <View style={styles.radioActiveDot} />
-                            </View>
-                          ) : (
-                            <View
+                            },
+                          ]}
+                        >
+                          <View style={styles.selectableItemLeft}>
+                            {selected ? (
+                              <View style={styles.radioActiveRing}>
+                                <View style={styles.radioActiveDot} />
+                              </View>
+                            ) : (
+                              <View
+                                style={[
+                                  styles.radioInactiveRing,
+                                  {
+                                    borderColor: isDark
+                                      ? colors.border
+                                      : "#94A3B8",
+                                  },
+                                ]}
+                              />
+                            )}
+                            <Text
                               style={[
-                                styles.radioInactiveRing,
+                                styles.selectableItemText,
                                 {
-                                  borderColor: isDark
-                                    ? colors.border
-                                    : "#94A3B8",
+                                  color: selected
+                                    ? "#3A968B"
+                                    : colors.textPrimary,
                                 },
                               ]}
+                            >
+                              {getSpecialtyLabel(specialty)}
+                            </Text>
+                          </View>
+                          {selected && (
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={22}
+                              color="#3A968B"
                             />
                           )}
-                          <Text
-                            style={[
-                              styles.selectableItemText,
-                              {
-                                color: selected
-                                  ? "#3A968B"
-                                  : colors.textPrimary,
-                              },
-                            ]}
-                          >
-                            {getSpecialtyLabel(specialty)}
-                          </Text>
-                        </View>
-                        {selected && (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={22}
-                            color="#3A968B"
-                          />
-                        )}
-                      </Pressable>
-                    );
+                        </Pressable>
+                      );
                     })
                   )}
                 </View>
@@ -1025,8 +1034,12 @@ export default function DoctorConsultationScreen() {
                     <Ionicons name="people" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
-                    <Text style={styles.cardTitle}>{t("doctorConsultationSpecialistsTitle")}</Text>
-                    <Text style={styles.cardSubtitle}>{t("doctorConsultationSpecialistsHint")}</Text>
+                    <Text style={styles.cardTitle}>
+                      {t("doctorConsultationSpecialistsTitle")}
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      {t("doctorConsultationSpecialistsHint")}
+                    </Text>
                   </View>
                 </View>
                 <Pressable
@@ -1036,37 +1049,61 @@ export default function DoctorConsultationScreen() {
                   style={[
                     styles.selectableItem,
                     {
-                      backgroundColor: preferredDoctorId === null ? "#EDFAF8" : colors.background,
-                      borderColor: preferredDoctorId === null ? "#3A968B" : colors.border,
+                      backgroundColor:
+                        preferredDoctorId === null
+                          ? "#EDFAF8"
+                          : colors.background,
+                      borderColor:
+                        preferredDoctorId === null ? "#3A968B" : colors.border,
                     },
                   ]}
                 >
                   <View style={styles.selectableItemLeft}>
-                    <View style={preferredDoctorId === null ? styles.radioActiveRing : styles.radioInactiveRing}>
-                      {preferredDoctorId === null ? <View style={styles.radioActiveDot} /> : null}
+                    <View
+                      style={
+                        preferredDoctorId === null
+                          ? styles.radioActiveRing
+                          : styles.radioInactiveRing
+                      }
+                    >
+                      {preferredDoctorId === null ? (
+                        <View style={styles.radioActiveDot} />
+                      ) : null}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.selectableItemText, { color: colors.textPrimary }]}>
+                      <Text
+                        style={[
+                          styles.selectableItemText,
+                          { color: colors.textPrimary },
+                        ]}
+                      >
                         {t("doctorConsultationAutoAssign")}
                       </Text>
-                      <Text style={styles.doctorPreferenceHint}>{t("doctorConsultationAutoAssignHint")}</Text>
+                      <Text style={styles.doctorPreferenceHint}>
+                        {t("doctorConsultationAutoAssignHint")}
+                      </Text>
                     </View>
                   </View>
                 </Pressable>
                 <View style={styles.selectionList}>
                   {recommendations.length === 0 ? (
-                    <Text style={styles.emptySelectionText}>{t("doctorConsultationNoSpecialists")}</Text>
+                    <Text style={styles.emptySelectionText}>
+                      {t("doctorConsultationNoSpecialists")}
+                    </Text>
                   ) : (
                     recommendations.map((doctor) => {
                       const selected = doctor.doctorId === preferredDoctorId;
-                      const online = (doctor.availability ?? "online") === "online";
+                      const online =
+                        (doctor.availability ?? "online") === "online";
                       return (
                         <View
                           key={doctor.doctorId}
                           style={[
                             styles.doctorListItem,
                             {
-                              backgroundColor: selected ? "#EDFAF8" : colors.background,
+                              backgroundColor: selected
+                                ? "#EDFAF8"
+                                : colors.background,
                               borderColor: selected ? "#3A968B" : colors.border,
                             },
                           ]}
@@ -1076,31 +1113,80 @@ export default function DoctorConsultationScreen() {
                             accessibilityState={{ selected }}
                             onPress={() => {
                               setPreferredDoctorId(doctor.doctorId);
-                              if (doctor.routingTenantId) setSelectedTenantId(doctor.routingTenantId);
+                              if (doctor.routingTenantId)
+                                setSelectedTenantId(doctor.routingTenantId);
                             }}
                             style={styles.doctorListMain}
                           >
                             {doctor.avatarUrl ? (
-                              <Image source={{ uri: doctor.avatarUrl }} style={styles.doctorAvatar} />
+                              <Image
+                                source={{ uri: doctor.avatarUrl }}
+                                style={styles.doctorAvatar}
+                              />
                             ) : (
                               <View style={styles.doctorAvatarFallback}>
-                                <Ionicons name="person" size={20} color="#3A968B" />
+                                <Ionicons
+                                  name="person"
+                                  size={20}
+                                  color="#3A968B"
+                                />
                               </View>
                             )}
                             <View style={styles.doctorListCopy}>
                               <View style={styles.doctorNameRow}>
-                                <Text style={[styles.doctorName, { color: colors.textPrimary }]} numberOfLines={1}>
+                                <Text
+                                  style={[
+                                    styles.doctorName,
+                                    { color: colors.textPrimary },
+                                  ]}
+                                  numberOfLines={1}
+                                >
                                   {doctor.fullName}
                                 </Text>
-                                <View style={[styles.onlineBadge, { backgroundColor: online ? "#DCFCE7" : "#F1F5F9" }]}>
-                                  <View style={[styles.onlineDot, { backgroundColor: online ? "#16A34A" : "#94A3B8" }]} />
-                                  <Text style={[styles.onlineBadgeText, { color: online ? "#15803D" : "#64748B" }]}>
-                                    {online ? t("doctorConsultationSpecialistOnline") : t("doctorConsultationSpecialistBusy")}
+                                <View
+                                  style={[
+                                    styles.onlineBadge,
+                                    {
+                                      backgroundColor: online
+                                        ? "#DCFCE7"
+                                        : "#F1F5F9",
+                                    },
+                                  ]}
+                                >
+                                  <View
+                                    style={[
+                                      styles.onlineDot,
+                                      {
+                                        backgroundColor: online
+                                          ? "#16A34A"
+                                          : "#94A3B8",
+                                      },
+                                    ]}
+                                  />
+                                  <Text
+                                    style={[
+                                      styles.onlineBadgeText,
+                                      { color: online ? "#15803D" : "#64748B" },
+                                    ]}
+                                  >
+                                    {online
+                                      ? t("doctorConsultationSpecialistOnline")
+                                      : t("doctorConsultationSpecialistBusy")}
                                   </Text>
                                 </View>
                               </View>
-                              <Text style={styles.doctorSpecialties} numberOfLines={1}>
-                                {doctor.specialties.map((item) => getSpecialtyLabel({ code: item, name: item })).join(" · ")}
+                              <Text
+                                style={styles.doctorSpecialties}
+                                numberOfLines={1}
+                              >
+                                {doctor.specialties
+                                  .map((item) =>
+                                    getSpecialtyLabel({
+                                      code: item,
+                                      name: item,
+                                    })
+                                  )
+                                  .join(" · ")}
                               </Text>
                               <Text style={styles.doctorMeta}>
                                 {doctor.ratingCount
@@ -1109,21 +1195,39 @@ export default function DoctorConsultationScreen() {
                                       ratingCount: doctor.ratingCount,
                                       minutes: doctor.estimatedWaitMinutes,
                                     })
-                                  : t("doctorConsultationDoctorNoRating", { minutes: doctor.estimatedWaitMinutes })}
+                                  : t("doctorConsultationDoctorNoRating", {
+                                      minutes: doctor.estimatedWaitMinutes,
+                                    })}
                               </Text>
                             </View>
-                            <View style={selected ? styles.radioActiveRing : styles.radioInactiveRing}>
-                              {selected ? <View style={styles.radioActiveDot} /> : null}
+                            <View
+                              style={
+                                selected
+                                  ? styles.radioActiveRing
+                                  : styles.radioInactiveRing
+                              }
+                            >
+                              {selected ? (
+                                <View style={styles.radioActiveDot} />
+                              ) : null}
                             </View>
                           </Pressable>
                           <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel={t("doctorConsultationViewReviews")}
+                            accessibilityLabel={t(
+                              "doctorConsultationViewReviews"
+                            )}
                             onPress={() => void openReviews(doctor)}
                             style={styles.reviewsButton}
                           >
-                            <Ionicons name="star-outline" size={15} color="#3A968B" />
-                            <Text style={styles.reviewsButtonText}>{t("doctorConsultationViewReviews")}</Text>
+                            <Ionicons
+                              name="star-outline"
+                              size={15}
+                              color="#3A968B"
+                            />
+                            <Text style={styles.reviewsButtonText}>
+                              {t("doctorConsultationViewReviews")}
+                            </Text>
                           </Pressable>
                         </View>
                       );
@@ -1162,9 +1266,7 @@ export default function DoctorConsultationScreen() {
                     style={[
                       styles.attachmentPreviewBox,
                       {
-                        backgroundColor: isDark
-                          ? colors.background
-                          : "#EDFAF8",
+                        backgroundColor: isDark ? colors.background : "#EDFAF8",
                         borderColor: "#3A968B",
                       },
                     ]}
@@ -1186,7 +1288,7 @@ export default function DoctorConsultationScreen() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={t(
-                          "doctorConsultationReplaceAttachment",
+                          "doctorConsultationReplaceAttachment"
                         )}
                         onPress={() => void pickPreConsultationImage()}
                       >
@@ -1200,11 +1302,7 @@ export default function DoctorConsultationScreen() {
                       onPress={() => setPendingAttachment(null)}
                       style={styles.attachmentRemoveIcon}
                     >
-                      <Ionicons
-                        name="close-circle"
-                        size={22}
-                        color="#94A3B8"
-                      />
+                      <Ionicons name="close-circle" size={22} color="#94A3B8" />
                     </Pressable>
                   </View>
                 ) : (
@@ -1220,11 +1318,7 @@ export default function DoctorConsultationScreen() {
                       },
                     ]}
                   >
-                    <Ionicons
-                      name="image-outline"
-                      size={22}
-                      color="#3A968B"
-                    />
+                    <Ionicons name="image-outline" size={22} color="#3A968B" />
                     <Text style={styles.uploadPhotoBtnText}>
                       {t("doctorConsultationChooseAttachment")}
                     </Text>
@@ -1297,7 +1391,10 @@ export default function DoctorConsultationScreen() {
                 <View
                   style={[
                     styles.summaryDivider,
-                    { backgroundColor: isDark ? colors.border : "#E2ECE9", marginBottom: 4 },
+                    {
+                      backgroundColor: isDark ? colors.border : "#E2ECE9",
+                      marginBottom: 4,
+                    },
                   ]}
                 />
 
@@ -1343,7 +1440,13 @@ export default function DoctorConsultationScreen() {
                     <Text
                       style={[
                         styles.summaryTableVal,
-                        { color: selectedDoctor ? (isDark ? colors.textPrimary : "#0F2F38") : "#64748B" },
+                        {
+                          color: selectedDoctor
+                            ? isDark
+                              ? colors.textPrimary
+                              : "#0F2F38"
+                            : "#64748B",
+                        },
                       ]}
                     >
                       {selectedDoctor
@@ -1356,7 +1459,10 @@ export default function DoctorConsultationScreen() {
                 <View
                   style={[
                     styles.summaryDivider,
-                    { backgroundColor: isDark ? colors.border : "#F1F5F9", marginTop: 4 },
+                    {
+                      backgroundColor: isDark ? colors.border : "#F1F5F9",
+                      marginTop: 4,
+                    },
                   ]}
                 />
 
@@ -1371,7 +1477,9 @@ export default function DoctorConsultationScreen() {
                         })}
                   </Text>
                 </View>
-                <Text style={styles.etaBasisText}>{t("doctorConsultationEtaBasis")}</Text>
+                <Text style={styles.etaBasisText}>
+                  {t("doctorConsultationEtaBasis")}
+                </Text>
 
                 {/* Emergency Red Warning Banner */}
                 <View
@@ -1415,13 +1523,13 @@ export default function DoctorConsultationScreen() {
                         backgroundColor: emergencyConfirmed
                           ? "#3A968B"
                           : isDark
-                            ? colors.background
-                            : "#FFFFFF",
+                          ? colors.background
+                          : "#FFFFFF",
                         borderColor: emergencyConfirmed
                           ? "#3A968B"
                           : isDark
-                            ? colors.border
-                            : "#CBD5E1",
+                          ? colors.border
+                          : "#CBD5E1",
                       },
                     ]}
                   >
@@ -1453,13 +1561,13 @@ export default function DoctorConsultationScreen() {
                         backgroundColor: consentAccepted
                           ? "#3A968B"
                           : isDark
-                            ? colors.background
-                            : "#FFFFFF",
+                          ? colors.background
+                          : "#FFFFFF",
                         borderColor: consentAccepted
                           ? "#3A968B"
                           : isDark
-                            ? colors.border
-                            : "#CBD5E1",
+                          ? colors.border
+                          : "#CBD5E1",
                       },
                     ]}
                   >
@@ -1565,7 +1673,10 @@ export default function DoctorConsultationScreen() {
         animationType="slide"
         onRequestClose={() => setReviewDoctor(null)}
       >
-        <Pressable style={styles.reviewsOverlay} onPress={() => setReviewDoctor(null)}>
+        <Pressable
+          style={styles.reviewsOverlay}
+          onPress={() => setReviewDoctor(null)}
+        >
           <Pressable
             style={[styles.reviewsSheet, { backgroundColor: colors.surface }]}
             onPress={(event) => event.stopPropagation()}
@@ -1573,31 +1684,74 @@ export default function DoctorConsultationScreen() {
             <View style={styles.reviewsSheetHandle} />
             <View style={styles.reviewsSheetHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.reviewsSheetTitle, { color: colors.textPrimary }]}>
+                <Text
+                  style={[
+                    styles.reviewsSheetTitle,
+                    { color: colors.textPrimary },
+                  ]}
+                >
                   {reviewDoctor?.fullName}
                 </Text>
                 <Text style={styles.reviewsSheetSummary}>
-                  {reviewSummary.averageRating.toFixed(1)} ★ · {t("doctorConsultationReviewCount", { count: reviewSummary.ratingCount })}
+                  {reviewSummary.averageRating.toFixed(1)} ★ ·{" "}
+                  {t("doctorConsultationReviewCount", {
+                    count: reviewSummary.ratingCount,
+                  })}
                 </Text>
               </View>
-              <Pressable accessibilityRole="button" onPress={() => setReviewDoctor(null)} hitSlop={10}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setReviewDoctor(null)}
+                hitSlop={10}
+              >
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </Pressable>
             </View>
             {reviewsLoading ? (
-              <ActivityIndicator color="#3A968B" style={{ marginVertical: 32 }} />
+              <ActivityIndicator
+                color="#3A968B"
+                style={{ marginVertical: 32 }}
+              />
             ) : reviews.length === 0 ? (
-              <Text style={styles.emptyReviewsText}>{t("doctorConsultationNoReviews")}</Text>
+              <Text style={styles.emptyReviewsText}>
+                {t("doctorConsultationNoReviews")}
+              </Text>
             ) : (
-              <ScrollView style={styles.reviewsScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.reviewsScroll}
+                showsVerticalScrollIndicator={false}
+              >
                 {reviews.map((review, index) => (
-                  <View key={`${review.createdAt}-${index}`} style={[styles.reviewItem, { borderBottomColor: colors.border }]}>
+                  <View
+                    key={`${review.createdAt}-${index}`}
+                    style={[
+                      styles.reviewItem,
+                      { borderBottomColor: colors.border },
+                    ]}
+                  >
                     <View style={styles.reviewItemHeader}>
-                      <Text style={styles.reviewAuthor}>{t("doctorConsultationAnonymizedReview")}</Text>
-                      <Text style={styles.reviewStars}>{"★".repeat(Math.max(0, Math.min(5, review.score)))}</Text>
+                      <Text style={styles.reviewAuthor}>
+                        {t("doctorConsultationAnonymizedReview")}
+                      </Text>
+                      <Text style={styles.reviewStars}>
+                        {"★".repeat(Math.max(0, Math.min(5, review.score)))}
+                      </Text>
                     </View>
-                    {review.comment ? <Text style={[styles.reviewComment, { color: colors.textPrimary }]}>{review.comment}</Text> : null}
-                    <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
+                    {review.comment ? (
+                      <Text
+                        style={[
+                          styles.reviewComment,
+                          { color: colors.textPrimary },
+                        ]}
+                      >
+                        {review.comment}
+                      </Text>
+                    ) : null}
+                    <Text style={styles.reviewDate}>
+                      {new Date(review.createdAt).toLocaleDateString(
+                        i18n.language.startsWith("en") ? "en-US" : "vi-VN"
+                      )}
+                    </Text>
                   </View>
                 ))}
               </ScrollView>

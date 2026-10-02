@@ -1,0 +1,4 @@
+"NSMicrophoneUsageDescription" = "Asinu uses the microphone only when you choose voice input, such as turning a spoken health reading into a health log or chat message. The app does not record in the background.";
+"NSLocationWhenInUseUsageDescription" = "Asinu uses your location to send an emergency SOS alert.";
+"NSCameraUsageDescription" = "Asinu uses the camera only when you scan a QR code to connect with a family member.";
+"NSPhotoLibraryUsageDescription" = "Asinu needs photo library access when you choose to update your profile picture.";

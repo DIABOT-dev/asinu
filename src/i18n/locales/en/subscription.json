@@ -18,6 +18,7 @@
   "featuresTitle": "Features",
   "planSelector": "Select subscription period",
   "perMonth": "/mo",
+  "freeForever": "Lifetime",
   "saveOff": "Save {{pct}}%",
   "features": {
     "freeTitle": "Free Plan",
@@ -147,7 +148,7 @@
   "v2FreePlan": "Free",
   "v2PaidMeta": "Protecting {{used}}/{{limit}} people{{expiry}}",
   "v2PaidExpiry": " · until {{date}}",
-  "v2FreeMeta": "1 protected person · all health tracking included",
+  "v2FreeMeta": "Lifetime",
   "v2FreeTitle": "Free for everyone",
   "v2FreeFeature1": "Vitals, symptoms and on-device red alerts",
   "v2FreeFeature2": "Full health and AI Chat history",

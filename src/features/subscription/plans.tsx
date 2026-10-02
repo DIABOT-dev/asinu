@@ -7,28 +7,38 @@
  * screens together (or just import this file again).
  */
 
-import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
-import { ScaledText as Text } from '../../components/ScaledText';
-import { colors, radius, spacing, typography } from '../../styles';
+import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from "react-native-reanimated";
+import { ScaledText as Text } from "../../components/ScaledText";
+import { colors, radius, spacing, typography } from "../../styles";
 
 export type Plan = { months: number; price: number; discount: number };
 
 export const PLANS: Plan[] = [
-  { months: 1,  price: 199000,   discount: 0  },
-  { months: 3,  price: 567000,   discount: 5  },
-  { months: 6,  price: 1075000,  discount: 10 },
-  { months: 12, price: 1910000,  discount: 20 },
+  { months: 1, price: 199000, discount: 0 },
+  { months: 3, price: 567000, discount: 5 },
+  { months: 6, price: 1075000, discount: 10 },
+  { months: 12, price: 1910000, discount: 20 },
 ];
 
 export function pricePerMonth(plan: Plan): number {
   return Math.round(plan.price / plan.months);
 }
 
-export function formatVND(val: number | string): string {
-  const n = typeof val === 'string' ? parseFloat(val) : val;
-  return Number.isNaN(n) ? '0' : n.toLocaleString('vi-VN');
+export function formatVND(val: number | string, language = "vi"): string {
+  const n = typeof val === "string" ? parseFloat(val) : val;
+  if (Number.isNaN(n)) return "0";
+  return new Intl.NumberFormat(language.startsWith("en") ? "en-US" : "vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
 export type PlanOptionProps = {
@@ -39,18 +49,28 @@ export type PlanOptionProps = {
   isXLarge?: boolean;
 };
 
-export function PlanOption({ plan, selected, onSelect, isXLarge }: PlanOptionProps) {
-  const { t } = useTranslation('subscription');
+export function PlanOption({
+  plan,
+  selected,
+  onSelect,
+  isXLarge,
+}: PlanOptionProps) {
+  const { t, i18n } = useTranslation("subscription");
   const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const handlePress = () => {
-    scale.value = withSequence(withSpring(0.93), withSpring(1, { damping: 10 }));
+    scale.value = withSequence(
+      withSpring(0.93),
+      withSpring(1, { damping: 10 })
+    );
     onSelect();
   };
 
   return (
-    <Animated.View style={[animStyle, { width: isXLarge ? '100%' : '47%' }]}>
+    <Animated.View style={[animStyle, { width: isXLarge ? "100%" : "47%" }]}>
       <Pressable
         style={[styles.option, selected && styles.selected]}
         onPress={handlePress}
@@ -61,13 +81,14 @@ export function PlanOption({ plan, selected, onSelect, isXLarge }: PlanOptionPro
           </View>
         )}
         <Text style={[styles.label, selected && styles.labelSelected]}>
-          {t('planMonth', { months: plan.months })}
+          {t("planMonth", { months: plan.months })}
         </Text>
         <Text style={[styles.price, selected && styles.priceSelected]}>
-          {formatVND(plan.price)}đ
+          {formatVND(plan.price, i18n.language)}
         </Text>
         <Text style={[styles.perMonth, selected && styles.perMonthSelected]}>
-          ~{formatVND(pricePerMonth(plan))}đ{t('perMonth')}
+          ~{formatVND(pricePerMonth(plan), i18n.language)}
+          {t("perMonth")}
         </Text>
       </Pressable>
     </Animated.View>
@@ -81,13 +102,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surfaceMuted,
     padding: spacing.md,
-    alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+    alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
   },
-  selected: { borderColor: colors.premium, backgroundColor: colors.premiumLight },
+  selected: {
+    borderColor: colors.premium,
+    backgroundColor: colors.premiumLight,
+  },
   discountBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
     backgroundColor: colors.premium,
@@ -95,11 +119,28 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderBottomLeftRadius: radius.sm,
   },
-  discountText: { fontSize: typography.size.xxs, fontWeight: '800', color: '#fff' },
-  label: { fontSize: typography.size.sm, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
+  discountText: {
+    fontSize: typography.size.xxs,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  label: {
+    fontSize: typography.size.sm,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
   labelSelected: { color: colors.premiumDark },
-  price: { fontSize: typography.size.md, fontWeight: '800', color: colors.textPrimary },
+  price: {
+    fontSize: typography.size.md,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
   priceSelected: { color: colors.premiumDark },
-  perMonth: { fontSize: typography.size.xxs, color: colors.textSecondary, marginTop: 2 },
-  perMonthSelected: { color: '#a16207' },
+  perMonth: {
+    fontSize: typography.size.xxs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  perMonthSelected: { color: "#a16207" },
 });

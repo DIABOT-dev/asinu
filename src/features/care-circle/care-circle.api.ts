@@ -1,11 +1,11 @@
-import { apiClient } from '../../lib/apiClient';
-import { normalizeVietnamesePhone } from '../../lib/validation';
+import { apiClient } from "../../lib/apiClient";
+import { normalizeVietnamesePhone } from "../../lib/validation";
 
 export type CareCircleInvitation = {
   id: string;
   requester_id: string;
   addressee_id: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: "pending" | "accepted" | "rejected";
   requested_by: string;
   relationship_type?: string;
   role?: string;
@@ -32,7 +32,7 @@ export type CareCircleConnection = {
   id: string;
   requester_id: string;
   addressee_id: string;
-  status: 'accepted';
+  status: "accepted";
   relationship_type?: string;
   role?: string;
   permissions: {
@@ -48,6 +48,8 @@ export type CareCircleConnection = {
   addressee_email?: string;
   requester_phone?: string;
   addressee_phone?: string;
+  requester_avatar_url?: string | null;
+  addressee_avatar_url?: string | null;
   requester_gender?: string;
   addressee_gender?: string;
   created_at: string;
@@ -63,7 +65,7 @@ export type MemberHealthSummary = {
     can_ack_escalation: boolean;
   };
   healthScore?: {
-    level: 'ok' | 'monitor' | 'danger';
+    level: "ok" | "monitor" | "danger";
     factors: string[];
     checkinDone: boolean;
   };
@@ -97,7 +99,7 @@ export type MemberHealthSummary = {
     current_status: string | null;
     flow_state: string | null;
     triage_summary: string | null;
-    triage_severity: 'low' | 'medium' | 'high' | 'emergency' | null;
+    triage_severity: "low" | "medium" | "high" | "emergency" | null;
     family_alerted: boolean;
     emergency_triggered: boolean;
     created_at: string;
@@ -111,7 +113,7 @@ export type MemberHealthSummary = {
   }>;
   alerts?: Array<{
     id: string | number;
-    severity: 'low' | 'medium' | 'high' | 'danger' | string;
+    severity: "low" | "medium" | "high" | "danger" | string;
     title: string;
     message?: string;
     created_at?: string;
@@ -142,50 +144,64 @@ export type CareCircleQrPreview = {
   expiresAt: string;
 };
 
-export type CreateQrInvitationPayload = Omit<CreateInvitationPayload, 'addressee_id'> & {
+export type CreateQrInvitationPayload = Omit<
+  CreateInvitationPayload,
+  "addressee_id"
+> & {
   token: string;
 };
 
 export const careCircleApi = {
   async createQrToken() {
-    return apiClient<{ ok: boolean } & CareCircleQrToken>('/api/care-circle/qr-token', {
-      method: 'POST',
-    });
+    return apiClient<{ ok: boolean } & CareCircleQrToken>(
+      "/api/care-circle/qr-token",
+      {
+        method: "POST",
+      }
+    );
   },
 
   async previewQrToken(token: string) {
-    const response = await apiClient<{ ok: boolean; preview: CareCircleQrPreview }>(
-      '/api/care-circle/qr-token/preview',
-      { method: 'POST', body: { token } }
-    );
+    const response = await apiClient<{
+      ok: boolean;
+      preview: CareCircleQrPreview;
+    }>("/api/care-circle/qr-token/preview", {
+      method: "POST",
+      body: { token },
+    });
     return response.preview;
   },
 
   async createInvitationFromQr(payload: CreateQrInvitationPayload) {
-    const response = await apiClient<{ ok: boolean; invitation: CareCircleInvitation }>(
-      '/api/care-circle/qr-token/invitations',
-      { method: 'POST', body: payload }
-    );
+    const response = await apiClient<{
+      ok: boolean;
+      invitation: CareCircleInvitation;
+    }>("/api/care-circle/qr-token/invitations", {
+      method: "POST",
+      body: payload,
+    });
     return response.invitation;
   },
 
   // Create invitation
   async createInvitation(payload: CreateInvitationPayload) {
-
-    const response = await apiClient<{ ok: boolean; invitation: CareCircleInvitation }>(
-      '/api/care-circle/invitations',
-      { method: 'POST', body: payload }
-    );
+    const response = await apiClient<{
+      ok: boolean;
+      invitation: CareCircleInvitation;
+    }>("/api/care-circle/invitations", { method: "POST", body: payload });
 
     return response.invitation;
   },
 
   // Get invitations (sent or received)
-  async getInvitations(direction?: 'sent' | 'received') {
-    const url = direction 
+  async getInvitations(direction?: "sent" | "received") {
+    const url = direction
       ? `/api/care-circle/invitations?direction=${direction}`
-      : '/api/care-circle/invitations';
-    const response = await apiClient<{ ok: boolean; invitations: CareCircleInvitation[] }>(url);
+      : "/api/care-circle/invitations";
+    const response = await apiClient<{
+      ok: boolean;
+      invitations: CareCircleInvitation[];
+    }>(url);
     return response.invitations;
   },
 
@@ -193,17 +209,19 @@ export const careCircleApi = {
   async cancelInvitation(invitationId: string) {
     const response = await apiClient<{ ok: boolean; message: string }>(
       `/api/care-circle/invitations/${invitationId}`,
-      { method: 'DELETE' }
+      { method: "DELETE" }
     );
     return response;
   },
 
   // Accept invitation
   async acceptInvitation(invitationId: string) {
-    const response = await apiClient<{ ok: boolean; connection: CareCircleConnection }>(
-      `/api/care-circle/invitations/${invitationId}/accept`,
-      { method: 'POST' }
-    );
+    const response = await apiClient<{
+      ok: boolean;
+      connection: CareCircleConnection;
+    }>(`/api/care-circle/invitations/${invitationId}/accept`, {
+      method: "POST",
+    });
     return response.connection;
   },
 
@@ -211,16 +229,17 @@ export const careCircleApi = {
   async rejectInvitation(invitationId: string) {
     const response = await apiClient<{ ok: boolean; message: string }>(
       `/api/care-circle/invitations/${invitationId}/reject`,
-      { method: 'POST' }
+      { method: "POST" }
     );
     return response;
   },
 
   // Get connections
   async getConnections() {
-    const response = await apiClient<{ ok: boolean; connections: CareCircleConnection[] }>(
-      '/api/care-circle/connections'
-    );
+    const response = await apiClient<{
+      ok: boolean;
+      connections: CareCircleConnection[];
+    }>("/api/care-circle/connections");
     return response.connections;
   },
 
@@ -228,29 +247,42 @@ export const careCircleApi = {
   async deleteConnection(connectionId: string) {
     const response = await apiClient<{ ok: boolean; message: string }>(
       `/api/care-circle/connections/${connectionId}`,
-      { method: 'DELETE' }
+      { method: "DELETE" }
     );
     return response;
   },
 
   // Update connection
-  async updateConnection(connectionId: string, updates: { relationship_type?: string; role?: string }) {
-    const response = await apiClient<{ ok: boolean; connection: CareCircleConnection }>(
-      `/api/care-circle/connections/${connectionId}`,
-      { 
-        method: 'PUT',
-        body: updates
-      }
-    );
+  async updateConnection(
+    connectionId: string,
+    updates: { relationship_type?: string; role?: string }
+  ) {
+    const response = await apiClient<{
+      ok: boolean;
+      connection: CareCircleConnection;
+    }>(`/api/care-circle/connections/${connectionId}`, {
+      method: "PUT",
+      body: updates,
+    });
     return response.connection;
   },
 
   // Update connection permissions
-  async updatePermissions(connectionId: string, permissions: { can_view_logs: boolean; can_receive_alerts: boolean; can_ack_escalation: boolean }) {
-    const response = await apiClient<{ ok: boolean; connection: CareCircleConnection }>(
-      `/api/care-circle/connections/${connectionId}/permissions`,
-      { method: 'PUT', body: { permissions } }
-    );
+  async updatePermissions(
+    connectionId: string,
+    permissions: {
+      can_view_logs: boolean;
+      can_receive_alerts: boolean;
+      can_ack_escalation: boolean;
+    }
+  ) {
+    const response = await apiClient<{
+      ok: boolean;
+      connection: CareCircleConnection;
+    }>(`/api/care-circle/connections/${connectionId}/permissions`, {
+      method: "PUT",
+      body: { permissions },
+    });
     return response.connection;
   },
 
@@ -278,11 +310,21 @@ export const careCircleApi = {
       sessions: Array<{
         id: number;
         session_date: string;
-        initial_status: 'fine' | 'tired' | 'very_tired' | 'specific_concern' | null;
+        initial_status:
+          | "fine"
+          | "tired"
+          | "very_tired"
+          | "specific_concern"
+          | null;
         current_status: string | null;
-        flow_state: 'monitoring' | 'follow_up' | 'high_alert' | 'resolved' | null;
+        flow_state:
+          | "monitoring"
+          | "follow_up"
+          | "high_alert"
+          | "resolved"
+          | null;
         triage_summary: string | null;
-        triage_severity: 'low' | 'medium' | 'high' | 'emergency' | null;
+        triage_severity: "low" | "medium" | "high" | "emergency" | null;
         family_alerted: boolean;
         emergency_triggered: boolean;
         resolved_at: string | null;
@@ -304,8 +346,8 @@ export const careCircleApi = {
     const phone = normalizeVietnamesePhone(query);
     if (!phone) return [];
 
-    const response = await apiClient<{ 
-      ok: boolean; 
+    const response = await apiClient<{
+      ok: boolean;
       users: Array<{
         id: string;
         name: string;
@@ -314,5 +356,5 @@ export const careCircleApi = {
       }>;
     }>(`/api/auth/users/search?q=${encodeURIComponent(phone)}`);
     return Array.isArray(response.users) ? response.users : [];
-  }
+  },
 };

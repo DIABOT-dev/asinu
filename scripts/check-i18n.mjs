@@ -1,31 +1,31 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const localesDir = path.resolve(scriptDir, '../src/i18n/locales');
-const languages = ['vi', 'en'];
+const localesDir = path.resolve(scriptDir, "../src/i18n/locales");
+const languages = ["vi", "en"];
 
-const flatten = (value, prefix = '') => {
+const flatten = (value, prefix = "") => {
   const result = new Map();
   for (const [key, child] of Object.entries(value)) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
-    if (child && typeof child === 'object' && !Array.isArray(child)) {
+    if (child && typeof child === "object" && !Array.isArray(child)) {
       for (const [nestedKey, nestedValue] of flatten(child, fullKey)) {
         result.set(nestedKey, nestedValue);
       }
     } else {
-      result.set(fullKey, child === null ? 'null' : typeof child);
+      result.set(fullKey, child === null ? "null" : typeof child);
     }
   }
   return result;
 };
 
-const flattenValues = (value, prefix = '') => {
+const flattenValues = (value, prefix = "") => {
   const result = new Map();
   for (const [key, child] of Object.entries(value)) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
-    if (child && typeof child === 'object' && !Array.isArray(child)) {
+    if (child && typeof child === "object" && !Array.isArray(child)) {
       for (const [nestedKey, nestedValue] of flattenValues(child, fullKey)) {
         result.set(nestedKey, nestedValue);
       }
@@ -37,18 +37,19 @@ const flattenValues = (value, prefix = '') => {
 };
 
 const placeholders = (value) =>
-  typeof value === 'string'
+  typeof value === "string"
     ? [...value.matchAll(/\{\{([^{}]+)\}\}/g)].map((match) => match[1]).sort()
     : [];
 
 const errors = [];
-const files = fs.readdirSync(path.join(localesDir, 'vi'))
-  .filter((file) => file.endsWith('.json'))
+const files = fs
+  .readdirSync(path.join(localesDir, "vi"))
+  .filter((file) => file.endsWith(".json"))
   .sort();
 
 for (const file of files) {
-  const viPath = path.join(localesDir, 'vi', file);
-  const enPath = path.join(localesDir, 'en', file);
+  const viPath = path.join(localesDir, "vi", file);
+  const enPath = path.join(localesDir, "en", file);
   if (!fs.existsSync(enPath)) {
     errors.push(`${file}: missing English catalog`);
     continue;
@@ -57,8 +58,8 @@ for (const file of files) {
   let vi;
   let en;
   try {
-    vi = JSON.parse(fs.readFileSync(viPath, 'utf8'));
-    en = JSON.parse(fs.readFileSync(enPath, 'utf8'));
+    vi = JSON.parse(fs.readFileSync(viPath, "utf8"));
+    en = JSON.parse(fs.readFileSync(enPath, "utf8"));
   } catch (error) {
     errors.push(`${file}: invalid JSON (${error.message})`);
     continue;
@@ -71,37 +72,88 @@ for (const file of files) {
   for (const key of new Set([...viKeys.keys(), ...enKeys.keys()])) {
     if (!viKeys.has(key)) errors.push(`${file}: missing Vietnamese key ${key}`);
     if (!enKeys.has(key)) errors.push(`${file}: missing English key ${key}`);
-    if (viKeys.has(key) && enKeys.has(key) && viKeys.get(key) !== enKeys.get(key)) {
+    if (
+      viKeys.has(key) &&
+      enKeys.has(key) &&
+      viKeys.get(key) !== enKeys.get(key)
+    ) {
       errors.push(`${file}: type mismatch for ${key}`);
     }
     if (!viValues.has(key) || !enValues.has(key)) continue;
-    if (typeof viValues.get(key) === 'string' && !viValues.get(key).trim()) {
+    if (typeof viValues.get(key) === "string" && !viValues.get(key).trim()) {
       errors.push(`${file}: empty Vietnamese value for ${key}`);
     }
-    if (typeof enValues.get(key) === 'string' && !enValues.get(key).trim()) {
+    if (typeof enValues.get(key) === "string" && !enValues.get(key).trim()) {
       errors.push(`${file}: empty English value for ${key}`);
     }
     const viParams = placeholders(viValues.get(key));
     const enParams = placeholders(enValues.get(key));
-    if (viParams.join('|') !== enParams.join('|')) {
+    if (viParams.join("|") !== enParams.join("|")) {
       errors.push(
-        `${file}: placeholder mismatch for ${key} (vi=${viParams.join(',')} en=${enParams.join(',')})`,
+        `${file}: placeholder mismatch for ${key} (vi=${viParams.join(
+          ","
+        )} en=${enParams.join(",")})`
       );
     }
   }
 }
 
-const englishFiles = fs.readdirSync(path.join(localesDir, 'en'))
-  .filter((file) => file.endsWith('.json'))
+const englishFiles = fs
+  .readdirSync(path.join(localesDir, "en"))
+  .filter((file) => file.endsWith(".json"))
   .sort();
 for (const file of englishFiles) {
   if (!files.includes(file)) errors.push(`${file}: missing Vietnamese catalog`);
 }
 
+const projectRoot = path.resolve(scriptDir, "..");
+const legalSource = fs.readFileSync(
+  path.join(projectRoot, "src/constants/LegalText.ts"),
+  "utf8"
+);
+const englishLegalSource = legalSource.slice(
+  legalSource.indexOf("const en: LegalContent")
+);
+if (/[À-ỹ]/u.test(englishLegalSource)) {
+  errors.push(
+    "LegalText.ts: English legal content still contains Vietnamese copy"
+  );
+}
+
+const nativeLocaleKeys = [
+  "NSMicrophoneUsageDescription",
+  "NSLocationWhenInUseUsageDescription",
+  "NSCameraUsageDescription",
+  "NSPhotoLibraryUsageDescription",
+];
+for (const language of languages) {
+  const nativePath = path.join(projectRoot, "locales", `${language}.json`);
+  if (!fs.existsSync(nativePath)) {
+    errors.push(`locales/${language}.json: missing native locale catalog`);
+    continue;
+  }
+  const nativeLocale = JSON.parse(fs.readFileSync(nativePath, "utf8"));
+  for (const key of nativeLocaleKeys) {
+    if (!nativeLocale.ios?.[key])
+      errors.push(`locales/${language}.json: missing iOS key ${key}`);
+  }
+  if (language === "en" && /[À-ỹ]/u.test(JSON.stringify(nativeLocale))) {
+    errors.push(
+      "locales/en.json: English native copy contains Vietnamese text"
+    );
+  }
+}
+
 if (errors.length) {
-  console.error(`i18n check failed (${errors.length} issue${errors.length === 1 ? '' : 's'}):`);
+  console.error(
+    `i18n check failed (${errors.length} issue${
+      errors.length === 1 ? "" : "s"
+    }):`
+  );
   for (const error of errors) console.error(`- ${error}`);
   process.exitCode = 1;
 } else {
-  console.log(`i18n check passed: ${files.length} namespaces, vi/en keys are aligned.`);
+  console.log(
+    `i18n check passed: ${files.length} namespaces, vi/en keys are aligned.`
+  );
 }
