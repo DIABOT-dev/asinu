@@ -262,6 +262,11 @@ export const SessionProvider = ({ children }: Props) => {
         const title = notification.request.content.title || "";
         const body = notification.request.content.body || "";
 
+        // Refresh backing data before handling a route. Incoming check-in calls
+        // return early below, so dispatching afterwards would leave the inbox
+        // and health state stale while the app is open.
+        dispatchRealtimeRefresh(type);
+
         if (data?.checkinCall === true && data?.kind === 'INCOMING_CALL') {
           const route = routeFromNotificationData(data);
           if (route) router.push(route as any);
@@ -277,8 +282,6 @@ export const SessionProvider = ({ children }: Props) => {
         // Mọi notification → dispatch refresh các store liên quan.
         // Map type → stores ở src/lib/realtimeSync.ts (cover 30+ types).
         // App tự cập nhật mà không cần reload / pull-refresh.
-        dispatchRealtimeRefresh(type);
-
         // ── TOAST in-app cho events quan trọng (không phải mọi type đều show
         // toast — tránh spam reminder routines).
         if (

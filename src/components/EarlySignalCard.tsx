@@ -16,6 +16,7 @@ import {
   type EarlySignalAssessment,
 } from "../features/early-signal/early-signal.api";
 import type { HealthScoreData } from "../features/checkin/checkin.api";
+import { subscribeRealtimeRefresh } from "../lib/realtimeSync";
 import { colors, radius, spacing, typography } from "../styles";
 
 type Props = {
@@ -69,6 +70,11 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  useEffect(
+    () => subscribeRealtimeRefresh("earlySignal", load),
+    [load],
+  );
 
   const evaluate = useCallback(async () => {
     setEvaluating(true);

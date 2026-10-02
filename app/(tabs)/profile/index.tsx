@@ -168,9 +168,10 @@ export default function ProfileScreen() {
     async (enabled: boolean) => {
       setHealthFeedEnabled(enabled);
       try {
-        await setHealthFeedPreference(enabled);
+        const savedValue = await setHealthFeedPreference(enabled);
+        setHealthFeedEnabled(savedValue);
         showToast(
-          ts(enabled ? "healthFeedEnabled" : "healthFeedDisabled"),
+          ts(savedValue ? "healthFeedEnabled" : "healthFeedDisabled"),
           "success",
         );
       } catch {
@@ -1357,7 +1358,7 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowPlanInfoModal(false)}
         >
-          <Pressable style={styles.planInfoCard} onPress={() => {}}>
+          <Pressable style={styles.planInfoCard} onPress={(event) => event.stopPropagation()}>
             <View style={{ alignItems: "center", gap: 8 }}>
               <View style={styles.planIconBig}>
                 <MaterialCommunityIcons
@@ -1830,7 +1831,7 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowDiseasePicker(false)}
         >
-          <Pressable style={styles.pickerModalCard} onPress={() => {}}>
+          <Pressable style={styles.pickerModalCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.diseaseModalHeader}>
               <Text style={styles.pickerModalTitle}>{t("selectDiseases")}</Text>
               <Text style={styles.diseaseModalSubtitle}>
@@ -1922,7 +1923,7 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowFontPicker(false)}
         >
-          <Pressable style={styles.pickerModalCard} onPress={() => {}}>
+          <Pressable style={styles.pickerModalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.pickerModalTitle}>{ts("fontSize")}</Text>
             <View
               style={{ width: "100%", gap: spacing.sm, marginTop: spacing.md }}
@@ -1981,7 +1982,7 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowLangPicker(false)}
         >
-          <Pressable style={styles.pickerModalCard} onPress={() => {}}>
+          <Pressable style={styles.pickerModalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.pickerModalTitle}>{ts("language")}</Text>
             <View
               style={{ width: "100%", gap: spacing.sm, marginTop: spacing.md }}
@@ -2072,7 +2073,7 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowLogoutModal(false)}
         >
-          <Pressable style={styles.logoutModalCard} onPress={() => {}}>
+          <Pressable style={styles.logoutModalCard} onPress={(event) => event.stopPropagation()}>
             {/* Nút Đóng (x) góc phải */}
             <TouchableOpacity
               style={styles.logoutModalCloseBtn}

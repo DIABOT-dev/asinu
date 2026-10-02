@@ -109,6 +109,7 @@ export interface NotificationData {
     | "engagement"
     | "health_feed"
     | "early_signal"
+    | "checkin_call"
     | "doctor_message";
   invitationId?: string;
   senderId?: string;

@@ -9,7 +9,46 @@
 
 // Map notification type → list các store sẽ được refresh.
 // Nếu type không có trong map → không refresh gì (chỉ show toast/log).
-const REFRESH_BY_TYPE: Record<string, string[]> = {
+type RealtimeRefreshTarget =
+  | 'careCircle'
+  | 'notifications'
+  | 'profile'
+  | 'missions'
+  | 'logs'
+  | 'tree'
+  | 'wellness'
+  | 'carePulse'
+  | 'auth'
+  | 'healthFeed'
+  | 'earlySignal';
+
+const realtimeListeners = new Map<RealtimeRefreshTarget, Set<() => void>>();
+
+export function subscribeRealtimeRefresh(
+  target: RealtimeRefreshTarget,
+  listener: () => void,
+): () => void {
+  const listeners = realtimeListeners.get(target) ?? new Set<() => void>();
+  listeners.add(listener);
+  realtimeListeners.set(target, listeners);
+
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) realtimeListeners.delete(target);
+  };
+}
+
+function notifyRealtimeListeners(target: RealtimeRefreshTarget): void {
+  for (const listener of realtimeListeners.get(target) ?? []) {
+    try {
+      listener();
+    } catch {
+      // A screen listener must never break the notification handler.
+    }
+  }
+}
+
+const REFRESH_BY_TYPE: Record<string, RealtimeRefreshTarget[]> = {
   // ── Care circle ──
   care_circle_invitation:          ['careCircle', 'notifications'],
   care_circle_accepted:            ['careCircle', 'notifications'],
@@ -29,6 +68,9 @@ const REFRESH_BY_TYPE: Record<string, string[]> = {
 
   // ── Health / Logs ──
   health_alert:    ['logs', 'wellness', 'notifications'],
+  early_signal:   ['earlySignal', 'tree', 'wellness', 'notifications'],
+  health_feed:    ['healthFeed', 'notifications'],
+  checkin_call:   ['wellness', 'notifications'],
 
   // ── Caregiver alert (caregiver phía bên kia) ──
   // FIX W2: caregiver_alert phải refresh wellness store để caregiver thấy
@@ -133,6 +175,11 @@ export function dispatchRealtimeRefresh(type: string | undefined): void {
         case 'auth': {
           const { useAuthStore } = require('../features/auth/auth.store');
           useAuthStore.getState().bootstrap?.();
+          break;
+        }
+        case 'healthFeed':
+        case 'earlySignal': {
+          notifyRealtimeListeners(store);
           break;
         }
       }

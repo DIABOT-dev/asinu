@@ -98,6 +98,7 @@ export interface NotificationPreferences {
   effective_afternoon_time: string;
   effective_evening_time:   string;
   reminders_enabled: boolean;
+  health_feed_enabled: boolean;
   error?: string;
 }
 
@@ -113,6 +114,7 @@ export async function updateNotificationPreferences(prefs: {
   afternoon_time?: string | null;
   evening_time?: string | null;
   reminders_enabled?: boolean;
+  health_feed_enabled?: boolean;
 }): Promise<NotificationPreferences> {
   return apiClient<NotificationPreferences>('/api/notifications/preferences', {
     method: 'PUT',

@@ -38,6 +38,7 @@ import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate'
 import { useNotificationStore } from '../../../src/stores/notification.store';
 import { showToast, useToastStore } from '../../../src/stores/toast.store';
 import { getHealthFeedPreference } from '../../../src/stores/health-feed-preference';
+import { subscribeRealtimeRefresh } from '../../../src/lib/realtimeSync';
 import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import type { Mission } from '../../../src/features/missions/missions.store';
@@ -59,7 +60,7 @@ function InfoButton({ text, styles }: { text: string; styles: any }) {
       </Pressable>
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.infoModalOverlay} onPress={() => setOpen(false)}>
-          <Pressable style={styles.infoModalBox} onPress={() => {}}>
+          <Pressable style={styles.infoModalBox} onPress={(event) => event.stopPropagation()}>
             <View style={styles.infoModalHeader}>
               <Ionicons name="information-circle" size={20} color={colors.primary} />
               <Text style={styles.infoModalTitle}>{tc('info')}</Text>
@@ -631,34 +632,39 @@ export default function HomeScreen() {
   const [healthFeedVisible, setHealthFeedVisible] = useState(true);
   const [healthFeedItems, setHealthFeedItems] = useState<any[]>([]);
 
+  const refreshHealthFeed = useCallback(async () => {
+    if (!profile) return;
+
+    const visible = await getHealthFeedPreference();
+    setHealthFeedVisible(visible);
+    if (!visible) {
+      setHealthFeedEnabled(false);
+      setHealthFeedItems([]);
+      return;
+    }
+
+    const response = await healthFeedApi<any>('/feed');
+    if (response.ok && response.enabled) {
+      setHealthFeedEnabled(true);
+      setHealthFeedItems(response.feed || []);
+      return;
+    }
+
+    setHealthFeedEnabled(false);
+  }, [healthFeedApi, profile]);
+
   useFocusEffect(
     useCallback(() => {
-      if (!profile) return;
-      let active = true;
-      getHealthFeedPreference().then((visible) => {
-        if (!active) return;
-        setHealthFeedVisible(visible);
-        if (!visible) {
-          setHealthFeedEnabled(false);
-          setHealthFeedItems([]);
-          return;
-        }
-        healthFeedApi<any>('/feed')
-          .then(res => {
-            if (!active) return;
-            if (res.ok && res.enabled) {
-              setHealthFeedEnabled(true);
-              setHealthFeedItems(res.feed || []);
-            } else {
-              setHealthFeedEnabled(false);
-            }
-          })
-          .catch(() => {});
-      }).catch(() => {});
-      return () => {
-        active = false;
-      };
-    }, [healthFeedApi, profile])
+      refreshHealthFeed().catch(() => {});
+    }, [refreshHealthFeed])
+  );
+
+  useEffect(
+    () =>
+      subscribeRealtimeRefresh('healthFeed', () => {
+        refreshHealthFeed().catch(() => {});
+      }),
+    [refreshHealthFeed],
   );
 
   const handleOpenNotifications = useCallback(() => {
@@ -673,25 +679,12 @@ export default function HomeScreen() {
     await fetchFromBackend();
     if (profile) {
       try {
-        const visible = await getHealthFeedPreference();
-        setHealthFeedVisible(visible);
-        if (!visible) {
-          setHealthFeedEnabled(false);
-          setHealthFeedItems([]);
-        } else {
-          const res = await healthFeedApi<any>('/feed');
-          if (res.ok && res.enabled) {
-            setHealthFeedEnabled(true);
-            setHealthFeedItems(res.feed || []);
-          } else {
-            setHealthFeedEnabled(false);
-          }
-        }
+        await refreshHealthFeed();
       } catch {}
     }
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [healthFeedApi, profile]); // Empty deps - refreshAll is stable
+  }, [profile, refreshHealthFeed]); // refreshAll/fetchFromBackend are stable store actions
 
   const hasData = Boolean(treeSummary || missions.length || logs.length || healthScore);
   const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
@@ -842,7 +835,7 @@ export default function HomeScreen() {
       {/* Modal: Đã check-in rồi */}
       <Modal visible={showAlreadyDoneModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowAlreadyDoneModal(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setShowAlreadyDoneModal(false)}>
-          <Pressable style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 28, alignItems: 'center', gap: 12, width: '100%', maxWidth: 320 }} onPress={() => {}}>
+          <Pressable style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 28, alignItems: 'center', gap: 12, width: '100%', maxWidth: 320 }} onPress={(event) => event.stopPropagation()}>
             <Ionicons name="checkmark-circle" size={56} color={colors.primary} />
             <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' }}>{t('alreadyCheckedIn')}</Text>
             <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>{t('alreadyCheckedInSub')}</Text>
