@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,6 +14,11 @@ import {
   restorePurchases,
   type LocalProduct,
 } from "./iap.service";
+
+const PLAN_ANTAM_1_IMG = require("../../../assets/images/subscription/plan_antam_1.png");
+const PLAN_ANTAM_2_IMG = require("../../../assets/images/subscription/plan_antam_2.png");
+const PLAN_ANTAM_4_IMG = require("../../../assets/images/subscription/plan_antam_4.png");
+const PLAN_ANTAM_8_IMG = require("../../../assets/images/subscription/plan_antam_8.png");
 
 type Props = {
   currentPlanCode?: string;
@@ -234,57 +240,32 @@ export function IapPurchaseCard({
     const isPopular = product.plan_code === "antam_4";
 
     const getPlanAvatar = () => {
+      let source = PLAN_ANTAM_4_IMG;
       switch (product.plan_code) {
         case "antam_1":
-          return (
-            <View
-              style={[
-                styles.gridCardAvatar,
-                { backgroundColor: isDark ? "#064e3b" : "#ecfdf5" },
-              ]}
-            >
-              <Ionicons name="person" size={20} color="#059669" />
-            </View>
-          );
+          source = PLAN_ANTAM_1_IMG;
+          break;
         case "antam_2":
-          return (
-            <View
-              style={[
-                styles.gridCardAvatar,
-                { backgroundColor: isDark ? "#064e3b" : "#ecfdf5" },
-              ]}
-            >
-              <Ionicons name="people" size={20} color="#059669" />
-            </View>
-          );
+          source = PLAN_ANTAM_2_IMG;
+          break;
         case "antam_4":
-          return (
-            <View
-              style={[
-                styles.gridCardAvatar,
-                { backgroundColor: isDark ? "#431407" : "#fff7ed" },
-              ]}
-            >
-              <Ionicons name="heart" size={20} color="#ea580c" />
-            </View>
-          );
+          source = PLAN_ANTAM_4_IMG;
+          break;
         case "antam_8":
-        default:
-          return (
-            <View
-              style={[
-                styles.gridCardAvatar,
-                { backgroundColor: isDark ? "#082f49" : "#f0f9ff" },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="shield-crown"
-                size={22}
-                color="#0284c7"
-              />
-            </View>
-          );
+          source = PLAN_ANTAM_8_IMG;
+          break;
       }
+
+      return (
+        <View style={styles.gridCardAvatar}>
+          <Image
+            cachePolicy="memory-disk"
+            contentFit="contain"
+            source={source}
+            style={styles.gridCardBadgeImg}
+          />
+        </View>
+      );
     };
 
     const features = [
@@ -695,11 +676,14 @@ function createStyles(isDark: boolean) {
     },
     gridCardAvatar: {
       alignItems: "center",
-      borderRadius: 22,
-      height: 44,
+      height: 48,
       justifyContent: "center",
       marginBottom: 6,
-      width: 44,
+      width: 48,
+    },
+    gridCardBadgeImg: {
+      height: 48,
+      width: 48,
     },
     gridCardTitle: {
       color: isDark ? "#f8fafc" : "#0f172a",

@@ -43,6 +43,45 @@ const CROWN_HERO = require("../../assets/images/subscription/crown_hero.png");
 const LEAVES_LEFT = require("../../assets/images/subscription/header_leaves_left.png");
 const PLAN_FREE_IMG = require("../../assets/images/subscription/plan_free.png");
 const PLAN_ANTAM_IMG = require("../../assets/images/subscription/plan_antam.png");
+const PLAN_ANTAM_1_IMG = require("../../assets/images/subscription/plan_antam_1.png");
+const PLAN_ANTAM_2_IMG = require("../../assets/images/subscription/plan_antam_2.png");
+const PLAN_ANTAM_4_IMG = require("../../assets/images/subscription/plan_antam_4.png");
+const PLAN_ANTAM_8_IMG = require("../../assets/images/subscription/plan_antam_8.png");
+
+const PROTECTED_AVATAR_1 = require("../../assets/images/subscription/protected_avatar_1.png");
+const PROTECTED_AVATAR_2 = require("../../assets/images/subscription/protected_avatar_2.png");
+const PROTECTED_AVATAR_3 = require("../../assets/images/subscription/protected_avatar_3.png");
+const PROTECTED_AVATAR_4 = require("../../assets/images/subscription/protected_avatar_4.png");
+
+const PROTECTED_AVATARS = [
+  PROTECTED_AVATAR_1,
+  PROTECTED_AVATAR_2,
+  PROTECTED_AVATAR_3,
+  PROTECTED_AVATAR_4,
+];
+
+function getFallbackProtectedAvatar(userId: number, index: number) {
+  const safeId = Math.abs(userId || 0);
+  const avatarIndex = (safeId + index) % PROTECTED_AVATARS.length;
+  return PROTECTED_AVATARS[avatarIndex];
+}
+
+function getPlanImageByCode(planCode?: PlanCode, isAnTam?: boolean) {
+  switch (planCode) {
+    case "antam_1":
+      return PLAN_ANTAM_1_IMG;
+    case "antam_2":
+      return PLAN_ANTAM_2_IMG;
+    case "antam_4":
+      return PLAN_ANTAM_4_IMG;
+    case "antam_8":
+      return PLAN_ANTAM_8_IMG;
+    case "free":
+      return PLAN_FREE_IMG;
+    default:
+      return isAnTam ? PLAN_ANTAM_IMG : PLAN_FREE_IMG;
+  }
+}
 
 type PlanCode = "free" | "antam_1" | "antam_2" | "antam_4" | "antam_8";
 type SubscriptionStatus = {
@@ -121,6 +160,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
   styles,
 }: CurrentPlanCardProps) {
   const isAnTam = !!status?.isAnTam;
+  const currentPlanImage = getPlanImageByCode(status?.planCode, isAnTam);
 
   return (
     <View style={styles.currentPlanCard}>
@@ -133,7 +173,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
         <Image
           cachePolicy="memory-disk"
           contentFit="contain"
-          source={isAnTam ? PLAN_ANTAM_IMG : PLAN_FREE_IMG}
+          source={currentPlanImage}
           style={styles.currentPlanBadgeImg}
         />
       </View>
@@ -574,7 +614,7 @@ export default function SubscriptionScreen() {
                 </View>
 
                 <View style={styles.membersList}>
-                  {(household?.members ?? []).map((member) => {
+                  {(household?.members ?? []).map((member, index) => {
                     const memberAvatar =
                       (member.userId === currentUserId
                         ? profile?.avatarUrl
@@ -582,21 +622,24 @@ export default function SubscriptionScreen() {
                       member.avatarUrl ||
                       connectionAvatarMap.get(member.userId) ||
                       null;
-                    const initial = member.name.trim().charAt(0).toUpperCase();
+                    const fallbackAvatar = getFallbackProtectedAvatar(
+                      member.userId,
+                      index
+                    );
 
                     return (
                       <View key={member.userId} style={styles.memberRow}>
                         <View style={styles.memberAvatar}>
-                          {memberAvatar ? (
-                            <Image
-                              cachePolicy="memory-disk"
-                              contentFit="cover"
-                              source={{ uri: memberAvatar }}
-                              style={styles.memberAvatarImg}
-                            />
-                          ) : (
-                            <Text style={styles.memberInitial}>{initial}</Text>
-                          )}
+                          <Image
+                            cachePolicy="memory-disk"
+                            contentFit="cover"
+                            source={
+                              memberAvatar
+                                ? { uri: memberAvatar }
+                                : fallbackAvatar
+                            }
+                            style={styles.memberAvatarImg}
+                          />
                         </View>
                         <View style={styles.memberCopy}>
                           <Text style={styles.memberName}>{member.name}</Text>
@@ -684,12 +727,15 @@ export default function SubscriptionScreen() {
               </Text>
             </Pressable>
           ) : (
-            candidates.map((candidate) => {
+            candidates.map((candidate, idx) => {
               const candAvatar =
                 candidate.avatarUrl ||
                 connectionAvatarMap.get(candidate.userId) ||
                 null;
-              const initial = candidate.name.trim().charAt(0).toUpperCase();
+              const fallbackCandAvatar = getFallbackProtectedAvatar(
+                candidate.userId,
+                idx
+              );
 
               return (
                 <Pressable
@@ -698,16 +744,14 @@ export default function SubscriptionScreen() {
                   onPress={() => addMember(candidate.userId)}
                 >
                   <View style={styles.memberAvatar}>
-                    {candAvatar ? (
-                      <Image
-                        cachePolicy="memory-disk"
-                        contentFit="cover"
-                        source={{ uri: candAvatar }}
-                        style={styles.memberAvatarImg}
-                      />
-                    ) : (
-                      <Text style={styles.memberInitial}>{initial}</Text>
-                    )}
+                    <Image
+                      cachePolicy="memory-disk"
+                      contentFit="cover"
+                      source={
+                        candAvatar ? { uri: candAvatar } : fallbackCandAvatar
+                      }
+                      style={styles.memberAvatarImg}
+                    />
                   </View>
                   <Text style={styles.candidateName}>{candidate.name}</Text>
                   {memberBusy === candidate.userId ? (
