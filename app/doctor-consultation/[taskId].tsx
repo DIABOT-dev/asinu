@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -20,6 +19,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../../src/components/ScaledTextInput";
 import { AppAlertModal } from "../../src/components/AppAlertModal";
+import {
+  AppActionSheetModal,
+  type AppActionSheetAction,
+} from "../../src/components/AppActionSheetModal";
 import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { useGuardedRouter as useRouter } from "../../src/hooks/useGuardedRouter";
@@ -208,6 +211,7 @@ export default function DoctorConsultationThreadScreen() {
   const [statusClock, setStatusClock] = useState(() => Date.now());
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [busyModalVisible, setBusyModalVisible] = useState(false);
+  const [actionMessage, setActionMessage] = useState<TaskMessage | null>(null);
   const busyModalShownRef = useRef(false);
 
   const loadThread = async (showLoading = false) => {
@@ -447,45 +451,54 @@ export default function DoctorConsultationThreadScreen() {
 
   const showMessageActions = (message: TaskMessage) => {
     if (message.is_deleted || message.is_deleted_for_me) return;
-    const ownMessage = message.sender_type === "patient";
-    const content = message.content ?? "";
+    setActionMessage(message);
+  };
+
+  const messageActions: AppActionSheetAction[] = [];
+  if (actionMessage) {
+    const ownMessage = actionMessage.sender_type === "patient";
+    const content = actionMessage.content ?? "";
     const isRichMessage = Boolean(
       parseAttachment(content) || parseVoice(content)
     );
-    const buttons: Array<{
-      text: string;
-      style?: "cancel" | "destructive";
-      onPress?: () => void;
-    }> = [];
     if (ownMessage && !isRichMessage) {
-      buttons.push({
-        text: t("doctorConsultationEditMessage"),
+      messageActions.push({
+        key: "edit",
+        label: t("doctorConsultationEditMessage"),
+        icon: "create-outline",
         onPress: () => {
-          setEditingMessageId(message.id);
-          setEditingDraft(message.content ?? "");
+          setEditingMessageId(actionMessage.id);
+          setEditingDraft(actionMessage.content ?? "");
         },
       });
-      buttons.push({
-        text: t("doctorConsultationUnsendMessage"),
-        style: "destructive",
-        onPress: () => void runMessageAction(message.id, "unsend"),
+      messageActions.push({
+        key: "unsend",
+        label: t("doctorConsultationUnsendMessage"),
+        icon: "arrow-undo-outline",
+        destructive: true,
+        onPress: () => void runMessageAction(actionMessage.id, "unsend"),
       });
     }
-    buttons.push({
-      text: t("doctorConsultationDeleteForMe"),
-      style: "destructive",
-      onPress: () => void runMessageAction(message.id, "delete_for_me"),
+    messageActions.push({
+      key: "delete_for_me",
+      label: t("doctorConsultationDeleteForMe"),
+      icon: "trash-outline",
+      destructive: true,
+      onPress: () => void runMessageAction(actionMessage.id, "delete_for_me"),
     });
-    buttons.push({
-      text: message.is_pinned
+    messageActions.push({
+      key: "pin",
+      label: actionMessage.is_pinned
         ? t("doctorConsultationUnpinMessage")
         : t("doctorConsultationPinMessage"),
+      icon: "pin-outline",
       onPress: () =>
-        void runMessageAction(message.id, message.is_pinned ? "unpin" : "pin"),
+        void runMessageAction(
+          actionMessage.id,
+          actionMessage.is_pinned ? "unpin" : "pin"
+        ),
     });
-    buttons.push({ text: t("doctorConsultationCancel"), style: "cancel" });
-    Alert.alert(t("doctorConsultationMessageActions"), undefined, buttons);
-  };
+  }
 
   const startVoiceRecording = async () => {
     if (recording || sending || !conversationOpen) return;
@@ -1654,6 +1667,13 @@ export default function DoctorConsultationThreadScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+      <AppActionSheetModal
+        visible={actionMessage !== null}
+        title={t("doctorConsultationMessageActions")}
+        cancelLabel={t("doctorConsultationCancel")}
+        actions={messageActions}
+        onDismiss={() => setActionMessage(null)}
+      />
       <AppAlertModal
         visible={busyModalVisible}
         title={

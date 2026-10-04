@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '../../lib/apiClient';
+import { Platform } from 'react-native';
 import type {
   IapProductsResponse,
   IapVerifyRequest,
@@ -16,7 +17,7 @@ export const iapApi = {
    * resolves on slow networks. Public endpoint, no auth required.
    */
   async fetchProducts() {
-    return apiClient<IapProductsResponse>('/api/iap/products');
+    return apiClient<IapProductsResponse>(`/api/iap/products?platform=${Platform.OS === 'ios' ? 'apple' : 'google'}`);
   },
 
   /**

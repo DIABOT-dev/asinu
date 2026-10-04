@@ -1,4 +1,5 @@
 import type { IapProduct } from './iap.types';
+import { Platform } from 'react-native';
 
 /**
  * Display catalogue used when the backend or native Store is unavailable.
@@ -7,7 +8,7 @@ import type { IapProduct } from './iap.types';
  */
 export const FALLBACK_IAP_PRODUCTS: readonly IapProduct[] = [
   {
-    id: 'asinu.antam2.monthly',
+    id: Platform.OS === 'ios' ? 'asinu.premium.monthly' : 'asinu.antam2.monthly',
     plan_code: 'antam_2',
     plan_name: 'An Tâm 2',
     billing_period: 'monthly',
@@ -17,7 +18,7 @@ export const FALLBACK_IAP_PRODUCTS: readonly IapProduct[] = [
     display_price_vnd: 149000,
   },
   {
-    id: 'asinu.antam2.yearly',
+    id: Platform.OS === 'ios' ? 'asinu.premium.yearly' : 'asinu.antam2.yearly',
     plan_code: 'antam_2',
     plan_name: 'An Tâm 2',
     billing_period: 'yearly',

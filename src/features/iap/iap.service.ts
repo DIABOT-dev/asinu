@@ -67,6 +67,7 @@ const ANDROID_REPLACEMENT_MODE = {
 } as const;
 
 function planSize(productId: string): number {
+  if (productId === 'asinu.premium.monthly' || productId === 'asinu.premium.yearly') return 2;
   const match = productId.match(/\.antam(2|4|8)\./);
   return match ? Number(match[1]) : 0;
 }
@@ -479,7 +480,8 @@ export async function restorePurchases(): Promise<{
   errors: string[];
 }> {
   if (env.paymentMethod !== 'iap') return { restored: 0, errors: ['IAP mode disabled'] };
-  if (!connected) return { restored: 0, errors: ['IAP not initialised'] };
+  if (!connected) await initializeIap();
+  if (!connected) return { restored: 0, errors: [initError || 'IAP not initialised'] };
   const iap = getExpoIap();
   if (!iap)
     return {
@@ -506,10 +508,10 @@ export async function restorePurchases(): Promise<{
             await iap.finishTransaction({ purchase: p, isConsumable: false });
           } catch {}
         } else {
-          errors.push(verify.error);
+          errors.push(verify.code || verify.error);
         }
       } catch (err: any) {
-        errors.push(err?.message || String(err));
+        errors.push(err?.code || err?.message || String(err));
       }
     }
 

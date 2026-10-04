@@ -4,7 +4,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
-import { AppAlertModal, useAppAlert } from "../../components/AppAlertModal";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { colors, radius, spacing, typography } from "../../styles";
@@ -12,9 +11,9 @@ import { FALLBACK_IAP_PRODUCTS } from "./iap.catalog";
 import {
   fetchAvailableProducts,
   purchaseSubscription,
-  restorePurchases,
   type LocalProduct,
 } from "./iap.service";
+import { SubscriptionFeedbackModal, type SubscriptionFeedback } from "./SubscriptionFeedbackModal";
 
 const PLAN_ANTAM_2_IMG = require("../../../assets/images/subscription/plan_antam_2.png");
 const PLAN_ANTAM_4_IMG = require("../../../assets/images/subscription/plan_antam_4.png");
@@ -44,7 +43,7 @@ export function IapPurchaseCard({
   const { t, i18n } = useTranslation("subscription");
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(isDark), [isDark]);
-  const { alertState, showAlert, dismissAlert } = useAppAlert();
+  const [feedback, setFeedback] = useState<SubscriptionFeedback | null>(null);
   const [products, setProducts] = useState<LocalProduct[]>(() => [
     ...FALLBACK_IAP_PRODUCTS,
   ]);
@@ -117,50 +116,41 @@ export function IapPurchaseCard({
       return;
     }
     if (!selected.nativeProduct) {
-      showAlert(
-        t("iapStorePendingTitle"),
-        t("iapStorePendingBody", { plan: selected.plan_name })
-      );
+      setFeedback({
+        kind: "info",
+        title: t("iapStorePendingTitle"),
+        message: t("iapStorePendingBody", { plan: selected.plan_name }),
+      });
       return;
     }
     setBusy(true);
     try {
       const result = await purchaseSubscription(selected.id, selected);
       if (result.kind === "success") {
-        showAlert(
-          t("iapActivatedTitle"),
-          t("iapActivatedBody", { plan: selected.plan_name }),
-          [{ text: t("close"), onPress: onPurchased }]
-        );
+        onPurchased?.();
+        setFeedback({
+          kind: "success",
+          title: t("iapActivatedTitle"),
+          message: t("iapActivatedBody", { plan: selected.plan_name }),
+        });
       } else if (result.kind === "failed") {
-        showAlert(t("iapPaymentFailed"), t("iapPaymentFailedBody"));
+        setFeedback({
+          kind: "error",
+          title: t("iapPaymentFailed"),
+          message: t("iapPaymentFailedBody"),
+        });
       }
+    } catch (error) {
+      console.warn("[iap] purchase action failed", error);
+      setFeedback({
+        kind: "error",
+        title: t("iapPaymentFailed"),
+        message: t("iapPaymentFailedBody"),
+      });
     } finally {
       setBusy(false);
     }
-  }, [onPurchased, selected, showAlert, t]);
-
-  const restore = useCallback(async () => {
-    setBusy(true);
-    try {
-      const result = await restorePurchases();
-      if (result.restored === 0 && result.errors.length > 0) {
-        showAlert(t("iapRestoreFailedTitle"), t("iapRestoreFailedBody"));
-        return;
-      }
-      showAlert(
-        result.restored > 0 ? t("iapRestoredTitle") : t("iapNotFoundTitle"),
-        result.restored > 0
-          ? t("iapRestoredBody", { count: result.restored })
-          : t("iapNotFoundBody"),
-        result.restored > 0
-          ? [{ text: t("close"), onPress: onPurchased }]
-          : undefined
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, [onPurchased, showAlert, t]);
+  }, [onPurchased, selected, t]);
 
   const renderCard = (product?: LocalProduct) => {
     if (!product) return null;
@@ -413,15 +403,7 @@ export function IapPurchaseCard({
         </LinearGradient>
       </Pressable>
 
-      {/* Sub links */}
-      <View style={styles.links}>
-        <Pressable onPress={restore} style={styles.linkButton}>
-          <Ionicons name="refresh-outline" size={13} color="#059669" />
-          <Text style={styles.linkText}>{t("iapRestore")}</Text>
-        </Pressable>
-      </View>
-
-      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+      <SubscriptionFeedbackModal feedback={feedback} onDismiss={() => setFeedback(null)} />
     </View>
   );
 }
@@ -727,24 +709,6 @@ function createStyles(isDark: boolean) {
       elevation: 0,
       opacity: 0.55,
       shadowOpacity: 0,
-    },
-    links: {
-      alignItems: "center",
-      flexDirection: "row",
-      justifyContent: "center",
-      paddingVertical: 2,
-    },
-    linkButton: {
-      alignItems: "center",
-      flexDirection: "row",
-      gap: 4,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-    },
-    linkText: {
-      color: "#059669",
-      fontSize: typography.size.xs,
-      fontWeight: "700",
     },
   });
 }

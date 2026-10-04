@@ -139,6 +139,7 @@ export function NotificationsPage() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [showActions, setShowActions] = useState(false);
   const [openItemActions, setOpenItemActions] = useState<string | null>(null);
+  const [expandedNotificationId, setExpandedNotificationId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -240,7 +241,12 @@ export function NotificationsPage() {
     }
 
     const route = routeFromNotificationData({ ...(notification.data || {}), type: notification.type });
-    if (route) router.push(route as any);
+    if (route) {
+      setExpandedNotificationId(null);
+      router.push(route as any);
+    } else {
+      setExpandedNotificationId((current) => current === notification.id ? null : notification.id);
+    }
   }, [markAsRead, router]);
 
   const handleRefresh = useCallback(async () => {
@@ -256,11 +262,15 @@ export function NotificationsPage() {
 
   const renderNotification = (notification: Notification) => {
     const type = getNotificationType(notification);
+    const hasDestination = Boolean(routeFromNotificationData({ ...(notification.data || {}), type: notification.type }));
+    const isExpanded = expandedNotificationId === notification.id;
     return (
       <View key={notification.id} style={styles.notificationItemWrap}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={notification.title}
+          accessibilityHint={hasDestination ? t('viewDetails') : t(isExpanded ? 'close' : 'viewDetails')}
+          accessibilityState={hasDestination ? undefined : { expanded: isExpanded }}
           onPress={() => handleNotificationPress(notification)}
           style={({ pressed }) => [styles.notificationCard, pressed && styles.notificationCardPressed]}
         >
@@ -273,12 +283,12 @@ export function NotificationsPage() {
           </View>
           <View style={styles.notificationMain}>
             <View style={styles.notificationTitleRow}>
-              <Text style={[styles.notificationTitle, !notification.read && styles.notificationTitleUnread]} numberOfLines={1}>
+              <Text style={[styles.notificationTitle, !notification.read && styles.notificationTitleUnread]} numberOfLines={isExpanded ? undefined : 1}>
                 {notification.title}
               </Text>
               <Text style={styles.notificationTime}>{formatTime(notification.timestamp, i18n.language)}</Text>
             </View>
-            <Text style={styles.notificationBody} numberOfLines={2}>{notification.body}</Text>
+            <Text style={styles.notificationBody} numberOfLines={isExpanded ? undefined : 2}>{notification.body}</Text>
           </View>
           <View style={styles.notificationTrailing}>
             {!notification.read && <View style={styles.unreadDot} />}
@@ -294,6 +304,9 @@ export function NotificationsPage() {
             >
               <Ionicons name="ellipsis-horizontal" size={18} color={colors.textSecondary} />
             </Pressable>
+            {!hasDestination && (
+              <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
+            )}
           </View>
         </Pressable>
         {openItemActions === notification.id && (

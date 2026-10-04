@@ -2,13 +2,13 @@
 
 Mobile dùng `expo-iap` và lấy danh mục từ backend. Chỉ sáu Store SKU sau được hỗ trợ:
 
-| Gói | Tháng | Năm |
+| Gói | iOS tháng | iOS năm |
 |---|---|---|
-| An Tâm 2 | `asinu.antam2.monthly` | `asinu.antam2.yearly` |
+| An Tâm 2 | `asinu.premium.monthly` | `asinu.premium.yearly` |
 | An Tâm 4 | `asinu.antam4.monthly` | `asinu.antam4.yearly` |
 | An Tâm 8 | `asinu.antam8.monthly` | `asinu.antam8.yearly` |
 
-Không dùng `An Tâm 1` hoặc `asinu.premium.*`.
+Hai Product ID iOS cũ `asinu.premium.*` được tái sử dụng cho An Tâm 2. Android tiếp tục dùng `asinu.antam2.monthly` và `asinu.antam2.yearly`.
 
 ## Test iOS Sandbox
 

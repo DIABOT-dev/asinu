@@ -27,6 +27,7 @@ import { Screen } from "../../src/components/Screen";
 import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { SubscriptionFAQ } from "../../src/components/SubscriptionFAQ";
 import { IapPurchaseCard } from "../../src/features/iap/IapPurchaseCard";
+import { RestoreLink } from "../../src/features/iap/RestoreLink";
 import {
   careCircleApi,
   type CareCircleConnection,
@@ -287,9 +288,7 @@ const PlanComparison = memo(function PlanComparison({
               style={styles.planBadgeImg}
             />
           </View>
-          <Text style={styles.premiumPlanTitle}>
-            {t("v2AnTamPlanName")}
-          </Text>
+          <Text style={styles.premiumPlanTitle}>{t("v2AnTamPlanName")}</Text>
           <View style={styles.planPriceWrap}>
             <Text style={styles.planPeriodOptions}>
               {t("iapMonthly")} · {t("iapYearly")}
@@ -420,6 +419,13 @@ export default function SubscriptionScreen() {
       .filter((member) => member.userId > 0 && !activeIds.has(member.userId));
   }, [connections, currentUserId, household?.members, t]);
 
+  const protectedMemberCount =
+    household?.protectedMemberCount ?? status?.protectedMemberCount ?? 0;
+  const protectedMemberLimit =
+    household?.protectedMemberLimit ?? status?.protectedMemberLimit ?? 1;
+  const canManageProtectedMembers = !!status?.isOwner && !!status?.isAnTam;
+  const protectedSlotsFull = protectedMemberCount >= protectedMemberLimit;
+
   const addMember = useCallback(
     async (userId: number) => {
       setMemberBusy(userId);
@@ -432,7 +438,6 @@ export default function SubscriptionScreen() {
           }
         );
         setHousehold(next);
-        setMemberModal(false);
         await refresh();
       } catch (error) {
         showToast(getApiErrorMessage(error, t, "v2MemberUpdateError"), "error");
@@ -519,6 +524,45 @@ export default function SubscriptionScreen() {
                 {t("v2HeroTitle")}
               </Text>
             </View>
+            <Pressable
+              accessibilityHint={t("v2ProtectedIconHint")}
+              accessibilityLabel={`${t("v2ProtectedPeople")}. ${t(
+                "v2SlotsUsed",
+                {
+                  used: protectedMemberCount,
+                  limit: protectedMemberLimit,
+                }
+              )}`}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading }}
+              disabled={loading}
+              hitSlop={8}
+              onPress={() => setMemberModal(true)}
+              style={({ pressed }) => [
+                styles.protectedHeaderButton,
+                pressed && styles.protectedHeaderButtonPressed,
+                loading && styles.protectedHeaderButtonDisabled,
+              ]}
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={27}
+                color={isDark ? "#6ee7b7" : "#047857"}
+              />
+              {loading ? (
+                <ActivityIndicator
+                  color={colors.primary}
+                  size="small"
+                  style={styles.protectedHeaderLoading}
+                />
+              ) : (
+                <View style={styles.protectedCountBadge}>
+                  <Text style={styles.protectedCountBadgeText}>
+                    {protectedMemberCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
             <View pointerEvents="none" style={styles.crownArtWrap}>
               <Image
                 cachePolicy="memory-disk"
@@ -571,122 +615,14 @@ export default function SubscriptionScreen() {
                 currentPlanCode={status?.planCode}
                 onPurchased={refresh}
               />
-
-              <View style={styles.householdCard}>
-                <View style={styles.householdHeader}>
-                  <View style={styles.householdTitleWrap}>
-                    <View style={styles.householdIconCircle}>
-                      <Ionicons name="people" size={18} color="#059669" />
-                    </View>
-                    <View style={styles.householdTitleCopy}>
-                      <Text style={styles.cardTitle}>
-                        {t("v2ProtectedPeople")}
-                      </Text>
-                      <View style={styles.slotsPill}>
-                        <Text style={styles.slotsPillText}>
-                          {t("v2SlotsUsed", {
-                            used: household?.protectedMemberCount ?? 0,
-                            limit: household?.protectedMemberLimit ?? 1,
-                          })}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  {status?.isOwner && status.isAnTam && (
-                    <Pressable
-                      style={styles.addButton}
-                      disabled={
-                        (household?.protectedMemberCount ?? 0) >=
-                          (household?.protectedMemberLimit ?? 1) &&
-                        !(household?.members ?? []).some(
-                          (member) => member.userId === household?.ownerUserId
-                        )
-                      }
-                      onPress={() => setMemberModal(true)}
-                    >
-                      <Ionicons name="add" size={16} color="#fff" />
-                      <Text style={styles.addText}>{t("v2Add")}</Text>
-                    </Pressable>
-                  )}
-                </View>
-
-                <View style={styles.membersList}>
-                  {(household?.members ?? []).map((member, index) => {
-                    const memberAvatar =
-                      (member.userId === currentUserId
-                        ? profile?.avatarUrl
-                        : null) ||
-                      member.avatarUrl ||
-                      connectionAvatarMap.get(member.userId) ||
-                      null;
-                    const fallbackAvatar = getFallbackProtectedAvatar(
-                      member.userId,
-                      index
-                    );
-
-                    return (
-                      <View key={member.userId} style={styles.memberRow}>
-                        <View style={styles.memberAvatar}>
-                          <Image
-                            cachePolicy="memory-disk"
-                            contentFit="cover"
-                            source={
-                              memberAvatar
-                                ? { uri: memberAvatar }
-                                : fallbackAvatar
-                            }
-                            style={styles.memberAvatarImg}
-                          />
-                        </View>
-                        <View style={styles.memberCopy}>
-                          <Text style={styles.memberName}>{member.name}</Text>
-                          <View style={styles.memberRoleBadge}>
-                            <Text style={styles.memberRoleText}>
-                              {member.userId === household?.ownerUserId
-                                ? t("v2Owner")
-                                : t("v2Protected")}
-                            </Text>
-                          </View>
-                        </View>
-                        {status?.isOwner &&
-                          member.userId !== household?.ownerUserId && (
-                            <Pressable
-                              onPress={() => removeMember(member.userId)}
-                              disabled={memberBusy === member.userId}
-                              style={styles.removeBtn}
-                            >
-                              {memberBusy === member.userId ? (
-                                <ActivityIndicator
-                                  size="small"
-                                  color={colors.textSecondary}
-                                />
-                              ) : (
-                                <Ionicons
-                                  name="close-circle-outline"
-                                  size={22}
-                                  color="#94a3b8"
-                                />
-                              )}
-                            </Pressable>
-                          )}
-                      </View>
-                    );
-                  })}
-                </View>
-
-                {!status?.isAnTam && (
-                  <View style={styles.freeHintCard}>
-                    <Ionicons name="leaf-outline" size={18} color="#059669" />
-                    <Text style={styles.freeHintText}>{t("v2FreeHint")}</Text>
-                  </View>
-                )}
-              </View>
             </Animated.View>
           )}
 
           <View style={styles.faqWrapper}>
             <SubscriptionFAQ />
           </View>
+
+          <RestoreLink onRestored={refresh} />
 
           <Text style={styles.footerNote}>{t("v2EmergencyContactHint")}</Text>
         </Animated.View>
@@ -696,74 +632,220 @@ export default function SubscriptionScreen() {
         visible={memberModal}
         transparent
         animationType="slide"
+        statusBarTranslucent
         onRequestClose={() => setMemberModal(false)}
       >
         <Pressable
           style={styles.backdrop}
           onPress={() => setMemberModal(false)}
         />
-        <View style={styles.sheet}>
+        <View accessibilityViewIsModal style={styles.sheet}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>{t("v2ChooseProtected")}</Text>
-          <Text style={styles.sheetBody}>{t("v2ChooseProtectedBody")}</Text>
-          {candidates.length === 0 ? (
+          <View style={styles.sheetHeaderRow}>
+            <View style={styles.sheetHeaderCopy}>
+              <Text style={styles.sheetTitle}>{t("v2ProtectedPeople")}</Text>
+              <Text style={styles.sheetSlotsText}>
+                {t("v2SlotsUsed", {
+                  used: protectedMemberCount,
+                  limit: protectedMemberLimit,
+                })}
+              </Text>
+            </View>
             <Pressable
-              style={styles.emptyCandidate}
-              onPress={() => {
-                setMemberModal(false);
-                router.push("/care-circle/invite" as any);
-              }}
+              accessibilityLabel={t("v2CloseProtected")}
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => setMemberModal(false)}
+              style={({ pressed }) => [
+                styles.sheetCloseButton,
+                pressed && styles.protectedHeaderButtonPressed,
+              ]}
             >
               <Ionicons
-                name="person-add-outline"
-                size={23}
-                color={colors.primary}
+                name="close"
+                size={26}
+                color={isDark ? "#cbd5e1" : "#475569"}
               />
-              <Text style={styles.emptyCandidateText}>
-                {t("v2InviteToCircle")}
-              </Text>
             </Pressable>
-          ) : (
-            candidates.map((candidate, idx) => {
-              const candAvatar =
-                candidate.avatarUrl ||
-                connectionAvatarMap.get(candidate.userId) ||
-                null;
-              const fallbackCandAvatar = getFallbackProtectedAvatar(
-                candidate.userId,
-                idx
-              );
+          </View>
 
-              return (
-                <Pressable
-                  key={candidate.userId}
-                  style={styles.candidateRow}
-                  onPress={() => addMember(candidate.userId)}
-                >
-                  <View style={styles.memberAvatar}>
-                    <Image
-                      cachePolicy="memory-disk"
-                      contentFit="cover"
-                      source={
-                        candAvatar ? { uri: candAvatar } : fallbackCandAvatar
-                      }
-                      style={styles.memberAvatarImg}
-                    />
-                  </View>
-                  <Text style={styles.candidateName}>{candidate.name}</Text>
-                  {memberBusy === candidate.userId ? (
-                    <ActivityIndicator color={colors.primary} />
-                  ) : (
-                    <Ionicons
-                      name="add-circle"
-                      size={24}
-                      color={colors.primary}
-                    />
-                  )}
-                </Pressable>
-              );
-            })
-          )}
+          <ScrollView
+            contentContainerStyle={styles.sheetScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.sheetSectionTitle}>
+              {t("v2CurrentProtected")}
+            </Text>
+            {(household?.members ?? []).length === 0 ? (
+              <Text style={styles.sheetEmptyText}>{t("v2NoProtectedYet")}</Text>
+            ) : (
+              <View style={styles.modalMembersList}>
+                {(household?.members ?? []).map((member, index) => {
+                  const memberAvatar =
+                    (member.userId === currentUserId
+                      ? profile?.avatarUrl
+                      : null) ||
+                    member.avatarUrl ||
+                    connectionAvatarMap.get(member.userId) ||
+                    null;
+                  const fallbackAvatar = getFallbackProtectedAvatar(
+                    member.userId,
+                    index
+                  );
+
+                  return (
+                    <View key={member.userId} style={styles.memberRow}>
+                      <View style={styles.memberAvatar}>
+                        <Image
+                          cachePolicy="memory-disk"
+                          contentFit="cover"
+                          source={
+                            memberAvatar
+                              ? { uri: memberAvatar }
+                              : fallbackAvatar
+                          }
+                          style={styles.memberAvatarImg}
+                        />
+                      </View>
+                      <View style={styles.memberCopy}>
+                        <Text style={styles.memberName}>{member.name}</Text>
+                        <Text style={styles.memberRoleText}>
+                          {member.userId === household?.ownerUserId
+                            ? t("v2Owner")
+                            : t("v2Protected")}
+                        </Text>
+                      </View>
+                      {status?.isOwner &&
+                        member.userId !== household?.ownerUserId && (
+                          <Pressable
+                            accessibilityLabel={t("v2RemoveProtected", {
+                              name: member.name,
+                            })}
+                            accessibilityRole="button"
+                            disabled={memberBusy === member.userId}
+                            hitSlop={4}
+                            onPress={() => removeMember(member.userId)}
+                            style={styles.removeBtn}
+                          >
+                            {memberBusy === member.userId ? (
+                              <ActivityIndicator
+                                size="small"
+                                color={colors.textSecondary}
+                              />
+                            ) : (
+                              <Ionicons
+                                name="person-remove-outline"
+                                size={22}
+                                color="#94a3b8"
+                              />
+                            )}
+                          </Pressable>
+                        )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {!status?.isAnTam ? (
+              <View style={styles.freeHintCard}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={20}
+                  color="#059669"
+                />
+                <Text style={styles.freeHintText}>{t("v2FreeHint")}</Text>
+              </View>
+            ) : canManageProtectedMembers ? (
+              <View style={styles.addProtectedSection}>
+                <Text style={styles.sheetSectionTitle}>
+                  {t("v2AddProtected")}
+                </Text>
+                {protectedSlotsFull ? (
+                  <Text style={styles.sheetEmptyText}>{t("v2SlotsFull")}</Text>
+                ) : (
+                  <>
+                    <Text style={styles.sheetBody}>
+                      {t("v2ChooseProtectedBody")}
+                    </Text>
+                    {candidates.length === 0 ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        style={styles.emptyCandidate}
+                        onPress={() => {
+                          setMemberModal(false);
+                          router.push("/care-circle/invite" as any);
+                        }}
+                      >
+                        <Ionicons
+                          name="person-add-outline"
+                          size={23}
+                          color={colors.primary}
+                        />
+                        <Text style={styles.emptyCandidateText}>
+                          {t("v2InviteToCircle")}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      candidates.map((candidate, idx) => {
+                        const candAvatar =
+                          candidate.avatarUrl ||
+                          connectionAvatarMap.get(candidate.userId) ||
+                          null;
+                        const fallbackCandAvatar = getFallbackProtectedAvatar(
+                          candidate.userId,
+                          idx
+                        );
+
+                        return (
+                          <Pressable
+                            key={candidate.userId}
+                            accessibilityLabel={t("v2AddProtectedPerson", {
+                              name: candidate.name,
+                            })}
+                            accessibilityRole="button"
+                            disabled={memberBusy !== null}
+                            style={styles.candidateRow}
+                            onPress={() => addMember(candidate.userId)}
+                          >
+                            <View style={styles.memberAvatar}>
+                              <Image
+                                cachePolicy="memory-disk"
+                                contentFit="cover"
+                                source={
+                                  candAvatar
+                                    ? { uri: candAvatar }
+                                    : fallbackCandAvatar
+                                }
+                                style={styles.memberAvatarImg}
+                              />
+                            </View>
+                            <Text style={styles.candidateName}>
+                              {candidate.name}
+                            </Text>
+                            {memberBusy === candidate.userId ? (
+                              <ActivityIndicator color={colors.primary} />
+                            ) : (
+                              <Ionicons
+                                name="add-circle-outline"
+                                size={24}
+                                color={colors.primary}
+                              />
+                            )}
+                          </Pressable>
+                        );
+                      })
+                    )}
+                  </>
+                )}
+              </View>
+            ) : null}
+
+            <Text style={styles.sheetFootnote}>
+              {t("v2EmergencyContactHint")}
+            </Text>
+          </ScrollView>
         </View>
       </Modal>
     </Screen>
@@ -817,12 +899,48 @@ function createStyles(
       lineHeight: 17,
       marginTop: 2,
     },
-    crownArtWrap: {
-      height: 90,
+    protectedHeaderButton: {
+      alignItems: "center",
+      height: 44,
+      justifyContent: "center",
       position: "absolute",
-      right: -4,
-      top: 4,
-      width: 158,
+      right: 0,
+      top: 0,
+      width: 44,
+      zIndex: 4,
+    },
+    protectedHeaderButtonPressed: { opacity: 0.58 },
+    protectedHeaderButtonDisabled: { opacity: 0.62 },
+    protectedHeaderLoading: {
+      position: "absolute",
+      right: -1,
+      top: -1,
+      transform: [{ scale: 0.65 }],
+    },
+    protectedCountBadge: {
+      alignItems: "center",
+      backgroundColor: isDark ? "#fb923c" : "#ea580c",
+      borderRadius: 9,
+      height: 18,
+      justifyContent: "center",
+      minWidth: 18,
+      paddingHorizontal: 4,
+      position: "absolute",
+      right: 0,
+      top: 0,
+    },
+    protectedCountBadgeText: {
+      color: "#fffaf5",
+      fontSize: 10,
+      fontWeight: "800",
+      lineHeight: 13,
+    },
+    crownArtWrap: {
+      height: 78,
+      position: "absolute",
+      right: 5,
+      top: 28,
+      width: 132,
       zIndex: 1,
     },
     crownHeroImg: { height: "100%", width: "100%" },
@@ -1039,87 +1157,8 @@ function createStyles(
       fontWeight: "700",
       textAlign: "center",
     },
-    cardTitle: {
-      color: colors.textPrimary,
-      fontSize: typography.size.md,
-      fontWeight: "800",
-    },
-    householdCard: {
-      backgroundColor: isDark ? colors.surface : "#ffffff",
-      borderColor: isDark ? colors.border : "#e2e8f0",
-      borderRadius: radius.xxl,
-      borderWidth: 1,
-      marginTop: spacing.lg,
-      padding: spacing.lg,
-      shadowColor: "#0f172a",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.2 : 0.04,
-      shadowRadius: 12,
-      elevation: 2,
-    },
-    householdHeader: {
-      alignItems: "center",
-      flexDirection: "row",
-      justifyContent: "space-between",
-      marginBottom: spacing.md,
-    },
-    householdTitleWrap: {
-      alignItems: "center",
-      flex: 1,
-      flexDirection: "row",
-      gap: 10,
-    },
-    householdIconCircle: {
-      alignItems: "center",
-      backgroundColor: isDark ? "#064e3b" : "#ecfdf5",
-      borderRadius: 18,
-      height: 36,
-      justifyContent: "center",
-      width: 36,
-    },
-    householdTitleCopy: {
-      flex: 1,
-      gap: 4,
-    },
-    slotsPill: {
-      alignSelf: "flex-start",
-      backgroundColor: isDark ? "#1e293b" : "#f1f5f9",
-      borderRadius: 10,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-    },
-    slotsPillText: {
-      color: isDark ? "#94a3b8" : "#64748b",
-      fontSize: 11,
-      fontWeight: "700",
-    },
-    addButton: {
-      alignItems: "center",
-      backgroundColor: "#059669",
-      borderRadius: radius.full,
-      flexDirection: "row",
-      gap: 4,
-      minHeight: 36,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      shadowColor: "#059669",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-      elevation: 2,
-    },
-    addText: {
-      color: "#ffffff",
-      fontSize: typography.size.xs,
-      fontWeight: "800",
-    },
-    membersList: {
-      gap: 0,
-    },
     memberRow: {
       alignItems: "center",
-      borderTopColor: isDark ? colors.border : "#f1f5f9",
-      borderTopWidth: 1,
       flexDirection: "row",
       gap: 12,
       minHeight: 62,
@@ -1139,32 +1178,23 @@ function createStyles(
       height: 40,
       width: 40,
     },
-    memberInitial: { color: "#047857", fontSize: 16, fontWeight: "900" },
     memberCopy: { flex: 1, gap: 3 },
     memberName: {
       color: isDark ? "#f8fafc" : "#0f172a",
       fontSize: typography.size.sm,
       fontWeight: "700",
     },
-    memberRoleBadge: {
-      alignSelf: "flex-start",
-      backgroundColor: isDark ? "#1e293b" : "#ecfdf5",
-      borderColor: isDark ? "#334155" : "#a7f3d0",
-      borderRadius: 6,
-      borderWidth: 1,
-      paddingHorizontal: 6,
-      paddingVertical: 1,
-    },
     memberRoleText: { color: "#047857", fontSize: 10.5, fontWeight: "700" },
     removeBtn: {
-      padding: 6,
+      alignItems: "center",
+      height: 44,
+      justifyContent: "center",
+      width: 44,
     },
     freeHintCard: {
       alignItems: "center",
       backgroundColor: isDark ? "#064e3b18" : "#f0fdf4",
-      borderColor: isDark ? "#064e3b" : "#bbf7d0",
       borderRadius: 14,
-      borderWidth: 1,
       flexDirection: "row",
       gap: 10,
       marginTop: spacing.md,
@@ -1198,8 +1228,9 @@ function createStyles(
       borderTopRightRadius: 28,
       bottom: 0,
       left: 0,
-      padding: spacing.xl,
-      paddingBottom: 38,
+      maxHeight: "88%",
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.md,
       position: "absolute",
       right: 0,
     },
@@ -1208,13 +1239,58 @@ function createStyles(
       backgroundColor: colors.border,
       borderRadius: 3,
       height: 5,
-      marginBottom: spacing.lg,
+      marginBottom: spacing.md,
       width: 42,
+    },
+    sheetHeaderRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.sm,
+      minHeight: 52,
+    },
+    sheetHeaderCopy: {
+      flex: 1,
+      minWidth: 0,
     },
     sheetTitle: {
       color: colors.textPrimary,
       fontSize: typography.size.lg,
       fontWeight: "900",
+    },
+    sheetSlotsText: {
+      color: isDark ? "#6ee7b7" : "#047857",
+      fontSize: typography.size.xs,
+      fontWeight: "700",
+      marginTop: 2,
+    },
+    sheetCloseButton: {
+      alignItems: "center",
+      height: 44,
+      justifyContent: "center",
+      width: 44,
+    },
+    sheetScrollContent: {
+      paddingBottom: 38,
+      paddingTop: spacing.md,
+    },
+    sheetSectionTitle: {
+      color: colors.textPrimary,
+      fontSize: typography.size.sm,
+      fontWeight: "800",
+      lineHeight: 21,
+    },
+    sheetEmptyText: {
+      color: colors.textSecondary,
+      fontSize: typography.size.sm,
+      lineHeight: 21,
+      marginTop: spacing.sm,
+    },
+    modalMembersList: {
+      gap: 2,
+      marginTop: spacing.sm,
+    },
+    addProtectedSection: {
+      marginTop: spacing.xl,
     },
     sheetBody: {
       color: colors.textSecondary,
@@ -1224,8 +1300,6 @@ function createStyles(
     },
     candidateRow: {
       alignItems: "center",
-      borderTopColor: colors.border,
-      borderTopWidth: 1,
       flexDirection: "row",
       gap: spacing.sm,
       minHeight: 60,
@@ -1250,6 +1324,13 @@ function createStyles(
       color: colors.primaryDark,
       fontSize: typography.size.sm,
       fontWeight: "800",
+    },
+    sheetFootnote: {
+      color: colors.textSecondary,
+      fontSize: typography.size.xs,
+      lineHeight: 18,
+      marginTop: spacing.xl,
+      textAlign: "center",
     },
   });
 }
