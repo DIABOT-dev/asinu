@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { authApi } from '../features/auth/auth.api';
+import { useAuthStore } from '../features/auth/auth.store';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { getApiErrorMessage } from '../lib/apiClient';
 import { showToast } from '../stores/toast.store';
@@ -50,7 +51,10 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
 
     setSubmitting(true);
     try {
-      await authApi.changePassword(current, next);
+      const result = await authApi.changePassword(current, next);
+      if (result.token) {
+        useAuthStore.setState({ token: result.token });
+      }
       showToast(t('changePasswordSuccess'), 'success');
       reset();
       onClose();

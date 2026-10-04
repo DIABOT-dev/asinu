@@ -41,6 +41,9 @@ jobs:
       - name: Type-check
         run: npm run type-check
 
+      - name: Security regressions and dependency patches
+        run: npm run test:security
+
       - name: Full API contract
         run: npm run test:api-contract
 

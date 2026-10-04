@@ -1,5 +1,6 @@
 import { File } from 'expo-file-system';
 import { apiClient } from '../../lib/apiClient';
+import { tokenStore } from '../../lib/tokenStore';
 import { Profile } from './auth.store';
 
 const AUTH_TIMEOUT_MS = 30000;
@@ -117,10 +118,17 @@ export const authApi = {
   deleteAccount() {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/profile', { method: 'DELETE' });
   },
-  changePassword(currentPassword: string, newPassword: string) {
-    return apiClient<{ ok: boolean; message?: string; error?: string }>('/api/mobile/auth/change-password', {
-      method: 'POST',
-      body: { currentPassword, newPassword },
-    });
+  async changePassword(currentPassword: string, newPassword: string) {
+    const finishRotation = tokenStore.beginTokenRotation();
+    try {
+      const result = await apiClient<{ ok: boolean; token?: string; message?: string; error?: string }>('/api/mobile/auth/change-password', {
+        method: 'POST',
+        body: { currentPassword, newPassword },
+      });
+      if (result.token) await tokenStore.setToken(result.token);
+      return result;
+    } finally {
+      finishRotation();
+    }
   }
 };

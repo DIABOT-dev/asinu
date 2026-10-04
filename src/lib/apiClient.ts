@@ -164,7 +164,8 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
 
       if (!response.ok) {
         // Auto-logout khi JWT hết hạn (401)
-        if (response.status === 401 && token && !path.includes('/auth/') && !isLoggingOut) {
+        if (response.status === 401 && token && token === tokenStore.getToken() &&
+            !tokenStore.isRotatingToken() && !path.includes('/auth/') && !isLoggingOut) {
           isLoggingOut = true;
           const { useAuthStore } = require('../features/auth/auth.store');
           useAuthStore.getState().logout().finally(() => { isLoggingOut = false; });

@@ -343,13 +343,8 @@ async function authenticateWithZaloNativeAndroid(): Promise<OAuthResult> {
 export async function authenticateWithZalo(): Promise<OAuthResult> {
   if (Platform.OS === 'android') {
     try {
-      console.log('[Zalo] flow=android_native_bridge');
       return await authenticateWithZaloNativeAndroid();
     } catch (err: any) {
-      console.log('[Zalo] android_native_bridge failed:', {
-        code: err?.code,
-        message: err?.message || String(err),
-      });
       return { type: 'error', error: t('authFailed') };
     }
   }
@@ -360,30 +355,24 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
     const loginFn = ZaloKit?.login ?? ZaloKit?.default?.login;
 
     if (loginFn) {
-      console.log('[Zalo] flow=native_sdk, loginFn:', typeof loginFn);
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('zalo_timeout')), 8000)
       );
       let data: any;
       try {
-        console.log('[Zalo] calling loginFn AUTH_VIA_APP...');
         data = await Promise.race([loginFn('AUTH_VIA_APP'), timeout]);
-        console.log('[Zalo] loginFn resolved:', JSON.stringify(data));
       } catch (loginErr: any) {
-        console.log('[Zalo] loginFn rejected:', loginErr?.message, 'code:', loginErr?.code, 'full:', JSON.stringify(loginErr));
         throw loginErr;
       }
       const accessToken: string = (data as any).accessToken;
-      console.log('[Zalo] accessToken:', accessToken ? accessToken.slice(0, 20) + '...' : 'null');
+      if (!accessToken) return { type: 'error', error: t('authFailed') };
 
       const profileRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
         headers: { access_token: accessToken },
       });
       const profileJson = await profileRes.json();
-      console.log('[Zalo] profile:', JSON.stringify(profileJson));
 
       if (profileJson?.id) {
-        console.log('[Zalo] native_sdk success, userId:', profileJson.id);
         return {
           type: 'success',
           token: accessToken,
@@ -394,13 +383,10 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
           },
         };
       }
-      console.log('[Zalo] native_sdk: no profile id');
     } else {
-      console.log('[Zalo] native_sdk unavailable');
       return { type: 'error', error: t('authFailed') };
     }
   } catch (err: any) {
-    console.log('[Zalo] native_sdk error — message:', err?.message, 'code:', err?.code);
     if (err?.code === 'ERR_CANCELED' || err?.code === 'CANCELLED') {
       return { type: 'cancel' };
     }

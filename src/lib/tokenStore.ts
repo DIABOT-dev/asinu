@@ -2,8 +2,21 @@
 
 const TOKEN_KEY = 'ASINU_AUTH_TOKEN';
 let memoryToken: string | null = null;
+let tokenRotations = 0;
 
 export const tokenStore = {
+  beginTokenRotation() {
+    tokenRotations++;
+    let finished = false;
+    return () => {
+      if (finished) return;
+      finished = true;
+      tokenRotations--;
+    };
+  },
+  isRotatingToken() {
+    return tokenRotations > 0;
+  },
   getToken() {
     return memoryToken;
   },

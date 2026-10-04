@@ -1,0 +1,40 @@
+// Credentials stay outside version control. EAS may override this config with
+// its managed credentials before the task graph is ready.
+def asinuSigningValue = { name -> project.findProperty(name) ?: System.getenv(name) }
+def asinuStoreFile = asinuSigningValue('ASINU_UPLOAD_STORE_FILE')
+def asinuStorePassword = asinuSigningValue('ASINU_UPLOAD_STORE_PASSWORD')
+def asinuKeyAlias = asinuSigningValue('ASINU_UPLOAD_KEY_ALIAS')
+def asinuKeyPassword = asinuSigningValue('ASINU_UPLOAD_KEY_PASSWORD')
+
+android {
+    signingConfigs {
+        release {
+            if (asinuStoreFile && asinuStorePassword && asinuKeyAlias && asinuKeyPassword) {
+                storeFile file(asinuStoreFile)
+                storePassword asinuStorePassword
+                keyAlias asinuKeyAlias
+                keyPassword asinuKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def asinuReleaseRequested = graph.allTasks.any {
+        it.project == project && it.name.matches('(?i).*(assemble|bundle|package|validateSigning).*Release.*')
+    }
+    if (asinuReleaseRequested) {
+        def asinuSigning = android.buildTypes.release.signingConfig
+        if (!asinuSigning || !asinuSigning.storeFile?.exists() ||
+            !asinuSigning.storePassword || !asinuSigning.keyPassword || !asinuSigning.keyAlias ||
+            asinuSigning.keyAlias == 'androiddebugkey' ||
+            asinuSigning.storeFile.canonicalFile == file('debug.keystore').canonicalFile) {
+            throw new GradleException('Release requires an upload keystore: use EAS managed credentials or ASINU_UPLOAD_STORE_FILE / STORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD. Debug signing is not permitted for release.')
+        }
+    }
+}

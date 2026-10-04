@@ -12,6 +12,13 @@ module.exports = {
     "ios/**",
     "dist/**",
   ],
+  overrides: [
+    {
+      files: ['scripts/check-security.mjs'],
+      parser: 'espree',
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    },
+  ],
   rules: {
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unused-vars": "warn",

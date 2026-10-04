@@ -17,10 +17,11 @@
     "test:checkin-contract": "node scripts/check-checkin-api-contract.mjs",
     "test:checkin-native": "node scripts/check-checkin-native-readiness.mjs",
     "test:interactions": "node scripts/check-interactions.mjs",
+    "test:security": "node scripts/check-security.mjs",
     "build:android": "cd android && ./gradlew bundleRelease",
     "build:android:release": "npm run build:android",
     "lint:assets": "node scripts/check-assets.js",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package --error-on-fail"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
