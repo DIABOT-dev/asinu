@@ -105,6 +105,8 @@ export function getApiErrorMessage(
   if (isNetworkFailure(error)) return common('networkErrorUnknown');
 
   if (error instanceof ApiError) {
+    // Never surface backend exception text (SQL, Store, provider errors) to a user.
+    if (error.statusCode >= 500) return common('errorServer');
     const message = error.message?.trim();
     if (message && !technicalErrorPattern.test(message)) return message;
 
@@ -114,7 +116,6 @@ export function getApiErrorMessage(
     if (error.statusCode === 409) return common('errorConflict');
     if (error.statusCode === 422) return common('errorValidation');
     if (error.statusCode === 429) return common('errorRateLimited');
-    if (error.statusCode >= 500) return common('errorServer');
     if (error.statusCode >= 400) return common('errorInvalidRequest');
   }
 

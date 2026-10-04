@@ -10,7 +10,6 @@ export const FALLBACK_IAP_PRODUCTS: readonly IapProduct[] = [
   {
     id: Platform.OS === 'ios' ? 'asinu.premium.monthly' : 'asinu.antam2.monthly',
     plan_code: 'antam_2',
-    plan_name: 'An Tâm 2',
     billing_period: 'monthly',
     plan_months: 1,
     protected_members: 2,
@@ -20,7 +19,6 @@ export const FALLBACK_IAP_PRODUCTS: readonly IapProduct[] = [
   {
     id: Platform.OS === 'ios' ? 'asinu.premium.yearly' : 'asinu.antam2.yearly',
     plan_code: 'antam_2',
-    plan_name: 'An Tâm 2',
     billing_period: 'yearly',
     plan_months: 12,
     protected_members: 2,
@@ -30,7 +28,6 @@ export const FALLBACK_IAP_PRODUCTS: readonly IapProduct[] = [
   {
     id: 'asinu.antam4.monthly',
     plan_code: 'antam_4',
-    plan_name: 'An Tâm 4',
     billing_period: 'monthly',
     plan_months: 1,
     protected_members: 4,
@@ -40,7 +37,6 @@ export const FALLBACK_IAP_PRODUCTS: readonly IapProduct[] = [
   {
     id: 'asinu.antam4.yearly',
     plan_code: 'antam_4',
-    plan_name: 'An Tâm 4',
     billing_period: 'yearly',
     plan_months: 12,
     protected_members: 4,
@@ -50,7 +46,6 @@ export const FALLBACK_IAP_PRODUCTS: readonly IapProduct[] = [
   {
     id: 'asinu.antam8.monthly',
     plan_code: 'antam_8',
-    plan_name: 'An Tâm 8',
     billing_period: 'monthly',
     plan_months: 1,
     protected_members: 8,
@@ -60,7 +55,6 @@ export const FALLBACK_IAP_PRODUCTS: readonly IapProduct[] = [
   {
     id: 'asinu.antam8.yearly',
     plan_code: 'antam_8',
-    plan_name: 'An Tâm 8',
     billing_period: 'yearly',
     plan_months: 12,
     protected_members: 8,

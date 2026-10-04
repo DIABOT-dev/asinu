@@ -8,6 +8,12 @@
   "faqSubtitle": "Giải đáp nhanh những thắc mắc về gói dịch vụ",
   "healthBetterWaiting": "Sức khỏe tốt hơn đang chờ bạn ♥",
   "free": "Miễn phí",
+  "planNames": {
+    "free": "Miễn phí",
+    "antam2": "An Tâm 2",
+    "antam4": "An Tâm 4",
+    "antam8": "An Tâm 8"
+  },
   "freePrice": "0đ",
   "premiumPrice": "199.000đ",
   "priceVnd": "{{amount}}đ",
@@ -164,6 +170,7 @@
   "v2AnTamFeature4": "Bảo vệ 2, 4 hoặc 8 người trong cùng một gói",
   "v2AnTamFeature5": "Gói năm có lượt tham vấn chuyên gia cho từng người được bảo vệ",
   "v2ProtectedPeople": "Người được bảo vệ",
+  "v2ProtectedHeaderSubtitle": "Bạn đang xem thông tin người được bảo vệ trong hệ thống chăm sóc sức khoẻ gia đình.",
   "v2SlotsUsed": "{{used}}/{{limit}} suất đang dùng",
   "v2ProtectedIconHint": "Mở danh sách và quản lý người được bảo vệ.",
   "v2CurrentProtected": "Đang được bảo vệ",
@@ -177,6 +184,7 @@
   "v2Owner": "Chủ gói",
   "v2Protected": "Được bảo vệ",
   "v2FreeHint": "Chọn An Tâm 2, 4 hoặc 8 để bảo vệ thêm người thân.",
+  "v2FreeHintSubtitle": "Gói bảo vệ giúp bạn và gia đình luôn an tâm với sự chăm sóc sức khoẻ liên tục.",
   "v2EmergencyContactHint": "Người liên hệ khẩn cấp không tính vào số người được bảo vệ.",
   "v2ChooseProtected": "Chọn người được bảo vệ",
   "v2ChooseProtectedBody": "Người này cần có trong Vòng kết nối của bạn.",

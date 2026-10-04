@@ -1,0 +1,2 @@
+cd /Users/ducytcg123456/Desktop/APP/app/asinu
+EXPO_PUBLIC_PAYMENT_METHOD=iap EXPO_PUBLIC_API_BASE_URL=https://erethismic-ernestine-misgivingly.ngrok-free.dev npx expo start --dev-client --clear

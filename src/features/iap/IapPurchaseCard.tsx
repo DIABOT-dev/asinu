@@ -14,6 +14,7 @@ import {
   type LocalProduct,
 } from "./iap.service";
 import { SubscriptionFeedbackModal, type SubscriptionFeedback } from "./SubscriptionFeedbackModal";
+import { localizedPlanName } from "../subscription/planName";
 
 const PLAN_ANTAM_2_IMG = require("../../../assets/images/subscription/plan_antam_2.png");
 const PLAN_ANTAM_4_IMG = require("../../../assets/images/subscription/plan_antam_4.png");
@@ -119,7 +120,7 @@ export function IapPurchaseCard({
       setFeedback({
         kind: "info",
         title: t("iapStorePendingTitle"),
-        message: t("iapStorePendingBody", { plan: selected.plan_name }),
+        message: t("iapStorePendingBody", { plan: localizedPlanName(selected.plan_code, t) }),
       });
       return;
     }
@@ -131,7 +132,7 @@ export function IapPurchaseCard({
         setFeedback({
           kind: "success",
           title: t("iapActivatedTitle"),
-          message: t("iapActivatedBody", { plan: selected.plan_name }),
+          message: t("iapActivatedBody", { plan: localizedPlanName(selected.plan_code, t) }),
         });
       } else if (result.kind === "failed") {
         setFeedback({
@@ -216,7 +217,7 @@ export function IapPurchaseCard({
           <Text
             style={[styles.gridCardTitle, active && styles.gridCardTitleActive]}
           >
-            {product.plan_name}
+            {localizedPlanName(product.plan_code, t)}
           </Text>
           <View style={styles.gridPriceWrap}>
             <Text
@@ -391,7 +392,7 @@ export function IapPurchaseCard({
                 {selectedIsCurrent
                   ? t("iapCurrentExact")
                   : `${t("iapContinue", {
-                      plan: selected?.plan_name ?? t("premium"),
+                      plan: selected ? localizedPlanName(selected.plan_code, t) : t("premium"),
                     })} · ${
                       selected?.localizedPrice ??
                       formatVnd(selected?.display_price_vnd ?? 0, i18n.language)

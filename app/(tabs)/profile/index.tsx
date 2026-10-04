@@ -68,6 +68,7 @@ import { showToast, setPendingToast } from "../../../src/stores/toast.store";
 import { useAuthStore } from "../../../src/features/auth/auth.store";
 import { useLogsStore } from "../../../src/features/logs/logs.store";
 import { useMissionsStore } from "../../../src/features/missions/missions.store";
+import { localizedPlanName } from "../../../src/features/subscription/planName";
 import {
   FontSizeScale,
   useFontSizeStore,
@@ -109,6 +110,7 @@ export default function ProfileScreen() {
   const { t } = useTranslation("profile");
   const { t: tc } = useTranslation("common");
   const { t: ts } = useTranslation("settings");
+  const { t: tSubscription } = useTranslation("subscription");
   const profile = useAuthStore((state) => state.profile);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -681,7 +683,7 @@ export default function ProfileScreen() {
                     />
                     <Text style={styles.planBadgeText}>
                       {t("accountPlan", {
-                        plan: subStatus?.planName || t("planFree"),
+                        plan: localizedPlanName(subStatus?.planCode, tSubscription),
                       })}
                     </Text>
                   </TouchableOpacity>
@@ -1372,7 +1374,7 @@ export default function ProfileScreen() {
                 />
               </View>
               <Text style={styles.planInfoTitle}>
-                {subStatus?.planName || t("planFree")}
+                {localizedPlanName(subStatus?.planCode, tSubscription)}
               </Text>
               <Text style={styles.planInfoSubtitle}>
                 {subStatus?.isAnTam

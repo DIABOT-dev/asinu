@@ -8,7 +8,8 @@ export type IapPlatform = 'apple' | 'google';
 export type IapProduct = {
   id: string;
   plan_code: 'antam_2' | 'antam_4' | 'antam_8';
-  plan_name: string;
+  /** Server metadata; the app renders the localized name from plan_code. */
+  plan_name?: string;
   billing_period: 'monthly' | 'yearly';
   plan_months: number;
   protected_members: number;

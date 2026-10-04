@@ -145,6 +145,23 @@ function collectRenderedLiterals(node, output = []) {
   return output;
 }
 
+function containsRawPlanName(node) {
+  if (!node || typeof node !== "object") return false;
+  if (
+    (node.type === "MemberExpression" || node.type === "OptionalMemberExpression") &&
+    !node.computed &&
+    node.property?.type === "Identifier" &&
+    ["planName", "plan_name"].includes(node.property.name)
+  ) return true;
+  return Object.values(node).some((value) =>
+    Array.isArray(value)
+      ? value.some(containsRawPlanName)
+      : value?.type
+        ? containsRawPlanName(value)
+        : false
+  );
+}
+
 function translationNamespace(call) {
   const first = call.arguments?.[0];
   if (first?.type === "StringLiteral") return first.value;
@@ -391,6 +408,11 @@ for (const file of files) {
 
     JSXExpressionContainer(nodePath) {
       if (nodePath.parentPath?.isJSXAttribute()) return;
+      if (containsRawPlanName(nodePath.node.expression)) {
+        errors.push(
+          `${location(file, nodePath.node)}: API plan names must be localized from planCode before rendering`
+        );
+      }
       for (const rendered of collectRenderedLiterals(
         nodePath.node.expression
       )) {

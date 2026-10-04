@@ -28,6 +28,7 @@ import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { SubscriptionFAQ } from "../../src/components/SubscriptionFAQ";
 import { IapPurchaseCard } from "../../src/features/iap/IapPurchaseCard";
 import { RestoreLink } from "../../src/features/iap/RestoreLink";
+import { localizedPlanName } from "../../src/features/subscription/planName";
 import {
   careCircleApi,
   type CareCircleConnection,
@@ -47,6 +48,8 @@ const PLAN_ANTAM_IMG = require("../../assets/images/subscription/plan_antam.png"
 const PLAN_ANTAM_2_IMG = require("../../assets/images/subscription/plan_antam_2.png");
 const PLAN_ANTAM_4_IMG = require("../../assets/images/subscription/plan_antam_4.png");
 const PLAN_ANTAM_8_IMG = require("../../assets/images/subscription/plan_antam_8.png");
+const PROTECTED_HERO_SHIELD = require("../../assets/images/subscription/protected_hero_shield.png");
+const PROTECTED_UPSELL_SHIELD = require("../../assets/images/subscription/protected_upsell_shield.png");
 
 const PROTECTED_AVATAR_1 = require("../../assets/images/subscription/protected_avatar_1.png");
 const PROTECTED_AVATAR_2 = require("../../assets/images/subscription/protected_avatar_2.png");
@@ -193,7 +196,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
                   isAnTam && styles.currentPlanBadgeTextAnTam,
                 ]}
               >
-                {status?.planName ?? t("v2FreePlan")}
+                {localizedPlanName(status?.planCode, t)}
               </Text>
             </View>
           )}
@@ -420,11 +423,28 @@ export default function SubscriptionScreen() {
   }, [connections, currentUserId, household?.members, t]);
 
   const protectedMemberCount =
-    household?.protectedMemberCount ?? status?.protectedMemberCount ?? 0;
+    household?.protectedMemberCount ?? status?.protectedMemberCount ?? (status?.isAnTam ? 1 : 1);
   const protectedMemberLimit =
     household?.protectedMemberLimit ?? status?.protectedMemberLimit ?? 1;
   const canManageProtectedMembers = !!status?.isOwner && !!status?.isAnTam;
   const protectedSlotsFull = protectedMemberCount >= protectedMemberLimit;
+
+  const displayMembers = useMemo(() => {
+    if (household?.members && household.members.length > 0) {
+      return household.members;
+    }
+    if (profile?.name) {
+      return [
+        {
+          userId: currentUserId,
+          name: profile.name,
+          avatarUrl: profile.avatarUrl || null,
+          role: "owner" as const,
+        },
+      ];
+    }
+    return [];
+  }, [household?.members, profile?.avatarUrl, profile?.name, currentUserId]);
 
   const addMember = useCallback(
     async (userId: number) => {
@@ -640,10 +660,55 @@ export default function SubscriptionScreen() {
           onPress={() => setMemberModal(false)}
         />
         <View accessibilityViewIsModal style={styles.sheet}>
-          <View style={styles.sheetHandle} />
-          <View style={styles.sheetHeaderRow}>
-            <View style={styles.sheetHeaderCopy}>
+          <Pressable
+            accessibilityLabel={t("v2CloseProtected")}
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => setMemberModal(false)}
+            style={({ pressed }) => [
+              styles.sheetCloseButton,
+              pressed && styles.protectedHeaderButtonPressed,
+            ]}
+          >
+            <Ionicons
+              name="close"
+              size={24}
+              color={isDark ? "#94a3b8" : "#64748b"}
+            />
+          </Pressable>
+
+          {/* Top-Right Ethereal 3D Shield Hero Art */}
+          <View pointerEvents="none" style={styles.sheetHeroArtWrap}>
+            <Image
+              cachePolicy="memory-disk"
+              contentFit="contain"
+              source={PROTECTED_HERO_SHIELD}
+              style={styles.sheetHeroArtImg}
+            />
+          </View>
+
+          <View style={styles.sheetHeaderCopy}>
+            <View style={styles.sheetHeaderTitleRow}>
+              <View style={styles.sheetIconCircle}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={22}
+                  color="#2563eb"
+                />
+              </View>
               <Text style={styles.sheetTitle}>{t("v2ProtectedPeople")}</Text>
+            </View>
+
+            <Text style={styles.sheetHeaderSubtitle}>
+              {t("v2ProtectedHeaderSubtitle")}
+            </Text>
+
+            <View style={styles.sheetSlotsBadge}>
+              <Ionicons
+                name="shield-checkmark"
+                size={15}
+                color={isDark ? "#34d399" : "#059669"}
+              />
               <Text style={styles.sheetSlotsText}>
                 {t("v2SlotsUsed", {
                   used: protectedMemberCount,
@@ -651,22 +716,6 @@ export default function SubscriptionScreen() {
                 })}
               </Text>
             </View>
-            <Pressable
-              accessibilityLabel={t("v2CloseProtected")}
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => setMemberModal(false)}
-              style={({ pressed }) => [
-                styles.sheetCloseButton,
-                pressed && styles.protectedHeaderButtonPressed,
-              ]}
-            >
-              <Ionicons
-                name="close"
-                size={26}
-                color={isDark ? "#cbd5e1" : "#475569"}
-              />
-            </Pressable>
           </View>
 
           <ScrollView
@@ -674,14 +723,18 @@ export default function SubscriptionScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.sheetSectionTitle}>
-              {t("v2CurrentProtected")}
-            </Text>
-            {(household?.members ?? []).length === 0 ? (
+            <View style={styles.sheetSectionHeaderWrap}>
+              <Text style={styles.sheetSectionTitle}>
+                {t("v2CurrentProtected")}
+              </Text>
+              <View style={styles.sheetSectionDivider} />
+            </View>
+
+            {displayMembers.length === 0 ? (
               <Text style={styles.sheetEmptyText}>{t("v2NoProtectedYet")}</Text>
             ) : (
               <View style={styles.modalMembersList}>
-                {(household?.members ?? []).map((member, index) => {
+                {displayMembers.map((member, index) => {
                   const memberAvatar =
                     (member.userId === currentUserId
                       ? profile?.avatarUrl
@@ -693,9 +746,30 @@ export default function SubscriptionScreen() {
                     member.userId,
                     index
                   );
+                  const isOwner =
+                    member.userId === household?.ownerUserId ||
+                    member.userId === currentUserId;
 
                   return (
-                    <View key={member.userId} style={styles.memberRow}>
+                    <Pressable
+                      key={member.userId}
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
+                        styles.memberRow,
+                        pressed && styles.memberRowPressed,
+                      ]}
+                      onPress={() => {
+                        setMemberModal(false);
+                        if (member.userId === currentUserId) {
+                          router.push("/(tabs)/profile" as any);
+                        } else {
+                          router.push({
+                            pathname: "/care-circle/member/[id]",
+                            params: { id: member.userId, name: member.name },
+                          } as any);
+                        }
+                      }}
+                    >
                       <View style={styles.memberAvatar}>
                         <Image
                           cachePolicy="memory-disk"
@@ -710,53 +784,83 @@ export default function SubscriptionScreen() {
                       </View>
                       <View style={styles.memberCopy}>
                         <Text style={styles.memberName}>{member.name}</Text>
-                        <Text style={styles.memberRoleText}>
-                          {member.userId === household?.ownerUserId
-                            ? t("v2Owner")
-                            : t("v2Protected")}
-                        </Text>
+                        <View style={styles.memberRoleBadge}>
+                          <Text style={styles.memberRoleDot}>●</Text>
+                          <Text style={styles.memberRoleText}>
+                            {isOwner ? t("v2Owner") : t("v2Protected")}
+                          </Text>
+                        </View>
                       </View>
-                      {status?.isOwner &&
-                        member.userId !== household?.ownerUserId && (
-                          <Pressable
-                            accessibilityLabel={t("v2RemoveProtected", {
-                              name: member.name,
-                            })}
-                            accessibilityRole="button"
-                            disabled={memberBusy === member.userId}
-                            hitSlop={4}
-                            onPress={() => removeMember(member.userId)}
-                            style={styles.removeBtn}
-                          >
-                            {memberBusy === member.userId ? (
-                              <ActivityIndicator
-                                size="small"
-                                color={colors.textSecondary}
-                              />
-                            ) : (
-                              <Ionicons
-                                name="person-remove-outline"
-                                size={22}
-                                color="#94a3b8"
-                              />
-                            )}
-                          </Pressable>
-                        )}
-                    </View>
+                      {status?.isOwner && !isOwner ? (
+                        <Pressable
+                          accessibilityLabel={t("v2RemoveProtected", {
+                            name: member.name,
+                          })}
+                          accessibilityRole="button"
+                          disabled={memberBusy === member.userId}
+                          hitSlop={6}
+                          onPress={() => removeMember(member.userId)}
+                          style={styles.removeBtn}
+                        >
+                          {memberBusy === member.userId ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={colors.textSecondary}
+                            />
+                          ) : (
+                            <Ionicons
+                              name="person-remove-outline"
+                              size={20}
+                              color="#94a3b8"
+                            />
+                          )}
+                        </Pressable>
+                      ) : (
+                        <Ionicons
+                          name="chevron-forward"
+                          size={20}
+                          color={isDark ? "#94a3b8" : "#64748b"}
+                        />
+                      )}
+                    </Pressable>
                   );
                 })}
               </View>
             )}
 
             {!status?.isAnTam ? (
-              <View style={styles.freeHintCard}>
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.upsellCard,
+                  pressed && styles.upsellCardPressed,
+                ]}
+                onPress={() => {
+                  setMemberModal(false);
+                  handleChoosePlan();
+                }}
+              >
+                <View style={styles.upsellIconWrap}>
+                  <Image
+                    cachePolicy="memory-disk"
+                    contentFit="contain"
+                    source={PROTECTED_UPSELL_SHIELD}
+                    style={styles.upsellShieldImg}
+                  />
+                </View>
+                <View style={styles.upsellDivider} />
+                <View style={styles.upsellCopy}>
+                  <Text style={styles.upsellTitle}>{t("v2FreeHint")}</Text>
+                  <Text style={styles.upsellSubtitle}>
+                    {t("v2FreeHintSubtitle")}
+                  </Text>
+                </View>
                 <Ionicons
-                  name="shield-checkmark-outline"
+                  name="chevron-forward"
                   size={20}
-                  color="#059669"
+                  color={isDark ? "#94a3b8" : "#64748b"}
                 />
-                <Text style={styles.freeHintText}>{t("v2FreeHint")}</Text>
-              </View>
+              </Pressable>
             ) : canManageProtectedMembers ? (
               <View style={styles.addProtectedSection}>
                 <Text style={styles.sheetSectionTitle}>
@@ -842,9 +946,16 @@ export default function SubscriptionScreen() {
               </View>
             ) : null}
 
-            <Text style={styles.sheetFootnote}>
-              {t("v2EmergencyContactHint")}
-            </Text>
+            <View style={styles.sheetFootnoteRow}>
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color={isDark ? "#94a3b8" : "#64748b"}
+              />
+              <Text style={styles.sheetFootnoteText}>
+                {t("v2EmergencyContactHint")}
+              </Text>
+            </View>
           </ScrollView>
         </View>
       </Modal>
@@ -1160,31 +1271,54 @@ function createStyles(
     memberRow: {
       alignItems: "center",
       flexDirection: "row",
-      gap: 12,
-      minHeight: 62,
-      paddingVertical: 6,
+      minHeight: 72,
+      paddingVertical: 8,
+    },
+    memberRowPressed: {
+      opacity: 0.7,
     },
     memberAvatar: {
-      alignItems: "center",
-      backgroundColor: isDark ? "#064e3b" : "#d1fae5",
-      borderRadius: 20,
-      height: 40,
-      justifyContent: "center",
+      borderColor: isDark ? "#334155" : "#e2e8f0",
+      borderRadius: 29,
+      borderWidth: 1,
+      height: 58,
       overflow: "hidden",
-      width: 40,
+      width: 58,
     },
     memberAvatarImg: {
-      borderRadius: 20,
-      height: 40,
-      width: 40,
+      height: "100%",
+      width: "100%",
     },
-    memberCopy: { flex: 1, gap: 3 },
+    memberCopy: {
+      flex: 1,
+      justifyContent: "center",
+      marginLeft: 14,
+    },
     memberName: {
       color: isDark ? "#f8fafc" : "#0f172a",
-      fontSize: typography.size.sm,
+      fontSize: typography.size.md,
       fontWeight: "700",
     },
-    memberRoleText: { color: "#047857", fontSize: 10.5, fontWeight: "700" },
+    memberRoleBadge: {
+      alignItems: "center",
+      alignSelf: "flex-start",
+      backgroundColor: isDark ? "rgba(13, 148, 136, 0.15)" : "#e6f7f4",
+      borderRadius: 12,
+      flexDirection: "row",
+      gap: 5,
+      marginTop: 5,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+    },
+    memberRoleDot: {
+      color: isDark ? "#2dd4bf" : "#0d9488",
+      fontSize: 8,
+    },
+    memberRoleText: {
+      color: isDark ? "#2dd4bf" : "#0d9488",
+      fontSize: 11.5,
+      fontWeight: "700",
+    },
     removeBtn: {
       alignItems: "center",
       height: 44,
@@ -1223,61 +1357,106 @@ function createStyles(
       top: 0,
     },
     sheet: {
-      backgroundColor: colors.surface,
+      backgroundColor: isDark ? "#1e293b" : "#ffffff",
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
       bottom: 0,
       left: 0,
-      maxHeight: "88%",
-      paddingHorizontal: spacing.xl,
-      paddingTop: spacing.md,
+      maxHeight: "90%",
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
       position: "absolute",
       right: 0,
-    },
-    sheetHandle: {
-      alignSelf: "center",
-      backgroundColor: colors.border,
-      borderRadius: 3,
-      height: 5,
-      marginBottom: spacing.md,
-      width: 42,
-    },
-    sheetHeaderRow: {
-      alignItems: "center",
-      flexDirection: "row",
-      gap: spacing.sm,
-      minHeight: 52,
-    },
-    sheetHeaderCopy: {
-      flex: 1,
-      minWidth: 0,
-    },
-    sheetTitle: {
-      color: colors.textPrimary,
-      fontSize: typography.size.lg,
-      fontWeight: "900",
-    },
-    sheetSlotsText: {
-      color: isDark ? "#6ee7b7" : "#047857",
-      fontSize: typography.size.xs,
-      fontWeight: "700",
-      marginTop: 2,
+      overflow: "hidden",
     },
     sheetCloseButton: {
       alignItems: "center",
+      height: 38,
+      justifyContent: "center",
+      position: "absolute",
+      right: 12,
+      top: 12,
+      width: 38,
+      zIndex: 10,
+    },
+    sheetHeroArtWrap: {
+      height: 165,
+      opacity: 1,
+      position: "absolute",
+      right: -10,
+      top: 0,
+      width: 165,
+      zIndex: 0,
+    },
+    sheetHeroArtImg: {
+      height: "100%",
+      width: "100%",
+    },
+    sheetHeaderCopy: {
+      paddingRight: 64,
+      position: "relative",
+      zIndex: 1,
+    },
+    sheetHeaderTitleRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 12,
+    },
+    sheetIconCircle: {
+      alignItems: "center",
+      backgroundColor: isDark ? "rgba(59, 130, 246, 0.16)" : "#eff6ff",
+      borderRadius: 22,
       height: 44,
       justifyContent: "center",
       width: 44,
     },
+    sheetTitle: {
+      color: isDark ? "#f8fafc" : "#0f172a",
+      fontSize: typography.size.xl,
+      fontWeight: "800",
+    },
+    sheetHeaderSubtitle: {
+      color: isDark ? "#94a3b8" : "#64748b",
+      fontSize: typography.size.xs,
+      lineHeight: 19,
+      marginTop: 8,
+      maxWidth: "85%",
+    },
+    sheetSlotsBadge: {
+      alignItems: "center",
+      alignSelf: "flex-start",
+      backgroundColor: isDark ? "rgba(16, 185, 129, 0.15)" : "#ecfdf5",
+      borderColor: isDark ? "rgba(16, 185, 129, 0.3)" : "#d1fae5",
+      borderRadius: 16,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: 6,
+      marginTop: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 4.5,
+    },
+    sheetSlotsText: {
+      color: isDark ? "#34d399" : "#059669",
+      fontSize: typography.size.xs,
+      fontWeight: "700",
+    },
     sheetScrollContent: {
-      paddingBottom: 38,
-      paddingTop: spacing.md,
+      paddingBottom: 36,
+      paddingTop: spacing.xs,
+    },
+    sheetSectionHeaderWrap: {
+      marginTop: spacing.xl,
     },
     sheetSectionTitle: {
-      color: colors.textPrimary,
-      fontSize: typography.size.sm,
+      color: isDark ? "#f8fafc" : "#0f172a",
+      fontSize: typography.size.md,
       fontWeight: "800",
-      lineHeight: 21,
+      lineHeight: 22,
+    },
+    sheetSectionDivider: {
+      backgroundColor: isDark ? "#334155" : "#f1f5f9",
+      height: 1,
+      marginTop: 10,
     },
     sheetEmptyText: {
       color: colors.textSecondary,
@@ -1286,8 +1465,7 @@ function createStyles(
       marginTop: spacing.sm,
     },
     modalMembersList: {
-      gap: 2,
-      marginTop: spacing.sm,
+      marginTop: 2,
     },
     addProtectedSection: {
       marginTop: spacing.xl,
@@ -1325,12 +1503,64 @@ function createStyles(
       fontSize: typography.size.sm,
       fontWeight: "800",
     },
-    sheetFootnote: {
-      color: colors.textSecondary,
+    upsellCard: {
+      alignItems: "center",
+      backgroundColor: isDark ? "rgba(8, 184, 162, 0.12)" : "#f0fbf8",
+      borderColor: isDark ? "rgba(45, 212, 191, 0.25)" : "#ccfbf1",
+      borderRadius: 16,
+      borderWidth: 1,
+      flexDirection: "row",
+      marginTop: spacing.md,
+      padding: 14,
+    },
+    upsellCardPressed: {
+      opacity: 0.85,
+      transform: [{ scale: 0.99 }],
+    },
+    upsellIconWrap: {
+      alignItems: "center",
+      height: 50,
+      justifyContent: "center",
+      width: 50,
+    },
+    upsellShieldImg: {
+      height: 48,
+      width: 48,
+    },
+    upsellDivider: {
+      backgroundColor: isDark ? "rgba(45, 212, 191, 0.25)" : "#ccfbf1",
+      height: 44,
+      marginHorizontal: 12,
+      width: 1,
+    },
+    upsellCopy: {
+      flex: 1,
+      paddingRight: 4,
+    },
+    upsellTitle: {
+      color: isDark ? "#5eead4" : "#0f766e",
+      fontSize: typography.size.xs + 1,
+      fontWeight: "700",
+      lineHeight: 20,
+    },
+    upsellSubtitle: {
+      color: isDark ? "#94a3b8" : "#64748b",
+      fontSize: typography.size.xs - 0.5,
+      lineHeight: 18,
+      marginTop: 4,
+    },
+    sheetFootnoteRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 8,
+      marginTop: spacing.xl,
+      paddingBottom: spacing.sm,
+    },
+    sheetFootnoteText: {
+      color: isDark ? "#94a3b8" : "#64748b",
+      flex: 1,
       fontSize: typography.size.xs,
       lineHeight: 18,
-      marginTop: spacing.xl,
-      textAlign: "center",
     },
   });
 }

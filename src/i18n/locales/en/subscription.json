@@ -8,6 +8,12 @@
   "faqSubtitle": "Quick answers to questions about our service plans",
   "healthBetterWaiting": "Better health is waiting for you ♥",
   "free": "Free",
+  "planNames": {
+    "free": "Free",
+    "antam2": "An Tam 2",
+    "antam4": "An Tam 4",
+    "antam8": "An Tam 8"
+  },
   "freePrice": "VND 0",
   "premiumPrice": "VND 199,000",
   "priceVnd": "VND {{amount}}",
@@ -164,6 +170,7 @@
   "v2AnTamFeature4": "Protect 2, 4 or 8 people in one plan",
   "v2AnTamFeature5": "Annual plans include specialist consultations for each protected member",
   "v2ProtectedPeople": "Protected people",
+  "v2ProtectedHeaderSubtitle": "You are viewing protected member details in your family health care network.",
   "v2SlotsUsed": "{{used}}/{{limit}} slots used",
   "v2ProtectedIconHint": "Open and manage the protected people list.",
   "v2CurrentProtected": "Currently protected",
@@ -177,6 +184,7 @@
   "v2Owner": "Plan owner",
   "v2Protected": "Protected",
   "v2FreeHint": "Choose An Tam 2, 4 or 8 to protect more family members.",
+  "v2FreeHintSubtitle": "Protection plans help you and your family enjoy peace of mind with continuous care.",
   "v2EmergencyContactHint": "Emergency contacts do not count toward protected-person slots.",
   "v2ChooseProtected": "Choose a protected person",
   "v2ChooseProtectedBody": "This person must be in your Care Circle.",
