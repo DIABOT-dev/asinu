@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../features/auth/auth.store';
 import { type CareCircleInvitation, useCareCircle } from '../features/care-circle';
@@ -9,6 +9,7 @@ import { useThemeColors } from '../hooks/useThemeColors';
 import { showToast } from '../stores/toast.store';
 import { colors, radius, spacing } from '../styles';
 import { ScaledText as Text } from './ScaledText';
+import { QueuedModal } from './QueuedModal';
 
 type Props = { enabled?: boolean };
 
@@ -98,8 +99,9 @@ export function CareCircleInvitationModal({ enabled = true }: Props) {
   const name = requesterName(pending, t('quickUnknownSender'));
 
   return (
-    <Modal
+    <QueuedModal
       visible={enabled}
+      priority={20}
       transparent
       animationType="fade"
       onRequestClose={postpone}
@@ -157,7 +159,7 @@ export function CareCircleInvitationModal({ enabled = true }: Props) {
           </Pressable>
         </View>
       </View>
-    </Modal>
+    </QueuedModal>
   );
 }
 

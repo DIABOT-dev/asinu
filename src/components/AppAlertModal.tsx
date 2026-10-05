@@ -2,7 +2,7 @@
  * AppAlertModal — drop-in replacement for Alert.alert()
  * Renders a styled modal instead of native alert.
  */
-import { useMemo, useState, type ComponentProps } from 'react';
+import { useMemo, useRef, useState, type ComponentProps } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
@@ -10,11 +10,12 @@ import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
+import { QueuedModal } from './QueuedModal';
 
 export type AlertButton = {
   text: string;
   style?: 'default' | 'cancel' | 'destructive';
-  onPress?: () => void;
+  onPress?: () => void | Promise<void>;
 };
 
 export type AlertIcon = {
@@ -29,24 +30,41 @@ type Props = {
   buttons?: AlertButton[];
   icon?: AlertIcon;
   onDismiss: () => void;
+  queued?: boolean;
+  onShow?: () => void;
 };
 
-export function AppAlertModal({ visible, title, message, buttons, icon, onDismiss }: Props) {
+export function AppAlertModal({ visible, title, message, buttons, icon, onDismiss, queued = false, onShow }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const afterDismissRef = useRef<AlertButton['onPress']>(undefined);
+  const closingRef = useRef(false);
+  const ModalComponent = queued ? QueuedModal : Modal;
 
   const resolvedButtons: AlertButton[] =
     buttons && buttons.length > 0 ? buttons : [{ text: t('ok'), style: 'default' }];
 
   const handlePress = (btn: AlertButton) => {
+    if (queued) {
+      if (closingRef.current) return;
+      closingRef.current = true;
+      afterDismissRef.current = btn.onPress;
+    }
     onDismiss();
-    btn.onPress?.();
+    if (!queued) btn.onPress?.();
+  };
+
+  const handleModalDismiss = () => {
+    closingRef.current = false;
+    const action = afterDismissRef.current;
+    afterDismissRef.current = undefined;
+    return action?.();
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
+    <ModalComponent visible={visible} transparent animationType="fade" onRequestClose={onDismiss} onShow={onShow} onDismiss={handleModalDismiss}>
       <Pressable style={styles.overlay} onPress={onDismiss}>
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           {icon ? (
@@ -89,7 +107,7 @@ export function AppAlertModal({ visible, title, message, buttons, icon, onDismis
           </View>
         </Pressable>
       </Pressable>
-    </Modal>
+    </ModalComponent>
   );
 }
 

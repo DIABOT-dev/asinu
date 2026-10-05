@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { QueuedModal } from './QueuedModal';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -59,8 +60,9 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
   };
 
   return (
-    <Modal
+    <QueuedModal
       visible={visible}
+      priority={40}
       transparent
       animationType="fade"
       statusBarTranslucent
@@ -198,7 +200,7 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </QueuedModal>
   );
 }
 

@@ -7,8 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
+import { QueuedModal } from './QueuedModal';
 import {
   checkinApi,
   type PendingCaregiverAlert,
@@ -133,7 +134,7 @@ export function CaregiverAlertModal() {
   };
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent>
+    <QueuedModal visible priority={100} transparent animationType="fade" statusBarTranslucent>
       <View style={styles.overlay}>
         <View style={[styles.card, isEmergency && styles.cardEmergency]}>
           {/* Header */}
@@ -182,7 +183,7 @@ export function CaregiverAlertModal() {
           )}
         </View>
       </View>
-    </Modal>
+    </QueuedModal>
   );
 }
 

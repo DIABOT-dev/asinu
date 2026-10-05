@@ -13,7 +13,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useGlobalSearchParams, usePathname, useRootNavigationState } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../features/auth/auth.store";
-import { useCareCircle } from "../features/care-circle";
 import { authApi } from "../features/auth/auth.api";
 import * as Notifications from "expo-notifications";
 import {
@@ -83,13 +82,6 @@ export const SessionProvider = ({ children }: Props) => {
   const callRecoveryRevision = useRef(0);
   const callContext = useRef({ hydrated, authToken, loading, pathname, navigationState, callParams });
   callContext.current = { hydrated, authToken, loading, pathname, navigationState, callParams };
-  const hasPendingCareInvite = useCareCircle((state) =>
-    state.invitations.some(
-      (invitation) =>
-        invitation.status === "pending" &&
-        String(invitation.addressee_id) === String(profile?.id),
-    ),
-  );
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [nativeFcmToken, setNativeFcmToken] = useState<string | null>(null);
   const [voipRegistration, setVoipRegistration] =
@@ -131,21 +123,26 @@ export const SessionProvider = ({ children }: Props) => {
   }, [authToken]);
 
   const enableNotifications = useCallback(async () => {
-    const granted = await requestNotificationPermissions();
+    let granted: boolean;
+    try {
+      granted = await requestNotificationPermissions();
+    } catch {
+      showToast(t("scheduleSaveError"), "error");
+      return;
+    }
     if (!granted) {
       showToast(t("notificationPermDesc"), "info");
       return;
     }
 
-    try {
-      await Promise.all([
-        syncExistingPushToken(),
-        updateNotificationPreferences({ reminders_enabled: true }),
-      ]);
-      showToast(t("scheduleSaved"), "success");
-    } catch {
-      showToast(t("scheduleSaveError"), "error");
-    }
+    // The OS sheet is closed now. Do not hold the modal queue during network
+    // registration; urgent caregiver alerts must still be able to appear.
+    void Promise.all([
+      syncExistingPushToken(),
+      updateNotificationPreferences({ reminders_enabled: true }),
+    ])
+      .then(() => showToast(t("scheduleSaved"), "success"))
+      .catch(() => showToast(t("scheduleSaveError"), "error"));
   }, [syncExistingPushToken, t]);
 
   // Bootstrap belongs at the root so every entry route shares one session startup.
@@ -265,6 +262,7 @@ export const SessionProvider = ({ children }: Props) => {
   // This keeps push registration discoverable for care-circle alerts while
   // avoiding a native permission prompt on the login or onboarding screens.
   useEffect(() => {
+    setNotificationPromptVisible(false);
     if (!hydrated || !authToken || !profile?.onboardingCompleted) return;
 
     let cancelled = false;
@@ -278,6 +276,7 @@ export const SessionProvider = ({ children }: Props) => {
         checkNotificationPermission(),
         getNotificationPreferences().catch(() => null),
       ]);
+      if (cancelled) return;
 
       if (permissionGranted) {
         await syncExistingPushToken();
@@ -285,7 +284,6 @@ export const SessionProvider = ({ children }: Props) => {
       }
 
       if (await AsyncStorage.getItem(promptKey)) return;
-      await AsyncStorage.setItem(promptKey, "1");
       if (cancelled) return;
 
       timer = setTimeout(() => {
@@ -293,7 +291,7 @@ export const SessionProvider = ({ children }: Props) => {
       }, 1800);
     };
 
-    void prepareNotificationAccess();
+    void prepareNotificationAccess().catch(() => {});
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
@@ -493,16 +491,22 @@ export const SessionProvider = ({ children }: Props) => {
     <SessionContext.Provider value={value}>
       {children}
       <AppAlertModal
-        visible={notificationPromptVisible && !hasPendingCareInvite}
+        queued
+        visible={notificationPromptVisible && pathname === "/home"}
+        onShow={() => {
+          // Mark only a presented prompt, never one merely waiting in the queue.
+          void AsyncStorage.setItem(
+            `@asinu/notification_permission_prompted:v2:${profile?.id}`,
+            "1",
+          ).catch(() => {});
+        }}
         title={t("pushPermissionTitle")}
         message={t("pushPermissionDesc")}
         buttons={[
           { text: t("later"), style: "cancel" },
           {
             text: t("enableNotifications"),
-            onPress: () => {
-              void enableNotifications();
-            },
+            onPress: enableNotifications,
           },
         ]}
         onDismiss={() => setNotificationPromptVisible(false)}

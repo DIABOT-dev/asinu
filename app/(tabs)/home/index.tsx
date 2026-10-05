@@ -503,6 +503,7 @@ export default function HomeScreen() {
 
       return () => {
         active = false;
+        setShowCheckinGuide(false);
       };
     }, [profile?.id]),
   );

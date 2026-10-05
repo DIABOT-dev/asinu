@@ -5,7 +5,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
-  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -15,10 +14,10 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
+import { QueuedModal } from './QueuedModal';
 import { useAuthStore } from '../features/auth/auth.store';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useFontSizeStore } from '../stores/font-size.store';
@@ -133,9 +132,12 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(viewportWidth);
   const flatListRef = useRef<FlatList<CheckinGuideSlide>>(null);
+  const closingRef = useRef(false);
+  const afterDismissRef = useRef<(() => void) | undefined>(undefined);
 
   useEffect(() => {
     if (!visible) return;
+    closingRef.current = false;
     setActiveIndex(0);
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [visible, userId]);
@@ -154,21 +156,32 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
   );
 
   const handleSkip = useCallback(async () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     await markCheckinGuideSeen(userId);
     onClose?.();
   }, [onClose, userId]);
 
   const handleNext = useCallback(async () => {
+    if (closingRef.current) return;
     if (activeIndex < SLIDES.length - 1) {
       const nextIdx = activeIndex + 1;
       flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
       setActiveIndex(nextIdx);
     } else {
+      closingRef.current = true;
       await markCheckinGuideSeen(userId);
+      if (asModal) afterDismissRef.current = onStartCheckin;
       onClose?.();
-      onStartCheckin?.();
+      if (!asModal) onStartCheckin?.();
     }
-  }, [activeIndex, onClose, onStartCheckin, userId]);
+  }, [activeIndex, asModal, onClose, onStartCheckin, userId]);
+
+  const handleDismiss = useCallback(() => {
+    const action = afterDismissRef.current;
+    afterDismissRef.current = undefined;
+    action?.();
+  }, []);
 
   const handlePrev = useCallback(() => {
     if (activeIndex > 0) {
@@ -337,20 +350,22 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
   }
 
   return (
-    <Modal
+    <QueuedModal
       animationType="fade"
       hardwareAccelerated
       onRequestClose={handleSkip}
+      onDismiss={handleDismiss}
+      priority={30}
       statusBarTranslucent
       transparent
       visible={visible}
     >
       <View style={styles.modalOverlay}>
-        <Animated.View entering={FadeInDown.duration(320)} style={styles.modalCard}>
+        <View style={styles.modalCard}>
           {content}
-        </Animated.View>
+        </View>
       </View>
-    </Modal>
+    </QueuedModal>
   );
 });
 

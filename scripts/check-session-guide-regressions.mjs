@@ -155,6 +155,7 @@ const { CheckinGuideCarousel } = evaluate(fs.readFileSync('src/components/Checki
   react, 'react-native': native, '@expo/vector-icons': { Ionicons: 'Icon' },
   '@react-native-async-storage/async-storage': { setItem: async () => {} },
   './CheckinGuidePreview': { CheckinGuidePreview: 'Preview' }, 'expo-linear-gradient': { LinearGradient: 'Gradient' },
+  './QueuedModal': { QueuedModal: 'QueuedModal' },
   'react-native-reanimated': { __esModule: true, default: { View: 'AnimatedView' }, FadeInDown: { duration: () => ({}) } },
   'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
   'react-i18next': { useTranslation: () => ({ t: (key, args) => `${key}${args?.current || ''}` }) },
@@ -162,7 +163,7 @@ const { CheckinGuideCarousel } = evaluate(fs.readFileSync('src/components/Checki
   '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: true }) },
   '../stores/font-size.store': { useFontSizeStore: selector => selector({ scale: 'large' }) }, '../styles': { colors: {} },
 });
-function render(visible = true) { stateIndex = refIndex = effectIndex = 0; const tree = CheckinGuideCarousel({ visible }); while (scheduled.length) scheduled.shift()(); return tree; }
+function render(visible = true, props = {}) { stateIndex = refIndex = effectIndex = 0; const tree = CheckinGuideCarousel({ visible, ...props }); while (scheduled.length) scheduled.shift()(); return tree; }
 function nodes(tree) { if (!tree || typeof tree !== 'object') return []; if (Array.isArray(tree)) return tree.flatMap(nodes); return [tree, ...nodes(tree.props?.children)]; }
 await test('reopening guide starts at slide one, not the last visited slide', async () => {
   render();
@@ -178,6 +179,39 @@ await test('guide resets when the authenticated account changes', async () => {
   nodes(render()).find(node => node.props?.accessibilityLabel === 'checkinGuide.stepBadge4').props.onPress();
   userId = 'account-b'; render();
   assert.equal(states[0], 0);
+});
+await test('Skip closes exactly once and never starts check-in', async () => {
+  let closes = 0, starts = 0;
+  const tree = render(true, { onClose: () => { closes++; }, onStartCheckin: () => { starts++; } });
+  assert.equal(tree.type, 'QueuedModal');
+  const skip = nodes(tree).find(node => node.props?.accessibilityLabel === 'checkinGuide.skip').props.onPress;
+  await Promise.all([skip(), skip()]);
+  assert.equal(closes, 1);
+  assert.equal(starts, 0);
+  tree.props.onDismiss();
+  assert.equal(starts, 0);
+});
+await test('Start waits for actual native dismissal before navigating, even on repeated taps', async () => {
+  render(false); render(true);
+  let closes = 0, starts = 0;
+  const props = { onClose: () => { closes++; }, onStartCheckin: () => { starts++; } };
+  nodes(render(true, props)).find(node => node.props?.accessibilityLabel === 'checkinGuide.stepBadge5').props.onPress();
+  const tree = render(true, props);
+  const start = nodes(tree).find(node => node.props?.accessibilityLabel === 'checkinGuide.start').props.onPress;
+  await Promise.all([start(), start()]);
+  assert.equal(closes, 1);
+  assert.equal(starts, 0);
+  tree.props.onDismiss();
+  tree.props.onDismiss();
+  assert.equal(starts, 1);
+});
+await test('inline guide completes without waiting for a nonexistent native modal', async () => {
+  render(false); render(true);
+  let starts = 0;
+  const props = { asModal: false, onClose() {}, onStartCheckin: () => { starts++; } };
+  nodes(render(true, props)).find(node => node.props?.accessibilityLabel === 'checkinGuide.stepBadge5').props.onPress();
+  await nodes(render(true, props)).find(node => node.props?.accessibilityLabel === 'checkinGuide.start').props.onPress();
+  assert.equal(starts, 1);
 });
 await test('preview text passes contrast in both themes, including light cards on dark mode', async () => {
   const previewSource = fs.readFileSync('src/components/CheckinGuidePreview.tsx', 'utf8');

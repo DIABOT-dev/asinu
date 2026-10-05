@@ -21,6 +21,7 @@ import { AsinuEmergencyFAB } from '../asinu-brain-extension/ui/AsinuEmergencyFAB
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { GlobalToastHost } from '../src/components/GlobalToastHost';
 import { CareCircleInvitationModal } from '../src/components/CareCircleInvitationModal';
+import { QueuedModalHost, QueuedModalProvider } from '../src/components/QueuedModal';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { CarePulseProvider } from '../src/features/care-pulse';
 import { WellnessProvider } from '../src/features/wellness';
@@ -125,6 +126,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
     <ErrorBoundary>
     <QueryProvider>
+      <QueuedModalProvider>
       <SessionProvider>
         <ScreenViewTracker />
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
@@ -151,12 +153,14 @@ export default function RootLayout() {
               </Stack>
               <GlobalToastHost />
               <CareCircleInvitationModal />
+              <QueuedModalHost />
               <AsinuBrainOverlayHost />
               <EmergencyFABGate />
             </CarePulseProvider>
           </WellnessProvider>
         </SafeAreaProvider>
       </SessionProvider>
+      </QueuedModalProvider>
     </QueryProvider>
     </ErrorBoundary>
     </GestureHandlerRootView>
