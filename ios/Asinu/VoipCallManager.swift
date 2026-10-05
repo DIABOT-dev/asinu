@@ -18,6 +18,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private var pushRegistry: PKPushRegistry?
   private var callsByUUID: [UUID: [String: String]] = [:]
   private var uuidByAttempt: [String: UUID] = [:]
+  private var endedAttempts: [String: Date] = [:]
   private var ringTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
   private var answerActionsByUUID: [UUID: CXAnswerCallAction] = [:]
   private var answerTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
@@ -26,7 +27,9 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private var callUIOwners = Set<UUID>()
   private var audioSessionActive = false
   private let handoffSpeech = AVSpeechSynthesizer()
+  private var handoffRecording: AVAudioPlayer?
   private var handoffPromptTimer: DispatchWorkItem?
+  private var responseAfterAudioRelease: [String: String]?
   private var applicationObservers: [NSObjectProtocol] = []
 
   private lazy var provider: CXProvider = {
@@ -53,15 +56,20 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func start() {
-    DispatchQueue.main.async {
-      _ = self.provider
-      guard self.pushRegistry == nil else { return }
-      let registry = PKPushRegistry(queue: .main)
-      registry.delegate = self
-      registry.desiredPushTypes = [.voIP]
-      self.pushRegistry = registry
-      let center = NotificationCenter.default
-      self.applicationObservers = [
+    // Install CallKit/PushKit before React starts, including cold launches from
+    // a push. Never defer native registration behind the JS bootstrap queue.
+    if !Thread.isMainThread {
+      DispatchQueue.main.sync { self.start() }
+      return
+    }
+    _ = provider
+    guard pushRegistry == nil else { return }
+    let registry = PKPushRegistry(queue: .main)
+    registry.delegate = self
+    pushRegistry = registry
+    registry.desiredPushTypes = [.voIP]
+    let center = NotificationCenter.default
+    applicationObservers = [
         center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
           guard let self else { return }
           for (uuid, call) in self.callsByUUID where call["nativeAnswered"] == "1" {
@@ -78,22 +86,21 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
           guard let self, let call = self.pendingCall() else { return }
           NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: call)
         },
-      ]
+    ]
 
-      #if DEBUG
-      if ProcessInfo.processInfo.arguments.contains("--asinu-test-callkit") {
-        print("[AsinuVoip] Starting CallKit development simulation")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-          self.simulateIncoming(payload: [
-            "episodeId": UUID().uuidString.lowercased(),
-            "attemptId": UUID().uuidString.lowercased(),
-            "kind": "INCOMING_CALL",
-            "severity": "URGENT",
-          ], completion: {})
-        }
+    #if DEBUG
+    if ProcessInfo.processInfo.arguments.contains("--asinu-test-callkit") {
+      print("[AsinuVoip] Starting CallKit development simulation")
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        self.simulateIncoming(payload: [
+          "episodeId": UUID().uuidString.lowercased(),
+          "attemptId": UUID().uuidString.lowercased(),
+          "kind": "INCOMING_CALL",
+          "severity": "URGENT",
+        ], completion: {})
       }
-      #endif
     }
+    #endif
   }
 
   func registration() -> [String: String]? {
@@ -109,8 +116,15 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   func pendingCall() -> [String: String]? {
     guard let value = UserDefaults.standard.dictionary(forKey: pendingCallKey) as? [String: String],
-          let attemptId = value["attemptId"], let uuid = uuidByAttempt[attemptId],
-          callsByUUID[uuid]?["nativeAnswered"] == "1" else {
+          let attemptId = value["attemptId"], !attemptId.isEmpty else { return nil }
+    if let uuid = uuidByAttempt[attemptId], callsByUUID[uuid]?["nativeAnswered"] == "1" {
+      return value
+    }
+    // A user-ended, already accepted call may still need an on-screen health
+    // response. Retain only a short-lived handoff, never a new native call.
+    guard value["nativeEnded"] == "1", value["nativeAnswered"] == "1",
+          let expiry = value["continuationUntil"].flatMap(Double.init),
+          expiry > Date().timeIntervalSince1970 else {
       UserDefaults.standard.removeObject(forKey: pendingCallKey)
       return nil
     }
@@ -132,7 +146,12 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func setCallUIActive(attemptId: String, active: Bool, deadline: String) -> Bool {
-    guard let uuid = uuidByAttempt[attemptId], let call = callsByUUID[uuid], call["nativeAnswered"] == "1" else { return false }
+    guard let uuid = uuidByAttempt[attemptId], let call = callsByUUID[uuid], call["nativeAnswered"] == "1" else {
+      if active && UIApplication.shared.applicationState == .active && pendingCall()?["attemptId"] == attemptId {
+        UserDefaults.standard.removeObject(forKey: pendingCallKey)
+      }
+      return false
+    }
     if active && UIApplication.shared.applicationState == .active {
       callUIOwners.insert(uuid)
       stopHandoffPrompt()
@@ -156,8 +175,9 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     guard url.scheme == "asinu-lite", url.host == "checkin-call",
           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
           components.queryItems?.contains(where: { $0.name == "nativeAnswered" && $0.value == "1" }) == true,
-          let attemptId = components.queryItems?.first(where: { $0.name == "attemptId" })?.value,
-          let uuid = uuidByAttempt[attemptId], let call = callsByUUID[uuid],
+          let attemptId = components.queryItems?.first(where: { $0.name == "attemptId" })?.value else { return false }
+    let call = uuidByAttempt[attemptId].flatMap { callsByUUID[$0] } ?? pendingCall()
+    guard let call, call["attemptId"] == attemptId,
           call["nativeAnswered"] == "1", url.path == "/" + (call["episodeId"] ?? "") else { return false }
     UserDefaults.standard.set(call, forKey: pendingCallKey)
     NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: call)
@@ -165,7 +185,13 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func endCall(attemptId: String, reason: CXCallEndedReason = .remoteEnded) {
-    guard let uuid = uuidByAttempt[attemptId] else { return }
+    if responseAfterAudioRelease?["attemptId"] == attemptId { responseAfterAudioRelease = nil }
+    guard let uuid = uuidByAttempt[attemptId] else {
+      if pendingCall()?["attemptId"] == attemptId {
+        UserDefaults.standard.removeObject(forKey: pendingCallKey)
+      }
+      return
+    }
     provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
     removeCall(uuid: uuid)
   }
@@ -174,23 +200,28 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     let action = string(payload["action"])
     let kind = string(payload["kind"])
     let attemptId = string(payload["attemptId"])
+    endedAttempts = endedAttempts.filter { $0.value.timeIntervalSinceNow > -600 }
 
     if action == "END_CALL" || kind == "END_CALL" {
       if !attemptId.isEmpty { endCall(attemptId: attemptId) }
-      completion()
+      // Compatibility for pushes already in flight from older servers. Even
+      // an obsolete control push must be reported before completing PushKit.
+      reportDiscardedVoipPush(completion: completion)
       return
     }
 
     let episodeId = string(payload["episodeId"])
-    guard !episodeId.isEmpty, !attemptId.isEmpty else {
-      completion()
+    guard !episodeId.isEmpty, !attemptId.isEmpty,
+          action.isEmpty || action == "INCOMING_CALL",
+          kind.isEmpty || kind == "INCOMING_CALL" else {
+      reportDiscardedVoipPush(completion: completion)
       return
     }
 
-    // URGENT_REPEAT uses the same attempt. Do not stack duplicate CallKit UIs
-    // while the current call is still ringing or connected.
-    if uuidByAttempt[attemptId] != nil {
-      completion()
+    // A duplicate must not reset the ring timer, replace an answered call, or
+    // resurrect one that just ended. It still owes PushKit a CallKit report.
+    if uuidByAttempt[attemptId] != nil || endedAttempts[attemptId] != nil {
+      reportDiscardedVoipPush(completion: completion)
       return
     }
 
@@ -240,6 +271,21 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
         }
         completion()
       }
+    }
+  }
+
+  private func reportDiscardedVoipPush(completion: @escaping () -> Void) {
+    let uuid = UUID()
+    let update = CXCallUpdate()
+    update.remoteHandle = CXHandle(type: .generic, value: NSLocalizedString("checkin_call_handle", comment: "CallKit check-in handle"))
+    update.localizedCallerName = NSLocalizedString("checkin_call_title", comment: "CallKit check-in title")
+    // Do not register a React call, activate audio, or disturb an existing
+    // call. Retire this compatibility report as soon as CallKit accepts it.
+    provider.reportNewIncomingCall(with: uuid, update: update) { error in
+      if error == nil {
+        self.provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+      }
+      completion()
     }
   }
 
@@ -314,14 +360,16 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     UserDefaults.standard.set(call, forKey: pendingCallKey)
     NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: call)
 
-    let episodeId = call["episodeId"] ?? ""
-    let attemptId = call["attemptId"] ?? ""
+    openResponseScreen(call)
+  }
+
+  private func openResponseScreen(_ call: [String: String]) {
     var components = URLComponents()
     components.scheme = "asinu-lite"
     components.host = "checkin-call"
-    components.path = "/" + episodeId
+    components.path = "/" + (call["episodeId"] ?? "")
     components.queryItems = [
-      URLQueryItem(name: "attemptId", value: attemptId),
+      URLQueryItem(name: "attemptId", value: call["attemptId"]),
       URLQueryItem(name: "nativeAnswered", value: "1"),
     ]
     if let url = components.url {
@@ -332,11 +380,35 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+    let continuation = responseContinuation(uuid: action.callUUID)
     removeCall(uuid: action.callUUID)
     action.fulfill()
+    if let continuation {
+      responseAfterAudioRelease = audioSessionActive ? continuation : nil
+      UserDefaults.standard.set(continuation, forKey: pendingCallKey)
+      NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: continuation)
+      openResponseScreen(continuation)
+    }
+  }
+
+  private func responseContinuation(uuid: UUID) -> [String: String]? {
+    guard var call = callsByUUID[uuid], call["nativeAnswered"] == "1",
+          answerActionsByUUID[uuid] == nil else { return nil }
+    let now = Date().timeIntervalSince1970
+    let parser = ISO8601DateFormatter()
+    parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let deadline = responseDeadlinesByUUID[uuid] ?? ""
+    var date = parser.date(from: deadline)
+    if date == nil { parser.formatOptions = [.withInternetDateTime]; date = parser.date(from: deadline) }
+    let expiry = min(now + 120, date?.timeIntervalSince1970 ?? now + 120)
+    guard expiry > now else { return nil }
+    call["nativeEnded"] = "1"
+    call["continuationUntil"] = String(expiry)
+    return call
   }
 
   func providerDidReset(_ provider: CXProvider) {
+    responseAfterAudioRelease = nil
     for uuid in Array(callsByUUID.keys) { removeCall(uuid: uuid) }
     audioSessionActive = false
     stopHandoffPrompt()
@@ -350,6 +422,16 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
     audioSessionActive = false
     stopHandoffPrompt()
+    // An already-visible response screen may have been playing through the
+    // native session. Let it re-prepare Expo playback only AFTER CallKit has
+    // released that session; do not replay completed or declined calls.
+    if var continuation = responseAfterAudioRelease {
+      responseAfterAudioRelease = nil
+      if let expiry = continuation["continuationUntil"].flatMap(Double.init), expiry > Date().timeIntervalSince1970 {
+        continuation["audioSessionReleased"] = "1"
+        NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: continuation)
+      }
+    }
   }
 
   func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
@@ -369,13 +451,23 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     guard audioSessionActive,
           let entry = callsByUUID.first(where: { $0.value["nativeAnswered"] == "1" && !callUIOwners.contains($0.key) }),
           answerActionsByUUID[entry.key] == nil else { return }
-    if handoffSpeech.isSpeaking || handoffPromptTimer != nil { return }
+    if handoffRecording?.isPlaying == true || handoffSpeech.isSpeaking || handoffPromptTimer != nil { return }
     let language = entry.value["lang"] == "en" ? "en" : "vi"
-    let bundle = Bundle.main.path(forResource: language, ofType: "lproj").flatMap { Bundle(path: $0) } ?? Bundle.main
-    let utterance = AVSpeechUtterance(string: NSLocalizedString("checkin_call_open_app_prompt", bundle: bundle, comment: "Open Asinu to respond to an answered call"))
-    utterance.voice = AVSpeechSynthesisVoice(language: language == "en" ? "en-US" : "vi-VN")
-    utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
-    handoffSpeech.speak(utterance)
+    if language == "vi" {
+      // Bundled Ngọc Lan recording: cold/locked launches need neither React
+      // nor a network download. Never silently replace it with Apple's voice.
+      guard let url = Bundle.main.url(forResource: "asinu_checkin_open_app_vi", withExtension: "mp3"),
+            let recording = try? AVAudioPlayer(contentsOf: url) else { return }
+      handoffRecording = recording
+      recording.prepareToPlay()
+      guard recording.play() else { handoffRecording = nil; return }
+    } else {
+      let bundle = Bundle.main.path(forResource: language, ofType: "lproj").flatMap { Bundle(path: $0) } ?? Bundle.main
+      let utterance = AVSpeechUtterance(string: NSLocalizedString("checkin_call_open_app_prompt", bundle: bundle, comment: "Open Asinu to respond to an answered call"))
+      utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+      utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+      handoffSpeech.speak(utterance)
+    }
     // A bounded reminder, only during this accepted call. Never synthesize
     // medical conclusions, create a check-in, or send family confirmation here.
     let reminder = DispatchWorkItem { [weak self] in
@@ -389,6 +481,8 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private func stopHandoffPrompt() {
     handoffPromptTimer?.cancel()
     handoffPromptTimer = nil
+    handoffRecording?.stop()
+    handoffRecording = nil
     handoffSpeech.stopSpeaking(at: .immediate)
   }
 
@@ -420,7 +514,10 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     stopHandoffPrompt()
     guard let call = callsByUUID.removeValue(forKey: uuid) else { return }
     let attemptId = call["attemptId"] ?? ""
-    if !attemptId.isEmpty { uuidByAttempt.removeValue(forKey: attemptId) }
+    if !attemptId.isEmpty {
+      uuidByAttempt.removeValue(forKey: attemptId)
+      endedAttempts[attemptId] = Date()
+    }
     if let pending = UserDefaults.standard.dictionary(forKey: pendingCallKey) as? [String: String],
        pending["attemptId"] == attemptId {
       UserDefaults.standard.removeObject(forKey: pendingCallKey)

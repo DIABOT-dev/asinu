@@ -49,7 +49,7 @@ export function useCheckinCallAudio(
     let ownsNativeAudioSession = false;
     const identity = (prompt: CallAudioPrompt) => {
       const personalizedFamily = isFamilyNoticePrompt(prompt.key) && Boolean(prompt.attemptId);
-      const key = prompt.language + '-' +
+      const key = (prompt.language === 'vi' ? 'voice-ngoc-lan-v1-' : 'voice-en-v1-') + prompt.language + '-' +
         (personalizedFamily ? prompt.attemptId + '-' : '') + prompt.key + '-' + textHash(prompt.text);
       const uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'checkin-call-' + key + '.mp3';
       return { key, uri, personalizedFamily };
@@ -99,6 +99,9 @@ export function useCheckinCallAudio(
       },
       create: async uri => (await Audio.Sound.createAsync({ uri }, { shouldPlay: false, keepAudioSessionActive: ownsNativeAudioSession })).sound,
       stopSpeech: () => Speech.stop(),
+      // Vietnamese check-in calls must keep Ngọc Lan, not silently switch to
+      // the iOS/Android system voice when a recording fails to load.
+      allowDeviceSpeech: prompt => prompt.language === 'en',
       speak: (prompt, callbacks) => Speech.speak(prompt.text, {
         language: prompt.language === 'en' ? 'en-US' : 'vi-VN',
         rate: 0.85,

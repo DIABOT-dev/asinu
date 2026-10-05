@@ -161,6 +161,28 @@ await test('late callbacks from cancelled fallback speech cannot replace the new
   assert.equal(h.states.at(-1).prompt.key, 'new');
   assert.equal(h.states.at(-1).phase, 'playing');
 });
+for (const failure of ['load', 'create', 'nativeDecode']) {
+  await test(`Ngọc Lan policy never switches Vietnamese to device speech on ${failure} failure`, async () => {
+    const h = harness({ allowDeviceSpeech: p => p.language === 'en' });
+    if (failure !== 'nativeDecode') h.dependencies[failure] = async () => { throw new Error('recording unavailable'); };
+    await h.owner.play(prompt('user_prompt'));
+    if (failure === 'nativeDecode') {
+      h.sounds[0].listener({ isLoaded: false, didJustFinish: false, error: 'decode failed' });
+      await tick();
+      assert.equal(h.sounds[0].released, true);
+    }
+    assert.equal(h.voices.length, 0);
+    assert.equal(h.states.at(-1).phase, 'error');
+    assert.equal(h.states.at(-1).prompt.text, 'user_prompt transcript');
+    assert.equal(h.states.at(-1).fallback, false);
+  });
+}
+await test('English device fallback is still available with the Ngọc Lan policy', async () => {
+  const h = harness({ allowDeviceSpeech: p => p.language === 'en', load: async () => { throw new Error('unavailable'); } });
+  await h.owner.play({ ...prompt('user_prompt'), language: 'en' });
+  assert.equal(h.voices.length, 1);
+  assert.equal(h.states.at(-1).phase, 'playing');
+});
 await test('play failure releases the recording before starting fallback speech', async () => {
   const h = harness();
   const create = h.dependencies.create;
@@ -557,6 +579,33 @@ await test('a quick background/foreground transition cannot release the recovere
   assert.equal(h.events.includes('native:false'), false);
   assert.equal(h.events.filter(event => event === 'play').length, 1);
 });
+await test('only an active prompt resumes after a user hangup releases CallKit audio', async () => {
+  let expression;
+  ts.forEachChild(ast, function find(node) {
+    if (ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect'
+      && node.arguments[0]?.getText(ast).includes('addVoipCallAnsweredListener')) {
+      expression = node.arguments[0].getText(ast);
+    }
+    ts.forEachChild(node, find);
+  });
+  assert.ok(expression);
+  const context = { current: { attempt: { id: 'attempt' }, joined: true, ended: false,
+    phase: 'playing', prompt: { key: 'user_prompt', text: 'Choose your response' } } };
+  const played = []; let listener;
+  const install = evaluate(`module.exports = deps => { const { audioContext, addVoipCallAnsweredListener, play } = deps; return (${expression})(); };`);
+  install({ audioContext: context, addVoipCallAnsweredListener: callback => { listener = callback; },
+    play: (...args) => { played.push(args); } });
+  const released = { attemptId: 'attempt', nativeEnded: '1', audioSessionReleased: '1' };
+  listener({ ...released, audioSessionReleased: undefined });
+  listener({ ...released, attemptId: 'other' });
+  assert.equal(played.length, 0);
+  listener(released);
+  assert.deepEqual(played, [['user_prompt', 'Choose your response']]);
+  for (const patch of [{ ended: true }, { ended: false, phase: 'finished' }, { phase: 'idle' }, { phase: 'playing', joined: false }]) {
+    Object.assign(context.current, patch); listener(released);
+  }
+  assert.equal(played.length, 1);
+});
 
 // The native adapter is exercised with filesystem/API stubs as well, so cache
 // coalescing, exact-attempt identity and no-autoplay are tested at the seam.
@@ -583,7 +632,7 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
       cacheDirectory: 'cache/', getInfoAsync: async () => fileInfo, writeAsStringAsync: async () => {},
       deleteAsync: async () => { calls.push('deleteInvalidAudio'); fileInfo = { exists: false }; },
     };
-    if (id === 'expo-speech') return { stop: h.dependencies.stopSpeech, speak: () => {} };
+    if (id === 'expo-speech') return { stop: h.dependencies.stopSpeech, speak: (text) => { calls.push(`deviceSpeech:${text}`); } };
     if (id === '../../lib/audio') return { Audio: {
       setAudioModeAsync: async () => { audioModeChanges++; await h.dependencies.prepare(); },
       Sound: { createAsync: async (source, initial) => {
@@ -612,6 +661,15 @@ await test('an answered native call keeps its audio session and skips Expo categ
   const h = hookHarness({ id: 'native-attempt', target_role: 'USER' }, { exists: false }, true);
   await h.controls.play('user_prompt');
   assert.equal(h.audioModeChanges, 0);
+  h.cleanup();
+});
+await test('the real Vietnamese adapter preserves transcript and never uses Apple speech when synthesis fails', async () => {
+  const h = hookHarness(null);
+  h.api.audio = async () => { throw new Error('offline'); };
+  await h.controls.play('user_prompt');
+  assert.equal(h.states.at(-1).phase, 'error');
+  assert.equal(h.states.at(-1).fallback, false);
+  assert.equal(h.calls.some(call => call.startsWith('deviceSpeech:')), false);
   h.cleanup();
 });
 await test('a non-native call still prepares its own Expo audio session', async () => {

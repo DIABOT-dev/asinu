@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { LiveKitRoom } from '@livekit/react-native';
 import { Room } from 'livekit-client';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +23,7 @@ import {
   getCheckinCallTime,
   isCheckinCallAttemptClosed,
 } from '../../src/features/checkin-call/checkin-call.state';
-import { endVoipCall, setVoipCallUIActive, simulateIncomingVoipCall } from '../../src/lib/voip';
+import { addVoipCallAnsweredListener, endVoipCall, setVoipCallUIActive, simulateIncomingVoipCall } from '../../src/lib/voip';
 import { acceptCheckinCallOnce } from '../../src/features/checkin-call/checkin-call.accept';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +33,7 @@ import { CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSp
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CheckinCallPhoneAction } from '../../src/features/checkin-call/CheckinCallPhoneAction';
 import { restoreTriageDraft } from '../../src/features/checkin-call/triage-draft';
+import { useAuthStore } from '../../src/features/auth/auth.store';
 
 type TriageStep = 'location' | 'symptom' | 'intensity';
 type TriageIntensity = CheckinCallTriageSelection['intensity'];
@@ -48,6 +49,24 @@ const LOCATION_ICONS: Record<string, React.ComponentProps<typeof MaterialCommuni
 };
 
 export default function CheckinCallScreen() {
+  const hydrated = useAuthStore(state => state.hydrated);
+  const loading = useAuthStore(state => state.loading);
+  const token = useAuthStore(state => state.token);
+  const accountId = useAuthStore(state => state.profile?.id);
+  const { t } = useTranslation('checkinCall');
+  // CallKit cold-start/deep links can precede SecureStore hydration. Mount
+  // API/audio only after authentication is ready, and unmount on logout.
+  if (!hydrated || loading) return (
+    <View style={[styles.root, styles.centerContainer]}>
+      <ActivityIndicator size="large" color="#059669" />
+      <Text style={styles.status}>{t('statusPreparing')}</Text>
+    </View>
+  );
+  if (!token) return <Redirect href="/login" />;
+  return <AuthenticatedCheckinCallScreen key={accountId} />;
+}
+
+function AuthenticatedCheckinCallScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation('checkinCall');
@@ -85,8 +104,8 @@ export default function CheckinCallScreen() {
   const { audio, play: playAudio, stopAudio: stopCallAudio } = useCheckinCallAudio(attempt, language, t);
   const callScreenFocused = useRef(true);
   const playVersion = useRef(0);
-  const audioContext = useRef({ attempt, joined, ended, triageOpen, prompt: audio.prompt });
-  audioContext.current = { attempt, joined, ended, triageOpen, prompt: audio.prompt };
+  const audioContext = useRef({ attempt, joined, ended, triageOpen, prompt: audio.prompt, phase: audio.phase });
+  audioContext.current = { attempt, joined, ended, triageOpen, prompt: audio.prompt, phase: audio.phase };
   const stopAudio = useCallback((clearPrompt = true) => {
     playVersion.current++;
     return stopCallAudio(clearPrompt);
@@ -104,6 +123,14 @@ export default function CheckinCallScreen() {
     if (version !== playVersion.current || !callScreenFocused.current || AppState.currentState !== 'active') return;
     await playAudio(key, text);
   }, [playAudio]);
+  useEffect(() => addVoipCallAnsweredListener(call => {
+    const current = audioContext.current;
+    if (call.nativeEnded !== '1' || call.audioSessionReleased !== '1' || current.attempt?.id !== call.attemptId
+      || !current.joined || current.ended || !current.prompt || !['loading', 'playing'].includes(current.phase)) return;
+    // CallKit can end while the app is already visible (e.g. Dynamic Island).
+    // Reclaim playback after native deactivation, without another health POST.
+    void play(current.prompt.key, current.prompt.text);
+  }), [play]);
   useFocusEffect(useCallback(() => {
     callScreenFocused.current = true;
     const current = audioContext.current;
@@ -474,11 +501,12 @@ export default function CheckinCallScreen() {
         }
         if (attempt.target_role === 'FAMILY' && (state === 'URGENT_BROADCAST' || state === 'URGENT_ACKNOWLEDGED')) setStatusKey('statusUrgentAccepted');
         startPrompt();
-      }).catch(() => {
+      }).catch((e) => {
         accepted.current = false;
         acceptPromise.current = null;
         if (!screenMounted.current || connectionEnding.current) return;
         setStatusKey('statusAcceptFailed');
+        setError(getApiErrorMessage(e, t, 'statusAcceptFailed'));
       });
     } else startPrompt();
   }, [attempt, play, room, t]);
@@ -740,14 +768,14 @@ export default function CheckinCallScreen() {
   const deadline = getCheckinCallTime(triageOpen ? attempt?.next_action_at : attempt?.confirm_deadline || attempt?.ring_deadline);
   const remaining = deadline === null ? null : Math.max(0, Math.ceil((deadline - now) / 1000));
   const urgent = attempt?.severity === 'URGENT' || episodeProgress?.severity === 'URGENT' || statusKey === 'statusUserUrgent';
+  const responseTiming = remaining !== null ? (
+    <Text style={styles.responseTiming}>
+      {t(remaining > 0 ? 'responseCountdown' : 'responseDeadline', { seconds: remaining })}
+    </Text>
+  ) : null;
 
   return (
-    <View style={styles.root}>
-      {!!attempt && joined && !ended && <View style={[styles.connectionStatus, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.status} accessibilityLiveRegion="polite">{t(statusKey)}</Text>
-        <Text style={styles.connectionHint}>{t('interactionHint')}</Text>
-        {remaining !== null && <Text style={styles.connectionHint}>{t(remaining > 0 ? 'responseCountdown' : 'responseDeadline', { seconds: remaining })}</Text>}
-      </View>}
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {!!room && joined && !ended && (
         <LiveKitRoom
           room={room.instance}
@@ -969,6 +997,7 @@ export default function CheckinCallScreen() {
           {speechControls}
 
           <Text style={styles.familyFootnoteText}>{t('gallery.familyConfirmationNote')}</Text>
+          {responseTiming}
 
           <Image
             source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
@@ -1066,6 +1095,7 @@ export default function CheckinCallScreen() {
                 <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
                 <Text style={styles.safetyFooterText}>{t('safetyNote')}</Text>
               </View>
+              {responseTiming}
             </View>
           ) : (
             <>
@@ -1080,6 +1110,7 @@ export default function CheckinCallScreen() {
                   {t(`triage.${triageStep}Instruction`)}
                 </Text>
                 {speechControls}
+                {responseTiming}
               </View>
 
               {!!error && <Text style={styles.error}>{error}</Text>}
@@ -1299,8 +1330,7 @@ export default function CheckinCallScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f3fbf8' },
-  connectionStatus: { paddingHorizontal: 18, paddingVertical: 8, gap: 4 },
-  connectionHint: { color: '#475569', fontSize: 12, textAlign: 'center' },
+  responseTiming: { width: '100%', maxWidth: 390, color: '#475569', fontSize: 14, lineHeight: 22, marginTop: 8, marginBottom: 12 },
   urgentActionText: { color: '#b91c1c', fontSize: 16, fontWeight: '700', flexShrink: 1 },
   centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
   content: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 16 },
@@ -1570,8 +1600,8 @@ const styles = StyleSheet.create({
   // Screen 1: Family Urgent Call (Image 1)
   familyScrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 48,
     alignItems: 'center',
     position: 'relative',
@@ -1714,7 +1744,7 @@ const styles = StyleSheet.create({
   },
   userCallHeroArt: {
     width: '100%',
-    height: 110,
+    height: 72,
     marginBottom: 8,
   },
   userHeadsetIconWrap: {
@@ -1726,19 +1756,21 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   userCardTitle: {
+    width: '100%',
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '700',
+    lineHeight: 32,
     color: '#0f3e36',
     textAlign: 'center',
     marginBottom: 6,
   },
   userCardSub: {
-    fontSize: 14,
+    width: '100%',
+    fontSize: 16,
     color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 20,
+    textAlign: 'left',
+    lineHeight: 24,
     marginBottom: 18,
-    paddingHorizontal: 6,
   },
   userCardOptionsCol: {
     width: '100%',
@@ -1808,8 +1840,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
     paddingTop: 14,
     marginTop: 4,
   },

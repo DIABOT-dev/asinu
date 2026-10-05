@@ -13,6 +13,9 @@ export type VoipCallPayload = {
   severity?: string;
   kind?: string;
   lang?: string;
+  nativeEnded?: string;
+  continuationUntil?: string;
+  audioSessionReleased?: string;
 };
 
 type NativeVoipModule = {

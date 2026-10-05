@@ -24,6 +24,7 @@ type AudioDependencies = {
   prepare: () => Promise<void>;
   create: (uri: string) => Promise<CallAudioSound>;
   stopSpeech: () => Promise<void>;
+  allowDeviceSpeech?: (prompt: CallAudioPrompt) => boolean;
   speak: (prompt: CallAudioPrompt, callbacks: {
     onStart: () => void; onDone: () => void; onError: () => void;
   }) => void;
@@ -92,6 +93,10 @@ export class CheckinCallAudio {
       await this.dependencies.invalidate?.(prompt).catch(() => {});
     }
     if (!this.current(version)) return;
+    if (this.dependencies.allowDeviceSpeech?.(prompt) === false) {
+      this.update({ phase: 'error', prompt, fallback: false });
+      return;
+    }
     try {
       // If native Speech.stop itself failed, do not enqueue overlapping speech.
       await this.speechStop;

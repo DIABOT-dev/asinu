@@ -23,6 +23,7 @@
 		A51000050000000000000001 /* AsinuVoipModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A51000060000000000000001 /* AsinuVoipModule.m */; };
 		A52000010000000000000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A52000020000000000000001 /* InfoPlist.strings */; };
 		A52000030000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A52000040000000000000001 /* Localizable.strings */; };
+		A53000010000000000000001 /* asinu_checkin_open_app_vi.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A53000020000000000000001 /* asinu_checkin_open_app_vi.mp3 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +51,7 @@
 		A52000060000000000000001 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A52000070000000000000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A52000080000000000000001 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A53000020000000000000001 /* asinu_checkin_open_app_vi.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = asinu_checkin_open_app_vi.mp3; path = ../assets/sounds/asinu_checkin_open_app_vi.mp3; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,6 +88,7 @@
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				E7F965E144DF400FA6F14DDC /* asinu_reminder.wav */,
 				689F63AF8350427EA0EDC244 /* asinu_alert.wav */,
+				A53000020000000000000001 /* asinu_checkin_open_app_vi.mp3 */,
 				D2093ECC06064856ADD57D31 /* asinu_care.wav */,
 				437184666F52480F8662F509 /* asinu_milestone.wav */,
 				E152F8C896AFCD3504E7470C /* PrivacyInfo.xcprivacy */,
@@ -233,6 +236,7 @@
 				9F34B6DDA6819A754362285F /* PrivacyInfo.xcprivacy in Resources */,
 				A52000010000000000000001 /* InfoPlist.strings in Resources */,
 				A52000030000000000000001 /* Localizable.strings in Resources */,
+				A53000010000000000000001 /* asinu_checkin_open_app_vi.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
