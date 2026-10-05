@@ -67,7 +67,7 @@ assert.ok(/t\(familyNotice\.titleKey\)/.test(screen), 'Family title must use its
 assert.ok(/t\(familyNotice\.messageKey\)/.test(screen), 'Family message must use its severity-specific locale key');
 assert.ok(screen.includes('room={room.instance}'), 'The screen must own the exact LiveKit room it disconnects');
 assert.ok(screen.includes('onError={onConnectionError}'), 'Room callback identity must not change on every screen render');
-assert.ok(screen.includes('if (!live || connectionEnding.current) return;'), 'Late poll responses must not replace a completed result');
+assert.ok(screen.includes('if (!live || connectionEnding.current || actionPending.current) return;'), 'Late poll responses must not replace a completed result or an in-flight response');
 assert.ok(screen.includes('activeRoom.current?.instance === room?.instance'), 'Old room callbacks must not affect a replacement room');
 for (const method of ['answer', 'completeTriage', 'confirmFamily']) {
   const actionAt = screen.indexOf(`checkinCallApi.${method}(`);
@@ -103,9 +103,10 @@ for (const field of ['subject.name', 'subject.relationship', 'subject.phone_numb
   checks += 1;
 }
 assert.equal((screen.match(/<CheckinCallContact subject=\{attempt.subject\}/g) || []).length, 3, 'Identify the protected person before, during and after the family call');
-assert.ok(screen.includes('checkinCallApi.familyAudio(attempt.id)'), 'Family TTS must be authorized for the exact attempt');
-assert.ok(screen.includes('attempt?.family_notice?.audio_text'), 'Device fallback must preserve personalized identity');
-assert.ok(screen.includes("personalizedFamily ? attempt.id + '-'"), 'Do not reuse another person’s cached audio');
+const audioAdapter = fs.readFileSync('src/features/checkin-call/useCheckinCallAudio.ts', 'utf8');
+assert.ok(audioAdapter.includes('checkinCallApi.familyAudio(prompt.attemptId!)'), 'Family TTS must be authorized for the exact captured attempt');
+assert.ok(audioAdapter.includes('current.attempt?.family_notice?.audio_text'), 'Device fallback must preserve personalized identity');
+assert.ok(audioAdapter.includes("personalizedFamily ? prompt.attemptId + '-'"), 'Do not reuse another person’s cached audio');
 assert.ok(!contact.includes('numberOfLines') && !contact.includes('height:'), 'Contact details must wrap at large font sizes');
 checks += 5;
 console.log(`Check-in call UI state: ${checks} regression checks passed; screen uses the tested helpers.`);

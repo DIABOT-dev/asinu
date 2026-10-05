@@ -1,4 +1,4 @@
-import type { CheckinCallAttempt } from './checkin-call.api';
+import type { CheckinCallAttempt, CheckinCallEpisode } from './checkin-call.api';
 
 const CLOSED_EPISODES = new Set([
   'RESOLVED',
@@ -51,4 +51,15 @@ export function getFamilyCallNoticeKeys(severity: string | null | undefined) {
     return { titleKey: 'gallery.mildFamilyTitle', messageKey: 'gallery.mildFamilyMessage' };
   }
   return { titleKey: 'gallery.unknownFamilyTitle', messageKey: 'gallery.unknownFamilyMessage' };
+}
+
+export function getUserCheckinCallOutcome(episode: Pick<CheckinCallEpisode, 'state' | 'severity'>) {
+  const statusKey = getClosedCheckinCallStatusKey({
+    state: 'COMPLETED', episode_state: episode.state, target_role: 'USER', severity: episode.severity,
+  });
+  const audioKey = statusKey === 'statusUserOk' ? 'user_ok'
+    : statusKey === 'statusUserMild' ? 'user_mild'
+      : statusKey === 'statusUserUrgent' ? 'user_urgent'
+        : statusKey === 'statusFamilyUnavailable' ? 'family_unavailable' : null;
+  return { statusKey, audioKey, notifyingFamily: statusKey === 'statusUserMild' || statusKey === 'statusUserUrgent' };
 }

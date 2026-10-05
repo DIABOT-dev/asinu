@@ -24,6 +24,13 @@ type RecordingStatus = {
 
 type RecordingStatusListener = (status: RecordingStatus) => void;
 
+type PlaybackStatus = {
+  didJustFinish: boolean;
+  isLoaded: boolean;
+  playing: boolean;
+  error: string | null;
+};
+
 type RecordingOptions = Record<string, any>;
 
 function normalizeRecordingOptions(options: RecordingOptions, metering = false) {
@@ -100,12 +107,14 @@ class LegacySound {
     this.player.remove();
   }
 
-  setOnPlaybackStatusUpdate(listener: (status: { didJustFinish: boolean; isLoaded: boolean }) => void) {
+  setOnPlaybackStatusUpdate(listener: (status: PlaybackStatus) => void) {
     this.playbackSubscription?.remove();
     this.playbackSubscription = this.player.addListener('playbackStatusUpdate', (status: any) => {
       listener({
         didJustFinish: Boolean(status.didJustFinish),
         isLoaded: Boolean(status.isLoaded),
+        playing: Boolean(status.playing),
+        error: typeof status.error === 'string' ? status.error : null,
       });
     });
   }

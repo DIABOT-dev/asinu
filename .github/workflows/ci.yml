@@ -53,6 +53,12 @@ jobs:
       - name: Check-in native readiness
         run: npm run test:checkin-native
 
+      - name: Check-in state, signaling and audio regressions
+        run: |
+          npm run test:checkin-state
+          npm run test:checkin-connection
+          npm run test:checkin-audio
+
       - name: Interaction and navigation check
         run: npm run test:interactions
 

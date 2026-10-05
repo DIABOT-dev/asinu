@@ -1,12 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { LiveKitRoom } from '@livekit/react-native';
 import { Room } from 'livekit-client';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Speech from 'expo-speech';
-import { Audio } from '../../src/lib/audio';
 import {
   checkinCallApi,
   type CheckinCallAttempt,
@@ -19,6 +16,7 @@ import {
 import {
   getClosedCheckinCallStatusKey,
   getFamilyCallNoticeKeys,
+  getUserCheckinCallOutcome,
   isCheckinCallAttemptClosed,
 } from '../../src/features/checkin-call/checkin-call.state';
 import { endVoipCall, simulateIncomingVoipCall } from '../../src/lib/voip';
@@ -26,21 +24,8 @@ import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { CheckinCallContact } from '../../src/features/checkin-call/CheckinCallContact';
-
-const AUDIO_TRANSLATION_KEYS: Record<string, string> = {
-  user_prompt: 'audio.userPrompt',
-  triage_prompt: 'audio.triagePrompt',
-  triage_location_prompt: 'audio.triageLocationPrompt',
-  triage_symptom_prompt: 'audio.triageSymptomPrompt',
-  triage_intensity_prompt: 'audio.triageIntensityPrompt',
-  user_ok: 'audio.userOk',
-  user_mild: 'audio.userMild',
-  user_urgent: 'audio.userUrgent',
-  user_retry: 'audio.userRetry',
-  family_mild: 'audio.familyMild',
-  family_urgent: 'audio.familyUrgent',
-  family_unknown: 'audio.familyUnknown',
-};
+import { CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
+import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 
 type TriageStep = 'location' | 'symptom' | 'intensity';
 type TriageIntensity = CheckinCallTriageSelection['intensity'];
@@ -73,11 +58,37 @@ export default function CheckinCallScreen() {
   const [triageContext, setTriageContext] = useState<CheckinCallTriageContext | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<CheckinCallTriageLocation | null>(null);
   const [selectedSymptom, setSelectedSymptom] = useState<CheckinCallTriageSymptom | null>(null);
+  const userContent = useRef<ScrollView | null>(null);
+  useLayoutEffect(() => {
+    // A long symptom/location list may leave the next question off-screen.
+    // Reset on question changes, never on polling or playback status updates.
+    userContent.current?.scrollTo({ y: 0, animated: false });
+  }, [triageOpen, triageStep]);
   const [error, setError] = useState('');
   const [statusKey, setStatusKey] = useState('statusPreparing');
-  const sound = useRef<Awaited<ReturnType<typeof Audio.Sound.createAsync>>['sound'] | null>(null);
-  const playbackVersion = useRef(0);
-  const loadedAudio = useRef(new Set<string>());
+  const [completedAt, setCompletedAt] = useState<number | null>(null);
+  const { audio, play: playAudio, stopAudio } = useCheckinCallAudio(attempt, language, t);
+  const callScreenFocused = useRef(true);
+  const play = useCallback((key: string, text?: string) => {
+    if (!callScreenFocused.current) return Promise.resolve();
+    return playAudio(key, text);
+  }, [playAudio]);
+  useFocusEffect(useCallback(() => {
+    callScreenFocused.current = true;
+    return () => {
+      callScreenFocused.current = false;
+      void stopAudio(false);
+    };
+  }, [stopAudio]));
+  const actionPending = useRef(false);
+  const callEnded = useRef(false);
+  const joinRequested = useRef(false);
+  const inTriage = useRef(false);
+  const triageStage = useRef<{
+    step: TriageStep;
+    location: CheckinCallTriageLocation | null;
+    symptom: CheckinCallTriageSymptom | null;
+  }>({ step: 'location', location: null, symptom: null });
   const accepted = useRef(false);
   const acceptPromise = useRef<ReturnType<typeof checkinCallApi.accept> | null>(null);
   const activeRoom = useRef<{ token: string; url: string; instance: Room } | null>(null);
@@ -108,10 +119,36 @@ export default function CheckinCallScreen() {
           if (!screenMounted.current) return;
           setError('');
           setAttempt(latest.attempt);
+          callEnded.current = true;
+          setCompletedAt(Date.now());
           setEnded(true);
           setRoom(null);
-          setStatusKey(getClosedCheckinCallStatusKey(latest.attempt));
+          const recoveredStatus = getClosedCheckinCallStatusKey(latest.attempt);
+          setStatusKey(recoveredStatus);
+          if (recoveredStatus === 'statusFamilyConfirmed') {
+            void play('family_confirmed', t('result.familyConfirmedMessage'));
+          } else if (latest.attempt.target_role === 'USER') {
+            const outcome = getUserCheckinCallOutcome({ state: latest.attempt.episode_state, severity: latest.attempt.severity });
+            if (outcome.audioKey) void play(outcome.audioKey,
+              outcome.audioKey === 'family_unavailable' ? t('result.familyUnavailableMessage') : undefined);
+          }
           return;
+        }
+        // The triage POST may have committed even if its HTTP response was
+        // lost. Reconcile that state instead of leaving obsolete answer buttons.
+        if (latest.attempt.target_role === 'USER' && latest.attempt.episode_state === 'TRIAGE_USER' && !inTriage.current) {
+          const recovered = await checkinCallApi.startTriage(episodeId);
+          if (!screenMounted.current) return;
+          inTriage.current = true;
+          triageStage.current = { step: 'location', location: null, symptom: null };
+          setAttempt(latest.attempt);
+          setTriageContext(recovered.triage);
+          setSelectedLocation(null);
+          setSelectedSymptom(null);
+          setTriageStep('location');
+          setTriageOpen(true);
+          setError('');
+          void play('triage_location_prompt');
         }
       }
     } catch {
@@ -128,7 +165,7 @@ export default function CheckinCallScreen() {
         setStatusKey('statusConnectionLost');
       }
     }
-  }, [attempt?.id]);
+  }, [attempt?.id, episodeId, play, t]);
 
   useEffect(() => {
     screenMounted.current = true;
@@ -189,62 +226,6 @@ export default function CheckinCallScreen() {
     };
   })();
 
-  const stopAudio = useCallback(async () => {
-    playbackVersion.current += 1;
-    Speech.stop();
-    const current = sound.current;
-    sound.current = null;
-    try {
-      await current?.unloadAsync();
-    } catch {
-      // The player may already be released by a call-end event.
-    }
-  }, []);
-
-  const play = useCallback(async (key: string) => {
-    const version = playbackVersion.current + 1;
-    playbackVersion.current = version;
-    try {
-      Speech.stop();
-      const previous = sound.current;
-      sound.current = null;
-      await previous?.unloadAsync();
-      // Family prompts identify the exact protected person. Never reuse a
-      // generic cached family clip, or another person's clip, for this call.
-      const personalizedFamily = key.startsWith('family_') && attempt?.target_role === 'FAMILY';
-      const localizedKey = language + '-' + (personalizedFamily ? attempt.id + '-' : '') + key;
-      const uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'checkin-call-' + localizedKey + '.mp3';
-      if (!loadedAudio.current.has(localizedKey)) {
-        const info = await FileSystem.getInfoAsync(uri);
-        try {
-          const result = personalizedFamily
-            ? await checkinCallApi.familyAudio(attempt.id)
-            : await checkinCallApi.audio(key);
-          await FileSystem.writeAsStringAsync(uri, result.base64, { encoding: 'base64' });
-        } catch (e) {
-          if (!info.exists) throw e;
-        }
-        loadedAudio.current.add(localizedKey);
-      }
-      if (playbackVersion.current !== version) return;
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const created = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
-      if (playbackVersion.current !== version) {
-        await created.sound.unloadAsync();
-      } else {
-        sound.current = created.sound;
-      }
-    } catch {
-      if (playbackVersion.current !== version) return;
-      // Device speech is a safety fallback if the cached VieNeu asset is unavailable.
-      const personalizedText = key.startsWith('family_') ? attempt?.family_notice?.audio_text : null;
-      Speech.speak(personalizedText || t(AUDIO_TRANSLATION_KEYS[key] || 'audio.userRetry'), {
-        language: language === 'en' ? 'en-US' : 'vi-VN',
-        rate: 0.85,
-      });
-    }
-  }, [attempt?.id, attempt?.target_role, attempt?.family_notice?.audio_text, language, t]);
-
   useEffect(() => {
     let live = true;
     async function load() {
@@ -264,10 +245,12 @@ export default function CheckinCallScreen() {
           setError(t('errorInvalidCall'));
           return;
         }
-        setAttempt(result.attempt);
         if (isCheckinCallAttemptClosed(result.attempt)) {
+          setAttempt(result.attempt);
           connectionEnding.current = true;
+          callEnded.current = true;
           void endVoipCall(result.attempt.id);
+          setCompletedAt(Date.now());
           setEnded(true);
           setStatusKey(getClosedCheckinCallStatusKey(result.attempt));
           return;
@@ -279,9 +262,12 @@ export default function CheckinCallScreen() {
           const triageResult = await checkinCallApi.startTriage(episodeId);
           if (!live) return;
           setTriageContext(triageResult.triage);
+          inTriage.current = true;
           setTriageOpen(true);
           setTriageStep('location');
         }
+        if (!live) return;
+        setAttempt(result.attempt);
         if (result.attempt.target_role === 'FAMILY') void checkinCallApi.seen(id).catch(() => {});
         try {
           const connection = await checkinCallApi.token(id);
@@ -310,12 +296,14 @@ export default function CheckinCallScreen() {
     let live = true;
     const interval = setInterval(() => {
       void checkinCallApi.attempt(pollingAttemptId).then(({ attempt: latest }) => {
-        if (!live || connectionEnding.current) return;
+        if (!live || connectionEnding.current || actionPending.current) return;
         setAttempt(latest);
         if (isCheckinCallAttemptClosed(latest)) {
+          callEnded.current = true;
           void disconnectRoom().then(() => endVoipCall(latest.id));
           void stopAudio();
           setEnded(true);
+          setCompletedAt(Date.now());
           setRoom(null);
           setStatusKey(getClosedCheckinCallStatusKey(latest));
         }
@@ -346,7 +334,8 @@ export default function CheckinCallScreen() {
   }, [room?.instance]);
 
   const join = useCallback(() => {
-    if (!attempt || joined) return;
+    if (!attempt || joinRequested.current || callEnded.current) return;
+    joinRequested.current = true;
     setJoined(true);
     setStatusKey(room ? 'statusConnecting' : 'statusNoLiveKit');
     if (!accepted.current) {
@@ -398,17 +387,27 @@ export default function CheckinCallScreen() {
     const retryAt = new Date(attempt.confirm_deadline).getTime() - 15_000;
     const delay = retryAt - Date.now();
     if (!Number.isFinite(delay) || delay <= 0) return;
-    const timer = setTimeout(() => void play('user_retry'), delay);
+    const timer = setTimeout(() => {
+      if (actionPending.current || callEnded.current || inTriage.current) return;
+      void play('user_retry');
+    }, delay);
     return () => clearTimeout(timer);
   }, [attempt?.confirm_deadline, attempt?.target_role, busy, ended, joined, play, triageOpen]);
 
   const openTriage = async () => {
-    if (busy || !episodeId) return;
+    if (actionPending.current || callEnded.current || inTriage.current || !episodeId) return;
+    actionPending.current = true;
     setBusy(true);
     setError('');
     try {
       await stopAudio();
+      // Accept must finish before triage starts: a late accept otherwise
+      // replaces the triage deadline with the initial answer timeout.
+      if (acceptPromise.current) await acceptPromise.current;
       const result = await checkinCallApi.startTriage(episodeId);
+      if (!screenMounted.current || callEnded.current) return;
+      inTriage.current = true;
+      triageStage.current = { step: 'location', location: null, symptom: null };
       setTriageContext(result.triage);
       setSelectedLocation(null);
       setSelectedSymptom(null);
@@ -416,9 +415,12 @@ export default function CheckinCallScreen() {
       setTriageOpen(true);
       void play('triage_location_prompt');
     } catch (e) {
+      if (!screenMounted.current) return;
       setError(getApiErrorMessage(e, t, 'errorStartTriage'));
+      await restoreRoomAfterFailedAction();
     } finally {
-      setBusy(false);
+      actionPending.current = false;
+      if (screenMounted.current) setBusy(false);
     }
   };
 
@@ -443,10 +445,11 @@ export default function CheckinCallScreen() {
 
   const submitTriage = async (
     intensity: TriageIntensity,
-    location = selectedLocation,
-    symptom = selectedSymptom,
+    location = triageStage.current.location,
+    symptom = triageStage.current.symptom,
   ) => {
-    if (busy || !episodeId || !location || !symptom) return;
+    if (actionPending.current || callEnded.current || triageStage.current.step !== 'intensity' || !episodeId || !location || !symptom) return;
+    actionPending.current = true;
     setBusy(true);
     setError('');
     try {
@@ -458,58 +461,59 @@ export default function CheckinCallScreen() {
         intensity,
       });
       if (attempt?.id) await endVoipCall(attempt.id);
+      if (!screenMounted.current) return;
+      callEnded.current = true;
+      setCompletedAt(Date.now());
       setEnded(true);
       setRoom(null);
-      const noEligibleFamily = ['EXHAUSTED', 'EXHAUSTED_MILD', 'EXHAUSTED_URGENT'].includes(
-        result.episode.state,
-      );
-      setStatusKey(
-        noEligibleFamily
-          ? 'statusFamilyUnavailable'
-          : intensity === 'URGENT'
-            ? 'statusUserUrgent'
-            : 'statusUserMild',
-      );
-      void play(intensity === 'URGENT' ? 'user_urgent' : 'user_mild');
-      if (!noEligibleFamily) void simulateNextFamilyCall();
+      const outcome = getUserCheckinCallOutcome(result.episode);
+      setStatusKey(outcome.statusKey);
+      if (outcome.audioKey) void play(outcome.audioKey,
+        outcome.audioKey === 'family_unavailable' ? t('result.familyUnavailableMessage') : undefined);
+      if (outcome.notifyingFamily) void simulateNextFamilyCall();
     } catch (e) {
+      if (!screenMounted.current) return;
       setError(getApiErrorMessage(e, t, 'errorSendTriage'));
       await restoreRoomAfterFailedAction();
     } finally {
-      setBusy(false);
+      actionPending.current = false;
+      if (screenMounted.current) setBusy(false);
     }
   };
 
-  const chooseLocation = async (location: CheckinCallTriageLocation) => {
-    if (busy) return;
-    await stopAudio();
+  const chooseLocation = (location: CheckinCallTriageLocation) => {
+    if (actionPending.current || callEnded.current || triageStage.current.step !== 'location') return;
+    triageStage.current = { step: 'symptom', location, symptom: null };
     setSelectedLocation(location);
     setSelectedSymptom(null);
     setTriageStep('symptom');
     void play('triage_symptom_prompt');
   };
 
-  const chooseSymptom = async (symptom: CheckinCallTriageSymptom) => {
-    if (busy) return;
-    await stopAudio();
+  const chooseSymptom = (symptom: CheckinCallTriageSymptom) => {
+    if (actionPending.current || callEnded.current || triageStage.current.step !== 'symptom') return;
+    const location = triageStage.current.location;
+    if (!location || !location.symptoms.some(option => option.key === symptom.key)) return;
+    triageStage.current = { step: 'intensity', location, symptom };
     setSelectedSymptom(symptom);
     if (symptom.urgent) {
-      await submitTriage('URGENT', selectedLocation, symptom);
+      void submitTriage('URGENT', location, symptom);
       return;
     }
     setTriageStep('intensity');
     void play('triage_intensity_prompt');
   };
 
-  const goBackInTriage = async () => {
-    if (busy || triageStep === 'location') return;
-    await stopAudio();
-    if (triageStep === 'intensity') {
+  const goBackInTriage = () => {
+    if (actionPending.current || callEnded.current || triageStage.current.step === 'location') return;
+    if (triageStage.current.step === 'intensity') {
+      triageStage.current = { ...triageStage.current, step: 'symptom', symptom: null };
       setSelectedSymptom(null);
       setTriageStep('symptom');
       void play('triage_symptom_prompt');
       return;
     }
+    triageStage.current = { step: 'location', location: null, symptom: null };
     setSelectedLocation(null);
     setSelectedSymptom(null);
     setTriageStep('location');
@@ -517,7 +521,8 @@ export default function CheckinCallScreen() {
   };
 
   const answer = async (choice: 1 | 2 | 3, issueCategory?: CheckinCallIssueCategory) => {
-    if (busy || !episodeId) return;
+    if (actionPending.current || callEnded.current || inTriage.current || !episodeId) return;
+    actionPending.current = true;
     setBusy(true);
     setError('');
     try {
@@ -525,32 +530,29 @@ export default function CheckinCallScreen() {
       await disconnectRoom();
       const result = await checkinCallApi.answer(episodeId, choice, issueCategory);
       if (attempt?.id) await endVoipCall(attempt.id);
+      if (!screenMounted.current) return;
+      callEnded.current = true;
+      setCompletedAt(Date.now());
       setEnded(true);
       setRoom(null);
-      const noEligibleFamily = ['EXHAUSTED', 'EXHAUSTED_MILD', 'EXHAUSTED_URGENT'].includes(
-        result.episode.state,
-      );
-      setStatusKey(
-        noEligibleFamily
-          ? 'statusFamilyUnavailable'
-          : choice === 1
-            ? 'statusUserOk'
-            : choice === 2
-              ? 'statusUserMild'
-              : 'statusUserUrgent',
-      );
-      void play(choice === 1 ? 'user_ok' : choice === 2 ? 'user_mild' : 'user_urgent');
-      if (choice !== 1 && !noEligibleFamily) void simulateNextFamilyCall();
+      const outcome = getUserCheckinCallOutcome(result.episode);
+      setStatusKey(outcome.statusKey);
+      if (outcome.audioKey) void play(outcome.audioKey,
+        outcome.audioKey === 'family_unavailable' ? t('result.familyUnavailableMessage') : undefined);
+      if (outcome.notifyingFamily) void simulateNextFamilyCall();
     } catch (e) {
+      if (!screenMounted.current) return;
       setError(getApiErrorMessage(e, t, 'errorSendChoice'));
       await restoreRoomAfterFailedAction();
     } finally {
-      setBusy(false);
+      actionPending.current = false;
+      if (screenMounted.current) setBusy(false);
     }
   };
 
   const confirm = async () => {
-    if (busy || !attempt) return;
+    if (actionPending.current || callEnded.current || !attempt) return;
+    actionPending.current = true;
     setBusy(true);
     setError('');
     try {
@@ -560,16 +562,40 @@ export default function CheckinCallScreen() {
       await disconnectRoom();
       await checkinCallApi.confirmFamily(episodeId, 'ACCEPT_AND_CHECK');
       await endVoipCall(attempt.id);
+      if (!screenMounted.current) return;
+      callEnded.current = true;
+      setCompletedAt(Date.now());
       setEnded(true);
       setRoom(null);
       setStatusKey('statusFamilyConfirmed');
+      void play('family_confirmed', t('result.familyConfirmedMessage'));
     } catch (e) {
+      if (!screenMounted.current) return;
       setError(getApiErrorMessage(e, t, 'errorConfirm'));
       await restoreRoomAfterFailedAction();
     } finally {
-      setBusy(false);
+      actionPending.current = false;
+      if (screenMounted.current) setBusy(false);
     }
   };
+
+  const speechControls = (
+    <CheckinCallSpeech
+      audio={audio}
+      disabled={busy}
+      onReplay={() => {
+        if (actionPending.current || !audio.prompt) return;
+        void play(audio.prompt.key, audio.prompt.text);
+      }}
+      onStop={() => void stopAudio(false)}
+    />
+  );
+  const processingFeedback = busy ? (
+    <View style={styles.processingFeedback}>
+      <ActivityIndicator size="small" color="#087f6d" />
+      <Text style={styles.processingText} accessibilityLiveRegion="polite">{t('playback.savingResponse')}</Text>
+    </View>
+  ) : null;
 
   return (
     <View style={styles.root}>
@@ -632,6 +658,7 @@ export default function CheckinCallScreen() {
               accessibilityLabel={t('gallery.decline')}
               style={styles.callButtonWrap}
               onPress={() => {
+                callEnded.current = true;
                 void stopAudio();
                 void endVoipCall(attempt.id);
                 router.back();
@@ -700,8 +727,6 @@ export default function CheckinCallScreen() {
               </View>
             </View>
 
-            <View style={styles.resultDivider} />
-
             <View style={styles.resultRow}>
               <View style={styles.resultRowLeft}>
                 <Ionicons name="time-outline" size={24} color="#00897b" />
@@ -709,7 +734,7 @@ export default function CheckinCallScreen() {
               </View>
               <View style={styles.resultPill}>
                 <Text style={styles.resultPillTextTime}>
-                  {new Date().toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', {
+                  {new Date(completedAt ?? Date.now()).toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', {
                     hour: '2-digit',
                     minute: '2-digit',
                     hour12: false,
@@ -723,10 +748,14 @@ export default function CheckinCallScreen() {
             accessibilityRole="button"
             accessibilityLabel={t('close', { ns: 'common' })}
             style={styles.resultCloseBtn}
-            onPress={() => router.back()}
+            onPress={() => {
+              void stopAudio();
+              router.back();
+            }}
           >
             <Text style={styles.resultCloseBtnText}>{t('close', { ns: 'common' })}</Text>
           </Pressable>
+          {speechControls}
 
           <Image
             source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
@@ -765,6 +794,7 @@ export default function CheckinCallScreen() {
           </View>
 
           {!!error && <Text style={styles.error}>{error}</Text>}
+          {processingFeedback}
 
           <View style={styles.familyActionsCol}>
             <Pressable
@@ -783,23 +813,7 @@ export default function CheckinCallScreen() {
             </Pressable>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('replay')}
-            style={styles.replayRow}
-            onPress={() =>
-              void play(
-                attempt.severity === 'URGENT'
-                  ? 'family_urgent'
-                  : attempt.severity === 'MILD'
-                    ? 'family_mild'
-                    : 'family_unknown',
-              )
-            }
-          >
-            <Ionicons name="volume-high-outline" size={20} color="#00897b" />
-            <Text style={styles.replayRowText}>{t('replay')}</Text>
-          </Pressable>
+          {speechControls}
 
           <Text style={styles.familyFootnoteText}>{t('gallery.familyConfirmationNote')}</Text>
 
@@ -813,7 +827,7 @@ export default function CheckinCallScreen() {
 
       {/* User Connected State */}
       {!!attempt && joined && !ended && attempt.target_role === 'USER' && (
-        <ScrollView contentContainerStyle={styles.familyScrollContent}>
+        <ScrollView ref={userContent} contentContainerStyle={styles.familyScrollContent}>
           {!triageOpen ? (
             <View style={styles.userCallCard}>
               <Image
@@ -825,6 +839,7 @@ export default function CheckinCallScreen() {
               <Text style={styles.userCardSub}>{t('gallery.connectedInstruction')}</Text>
 
               {!!error && <Text style={styles.error}>{error}</Text>}
+              {processingFeedback}
 
               <View style={styles.userCardOptionsCol}>
                 <Pressable
@@ -891,16 +906,7 @@ export default function CheckinCallScreen() {
                 </Pressable>
               </View>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('replay')}
-                style={styles.replayPill}
-                onPress={() => void play('user_prompt')}
-                disabled={busy}
-              >
-                <Ionicons name="volume-high" size={20} color="#0284c7" />
-                <Text style={styles.replayPillText}>{t('replay')}</Text>
-              </Pressable>
+              {speechControls}
 
               <View style={styles.safetyFooterRow}>
                 <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
@@ -919,11 +925,13 @@ export default function CheckinCallScreen() {
                 <Text style={styles.userCardSub}>
                   {t(`triage.${triageStep}Instruction`)}
                 </Text>
+                {speechControls}
               </View>
 
               {!!error && <Text style={styles.error}>{error}</Text>}
 
               <View style={styles.familyActionsCol}>
+                {processingFeedback}
                 <Text style={styles.triageProgress}>
                   {t('triage.progress', {
                     current: triageStep === 'location' ? 1 : triageStep === 'symptom' ? 2 : 3,
@@ -1104,24 +1112,6 @@ export default function CheckinCallScreen() {
                 <Text style={styles.triageGuarantee}>{t('triageGuarantee')}</Text>
               </View>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('replay')}
-                style={styles.replayPill}
-                onPress={() =>
-                  void play(
-                    triageStep === 'location'
-                      ? 'triage_location_prompt'
-                      : triageStep === 'symptom'
-                        ? 'triage_symptom_prompt'
-                        : 'triage_intensity_prompt',
-                  )
-                }
-              >
-                <Ionicons name="volume-high" size={20} color="#0284c7" />
-                <Text style={styles.replayPillText}>{t('replay')}</Text>
-              </Pressable>
-
               <View style={styles.safetyFooterRow}>
                 <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
                 <Text style={styles.safetyFooterText}>{t('safetyNote')}</Text>
@@ -1155,6 +1145,8 @@ const styles = StyleSheet.create({
   replay: { paddingVertical: 14, alignItems: 'center' },
   replayText: { color: '#087f6d', fontSize: 17, fontWeight: '700' },
   error: { color: '#b91c1c', textAlign: 'center' },
+  processingFeedback: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
+  processingText: { flex: 1, color: '#087f6d', fontSize: 15, lineHeight: 23 },
   foot: { color: '#64748b', textAlign: 'center', fontSize: 12, marginTop: 18 },
 
   // Incoming Screen 2

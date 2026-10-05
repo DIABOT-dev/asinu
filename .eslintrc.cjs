@@ -14,7 +14,7 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['scripts/check-security.mjs', 'scripts/check-livekit-signal-lifecycle.mjs'],
+      files: ['scripts/check-security.mjs', 'scripts/check-livekit-signal-lifecycle.mjs', 'scripts/check-checkin-call-audio.mjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },
