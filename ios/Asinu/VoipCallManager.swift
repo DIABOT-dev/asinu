@@ -416,6 +416,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
     audioSessionActive = true
+    configureAudioSession()
     playHandoffPromptIfNeeded()
   }
 
@@ -441,7 +442,10 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   private func configureAudioSession() {
     do {
-      try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothHFP, .defaultToSpeaker])
+      // These calls play a reminder; they do not capture two-way speech.
+      // voiceChat without a voice-processing I/O unit lowers playback gain.
+      // Default to speaker, but keep headset/Bluetooth and user route choices.
+      try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothHFP, .defaultToSpeaker])
     } catch {
       // Do not activate manually: CallKit owns audio-session activation.
     }
@@ -459,6 +463,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
       guard let url = Bundle.main.url(forResource: "asinu_checkin_open_app_vi", withExtension: "mp3"),
             let recording = try? AVAudioPlayer(contentsOf: url) else { return }
       handoffRecording = recording
+      recording.volume = 1.0
       recording.prepareToPlay()
       guard recording.play() else { handoffRecording = nil; return }
     } else {
@@ -466,6 +471,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
       let utterance = AVSpeechUtterance(string: NSLocalizedString("checkin_call_open_app_prompt", bundle: bundle, comment: "Open Asinu to respond to an answered call"))
       utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
       utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+      utterance.volume = 1.0
       handoffSpeech.speak(utterance)
     }
     // A bounded reminder, only during this accepted call. Never synthesize

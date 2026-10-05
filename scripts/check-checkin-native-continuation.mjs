@@ -17,6 +17,16 @@ assert.equal(manifest.audioSha256, createHash('sha256').update(audio).digest('he
 assert.ok(audio.length > 1000 && audio.length < 2_000_000);
 assert.ok(read('ios/Asinu.xcodeproj/project.pbxproj').includes(`${manifest.file} in Resources`));
 console.log('PASS bundled Ngọc Lan asset matches localized prompt, audio checksum and Xcode resource');
+assert.equal(manifest.loudness?.normalization, 'ebu-r128-two-pass');
+assert.equal(manifest.loudness?.targetIntegratedLufs, -16);
+assert.equal(manifest.loudness?.targetTruePeakDbtp, -1.5);
+assert.ok(Math.abs(manifest.loudness?.integratedLufs + 16) <= 0.5);
+assert.ok(manifest.loudness?.truePeakDbtp <= -1);
+const configuration = native.slice(native.indexOf('  private func configureAudioSession()'), native.indexOf('  private func playHandoffPromptIfNeeded()'));
+assert.ok(configuration.includes('mode: .default'));
+assert.ok(configuration.includes('.defaultToSpeaker') && configuration.includes('.allowBluetoothHFP'));
+assert.ok(!configuration.includes('overrideOutputAudioPort') && !native.includes('setActive('));
+console.log('PASS reminder uses normalized speech, speaker default and no forced route/system volume');
 
 if (process.platform !== 'darwin') {
   console.log('SKIP native Swift runtime checks (macOS required); asset checks passed');
@@ -33,7 +43,8 @@ const handlers = [
   method('  func setCallUIActive(', '  // The self-link'),
   method('  func handleAnsweredCallURL(', '  func reportIncoming('),
   method('  private func openResponseScreen(', '  func providerDidReset('),
-  method('  func provider(_ provider: CXProvider, didDeactivate', '  func provider(_ provider: CXProvider, timedOutPerforming'),
+  method('  func provider(_ provider: CXProvider, didActivate', '  func provider(_ provider: CXProvider, timedOutPerforming'),
+  method('  private func configureAudioSession()', '  private func playHandoffPromptIfNeeded()'),
   method('  private func playHandoffPromptIfNeeded()', '  private func scheduleResponseTimeout('),
   method('  private func removeCall(', '  private func scheduleRingTimeout('),
 ].join('\n');
@@ -52,7 +63,25 @@ final class CXEndCallAction {
   func fulfill() { fulfilled = true }
 }
 final class CXAnswerCallAction { func fail() {} }
-final class AVAudioSession {}
+final class AVAudioSession {
+  enum Category { case playAndRecord }
+  enum Mode { case \`default\`, voiceChat }
+  struct CategoryOptions: OptionSet {
+    let rawValue: Int
+    static let allowBluetoothHFP = CategoryOptions(rawValue: 1)
+    static let defaultToSpeaker = CategoryOptions(rawValue: 2)
+  }
+  static let shared = AVAudioSession()
+  static func sharedInstance() -> AVAudioSession { shared }
+  var configurations = 0
+  var mode = Mode.voiceChat
+  var options: CategoryOptions = []
+  func setCategory(_ category: Category, mode: Mode, options: CategoryOptions) throws {
+    configurations += 1
+    self.mode = mode
+    self.options = options
+  }
+}
 final class UIApplication {
   enum State { case active, background }
   static let shared = UIApplication()
@@ -72,6 +101,7 @@ func NSLocalizedString(_ key: String, bundle: Bundle, comment: String) -> String
 final class AVAudioPlayer {
   static var playSucceeds = true
   var isPlaying = false
+  var volume: Float = 0.5
   init(contentsOf: URL) throws {}
   func prepareToPlay() {}
   func play() -> Bool { isPlaying = Self.playSucceeds; return isPlaying }
@@ -82,13 +112,15 @@ final class AVSpeechSynthesisVoice { init?(language: String) {} }
 final class AVSpeechUtterance {
   var voice: AVSpeechSynthesisVoice?
   var rate: Float = 0
+  var volume: Float = 0.5
   init(string: String) {}
 }
 final class AVSpeechSynthesizer {
   enum Boundary { case immediate }
   var isSpeaking = false
   var spoken = 0
-  func speak(_ utterance: AVSpeechUtterance) { spoken += 1; isSpeaking = true }
+  var lastVolume: Float = 0
+  func speak(_ utterance: AVSpeechUtterance) { spoken += 1; isSpeaking = true; lastVolume = utterance.volume }
   func stopSpeaking(at: Boundary) { isSpeaking = false }
 }
 final class Handler {
@@ -180,9 +212,19 @@ check("Vietnamese locked-call prompt plays Ngọc Lan and releases it on app han
   let h = Handler(); _ = h.seed()
   h.playHandoffPromptIfNeeded()
   assert(h.handoffRecording?.isPlaying == true && h.handoffSpeech.spoken == 0)
+  assert(h.handoffRecording?.volume == 1)
   let recording = h.handoffRecording!
   h.stopHandoffPrompt()
   assert(!recording.isPlaying && h.handoffRecording == nil && h.handoffPromptTimer == nil)
+}
+check("CallKit activation configures full-level one-way reminder playback with speaker/headset defaults") {
+  let h = Handler(); _ = h.seed(); h.audioSessionActive = false
+  let session = AVAudioSession.sharedInstance(), before = session.configurations
+  h.provider(h.provider, didActivate: session)
+  assert(h.audioSessionActive && session.configurations == before + 1)
+  assert(session.mode == .default && session.options.contains(.defaultToSpeaker) && session.options.contains(.allowBluetoothHFP))
+  assert(h.handoffRecording?.isPlaying == true && h.handoffRecording?.volume == 1)
+  h.stopHandoffPrompt()
 }
 check("missing/failed Vietnamese recording never falls back to Apple's voice") {
   let h = Handler(); _ = h.seed()
@@ -198,6 +240,7 @@ check("English guidance remains localized device speech") {
   let h = Handler(); _ = h.seed(lang: "en")
   h.playHandoffPromptIfNeeded()
   assert(h.handoffSpeech.spoken == 1 && h.handoffRecording == nil)
+  assert(h.handoffSpeech.lastVolume == 1)
   h.stopHandoffPrompt()
 }
 print("Native continuation and voice: \\(checks) runtime checks passed")

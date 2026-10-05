@@ -4,5 +4,12 @@
   "voice": "Ngọc Lan",
   "text": "Bạn đã nhận cuộc gọi Asinu. Vui lòng mở khóa điện thoại rồi mở ứng dụng Asinu để chọn phản hồi trên màn hình. Nhận cuộc gọi chưa gửi phản hồi.",
   "textSha256": "67dc8e24899fea5a6309698ce99ae158d371a55dc97486465a23187a80a6e1c8",
-  "audioSha256": "d62a7b811048f0dc4eb8647a72a3ef159c36a20b5cd111c3516105ff30826a47"
+  "audioSha256": "b10457683178abefec8fe227a28addca7aab7c4ca7d61e18db9173010a38c3fc",
+  "loudness": {
+    "normalization": "ebu-r128-two-pass",
+    "targetIntegratedLufs": -16,
+    "targetTruePeakDbtp": -1.5,
+    "integratedLufs": -16.44,
+    "truePeakDbtp": -2.67
+  }
 }
