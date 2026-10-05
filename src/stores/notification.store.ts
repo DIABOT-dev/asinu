@@ -18,6 +18,8 @@ interface NotificationStore {
   page: number;
   error: string | null;
   _fetching: boolean;
+  _generation: number;
+  reset: () => void;
   fetchFromBackend: (options?: { page?: number; append?: boolean }) => Promise<void>;
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
   markAsRead: (notificationId: string) => Promise<boolean>;
@@ -50,9 +52,17 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   error: null,
 
   _fetching: false,
+  _generation: 0,
+  // Local-only reset. Logging out must never delete inbox history on the server.
+  reset: () => set((state) => ({
+    _generation: state._generation + 1,
+    notifications: [], unreadCount: 0, loading: false, loadingMore: false,
+    hasMore: true, page: 0, error: null, _fetching: false,
+  })),
   fetchFromBackend: async ({ page = 1, append = false } = {}) => {
     // Prevent concurrent fetches (mount + AppState + interval can overlap)
     if (get()._fetching) return;
+    const generation = get()._generation;
     set({ _fetching: true });
     if (append) set({ loadingMore: true });
     // Only show loading on first fetch, not on polling (avoids rerender every 30s)
@@ -60,6 +70,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     if (isFirstFetch) set({ loading: true, error: null });
     try {
       const response = await fetchNotifications(page, 50);
+      if (generation !== get()._generation) return;
       if (response.ok && response.notifications) {
         const incoming = response.notifications.map(convertNotification);
         const notifications = append
@@ -92,9 +103,10 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         });
       }
     } catch (error) {
+      if (generation !== get()._generation) return;
       set({ error: 'notification_load_failed', loading: false, loadingMore: false });
     } finally {
-      set({ _fetching: false, loadingMore: false });
+      if (generation === get()._generation) set({ _fetching: false, loadingMore: false });
     }
   },
 
@@ -114,6 +126,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }),
 
   markAsRead: async (notificationId) => {
+    const generation = get()._generation;
     const prev = get().notifications;
     // Optimistic update
     set((state) => {
@@ -132,6 +145,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         if (!response.ok) throw new Error(response.error || 'Could not mark notification as read');
         return true;
       } catch {
+        if (generation !== get()._generation) return false;
         set({ notifications: prev, unreadCount: prev.filter(n => !n.read).length });
         return false;
       }
@@ -140,6 +154,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   },
 
   markAllAsRead: async () => {
+    const generation = get()._generation;
     const prev = get().notifications;
     const prevUnread = get().unreadCount;
     // Optimistic update
@@ -154,12 +169,14 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       if (!response.ok) throw new Error(response.error || 'Could not mark notifications as read');
       return true;
     } catch {
+      if (generation !== get()._generation) return false;
       set({ notifications: prev, unreadCount: prevUnread });
       return false;
     }
   },
 
   removeNotification: async (notificationId) => {
+    const generation = get()._generation;
     const prev = get().notifications;
     const prevUnread = get().unreadCount;
     set((state) => ({
@@ -173,6 +190,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         if (!response.ok) throw new Error(response.error || 'Could not delete notification');
         return true;
       } catch {
+        if (generation !== get()._generation) return false;
         set({ notifications: prev, unreadCount: prevUnread });
         return false;
       }
@@ -181,6 +199,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   },
 
   clearAll: async () => {
+    const generation = get()._generation;
     const prev = get().notifications;
     const prevUnread = get().unreadCount;
     set({ notifications: [], unreadCount: 0, hasMore: false, page: 0 });
@@ -189,6 +208,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       if (!response.ok) throw new Error(response.error || 'Could not delete notifications');
       return true;
     } catch {
+      if (generation !== get()._generation) return false;
       set({ notifications: prev, unreadCount: prevUnread });
       return false;
     }

@@ -425,6 +425,7 @@
   "emergencyAlertError": "Could not send alert. Please try again.",
   "doctorConsultationJoinVideo": "Join video consultation",
   "checkinGuide": {
+    "preview": "Check-in screen example, not your health result",
     "badge": "User Guide",
     "stepBadge": "Step {{current}}/{{total}}",
     "skip": "Skip",
@@ -438,8 +439,8 @@
     "slide3Title": "If Noticing Unusual Signs",
     "slide3Desc": "If your body feels unusual, select “Tired”, “Very tired”, or “Abnormal sign” so Asinu can listen and support you promptly.",
     "slide4Title": "Answer a Few Quick Questions",
-    "slide4Desc": "Asinu will ask 2–4 adaptive, easy-to-tap questions to accurately understand your current state and suggest next steps.",
+    "slide4Desc": "Choose the areas that feel uncomfortable, tap Continue, then answer the relevant questions. You can select multiple areas or add your own description.",
     "slide5Title": "See & Listen to Results",
-    "slide5Desc": "Review clear conclusions on screen, listen to comforting voice guidance from Ngoc Lan, and follow personalized care recommendations."
+    "slide5Desc": "Review the recorded information and next steps. Tap Read check-in results again to listen. Vietnamese uses Ngoc Lan when available, with a device voice fallback; English uses the device voice. This is guidance, not a diagnosis."
   }
 }

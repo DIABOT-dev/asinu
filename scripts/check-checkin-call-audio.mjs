@@ -268,7 +268,7 @@ await test('the real expo-audio adapter forwards native playback and error statu
 const screenSource = fs.readFileSync('app/checkin-call/[episodeId].tsx', 'utf8');
 const ast = ts.createSourceFile('screen.tsx', screenSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const handlers = new Map();
-const names = ['restoreRoomAfterFailedAction', 'openTriage', 'submitTriage', 'chooseLocation', 'chooseSymptom', 'goBackInTriage', 'answer', 'confirm'];
+const names = ['restoreRoomAfterFailedAction', 'join', 'openTriage', 'submitTriage', 'chooseLocation', 'chooseSymptom', 'goBackInTriage', 'answer', 'decline', 'confirm'];
 function visit(node) {
   if (ts.isVariableDeclaration(node) && names.includes(node.name.getText(ast))) {
     const initializer = ts.isCallExpression(node.initializer) && node.initializer.expression.getText(ast) === 'useCallback'
@@ -281,25 +281,26 @@ visit(ast);
 assert.equal(handlers.size, names.length);
 function flowHarness({ role = 'USER', api = {} } = {}) {
   const events = [], status = {};
-  const refs = { actionPending: { current: false }, callEnded: { current: false }, inTriage: { current: false }, screenMounted: { current: true }, accepted: { current: true }, acceptPromise: { current: null }, triageStage: { current: { step: 'location', location: null, symptom: null } }, activeRoom: { current: null }, connectionEnding: { current: false } };
+  const refs = { actionPending: { current: false }, callEnded: { current: false }, inTriage: { current: false }, screenMounted: { current: true }, accepted: { current: true }, acceptPromise: { current: null }, joinRequested: { current: false }, triageStage: { current: { step: 'location', location: null, symptom: null } }, activeRoom: { current: null }, connectionEnding: { current: false } };
   const deps = {
-    ...refs, episodeId: 'episode', attempt: { id: 'attempt', target_role: role }, getUserCheckinCallOutcome,
-    getClosedCheckinCallStatusKey, isCheckinCallAttemptClosed,
+    ...refs, episodeId: 'episode', attempt: { id: 'attempt', target_role: role }, room: null, router: { back: () => events.push('back') }, getUserCheckinCallOutcome,
+    getClosedCheckinCallStatusKey, isCheckinCallAttemptClosed, getCheckinCallTime: value => value ? new Date(value).getTime() : null,
+    AsyncStorage: { removeItem: async () => {} }, draftKey: 'draft',
     t: key => key, getApiErrorMessage: () => 'retry',
     stopAudio: async () => { events.push('stop'); }, disconnectRoom: async () => { events.push('disconnect'); },
     endVoipCall: async () => { events.push('endNative'); },
     play: async (key, text) => { events.push(`play:${key}`); status.transcript = text; },
     simulateNextFamilyCall: async () => { events.push('simulate'); },
     checkinCallApi: {
-      startTriage: async () => ({ triage: { locations: [] } }),
+      startTriage: async () => ({ episode: { next_action_at: '2026-10-05T10:00:00Z' }, triage: { locations: [] } }),
       attempt: async () => { events.push('fetchLatest'); return { attempt: { id: 'attempt', state: 'CONNECTED', episode_state: 'CONTACT_USER', target_role: role } }; },
       answer: async () => ({ episode: { state: 'RESOLVED', severity: 'NONE' } }),
       completeTriage: async () => ({ episode: { state: 'URGENT_BROADCAST', severity: 'URGENT' } }),
       confirmFamily: async () => ({ episode: { state: 'RESOLVED' } }),
-      accept: async () => ({}), ...api,
+      accept: async () => ({}), decline: async () => { events.push('decline'); return { ok: true }; }, ...api,
     },
   };
-  for (const name of ['Attempt', 'Busy', 'Error', 'TriageContext', 'SelectedLocation', 'SelectedSymptom', 'TriageStep', 'TriageOpen', 'CompletedAt', 'Ended', 'Room', 'StatusKey']) {
+  for (const name of ['Attempt', 'Joined', 'Busy', 'Error', 'TriageContext', 'SelectedLocation', 'SelectedSymptom', 'TriageStep', 'TriageOpen', 'CompletedAt', 'Ended', 'Room', 'StatusKey', 'EpisodeProgress', 'DraftReady']) {
     deps[`set${name}`] = value => { status[name] = value; };
   }
   const body = `module.exports = (deps) => { const { ${Object.keys(deps).join(',')} } = deps; ${[...handlers].map(([key, value]) => `const ${key} = ${value};`).join('\n')} return { ${names.join(',')} }; };`;
@@ -400,7 +401,7 @@ await test('closing the screen before API completion never starts result speech'
 });
 await test('family confirmation sends one action and plays only the confirmation, not the incoming alert', async () => {
   const actions = [];
-  const h = flowHarness({ role: 'FAMILY', api: { confirmFamily: async (id, action) => { actions.push(action); return {}; } } });
+  const h = flowHarness({ role: 'FAMILY', api: { confirmFamily: async (id, action) => { actions.push(action); return { episode: { state: 'RESOLVED', resolved_at: '2026-10-05T01:00:00Z' } }; } } });
   await Promise.all([h.callable.confirm(), h.callable.confirm()]);
   assert.deepEqual(actions, ['ACCEPT_AND_CHECK']);
   assert.equal(h.status.StatusKey, 'statusFamilyConfirmed');
@@ -409,7 +410,7 @@ await test('family confirmation sends one action and plays only the confirmation
 await test('opening triage waits for accept, preserving the triage timeout ordering', async () => {
   let starts = 0;
   const accepting = deferred();
-  const h = flowHarness({ api: { startTriage: async () => { starts += 1; return { triage: { locations: [] } }; } } });
+  const h = flowHarness({ api: { startTriage: async () => { starts += 1; return { episode: { next_action_at: '2026-10-05T01:00:00Z' }, triage: { locations: [] } }; } } });
   h.refs.acceptPromise.current = accepting.promise;
   const opening = h.callable.openTriage();
   await tick();
@@ -418,6 +419,41 @@ await test('opening triage waits for accept, preserving the triage timeout order
   await opening;
   assert.equal(starts, 1);
   assert.equal(h.status.TriageOpen, true);
+});
+await test('resuming triage reads its restored question, including early-signal calls', async () => {
+  for (const [step, expected] of [['location', 'triage_location_prompt'], ['symptom', 'triage_symptom_prompt'], ['intensity', 'triage_intensity_prompt']]) {
+    const h = flowHarness();
+    h.deps.attempt.episode_state = 'TRIAGE_USER';
+    h.deps.attempt.trigger_source = 'EARLY_SIGNAL';
+    h.refs.triageStage.current.step = step;
+    h.callable.join();
+    h.callable.join();
+    assert.deepEqual(h.events.filter(event => event.startsWith('play:')), [`play:${expected}`]);
+  }
+});
+await test('urgent and skip-details shortcuts remain available at every triage step', async () => {
+  for (const choice of [2, 3]) {
+    for (const step of ['location', 'symptom', 'intensity']) {
+      const submitted = [];
+      const h = flowHarness({ api: { answer: async (id, selected) => {
+        submitted.push(selected);
+        return { episode: { state: choice === 3 ? 'URGENT_BROADCAST' : 'MILD_FAMILY_ESCALATION', severity: choice === 3 ? 'URGENT' : 'MILD' } };
+      } } });
+      h.refs.inTriage.current = true;
+      h.refs.triageStage.current.step = step;
+      await h.callable.answer(choice);
+      assert.deepEqual(submitted, [choice]);
+      assert.equal(h.status.StatusKey, choice === 3 ? 'statusUserUrgent' : 'statusUserMild');
+      assert.ok(h.events.indexOf('stop') < h.events.indexOf('disconnect'));
+      assert.ok(h.events.indexOf('disconnect') < h.events.indexOf('endNative'));
+    }
+  }
+});
+await test('declining notifies backend before navigation and ignores repeated taps', async () => {
+  const h = flowHarness();
+  await Promise.all([h.callable.decline(), h.callable.decline()]);
+  assert.deepEqual(h.events, ['stop', 'disconnect', 'decline', 'endNative', 'back']);
+  assert.equal(h.refs.callEnded.current, true);
 });
 await test('lost triage response recovers committed backend state instead of stale initial buttons', async () => {
   let starts = 0;

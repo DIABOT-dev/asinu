@@ -17,8 +17,15 @@ export function isCheckinCallAttemptClosed(
 }
 
 export function getClosedCheckinCallStatusKey(
-  attempt: Pick<CheckinCallAttempt, 'state' | 'episode_state' | 'target_role' | 'severity'>,
+  attempt: Pick<CheckinCallAttempt, 'state' | 'episode_state' | 'target_role' | 'severity' | 'acknowledged_by' | 'target_user_id' | 'cancellation_reason'>,
 ): string {
+  if (attempt.episode_state === 'RESOLVED' && attempt.acknowledged_by &&
+      (attempt.target_role === 'USER' || attempt.acknowledged_by !== attempt.target_user_id)) return 'statusFamilyHandled';
+  if (attempt.episode_state === 'CANCELLED') return attempt.cancellation_reason === 'MANUAL_CHECKIN' ? 'statusCheckinRecorded' : 'statusCancelled';
+  if (attempt.state === 'NO_ANSWER' && attempt.target_role === 'USER') {
+    if (['EXHAUSTED', 'EXHAUSTED_MILD', 'EXHAUSTED_URGENT'].includes(attempt.episode_state)) return 'statusFamilyUnavailable';
+    return 'statusUserUnreachable';
+  }
   // A lost HTTP response or late poll must not turn an already-successful
   // backend response into an expired result on the device.
   if (attempt.state === 'COMPLETED') {
@@ -41,6 +48,11 @@ export function getClosedCheckinCallStatusKey(
     }
   }
   return 'statusEnded';
+}
+
+export function getCheckinCallTime(value?: string | null): number | null {
+  const time = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(time) ? time : null;
 }
 
 export function getFamilyCallNoticeKeys(severity: string | null | undefined) {

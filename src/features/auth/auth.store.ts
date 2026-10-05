@@ -89,6 +89,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             const savedToken = await tokenStore.loadToken();
 
             if (!savedToken) {
+              useNotificationStore.getState().reset();
               // No token found, user is logged out
               set({ loading: false, profile: null, token: null, hydrated: true });
               return;
@@ -100,6 +101,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             // Fetch lightweight profile for bootstrap (1 query, no care circle / health data)
             try {
               const profile = await authApi.fetchBasicProfile();
+              if (profile?.id !== get().profile?.id) useNotificationStore.getState().reset();
               if (profile?.languagePreference) {
                 useLanguageStore.getState().applyLanguage(profile.languagePreference as AppLanguage);
               }
@@ -141,6 +143,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
           if (token) {
             await tokenStore.setToken(token);
+            useNotificationStore.getState().reset();
           }
 
           // Fetch lightweight profile after login — full profile loaded lazily on Profile screen
@@ -179,6 +182,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           const token = response.token || null;
           if (token) {
             await tokenStore.setToken(token);
+            useNotificationStore.getState().reset();
           }
 
           let profile: Profile | null = null;
@@ -215,6 +219,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           const token = response.token || null;
           if (token) {
             await tokenStore.setToken(token);
+            useNotificationStore.getState().reset();
           }
 
           let profile: Profile | null = null;
@@ -241,7 +246,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         set({ loading: true, error: undefined });
         try {
           await authApi.deleteAccount();
+          useNotificationStore.getState().reset();
           await tokenStore.clearToken();
+          useNotificationStore.getState().reset();
           localCache.setUserId(null);
           useMissionsStore.getState().reset();
           useTreeStore.getState().reset();
@@ -273,6 +280,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       },
 
       async logout() {
+        useNotificationStore.getState().reset();
         try {
           await authApi.logout();
         } catch (error) {
@@ -285,7 +293,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         localCache.setUserId(null);
 
         // Reset all user-scoped stores
-        useNotificationStore.getState().clearAll();
+        useNotificationStore.getState().reset();
         useMissionsStore.getState().reset();
         useTreeStore.getState().reset();
         useLogsStore.getState().reset();

@@ -10,7 +10,7 @@ const module = { exports: {} };
 // Only evaluate the local pure state helpers; the API import is type-only.
 // eslint-disable-next-line no-new-func
 new Function('module', 'exports', output)(module, module.exports);
-const { isCheckinCallAttemptClosed, getFamilyCallNoticeKeys, getClosedCheckinCallStatusKey } = module.exports;
+const { isCheckinCallAttemptClosed, getFamilyCallNoticeKeys, getClosedCheckinCallStatusKey, getCheckinCallTime } = module.exports;
 let checks = 0;
 
 for (const [severity, label] of [
@@ -45,6 +45,9 @@ for (const [state, episode_state] of [
   checks += 1;
 }
 const screen = fs.readFileSync('app/checkin-call/[episodeId].tsx', 'utf8');
+assert.equal(getClosedCheckinCallStatusKey({ state: 'CANCELLED', episode_state: 'CANCELLED', target_role: 'USER', severity: 'NONE', cancellation_reason: 'MANUAL_CHECKIN' }), 'statusCheckinRecorded');
+assert.equal(getClosedCheckinCallStatusKey({ state: 'CANCELLED', episode_state: 'RESOLVED', target_role: 'FAMILY', severity: 'URGENT', acknowledged_by: 8, target_user_id: 7 }), 'statusFamilyHandled');
+checks += 2;
 for (const [state, episode_state, target_role, severity, expected] of [
   ['COMPLETED', 'RESOLVED', 'USER', 'NONE', 'statusUserOk'],
   ['COMPLETED', 'RESOLVED', 'FAMILY', 'UNKNOWN', 'statusFamilyConfirmed'],
@@ -54,8 +57,8 @@ for (const [state, episode_state, target_role, severity, expected] of [
   ['COMPLETED', 'EXHAUSTED', 'USER', 'MILD', 'statusFamilyUnavailable'],
   ['COMPLETED', 'EXHAUSTED_MILD', 'USER', 'MILD', 'statusFamilyUnavailable'],
   ['COMPLETED', 'EXHAUSTED_URGENT', 'USER', 'URGENT', 'statusFamilyUnavailable'],
-  ['NO_ANSWER', 'MILD_FAMILY_ESCALATION', 'USER', 'UNKNOWN', 'statusEnded'],
-  ['CANCELLED', 'CANCELLED', 'USER', 'NONE', 'statusEnded'],
+  ['NO_ANSWER', 'MILD_FAMILY_ESCALATION', 'USER', 'UNKNOWN', 'statusUserUnreachable'],
+  ['CANCELLED', 'CANCELLED', 'USER', 'NONE', 'statusCancelled'],
   ['EXPIRED', 'EXHAUSTED', 'FAMILY', 'UNKNOWN', 'statusEnded'],
 ]) {
   assert.equal(getClosedCheckinCallStatusKey({ state, episode_state, target_role, severity }), expected);
@@ -109,4 +112,25 @@ assert.ok(audioAdapter.includes('current.attempt?.family_notice?.audio_text'), '
 assert.ok(audioAdapter.includes("personalizedFamily ? prompt.attemptId + '-'"), 'Do not reuse another person’s cached audio');
 assert.ok(!contact.includes('numberOfLines') && !contact.includes('height:'), 'Contact details must wrap at large font sizes');
 checks += 5;
+
+const draftModule = { exports: {} };
+const draftSource = fs.readFileSync('src/features/checkin-call/triage-draft.ts', 'utf8');
+const draftOutput = ts.transpileModule(draftSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText;
+// eslint-disable-next-line no-new-func
+new Function('module', 'exports', draftOutput)(draftModule, draftModule.exports);
+const { restoreTriageDraft } = draftModule.exports;
+const context = { locations: [{ key: 'head', label: 'Current localized label', symptoms: [{ key: 'dizziness', label: 'Current symptom', urgent: false }] }] };
+for (const raw of [null, '', '{bad json', '{}', JSON.stringify({ location: 'head', expiresAt: 100 }), JSON.stringify({ location: 'obsolete', expiresAt: 200 })]) {
+  assert.equal(restoreTriageDraft(raw, context, 100), null);
+  checks += 1;
+}
+const restored = restoreTriageDraft(JSON.stringify({ location: 'head', symptom: 'dizziness', expiresAt: 200, label: 'Stale translated text' }), context, 100);
+assert.deepEqual(restored, { location: context.locations[0], symptom: context.locations[0].symptoms[0], step: 'intensity' });
+const incomplete = restoreTriageDraft(JSON.stringify({ location: 'head', symptom: 'removed', expiresAt: 200 }), context, 100);
+assert.deepEqual(incomplete, { location: context.locations[0], symptom: null, step: 'symptom' });
+assert.equal(getCheckinCallTime('2026-10-05T01:00:00Z'), Date.parse('2026-10-05T01:00:00Z'));
+for (const value of [undefined, null, '', 'invalid']) assert.equal(getCheckinCallTime(value), null);
+checks += 6;
 console.log(`Check-in call UI state: ${checks} regression checks passed; screen uses the tested helpers.`);

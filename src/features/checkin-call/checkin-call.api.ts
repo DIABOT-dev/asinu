@@ -20,6 +20,15 @@ export type CheckinCallEpisode = {
   triage_display?: CheckinCallTriageDisplay | null;
   user_id: number;
   acknowledged_by: number | null;
+  acknowledged_name?: string | null;
+  cancellation_reason?: string | null;
+  trigger_source?: string;
+  resolved_at?: string | null;
+  exhausted_at?: string | null;
+  updated_at?: string | null;
+  next_action_at?: string | null;
+  triage_started_at?: string | null;
+  triage_completed_at?: string | null;
 };
 
 export type CheckinCallTriageSelection = {
@@ -89,6 +98,14 @@ export type CheckinCallAttempt = {
   triage_display: CheckinCallTriageDisplay | null;
   ring_deadline: string | null;
   confirm_deadline: string | null;
+  ended_at?: string | null;
+  target_user_id?: number;
+  acknowledged_by?: number | null;
+  resolved_at?: string | null;
+  exhausted_at?: string | null;
+  trigger_source?: string;
+  next_action_at?: string | null;
+  cancellation_reason?: string | null;
   subject?: CheckinCallContact | null;
   family_notice?: { message: string; audio_text: string } | null;
 };
@@ -102,7 +119,7 @@ export type CheckinCallContact = {
 const BASE = '/api/mobile/checkin-call';
 
 export const checkinCallApi = {
-  settings: () => apiClient<{ ok: boolean; settings: CheckinCallSettings }>(BASE + '/settings'),
+  settings: () => apiClient<{ ok: boolean; settings: CheckinCallSettings; contacts?: Array<{ id: number; name: string | null }> }>(BASE + '/settings'),
   saveSettings: (settings: CheckinCallSettings) =>
     apiClient<{ ok: boolean; settings: CheckinCallSettings }>(BASE + '/settings', {
       method: 'PUT',
@@ -131,6 +148,8 @@ export const checkinCallApi = {
     ),
   seen: (attemptId: string) =>
     apiClient<{ ok: boolean }>(BASE + '/attempts/' + attemptId + '/seen', { method: 'POST' }),
+  decline: (attemptId: string) =>
+    apiClient<{ ok: boolean }>(BASE + '/attempts/' + attemptId + '/decline', { method: 'POST' }),
   accept: (attemptId: string) =>
     apiClient<{ ok: boolean; state: string; confirm_deadline: string | null }>(
       BASE + '/attempts/' + attemptId + '/accept',

@@ -34,6 +34,7 @@ import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInp
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { checkinCallApi } from '../../src/features/checkin-call/checkin-call.api';
+import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -91,83 +92,6 @@ function getLocalFallbackQuestion(
 }
 
 // ─── Status options ────────────────────────────────────────────────────────────
-
-const STATUS_OPTIONS: Array<{
-  status: CheckinStatus;
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  labelKey: string;
-  sublabelKey: string;
-  color: string;
-}> = [
-  {
-    status: 'fine',
-    icon: 'check-circle-outline',
-    labelKey: 'checkinFine',
-    sublabelKey: 'checkinFineSub',
-    color: iconColors.emerald,
-  },
-  {
-    status: 'specific_concern',
-    icon: 'alert-circle-outline',
-    labelKey: 'checkinAbnormal',
-    sublabelKey: 'checkinAbnormalSub',
-    color: iconColors.warning,
-  },
-  {
-    status: 'tired',
-    icon: 'emoticon-neutral-outline',
-    labelKey: 'checkinTired',
-    sublabelKey: 'checkinTiredSub',
-    color: colors.textSecondary,
-  },
-  {
-    status: 'very_tired',
-    icon: 'emoticon-sad-outline',
-    labelKey: 'checkinVeryTired',
-    sublabelKey: 'checkinVeryTiredSub',
-    color: iconColors.danger,
-  },
-];
-
-const STATUS_PALETTE: Record<
-  CheckinStatus,
-  {
-    bg: string;
-    border: string;
-    textColor: string;
-    iconColor: string;
-    subColor: string;
-  }
-> = {
-  fine: {
-    bg: '#eefaf5',
-    border: '#cceee2',
-    textColor: '#064e3b',
-    iconColor: '#059669',
-    subColor: '#0f766e',
-  },
-  specific_concern: {
-    bg: '#fffaf0',
-    border: '#f5d9a8',
-    textColor: '#92400e',
-    iconColor: '#d97706',
-    subColor: '#a16207',
-  },
-  tired: {
-    bg: '#fff7ed',
-    border: '#fed7aa',
-    textColor: '#9a3412',
-    iconColor: '#ea580c',
-    subColor: '#c2410c',
-  },
-  very_tired: {
-    bg: '#fef2f2',
-    border: '#fecaca',
-    textColor: '#991b1b',
-    iconColor: '#dc2626',
-    subColor: '#b91c1c',
-  },
-};
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
@@ -797,32 +721,11 @@ function StatusScreen({
       </Animated.View>
 
       <View style={styles.optionList}>
-        {STATUS_OPTIONS.map((opt, idx) => {
-          const palette = STATUS_PALETTE[opt.status];
-          return (
-            <Animated.View key={opt.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.statusCard,
-                  {
-                    backgroundColor: palette.bg,
-                    borderColor: palette.border,
-                    borderWidth: 1.5,
-                  },
-                  pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] },
-                ]}
-                onPress={() => onSelect(opt.status)}
-              >
-                <MaterialCommunityIcons name={opt.icon} size={30} color={palette.iconColor} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.statusLabel, { color: palette.textColor }]}>{t(opt.labelKey)}</Text>
-                  <Text style={[styles.statusSub, { color: palette.subColor }]}>{t(opt.sublabelKey)}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={palette.iconColor} />
-              </Pressable>
-            </Animated.View>
-          );
-        })}
+        {CHECKIN_STATUS_CHOICES.map((choice, idx) => (
+          <Animated.View key={choice.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
+            <CheckinStatusChoice choice={choice} onSelect={onSelect} />
+          </Animated.View>
+        ))}
       </View>
     </View>
   );

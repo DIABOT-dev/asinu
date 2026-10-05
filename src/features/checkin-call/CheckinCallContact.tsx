@@ -3,8 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../components/ScaledText';
 import type { CheckinCallContact as Contact } from './checkin-call.api';
+import { CheckinCallPhoneAction } from './CheckinCallPhoneAction';
 
-export function CheckinCallContact({ subject }: { subject?: Contact | null }) {
+export function CheckinCallContact({ subject, onBeforeCall }: { subject?: Contact | null; onBeforeCall?: () => Promise<unknown> }) {
   const { t } = useTranslation('checkinCall');
   return (
     <View style={styles.details}>
@@ -15,6 +16,7 @@ export function CheckinCallContact({ subject }: { subject?: Contact | null }) {
           <Text style={styles.relationship}>{subject.relationship}</Text>
           <Text style={styles.label}>{t('contact.phone')}</Text>
           <Text selectable style={styles.phone}>{subject.phone_number || t('contact.phoneUnavailable')}</Text>
+          {!!subject.phone_number && <CheckinCallPhoneAction phone={subject.phone_number} onBeforeCall={onBeforeCall} />}
         </>
       ) : <Text style={styles.relationship}>{t('contact.unavailable')}</Text>}
     </View>

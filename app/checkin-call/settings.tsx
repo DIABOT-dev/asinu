@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +16,7 @@ import { checkinCallApi, type CheckinCallSettings } from '../../src/features/che
 import { apiClient, getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { useFontSizeStore } from '../../src/stores/font-size.store';
 
 const FIELDS: Array<{
   key: keyof CheckinCallSettings;
@@ -45,9 +47,15 @@ const timeFromMinutes = (minutes: number) => {
 export default function CheckinCallSettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const fontScale = useFontSizeStore(state => state.scale);
+  const stackedFields = width < 390 || fontScale === 'large' || fontScale === 'xlarge';
   const { t } = useTranslation('checkinCall');
   const { t: tc } = useTranslation('common');
   const [value, setValue] = useState<CheckinCallSettings | null>(null);
+  const [savedValue, setSavedValue] = useState<CheckinCallSettings | null>(null);
+  const [contacts, setContacts] = useState<Array<{ id: number; name: string | null }> | null>(null);
+  const [reload, setReload] = useState(0);
   const [access, setAccess] = useState<'loading' | 'granted' | 'denied' | 'error'>('loading');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +63,8 @@ export default function CheckinCallSettingsScreen() {
 
   useEffect(() => {
     let active = true;
+    setError('');
+    setAccess('loading');
     apiClient<{ isAnTam: boolean; callCenterEnabled?: boolean }>('/api/subscriptions/status')
       .then(async (status) => {
         if (!active) return;
@@ -66,10 +76,13 @@ export default function CheckinCallSettingsScreen() {
         setAccess('granted');
         const result = await checkinCallApi.settings();
         if (!active) return;
-        setValue({
+        const loaded = {
           ...result.settings,
           checkin_time: result.settings.checkin_time.slice(0, 5),
-        });
+        };
+        setValue(loaded);
+        setSavedValue(loaded);
+        setContacts(result.contacts || null);
       })
       .catch((e) => {
         if (!active) return;
@@ -79,7 +92,7 @@ export default function CheckinCallSettingsScreen() {
     return () => {
       active = false;
     };
-  }, [tc]);
+  }, [tc, reload]);
 
   const save = async () => {
     if (!value || saving) return;
@@ -97,7 +110,7 @@ export default function CheckinCallSettingsScreen() {
   };
 
   const shiftTime = (direction: 1 | -1) => {
-    if (!value) return;
+    if (!value || saving) return;
     setValue({
       ...value,
       checkin_time: timeFromMinutes(minutesFromTime(value.checkin_time) + direction * 30),
@@ -108,11 +121,9 @@ export default function CheckinCallSettingsScreen() {
     field: typeof FIELDS[number],
     direction: 1 | -1
   ) => {
-    if (!value) return;
+    if (!value || saving) return;
     const current = Number(value[field.key]);
-    let next = current + direction * field.step;
-    if (next > field.max) next = field.min;
-    if (next < field.min) next = field.max;
+    const next = Math.min(field.max, Math.max(field.min, current + direction * field.step));
     setValue({ ...value, [field.key]: next });
   };
 
@@ -141,11 +152,15 @@ export default function CheckinCallSettingsScreen() {
   if (!value) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#059669" />
+        {!error && <ActivityIndicator size="large" color="#059669" />}
         <Text style={styles.loadingText}>{error || t('loadingSettings')}</Text>
+        {!!error && <Pressable accessibilityRole="button" style={styles.stepBtn} onPress={() => setReload(current => current + 1)}><Text>{tc('retry')}</Text></Pressable>}
       </View>
     );
   }
+
+  const dirty = JSON.stringify(value) !== JSON.stringify(savedValue);
+  const dueMinutes = minutesFromTime(value.checkin_time) + value.grace_hours * 60;
 
   return (
     <View style={styles.root}>
@@ -179,23 +194,29 @@ export default function CheckinCallSettingsScreen() {
           <View style={styles.toggleRow}>
             <View style={styles.toggleCopy}>
               <Text style={styles.toggleLabel}>{t('enable')}</Text>
-              <Text style={styles.toggleStatus}>{value.enabled ? t('active') : t('inactive')}</Text>
+              <Text style={styles.toggleStatus}>{savedValue?.enabled ? t('active') : t('inactive')}</Text>
+              <Text style={styles.toggleStatus}>{t(dirty ? 'draftSettings' : 'savedSettings')}</Text>
             </View>
             <Switch
               accessibilityRole="switch"
               accessibilityLabel={t('enable')}
               accessibilityState={{ checked: value.enabled }}
               value={value.enabled}
+              disabled={saving || (!value.enabled && contacts?.length === 0)}
               onValueChange={(enabled) => setValue({ ...value, enabled })}
               trackColor={{ false: '#cbd5e1', true: '#00897b' }}
             />
           </View>
 
-          <View style={styles.divider} />
+          <Text style={styles.cardSubtitle}>{t('schedulePreview', { time: timeFromMinutes(dueMinutes), timezone: value.timezone, nextDay: dueMinutes >= 1440 ? t('nextDay') : '' })}</Text>
+          {contacts !== null && <View style={styles.contactPreview}>
+            <Text style={styles.toggleLabel}>{t('eligibleContacts')}</Text>
+            {contacts.length === 0 ? <Text style={styles.cardSubtitle}>{t('noEligibleContacts')}</Text> : contacts.map((contact, index) => <Text style={styles.cardSubtitle} key={contact.id}>{index + 1}. {contact.name || t('eligibleContactFallback', { index: index + 1 })}</Text>)}
+          </View>}
 
           {/* Row 1: Check-in Time */}
           <Pressable
-            style={styles.settingItemRow}
+            style={[styles.settingItemRow, stackedFields && styles.stackedItemRow]}
             accessibilityRole="button"
             accessibilityLabel={t('checkinTime')}
             accessibilityValue={{ text: value.checkin_time.slice(0, 5) }}
@@ -247,7 +268,7 @@ export default function CheckinCallSettingsScreen() {
             return (
               <View key={field.key}>
                 <Pressable
-                  style={styles.settingItemRow}
+                  style={[styles.settingItemRow, stackedFields && styles.stackedItemRow]}
                   accessibilityRole="button"
                   accessibilityLabel={t(field.labelKey)}
                   accessibilityValue={{ text: `${numVal} ${unit}` }}
@@ -263,6 +284,8 @@ export default function CheckinCallSettingsScreen() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={t('decreaseValue', { label: t(field.labelKey) })}
+                        disabled={saving || numVal <= field.min}
+                        accessibilityState={{ disabled: saving || numVal <= field.min }}
                         style={styles.stepBtn}
                         onPress={(e) => {
                           e.stopPropagation();
@@ -279,6 +302,8 @@ export default function CheckinCallSettingsScreen() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={t('increaseValue', { label: t(field.labelKey) })}
+                        disabled={saving || numVal >= field.max}
+                        accessibilityState={{ disabled: saving || numVal >= field.max }}
                         style={styles.stepBtn}
                         onPress={(e) => {
                           e.stopPropagation();
@@ -295,15 +320,17 @@ export default function CheckinCallSettingsScreen() {
           })}
 
           {!!error && <Text style={styles.error}>{error}</Text>}
+          <Text style={styles.cardSubtitle}>{t('settingsNotice')}</Text>
+          <Text style={styles.cardSubtitle}>{t('urgentSettingsNotice')}</Text>
 
           {/* Save Button */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('saveSettings')}
-            accessibilityState={{ disabled: saving }}
+            accessibilityState={{ disabled: saving || !dirty || (value.enabled && contacts?.length === 0) }}
             style={styles.saveBtn}
             onPress={save}
-            disabled={saving}
+            disabled={saving || !dirty || (value.enabled && contacts?.length === 0)}
           >
             {saving ? (
               <ActivityIndicator color="#ffffff" size="small" />
@@ -330,7 +357,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#f4faf8',
   },
-  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  backButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  contactPreview: { gap: 8, paddingVertical: 12 },
   topBarTitle: { fontSize: 17, fontWeight: '700', color: '#0f3e36', textAlign: 'center', flex: 1 },
   container: { padding: 18, paddingTop: 4, paddingBottom: 48, gap: 14 },
   card: {
@@ -356,6 +384,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 17,
+    flexShrink: 1,
     fontWeight: '800',
     color: '#0f3e36',
   },
@@ -384,20 +413,14 @@ const styles = StyleSheet.create({
     color: '#00897b',
     fontWeight: '600',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 12,
-  },
   settingItemRow: {
     minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
   },
+  stackedItemRow: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
   rowLeftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -418,9 +441,11 @@ const styles = StyleSheet.create({
   pillWithControls: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
   },
   pillBadge: {
+    flexShrink: 1,
     backgroundColor: '#f0fdf9',
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -437,8 +462,6 @@ const styles = StyleSheet.create({
   stepBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: '#dcfce7',
     alignItems: 'center',
     justifyContent: 'center',
   },

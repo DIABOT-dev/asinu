@@ -425,6 +425,7 @@
   "emergencyAlertError": "Không thể gửi cảnh báo. Vui lòng thử lại.",
   "doctorConsultationJoinVideo": "Tham gia phòng tư vấn video",
   "checkinGuide": {
+    "preview": "Minh họa màn hình check-in, không phải kết quả của bạn",
     "badge": "Hướng dẫn sử dụng",
     "stepBadge": "Bước {{current}}/{{total}}",
     "skip": "Bỏ qua",
@@ -438,8 +439,8 @@
     "slide3Title": "Nếu có dấu hiệu bất thường",
     "slide3Desc": "Nếu thấy cơ thể khác lạ, hãy chọn “Hơi mệt”, “Rất mệt” hoặc “Có sự bất thường” để Asinu lắng nghe và hỗ trợ kịp thời.",
     "slide4Title": "Trả lời một vài câu ngắn",
-    "slide4Desc": "Asinu sẽ hỏi thích ứng khoảng 2–4 câu ngắn gọn, dễ trả lời để hiểu rõ tình trạng hiện tại của bác.",
+    "slide4Desc": "Chọn vùng đang khó chịu, bấm Tiếp tục rồi trả lời các câu hỏi phù hợp. Bạn có thể chọn nhiều vùng hoặc nhập thêm mô tả.",
     "slide5Title": "Xem và nghe kết quả",
-    "slide5Desc": "Hiển thị kết luận sức khỏe rõ ràng, phát giọng đọc ấm áp của Ngọc Lan và gợi ý các bước chăm sóc tiếp theo."
+    "slide5Desc": "Xem thông tin đã ghi nhận và hướng dẫn tiếp theo. Bấm Đọc lại kết quả check-in để nghe. Giọng Ngọc Lan được ưu tiên; nếu không tải được, app dùng giọng của máy. Đây là gợi ý tham khảo, không phải chẩn đoán."
   }
 }

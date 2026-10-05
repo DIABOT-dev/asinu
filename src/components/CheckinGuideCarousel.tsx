@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image } from 'expo-image';
+import { CheckinGuidePreview } from './CheckinGuidePreview';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -24,7 +24,7 @@ import { useThemeColors } from '../hooks/useThemeColors';
 import { useFontSizeStore } from '../stores/font-size.store';
 import { colors } from '../styles';
 
-export const CHECKIN_GUIDE_STORAGE_KEY = 'checkin-guide:v2';
+export const CHECKIN_GUIDE_STORAGE_KEY = 'checkin-guide:v3';
 
 function getCheckinGuideStorageKey(userId?: string | null): string {
   return userId ? `${CHECKIN_GUIDE_STORAGE_KEY}:${userId}` : CHECKIN_GUIDE_STORAGE_KEY;
@@ -51,18 +51,9 @@ export async function resetCheckinGuideSeen(userId?: string | null): Promise<voi
   } catch {}
 }
 
-const GUIDE_IMAGES = [
-  require('../../assets/images/checkin-guide/slide1_daily_checkin.png'),
-  require('../../assets/images/checkin-guide/slide2_feeling_fine.png'),
-  require('../../assets/images/checkin-guide/slide3_abnormal_signs.png'),
-  require('../../assets/images/checkin-guide/slide4_adaptive_questions.png'),
-  require('../../assets/images/checkin-guide/slide5_listen_results.png'),
-];
-
 export type CheckinGuideSlide = {
   id: string;
   step: number;
-  image: any;
   titleKey: string;
   descKey: string;
   badgeColor: string;
@@ -73,7 +64,6 @@ const SLIDES: CheckinGuideSlide[] = [
   {
     id: 'step1',
     step: 1,
-    image: GUIDE_IMAGES[0],
     titleKey: 'checkinGuide.slide1Title',
     descKey: 'checkinGuide.slide1Desc',
     badgeColor: '#e6faf8',
@@ -82,7 +72,6 @@ const SLIDES: CheckinGuideSlide[] = [
   {
     id: 'step2',
     step: 2,
-    image: GUIDE_IMAGES[1],
     titleKey: 'checkinGuide.slide2Title',
     descKey: 'checkinGuide.slide2Desc',
     badgeColor: '#eefaf5',
@@ -91,7 +80,6 @@ const SLIDES: CheckinGuideSlide[] = [
   {
     id: 'step3',
     step: 3,
-    image: GUIDE_IMAGES[2],
     titleKey: 'checkinGuide.slide3Title',
     descKey: 'checkinGuide.slide3Desc',
     badgeColor: '#fff7ed',
@@ -100,7 +88,6 @@ const SLIDES: CheckinGuideSlide[] = [
   {
     id: 'step4',
     step: 4,
-    image: GUIDE_IMAGES[3],
     titleKey: 'checkinGuide.slide4Title',
     descKey: 'checkinGuide.slide4Desc',
     badgeColor: '#e6faf8',
@@ -109,7 +96,6 @@ const SLIDES: CheckinGuideSlide[] = [
   {
     id: 'step5',
     step: 5,
-    image: GUIDE_IMAGES[4],
     titleKey: 'checkinGuide.slide5Title',
     descKey: 'checkinGuide.slide5Desc',
     badgeColor: '#eefaf5',
@@ -139,19 +125,20 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
   const compactLayout = viewportHeight < 720
     || fontSizePreference === 'large'
     || fontSizePreference === 'xlarge';
-  const imageCardHeight = Math.max(
-    150,
-    Math.min(compactLayout ? 190 : 250, Math.round(viewportHeight * (compactLayout ? 0.25 : 0.3))),
-  );
-
   const styles = useMemo(
-    () => createStyles(isDark, insets, compactLayout, imageCardHeight),
-    [isDark, insets, compactLayout, imageCardHeight],
+    () => createStyles(isDark, insets, compactLayout),
+    [isDark, insets, compactLayout],
   );
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(viewportWidth);
   const flatListRef = useRef<FlatList<CheckinGuideSlide>>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setActiveIndex(0);
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [visible, userId]);
 
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -205,16 +192,6 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
           showsVerticalScrollIndicator={false}
           style={{ width: containerWidth }}
         >
-          {/* Card with illustration */}
-          <View style={styles.imageCard}>
-            <Image
-              cachePolicy="memory-disk"
-              contentFit="cover"
-              source={item.image}
-              style={styles.slideImage}
-            />
-          </View>
-
           {/* Text block */}
           <View style={styles.contentWrap}>
             <View style={[styles.stepBadge, { backgroundColor: item.badgeColor }]}>
@@ -226,6 +203,7 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
             <Text style={styles.slideTitle}>{t(item.titleKey)}</Text>
             <Text style={styles.slideDesc}>{t(item.descKey)}</Text>
           </View>
+          <CheckinGuidePreview step={item.step} />
         </ScrollView>
       );
     },
@@ -297,8 +275,10 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
                 hitSlop={8}
                 key={slide.id}
                 onPress={() => handleDotPress(idx)}
-                style={[styles.dot, isActive ? styles.dotActive : styles.dotInactive]}
-              />
+                style={styles.dotTouch}
+              >
+                <View style={[styles.dot, isActive ? styles.dotActive : styles.dotInactive]} />
+              </Pressable>
             );
           })}
         </View>
@@ -366,7 +346,7 @@ export const CheckinGuideCarousel = memo(function CheckinGuideCarousel({
       visible={visible}
     >
       <View style={styles.modalOverlay}>
-        <Animated.View entering={FadeInDown.duration(320).springify()} style={styles.modalCard}>
+        <Animated.View entering={FadeInDown.duration(320)} style={styles.modalCard}>
           {content}
         </Animated.View>
       </View>
@@ -378,7 +358,6 @@ function createStyles(
   isDark: boolean,
   insets: ReturnType<typeof useSafeAreaInsets>,
   compactLayout: boolean,
-  imageCardHeight: number,
 ) {
   return StyleSheet.create({
     modalOverlay: {
@@ -447,6 +426,7 @@ function createStyles(
       fontWeight: '700',
     },
     skipButton: {
+      minHeight: 44,
       alignItems: 'center',
       backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
       borderRadius: 16,
@@ -473,31 +453,6 @@ function createStyles(
       paddingHorizontal: 20,
       paddingBottom: 4,
       paddingTop: compactLayout ? 4 : 10,
-    },
-    imageCard: {
-      backgroundColor: isDark ? '#1e293b' : '#f8fafc',
-      borderColor: isDark ? '#334155' : '#e2e8f0',
-      borderRadius: 22,
-      borderWidth: 1,
-      height: imageCardHeight,
-      overflow: 'hidden',
-      width: '100%',
-      ...Platform.select({
-        ios: {
-          shadowColor: '#0f172a',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.08,
-          shadowRadius: 16,
-        },
-        android: {
-          elevation: 4,
-        },
-        default: {},
-      }),
-    },
-    slideImage: {
-      height: '100%',
-      width: '100%',
     },
     contentWrap: {
       alignItems: 'center',
@@ -544,6 +499,7 @@ function createStyles(
       borderRadius: 4,
       marginHorizontal: 4,
     },
+    dotTouch: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     dotActive: {
       backgroundColor: colors.primary,
       height: 8,
@@ -555,8 +511,8 @@ function createStyles(
       width: 8,
     },
     buttonsRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
+      alignItems: 'stretch',
+      flexDirection: compactLayout ? 'column' : 'row',
       gap: 12,
       justifyContent: 'space-between',
     },
@@ -580,13 +536,13 @@ function createStyles(
       fontWeight: '700',
     },
     prevBtnPlaceholder: {
-      width: 48,
+      width: compactLayout ? 0 : 48,
     },
     nextBtn: {
       alignItems: 'center',
       backgroundColor: colors.primary,
       borderRadius: 16,
-      flex: 1,
+      flex: compactLayout ? undefined : 1,
       flexDirection: 'row',
       gap: 6,
       justifyContent: 'center',
@@ -603,7 +559,7 @@ function createStyles(
       fontWeight: '700',
     },
     startBtnWrap: {
-      flex: 1,
+      flex: compactLayout ? undefined : 1,
       overflow: 'hidden',
     },
     startBtnGradient: {
