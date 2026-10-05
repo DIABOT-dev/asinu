@@ -180,7 +180,7 @@
     "expired": "Timed out"
   },
   "audio": {
-    "userPrompt": "Please choose an option. Press one if you are okay. Press two if you feel slightly unwell. Press three if you are in an urgent situation.",
+    "userPrompt": "Please select an option on the Asinu screen: I am okay, I feel slightly unwell, or I need help now.",
     "triagePrompt": "Please quickly describe how you feel. Choose mild fatigue or dizziness, pain or discomfort, or immediate help.",
     "triageLocationPrompt": "Choose the part of your body that feels most uncomfortable.",
     "triageSymptomPrompt": "Choose the closest description of what you feel.",
@@ -188,9 +188,9 @@
     "userOk": "Asinu recorded that you are okay. Thank you.",
     "userMild": "Asinu recorded that you feel slightly unwell and will notify your family.",
     "userUrgent": "Asinu recorded an urgent situation and is contacting your family.",
-    "userRetry": "Asinu did not receive your choice. Please choose one, two, or three on the screen.",
+    "userRetry": "Asinu did not receive your choice. Please open Asinu and tap the option that matches how you feel on screen.",
     "familyMild": "Asinu reports that your family member feels slightly unwell. Please choose I will check on them.",
-    "familyUrgent": "Asinu has an urgent support alert. You accepted the call. Please open the app for details.",
+    "familyUrgent": "Asinu has an urgent support alert. Please review the details on screen and select I will check on them to confirm that you will help your family member.",
     "familyUnknown": "Asinu could not reach the user. Please choose I will check on them."
   },
   "gallery": {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { LiveKitRoom } from '@livekit/react-native';
@@ -23,7 +23,8 @@ import {
   getCheckinCallTime,
   isCheckinCallAttemptClosed,
 } from '../../src/features/checkin-call/checkin-call.state';
-import { endVoipCall, simulateIncomingVoipCall } from '../../src/lib/voip';
+import { endVoipCall, setVoipCallUIActive, simulateIncomingVoipCall } from '../../src/lib/voip';
+import { acceptCheckinCallOnce } from '../../src/features/checkin-call/checkin-call.accept';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
@@ -81,19 +82,65 @@ export default function CheckinCallScreen() {
   const [error, setError] = useState('');
   const [statusKey, setStatusKey] = useState('statusPreparing');
   const [completedAt, setCompletedAt] = useState<number | null>(null);
-  const { audio, play: playAudio, stopAudio } = useCheckinCallAudio(attempt, language, t);
+  const { audio, play: playAudio, stopAudio: stopCallAudio } = useCheckinCallAudio(attempt, language, t);
   const callScreenFocused = useRef(true);
-  const play = useCallback((key: string, text?: string) => {
-    if (!callScreenFocused.current) return Promise.resolve();
-    return playAudio(key, text);
+  const playVersion = useRef(0);
+  const audioContext = useRef({ attempt, joined, ended, triageOpen, prompt: audio.prompt });
+  audioContext.current = { attempt, joined, ended, triageOpen, prompt: audio.prompt };
+  const stopAudio = useCallback((clearPrompt = true) => {
+    playVersion.current++;
+    return stopCallAudio(clearPrompt);
+  }, [stopCallAudio]);
+  const play = useCallback(async (key: string, text?: string) => {
+    const version = ++playVersion.current;
+    if (!callScreenFocused.current || AppState.currentState !== 'active') return;
+    const current = audioContext.current;
+    if (current.attempt && !current.ended) {
+      // Silence native unlock guidance before either a recording or device TTS
+      // starts. A late bridge response must not revive a cancelled prompt.
+      await setVoipCallUIActive(current.attempt.id, true,
+        current.triageOpen ? current.attempt.next_action_at : current.attempt.confirm_deadline);
+    }
+    if (version !== playVersion.current || !callScreenFocused.current || AppState.currentState !== 'active') return;
+    await playAudio(key, text);
   }, [playAudio]);
   useFocusEffect(useCallback(() => {
     callScreenFocused.current = true;
+    const current = audioContext.current;
+    if (current.joined && !current.ended && current.prompt) void play(current.prompt.key, current.prompt.text);
     return () => {
       callScreenFocused.current = false;
-      void stopAudio(false);
+      const id = audioContext.current.attempt?.id;
+      void stopAudio(false).then(() => {
+        // A fast refocus may already have claimed the session again while
+        // teardown awaited the old player. Never release its new ownership.
+        if (id && (!callScreenFocused.current || AppState.currentState !== 'active'
+          || audioContext.current.attempt?.id !== id)) return setVoipCallUIActive(id, false);
+      });
     };
-  }, [stopAudio]));
+  }, [play, stopAudio]));
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      const current = audioContext.current;
+      if (state === 'active') {
+        if (callScreenFocused.current && current.joined && !current.ended && current.prompt) {
+          void play(current.prompt.key, current.prompt.text);
+        }
+      } else {
+        void stopAudio(false).then(() => {
+          if (current.attempt && !current.ended && (!callScreenFocused.current
+            || AppState.currentState !== 'active' || audioContext.current.attempt?.id !== current.attempt.id)) {
+            return setVoipCallUIActive(current.attempt.id, false);
+          }
+        });
+      }
+    });
+    return () => subscription.remove();
+  }, [play, stopAudio]);
+  useEffect(() => {
+    if (!attempt || !joined || ended || !callScreenFocused.current || AppState.currentState !== 'active') return;
+    void setVoipCallUIActive(attempt.id, true, triageOpen ? attempt.next_action_at : attempt.confirm_deadline);
+  }, [attempt?.id, attempt?.next_action_at, attempt?.confirm_deadline, joined, ended, triageOpen]);
   const actionPending = useRef(false);
   const callEnded = useRef(false);
   const joinRequested = useRef(false);
@@ -402,9 +449,22 @@ export default function CheckinCallScreen() {
     joinRequested.current = true;
     setJoined(true);
     setStatusKey(room ? 'statusConnecting' : 'statusNoLiveKit');
+    const startPrompt = () => {
+      if (!screenMounted.current || connectionEnding.current || callEnded.current || actionPending.current) return;
+      if (attempt.target_role === 'USER' && attempt.episode_state === 'TRIAGE_USER') {
+        const step = triageStage.current.step;
+        void play(step === 'intensity' ? 'triage_intensity_prompt' : step === 'symptom' ? 'triage_symptom_prompt' : 'triage_location_prompt');
+      } else if (attempt.target_role === 'USER' && attempt.trigger_source === 'EARLY_SIGNAL') {
+        void play('early_signal_context', t('earlySignalCallReason'));
+      } else {
+        void play(attempt.target_role === 'USER' ? 'user_prompt'
+          : attempt.severity === 'URGENT' ? 'family_urgent'
+            : attempt.severity === 'MILD' ? 'family_mild' : 'family_unknown');
+      }
+    };
     if (!accepted.current) {
       accepted.current = true;
-      acceptPromise.current = checkinCallApi.accept(attempt.id);
+      acceptPromise.current = acceptCheckinCallOnce(attempt.id);
       void acceptPromise.current.then(({ state, confirm_deadline }) => {
         if (!screenMounted.current || connectionEnding.current) return;
         if (confirm_deadline) {
@@ -413,31 +473,14 @@ export default function CheckinCallScreen() {
           );
         }
         if (attempt.target_role === 'FAMILY' && (state === 'URGENT_BROADCAST' || state === 'URGENT_ACKNOWLEDGED')) setStatusKey('statusUrgentAccepted');
+        startPrompt();
       }).catch(() => {
         accepted.current = false;
         acceptPromise.current = null;
         if (!screenMounted.current || connectionEnding.current) return;
         setStatusKey('statusAcceptFailed');
       });
-    }
-    if (attempt.target_role === 'USER' && attempt.episode_state === 'TRIAGE_USER') {
-      const step = triageStage.current.step;
-      void play(step === 'intensity' ? 'triage_intensity_prompt' : step === 'symptom' ? 'triage_symptom_prompt' : 'triage_location_prompt');
-      return;
-    }
-    if (attempt.target_role === 'USER' && attempt.trigger_source === 'EARLY_SIGNAL') {
-      void play('early_signal_context', t('earlySignalCallReason'));
-      return;
-    }
-    void play(
-      attempt.target_role === 'USER'
-        ? 'user_prompt'
-        : attempt.severity === 'URGENT'
-          ? 'family_urgent'
-          : attempt.severity === 'MILD'
-            ? 'family_mild'
-            : 'family_unknown',
-    );
+    } else startPrompt();
   }, [attempt, play, room, t]);
 
   useEffect(() => {

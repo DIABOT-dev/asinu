@@ -117,6 +117,7 @@
       <string>fetch</string>
       <string>remote-notification</string>
       <string>voip</string>
+      <string>audio</string>
     </array>
     <key>UIStatusBarStyle</key>
     <string>UIStatusBarStyleDefault</string>

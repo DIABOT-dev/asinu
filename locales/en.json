@@ -6,7 +6,8 @@
     "NSPhotoLibraryUsageDescription": "Asinu needs photo library access when you choose to update your profile picture.",
     "Localizable.strings": {
       "checkin_call_handle": "Check-in",
-      "checkin_call_title": "Asinu check-in call"
+      "checkin_call_title": "Asinu check-in call",
+      "checkin_call_open_app_prompt": "You answered the Asinu call. Please unlock your phone, open Asinu, and select your response on screen. Answering the call does not submit a response."
     }
   }
 }

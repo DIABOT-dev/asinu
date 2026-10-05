@@ -93,8 +93,8 @@ class LegacySound {
   private readonly player: any;
   private playbackSubscription?: { remove: () => void };
 
-  constructor(source: any) {
-    this.player = createAudioPlayer(source);
+  constructor(source: any, keepAudioSessionActive = false) {
+    this.player = createAudioPlayer(source, { keepAudioSessionActive });
   }
 
   async pauseAsync() {
@@ -140,8 +140,8 @@ export const Audio = {
     },
   },
   Sound: {
-    async createAsync(source: any, initialStatus?: { shouldPlay?: boolean }) {
-      const sound = new LegacySound(source);
+    async createAsync(source: any, initialStatus?: { shouldPlay?: boolean; keepAudioSessionActive?: boolean }) {
+      const sound = new LegacySound(source, initialStatus?.keepAudioSessionActive);
       if (initialStatus?.shouldPlay) sound.play();
       return { sound, status: { isLoaded: true } };
     },

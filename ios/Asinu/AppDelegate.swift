@@ -40,6 +40,7 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
+    if VoipCallManager.shared.handleAnsweredCallURL(url) { return true }
     let zaloHandled = ZDKApplicationDelegate.sharedInstance().application(app, open: url, options: options)
     return super.application(app, open: url, options: options) || zaloHandled || RCTLinkingManager.application(app, open: url, options: options)
   }

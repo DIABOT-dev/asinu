@@ -15,7 +15,7 @@
     "i18n:check": "node scripts/check-i18n.mjs && node scripts/check-ui-copy.mjs",
     "test:api-contract": "node scripts/check-api-contract.mjs",
     "test:checkin-contract": "node scripts/check-checkin-api-contract.mjs",
-    "test:checkin-native": "node scripts/check-checkin-native-readiness.mjs",
+    "test:checkin-native": "node scripts/check-checkin-native-readiness.mjs && node scripts/check-checkin-call-handoff.mjs",
     "test:checkin-state": "node scripts/check-checkin-call-state.mjs && node scripts/check-session-guide-regressions.mjs",
     "test:checkin-connection": "node scripts/check-livekit-signal-lifecycle.mjs",
     "test:checkin-audio": "node scripts/check-checkin-call-audio.mjs",

@@ -53,7 +53,7 @@ final class AsinuVoipModule: RCTEventEmitter {
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    resolve(VoipCallManager.shared.consumePendingCall())
+    DispatchQueue.main.async { resolve(VoipCallManager.shared.consumePendingCall()) }
   }
 
   @objc(endCall:resolver:rejecter:)
@@ -62,8 +62,32 @@ final class AsinuVoipModule: RCTEventEmitter {
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    VoipCallManager.shared.endCall(attemptId: attemptId)
-    resolve(true)
+    DispatchQueue.main.async {
+      VoipCallManager.shared.endCall(attemptId: attemptId)
+      resolve(true)
+    }
+  }
+
+  @objc(getPendingCall:rejecter:)
+  func getPendingCall(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async { resolve(VoipCallManager.shared.pendingCall()) }
+  }
+
+  @objc(completeAnswer:connected:deadline:resolver:rejecter:)
+  func completeAnswer(_ attemptId: String, connected: Bool, deadline: String,
+                      resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async {
+      VoipCallManager.shared.completeAnswer(attemptId: attemptId, connected: connected, deadline: deadline)
+      resolve(true)
+    }
+  }
+
+  @objc(setCallUIActive:active:deadline:resolver:rejecter:)
+  func setCallUIActive(_ attemptId: String, active: Bool, deadline: String,
+                       resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async {
+      resolve(VoipCallManager.shared.setCallUIActive(attemptId: attemptId, active: active, deadline: deadline))
+    }
   }
 
   @objc(simulateIncomingCall:resolver:rejecter:)

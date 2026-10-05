@@ -5,11 +5,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { AppState, Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
+import { router, useGlobalSearchParams, usePathname, useRootNavigationState } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../features/auth/auth.store";
 import { useCareCircle } from "../features/care-circle";
@@ -38,12 +39,15 @@ import {
 } from "../features/notifications/notifications.api";
 import {
   addVoipCallAnsweredListener,
+  addVoipCallEndedListener,
   addVoipTokenListener,
-  consumePendingVoipCall,
+  getPendingVoipCall,
   getVoipRegistration,
   type VoipCallPayload,
   type VoipRegistration,
 } from "../lib/voip";
+import { CheckinCallHandoff } from "../features/checkin-call/checkin-call.handoff";
+import { acceptCheckinCallOnce } from "../features/checkin-call/checkin-call.accept";
 
 // ─── Session Context ──────────────────────────────────────────────────────────
 
@@ -72,6 +76,13 @@ export const SessionProvider = ({ children }: Props) => {
   const hydrated = useAuthStore((state) => state.hydrated);
   const authToken = useAuthStore((state) => state.token);
   const profile = useAuthStore((state) => state.profile);
+  const pathname = usePathname();
+  const navigationState = useRootNavigationState();
+  const callParams = useGlobalSearchParams<{ attemptId?: string; nativeAnswered?: string }>();
+  const callHandoff = useRef(new CheckinCallHandoff());
+  const callRecoveryRevision = useRef(0);
+  const callContext = useRef({ hydrated, authToken, loading, pathname, navigationState, callParams });
+  callContext.current = { hydrated, authToken, loading, pathname, navigationState, callParams };
   const hasPendingCareInvite = useCareCircle((state) =>
     state.invitations.some(
       (invitation) =>
@@ -165,20 +176,68 @@ export const SessionProvider = ({ children }: Props) => {
       .catch(() => {});
   }, [authToken, expoPushToken, nativeFcmToken, voipRegistration]);
 
-  const openVoipCall = useCallback((call: VoipCallPayload) => {
-    router.push({
-      pathname: "/checkin-call/[episodeId]",
-      params: {
-        episodeId: call.episodeId,
-        attemptId: call.attemptId,
-        nativeAnswered: "1",
-      },
-    } as any);
+  const flushVoipHandoff = useCallback(() => {
+    const current = callContext.current;
+    const action = callHandoff.current.route({
+      ready: current.hydrated && !current.loading && Boolean(current.authToken && current.navigationState?.key),
+      active: AppState.currentState === "active",
+      pathname: current.pathname,
+      attemptId: typeof current.callParams.attemptId === "string" ? current.callParams.attemptId : undefined,
+      nativeAnswered: typeof current.callParams.nativeAnswered === "string" ? current.callParams.nativeAnswered : undefined,
+    });
+    if (!action) return;
+    const params = { attemptId: action.call.attemptId, nativeAnswered: "1" };
+    if (action.kind === "params") router.setParams(params);
+    else {
+      const route = { pathname: "/checkin-call/[episodeId]", params: { ...params, episodeId: action.call.episodeId } };
+      if (action.kind === "replace") router.replace(route as any);
+      else router.navigate(route as any);
+    }
   }, []);
 
+  const openVoipCall = useCallback((call: VoipCallPayload) => {
+    callHandoff.current.receive(call);
+    // Accept immediately after session recovery, even while the lock-screen
+    // UI is still visible. Neither accepting nor opening the app is check-in.
+    if (callContext.current.hydrated && callContext.current.authToken) {
+      void acceptCheckinCallOnce(call.attemptId).catch(() => {});
+    }
+    flushVoipHandoff();
+  }, [flushVoipHandoff]);
+
+  useEffect(() => {
+    flushVoipHandoff();
+  }, [hydrated, authToken, loading, pathname, navigationState?.key, callParams.attemptId, callParams.nativeAnswered, flushVoipHandoff]);
+
+  // Preserve events before hydration, retry the handoff on foreground, and
+  // ignore a getter that completes after its call has ended or been replaced.
+  useEffect(() => {
+    let live = true;
+    const recover = async () => {
+      const requestRevision = callRecoveryRevision.current;
+      const call = await getPendingVoipCall();
+      if (live && requestRevision === callRecoveryRevision.current && call) openVoipCall(call);
+    };
+    const removeAnswer = addVoipCallAnsweredListener(call => {
+      callRecoveryRevision.current++;
+      openVoipCall(call);
+    });
+    const removeEnded = addVoipCallEndedListener(call => {
+      callRecoveryRevision.current++;
+      callHandoff.current.clear(call.attemptId);
+    });
+    const foreground = AppState.addEventListener("change", state => {
+      if (state !== "active") return;
+      callHandoff.current.foreground();
+      void recover();
+      flushVoipHandoff();
+    });
+    void recover();
+    return () => { live = false; removeAnswer(); removeEnded(); foreground.remove(); };
+  }, [openVoipCall, flushVoipHandoff]);
+
   // PushKit registration is independent from the regular notification prompt.
-  // Answer events open the in-app 1/2/3 screen; a persisted pending call covers
-  // the cold-start window before React Native has finished bootstrapping.
+  // Token registration is independent of native call navigation.
   useEffect(() => {
     const removeToken = addVoipTokenListener((registration) => {
       setVoipRegistration(registration);
@@ -186,20 +245,20 @@ export const SessionProvider = ({ children }: Props) => {
         void authApi.updatePushToken(null, null, null, null, true).catch(() => {});
       }
     });
-    const removeAnswer = addVoipCallAnsweredListener((call) => {
-      if (authToken) openVoipCall(call);
-    });
     return () => {
       removeToken();
-      removeAnswer();
     };
   }, [authToken, openVoipCall]);
 
   useEffect(() => {
     if (!hydrated || !authToken) return;
-    void consumePendingVoipCall().then((call) => {
-      if (call) openVoipCall(call);
+    let live = true;
+    const requestRevision = callRecoveryRevision.current;
+    void getPendingVoipCall().then((call) => {
+      if (live && requestRevision === callRecoveryRevision.current
+        && useAuthStore.getState().token === authToken && call) openVoipCall(call);
     });
+    return () => { live = false; };
   }, [authToken, hydrated, openVoipCall]);
 
   // Ask once after a completed sign-in, with an in-app explanation first.

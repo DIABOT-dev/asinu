@@ -180,7 +180,7 @@
     "expired": "Hết thời gian"
   },
   "audio": {
-    "userPrompt": "Bác vui lòng chọn một lựa chọn. Nhấn một nếu bác vẫn ổn. Nhấn hai nếu bác chỉ hơi mệt. Nhấn ba nếu bác đang gặp tình huống cấp bách.",
+    "userPrompt": "Bác vui lòng chọn trên màn hình Asinu: Tôi vẫn ổn, Tôi hơi mệt, hoặc Tôi cần hỗ trợ ngay.",
     "triagePrompt": "Bác cho Asinu biết nhanh tình trạng hiện tại. Chọn mệt hoặc choáng nhẹ, đau hoặc khó chịu, hoặc cần hỗ trợ ngay.",
     "triageLocationPrompt": "Bác chọn vùng cơ thể đang khó chịu nhất.",
     "triageSymptomPrompt": "Bác chọn biểu hiện gần đúng nhất.",
@@ -188,9 +188,9 @@
     "userOk": "Asinu đã ghi nhận bác vẫn ổn. Cảm ơn bác.",
     "userMild": "Asinu đã ghi nhận bác hơi mệt và sẽ báo cho người nhà.",
     "userUrgent": "Asinu đã ghi nhận tình huống cấp bách và đang liên hệ người nhà.",
-    "userRetry": "Asinu chưa nhận được lựa chọn. Bác vui lòng chọn một, hai hoặc ba trên màn hình.",
+    "userRetry": "Asinu chưa nhận được lựa chọn. Bác vui lòng mở Asinu và chạm vào nút phù hợp với tình trạng hiện tại trên màn hình.",
     "familyMild": "Asinu thông báo người thân của anh chị đang hơi mệt. Vui lòng chọn Tôi nhận, sẽ kiểm tra.",
-    "familyUrgent": "Asinu có cảnh báo cần hỗ trợ ngay. Anh chị đã nhận cuộc gọi. Vui lòng mở ứng dụng để xem chi tiết.",
+    "familyUrgent": "Asinu có cảnh báo cần hỗ trợ ngay. Vui lòng xem thông tin trên màn hình và chọn Tôi nhận, sẽ kiểm tra để xác nhận sẽ hỗ trợ người thân.",
     "familyUnknown": "Asinu chưa liên lạc được với người dùng. Vui lòng chọn Tôi nhận, sẽ kiểm tra."
   },
   "gallery": {

@@ -9,6 +9,7 @@ import { DataConsentModal, hasDataConsent } from '../src/components/DataConsentM
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { routeFromNotificationData } from '../src/lib/notifications';
+import { getPendingVoipCall } from '../src/lib/voip';
 import { spacing } from '../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
@@ -103,12 +104,24 @@ export default function Index() {
 
   useEffect(() => {
     if (!hydrated || !isNavReady || loading || !consentReady || showConsent) return;
+    let cancelled = false;
     const task = InteractionManager.runAfterInteractions(async () => {
       // Cold-start deep link: nếu user mở app bằng cách tap notification,
       // ưu tiên route đó thay vì replace về home (nếu không sẽ ghi đè).
       if (profile?.onboardingCompleted) {
         try {
+          // An answered CallKit call takes priority over a previous push tap.
+          // The native handoff remains pending until this screen owns audio.
+          const call = await getPendingVoipCall();
+          if (cancelled) return;
+          if (call) {
+            router.replace({ pathname: '/checkin-call/[episodeId]', params: {
+              episodeId: call.episodeId, attemptId: call.attemptId, nativeAnswered: '1',
+            } } as any);
+            return;
+          }
           const response = await Notifications.getLastNotificationResponseAsync();
+          if (cancelled) return;
           if (response) {
             const ageSec = Date.now() / 1000 - response.notification.date;
             const data = response.notification.request.content.data as Record<string, unknown>;
@@ -124,13 +137,14 @@ export default function Index() {
         } catch {}
       }
 
+      if (cancelled) return;
       if (profile) {
         router.replace(profile.onboardingCompleted ? '/(tabs)/home' : '/onboarding');
       } else {
         router.replace('/login');
       }
     });
-    return () => task.cancel();
+    return () => { cancelled = true; task.cancel(); };
   }, [hydrated, isNavReady, loading, profile, router, consentReady, showConsent]);
 
   return (

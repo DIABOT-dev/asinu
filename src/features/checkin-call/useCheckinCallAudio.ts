@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Speech from 'expo-speech';
 import { Audio } from '../../lib/audio';
+import { setVoipCallUIActive } from '../../lib/voip';
 import { CheckinCallAudio, isFamilyNoticePrompt, type CallAudioPrompt, type CallAudioState } from './checkin-call.audio';
 import { checkinCallApi, type CheckinCallAttempt } from './checkin-call.api';
 
@@ -45,6 +46,7 @@ export function useCheckinCallAudio(
     const downloads = new Map<string, Promise<string>>();
     const loaded = new Set<string>();
     const invalidations = new Map<string, Promise<void>>();
+    let ownsNativeAudioSession = false;
     const identity = (prompt: CallAudioPrompt) => {
       const personalizedFamily = isFamilyNoticePrompt(prompt.key) && Boolean(prompt.attemptId);
       const key = prompt.language + '-' +
@@ -87,12 +89,20 @@ export function useCheckinCallAudio(
         invalidations.set(key, removing);
         try { await removing; } finally { invalidations.delete(key); }
       },
-      prepare: () => Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false }),
-      create: async uri => (await Audio.Sound.createAsync({ uri }, { shouldPlay: false })).sound,
+      prepare: async () => {
+        const current = context.current.attempt;
+        ownsNativeAudioSession = current ? await setVoipCallUIActive(current.id, true,
+          current.episode_state === 'TRIAGE_USER' ? current.next_action_at : current.confirm_deadline) : false;
+        // CallKit owns category/activation. Expo must not replace it with a
+        // playback session or deactivate it when a short prompt finishes.
+        if (!ownsNativeAudioSession) await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+      },
+      create: async uri => (await Audio.Sound.createAsync({ uri }, { shouldPlay: false, keepAudioSessionActive: ownsNativeAudioSession })).sound,
       stopSpeech: () => Speech.stop(),
       speak: (prompt, callbacks) => Speech.speak(prompt.text, {
         language: prompt.language === 'en' ? 'en-US' : 'vi-VN',
         rate: 0.85,
+        useApplicationAudioSession: true,
         ...callbacks,
       }),
       onState: setAudio,

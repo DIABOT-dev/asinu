@@ -6,7 +6,8 @@
     "NSPhotoLibraryUsageDescription": "Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện.",
     "Localizable.strings": {
       "checkin_call_handle": "Check-in",
-      "checkin_call_title": "Tổng đài check-in Asinu"
+      "checkin_call_title": "Tổng đài check-in Asinu",
+      "checkin_call_open_app_prompt": "Bạn đã nhận cuộc gọi Asinu. Vui lòng mở khóa điện thoại rồi mở ứng dụng Asinu để chọn phản hồi trên màn hình. Nhận cuộc gọi chưa gửi phản hồi."
     }
   }
 }
