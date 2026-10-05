@@ -442,16 +442,10 @@ function FamilyPreview({ severity }: { severity: 'UNKNOWN' | 'MILD' | 'URGENT' }
           </View>
         </View>
 
-        {/* 3 Action Buttons */}
+        {/* One confirmation action, matching the live family call screen. */}
         <View style={styles.familyActionsCol}>
           <View style={[styles.familyActionBtn, urgent ? styles.familyActionBtnUrgent : unknown ? styles.familyActionBtnUnknown : styles.familyActionBtnMild]}>
             <Text style={styles.familyActionTextUrgent}>{t('confirmCheck')}</Text>
-          </View>
-          <View style={[styles.familyActionBtn, styles.familyActionBtnMint]}>
-            <Text style={styles.familyActionTextMint}>{t('confirmOnMyWay')}</Text>
-          </View>
-          <View style={[styles.familyActionBtn, styles.familyActionBtnMint]}>
-            <Text style={styles.familyActionTextMint}>{t('confirmCalled')}</Text>
           </View>
         </View>
 
@@ -1219,16 +1213,8 @@ const styles = StyleSheet.create({
   familyActionBtnUnknown: {
     backgroundColor: COLORS.teal,
   },
-  familyActionBtnMint: {
-    backgroundColor: '#e6f5f1',
-  },
   familyActionTextUrgent: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  familyActionTextMint: {
-    color: '#0d6857',
     fontSize: 16,
     fontWeight: '700',
   },

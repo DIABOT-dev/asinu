@@ -89,6 +89,14 @@ export type CheckinCallAttempt = {
   triage_display: CheckinCallTriageDisplay | null;
   ring_deadline: string | null;
   confirm_deadline: string | null;
+  subject?: CheckinCallContact | null;
+  family_notice?: { message: string; audio_text: string } | null;
+};
+
+export type CheckinCallContact = {
+  name: string;
+  relationship: string;
+  phone_number: string | null;
 };
 
 const BASE = '/api/mobile/checkin-call';
@@ -137,6 +145,10 @@ export const checkinCallApi = {
     apiClient<{ ok: boolean; token: string; url: string; room: string }>(BASE + '/attempts/' + attemptId + '/token'),
   audio: (key: string) =>
     apiClient<{ ok: boolean; mimeType: string; base64: string }>(BASE + '/audio/' + key, { timeoutMs: 30000 }),
+  familyAudio: (attemptId: string) =>
+    apiClient<{ ok: boolean; mimeType: string; base64: string }>(
+      BASE + '/attempts/' + attemptId + '/family-audio', { timeoutMs: 30000 },
+    ),
   conclusionAudio: (text: string) =>
     apiClient<{ ok: boolean; mimeType: string; base64: string }>(BASE + '/audio/conclusion', {
       method: 'POST',

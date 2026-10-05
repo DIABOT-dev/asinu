@@ -30,6 +30,12 @@
   "profileGalleryAccessibility": "Mở thư viện giao diện tổng đài",
   "userHeading": "Tổng đài check-in Asinu",
   "familyHeading": "Cuộc gọi chăm sóc người thân",
+  "contact": {
+    "personToCheck": "Người cần kiểm tra",
+    "phone": "Số điện thoại liên hệ",
+    "phoneUnavailable": "Chưa có số điện thoại",
+    "unavailable": "Chưa tải được thông tin người cần kiểm tra."
+  },
   "statusPreparing": "Đang chuẩn bị cuộc gọi...",
   "statusEnded": "Cuộc gọi đã kết thúc.",
   "statusConnectionUnavailable": "Chưa kết nối được cuộc gọi. Bạn vẫn có thể xác nhận trên màn hình.",

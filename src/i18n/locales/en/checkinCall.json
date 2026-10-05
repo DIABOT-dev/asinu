@@ -30,6 +30,12 @@
   "profileGalleryAccessibility": "Open the check-in call interface gallery",
   "userHeading": "Asinu check-in call",
   "familyHeading": "Family care call",
+  "contact": {
+    "personToCheck": "Person to check on",
+    "phone": "Contact phone number",
+    "phoneUnavailable": "No phone number available",
+    "unavailable": "Could not load the person to check on."
+  },
   "statusPreparing": "Preparing the call...",
   "statusEnded": "The call has ended.",
   "statusConnectionUnavailable": "Could not connect the call. You can still respond on this screen.",

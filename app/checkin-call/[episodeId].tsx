@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LiveKitRoom } from '@livekit/react-native';
+import { Room } from 'livekit-client';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Speech from 'expo-speech';
 import { Audio } from '../../src/lib/audio';
@@ -15,10 +16,16 @@ import {
   type CheckinCallTriageSelection,
   type CheckinCallTriageSymptom,
 } from '../../src/features/checkin-call/checkin-call.api';
+import {
+  getClosedCheckinCallStatusKey,
+  getFamilyCallNoticeKeys,
+  isCheckinCallAttemptClosed,
+} from '../../src/features/checkin-call/checkin-call.state';
 import { endVoipCall, simulateIncomingVoipCall } from '../../src/lib/voip';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { CheckinCallContact } from '../../src/features/checkin-call/CheckinCallContact';
 
 const AUDIO_TRANSLATION_KEYS: Record<string, string> = {
   user_prompt: 'audio.userPrompt',
@@ -34,8 +41,6 @@ const AUDIO_TRANSLATION_KEYS: Record<string, string> = {
   family_urgent: 'audio.familyUrgent',
   family_unknown: 'audio.familyUnknown',
 };
-
-const CLOSED = new Set(['RESOLVED', 'EXHAUSTED', 'EXHAUSTED_MILD', 'EXHAUSTED_URGENT', 'CANCELLED']);
 
 type TriageStep = 'location' | 'symptom' | 'intensity';
 type TriageIntensity = CheckinCallTriageSelection['intensity'];
@@ -59,7 +64,7 @@ export default function CheckinCallScreen() {
   const incomingAttemptId = typeof params.attemptId === 'string' ? params.attemptId : '';
   const answeredFromCallKit = params.nativeAnswered === '1';
   const [attempt, setAttempt] = useState<CheckinCallAttempt | null>(null);
-  const [room, setRoom] = useState<{ token: string; url: string } | null>(null);
+  const [room, setRoom] = useState<{ token: string; url: string; instance: Room } | null>(null);
   const [joined, setJoined] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ended, setEnded] = useState(false);
@@ -75,6 +80,65 @@ export default function CheckinCallScreen() {
   const loadedAudio = useRef(new Set<string>());
   const accepted = useRef(false);
   const acceptPromise = useRef<ReturnType<typeof checkinCallApi.accept> | null>(null);
+  const activeRoom = useRef<{ token: string; url: string; instance: Room } | null>(null);
+  const connectionEnding = useRef(false);
+  const screenMounted = useRef(true);
+  const familyNotice = getFamilyCallNoticeKeys(attempt?.severity);
+
+  const disconnectRoom = useCallback(async () => {
+    // Close signaling BEFORE the API/CallKit ends the native call. Closing
+    // CallKit first can deactivate the media session while LiveKit is reading.
+    connectionEnding.current = true;
+    try {
+      await activeRoom.current?.instance.disconnect();
+    } catch {
+      // A broken optional room must not block the health/check-in response.
+      console.warn('[checkin-call] room disconnect did not complete cleanly');
+    }
+  }, []);
+
+  const restoreRoomAfterFailedAction = useCallback(async () => {
+    if (!screenMounted.current) return;
+    try {
+      if (attempt?.id) {
+        const latest = await checkinCallApi.attempt(attempt.id);
+        if (!screenMounted.current) return;
+        if (isCheckinCallAttemptClosed(latest.attempt)) {
+          await endVoipCall(latest.attempt.id);
+          if (!screenMounted.current) return;
+          setError('');
+          setAttempt(latest.attempt);
+          setEnded(true);
+          setRoom(null);
+          setStatusKey(getClosedCheckinCallStatusKey(latest.attempt));
+          return;
+        }
+      }
+    } catch {
+      // If the status request also failed, allow polling and button retries
+      // again. Keeping the ending flag set here would stall the call forever.
+    }
+    if (!screenMounted.current) return;
+    connectionEnding.current = false;
+    try {
+      const current = activeRoom.current;
+      if (current) await current.instance.connect(current.url, current.token);
+    } catch {
+      if (screenMounted.current && !connectionEnding.current) {
+        setStatusKey('statusConnectionLost');
+      }
+    }
+  }, [attempt?.id]);
+
+  useEffect(() => {
+    screenMounted.current = true;
+    connectionEnding.current = false;
+    return () => {
+      screenMounted.current = false;
+      connectionEnding.current = true;
+      void activeRoom.current?.instance.disconnect().catch(() => {});
+    };
+  }, []);
 
   const resultCopy = (() => {
     if (statusKey === 'statusUserOk') {
@@ -145,12 +209,17 @@ export default function CheckinCallScreen() {
       const previous = sound.current;
       sound.current = null;
       await previous?.unloadAsync();
-      const localizedKey = language + '-' + key;
+      // Family prompts identify the exact protected person. Never reuse a
+      // generic cached family clip, or another person's clip, for this call.
+      const personalizedFamily = key.startsWith('family_') && attempt?.target_role === 'FAMILY';
+      const localizedKey = language + '-' + (personalizedFamily ? attempt.id + '-' : '') + key;
       const uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'checkin-call-' + localizedKey + '.mp3';
       if (!loadedAudio.current.has(localizedKey)) {
         const info = await FileSystem.getInfoAsync(uri);
         try {
-          const result = await checkinCallApi.audio(key);
+          const result = personalizedFamily
+            ? await checkinCallApi.familyAudio(attempt.id)
+            : await checkinCallApi.audio(key);
           await FileSystem.writeAsStringAsync(uri, result.base64, { encoding: 'base64' });
         } catch (e) {
           if (!info.exists) throw e;
@@ -168,12 +237,13 @@ export default function CheckinCallScreen() {
     } catch {
       if (playbackVersion.current !== version) return;
       // Device speech is a safety fallback if the cached VieNeu asset is unavailable.
-      Speech.speak(t(AUDIO_TRANSLATION_KEYS[key] || 'audio.userRetry'), {
+      const personalizedText = key.startsWith('family_') ? attempt?.family_notice?.audio_text : null;
+      Speech.speak(personalizedText || t(AUDIO_TRANSLATION_KEYS[key] || 'audio.userRetry'), {
         language: language === 'en' ? 'en-US' : 'vi-VN',
         rate: 0.85,
       });
     }
-  }, [language, t]);
+  }, [attempt?.id, attempt?.target_role, attempt?.family_notice?.audio_text, language, t]);
 
   useEffect(() => {
     let live = true;
@@ -195,10 +265,11 @@ export default function CheckinCallScreen() {
           return;
         }
         setAttempt(result.attempt);
-        if (CLOSED.has(result.attempt.episode_state) || ['CANCELLED', 'EXPIRED', 'COMPLETED'].includes(result.attempt.state)) {
+        if (isCheckinCallAttemptClosed(result.attempt)) {
+          connectionEnding.current = true;
           void endVoipCall(result.attempt.id);
           setEnded(true);
-          setStatusKey('statusEnded');
+          setStatusKey(getClosedCheckinCallStatusKey(result.attempt));
           return;
         }
         if (
@@ -214,9 +285,13 @@ export default function CheckinCallScreen() {
         if (result.attempt.target_role === 'FAMILY') void checkinCallApi.seen(id).catch(() => {});
         try {
           const connection = await checkinCallApi.token(id);
-          if (live) setRoom({ token: connection.token, url: connection.url });
+          if (live && !connectionEnding.current) {
+            const current = { token: connection.token, url: connection.url, instance: new Room() };
+            activeRoom.current = current;
+            setRoom(current);
+          }
         } catch {
-          if (live) setStatusKey('statusConnectionUnavailable');
+          if (live && !connectionEnding.current) setStatusKey('statusConnectionUnavailable');
         }
       } catch (e) {
         if (live) setError(getApiErrorMessage(e, t, 'errorOpenCall'));
@@ -232,24 +307,43 @@ export default function CheckinCallScreen() {
   const pollingAttemptId = attempt?.id;
   useEffect(() => {
     if (!pollingAttemptId || ended) return;
+    let live = true;
     const interval = setInterval(() => {
       void checkinCallApi.attempt(pollingAttemptId).then(({ attempt: latest }) => {
+        if (!live || connectionEnding.current) return;
         setAttempt(latest);
-        if (CLOSED.has(latest.episode_state) || ['CANCELLED', 'EXPIRED', 'COMPLETED'].includes(latest.state)) {
-          void endVoipCall(latest.id);
+        if (isCheckinCallAttemptClosed(latest)) {
+          void disconnectRoom().then(() => endVoipCall(latest.id));
           void stopAudio();
           setEnded(true);
           setRoom(null);
-          setStatusKey('statusEnded');
+          setStatusKey(getClosedCheckinCallStatusKey(latest));
         }
       }).catch(() => {});
     }, 3000);
-    return () => clearInterval(interval);
-  }, [pollingAttemptId, ended, stopAudio]);
+    return () => {
+      live = false;
+      clearInterval(interval);
+    };
+  }, [pollingAttemptId, ended, stopAudio, disconnectRoom]);
 
   const onConnected = useCallback(() => {
-    setStatusKey('statusConnected');
-  }, []);
+    if (screenMounted.current && !connectionEnding.current && activeRoom.current?.instance === room?.instance) {
+      setStatusKey('statusConnected');
+    }
+  }, [room?.instance]);
+
+  const onConnectionError = useCallback(() => {
+    if (screenMounted.current && !connectionEnding.current && activeRoom.current?.instance === room?.instance) {
+      setStatusKey('statusConnectionLost');
+    }
+  }, [room?.instance]);
+
+  const onDisconnected = useCallback(() => {
+    if (screenMounted.current && !connectionEnding.current && activeRoom.current?.instance === room?.instance) {
+      setStatusKey('statusConnectionLost');
+    }
+  }, [room?.instance]);
 
   const join = useCallback(() => {
     if (!attempt || joined) return;
@@ -259,6 +353,7 @@ export default function CheckinCallScreen() {
       accepted.current = true;
       acceptPromise.current = checkinCallApi.accept(attempt.id);
       void acceptPromise.current.then(({ state, confirm_deadline }) => {
+        if (!screenMounted.current || connectionEnding.current) return;
         if (confirm_deadline) {
           setAttempt((current) =>
             current ? { ...current, confirm_deadline } : current,
@@ -268,6 +363,7 @@ export default function CheckinCallScreen() {
       }).catch(() => {
         accepted.current = false;
         acceptPromise.current = null;
+        if (!screenMounted.current || connectionEnding.current) return;
         setStatusKey('statusAcceptFailed');
       });
     }
@@ -355,6 +451,7 @@ export default function CheckinCallScreen() {
     setError('');
     try {
       await stopAudio();
+      await disconnectRoom();
       const result = await checkinCallApi.completeTriage(episodeId, {
         body_location: location.key,
         symptom: symptom.key,
@@ -377,6 +474,7 @@ export default function CheckinCallScreen() {
       if (!noEligibleFamily) void simulateNextFamilyCall();
     } catch (e) {
       setError(getApiErrorMessage(e, t, 'errorSendTriage'));
+      await restoreRoomAfterFailedAction();
     } finally {
       setBusy(false);
     }
@@ -424,6 +522,7 @@ export default function CheckinCallScreen() {
     setError('');
     try {
       await stopAudio();
+      await disconnectRoom();
       const result = await checkinCallApi.answer(episodeId, choice, issueCategory);
       if (attempt?.id) await endVoipCall(attempt.id);
       setEnded(true);
@@ -444,12 +543,13 @@ export default function CheckinCallScreen() {
       if (choice !== 1 && !noEligibleFamily) void simulateNextFamilyCall();
     } catch (e) {
       setError(getApiErrorMessage(e, t, 'errorSendChoice'));
+      await restoreRoomAfterFailedAction();
     } finally {
       setBusy(false);
     }
   };
 
-  const confirm = async (action: 'ACCEPT_AND_CHECK' | 'ON_MY_WAY' | 'CALLED_USER') => {
+  const confirm = async () => {
     if (busy || !attempt) return;
     setBusy(true);
     setError('');
@@ -457,13 +557,15 @@ export default function CheckinCallScreen() {
       await stopAudio();
       if (acceptPromise.current) await acceptPromise.current;
       else if (!accepted.current) await checkinCallApi.accept(attempt.id);
-      await checkinCallApi.confirmFamily(episodeId, action);
+      await disconnectRoom();
+      await checkinCallApi.confirmFamily(episodeId, 'ACCEPT_AND_CHECK');
       await endVoipCall(attempt.id);
       setEnded(true);
       setRoom(null);
       setStatusKey('statusFamilyConfirmed');
     } catch (e) {
       setError(getApiErrorMessage(e, t, 'errorConfirm'));
+      await restoreRoomAfterFailedAction();
     } finally {
       setBusy(false);
     }
@@ -473,12 +575,14 @@ export default function CheckinCallScreen() {
     <View style={styles.root}>
       {!!room && joined && !ended && (
         <LiveKitRoom
+          room={room.instance}
           serverUrl={room.url}
           token={room.token}
           audio={false}
           video={false}
           onConnected={onConnected}
-          onError={() => setStatusKey('statusConnectionLost')}
+          onError={onConnectionError}
+          onDisconnected={onDisconnected}
         />
       )}
 
@@ -495,7 +599,7 @@ export default function CheckinCallScreen() {
       )}
 
       {!!attempt && !joined && !ended && (
-        <View style={styles.incomingWrapper}>
+        <ScrollView contentContainerStyle={styles.incomingWrapper}>
           <Image
             source={require('../../assets/images/asinu-brand-logo.png')}
             style={styles.incomingLogo}
@@ -512,7 +616,9 @@ export default function CheckinCallScreen() {
               <Text style={styles.incomingPillText}>{t('gallery.incoming')}</Text>
             </View>
             <Text style={styles.incomingCardTitle}>{t(attempt.target_role === 'FAMILY' ? 'familyHeading' : 'userHeading')}</Text>
-            <Text style={styles.incomingCardSub}>{t('gallery.dailyCheck')}</Text>
+            {attempt.target_role === 'FAMILY' ? (
+              <CheckinCallContact subject={attempt.subject} />
+            ) : <Text style={styles.incomingCardSub}>{t('gallery.dailyCheck')}</Text>}
             <View style={styles.dotsRow}>
               <View style={[styles.dot, styles.dotActive]} />
               <View style={[styles.dot, styles.dotActive]} />
@@ -554,12 +660,12 @@ export default function CheckinCallScreen() {
             style={styles.callBottomDeco}
             resizeMode="cover"
           />
-        </View>
+        </ScrollView>
       )}
 
       {/* Screen 2: Kết quả cuộc gọi (Call Ended / Resolved - Image 2) */}
       {ended && (
-        <View style={styles.resultFullWrapper}>
+        <ScrollView contentContainerStyle={styles.resultFullWrapper}>
           {resultCopy.success ? (
             <Image
               source={require('../../assets/images/checkin-call/checkin_success_art.png')}
@@ -573,6 +679,7 @@ export default function CheckinCallScreen() {
           )}
 
           <Text style={styles.resultHeading}>{resultCopy.title}</Text>
+          {attempt?.target_role === 'FAMILY' && <CheckinCallContact subject={attempt.subject} />}
           <Text style={styles.resultSub}>{resultCopy.message}</Text>
 
           <View style={styles.resultCard}>
@@ -626,7 +733,7 @@ export default function CheckinCallScreen() {
             style={styles.callBottomDeco}
             resizeMode="cover"
           />
-        </View>
+        </ScrollView>
       )}
 
       {/* Screen 1: Cuộc gọi người thân - Khẩn cấp (Family Urgent - Image 1) */}
@@ -641,10 +748,11 @@ export default function CheckinCallScreen() {
               />
             </View>
             <Text style={[styles.familyCardTitle, attempt.severity === 'URGENT' ? styles.familyCardTitleUrgent : styles.familyCardTitleMild]}>
-              {t(attempt.severity === 'URGENT' ? 'gallery.urgentFamilyTitle' : 'gallery.mildFamilyTitle')}
+              {t(familyNotice.titleKey)}
             </Text>
+            <CheckinCallContact subject={attempt.subject} />
             <Text style={styles.familyCardSubtitle}>
-              {t(attempt.severity === 'URGENT' ? 'gallery.urgentFamilyMessage' : 'gallery.mildFamilyMessage')}
+              {attempt.family_notice?.message || t(familyNotice.messageKey)}
             </Text>
             {!!(attempt.triage_display?.summary || attempt.issue_category) && (
               <View style={styles.reportedIssueBox}>
@@ -664,7 +772,7 @@ export default function CheckinCallScreen() {
               accessibilityLabel={t('confirmCheck')}
               accessibilityState={{ disabled: busy }}
               style={[styles.familyActionBtn, attempt.severity === 'URGENT' ? styles.familyActionBtnUrgent : styles.familyActionBtnMild]}
-              onPress={() => void confirm('ACCEPT_AND_CHECK')}
+              onPress={() => void confirm()}
               disabled={busy}
             >
               {busy ? (
@@ -672,26 +780,6 @@ export default function CheckinCallScreen() {
               ) : (
                 <Text style={styles.familyActionTextUrgent}>{t('confirmCheck')}</Text>
               )}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('confirmOnMyWay')}
-              accessibilityState={{ disabled: busy }}
-              style={[styles.familyActionBtn, styles.familyActionBtnMint]}
-              onPress={() => void confirm('ON_MY_WAY')}
-              disabled={busy}
-            >
-              <Text style={styles.familyActionTextMint}>{t('confirmOnMyWay')}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('confirmCalled')}
-              accessibilityState={{ disabled: busy }}
-              style={[styles.familyActionBtn, styles.familyActionBtnMint]}
-              onPress={() => void confirm('CALLED_USER')}
-              disabled={busy}
-            >
-              <Text style={styles.familyActionTextMint}>{t('confirmCalled')}</Text>
             </Pressable>
           </View>
 
@@ -1071,7 +1159,7 @@ const styles = StyleSheet.create({
 
   // Incoming Screen 2
   incomingWrapper: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 68,
     paddingBottom: 40,
@@ -1188,7 +1276,7 @@ const styles = StyleSheet.create({
 
   // Screen 2: Result (Image 2)
   resultFullWrapper: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 80,
     paddingBottom: 40,
@@ -1413,16 +1501,8 @@ const styles = StyleSheet.create({
   familyActionBtnMild: {
     backgroundColor: '#d97706',
   },
-  familyActionBtnMint: {
-    backgroundColor: '#e6f5f1',
-  },
   familyActionTextUrgent: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  familyActionTextMint: {
-    color: '#0d6857',
     fontSize: 16,
     fontWeight: '700',
   },

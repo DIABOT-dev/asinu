@@ -16,12 +16,14 @@
     "test:api-contract": "node scripts/check-api-contract.mjs",
     "test:checkin-contract": "node scripts/check-checkin-api-contract.mjs",
     "test:checkin-native": "node scripts/check-checkin-native-readiness.mjs",
+    "test:checkin-state": "node scripts/check-checkin-call-state.mjs",
+    "test:checkin-connection": "node scripts/check-livekit-signal-lifecycle.mjs",
     "test:interactions": "node scripts/check-interactions.mjs",
     "test:security": "node scripts/check-security.mjs",
     "build:android": "cd android && ./gradlew bundleRelease",
     "build:android:release": "npm run build:android",
     "lint:assets": "node scripts/check-assets.js",
-    "postinstall": "patch-package --error-on-fail"
+    "postinstall": "patch-package --error-on-fail && node scripts/patch-livekit-signal-lifecycle.cjs"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
@@ -66,7 +68,7 @@
     "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
     "i18next": "^25.8.13",
-    "livekit-client": "^2.22.3",
+    "livekit-client": "2.22.3",
     "nativewind": "^4.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
