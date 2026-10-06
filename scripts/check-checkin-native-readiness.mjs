@@ -19,6 +19,8 @@ expectText('ios/Asinu/Asinu.entitlements', '<key>aps-environment</key>', 'iOS pu
 expectText('ios/Asinu/Info.plist', '<string>voip</string>', 'iOS VoIP background mode exists');
 expectText('ios/Asinu/VoipCallManager.swift', 'PKPushRegistryDelegate', 'PushKit manager is compiled');
 expectText('ios/Asinu/VoipCallManager.swift', 'CXProviderDelegate', 'CallKit provider is compiled');
+expectText('ios/Asinu/VoipCallManager.swift', 'configuration.supportsVideo = true', 'CallKit supports visual check-in calls');
+expectText('ios/Asinu/VoipCallManager.swift', 'update.hasVideo = true', 'Genuine check-in calls request unlock-to-app presentation');
 expectText(
   'ios/Asinu/VoipCallManager.swift',
   'object(forInfoDictionaryKey: "AsinuAPNSEnvironment")',

@@ -104,12 +104,14 @@ function AuthenticatedCheckinCallScreen() {
   const { audio, play: playAudio, stopAudio: stopCallAudio } = useCheckinCallAudio(attempt, language, t);
   const callScreenFocused = useRef(true);
   const playVersion = useRef(0);
+  const playbackInFlight = useRef<number | null>(null);
   const pendingAudioPrompt = useRef<{ key: string; text?: string } | null>(null);
   const actionPending = useRef(false);
   const audioContext = useRef({ attempt, joined, ended, triageOpen, prompt: audio.prompt, phase: audio.phase });
   audioContext.current = { attempt, joined, ended, triageOpen, prompt: audio.prompt, phase: audio.phase };
   const stopAudio = useCallback((clearPrompt = true) => {
     playVersion.current++;
+    playbackInFlight.current = null;
     if (clearPrompt) pendingAudioPrompt.current = null;
     // Lifecycle events can arrive before React commits the player's idle state.
     // An answered question must immediately stop being eligible for resumption.
@@ -120,25 +122,30 @@ function AuthenticatedCheckinCallScreen() {
   const play = useCallback(async (key: string, text?: string) => {
     const version = ++playVersion.current;
     if (!callScreenFocused.current || AppState.currentState !== 'active') return;
+    playbackInFlight.current = version;
     const current = audioContext.current;
     // Keep only the new intent if focus changes while the bridge/download waits.
     // stop(false) can then resume this question, never the superseded one.
     pendingAudioPrompt.current = { key, text };
     // Interrupt at the user's new intent, before waiting for the native bridge.
     // It may be slow while a previous question is still playing or downloading.
-    audioContext.current = { ...current, prompt: null, phase: 'idle' };
-    const stopped = stopCallAudio();
-    if (current.attempt && !current.ended) {
-      // Silence native unlock guidance before either a recording or device TTS
-      // starts. A late bridge response must not revive a cancelled prompt.
-      await setVoipCallUIActive(current.attempt.id, true,
-        current.triageOpen ? current.attempt.next_action_at : current.attempt.confirm_deadline);
+    audioContext.current = { ...current, prompt: null, phase: 'loading' };
+    try {
+      const stopped = stopCallAudio();
+      if (current.attempt && !current.ended) {
+        // Silence native unlock guidance before the in-app recording starts.
+        // A late bridge response must not revive a cancelled prompt.
+        await setVoipCallUIActive(current.attempt.id, true,
+          current.triageOpen ? current.attempt.next_action_at : current.attempt.confirm_deadline);
+      }
+      if (version !== playVersion.current || !callScreenFocused.current || AppState.currentState !== 'active') return;
+      await stopped;
+      if (version !== playVersion.current || !callScreenFocused.current || AppState.currentState !== 'active') return;
+      await playAudio(key, text);
+      if (version === playVersion.current) pendingAudioPrompt.current = null;
+    } finally {
+      if (playbackInFlight.current === version) playbackInFlight.current = null;
     }
-    if (version !== playVersion.current || !callScreenFocused.current || AppState.currentState !== 'active') return;
-    await stopped;
-    if (version !== playVersion.current || !callScreenFocused.current || AppState.currentState !== 'active') return;
-    await playAudio(key, text);
-    if (version === playVersion.current) pendingAudioPrompt.current = null;
   }, [playAudio, stopCallAudio]);
   useEffect(() => addVoipCallAnsweredListener(call => {
     const current = audioContext.current;
@@ -152,7 +159,8 @@ function AuthenticatedCheckinCallScreen() {
     callScreenFocused.current = true;
     const current = audioContext.current;
     const prompt = pendingAudioPrompt.current || current.prompt;
-    if (!actionPending.current && current.joined && !current.ended && prompt) void play(prompt.key, prompt.text);
+    if (!actionPending.current && playbackInFlight.current === null && current.joined && !current.ended && prompt
+      && !['loading', 'playing', 'finished'].includes(current.phase)) void play(prompt.key, prompt.text);
     return () => {
       callScreenFocused.current = false;
       const id = audioContext.current.attempt?.id;
@@ -169,7 +177,11 @@ function AuthenticatedCheckinCallScreen() {
       const current = audioContext.current;
       if (state === 'active') {
         const prompt = pendingAudioPrompt.current || current.prompt;
-        if (!actionPending.current && callScreenFocused.current && current.joined && !current.ended && prompt) {
+        // CallKit unlock, navigation focus and app activation can arrive for
+        // the same visual handoff. Resume a stopped question, never restart
+        // one already loading/playing or repeat a completed announcement.
+        if (!actionPending.current && playbackInFlight.current === null && callScreenFocused.current && current.joined && !current.ended && prompt
+          && !['loading', 'playing', 'finished'].includes(current.phase)) {
           void play(prompt.key, prompt.text);
         }
       } else {

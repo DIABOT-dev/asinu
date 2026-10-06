@@ -7,21 +7,26 @@ import { execFileSync } from 'node:child_process';
 
 const read = file => fs.readFileSync(file, 'utf8');
 const native = read('ios/Asinu/VoipCallManager.swift');
-const manifest = JSON.parse(read('assets/sounds/asinu_checkin_open_app_vi.json'));
-const audio = fs.readFileSync('assets/sounds/' + manifest.file);
-const text = JSON.parse(read('locales/vi.json')).ios['Localizable.strings'].checkin_call_open_app_prompt;
-assert.equal(manifest.voice, 'clone_b935a451-7d65-4b73-a083-d46e56c47d4f');
-assert.equal(manifest.text, text);
-assert.equal(manifest.textSha256, createHash('sha256').update(text).digest('hex'));
-assert.equal(manifest.audioSha256, createHash('sha256').update(audio).digest('hex'));
-assert.ok(audio.length > 1000 && audio.length < 2_000_000);
-assert.ok(read('ios/Asinu.xcodeproj/project.pbxproj').includes(`${manifest.file} in Resources`));
-console.log('PASS bundled private Tuấn Anh clone asset matches localized prompt, audio checksum and Xcode resource');
-assert.equal(manifest.loudness?.normalization, 'ebu-r128-two-pass');
-assert.equal(manifest.loudness?.targetIntegratedLufs, -16);
-assert.equal(manifest.loudness?.targetTruePeakDbtp, -1.5);
-assert.ok(Math.abs(manifest.loudness?.integratedLufs + 16) <= 0.5);
-assert.ok(manifest.loudness?.truePeakDbtp <= -1);
+assert.ok(!native.includes('AVSpeechSynthesizer') && !native.includes('AVSpeechUtterance'), 'Native prompts must not use Apple speech');
+for (const language of ['vi', 'en']) {
+  const manifest = JSON.parse(read(`assets/sounds/asinu_checkin_open_app_${language}.json`));
+  const audio = fs.readFileSync('assets/sounds/' + manifest.file);
+  const text = JSON.parse(read(`locales/${language}.json`)).ios['Localizable.strings'].checkin_call_open_app_prompt;
+  assert.equal(manifest.language, language);
+  assert.equal(manifest.voice, 'clone_b935a451-7d65-4b73-a083-d46e56c47d4f');
+  assert.equal(manifest.text, text);
+  assert.equal(manifest.textSha256, createHash('sha256').update(text).digest('hex'));
+  assert.equal(manifest.audioSha256, createHash('sha256').update(audio).digest('hex'));
+  assert.ok(audio.length > 1000 && audio.length < 2000000);
+  assert.ok(read('ios/Asinu.xcodeproj/project.pbxproj').includes(`${manifest.file} in Resources`));
+  console.log(`PASS ${language} private Tuấn Anh clone matches localized prompt, audio checksum and Xcode resource`);
+  assert.ok(manifest.loudness);
+  assert.ok(['ebu-r128-two-pass', 'ebu-r128-dynamic-verified'].includes(manifest.loudness.normalization));
+  assert.equal(manifest.loudness.targetIntegratedLufs, -16);
+  assert.equal(manifest.loudness.targetTruePeakDbtp, -1.5);
+  assert.ok(Math.abs(manifest.loudness.integratedLufs + 16) <= 0.5);
+  assert.ok(manifest.loudness.truePeakDbtp <= -1);
+}
 const configuration = native.slice(native.indexOf('  private func configureAudioSession()'), native.indexOf('  private func playHandoffPromptIfNeeded()'));
 assert.ok(configuration.includes('mode: .default'));
 assert.ok(configuration.includes('.defaultToSpeaker') && configuration.includes('.allowBluetoothHFP'));
@@ -87,7 +92,11 @@ final class UIApplication {
   static let shared = UIApplication()
   var applicationState = State.active
   var opened: [URL] = []
-  func open(_ url: URL, options: [String: Any], completionHandler: ((Bool) -> Void)?) { opened.append(url) }
+  var openSucceeds = true
+  func open(_ url: URL, options: [String: Any], completionHandler: ((Bool) -> Void)?) {
+    opened.append(url)
+    completionHandler?(openSucceeds)
+  }
 }
 final class Bundle {
   static let main = Bundle()
@@ -95,33 +104,18 @@ final class Bundle {
   init() {}
   init?(path: String) {}
   func path(forResource: String, ofType: String) -> String? { nil }
-  func url(forResource: String, withExtension: String) -> URL? { Self.recordingAvailable ? URL(fileURLWithPath: "/recording.mp3") : nil }
+  func url(forResource: String, withExtension: String) -> URL? { Self.recordingAvailable ? URL(fileURLWithPath: "/" + forResource + "." + withExtension) : nil }
 }
 func NSLocalizedString(_ key: String, bundle: Bundle, comment: String) -> String { "English guidance" }
 final class AVAudioPlayer {
   static var playSucceeds = true
   var isPlaying = false
   var volume: Float = 0.5
-  init(contentsOf: URL) throws {}
+  let url: URL
+  init(contentsOf: URL) throws { url = contentsOf }
   func prepareToPlay() {}
   func play() -> Bool { isPlaying = Self.playSucceeds; return isPlaying }
   func stop() { isPlaying = false }
-}
-let AVSpeechUtteranceDefaultSpeechRate: Float = 0.5
-final class AVSpeechSynthesisVoice { init?(language: String) {} }
-final class AVSpeechUtterance {
-  var voice: AVSpeechSynthesisVoice?
-  var rate: Float = 0
-  var volume: Float = 0.5
-  init(string: String) {}
-}
-final class AVSpeechSynthesizer {
-  enum Boundary { case immediate }
-  var isSpeaking = false
-  var spoken = 0
-  var lastVolume: Float = 0
-  func speak(_ utterance: AVSpeechUtterance) { spoken += 1; isSpeaking = true; lastVolume = utterance.volume }
-  func stopSpeaking(at: Boundary) { isSpeaking = false }
 }
 final class Handler {
   let pendingCallKey = "asinu.continuation.test." + UUID().uuidString
@@ -134,7 +128,6 @@ final class Handler {
   var responseDeadlinesByUUID: [UUID: String] = [:]
   var callUIOwners = Set<UUID>()
   var audioSessionActive = true
-  let handoffSpeech = AVSpeechSynthesizer()
   var handoffRecording: AVAudioPlayer?
   var handoffPromptTimer: DispatchWorkItem?
   var responseAfterAudioRelease: [String: String]?
@@ -145,6 +138,7 @@ final class Handler {
     let uuid = UUID()
     callsByUUID[uuid] = ["episodeId": "episode", "attemptId": "attempt", "nativeAnswered": answered ? "1" : "0", "lang": lang]
     uuidByAttempt["attempt"] = uuid
+    UserDefaults.standard.set(callsByUUID[uuid], forKey: pendingCallKey)
     if !accepted { answerActionsByUUID[uuid] = CXAnswerCallAction() }
     responseDeadlinesByUUID[uuid] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(remaining))
     return uuid
@@ -155,6 +149,8 @@ final class Handler {
 var checks = 0
 func check(_ label: String, _ body: () -> Void) { body(); checks += 1; print("PASS " + label) }
 check("accepted hangup persists a bounded response handoff, fulfills CallKit, and opens app") {
+  UIApplication.shared.applicationState = .background
+  defer { UIApplication.shared.applicationState = .active }
   let h = Handler(), uuid = h.seed()
   let action = CXEndCallAction(uuid)
   h.provider(h.provider, perform: action)
@@ -166,8 +162,39 @@ check("accepted hangup persists a bounded response handoff, fulfills CallKit, an
   assert(UIApplication.shared.opened.last?.host == "checkin-call")
   assert(h.handleAnsweredCallURL(UIApplication.shared.opened.last!))
   assert(!h.handleAnsweredCallURL(URL(string: "asinu-lite://checkin-call/wrong?attemptId=attempt&nativeAnswered=1")!))
+  UIApplication.shared.applicationState = .active
   assert(!h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
   assert(h.pendingCall() == nil)
+}
+check("CallKit-foregrounded response uses pending recovery without another self-link") {
+  UIApplication.shared.applicationState = .active
+  let h = Handler(), uuid = h.seed(), before = UIApplication.shared.opened.count
+  h.provider(h.provider, perform: CXEndCallAction(uuid))
+  RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+  assert(UIApplication.shared.opened.count == before)
+  assert(h.pendingCall()?["nativeEnded"] == "1")
+}
+check("queued screen-open cannot revive a remotely completed call") {
+  UIApplication.shared.applicationState = .background
+  defer { UIApplication.shared.applicationState = .active }
+  let h = Handler(); _ = h.seed()
+  let before = UIApplication.shared.opened.count
+  h.openResponseScreen(h.pendingCall()!)
+  h.endCall(attemptId: "attempt")
+  RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+  assert(UIApplication.shared.opened.count == before && h.pendingCall() == nil)
+}
+check("failed iOS open keeps the bounded handoff for manual unlock/recovery") {
+  UIApplication.shared.applicationState = .background
+  UIApplication.shared.openSucceeds = false
+  defer {
+    UIApplication.shared.applicationState = .active
+    UIApplication.shared.openSucceeds = true
+  }
+  let h = Handler(), uuid = h.seed()
+  h.provider(h.provider, perform: CXEndCallAction(uuid))
+  RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+  assert(h.pendingCall()?["nativeEnded"] == "1")
 }
 for scenario in ["declined", "accept-pending", "expired"] {
   check(scenario + " call cannot open a response handoff on hangup") {
@@ -211,7 +238,8 @@ check("stale/restarted native calls do not revive without a valid ended-call TTL
 check("Vietnamese locked-call prompt plays the private Tuấn Anh clone and releases it on app handoff") {
   let h = Handler(); _ = h.seed()
   h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording?.isPlaying == true && h.handoffSpeech.spoken == 0)
+  assert(h.handoffRecording?.isPlaying == true)
+  assert(h.handoffRecording?.url.lastPathComponent == "asinu_checkin_open_app_vi.mp3")
   assert(h.handoffRecording?.volume == 1)
   let recording = h.handoffRecording!
   h.stopHandoffPrompt()
@@ -226,21 +254,23 @@ check("CallKit activation configures full-level one-way reminder playback with s
   assert(h.handoffRecording?.isPlaying == true && h.handoffRecording?.volume == 1)
   h.stopHandoffPrompt()
 }
-check("missing/failed Vietnamese recording never falls back to Apple's voice") {
-  let h = Handler(); _ = h.seed()
+check("missing/failed recordings never use Apple speech in either locale") {
+  for language in ["vi", "en"] {
+  let h = Handler(); _ = h.seed(lang: language)
   Bundle.recordingAvailable = false
   h.playHandoffPromptIfNeeded()
-  assert(h.handoffSpeech.spoken == 0 && h.handoffRecording == nil)
+  assert(h.handoffRecording == nil && h.handoffPromptTimer == nil)
   Bundle.recordingAvailable = true; AVAudioPlayer.playSucceeds = false
   h.playHandoffPromptIfNeeded()
-  assert(h.handoffSpeech.spoken == 0 && h.handoffRecording == nil)
+  assert(h.handoffRecording == nil && h.handoffPromptTimer == nil)
   AVAudioPlayer.playSucceeds = true
+  }
 }
-check("English guidance remains localized device speech") {
+check("English locked-call guidance also uses the private Tuấn Anh recording") {
   let h = Handler(); _ = h.seed(lang: "en")
   h.playHandoffPromptIfNeeded()
-  assert(h.handoffSpeech.spoken == 1 && h.handoffRecording == nil)
-  assert(h.handoffSpeech.lastVolume == 1)
+  assert(h.handoffRecording?.isPlaying == true && h.handoffRecording?.volume == 1)
+  assert(h.handoffRecording?.url.lastPathComponent == "asinu_checkin_open_app_en.mp3")
   h.stopHandoffPrompt()
 }
 print("Native continuation and voice: \\(checks) runtime checks passed")

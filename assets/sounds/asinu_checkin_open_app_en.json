@@ -1,0 +1,15 @@
+{
+  "file": "asinu_checkin_open_app_en.mp3",
+  "language": "en",
+  "voice": "clone_b935a451-7d65-4b73-a083-d46e56c47d4f",
+  "text": "You answered the Asinu call. Please unlock your phone, open Asinu, and select your response on screen. Answering the call does not submit a response.",
+  "textSha256": "4ce03752069e4d8645f0625af2fc061d3772abcc4b76f86595ad705c34162072",
+  "audioSha256": "bcecd83d451e63b5e3db994f5966060e271501f208a90aae49f1515f3e7d2ee3",
+  "loudness": {
+    "normalization": "ebu-r128-dynamic-verified",
+    "targetIntegratedLufs": -16,
+    "targetTruePeakDbtp": -1.5,
+    "integratedLufs": -16.4,
+    "truePeakDbtp": -1.88
+  }
+}

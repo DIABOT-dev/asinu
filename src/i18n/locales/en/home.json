@@ -120,6 +120,7 @@
   "checkinResultPreviewHeader": "Check-in result preview",
   "checkinResultPreviewNotice": "Asinu reads your check-in result aloud. Tap the button to hear it again.",
   "checkinReplaySound": "Read the check-in result again",
+  "checkinSpeechUnavailable": "Asinu Tuấn Anh audio could not be loaded. You can still read the result below and try listening again.",
   "checkinResultSummaryLabel": "Summary",
   "checkinResultPreviewQuestion": "Current condition",
   "checkinResultPreviewSymptoms": "Mild fatigue and a light headache since this morning.",
@@ -441,6 +442,6 @@
     "slide4Title": "Answer a Few Quick Questions",
     "slide4Desc": "Choose the areas that feel uncomfortable, tap Continue, then answer the relevant questions. You can select multiple areas or add your own description.",
     "slide5Title": "See & Listen to Results",
-    "slide5Desc": "Review the recorded information and next steps. Tap Read check-in results again to listen. Vietnamese uses Ngoc Lan when available, with a device voice fallback; English uses the device voice. This is guidance, not a diagnosis."
+    "slide5Desc": "Review the recorded information and next steps. Tap Read check-in results again to hear the Asinu Tuan Anh voice. If audio is unavailable, you can still read the content and try listening again. This is guidance, not a diagnosis."
   }
 }

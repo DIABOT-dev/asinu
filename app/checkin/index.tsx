@@ -10,8 +10,6 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from '@/lib/audio';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -33,7 +31,7 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
-import { checkinCallApi } from '../../src/features/checkin-call/checkin-call.api';
+import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
@@ -1388,13 +1386,11 @@ function DoneScreen({
   const { t, i18n } = useTranslation('home');
   const router = useRouter();
   const conclusionSpeechPlayedRef = useRef(false);
-  const conclusionPlaybackVersionRef = useRef(0);
-  const conclusionSoundRef = useRef<
-    Awaited<ReturnType<typeof Audio.Sound.createAsync>>['sound'] | null
-  >(null);
-  const conclusionAudioCacheRef = useRef<{ text: string; uri: string } | null>(null);
   const [speechReplayKey, setSpeechReplayKey] = useState(0);
-  const [isSpeakingConclusion, setIsSpeakingConclusion] = useState(false);
+  const language = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi';
+  const { audio: conclusionAudio, play: playConclusionAudio, stopAudio: stopConclusionAudio } =
+    useCheckinCallAudio(null, language, t);
+  const isSpeakingConclusion = ['loading', 'playing'].includes(conclusionAudio.phase);
   const isFine = session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
 
   const isEmergency = triageSummary?.severity === 'emergency';
@@ -1484,144 +1480,21 @@ function DoneScreen({
     .join('. ') + '.';
 
   useEffect(() => {
-    let mounted = true;
-    let playbackVersion = 0;
     const timer = setTimeout(() => {
-      if (!mounted || conclusionSpeechPlayedRef.current || !conclusionSpeechText) {
+      if (conclusionSpeechPlayedRef.current || !conclusionSpeechText) {
         return;
       }
       conclusionSpeechPlayedRef.current = true;
-      playbackVersion = conclusionPlaybackVersionRef.current + 1;
-      conclusionPlaybackVersionRef.current = playbackVersion;
-
-      const isCurrentPlayback = () =>
-        mounted && conclusionPlaybackVersionRef.current === playbackVersion;
-
-      const stopCurrentAudio = async () => {
-        await Speech.stop();
-        const current = conclusionSoundRef.current;
-        conclusionSoundRef.current = null;
-        try {
-          await current?.unloadAsync();
-        } catch {
-          // The previous player may already have released itself after finishing.
-        }
-      };
-
-      const speakWithSystemVoice = () => {
-        if (!isCurrentPlayback()) {
-          return;
-        }
-        Speech.speak(conclusionSpeechText, {
-          language: i18n.resolvedLanguage?.startsWith('en') ? 'en-US' : 'vi-VN',
-          pitch: 1,
-          rate: 0.88,
-          volume: 1,
-          useApplicationAudioSession: true,
-          onStart: () => {
-            if (isCurrentPlayback()) {
-              setIsSpeakingConclusion(true);
-            }
-          },
-          onDone: () => {
-            if (isCurrentPlayback()) {
-              setIsSpeakingConclusion(false);
-            }
-          },
-          onStopped: () => {
-            if (isCurrentPlayback()) {
-              setIsSpeakingConclusion(false);
-            }
-          },
-          onError: (error) => {
-            if (isCurrentPlayback()) {
-              setIsSpeakingConclusion(false);
-            }
-            if (__DEV__) {
-              console.warn('[Checkin] system conclusion TTS:', error.message);
-            }
-          },
-        });
-      };
-
-      const startConclusionSpeech = async () => {
-        try {
-          await Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-            playsInSilentModeIOS: true,
-          });
-          await stopCurrentAudio();
-          if (!isCurrentPlayback()) {
-            return;
-          }
-
-          // Ngọc Lan is a Vietnamese VieNeu voice. Keep English on the device voice
-          // until an English backend voice is configured.
-          if (i18n.resolvedLanguage?.startsWith('en')) {
-            speakWithSystemVoice();
-            return;
-          }
-
-          setIsSpeakingConclusion(true);
-          let uri = conclusionAudioCacheRef.current?.text === conclusionSpeechText
-            ? conclusionAudioCacheRef.current.uri
-            : null;
-          if (!uri) {
-            const result = await checkinCallApi.conclusionAudio(conclusionSpeechText);
-            if (!isCurrentPlayback()) {
-              return;
-            }
-            uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory)
-              + `checkin-conclusion-${session?.id ?? 'preview'}.mp3`;
-            await FileSystem.writeAsStringAsync(uri, result.base64, { encoding: 'base64' });
-            conclusionAudioCacheRef.current = { text: conclusionSpeechText, uri };
-          }
-          if (!isCurrentPlayback()) {
-            return;
-          }
-
-          const created = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
-          if (!isCurrentPlayback()) {
-            await created.sound.unloadAsync();
-            return;
-          }
-          conclusionSoundRef.current = created.sound;
-          created.sound.setOnPlaybackStatusUpdate((status) => {
-            if (!status.didJustFinish || !isCurrentPlayback()) {
-              return;
-            }
-            setIsSpeakingConclusion(false);
-            if (conclusionSoundRef.current === created.sound) {
-              conclusionSoundRef.current = null;
-            }
-            created.sound.unloadAsync().catch(() => {});
-          });
-        } catch (error: unknown) {
-          if (!isCurrentPlayback()) {
-            return;
-          }
-          if (__DEV__) {
-            console.warn(
-              '[Checkin] Ngọc Lan conclusion TTS, using system fallback:',
-              error instanceof Error ? error.message : String(error),
-            );
-          }
-          speakWithSystemVoice();
-        }
-      };
-      startConclusionSpeech().catch(() => {});
+      // Share the call player's voice/version-aware WAV cache and cancellation
+      // policy. Neither English nor a download failure changes the narrator.
+      void playConclusionAudio('conclusion', conclusionSpeechText);
     }, 220);
 
     return () => {
-      mounted = false;
       clearTimeout(timer);
-      conclusionPlaybackVersionRef.current += 1;
-      Speech.stop().catch(() => {});
-      const current = conclusionSoundRef.current;
-      conclusionSoundRef.current = null;
-      current?.unloadAsync().catch(() => {});
+      void stopConclusionAudio();
     };
-  }, [conclusionSpeechText, i18n.resolvedLanguage, session?.id, speechReplayKey]);
+  }, [conclusionSpeechText, language, session?.id, speechReplayKey, playConclusionAudio, stopConclusionAudio]);
 
   const replayConclusionSpeech = () => {
     conclusionSpeechPlayedRef.current = false;
@@ -1677,6 +1550,12 @@ function DoneScreen({
           <Ionicons name="refresh" size={21} color="#007F6D" />
         </Pressable>
       </View>
+
+      {conclusionAudio.phase === 'error' && (
+        <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary }}>
+          {t('checkinSpeechUnavailable')}
+        </Text>
+      )}
 
       {/* Background watermark cross top right */}
       <View style={{ position: 'absolute', top: -16, right: -10 }} pointerEvents="none">

@@ -163,7 +163,8 @@ await test('native guidance is bounded, localized, and never submits a health re
   assert.ok(guidance.includes('guard audioSessionActive'));
   assert.ok(guidance.includes('!callUIOwners.contains'));
   assert.ok(guidance.includes('answerActionsByUUID[entry.key] == nil'));
-  assert.ok(guidance.includes('stopSpeaking(at: .immediate)'));
+  assert.ok(guidance.includes('handoffRecording?.stop()'));
+  assert.ok(!native.includes('AVSpeechSynthesizer'), 'All native guidance uses bundled Tuấn Anh recordings');
   assert.ok(native.includes('scheduleResponseTimeout(uuid: uuid, deadline: deadline)'));
   assert.ok(!native.includes('family-confirm') && !native.includes('/answer'));
   for (const lang of ['vi', 'en']) {

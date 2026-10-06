@@ -136,14 +136,10 @@ export function useCheckinCallAudio(
       },
       create: async uri => (await Audio.Sound.createAsync({ uri }, { shouldPlay: false, keepAudioSessionActive: ownsNativeAudioSession })).sound,
       stopSpeech: () => Speech.stop(),
-      // Vietnamese calls keep the configured backend voice on load failure.
-      allowDeviceSpeech: prompt => prompt.language === 'en',
-      speak: (prompt, callbacks) => Speech.speak(prompt.text, {
-        language: prompt.language === 'en' ? 'en-US' : 'vi-VN',
-        rate: 0.85,
-        useApplicationAudioSession: true,
-        ...callbacks,
-      }),
+      // All locales keep the configured Asinu Tuấn Anh narrator. Text/buttons
+      // remain usable on failure; never replace him with a device voice.
+      allowDeviceSpeech: () => false,
+      speak: (_prompt, callbacks) => callbacks.onError(),
       onState: setAudio,
     });
     player.current = owner;

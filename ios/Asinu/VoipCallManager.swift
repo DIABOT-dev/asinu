@@ -26,7 +26,6 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private var responseDeadlinesByUUID: [UUID: String] = [:]
   private var callUIOwners = Set<UUID>()
   private var audioSessionActive = false
-  private let handoffSpeech = AVSpeechSynthesizer()
   private var handoffRecording: AVAudioPlayer?
   private var handoffPromptTimer: DispatchWorkItem?
   private var responseAfterAudioRelease: [String: String]?
@@ -34,7 +33,11 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   private lazy var provider: CXProvider = {
     let configuration = CXProviderConfiguration()
-    configuration.supportsVideo = false
+    // Check-in is a visual interaction: the user reads guidance and chooses
+    // their response on screen. CallKit's visual-call presentation can ask for
+    // device unlock and foreground the app on answer. It does not enable a
+    // camera, transmit video, or bypass Face ID/passcode.
+    configuration.supportsVideo = true
     configuration.maximumCallGroups = 1
     configuration.maximumCallsPerCallGroup = 1
     configuration.supportedHandleTypes = [.generic]
@@ -52,7 +55,6 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   private override init() {
     super.init()
-    handoffSpeech.usesApplicationAudioSession = true
   }
 
   func start() {
@@ -249,7 +251,10 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     update.localizedCallerName = localizedTitle.isEmpty
       ? NSLocalizedString("checkin_call_title", comment: "CallKit check-in title")
       : localizedTitle
-    update.hasVideo = false
+    // Every genuine call here leads to the check-in response UI. In CallKit,
+    // visual content is not limited to camera feeds (Apple DTS thread 798090).
+    // Discarded/duplicate compatibility reports below remain audio-only.
+    update.hasVideo = true
     update.supportsDTMF = false
     update.supportsHolding = false
     update.supportsGrouping = false
@@ -378,7 +383,18 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     ]
     if let url = components.url {
       DispatchQueue.main.async {
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        // CallKit may already have foregrounded this visual call. React's
+        // pending-call recovery owns routing; don't open a second self-link.
+        // A call that ended while this block was queued must not open the app.
+        guard self.pendingCall()?["attemptId"] == call["attemptId"],
+              UIApplication.shared.applicationState != .active else { return }
+        UIApplication.shared.open(url, options: [:]) { opened in
+          #if DEBUG
+          if !opened {
+            print("[AsinuVoip] Response screen open was declined by iOS; pending handoff retained")
+          }
+          #endif
+        }
       }
     }
   }
@@ -459,25 +475,17 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     guard audioSessionActive,
           let entry = callsByUUID.first(where: { $0.value["nativeAnswered"] == "1" && !callUIOwners.contains($0.key) }),
           answerActionsByUUID[entry.key] == nil else { return }
-    if handoffRecording?.isPlaying == true || handoffSpeech.isSpeaking || handoffPromptTimer != nil { return }
+    if handoffRecording?.isPlaying == true || handoffPromptTimer != nil { return }
     let language = entry.value["lang"] == "en" ? "en" : "vi"
-    if language == "vi" {
-      // Bundled Vietnamese recording: cold/locked launches need neither React
-      // nor a network download. Never silently replace it with Apple's voice.
-      guard let url = Bundle.main.url(forResource: "asinu_checkin_open_app_vi", withExtension: "mp3"),
-            let recording = try? AVAudioPlayer(contentsOf: url) else { return }
-      handoffRecording = recording
-      recording.volume = 1.0
-      recording.prepareToPlay()
-      guard recording.play() else { handoffRecording = nil; return }
-    } else {
-      let bundle = Bundle.main.path(forResource: language, ofType: "lproj").flatMap { Bundle(path: $0) } ?? Bundle.main
-      let utterance = AVSpeechUtterance(string: NSLocalizedString("checkin_call_open_app_prompt", bundle: bundle, comment: "Open Asinu to respond to an answered call"))
-      utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-      utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
-      utterance.volume = 1.0
-      handoffSpeech.speak(utterance)
-    }
+    // Both locales use the bundled private Asinu Tuấn Anh v4 recordings:
+    // cold/locked launches need neither React nor a network download, and
+    // missing recordings must never silently switch to Apple's narrator.
+    guard let url = Bundle.main.url(forResource: "asinu_checkin_open_app_" + language, withExtension: "mp3"),
+          let recording = try? AVAudioPlayer(contentsOf: url) else { return }
+    handoffRecording = recording
+    recording.volume = 1.0
+    recording.prepareToPlay()
+    guard recording.play() else { handoffRecording = nil; return }
     // A bounded reminder, only during this accepted call. Never synthesize
     // medical conclusions, create a check-in, or send family confirmation here.
     let reminder = DispatchWorkItem { [weak self] in
@@ -493,7 +501,6 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     handoffPromptTimer = nil
     handoffRecording?.stop()
     handoffRecording = nil
-    handoffSpeech.stopSpeaking(at: .immediate)
   }
 
   private func scheduleResponseTimeout(uuid: UUID, deadline: String) {

@@ -24,6 +24,7 @@
 		A52000010000000000000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A52000020000000000000001 /* InfoPlist.strings */; };
 		A52000030000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A52000040000000000000001 /* Localizable.strings */; };
 		A53000010000000000000001 /* asinu_checkin_open_app_vi.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A53000020000000000000001 /* asinu_checkin_open_app_vi.mp3 */; };
+		A53000010000000000000002 /* asinu_checkin_open_app_en.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A53000020000000000000002 /* asinu_checkin_open_app_en.mp3 */; };
 		8451F8BC0C2146DBBFC0D9B7 /* asinu_incoming.caf in Resources */ = {isa = PBXBuildFile; fileRef = 034B1D770C5B47928BB333A8 /* asinu_incoming.caf */; };
 		5EFED7EE67EE4A7E9454BEEA /* asinu_emergency.caf in Resources */ = {isa = PBXBuildFile; fileRef = A7851C7D68F343588B9E9C39 /* asinu_emergency.caf */; };
 		EF75CB22192F4B6FA01D7D73 /* asinu_missed.caf in Resources */ = {isa = PBXBuildFile; fileRef = C306E56C5F7C4B9E83091A17 /* asinu_missed.caf */; };
@@ -57,6 +58,7 @@
 		A52000070000000000000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A52000080000000000000001 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A53000020000000000000001 /* asinu_checkin_open_app_vi.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = asinu_checkin_open_app_vi.mp3; path = ../assets/sounds/asinu_checkin_open_app_vi.mp3; sourceTree = "<group>"; };
+		A53000020000000000000002 /* asinu_checkin_open_app_en.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = asinu_checkin_open_app_en.mp3; path = ../assets/sounds/asinu_checkin_open_app_en.mp3; sourceTree = "<group>"; };
 		034B1D770C5B47928BB333A8 /* asinu_incoming.caf */ = {isa = PBXFileReference; name = "asinu_incoming.caf"; path = "Asinu/asinu_incoming.caf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 		A7851C7D68F343588B9E9C39 /* asinu_emergency.caf */ = {isa = PBXFileReference; name = "asinu_emergency.caf"; path = "Asinu/asinu_emergency.caf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 		C306E56C5F7C4B9E83091A17 /* asinu_missed.caf */ = {isa = PBXFileReference; name = "asinu_missed.caf"; path = "Asinu/asinu_missed.caf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
@@ -99,6 +101,7 @@
 				E7F965E144DF400FA6F14DDC /* asinu_reminder.wav */,
 				689F63AF8350427EA0EDC244 /* asinu_alert.wav */,
 				A53000020000000000000001 /* asinu_checkin_open_app_vi.mp3 */,
+				A53000020000000000000002 /* asinu_checkin_open_app_en.mp3 */,
 				D2093ECC06064856ADD57D31 /* asinu_care.wav */,
 				437184666F52480F8662F509 /* asinu_milestone.wav */,
 				E152F8C896AFCD3504E7470C /* PrivacyInfo.xcprivacy */,
@@ -252,6 +255,7 @@
 				A52000010000000000000001 /* InfoPlist.strings in Resources */,
 				A52000030000000000000001 /* Localizable.strings in Resources */,
 				A53000010000000000000001 /* asinu_checkin_open_app_vi.mp3 in Resources */,
+				A53000010000000000000002 /* asinu_checkin_open_app_en.mp3 in Resources */,
 				8451F8BC0C2146DBBFC0D9B7 /* asinu_incoming.caf in Resources */,
 				5EFED7EE67EE4A7E9454BEEA /* asinu_emergency.caf in Resources */,
 				EF75CB22192F4B6FA01D7D73 /* asinu_missed.caf in Resources */,

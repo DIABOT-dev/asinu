@@ -120,6 +120,7 @@
   "checkinResultPreviewHeader": "Xem thử kết quả check-in",
   "checkinResultPreviewNotice": "Asinu sẽ tự đọc kết quả check-in. Bấm nút bên cạnh để nghe lại.",
   "checkinReplaySound": "Đọc lại kết quả check-in",
+  "checkinSpeechUnavailable": "Chưa tải được giọng đọc Asinu Tuấn Anh. Bạn vẫn có thể đọc kết quả bên dưới và bấm nghe lại.",
   "checkinResultSummaryLabel": "Kết luận",
   "checkinResultPreviewQuestion": "Tình trạng hiện tại",
   "checkinResultPreviewSymptoms": "Hơi mệt, đau đầu nhẹ từ sáng.",
@@ -441,6 +442,6 @@
     "slide4Title": "Trả lời một vài câu ngắn",
     "slide4Desc": "Chọn vùng đang khó chịu, bấm Tiếp tục rồi trả lời các câu hỏi phù hợp. Bạn có thể chọn nhiều vùng hoặc nhập thêm mô tả.",
     "slide5Title": "Xem và nghe kết quả",
-    "slide5Desc": "Xem thông tin đã ghi nhận và hướng dẫn tiếp theo. Bấm Đọc lại kết quả check-in để nghe. Giọng Ngọc Lan được ưu tiên; nếu không tải được, app dùng giọng của máy. Đây là gợi ý tham khảo, không phải chẩn đoán."
+    "slide5Desc": "Xem thông tin đã ghi nhận và hướng dẫn tiếp theo. Bấm Đọc lại kết quả check-in để nghe bằng giọng Asinu Tuấn Anh. Nếu chưa tải được âm thanh, bạn vẫn có thể đọc nội dung và thử nghe lại. Đây là gợi ý tham khảo, không phải chẩn đoán."
   }
 }

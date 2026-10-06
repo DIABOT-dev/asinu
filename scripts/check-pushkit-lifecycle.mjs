@@ -12,6 +12,7 @@ assert.ok(start.includes('DispatchQueue.main.sync'));
 assert.ok(!start.includes('DispatchQueue.main.async {'));
 assert.ok(start.indexOf('_ = provider') < start.indexOf('registry.desiredPushTypes'));
 assert.ok(native.includes('endedAttempts[attemptId] = Date()'));
+assert.ok(native.includes('configuration.supportsVideo = true'));
 console.log('PASS CallKit/PushKit registration precedes React bootstrap; ended identities are retained');
 
 // Execute the actual checked-in Swift handlers with a deferred CallKit adapter.
@@ -43,10 +44,12 @@ final class CXProvider {
   final class Configuration { var ringtoneSound = "" }
   var configuration = Configuration()
   var reports: [UUID] = []
+  var updates: [CXCallUpdate] = []
   var ended: [UUID] = []
   var completions: [(Error?) -> Void] = []
   func reportNewIncomingCall(with uuid: UUID, update: CXCallUpdate, completion: @escaping (Error?) -> Void) {
     reports.append(uuid)
+    updates.append(update)
     completions.append(completion)
   }
   func reportCall(with uuid: UUID, endedAt: Date, reason: CXCallEndedReason) { ended.append(uuid) }
@@ -90,8 +93,15 @@ test("a genuine call reports synchronously and completes only after CallKit") {
   h.reportIncoming(payload: payload) { done += 1 }
   assert(h.provider.reports.count == 1 && done == 0 && h.ringTimers == 0)
   assert(h.provider.configuration.ringtoneSound == "asinu_incoming.caf")
+  assert(h.provider.updates.last?.hasVideo == true)
   h.provider.finish()
   assert(done == 1 && h.ringTimers == 1 && h.callsByUUID.count == 1)
+}
+test("visual check-in metadata does not enable number-pad responses or holding") {
+  let h = Handler()
+  h.reportIncoming(payload: payload) {}; h.provider.finish()
+  let update = h.provider.updates.last!
+  assert(update.hasVideo && !update.supportsDTMF && !update.supportsHolding)
 }
 test("urgent calls use the emergency pack without changing CallKit lifecycle") {
   let h = Handler(); var urgent = payload; urgent["severity"] = "URGENT"
@@ -111,6 +121,7 @@ for invalid: [AnyHashable: Any] in [
     h.reportIncoming(payload: invalid) { done += 1 }
     assert(h.provider.reports.count == 1 && done == 0)
     assert(h.callsByUUID.isEmpty && h.audioConfigurations == 0)
+    assert(h.provider.updates.last?.hasVideo == false)
     h.provider.finish()
     assert(done == 1 && h.provider.ended.count == 1 && h.ringTimers == 0)
   }
@@ -129,6 +140,7 @@ test("duplicate push does not replace an answered call or restart its timer") {
   h.callsByUUID[original]?["nativeAnswered"] = "1"
   var done = 0; h.reportIncoming(payload: payload) { done += 1 }
   assert(h.provider.reports.count == 2 && h.uuidByAttempt["attempt"] == original && done == 0)
+  assert(h.provider.updates.last?.hasVideo == false)
   h.provider.finish()
   assert(done == 1 && h.ringTimers == 1 && h.callsByUUID.count == 1 && !h.provider.ended.contains(original))
 }
