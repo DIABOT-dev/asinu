@@ -1,0 +1,15 @@
+{
+  "file": "asinu_tuan_anh_checkin_vi.mp3",
+  "language": "vi",
+  "voice": "clone_b935a451-7d65-4b73-a083-d46e56c47d4f",
+  "text": "Xin chào. Đây là cuộc gọi nhắc check-in từ tổng đài tự động Asinu, đồng hành cùng bạn và gia đình. Bác vui lòng chọn trên màn hình Asinu: Tôi vẫn ổn, Tôi hơi mệt, hoặc Tôi cần hỗ trợ ngay.",
+  "textSha256": "55590f152845bb2e15ecbf8274510622ca89adf907062a2acef061afa146b5c5",
+  "audioSha256": "7b43b5ee6655146f7f3e4eee338ce7825e39a08fedbd6df3975c9149c8b5bff4",
+  "loudness": {
+    "normalization": "ebu-r128-two-pass",
+    "targetIntegratedLufs": -16,
+    "targetTruePeakDbtp": -1.5,
+    "integratedLufs": -16.47,
+    "truePeakDbtp": -1.91
+  }
+}

@@ -5,17 +5,17 @@ import ts from 'typescript';
 let checks = 0;
 const test = async (label, work) => { await work(); checks++; console.log(`PASS ${label}`); };
 const read = file => fs.readFileSync(file, 'utf8');
-function evaluate(source, imports = {}) {
+function evaluate(source, imports = {}, globals = {}) {
   const module = { exports: {} };
   const output = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX,
   } }).outputText;
   // Execute the actual queue and components, rather than a replica of their logic.
   // eslint-disable-next-line no-new-func
-  new Function('module', 'exports', 'require', output)(module, module.exports, name => {
+  new Function('module', 'exports', 'require', ...Object.keys(globals), output)(module, module.exports, name => {
     assert.ok(name in imports, `Missing stub: ${name}`);
     return imports[name];
-  });
+  }, ...Object.values(globals));
   return module.exports;
 }
 const { ModalQueue } = evaluate(read('src/lib/modalQueue.ts'));
@@ -304,6 +304,8 @@ await test('the specialist busy/reopen modal opts into stacked buttons and scrol
 function splashHarness({ language = 'vi', profile = null, hydrated = true, loading = false,
   navigationReady = true, consent = Promise.resolve(true), call = null, response = null } = {}) {
   let cursor = 0, pending = [], live = true;
+  let now = 0, nextTimerId = 0;
+  const timers = new Map();
   const slots = [];
   const state = { profile, hydrated, loading, navigationReady };
   const calls = { routes: [], native: 0, push: 0, loopStarts: 0, loopStops: 0 };
@@ -345,7 +347,7 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
         parallel: items => ({ start: callback => { items.forEach(item => item.start()); callback?.(); } }),
         sequence: value => value, delay: value => value,
         loop: () => ({ start: () => calls.loopStarts++, stop: () => calls.loopStops++ }) },
-      Easing: { out: value => value, cubic: () => {} },
+      Easing: { out: value => value, cubic: () => {}, bezier: (...points) => points },
       Image: 'Image', View: 'View', StyleSheet: { create: value => value, absoluteFill: { position: 'absolute' } },
       InteractionManager: { runAfterInteractions: work => {
         const task = { work, cancelled: false, cancel() { this.cancelled = true; } };
@@ -368,7 +370,14 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
     assert.ok(fs.existsSync(`assets/images/splash/${asset}`));
     imports[`../assets/images/splash/${asset}`] = asset;
   }
-  const components = evaluate(`${read('app/index.tsx')}\nexport { LoadingDot };`, imports);
+  const components = evaluate(`${read('app/index.tsx')}\nexport { LoadingDot };`, imports, {
+    setTimeout: (work, delay = 0) => {
+      const id = ++nextTimerId;
+      timers.set(id, { work, at: now + delay });
+      return id;
+    },
+    clearTimeout: id => timers.delete(id),
+  });
   const render = () => { cursor = 0; return components.default(); };
   const settle = async () => {
     render(); const effects = pending; pending = []; effects.forEach(work => work());
@@ -376,6 +385,17 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
     return render();
   };
   return { state, calls, render, settle,
+    advanceTime: milliseconds => {
+      const target = now + milliseconds;
+      for (;;) {
+        const next = [...timers.entries()].sort((a, b) => a[1].at - b[1].at)[0];
+        if (!next || next[1].at > target) break;
+        now = next[1].at;
+        timers.delete(next[0]);
+        next[1].work();
+      }
+      now = target;
+    },
     runTasks: async () => {
       const queued = tasks.splice(0);
       for (const task of queued) { if (!task.cancelled) await task.work(); }
@@ -385,14 +405,15 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
     unmount: () => { live = false; slots.forEach(slot => slot.cleanup?.()); },
   };
 }
-for (const language of ['vi', 'en-US']) await test(`${language}: updated splash uses its real localized image and brand logo`, async () => {
+for (const language of ['vi', 'en-US']) await test(`${language}: splash uses its localized artwork without a duplicate logo overlay`, async () => {
   const h = splashHarness({ language });
   const tree = await h.settle();
   const images = nodes(tree).filter(node => node.type === 'Image');
   assert.equal(images[0].props.source, language === 'vi' ? 'asinu_splash_bg_vi.png' : 'asinu_splash_bg_en.png');
-  assert.equal(images[1].props.source, 'asinu_brand_logo.png');
+  assert.equal(images.length, 1);
   assert.equal(images[0].props.resizeMode, 'cover');
-  await h.settle(); await h.runTasks();
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && [node.props.children].flat().join('') === '100%'));
+  h.advanceTime(1800); await h.settle(); await h.runTasks();
   assert.deepEqual(h.calls.routes, ['/login']); h.unmount();
 });
 await test('splash cannot navigate before consent, auth hydration and navigator are ready', async () => {
@@ -400,6 +421,7 @@ await test('splash cannot navigate before consent, auth hydration and navigator 
   const consent = new Promise(resolve => { finishConsent = resolve; });
   const h = splashHarness({ consent, hydrated: false, loading: true, navigationReady: false });
   await h.settle(); await h.runTasks(); assert.deepEqual(h.calls.routes, []);
+  h.advanceTime(1800); await h.settle(); await h.runTasks(); assert.deepEqual(h.calls.routes, []);
   finishConsent(false); await h.settle();
   h.state.hydrated = true; h.state.loading = false; h.state.navigationReady = true;
   const tree = await h.settle(); await h.runTasks(); assert.deepEqual(h.calls.routes, []);
@@ -408,18 +430,27 @@ await test('splash cannot navigate before consent, auth hydration and navigator 
   modal.props.onAgree(); await h.settle(); await h.runTasks();
   assert.deepEqual(h.calls.routes, ['/login']); h.unmount();
 });
-await test('updated splash preserves onboarding and Home routing without an artificial delay', async () => {
+await test('splash preserves onboarding and Home routing after its minimum display time', async () => {
   for (const completed of [false, true]) {
     const h = splashHarness({ profile: { id: '7', onboardingCompleted: completed } });
     await h.settle(); await h.settle(); await h.runTasks();
+    assert.deepEqual(h.calls.routes, []);
+    h.advanceTime(1799); await h.settle(); await h.runTasks();
+    assert.deepEqual(h.calls.routes, []);
+    h.advanceTime(1); await h.settle(); await h.runTasks();
     assert.deepEqual(h.calls.routes, [completed ? '/(tabs)/home' : '/onboarding']); h.unmount();
   }
+});
+await test('leaving splash cancels its pending minimum-display timer', async () => {
+  const h = splashHarness();
+  await h.settle(); h.unmount(); h.advanceTime(1800);
+  await h.runTasks(); assert.deepEqual(h.calls.routes, []);
 });
 await test('an answered CallKit call still outranks a stale notification tap on the new splash', async () => {
   const h = splashHarness({ profile: { id: '7', onboardingCompleted: true },
     call: { episodeId: 'episode', attemptId: 'attempt' },
     response: { notification: { date: Date.now() / 1000, request: { content: { data: { route: '/care-circle' } } } } } });
-  await h.settle(); await h.settle(); await h.runTasks();
+  await h.settle(); h.advanceTime(1800); await h.settle(); await h.runTasks();
   assert.deepEqual(h.calls.routes, [{ pathname: '/checkin-call/[episodeId]', params: {
     episodeId: 'episode', attemptId: 'attempt', nativeAnswered: '1',
   } }]);
@@ -429,7 +460,7 @@ await test('leaving splash during pending native recovery cannot navigate the un
   let finish;
   const h = splashHarness({ profile: { id: '7', onboardingCompleted: true },
     call: new Promise(resolve => { finish = resolve; }) });
-  await h.settle(); await h.settle();
+  await h.settle(); h.advanceTime(1800); await h.settle();
   const running = h.runTasks(); h.unmount(); finish({ episodeId: 'episode', attemptId: 'attempt' });
   await running; assert.deepEqual(h.calls.routes, []);
 });

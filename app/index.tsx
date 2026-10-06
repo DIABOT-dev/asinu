@@ -9,12 +9,10 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { routeFromNotificationData } from '../src/lib/notifications';
 import { getPendingVoipCall } from '../src/lib/voip';
-import { spacing } from '../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 const splashBgVi = require('../assets/images/splash/asinu_splash_bg_vi.png');
 const splashBgEn = require('../assets/images/splash/asinu_splash_bg_en.png');
-const asinuBrandLogo = require('../assets/images/splash/asinu_brand_logo.png');
 
 function LoadingDot({ delay }: { delay: number }) {
   const anim = useRef(new Animated.Value(0.35)).current;
@@ -52,7 +50,7 @@ function LoadingDot({ delay }: { delay: number }) {
 }
 
 export default function Index() {
-  const { t, i18n } = useTranslation('common');
+  const { i18n } = useTranslation('common');
   const isEn = i18n.language?.startsWith('en');
   const splashBg = isEn ? splashBgEn : splashBgVi;
   const router = useRouter();
@@ -62,34 +60,37 @@ export default function Index() {
   const hydrated = useAuthStore((state) => state.hydrated);
   const isNavReady = Boolean(navigationState?.key);
 
-  const logoScale   = useRef(new Animated.Value(0.9)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
-
   const [consentReady, setConsentReady] = useState(false);
   const [showConsent, setShowConsent]   = useState(false);
+  const [minSplashDone, setMinSplashDone] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const progressValue = useRef(new Animated.Value(0)).current;
 
-  const progressTarget = !hydrated && !loading
-    ? 0.08
-    : !hydrated || loading
-      ? 0.45
-      : !consentReady
-        ? 0.72
-        : !isNavReady
-          ? 0.88
-          : 1;
-
-  // Entrance animation
+  // Minimum splash display time so user sees the progress animation smoothly
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(logoScale, { toValue: 1, useNativeDriver: true, tension: 55, friction: 8 }),
-      Animated.timing(logoOpacity, { toValue: 1, duration: 550, useNativeDriver: true }),
-    ]).start(() =>
-      Animated.timing(textOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start()
-    );
-  }, [logoOpacity, logoScale, textOpacity]);
+    const timer = setTimeout(() => {
+      setMinSplashDone(true);
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Smooth loading progression from 0% to 100%
+  useEffect(() => {
+    const listenerId = progressValue.addListener(({ value }) => {
+      setProgressPercent(Math.round(value * 100));
+    });
+
+    Animated.timing(progressValue, {
+      toValue: 1,
+      duration: 1600,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: false,
+    }).start();
+
+    return () => {
+      progressValue.removeListener(listenerId);
+    };
+  }, [progressValue]);
 
   useEffect(() => {
     hasDataConsent().then((consented) => {
@@ -99,24 +100,7 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    const listenerId = progressValue.addListener(({ value }) => {
-      setProgressPercent(Math.round(value * 100));
-    });
-
-    Animated.timing(progressValue, {
-      toValue: progressTarget,
-      duration: progressTarget >= 1 ? 320 : 420,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-
-    return () => {
-      progressValue.removeListener(listenerId);
-    };
-  }, [progressTarget, progressValue]);
-
-  useEffect(() => {
-    if (!hydrated || !isNavReady || loading || !consentReady || showConsent) return;
+    if (!minSplashDone || !hydrated || !isNavReady || loading || !consentReady || showConsent) return;
     let cancelled = false;
     const task = InteractionManager.runAfterInteractions(async () => {
       // Cold-start deep link: nếu user mở app bằng cách tap notification,
@@ -158,53 +142,34 @@ export default function Index() {
       }
     });
     return () => { cancelled = true; task.cancel(); };
-  }, [hydrated, isNavReady, loading, profile, router, consentReady, showConsent]);
+  }, [minSplashDone, hydrated, isNavReady, loading, profile, router, consentReady, showConsent]);
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
       <Image source={splashBg} style={StyleSheet.absoluteFill} resizeMode="cover" />
 
-      {/* Top spacer to align content below the 3D mascot on the curved hill */}
-      <View style={styles.topSection} />
-
-      {/* Middle Interactive Section */}
-      <View style={styles.contentWrap}>
-        <Animated.View style={{ opacity: logoOpacity, transform: [{ scale: logoScale }] }}>
-          <Image
-            source={asinuBrandLogo}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
-
-        <Animated.View style={{ opacity: textOpacity }}>
-          <Text style={styles.tagline}>{t('tagline')}</Text>
-        </Animated.View>
-
-        <View style={styles.loadingWrap}>
-          <View style={styles.dotsWrap}>
-            <LoadingDot delay={0} />
-            <LoadingDot delay={200} />
-            <LoadingDot delay={400} />
-          </View>
-          <View style={styles.progressHeader}>
-            <Text style={styles.loadingText}>{t('loading')}</Text>
-            <Text style={styles.progressPercent}>{progressPercent}%</Text>
-          </View>
-          <View style={styles.progressTrack} accessibilityLabel={`${progressPercent}%`}>
-            <Animated.View
-              style={[
-                styles.progressFill,
-                { width: progressValue.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
-              ]}
-            />
-          </View>
-        </View>
+      {/* Synchronized 3-dot pulse overlay */}
+      <View style={styles.dotsOverlay} pointerEvents="none">
+        <LoadingDot delay={0} />
+        <LoadingDot delay={200} />
+        <LoadingDot delay={400} />
       </View>
 
-      {/* Bottom spacer for decorative waves and heartbeat */}
-      <View style={styles.bottomSection} />
+      {/* Dynamic progress bar & percentage overlay matching mockup track */}
+      <View style={styles.progressOverlay} pointerEvents="none">
+        <View style={styles.pctRow}>
+          <Text style={styles.progressPercent}>{progressPercent}%</Text>
+        </View>
+        <View style={styles.progressTrack} accessibilityLabel={`${progressPercent}%`}>
+          <Animated.View
+            style={[
+              styles.progressFill,
+              { width: progressValue.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+            ]}
+          />
+        </View>
+      </View>
 
       <DataConsentModal
         visible={showConsent}
@@ -219,33 +184,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
-    overflow: 'hidden',
   },
-  topSection: {
-    flex: 0.52,
-  },
-  contentWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  logoImage: {
-    width: 235,
-    height: 55,
-  },
-  tagline: {
-    color: '#547b77',
-    fontSize: 15,
-    fontWeight: '500',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  loadingWrap: {
-    alignItems: 'center',
-    marginTop: 26,
-    gap: 12,
-  },
-  dotsWrap: {
+  dotsOverlay: {
+    position: 'absolute',
+    top: '64.7%',
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -258,16 +201,17 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#00a896',
   },
-  progressHeader: {
-    width: 230,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  progressOverlay: {
+    position: 'absolute',
+    top: '67.95%',
+    alignSelf: 'center',
+    width: '55.11%',
   },
-  loadingText: {
-    color: '#437b75',
-    fontSize: 14,
-    fontWeight: '600',
+  pctRow: {
+    height: 24,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginBottom: 6,
   },
   progressPercent: {
     color: '#00796b',
@@ -276,18 +220,15 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   progressTrack: {
-    width: 230,
+    width: '100%',
     height: 8,
     overflow: 'hidden',
     borderRadius: 4,
-    backgroundColor: '#daf0ee',
+    backgroundColor: 'transparent',
   },
   progressFill: {
     height: '100%',
     borderRadius: 4,
     backgroundColor: '#00a896',
-  },
-  bottomSection: {
-    flex: 0.28,
   },
 });
