@@ -254,13 +254,13 @@ for (const language of ['vi', 'en']) {
           assert.equal(copy.props.style.minWidth, 0);
           assert.equal(copy.props.style.alignSelf, 'stretch');
           assert.equal(copy.props.style.justifyContent, 'center');
-          copyStyles.push(copy.props.children.map(textNode => flatten(textNode.props.style)));
-          copy.props.children.forEach(textNode => {
+          const copyNodes = React.Children.toArray(copy.props.children);
+          copyStyles.push(copyNodes.map(textNode => flatten(textNode.props.style)));
+          copyNodes.forEach(textNode => {
             assert.equal(textNode.props.numberOfLines, undefined, 'Do not truncate QR labels');
             assert.equal(textNode.props.adjustsFontSizeToFit, undefined, 'Do not shrink labels');
           });
           assert.ok(copyStyles[index][0].fontSize >= 14);
-          assert.ok(copyStyles[index][1].fontSize >= 12);
           assert.equal(flatten(button.props.style({ pressed: true })).opacity, 0.8);
           button.props.onPress();
         });

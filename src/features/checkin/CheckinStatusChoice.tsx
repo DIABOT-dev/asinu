@@ -29,17 +29,6 @@ export const CHECKIN_STATUS_CHOICES: Array<{
     subColor: "#0f766e",
   },
   {
-    status: "specific_concern",
-    icon: "alert-circle-outline",
-    labelKey: "checkinAbnormal",
-    sublabelKey: "checkinAbnormalSub",
-    bg: "#fffaf0",
-    border: "#f5d9a8",
-    color: "#92400e",
-    iconColor: "#d97706",
-    subColor: "#a16207",
-  },
-  {
     status: "tired",
     icon: "emoticon-neutral-outline",
     labelKey: "checkinTired",

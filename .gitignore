@@ -24,6 +24,7 @@ ui.xml
 # Local backup folders (vd: ios.backup_YYYYMMDD_HHMMSS từ trước expo prebuild)
 ios.backup_*/
 android.backup_*/
+assets/images/.backup_original_assets/
 
 
 # @generated expo-cli sync-8d4afeec25ea8a192358fae2f8e2fc766bdce4ec

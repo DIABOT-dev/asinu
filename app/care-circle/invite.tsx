@@ -28,6 +28,7 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { normalizeVietnamesePhone } from '../../src/lib/validation';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
+import { getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
 
 type SearchUser = {
   id: string;
@@ -95,7 +96,6 @@ export default function InviteScreen() {
   const [selectedRelationship, setSelectedRelationship] = useState<DropdownOption | null>(null);
   const [selectedRole, setSelectedRole] = useState<DropdownOption | null>(null);
   const [customRelationship, setCustomRelationship] = useState('');
-  const [customRole, setCustomRole] = useState('');
   const [showRelDropdown, setShowRelDropdown] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [permissions, setPermissions] = useState({
@@ -112,7 +112,6 @@ export default function InviteScreen() {
     selectedRelationship ||
     selectedRole ||
     customRelationship.trim() ||
-    customRole.trim() ||
     !permissions.can_view_logs || !permissions.can_receive_alerts || !permissions.can_ack_escalation
   );
 
@@ -147,18 +146,7 @@ export default function InviteScreen() {
     { id: 'nguoi-yeu', label: t('relPartner'), subtitle: t('relSoulmate') },
   ];
 
-  const roleOptions: DropdownOption[] = [
-    { id: 'nguoi-cham-soc', label: t('rolePrimaryCaregiver'), subtitle: t('roleCaregiverDesc') },
-    { id: 'bac-si', label: t('roleFamilyDoctor'), subtitle: t('roleDoctorDesc') },
-    { id: 'y-ta', label: t('roleNurse'), subtitle: t('roleNurseDesc') },
-    { id: 'duoc-si', label: t('rolePharmacist'), subtitle: t('rolePharmacistDesc') },
-    { id: 'chuyen-gia-dinh-duong', label: t('roleNutritionist'), subtitle: t('roleNutritionistDesc') },
-    { id: 'huan-luyen-vien', label: t('roleTrainer'), subtitle: t('roleTrainerDesc') },
-    { id: 'nguoi-ho-tro', label: t('roleHelper'), subtitle: t('roleHelperDesc') },
-    { id: 'than-nhan', label: t('roleRelative'), subtitle: t('roleRelativeDesc') },
-    { id: 'nguoi-giup-viec', label: t('roleHousekeeper'), subtitle: t('roleHousekeeperDesc') },
-    { id: 'tu-van-tam-ly', label: t('roleCounselor'), subtitle: t('roleCounselorDesc') },
-  ];
+  const roleOptions = getFamilyRoleOptions(t);
 
   const handleSearchByPhone = async () => {
     const phone = normalizeVietnamesePhone(phoneQuery);
@@ -258,7 +246,7 @@ export default function InviteScreen() {
     try {
       const invitationData = {
         relationship_type: selectedRelationship?.label || customRelationship || undefined,
-        role: selectedRole?.label || customRole || undefined,
+        role: selectedRole?.id,
         permissions,
       };
       if (qrToken && qrPreview) {
@@ -463,24 +451,28 @@ export default function InviteScreen() {
               <Text style={styles.cardTitle}>{t('role')}</Text>
               <Text style={styles.optionalBadge}>{t('optional')}</Text>
             </View>
-            <View style={styles.comboInputRow}>
-              <TextInput
-                style={[styles.comboInput, { fontSize: 15 }]}
-                value={selectedRole ? selectedRole.label : customRole}
-                onChangeText={text => { setCustomRole(text); setSelectedRole(null); }}
-                placeholder={t('rolePlaceholder')}
-                placeholderTextColor={colors.textSecondary + '88'}
+            <Pressable
+              style={styles.comboInputRow}
+              accessibilityRole="button"
+              accessibilityLabel={t('role')}
+              accessibilityState={{ expanded: showRoleDropdown }}
+              onPress={() => setShowRoleDropdown(v => !v)}
+            >
+              <Text style={[styles.comboInput, !selectedRole && { color: colors.textSecondary }]}>
+                {selectedRole?.label || t('rolePlaceholder')}
+              </Text>
+              <Ionicons
+                name={showRoleDropdown ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.primary}
+                style={{ marginRight: spacing.md }}
               />
-              <Pressable style={styles.comboDropBtn} onPress={() => setShowRoleDropdown(v => !v)}>
-                <Ionicons name={showRoleDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primary} />
-              </Pressable>
-            </View>
+            </Pressable>
             {showRoleDropdown && (
               <ScrollView style={styles.suggestionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                 {roleOptions.map(opt => (
-                  <Pressable key={opt.id} style={styles.suggestionItem} onPress={() => {
+                  <Pressable key={opt.id} style={styles.suggestionItem} accessibilityRole="button" accessibilityState={{ selected: selectedRole?.id === opt.id }} onPress={() => {
                     setSelectedRole(opt);
-                    setCustomRole('');
                     setShowRoleDropdown(false);
                   }}>
                     <Text style={styles.suggestionText}>{opt.label}</Text>

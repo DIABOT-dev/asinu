@@ -1,4 +1,4 @@
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -35,6 +35,7 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { getConnectionHealthAccess } from '../../src/features/care-circle/health-access';
+import { getFamilyRoleLabel, getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
 
 export default function CareCircleScreen() {
@@ -60,7 +61,6 @@ export default function CareCircleScreen() {
     deleteConnection,
     updateConnection,
     updatePermissions,
-    updateHealthAccess,
     refresh,
     fetchInvitations,
     fetchConnections,
@@ -119,18 +119,7 @@ export default function CareCircleScreen() {
   ];
 
   // Role options
-  const roleOptions: DropdownOption[] = [
-    { id: 'nguoi-cham-soc', label: t('rolePrimaryCaregiver'), subtitle: t('roleCaregiverDesc') },
-    { id: 'bac-si', label: t('roleFamilyDoctor'), subtitle: t('roleDoctorDesc') },
-    { id: 'y-ta', label: t('roleNurse'), subtitle: t('roleNurseDesc') },
-    { id: 'duoc-si', label: t('rolePharmacist'), subtitle: t('rolePharmacistDesc') },
-    { id: 'chuyen-gia-dinh-duong', label: t('roleNutritionist'), subtitle: t('roleNutritionistDesc') },
-    { id: 'huan-luyen-vien', label: t('roleTrainer'), subtitle: t('roleTrainerDesc') },
-    { id: 'nguoi-ho-tro', label: t('roleHelper'), subtitle: t('roleHelperDesc') },
-    { id: 'than-nhan', label: t('roleRelative'), subtitle: t('roleRelativeDesc') },
-    { id: 'nguoi-giup-viec', label: t('roleHousekeeper'), subtitle: t('roleHousekeeperDesc') },
-    { id: 'tu-van-tam-ly', label: t('roleCounselor'), subtitle: t('roleCounselorDesc') },
-  ];
+  const roleOptions = getFamilyRoleOptions(t);
 
   const reverseRelationship = (relationshipType: string | undefined, otherGender?: string): string => {
     if (!relationshipType) return '';
@@ -278,7 +267,7 @@ export default function CareCircleScreen() {
       opt => opt.id === connection.relationship_type || opt.label === connection.relationship_type
     );
     const roleOption = roleOptions.find(
-      opt => opt.id === connection.role || opt.label === connection.role
+      opt => opt.label === getFamilyRoleLabel(connection.role, t)
     );
     setEditRelationType(relOption || null);
     setEditRole(roleOption || null);
@@ -305,19 +294,6 @@ export default function CareCircleScreen() {
       showToast(t('editSuccess'), 'success');
     } catch {
       showToast(t('editError'), 'error');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleHealthAccessChange = async (connectionId: string, canViewLogs: boolean) => {
-    if (actionLoading) return;
-    setActionLoading(connectionId);
-    try {
-      await updateHealthAccess(connectionId, canViewLogs);
-      showToast(t(canViewLogs ? 'healthAccessGranted' : 'healthAccessRevoked'), 'success');
-    } catch (error) {
-      showToast(getApiErrorMessage(error, t, 'cannotUpdateConnection'), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -482,7 +458,7 @@ export default function CareCircleScreen() {
                             relationship:
                               reverseRelationship(invitation.relationship_type, invitation.requester_gender) ||
                               invitation.relationship_type,
-                            role: invitation.role,
+                            role: getFamilyRoleLabel(invitation.role, t),
                           })
                         }
                         activeOpacity={0.75}
@@ -502,7 +478,7 @@ export default function CareCircleScreen() {
                                   invitation.relationship_type,
                                   invitation.requester_gender
                                 ) ||
-                                  invitation.role ||
+                                  getFamilyRoleLabel(invitation.role, t) ||
                                   t('connection')}
                               </Text>
                             </View>
@@ -564,7 +540,7 @@ export default function CareCircleScreen() {
                             email: invitation.addressee_email,
                             phone: invitation.addressee_phone,
                             relationship: invitation.relationship_type,
-                            role: invitation.role,
+                            role: getFamilyRoleLabel(invitation.role, t),
                             invitationId: invitation.id,
                           })
                         }
@@ -636,6 +612,7 @@ export default function CareCircleScreen() {
                   <View style={styles.connectionsList}>
                     {connections.map((connection) => {
                       const healthAccess = getConnectionHealthAccess(connection, profile?.id);
+                      const displayRole = getFamilyRoleLabel(connection.role, t);
                       const isRequester = String(connection.requester_id) === String(profile?.id);
                       const otherUserId = isRequester ? connection.addressee_id : connection.requester_id;
                       const otherUserFullName = isRequester
@@ -680,11 +657,11 @@ export default function CareCircleScreen() {
                                 {otherName}
                               </Text>
 
-                              {(displayRelationship || connection.role) && (
+                              {(displayRelationship || displayRole) && (
                                 <View style={styles.connectionBadge}>
                                   <Ionicons name="heart" size={11} color="#0D9488" />
                                   <Text style={styles.connectionBadgeText}>
-                                    {displayRelationship || connection.role}
+                                    {displayRelationship || displayRole}
                                   </Text>
                                 </View>
                               )}
@@ -747,19 +724,6 @@ export default function CareCircleScreen() {
                             </TouchableOpacity>
                           </View>
                         </TouchableOpacity>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.cardContact}>{t('shareMyHealthProfile', { name: otherName })}</Text>
-                            <Text style={styles.cardContact}>{t('healthAccessScope')}</Text>
-                          </View>
-                          <Switch
-                            value={healthAccess.sharingMine}
-                            disabled={Boolean(actionLoading)}
-                            accessibilityLabel={t('shareMyHealthProfile', { name: otherName })}
-                            onValueChange={(value) => handleHealthAccessChange(connection.id, value)}
-                            trackColor={{ false: colors.border, true: colors.primary }}
-                          />
-                        </View>
                         </View>
                       );
                     })}
@@ -769,15 +733,6 @@ export default function CareCircleScreen() {
             </>
           )}
         </RippleRefreshScrollView>
-
-        {/* Floating Action Button (+) */}
-        <TouchableOpacity
-          style={[styles.floatingActionButton, { bottom: Math.max(insets.bottom, 16) + 72 }]}
-          activeOpacity={0.85}
-          onPress={() => router.push('/care-circle/invite')}
-        >
-          <FontAwesome name="plus" size={26} color="#FFFFFF" />
-        </TouchableOpacity>
 
         {/* Profile Modal */}
         <Modal
@@ -1425,23 +1380,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     loader: {
       marginVertical: spacing.xl,
-    },
-    // Floating Action Button (+)
-    floatingActionButton: {
-      position: 'absolute',
-      right: 20,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: '#0D9488',
-      alignItems: 'center',
-      justifyContent: 'center',
-      elevation: 6,
-      shadowColor: '#0D9488',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
-      zIndex: 99,
     },
     // Profile modal
     profileOverlay: {

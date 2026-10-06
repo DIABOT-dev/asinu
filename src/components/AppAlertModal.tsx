@@ -176,7 +176,7 @@ export function AppAlertModal({
           >
             {resolvedButtons.map((btn, i) => {
               const isCancel = btn.style === 'cancel';
-              const isDestructive = btn.style === 'destructive';
+              const isDestructive = btn.variant === 'destructive' || (!btn.variant && btn.style === 'destructive');
               return (
                 <Pressable
                   key={i}
@@ -189,7 +189,7 @@ export function AppAlertModal({
                     btn.variant === 'outline' && styles.buttonOutlineSecondary,
                     btn.variant === 'text' && styles.buttonTextOnly,
                     !btn.variant && isCancel && styles.buttonCancel,
-                    !btn.variant && isDestructive && styles.buttonDestructive,
+                    isDestructive && styles.buttonDestructive,
                     !btn.variant && !isCancel && !isDestructive && styles.buttonDefault,
                     pressed && { opacity: 0.8 },
                   ]}
@@ -202,7 +202,7 @@ export function AppAlertModal({
                       btn.variant === 'outline' && styles.buttonTextOutlineSecondary,
                       btn.variant === 'text' && styles.buttonTextOnlyText,
                       !btn.variant && isCancel && styles.buttonTextCancel,
-                      !btn.variant && isDestructive && styles.buttonTextDestructive,
+                      isDestructive && styles.buttonTextDestructive,
                     ]}
                   >
                     {btn.icon ? (
@@ -214,6 +214,8 @@ export function AppAlertModal({
                             ? '#ffffff'
                             : btn.variant === 'outline'
                             ? '#466d82'
+                            : isDestructive
+                            ? iconColors.danger
                             : isCancel
                             ? colors.textSecondary
                             : colors.primary
@@ -315,7 +317,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     buttonDestructive: {
       backgroundColor: colors.danger + '12',
       borderWidth: 1,
-      borderColor: colors.textPrimary + '20',
+      borderColor: colors.danger + '35',
     },
     buttonText: {
       fontSize: typography.size.sm,

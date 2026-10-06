@@ -46,7 +46,6 @@ export function CareCircleQrActions({ onShowQr, onScanQr }: Props) {
           </View>
           <View style={styles.copy}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>{action.title}</Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{action.hint}</Text>
           </View>
         </Pressable>
       ))}
@@ -88,8 +87,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignSelf: 'stretch',
     justifyContent: 'center',
-    gap: 2,
   },
   title: { fontSize: 14, fontWeight: '800', lineHeight: 21 },
-  subtitle: { fontSize: 12, lineHeight: 18 },
 });
