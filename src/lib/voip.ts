@@ -30,8 +30,8 @@ type NativeVoipModule = {
   removeListeners(count: number): void;
 };
 
-const nativeModule = NativeModules.AsinuVoipModule as NativeVoipModule | undefined;
-const emitter = Platform.OS === 'ios' && nativeModule
+const nativeModule = (Platform.OS === 'android' ? NativeModules.AsinuCheckinCallModule : NativeModules.AsinuVoipModule) as NativeVoipModule | undefined;
+const emitter = (Platform.OS === 'ios' || Platform.OS === 'android') && nativeModule
   ? new NativeEventEmitter(nativeModule as never)
   : null;
 
@@ -47,7 +47,7 @@ export async function getVoipRegistration(): Promise<VoipRegistration | null> {
 }
 
 export async function consumePendingVoipCall(): Promise<VoipCallPayload | null> {
-  if (Platform.OS !== 'ios' || !nativeModule) return null;
+  if (!nativeModule) return null;
   try {
     const value = await nativeModule.consumePendingCall();
     return value?.episodeId && value?.attemptId ? value : null;
@@ -57,7 +57,7 @@ export async function consumePendingVoipCall(): Promise<VoipCallPayload | null> 
 }
 
 export async function getPendingVoipCall(): Promise<VoipCallPayload | null> {
-  if (Platform.OS !== 'ios' || !nativeModule) return null;
+  if (!nativeModule) return null;
   try {
     // Older installed builds still have the destructive legacy getter. New
     // builds acknowledge the pending handoff only when its screen owns audio.
@@ -69,12 +69,12 @@ export async function getPendingVoipCall(): Promise<VoipCallPayload | null> {
 }
 
 export async function completeVoipCallAnswer(attemptId: string, connected: boolean, deadline?: string | null): Promise<void> {
-  if (Platform.OS !== 'ios' || !attemptId) return;
+  if (!attemptId) return;
   await nativeModule?.completeAnswer?.(attemptId, connected, deadline || '');
 }
 
 export async function setVoipCallUIActive(attemptId: string, active: boolean, deadline?: string | null): Promise<boolean> {
-  if (Platform.OS !== 'ios' || !attemptId) return false;
+  if (!attemptId) return false;
   return await nativeModule?.setCallUIActive?.(attemptId, active, deadline || '') ?? false;
 }
 
@@ -87,7 +87,7 @@ export function addVoipCallEndedListener(callback: (value: VoipCallPayload) => v
 }
 
 export function addVoipTokenListener(callback: (value: VoipRegistration | null) => void): () => void {
-  if (!emitter) return () => {};
+  if (Platform.OS !== 'ios' || !emitter) return () => {};
   const subscription = emitter.addListener('onVoipToken', (value: Partial<VoipRegistration>) => {
     if (value?.token && value.environment && ['sandbox', 'production'].includes(value.environment)) {
       callback(value as VoipRegistration);
@@ -107,7 +107,7 @@ export function addVoipCallAnsweredListener(callback: (value: VoipCallPayload) =
 }
 
 export async function endVoipCall(attemptId: string): Promise<void> {
-  if (Platform.OS !== 'ios' || !nativeModule || !attemptId) return;
+  if (!nativeModule || !attemptId) return;
   try {
     await nativeModule.endCall(attemptId);
   } catch {

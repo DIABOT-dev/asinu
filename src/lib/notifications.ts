@@ -5,6 +5,7 @@
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import { configureAndroidCheckinCalls } from './android-checkin-call';
 import i18n from "../i18n";
 import { useNotificationStore } from "../stores/notification.store";
 import { notificationSoundConfig, notificationSoundManifest, type NotificationSoundGroup } from './notification-sounds';
@@ -282,6 +283,7 @@ export async function getExpoPushToken(): Promise<string | null> {
 export async function getNativeFcmToken(): Promise<string | null> {
   if (Platform.OS !== "android") return null;
   try {
+    await configureAndroidCheckinCalls();
     const token = await Notifications.getDevicePushTokenAsync();
     return typeof token.data === "string" && token.data.length > 0
       ? token.data

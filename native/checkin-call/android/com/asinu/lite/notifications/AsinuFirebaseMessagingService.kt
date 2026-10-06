@@ -2,7 +2,9 @@ package com.asinu.lite.notifications
 
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
+import android.app.ActivityOptions
 import android.app.NotificationManager
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -10,13 +12,16 @@ import android.graphics.Color
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
+import android.os.UserManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import com.asinu.lite.MainActivity
 import com.asinu.lite.R
 import com.google.firebase.messaging.RemoteMessage
 import expo.modules.notifications.service.ExpoFirebaseMessagingService
 
+/** Native call actions stay available when React is not running. */
 class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
   companion object {
     private const val CALL_CHANNEL_ID = "asinu_checkin_call_warm_v2"
@@ -32,6 +37,8 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
       super.onMessageReceived(remoteMessage)
       return
     }
+    // Credential-protected handoff/work storage is unavailable before first unlock.
+    if (Build.VERSION.SDK_INT >= 24 && !(getSystemService(Context.USER_SERVICE) as UserManager).isUserUnlocked) return
     showCheckinCall(data)
   }
 
@@ -43,11 +50,13 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
     val attemptId = data["attemptId"].orEmpty()
     val requestCode = (attemptId.ifBlank { episodeId }).hashCode()
     if (data["action"] == "END_CALL" || data["kind"] == "END_CALL") {
+      CheckinCallStore.end(this, attemptId)
       NotificationManagerCompat.from(this).cancel(requestCode)
       return
     }
     val kind = data["kind"].orEmpty()
     val incomingCall = kind == "INCOMING_CALL" || kind == "URGENT_REPEAT"
+    if (incomingCall && !CheckinCallStore.incoming(this, data)) return
     val urgent = data["severity"].equals("URGENT", ignoreCase = true) || kind == "URGENT_REPEAT"
     val missed = kind == "FALLBACK" || kind == "MISSED_CALL"
     val channelId = when {
@@ -80,7 +89,6 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
       .build()
     val intent = Intent(Intent.ACTION_VIEW, deepLink, this, MainActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-      putExtra("asinuIncomingCall", incomingCall)
     }
     val pendingIntent = PendingIntent.getActivity(
       this,
@@ -106,14 +114,38 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
       .setVibrate(longArrayOf(0, 700, 300, 700, 300, 700))
 
     if (incomingCall) {
-      val ringSeconds = data["ringSeconds"]?.toLongOrNull()?.coerceIn(30, 180) ?: 60L
+      val call = CheckinCallStore.ringing(this, attemptId) ?: return
+      fun callIntent(action: String) = Intent(this, CheckinIncomingCallActivity::class.java).apply {
+        this.action = action
+        this.data = Uri.parse("asinu-internal://checkin/$attemptId/$action")
+        putExtra("attemptId", attemptId)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      }
+      val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      // Grant only these immutable, explicit incoming-call Activity intents.
+      // No blanket background launches or overlay permissions are used.
+      val options = if (Build.VERSION.SDK_INT >= 35) ActivityOptions.makeBasic().apply {
+        setPendingIntentCreatorBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+      }.toBundle() else null
+      val view = PendingIntent.getActivity(this, requestCode, callIntent(Intent.ACTION_VIEW), flags, options)
+      val answer = PendingIntent.getActivity(this, requestCode, callIntent(CheckinCallStore.ANSWER), flags, options)
+      val decline = PendingIntent.getBroadcast(this, requestCode, Intent(this, CheckinCallDeclineReceiver::class.java).apply {
+        this.data = Uri.parse("asinu-internal://checkin/$attemptId/decline")
+        putExtra("attemptId", attemptId)
+      }, flags)
       builder
-        .setFullScreenIntent(pendingIntent, true)
-        .setTimeoutAfter(ringSeconds * 1000)
+        .setStyle(NotificationCompat.CallStyle.forIncomingCall(Person.Builder().setName(title).setImportant(true).build(), decline, answer))
+        .setContentIntent(view)
+        .setTimeoutAfter((call.optLong("expiresAt") - System.currentTimeMillis()).coerceAtLeast(1))
+      val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      if (Build.VERSION.SDK_INT < 34 || manager.canUseFullScreenIntent()) builder.setFullScreenIntent(view, true)
     }
 
     try {
-      NotificationManagerCompat.from(this).notify(requestCode, builder.build())
+      val notification = builder.build()
+      if (incomingCall) notification.flags = notification.flags or Notification.FLAG_INSISTENT
+      if (incomingCall) NotificationManagerCompat.from(this).notify("checkin:$attemptId", 1, notification)
+      else NotificationManagerCompat.from(this).notify(requestCode, notification)
     } catch (_: SecurityException) {
       // Android 13+ notification permission can be revoked at any time.
     }
@@ -128,7 +160,12 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
       .build()
     val channel = NotificationChannel(
       channelId,
-      getString(R.string.checkin_call_channel_name),
+      getString(when (channelId) {
+        URGENT_CHANNEL_ID, ALERT_CHANNEL_ID -> R.string.checkin_call_urgent_title
+        MISSED_CHANNEL_ID -> R.string.checkin_call_missed_channel_name
+        NOTICE_CHANNEL_ID -> R.string.checkin_call_notice_channel_name
+        else -> R.string.checkin_call_channel_name
+      }),
       NotificationManager.IMPORTANCE_HIGH,
     ).apply {
       description = getString(R.string.checkin_call_channel_description)

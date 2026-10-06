@@ -16,6 +16,7 @@ import { showToast } from "../stores/toast.store";
 import { colors, spacing } from "../styles";
 import { AppAlertModal, type AlertButton } from "./AppAlertModal";
 import { ScaledText as Text } from "./ScaledText";
+import { AndroidCallAccessCard } from '../features/checkin-call/AndroidCallAccessCard';
 
 type Dialog = { kind: "confirm"; enabled: boolean } | { kind: "access" };
 
@@ -194,6 +195,7 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
           <Ionicons name="refresh-outline" size={20} color={colors.primaryDark} />
         </Pressable>
       )}
+      {enabled && <AndroidCallAccessCard onlyWhenNeeded />}
       <AppAlertModal
         queued
         visible={!!dialog}

@@ -28,6 +28,11 @@
   <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@style/AppTheme" android:supportsRtl="true">
     <meta-data android:name="com.zing.zalo.zalosdk.appID" android:value="@string/appID"/>
 
+    <activity android:name=".notifications.CheckinIncomingCallActivity"
+      android:exported="false" android:excludeFromRecents="true"
+      android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+    <receiver android:name=".notifications.CheckinCallDeclineReceiver" android:exported="false" />
+
     <!-- Replace Expo's FCM entry point with a subclass that preserves all
          ordinary Expo notifications and handles check-in calls natively. -->
     <service

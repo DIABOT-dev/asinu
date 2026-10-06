@@ -1,4 +1,15 @@
 {
+  "androidAccess": {
+    "title": "Hiển thị cuộc gọi trên Android",
+    "ready": "Quyền hiển thị cuộc gọi đã bật",
+    "readyBody": "Khi máy khóa, Android có thể hiển thị màn hình cuộc gọi. Nhấn Nghe và mở khóa để vào phần check-in trong Asinu.",
+    "body": "Lịch check-in đã lưu không thay đổi. Bật thông báo để nhận lời nhắc; bật thêm quyền toàn màn hình để thấy cuộc gọi khi máy khóa. Nếu chưa bật toàn màn hình, bạn vẫn có thể mở Asinu từ thông báo.",
+    "configure": "Kiểm tra quyền cuộc gọi",
+    "openSettings": "Mở cài đặt Android",
+    "notificationGuide": "Trong cài đặt Android, cho phép thông báo của Asinu. Với nhóm Cuộc gọi check-in Asinu và Cảnh báo Asinu, chọn có âm thanh và hiển thị nổi. Không cần cấp quyền vẽ lên ứng dụng khác. Quay lại Asinu để kiểm tra tiếp quyền toàn màn hình.",
+    "fullScreenGuide": "Bật quyền thông báo toàn màn hình cho Asinu. Quyền này giúp hiển thị cuộc gọi khi máy khóa. Bạn vẫn cần mở khóa khi nghe để chọn tình trạng trong app. Android quyết định cách hiển thị; Asinu không tự mở khóa điện thoại. Bạn có thể thiết lập sau và vẫn lưu lịch check-in.",
+    "settingsFailed": "Chưa mở được cài đặt. Vui lòng vào Cài đặt Android → Ứng dụng → Asinu."
+  },
   "personalization": {
     "open": "Cá nhân hóa lời nhắc cuộc gọi",
     "title": "Lời nhắc dành cho bạn",

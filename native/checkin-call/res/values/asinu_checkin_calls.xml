@@ -1,0 +1,13 @@
+<resources>
+    <string name="checkin_call_title">Cuộc gọi Asinu</string>
+    <string name="checkin_call_answer">Nghe cuộc gọi</string>
+    <string name="checkin_call_decline">Từ chối</string>
+    <string name="checkin_call_answer_hint">Mở Asinu để nghe lời nhắc và chọn tình trạng của bạn. Nếu máy đang khóa, vui lòng mở khóa để tiếp tục.</string>
+    <string name="checkin_call_privacy">Asinu không ghi âm cuộc gọi này.</string>
+    <string name="checkin_call_urgent_title">Cảnh báo Asinu</string>
+    <string name="checkin_call_body">Asinu đang gọi, vui lòng mở ứng dụng.</string>
+    <string name="checkin_call_channel_name">Cuộc gọi check-in Asinu</string>
+    <string name="checkin_call_missed_channel_name">Cuộc gọi nhỡ Asinu</string>
+    <string name="checkin_call_notice_channel_name">Thông báo check-in Asinu</string>
+    <string name="checkin_call_channel_description">Cuộc gọi check-in và cảnh báo cần người dùng phản hồi</string>
+</resources>

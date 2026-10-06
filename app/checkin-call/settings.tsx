@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { showToast } from '../../src/stores/toast.store';
+import { AndroidCallAccessCard } from '../../src/features/checkin-call/AndroidCallAccessCard';
 
 const FIELDS: Array<{
   key: keyof CheckinCallSettings;
@@ -254,6 +255,7 @@ export default function CheckinCallSettingsScreen() {
             />
           </View>
 
+          <AndroidCallAccessCard />
           <Pressable accessibilityRole="button" accessibilityLabel={t('personalization.open')}
             style={styles.setupAction} disabled={busy} onPress={() => router.push('/checkin-call/voice-settings')}>
             <Ionicons name="person-outline" size={20} color="#00897b" />

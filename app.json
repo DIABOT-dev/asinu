@@ -73,6 +73,7 @@
     },
     "plugins": [
       "./plugins/withReleaseSigning",
+      "./plugins/withAsinuCheckinCalls",
       "expo-router",
       "@livekit/react-native-expo-plugin",
       "@config-plugins/react-native-webrtc",

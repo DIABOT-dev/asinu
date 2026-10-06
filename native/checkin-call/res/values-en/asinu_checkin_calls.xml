@@ -1,0 +1,14 @@
+<!-- Native incoming-call strings; React check-in continues to use the selected app language. -->
+<resources>
+    <string name="checkin_call_title">Asinu call</string>
+    <string name="checkin_call_answer">Answer call</string>
+    <string name="checkin_call_decline">Decline</string>
+    <string name="checkin_call_answer_hint">Open Asinu to hear the reminder and choose how you feel. If your phone is locked, please unlock it to continue.</string>
+    <string name="checkin_call_privacy">Asinu does not record this call.</string>
+    <string name="checkin_call_urgent_title">Asinu alert</string>
+    <string name="checkin_call_body">Asinu is calling. Please open the app.</string>
+    <string name="checkin_call_channel_name">Asinu check-in calls</string>
+    <string name="checkin_call_missed_channel_name">Asinu missed calls</string>
+    <string name="checkin_call_notice_channel_name">Asinu check-in notifications</string>
+    <string name="checkin_call_channel_description">Check-in calls and alerts that need a response</string>
+</resources>

@@ -3,6 +3,7 @@ package com.asinu.lite
 import android.app.Application
 import android.content.res.Configuration
 import com.asinu.lite.zalo.AsinuZaloAuthPackage
+import com.asinu.lite.notifications.AsinuCheckinCallPackage
 import com.zing.zalo.zalosdk.oauth.ZaloSDKApplication
 
 import com.facebook.react.PackageList
@@ -21,7 +22,7 @@ import expo.modules.ExpoReactHostFactory
 class MainApplication : Application(), ReactApplication {
 
   private val appPackages: List<ReactPackage> by lazy {
-    PackageList(this).packages.apply { add(AsinuZaloAuthPackage()) }
+    PackageList(this).packages.apply { add(AsinuZaloAuthPackage()); add(AsinuCheckinCallPackage()) }
   }
 
   override val reactNativeHost: ReactNativeHost = object : DefaultReactNativeHost(this) {

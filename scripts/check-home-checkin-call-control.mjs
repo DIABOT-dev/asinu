@@ -236,6 +236,7 @@ function harness({
       "./AppAlertModal": { AppAlertModal },
       "../stores/toast.store": { showToast: (...args) => calls.toasts.push(args) },
       "./ScaledText": { ScaledText: "Text" },
+      "../features/checkin-call/AndroidCallAccessCard": { AndroidCallAccessCard: 'AndroidAccessCard' },
     }
   );
   const render = () => {

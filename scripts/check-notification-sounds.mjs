@@ -142,6 +142,7 @@ const notifications = evaluate('src/lib/notifications.ts', {
   '../i18n': { t: (key) => key },
   '../stores/notification.store': {},
   './notification-sounds': sounds,
+  './android-checkin-call': { configureAndroidCheckinCalls: async () => {} },
 });
 await test('Android creates every new channel without deleting user preferences', async () => {
   await notifications.refreshNotificationLocalization();

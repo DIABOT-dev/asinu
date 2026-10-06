@@ -91,6 +91,7 @@ function harness({ language = 'vi', settings = defaults, contacts = [], status, 
     'react-i18next': { useTranslation: namespace => ({ t: translations[namespace] }) },
     '../../src/components/AppAlertModal': { AppAlertModal: 'AppModal' },
     '../../src/components/ScaledText': { ScaledText: 'Text' },
+    '../../src/features/checkin-call/AndroidCallAccessCard': { AndroidCallAccessCard: 'AndroidAccessCard' },
     '../../src/stores/font-size.store': { useFontSizeStore: selector => selector({ scale: fontScale }) },
     '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
     '../../src/lib/apiClient': { apiClient: async path => {

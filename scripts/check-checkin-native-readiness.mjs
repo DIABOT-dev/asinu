@@ -29,7 +29,7 @@ expectText(
 expectText('android/app/src/main/AndroidManifest.xml', 'android.permission.POST_NOTIFICATIONS', 'Android notification permission exists');
 expectText('android/app/src/main/AndroidManifest.xml', 'android.permission.USE_FULL_SCREEN_INTENT', 'Android full-screen intent permission exists');
 expectText('android/app/src/main/AndroidManifest.xml', '.notifications.AsinuFirebaseMessagingService', 'Android native FCM service is registered');
-expectText('android/app/src/main/java/com/asinu/lite/notifications/AsinuFirebaseMessagingService.kt', 'setFullScreenIntent', 'Android incoming call uses a full-screen intent');
+expectText('native/checkin-call/android/com/asinu/lite/notifications/AsinuFirebaseMessagingService.kt', 'setFullScreenIntent', 'Android incoming call uses a full-screen intent');
 checks.push({
   label: 'Firebase Android configuration exists',
   present: fs.existsSync(path.join(root, 'android/app/google-services.json')),
