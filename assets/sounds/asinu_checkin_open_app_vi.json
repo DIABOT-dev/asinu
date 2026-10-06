@@ -1,15 +1,15 @@
 {
   "file": "asinu_checkin_open_app_vi.mp3",
   "language": "vi",
-  "voice": "Tuấn Anh",
+  "voice": "clone_b935a451-7d65-4b73-a083-d46e56c47d4f",
   "text": "Bạn đã nhận cuộc gọi Asinu. Vui lòng mở khóa điện thoại rồi mở ứng dụng Asinu để chọn phản hồi trên màn hình. Nhận cuộc gọi chưa gửi phản hồi.",
   "textSha256": "67dc8e24899fea5a6309698ce99ae158d371a55dc97486465a23187a80a6e1c8",
-  "audioSha256": "e11aa481e7fd0a8f50e413f126d5491b8aec6900f02f2bd59fa06284aa6242e2",
+  "audioSha256": "b812b5232bf4badc701d91044da84dfba3070bf01eaae2f01dc0661ab8965f1d",
   "loudness": {
     "normalization": "ebu-r128-two-pass",
     "targetIntegratedLufs": -16,
     "targetTruePeakDbtp": -1.5,
-    "integratedLufs": -16.43,
-    "truePeakDbtp": -1.94
+    "integratedLufs": -16.49,
+    "truePeakDbtp": -1.85
   }
 }

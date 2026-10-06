@@ -148,7 +148,7 @@ const audioHeaders = (language?: 'vi' | 'en') =>
 
 export const checkinCallApi = {
   audioConfig: (language: 'vi' | 'en') =>
-    apiClient<{ ok: boolean; version: string; language: 'vi' | 'en' }>(BASE + '/audio-config', {
+    apiClient<{ ok: boolean; version: string; language: 'vi' | 'en'; mimeType?: string }>(BASE + '/audio-config', {
       headers: { ...audioHeaders(language), 'Cache-Control': 'no-cache' }, timeoutMs: 4000, retry: { attempts: 1 },
     }),
   voicePreferences: () => apiClient<{ ok: boolean; preferences: CheckinVoicePreferences }>(BASE + '/voice-preferences'),

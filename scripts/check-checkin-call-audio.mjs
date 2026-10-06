@@ -972,6 +972,45 @@ await test('a voice change between config and synthesis stores only the actual r
   h.cleanup();
 });
 
+for (const scenario of [
+  { name: 'fixed question', attempt: null, key: 'user_prompt' },
+  { name: 'personalized greeting', attempt: { id: 'user', target_role: 'USER', user_notice: { version: 'notice', prompts: { user_prompt: 'Chào bạn.' } } }, key: 'user_prompt' },
+  { name: 'family warning', attempt: { id: 'family', target_role: 'FAMILY', family_notice: { audio_text: 'Người thân cần được kiểm tra.' } }, key: 'family_mild' },
+  { name: 'conclusion', attempt: null, key: 'family_confirmed', text: 'Bạn sẽ kiểm tra người thân.' },
+]) {
+  await test(`private clone WAV ${scenario.name} uses the correct file format and cache on replay`, async () => {
+    const h = hookHarness(scenario.attempt);
+    h.api.audioConfig = async () => ({ version: 'clone-version', mimeType: 'audio/wav' });
+    let downloads = 0;
+    for (const method of ['audio', 'userAudio', 'familyAudio', 'conclusionAudio']) {
+      h.api[method] = async () => { downloads++; return { base64: 'clone-wav', mimeType: 'audio/wav', audioVersion: 'clone-version' }; };
+    }
+    await h.controls.play(scenario.key, scenario.text);
+    const uri = h.h.sounds.at(-1).uri;
+    assert.ok(uri.endsWith('.wav'));
+    assert.ok(uri.includes('clone-version'));
+    await h.controls.play(scenario.key, scenario.text);
+    assert.equal(h.h.sounds.at(-1).uri, uri);
+    assert.equal(downloads, 1);
+    h.h.sounds.at(-1).listener({ isLoaded: false, didJustFinish: false, error: 'invalid WAV' });
+    await tick();
+    assert.equal(h.files.has(uri), false, 'Decode failure must evict the actual WAV file');
+    await h.controls.play(scenario.key, scenario.text);
+    assert.equal(downloads, 2);
+    h.cleanup();
+  });
+}
+await test('a catalogue-to-clone change during synthesis saves the actual WAV format', async () => {
+  const h = hookHarness(null);
+  h.api.audioConfig = async () => ({ version: 'catalogue-version', mimeType: 'audio/mpeg' });
+  h.api.audio = async () => ({ base64: 'clone-wav', mimeType: 'audio/wav', audioVersion: 'clone-version' });
+  await h.controls.play('user_prompt');
+  assert.ok(h.h.sounds.at(-1).uri.endsWith('.wav'));
+  assert.ok(h.h.sounds.at(-1).uri.includes('clone-version'));
+  assert.ok([...h.files.keys()].every(uri => !uri.includes('catalogue-version')));
+  h.cleanup();
+});
+
 await test('a backend without version metadata keeps working without trusting old cached audio', async () => {
   const h = hookHarness(null, { exists: true, isDirectory: false, size: 100 });
   h.api.audioConfig = async () => { throw new Error('404 old backend'); };

@@ -7,7 +7,8 @@ import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { parseEnv } from 'node:util';
-import { join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { dirname, join, resolve } from 'node:path';
 
 const normalizeExisting = process.argv[2] === '--normalize-existing';
 const directory = new URL('../assets/sounds/', import.meta.url);
@@ -35,14 +36,10 @@ if (normalizeExisting) {
   }
 } else {
   if (!env.VIENEU_API_KEY) {throw new Error('VIENEU_API_KEY is required; credentials are never written to the asset.');}
-  const response = await fetch('https://api.vieneu.io/api/v1/audio/speech', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.VIENEU_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ input: text, voice, response_format: 'mp3' }),
-    signal: AbortSignal.timeout(60000),
-  });
-  if (!response.ok) {throw new Error(`Speech synthesis failed (HTTP ${response.status})`);}
-  raw = Buffer.from(await response.arrayBuffer());
+  const backendDirectory = process.argv[2] ? dirname(resolve(process.argv[2])) : resolve('../backend.asinu');
+  const { synthesizeSpeech } = createRequire(import.meta.url)(join(backendDirectory, 'src/services/voice/vieneu.service.js'));
+  const recording = await synthesizeSpeech({ text, voice, apiKey: env.VIENEU_API_KEY, timeoutMs: 60000 });
+  raw = recording.audio_data;
 }
 if (raw.length < 1000 || raw.length > 2_000_000) {throw new Error('Invalid speech asset size');}
 
@@ -70,7 +67,7 @@ const analyze = input => {
   return measured;
 };
 try {
-  const input = join(temporary, 'source.mp3');
+  const input = join(temporary, 'source.audio');
   const output = join(temporary, 'normalized.mp3');
   await writeFile(input, raw);
   const measured = analyze(input);

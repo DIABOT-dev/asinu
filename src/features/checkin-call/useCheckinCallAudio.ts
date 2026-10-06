@@ -42,8 +42,8 @@ export function useCheckinCallAudio(
   useEffect(() => {
     // Coalesce repeated replay taps. They invalidate playback, not the same
     // pending synthesis/download (which would otherwise hit rate limits).
-    const downloads = new Map<string, Promise<{ uri: string; audioVersion?: string }>>();
-    const versions = new Map<string, Promise<string | undefined>>();
+    const downloads = new Map<string, Promise<{ uri: string; audioVersion?: string; mimeType?: string }>>();
+    const versions = new Map<string, Promise<{ version?: string; mimeType?: string }>>();
     const loaded = new Set<string>();
     const invalidations = new Map<string, Promise<void>>();
     let ownsNativeAudioSession = false;
@@ -51,10 +51,13 @@ export function useCheckinCallAudio(
       let pending = versions.get(locale);
       if (!pending) {
         pending = checkinCallApi.audioConfig(locale)
-          .then(result => typeof result.version === 'string' && result.version ? result.version : undefined)
+          .then(result => ({
+            version: typeof result.version === 'string' && result.version ? result.version : undefined,
+            mimeType: result.mimeType,
+          }))
           // Older backends still work, but their unversioned recordings are
           // downloaded afresh instead of trusting a potentially stale cache.
-          .catch(() => undefined);
+          .catch(() => ({}));
         versions.set(locale, pending);
       }
       try { return await pending; } finally {
@@ -64,16 +67,19 @@ export function useCheckinCallAudio(
     const identity = (prompt: CallAudioPrompt) => {
       const personalizedFamily = isFamilyNoticePrompt(prompt.key) && Boolean(prompt.attemptId);
       const personalizedUser = Boolean(prompt.personalizedUser && prompt.attemptId);
+      const extension = ['audio/wav', 'audio/x-wav', 'audio/wave'].includes(prompt.mimeType?.split(';')[0] || '') ? 'wav' : 'mp3';
       const key = 'audio-v2-' + encodeURIComponent(prompt.audioVersion || 'unversioned') + '-' + prompt.language + '-' +
         (personalizedFamily || personalizedUser ? prompt.attemptId + '-' : '') +
-        (personalizedUser ? (prompt.noticeVersion || '') + '-' : '') + prompt.key + '-' + textHash(prompt.text);
-      const uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'checkin-call-' + key + '.mp3';
+        (personalizedUser ? (prompt.noticeVersion || '') + '-' : '') + prompt.key + '-' + textHash(prompt.text) + '-' + extension;
+      const uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'checkin-call-' + key + '.' + extension;
       return { key, uri, personalizedFamily, personalizedUser };
     };
     const owner = new CheckinCallAudio({
       load: async (prompt) => {
         // Revalidate on each playback, including replay in an already open call.
-        prompt.audioVersion = await currentVersion(prompt.language);
+        const config = await currentVersion(prompt.language);
+        prompt.audioVersion = config.version;
+        prompt.mimeType = config.mimeType;
         const { key: localizedKey, uri, personalizedFamily, personalizedUser } = identity(prompt);
         await invalidations.get(localizedKey);
         if (prompt.audioVersion && loaded.has(localizedKey)) return uri;
@@ -84,7 +90,7 @@ export function useCheckinCallAudio(
               const info = await FileSystem.getInfoAsync(uri);
               if (info.exists && !info.isDirectory && info.size > 0) {
                 loaded.add(localizedKey);
-                return { uri, audioVersion: prompt.audioVersion };
+                return { uri, audioVersion: prompt.audioVersion, mimeType: prompt.mimeType };
               }
             }
             const result = personalizedUser
@@ -96,17 +102,18 @@ export function useCheckinCallAudio(
                   : await checkinCallApi.conclusionAudio(prompt.text, prompt.language);
             // The voice can change between metadata and synthesis. Store under
             // the actual response version so the old version cannot be poisoned.
-            const saved = identity({ ...prompt, audioVersion: result.audioVersion });
+            const saved = identity({ ...prompt, audioVersion: result.audioVersion, mimeType: result.mimeType });
             await invalidations.get(saved.key);
             await FileSystem.writeAsStringAsync(saved.uri, result.base64, { encoding: 'base64' });
             if (result.audioVersion) loaded.add(saved.key);
-            return { uri: saved.uri, audioVersion: result.audioVersion };
+            return { uri: saved.uri, audioVersion: result.audioVersion, mimeType: result.mimeType };
           })();
           downloads.set(localizedKey, download);
         }
         try {
           const result = await download;
           prompt.audioVersion = result.audioVersion;
+          prompt.mimeType = result.mimeType;
           return result.uri;
         } finally {
           if (downloads.get(localizedKey) === download) downloads.delete(localizedKey);
