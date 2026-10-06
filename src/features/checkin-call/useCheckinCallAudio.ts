@@ -20,8 +20,7 @@ export const CALL_AUDIO_TRANSLATIONS: Record<string, string> = {
   family_unknown: 'audio.familyUnknown',
 };
 
-// Cache identity includes the text, not just severity: a changed family notice
-// or translation must never reuse a different person's/outdated recording.
+// Cache identity includes the backend voice revision, transcript and recipient.
 function textHash(text: string) {
   let hash = 2166136261;
   for (let index = 0; index < text.length; index += 1) {
@@ -43,44 +42,75 @@ export function useCheckinCallAudio(
   useEffect(() => {
     // Coalesce repeated replay taps. They invalidate playback, not the same
     // pending synthesis/download (which would otherwise hit rate limits).
-    const downloads = new Map<string, Promise<string>>();
+    const downloads = new Map<string, Promise<{ uri: string; audioVersion?: string }>>();
+    const versions = new Map<string, Promise<string | undefined>>();
     const loaded = new Set<string>();
     const invalidations = new Map<string, Promise<void>>();
     let ownsNativeAudioSession = false;
+    const currentVersion = async (locale: 'vi' | 'en') => {
+      let pending = versions.get(locale);
+      if (!pending) {
+        pending = checkinCallApi.audioConfig(locale)
+          .then(result => typeof result.version === 'string' && result.version ? result.version : undefined)
+          // Older backends still work, but their unversioned recordings are
+          // downloaded afresh instead of trusting a potentially stale cache.
+          .catch(() => undefined);
+        versions.set(locale, pending);
+      }
+      try { return await pending; } finally {
+        if (versions.get(locale) === pending) versions.delete(locale);
+      }
+    };
     const identity = (prompt: CallAudioPrompt) => {
       const personalizedFamily = isFamilyNoticePrompt(prompt.key) && Boolean(prompt.attemptId);
-      const key = (prompt.language === 'vi' ? 'voice-ngoc-lan-v1-' : 'voice-en-v1-') + prompt.language + '-' +
-        (personalizedFamily ? prompt.attemptId + '-' : '') + prompt.key + '-' + textHash(prompt.text);
+      const personalizedUser = Boolean(prompt.personalizedUser && prompt.attemptId);
+      const key = 'audio-v2-' + encodeURIComponent(prompt.audioVersion || 'unversioned') + '-' + prompt.language + '-' +
+        (personalizedFamily || personalizedUser ? prompt.attemptId + '-' : '') +
+        (personalizedUser ? (prompt.noticeVersion || '') + '-' : '') + prompt.key + '-' + textHash(prompt.text);
       const uri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'checkin-call-' + key + '.mp3';
-      return { key, uri, personalizedFamily };
+      return { key, uri, personalizedFamily, personalizedUser };
     };
     const owner = new CheckinCallAudio({
       load: async (prompt) => {
-        const { key: localizedKey, uri, personalizedFamily } = identity(prompt);
+        // Revalidate on each playback, including replay in an already open call.
+        prompt.audioVersion = await currentVersion(prompt.language);
+        const { key: localizedKey, uri, personalizedFamily, personalizedUser } = identity(prompt);
         await invalidations.get(localizedKey);
-        if (loaded.has(localizedKey)) return uri;
-        const existing = downloads.get(localizedKey);
-        if (existing) return existing;
-        const download = (async () => {
-          const info = await FileSystem.getInfoAsync(uri);
-          // Identity includes locale, exact family attempt and spoken text.
-          // Reopening a call can use a valid local recording without waiting
-          // for another server request or another personalized TTS synthesis.
-          if (info.exists && !info.isDirectory && info.size > 0) {
-            loaded.add(localizedKey);
-            return uri;
-          }
-          const result = personalizedFamily
-            ? await checkinCallApi.familyAudio(prompt.attemptId!)
-            : CALL_AUDIO_TRANSLATIONS[prompt.key]
-              ? await checkinCallApi.audio(prompt.key)
-              : await checkinCallApi.conclusionAudio(prompt.text);
-          await FileSystem.writeAsStringAsync(uri, result.base64, { encoding: 'base64' });
-          loaded.add(localizedKey);
-          return uri;
-        })();
-        downloads.set(localizedKey, download);
-        try { return await download; } finally { downloads.delete(localizedKey); }
+        if (prompt.audioVersion && loaded.has(localizedKey)) return uri;
+        let download = downloads.get(localizedKey);
+        if (!download) {
+          download = (async () => {
+            if (prompt.audioVersion) {
+              const info = await FileSystem.getInfoAsync(uri);
+              if (info.exists && !info.isDirectory && info.size > 0) {
+                loaded.add(localizedKey);
+                return { uri, audioVersion: prompt.audioVersion };
+              }
+            }
+            const result = personalizedUser
+              ? await checkinCallApi.userAudio(prompt.attemptId!, prompt.key, prompt.noticeVersion, prompt.language)
+              : personalizedFamily
+                ? await checkinCallApi.familyAudio(prompt.attemptId!, prompt.language)
+                : CALL_AUDIO_TRANSLATIONS[prompt.key]
+                  ? await checkinCallApi.audio(prompt.key, prompt.language)
+                  : await checkinCallApi.conclusionAudio(prompt.text, prompt.language);
+            // The voice can change between metadata and synthesis. Store under
+            // the actual response version so the old version cannot be poisoned.
+            const saved = identity({ ...prompt, audioVersion: result.audioVersion });
+            await invalidations.get(saved.key);
+            await FileSystem.writeAsStringAsync(saved.uri, result.base64, { encoding: 'base64' });
+            if (result.audioVersion) loaded.add(saved.key);
+            return { uri: saved.uri, audioVersion: result.audioVersion };
+          })();
+          downloads.set(localizedKey, download);
+        }
+        try {
+          const result = await download;
+          prompt.audioVersion = result.audioVersion;
+          return result.uri;
+        } finally {
+          if (downloads.get(localizedKey) === download) downloads.delete(localizedKey);
+        }
       },
       invalidate: async prompt => {
         const { key, uri } = identity(prompt);
@@ -99,8 +129,7 @@ export function useCheckinCallAudio(
       },
       create: async uri => (await Audio.Sound.createAsync({ uri }, { shouldPlay: false, keepAudioSessionActive: ownsNativeAudioSession })).sound,
       stopSpeech: () => Speech.stop(),
-      // Vietnamese check-in calls must keep Ngọc Lan, not silently switch to
-      // the iOS/Android system voice when a recording fails to load.
+      // Vietnamese calls keep the configured backend voice on load failure.
       allowDeviceSpeech: prompt => prompt.language === 'en',
       speak: (prompt, callbacks) => Speech.speak(prompt.text, {
         language: prompt.language === 'en' ? 'en-US' : 'vi-VN',
@@ -120,12 +149,15 @@ export function useCheckinCallAudio(
   const stopAudio = useCallback((clearPrompt = true) => player.current?.stop(clearPrompt) ?? Promise.resolve(), []);
   const play = useCallback((key: string, text?: string) => {
     const current = context.current;
-    const personalized = isFamilyNoticePrompt(key) ? current.attempt?.family_notice?.audio_text : null;
+    const userText = current.attempt?.target_role === 'USER' ? current.attempt.user_notice?.prompts[key] : null;
+    const personalized = isFamilyNoticePrompt(key) ? current.attempt?.family_notice?.audio_text : userText;
     const prompt: CallAudioPrompt = {
       key,
       text: text || personalized || current.translate(CALL_AUDIO_TRANSLATIONS[key] || 'audio.userRetry'),
       language: current.language,
-      attemptId: current.attempt?.target_role === 'FAMILY' ? current.attempt.id : undefined,
+      attemptId: current.attempt?.id,
+      personalizedUser: !!userText,
+      noticeVersion: userText ? current.attempt?.user_notice?.version : undefined,
     };
     return player.current?.play(prompt) ?? Promise.resolve();
   }, []);

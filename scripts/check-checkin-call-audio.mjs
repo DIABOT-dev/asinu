@@ -773,16 +773,20 @@ for (const transition of ['background', 'blur']) {
 
 // The native adapter is exercised with filesystem/API stubs as well, so cache
 // coalescing, exact-attempt identity and no-autoplay are tested at the seam.
-function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwner = false) {
+function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwner = false, files = new Map()) {
   const refs = [], states = [], effects = [], calls = [];
+  const configCalls = [], audioLocales = [];
+  let voiceVersion = 'voice-v1';
   let audioModeChanges = 0;
   let fileInfo = initialFile;
   let refIndex = 0, installed = false;
   const h = harness();
   const api = {
-    familyAudio: async id => { calls.push(`family:${id}`); return { base64: 'audio' }; },
-    audio: async key => { calls.push(key); return { base64: 'audio' }; },
-    conclusionAudio: async text => { calls.push(`conclusion:${text}`); return { base64: 'audio' }; },
+    audioConfig: async language => { configCalls.push(language); return { version: voiceVersion, language }; },
+    userAudio: async (id, key, version, language) => { calls.push(`user:${id}:${key}:${version}`); audioLocales.push(language); return { base64: 'audio', audioVersion: voiceVersion }; },
+    familyAudio: async (id, language) => { calls.push(`family:${id}`); audioLocales.push(language); return { base64: 'audio', audioVersion: voiceVersion }; },
+    audio: async (key, language) => { calls.push(key); audioLocales.push(language); return { base64: 'audio', audioVersion: voiceVersion }; },
+    conclusionAudio: async (text, language) => { calls.push(`conclusion:${text}`); audioLocales.push(language); return { base64: 'audio', audioVersion: voiceVersion }; },
   };
   const { useCheckinCallAudio } = evaluate(fs.readFileSync('src/features/checkin-call/useCheckinCallAudio.ts', 'utf8'), id => {
     if (id === '../../lib/voip') return { setVoipCallUIActive: async () => nativeOwner };
@@ -793,8 +797,10 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
       useEffect: effect => { if (!installed) effects.push(effect); },
     };
     if (id === 'expo-file-system/legacy') return {
-      cacheDirectory: 'cache/', getInfoAsync: async () => fileInfo, writeAsStringAsync: async () => {},
-      deleteAsync: async () => { calls.push('deleteInvalidAudio'); fileInfo = { exists: false }; },
+      cacheDirectory: 'cache/', getInfoAsync: async uri => files.has(uri)
+        ? { exists: true, isDirectory: false, size: files.get(uri).length } : fileInfo,
+      writeAsStringAsync: async (uri, base64) => { files.set(uri, base64); },
+      deleteAsync: async uri => { calls.push('deleteInvalidAudio'); files.delete(uri); fileInfo = { exists: false }; },
     };
     if (id === 'expo-speech') return { stop: h.dependencies.stopSpeech, speak: (text) => { calls.push(`deviceSpeech:${text}`); } };
     if (id === '../../lib/audio') return { Audio: {
@@ -809,17 +815,19 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
     if (id === './checkin-call.api') return { checkinCallApi: api };
     throw new Error(`Unexpected dependency ${id}`);
   });
-  const renderHook = attempt => {
+  const renderHook = (attempt, language = 'vi') => {
     refIndex = 0;
     // This deterministic native-adapter harness supplies its own React hook
     // implementations; no React renderer is loaded in these Node regressions.
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useCheckinCallAudio(attempt, 'vi', key => key);
+    return useCheckinCallAudio(attempt, language, key => key);
   };
   const controls = renderHook(initialAttempt);
   const cleanup = effects[0]();
   installed = true;
-  return { controls, render: renderHook, cleanup, calls, api, h, states, get audioModeChanges() { return audioModeChanges; } };
+  return { controls, render: renderHook, cleanup, calls, api, h, states, files, configCalls, audioLocales,
+    set voiceVersion(value) { voiceVersion = value; },
+    get audioModeChanges() { return audioModeChanges; } };
 }
 await test('an answered native call keeps its audio session and skips Expo category changes', async () => {
   const h = hookHarness({ id: 'native-attempt', target_role: 'USER' }, { exists: false }, true);
@@ -856,6 +864,40 @@ await test('overlapping replay reuses one pending audio download', async () => {
   assert.equal(h.h.sounds.length, 1);
   h.cleanup();
 });
+await test('personalized user speech captures the recipient, exact transcript and snapshot before the active call changes', async () => {
+  const first = { id: 'first-user', target_role: 'USER', user_notice: { version: 'first-version', prompts: { user_prompt: 'Chào bác Lan, đây là tổng đài Asinu.' } } };
+  const second = { id: 'second-user', target_role: 'USER', user_notice: { version: 'second-version', prompts: { user_prompt: 'Chào anh Nam, đây là tổng đài Asinu.' } } };
+  const h = hookHarness(first);
+  const old = h.controls.play('user_prompt'); h.render(second); await old;
+  assert.deepEqual(h.calls, ['user:first-user:user_prompt:first-version']);
+  assert.equal(h.states.at(-1).prompt.text, first.user_notice.prompts.user_prompt);
+  await h.controls.play('user_prompt');
+  assert.deepEqual(h.calls, ['user:first-user:user_prompt:first-version', 'user:second-user:user_prompt:second-version']);
+  assert.equal(h.states.at(-1).prompt.text, second.user_notice.prompts.user_prompt); h.cleanup();
+});
+await test('personalized replay reuses a download but a new consent snapshot cannot use its old cache', async () => {
+  const attempt = { id: 'own', target_role: 'USER', user_notice: { version: 'before', prompts: { user_ok: 'Asinu đã ghi nhận bạn vẫn ổn.' } } };
+  const h = hookHarness(attempt);
+  await h.controls.play('user_ok'); await h.controls.play('user_ok');
+  assert.deepEqual(h.calls, ['user:own:user_ok:before']);
+  h.render({ ...attempt, user_notice: { ...attempt.user_notice, version: 'after' } });
+  await h.controls.play('user_ok');
+  assert.deepEqual(h.calls, ['user:own:user_ok:before', 'user:own:user_ok:after']); h.cleanup();
+});
+await test('missing optional personalization keeps the old working Ngọc Lan prompt path', async () => {
+  const h = hookHarness({ id: 'own', target_role: 'USER', user_notice: null });
+  await h.controls.play('user_prompt');
+  assert.deepEqual(h.calls, ['user_prompt']); assert.equal(h.states.at(-1).fallback, false); h.cleanup();
+});
+await test('an answered choice cancels an in-flight personalized question before it can play', async () => {
+  const h = hookHarness({ id: 'own', target_role: 'USER', user_notice: { version: 'snapshot', prompts: { user_prompt: 'Old personalized question', user_ok: 'New personalized response' } } });
+  const pending = deferred();
+  h.api.userAudio = (id, key) => key === 'user_prompt' ? pending.promise : Promise.resolve({ base64: 'audio' });
+  const first = h.controls.play('user_prompt'); await tick();
+  await h.controls.stopAudio(); await h.controls.play('user_ok');
+  pending.resolve({ base64: 'old-audio' }); await first;
+  assert.equal(h.h.sounds.length, 1); assert.equal(h.states.at(-1).prompt.text, 'New personalized response'); h.cleanup();
+});
 await test('family identity is captured with the prompt, even when the active attempt changes', async () => {
   const first = { id: 'first', target_role: 'FAMILY', family_notice: { audio_text: 'First person' } };
   const second = { id: 'second', target_role: 'FAMILY', family_notice: { audio_text: 'Second person' } };
@@ -876,11 +918,125 @@ await test('family confirmation uses the conclusion endpoint with its own transc
   assert.deepEqual(h.calls, ['conclusion:You will check on your relative.']);
   h.cleanup();
 });
-await test('a valid local recording plays without another server round trip', async () => {
+await test('a valid current-version recording plays without another synthesis or audio download', async () => {
   const h = hookHarness(null, { exists: true, isDirectory: false, size: 100 });
   await h.controls.play('user_prompt');
   assert.deepEqual(h.calls, []);
+  assert.deepEqual(h.configCalls, ['vi']);
   assert.equal(h.h.sounds.length, 1);
+  h.cleanup();
+});
+
+for (const scenario of [
+  { name: 'fixed question', attempt: null, key: 'user_prompt' },
+  { name: 'personalized user greeting', attempt: { id: 'own', target_role: 'USER',
+    user_notice: { version: 'notice', prompts: { user_prompt: 'Chào bác Lan.' } } }, key: 'user_prompt' },
+  { name: 'family notice', attempt: { id: 'family', target_role: 'FAMILY',
+    family_notice: { audio_text: 'Người thân cần được kiểm tra.' } }, key: 'family_mild' },
+  { name: 'conclusion', attempt: null, key: 'family_confirmed', text: 'Bạn sẽ kiểm tra người thân.' },
+]) {
+  await test(`a backend voice change refreshes ${scenario.name} in the same open call`, async () => {
+    const h = hookHarness(scenario.attempt);
+    await h.controls.play(scenario.key, scenario.text);
+    const oldUri = h.h.sounds.at(-1).uri;
+    await h.controls.play(scenario.key, scenario.text);
+    assert.equal(h.calls.length, 1, 'Unchanged voice must reuse the recording');
+    h.voiceVersion = 'voice-v2';
+    await h.controls.play(scenario.key, scenario.text);
+    const newUri = h.h.sounds.at(-1).uri;
+    assert.notEqual(newUri, oldUri);
+    assert.ok(newUri.includes('voice-v2'));
+    assert.equal(h.calls.length, 2);
+    await h.controls.play(scenario.key, scenario.text);
+    assert.equal(h.calls.length, 2, 'The refreshed voice must also be cached');
+    assert.equal(h.configCalls.length, 4, 'Every replay checks the backend revision');
+    h.cleanup();
+  });
+}
+
+await test('a voice change between config and synthesis stores only the actual recording version', async () => {
+  const h = hookHarness(null);
+  h.api.audio = async () => {
+    h.calls.push('user_prompt');
+    h.voiceVersion = 'voice-v2';
+    return { base64: 'new-voice', audioVersion: 'voice-v2' };
+  };
+  await h.controls.play('user_prompt');
+  assert.ok(h.h.sounds.at(-1).uri.includes('voice-v2'));
+  assert.ok([...h.files.keys()].every(uri => !uri.includes('voice-v1')));
+  await h.controls.play('user_prompt');
+  assert.equal(h.calls.length, 1);
+  h.voiceVersion = 'voice-v1';
+  await h.controls.play('user_prompt');
+  assert.equal(h.calls.length, 2, 'The previous revision must not contain the new recording');
+  h.cleanup();
+});
+
+await test('a backend without version metadata keeps working without trusting old cached audio', async () => {
+  const h = hookHarness(null, { exists: true, isDirectory: false, size: 100 });
+  h.api.audioConfig = async () => { throw new Error('404 old backend'); };
+  h.api.audio = async () => { h.calls.push('user_prompt'); return { base64: 'fresh-audio' }; };
+  await h.controls.play('user_prompt');
+  await h.controls.play('user_prompt');
+  assert.deepEqual(h.calls, ['user_prompt', 'user_prompt']);
+  assert.equal(h.states.at(-1).phase, 'playing');
+  h.cleanup();
+});
+
+await test('unversioned responses are not persisted as the revision claimed by metadata', async () => {
+  const h = hookHarness(null);
+  h.api.audio = async () => { h.calls.push('user_prompt'); return { base64: 'legacy-audio' }; };
+  await h.controls.play('user_prompt');
+  await h.controls.play('user_prompt');
+  assert.equal(h.calls.length, 2);
+  assert.ok([...h.files.keys()].every(uri => uri.includes('unversioned')));
+  h.cleanup();
+});
+
+await test('switching language snapshots the locale for metadata, synthesis and cache identity', async () => {
+  const h = hookHarness(null);
+  const first = h.controls.play('user_prompt');
+  h.render(null, 'en');
+  await first;
+  const viUri = h.h.sounds.at(-1).uri;
+  await h.controls.play('user_prompt');
+  assert.deepEqual(h.configCalls, ['vi', 'en']);
+  assert.deepEqual(h.audioLocales, ['vi', 'en']);
+  assert.notEqual(h.h.sounds.at(-1).uri, viUri);
+  h.cleanup();
+});
+
+await test('reopening the call rejects files from an older voice and reuses files for the current voice', async () => {
+  const first = hookHarness(null);
+  await first.controls.play('user_prompt');
+  const oldUri = first.h.sounds.at(-1).uri;
+  first.cleanup();
+  const changed = hookHarness(null, { exists: false }, false, first.files);
+  changed.voiceVersion = 'voice-v2';
+  await changed.controls.play('user_prompt');
+  assert.deepEqual(changed.calls, ['user_prompt']);
+  const newUri = changed.h.sounds.at(-1).uri;
+  assert.notEqual(newUri, oldUri);
+  changed.cleanup();
+  const reopened = hookHarness(null, { exists: false }, false, first.files);
+  reopened.voiceVersion = 'voice-v2';
+  await reopened.controls.play('user_prompt');
+  assert.deepEqual(reopened.calls, []);
+  assert.equal(reopened.h.sounds.at(-1).uri, newUri);
+  reopened.cleanup();
+});
+
+await test('cancelling during revision lookup prevents a late recording from playing', async () => {
+  const h = hookHarness(null);
+  const metadata = deferred();
+  h.api.audioConfig = () => metadata.promise;
+  const playing = h.controls.play('user_prompt');
+  await tick();
+  await h.controls.stopAudio();
+  metadata.resolve({ version: 'voice-v2', language: 'vi' });
+  await playing;
+  assert.equal(h.h.sounds.length, 0);
+  assert.equal(h.states.at(-1).phase, 'idle');
   h.cleanup();
 });
 await test('an empty cached recording is downloaded again, not treated as ready', async () => {

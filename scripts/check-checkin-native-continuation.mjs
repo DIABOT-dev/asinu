@@ -10,13 +10,13 @@ const native = read('ios/Asinu/VoipCallManager.swift');
 const manifest = JSON.parse(read('assets/sounds/asinu_checkin_open_app_vi.json'));
 const audio = fs.readFileSync('assets/sounds/' + manifest.file);
 const text = JSON.parse(read('locales/vi.json')).ios['Localizable.strings'].checkin_call_open_app_prompt;
-assert.equal(manifest.voice, 'Ngọc Lan');
+assert.equal(manifest.voice, 'Tuấn Anh');
 assert.equal(manifest.text, text);
 assert.equal(manifest.textSha256, createHash('sha256').update(text).digest('hex'));
 assert.equal(manifest.audioSha256, createHash('sha256').update(audio).digest('hex'));
 assert.ok(audio.length > 1000 && audio.length < 2_000_000);
 assert.ok(read('ios/Asinu.xcodeproj/project.pbxproj').includes(`${manifest.file} in Resources`));
-console.log('PASS bundled Ngọc Lan asset matches localized prompt, audio checksum and Xcode resource');
+console.log('PASS bundled Tuấn Anh asset matches localized prompt, audio checksum and Xcode resource');
 assert.equal(manifest.loudness?.normalization, 'ebu-r128-two-pass');
 assert.equal(manifest.loudness?.targetIntegratedLufs, -16);
 assert.equal(manifest.loudness?.targetTruePeakDbtp, -1.5);
@@ -208,7 +208,7 @@ check("stale/restarted native calls do not revive without a valid ended-call TTL
     assert(h.pendingCall() == nil)
   }
 }
-check("Vietnamese locked-call prompt plays Ngọc Lan and releases it on app handoff") {
+check("Vietnamese locked-call prompt plays Tuấn Anh and releases it on app handoff") {
   let h = Handler(); _ = h.seed()
   h.playHandoffPromptIfNeeded()
   assert(h.handoffRecording?.isPlaying == true && h.handoffSpeech.spoken == 0)

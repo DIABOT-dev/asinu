@@ -4,7 +4,7 @@
  */
 import { useMemo, useRef, useState, type ComponentProps } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing } from '../styles';
@@ -32,9 +32,11 @@ type Props = {
   onDismiss: () => void;
   queued?: boolean;
   onShow?: () => void;
+  stackButtons?: boolean;
+  scrollable?: boolean;
 };
 
-export function AppAlertModal({ visible, title, message, buttons, icon, onDismiss, queued = false, onShow }: Props) {
+export function AppAlertModal({ visible, title, message, buttons, icon, onDismiss, queued = false, onShow, stackButtons = false, scrollable = false }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -45,6 +47,11 @@ export function AppAlertModal({ visible, title, message, buttons, icon, onDismis
 
   const resolvedButtons: AlertButton[] =
     buttons && buttons.length > 0 ? buttons : [{ text: t('ok'), style: 'default' }];
+  const verticalButtons = stackButtons || resolvedButtons.length > 2;
+  const content = <>
+    <Text style={styles.title}>{title}</Text>
+    {message ? <Text style={styles.message}>{message}</Text> : null}
+  </>;
 
   const handlePress = (btn: AlertButton) => {
     if (queued) {
@@ -66,16 +73,15 @@ export function AppAlertModal({ visible, title, message, buttons, icon, onDismis
   return (
     <ModalComponent visible={visible} transparent animationType="fade" onRequestClose={onDismiss} onShow={onShow} onDismiss={handleModalDismiss}>
       <Pressable style={styles.overlay} onPress={onDismiss}>
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={[styles.card, scrollable && { maxHeight: '85%' }]} onPress={(e) => e.stopPropagation()}>
           {icon ? (
             <View style={styles.iconWrap}>
               <MaterialCommunityIcons name={icon.name} size={30} color={icon.color ?? colors.primary} />
             </View>
           ) : null}
-          <Text style={styles.title}>{title}</Text>
-          {message ? <Text style={styles.message}>{message}</Text> : null}
+          {scrollable ? <ScrollView style={{ flexShrink: 1 }}>{content}</ScrollView> : content}
 
-          <View style={[styles.buttonRow, resolvedButtons.length > 2 && { flexDirection: 'column' }]}>
+          <View style={[styles.buttonRow, verticalButtons && { flexDirection: 'column' }]}>
             {resolvedButtons.map((btn, i) => {
               const isCancel = btn.style === 'cancel';
               const isDestructive = btn.style === 'destructive';
@@ -84,7 +90,7 @@ export function AppAlertModal({ visible, title, message, buttons, icon, onDismis
                   key={i}
                   style={({ pressed }) => [
                     styles.button,
-                    resolvedButtons.length > 2 ? { width: '100%' } : { flex: 1 },
+                    verticalButtons ? { width: '100%', minHeight: 48, justifyContent: 'center' } : { flex: 1 },
                     isCancel && styles.buttonCancel,
                     isDestructive && styles.buttonDestructive,
                     !isCancel && !isDestructive && styles.buttonDefault,

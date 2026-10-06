@@ -11,6 +11,23 @@ export type CheckinCallSettings = {
   max_rounds: number;
 };
 
+export type CheckinVoicePreferences = {
+  use_name: boolean;
+  use_health: boolean;
+  address: 'auto' | 'bac' | 'co' | 'chu' | 'anh' | 'chi' | 'ban';
+  weather_enabled: boolean;
+  region: 'hanoi' | 'hcm' | 'danang' | 'haiphong' | 'cantho' | 'hue' | 'device' | null;
+  location: { latitude: number; longitude: number } | null;
+};
+
+export type CheckinUserNotice = {
+  version: string;
+  greeting: string;
+  context: string;
+  prompts: Record<string, string>;
+  weather: { message: string; temperature: number; forecast_at: string; source: string; source_url: string; license_url: string } | null;
+};
+
 export type CheckinCallEpisode = {
   id: string;
   state: string;
@@ -108,6 +125,7 @@ export type CheckinCallAttempt = {
   cancellation_reason?: string | null;
   subject?: CheckinCallContact | null;
   family_notice?: { message: string; audio_text: string } | null;
+  user_notice?: CheckinUserNotice | null;
 };
 
 export type CheckinCallContact = {
@@ -118,7 +136,28 @@ export type CheckinCallContact = {
 
 const BASE = '/api/mobile/checkin-call';
 
+export type CheckinCallAudioResponse = {
+  ok: boolean;
+  mimeType: string;
+  base64: string;
+  audioVersion?: string;
+};
+
+const audioHeaders = (language?: 'vi' | 'en') =>
+  language ? { 'Accept-Language': language } : undefined;
+
 export const checkinCallApi = {
+  audioConfig: (language: 'vi' | 'en') =>
+    apiClient<{ ok: boolean; version: string; language: 'vi' | 'en' }>(BASE + '/audio-config', {
+      headers: { ...audioHeaders(language), 'Cache-Control': 'no-cache' }, timeoutMs: 4000, retry: { attempts: 1 },
+    }),
+  voicePreferences: () => apiClient<{ ok: boolean; preferences: CheckinVoicePreferences }>(BASE + '/voice-preferences'),
+  saveVoicePreferences: (preferences: CheckinVoicePreferences) =>
+    apiClient<{ ok: boolean; preferences: CheckinVoicePreferences }>(BASE + '/voice-preferences', { method: 'PUT', body: preferences }),
+  userNotice: (attemptId: string) => apiClient<{ ok: boolean; notice: CheckinUserNotice }>(BASE + '/attempts/' + attemptId + '/user-notice', { timeoutMs: 4000 }),
+  userAudio: (attemptId: string, key: string, version?: string, language?: 'vi' | 'en') => apiClient<CheckinCallAudioResponse>(BASE + '/attempts/' + attemptId + '/user-audio/' + key, {
+    timeoutMs: 30000, headers: { ...audioHeaders(language), ...(version ? { 'X-Checkin-Notice-Version': version } : {}) },
+  }),
   settings: () => apiClient<{ ok: boolean; settings: CheckinCallSettings; contacts?: Array<{ id: number; name: string | null }> }>(BASE + '/settings'),
   saveSettings: (settings: CheckinCallSettings) =>
     apiClient<{ ok: boolean; settings: CheckinCallSettings }>(BASE + '/settings', {
@@ -168,16 +207,17 @@ export const checkinCallApi = {
     }),
   token: (attemptId: string) =>
     apiClient<{ ok: boolean; token: string; url: string; room: string }>(BASE + '/attempts/' + attemptId + '/token'),
-  audio: (key: string) =>
-    apiClient<{ ok: boolean; mimeType: string; base64: string }>(BASE + '/audio/' + key, { timeoutMs: 30000 }),
-  familyAudio: (attemptId: string) =>
-    apiClient<{ ok: boolean; mimeType: string; base64: string }>(
-      BASE + '/attempts/' + attemptId + '/family-audio', { timeoutMs: 30000 },
+  audio: (key: string, language?: 'vi' | 'en') =>
+    apiClient<CheckinCallAudioResponse>(BASE + '/audio/' + key, { timeoutMs: 30000, headers: audioHeaders(language) }),
+  familyAudio: (attemptId: string, language?: 'vi' | 'en') =>
+    apiClient<CheckinCallAudioResponse>(
+      BASE + '/attempts/' + attemptId + '/family-audio', { timeoutMs: 30000, headers: audioHeaders(language) },
     ),
-  conclusionAudio: (text: string) =>
-    apiClient<{ ok: boolean; mimeType: string; base64: string }>(BASE + '/audio/conclusion', {
+  conclusionAudio: (text: string, language?: 'vi' | 'en') =>
+    apiClient<CheckinCallAudioResponse>(BASE + '/audio/conclusion', {
       method: 'POST',
       body: { text },
+      headers: audioHeaders(language),
       timeoutMs: 30000,
     }),
 };

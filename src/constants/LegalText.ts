@@ -67,7 +67,7 @@ const vi: LegalContent = {
   },
   privacy: {
     title: "Chính Sách Bảo Mật Thông Tin Cá Nhân",
-    updated: "Cập nhật lần cuối: Ngày 22 tháng 05 năm 2026",
+    updated: "Cập nhật lần cuối: Ngày 06 tháng 10 năm 2026",
     sections: [
       "Chào mừng bạn đến với Hệ sinh thái Chăm sóc Sức khỏe Asinu (bao gồm Ứng dụng di động Asinu trên iOS/Android và Website asinu.vn / asinu.top, sau đây gọi chung là “Dịch vụ” hoặc “Chúng tôi”).",
       "Chúng tôi cam kết tôn trọng quyền riêng tư và bảo vệ an toàn thông tin cá nhân của bạn. Chính sách Bảo mật này được xây dựng tuân thủ nghiêm ngặt theo Nghị định số 13/2023/NĐ-CP của Chính phủ Việt Nam về Bảo vệ dữ liệu cá nhân, Luật An toàn thông tin mạng năm 2015, cũng như các tiêu chuẩn bảo vệ dữ liệu áp dụng cho nền tảng phân phối ứng dụng.",
@@ -84,7 +84,7 @@ const vi: LegalContent = {
       "1. Các chỉ số sinh hiệu đo lường trực tiếp: Huyết áp, Nhịp tim, Nồng độ oxy trong máu (SpO2), Đường huyết, Chỉ số khối cơ thể (BMI), Chiều cao, Cân nặng.",
       "2. Thông tin y tế bổ sung: Tiền sử bệnh lý, Dị ứng thuốc, Ghi chú sức khỏe hàng ngày do bạn hoặc người thân của bạn tự cập nhật.",
       "3. Dữ liệu tư vấn y tế: Các ghi chú tư vấn, đề xuất y khoa của các chuyên gia chăm sóc sức khỏe có liên kết với hệ thống khi bạn chủ động kết nối dịch vụ với họ.",
-      "4. Dữ liệu định vị vị trí: Vị trí địa lý GPS của thiết bị sử dụng (chỉ được thu thập khi bạn kích hoạt tính năng “Gửi cảnh báo SOS khẩn cấp” để giúp người thân hoặc nhân viên y tế xác định chính xác vị trí của người cao tuổi trong tình huống nguy hiểm).",
+      "4. Dữ liệu định vị vị trí: Vị trí GPS khi bạn kích hoạt cảnh báo SOS để hỗ trợ người thân tìm bạn. Với lời nhắc thời tiết check-in tùy chọn, bạn có thể chọn khu vực thủ công hoặc chủ động cấp quyền vị trí khi dùng ứng dụng; tọa độ được làm tròn đến 0,1 độ trước khi gửi đến máy chủ Asinu. Tính năng thời tiết không theo dõi vị trí nền.",
       "C. Dữ liệu kỹ thuật thu thập tự động",
       "1. Thông tin thiết bị: Địa chỉ IP, loại thiết bị di động, hệ điều hành thiết bị, định danh duy nhất của thiết bị (UUID), ngôn ngữ sử dụng.",
       "2. Dữ liệu hoạt động (Log data): Thời gian sử dụng ứng dụng, các tính năng bạn đã tương tác, lịch sử lỗi hệ thống (crash dumps) để phục vụ công tác sửa lỗi và nâng cấp hiệu năng.",
@@ -104,6 +104,7 @@ const vi: LegalContent = {
       "– Yêu cầu xóa tài khoản vĩnh viễn (lúc này toàn bộ dữ liệu sẽ ngừng xử lý và được xóa theo quy trình tại Mục 7).",
       "Lưu ý: Việc rút lại sự đồng ý không ảnh hưởng đến tính hợp pháp của việc xử lý dữ liệu trước khi bạn rút lại.",
       "3. Đồng ý riêng cho Asinu AI: Trước lần đầu bạn gửi chat, câu trả lời check-in hoặc bản ghi âm, ứng dụng sẽ hiển thị thông báo nêu rõ dữ liệu được gửi, mục đích xử lý và OpenAI là bên nhận. Bạn có thể từ chối; khi từ chối, ứng dụng không gọi API AI. Bạn có thể rút lại quyền này trong mục Cài đặt bất kỳ lúc nào.",
+      "4. Cá nhân hóa lời nhắc check-in (tùy chọn): Tại Cài đặt check-in > Cá nhân hóa lời nhắc, bạn đồng ý riêng cho việc dùng tên, một số đo gần đây hoặc khu vực thời tiết. Chỉ nội dung lời đọc cần thiết được gửi đến VieNeu để tạo âm thanh; không gửi toàn bộ hồ sơ sức khỏe. Với thời tiết, máy chủ chỉ gửi tọa độ khu vực làm tròn đến MET Norway, không gửi tên, tài khoản hoặc số liệu sức khỏe. Bạn có thể tắt các lựa chọn và lưu để ngừng dùng chúng cho các lời nhắc tiếp theo. Tên và số liệu không được đọc trên màn hình khóa.",
       "4. CHIA SẺ VÀ TIẾT LỘ DỮ LIỆU CÁ NHÂN",
       "Chúng tôi cam kết TUYỆT ĐỐI KHÔNG BÁN, CHO THUÊ HOẶC TRAO ĐỔI dữ liệu cá nhân của bạn cho bất kỳ bên thứ ba nào vì mục đích thương mại hoặc quảng cáo. Dữ liệu của bạn chỉ được chia sẻ trong các trường hợp giới hạn sau đây:",
       "1. Người thân và Người giám hộ do bạn chỉ định: Hệ thống chỉ gửi dữ liệu sức khỏe của bạn đến đúng các tài khoản người thân mà bạn đã trực tiếp thao tác kết nối và cấp quyền trên app. Bạn có toàn quyền ngắt kết nối này bất cứ lúc nào.",
@@ -253,7 +254,7 @@ const en: LegalContent = {
   },
   privacy: {
     title: "Privacy Policy",
-    updated: "Last updated: May 22, 2026",
+    updated: "Last updated: October 6, 2026",
     sections: [
       "Welcome to the Asinu Health Ecosystem (including the Asinu iOS/Android mobile app and asinu.vn / asinu.top website, collectively the “Service” or “We”).",
       "We are committed to respecting your privacy and protecting your personal information. This Privacy Policy is designed to comply with Vietnam’s Decree 13/2023/ND-CP on Personal Data Protection, the 2015 Law on Cyber Information Security, and data protection requirements applicable to app distribution platforms.",
@@ -270,7 +271,7 @@ const en: LegalContent = {
       "1. Direct vital signs: blood pressure, heart rate, blood oxygen (SpO2), blood glucose, BMI, height, and weight.",
       "2. Additional medical information: medical history, drug allergies, and daily health notes updated by you or your family.",
       "3. Medical consultation data: consultation notes and recommendations from connected specialists/healthcare experts when you choose to use that service.",
-      "4. Location data: GPS location of the device (collected only when you enable the “Send emergency SOS alert” feature to help family or emergency personnel identify the exact location in a dangerous situation).",
+      "4. Location data: GPS location when you activate an SOS alert to help family find you. For optional check-in weather reminders, you may choose an area manually or explicitly grant foreground location permission. Coordinates are rounded to 0.1 degrees before being sent to Asinu servers. Weather reminders do not track background location.",
       "C. Automatically collected technical data",
       "1. Device information: IP address, device type, operating system, unique device identifier (UUID), and language setting.",
       "2. Activity data (log data): app usage time, features you interacted with, and crash logs for debugging and performance improvements.",
@@ -290,6 +291,7 @@ const en: LegalContent = {
       "– requesting permanent account deletion (all processing then stops and data is deleted under Section 7).",
       "Note: withdrawing consent does not affect the legality of processing conducted before withdrawal.",
       "3. Separate Asinu AI consent: before you first send a chat message, check-in answer, or voice recording, the app explains what data is sent, the processing purpose, and that OpenAI is the recipient. You may decline; if you decline, the app does not call AI APIs. You can revoke this permission from Settings at any time.",
+      "4. Personalized check-in speech (optional): In Check-in settings > Personalize reminders, you give separate consent to use your name, one recent measurement, or weather area. Only the necessary spoken text is sent to VieNeu to generate audio, not your full health profile. For weather, the server sends rounded area coordinates to MET Norway without your name, account or health measurements. You can turn these options off and save to stop using them in subsequent reminders. Names and measurements are not spoken on the lock screen.",
       "4. SHARING AND DISCLOSURE OF PERSONAL DATA",
       "We absolutely do NOT sell, rent, or exchange your personal data with any third party for commercial or advertising purposes. Your data is only shared in the following limited cases:",
       "1. Family members and guardians you designate: the system sends health data only to the family accounts you explicitly connect and authorize in the app. You can disconnect at any time.",

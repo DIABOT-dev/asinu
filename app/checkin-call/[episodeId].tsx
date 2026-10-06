@@ -224,7 +224,7 @@ function AuthenticatedCheckinCallScreen() {
           await endVoipCall(latest.attempt.id);
           if (!screenMounted.current) return;
           setError('');
-          setAttempt(latest.attempt);
+          setAttempt(current => ({ ...latest.attempt, user_notice: current?.user_notice }));
           callEnded.current = true;
           setCompletedAt(getCheckinCallTime(latest.attempt.resolved_at || latest.attempt.ended_at || latest.attempt.exhausted_at));
           setEnded(true);
@@ -247,7 +247,7 @@ function AuthenticatedCheckinCallScreen() {
           if (!screenMounted.current) return;
           inTriage.current = true;
           triageStage.current = { step: 'location', location: null, symptom: null };
-          setAttempt(latest.attempt);
+          setAttempt(current => ({ ...latest.attempt, user_notice: current?.user_notice }));
           setTriageContext(recovered.triage);
           setDraftReady(true);
           setSelectedLocation(null);
@@ -365,6 +365,14 @@ function AuthenticatedCheckinCallScreen() {
           setStatusKey(getClosedCheckinCallStatusKey(result.attempt));
           return;
         }
+        if (result.attempt.target_role === 'USER') {
+          // Optional personalization may fail or be absent on an older backend.
+          // Never let weather/TTS failures block the existing response flow.
+          try {
+            result.attempt.user_notice = (await checkinCallApi.userNotice(id)).notice;
+          } catch { result.attempt.user_notice = null; }
+          if (!live) return;
+        }
         if (
           result.attempt.target_role === 'USER' &&
           result.attempt.episode_state === 'TRIAGE_USER'
@@ -453,7 +461,7 @@ function AuthenticatedCheckinCallScreen() {
     const interval = setInterval(() => {
       void checkinCallApi.attempt(pollingAttemptId).then(({ attempt: latest }) => {
         if (!live || connectionEnding.current || actionPending.current) return;
-        setAttempt(latest);
+        setAttempt(current => ({ ...latest, user_notice: current?.user_notice }));
         if (isCheckinCallAttemptClosed(latest)) {
           callEnded.current = true;
           void disconnectRoom().then(() => endVoipCall(latest.id));
@@ -955,6 +963,16 @@ function AuthenticatedCheckinCallScreen() {
           </Pressable>
           {speechControls}
 
+          {statusKey === 'statusUserOk' && attempt?.target_role === 'USER' && !!attempt.user_notice?.weather && (
+            <View style={styles.weatherNotice}>
+              <Text style={styles.weatherCopy}>{attempt.user_notice.weather.message}</Text>
+              <Text style={styles.weatherCopy}>{t('personalization.weatherForecastAt', {
+                time: new Date(attempt.user_notice.weather.forecast_at).toLocaleString(i18n.language === 'en' ? 'en-GB' : 'vi-VN'),
+              })}</Text>
+              <Text style={styles.weatherCopy}>{t('personalization.weatherCredit')}</Text>
+            </View>
+          )}
+
           <Image
             source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
             style={styles.callBottomDeco}
@@ -1347,6 +1365,8 @@ function AuthenticatedCheckinCallScreen() {
 }
 
 const styles = StyleSheet.create({
+  weatherNotice: { width: '100%', maxWidth: 360, gap: 8, paddingVertical: 12 },
+  weatherCopy: { fontSize: 15, lineHeight: 23, color: '#334155' },
   root: { flex: 1, backgroundColor: '#f3fbf8' },
   responseTiming: { width: '100%', maxWidth: 390, color: '#475569', fontSize: 14, lineHeight: 22, marginTop: 8, marginBottom: 12 },
   urgentActionText: { color: '#b91c1c', fontSize: 16, fontWeight: '700', flexShrink: 1 },

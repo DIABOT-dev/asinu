@@ -458,7 +458,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     if handoffRecording?.isPlaying == true || handoffSpeech.isSpeaking || handoffPromptTimer != nil { return }
     let language = entry.value["lang"] == "en" ? "en" : "vi"
     if language == "vi" {
-      // Bundled Ngọc Lan recording: cold/locked launches need neither React
+      // Bundled Vietnamese recording: cold/locked launches need neither React
       // nor a network download. Never silently replace it with Apple's voice.
       guard let url = Bundle.main.url(forResource: "asinu_checkin_open_app_vi", withExtension: "mp3"),
             let recording = try? AVAudioPlayer(contentsOf: url) else { return }

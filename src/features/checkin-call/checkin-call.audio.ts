@@ -1,4 +1,4 @@
-export type CallAudioPrompt = { key: string; text: string; language: 'vi' | 'en'; attemptId?: string };
+export type CallAudioPrompt = { key: string; text: string; language: 'vi' | 'en'; attemptId?: string; personalizedUser?: boolean; noticeVersion?: string; audioVersion?: string };
 export type CallAudioState = {
   phase: 'idle' | 'loading' | 'playing' | 'finished' | 'error';
   prompt: CallAudioPrompt | null;

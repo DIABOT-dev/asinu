@@ -201,7 +201,7 @@ await test('Android closes without waiting for an iOS-only onDismiss callback', 
 
 function alertHarness() {
   const refs = []; let index = 0;
-  const native = { Modal: 'NativeModal', Pressable: 'Pressable', View: 'View', StyleSheet: { create: value => value } };
+  const native = { Modal: 'NativeModal', Pressable: 'Pressable', ScrollView: 'ScrollView', View: 'View', StyleSheet: { create: value => value } };
   const imports = {
     react: { createElement, useRef: value => refs[index++] ??= { current: value }, useMemo: callback => callback() },
     'react/jsx-runtime': jsxRuntime, 'react-native': native,
@@ -237,6 +237,30 @@ for (const queued of [true, false]) await test(`actual AppAlert ${queued ? 'defe
     closing.props.onDismiss(); closing.props.onDismiss();
     assert.equal(actions, 1);
   }
+});
+
+await test('the actual personalized-consent modal bounds scrolling content and stacks two accessible buttons', () => {
+  const render = alertHarness();
+  const tree = render({ visible: true, title: 'Consent', message: 'Long consent content', scrollable: true, stackButtons: true,
+    onDismiss() {}, buttons: [{ text: 'Cancel' }, { text: 'Agree' }] });
+  const all = nodes(tree);
+  const scroll = all.find(node => node.type === 'ScrollView');
+  assert.ok(scroll); assert.equal(scroll.props.style.flexShrink, 1);
+  assert.ok(nodes(scroll).some(node => node.type === 'Text' && node.props.children === 'Long consent content'));
+  const card = all.find(node => node.type === 'Pressable' && Array.isArray(node.props.style));
+  assert.equal(card.props.style[1].maxHeight, '85%');
+  const buttons = all.filter(node => node.type === 'Pressable' && node.props.style instanceof Function);
+  assert.equal(buttons.length, 2);
+  for (const button of buttons) {
+    const style = Object.assign({}, ...button.props.style({ pressed: false }).filter(Boolean));
+    assert.equal(style.width, '100%'); assert.ok(style.minHeight >= 48); assert.equal(style.flex, undefined);
+  }
+});
+await test('ordinary two-button alerts preserve their original horizontal layout', () => {
+  const tree = alertHarness()({ visible: true, title: 'Ordinary alert', onDismiss() {}, buttons: [{ text: 'Cancel' }, { text: 'Agree' }] });
+  assert.equal(nodes(tree).some(node => node.type === 'ScrollView'), false);
+  const buttons = nodes(tree).filter(node => node.type === 'Pressable' && node.props.style instanceof Function);
+  for (const button of buttons) assert.equal(Object.assign({}, ...button.props.style({ pressed: false }).filter(Boolean)).flex, 1);
 });
 
 // Execute the real preparation effect and onShow handler from SessionProvider.

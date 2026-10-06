@@ -231,6 +231,11 @@ export default function CheckinCallSettingsScreen() {
           </View>
 
           <Text style={styles.cardSubtitle}>{t('schedulePreview', { time: timeFromMinutes(dueMinutes), timezone: value.timezone, nextDay: dueMinutes >= 1440 ? t('nextDay') : '' })}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('personalization.open')}
+            style={styles.setupAction} disabled={busy} onPress={() => router.push('/checkin-call/voice-settings')}>
+            <Ionicons name="person-outline" size={20} color="#00897b" />
+            <Text style={styles.setupActionText}>{t('personalization.open')}</Text>
+          </Pressable>
           {contacts !== null && <View style={styles.contactPreview}>
             <Text style={styles.toggleLabel}>{t('eligibleContacts')}</Text>
             {contacts.length === 0 ? <>

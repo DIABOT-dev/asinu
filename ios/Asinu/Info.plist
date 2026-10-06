@@ -82,7 +82,7 @@
       <true/>
     </dict>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp</string>
+    <string>Asinu dùng vị trí khi bạn chọn gửi SOS hoặc bật lời nhắc thời tiết theo khu vực. Không theo dõi vị trí trong nền.</string>
     <key>NSCameraUsageDescription</key>
     <string>Asinu chỉ dùng camera khi bạn quét mã QR để kết nối người thân.</string>
     <key>NSMicrophoneUsageDescription</key>
