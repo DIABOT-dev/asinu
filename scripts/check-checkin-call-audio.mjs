@@ -301,9 +301,9 @@ function visit(node) {
 }
 visit(ast);
 assert.equal(handlers.size, names.length);
-function flowHarness({ role = 'USER', api = {} } = {}) {
+function flowHarness({ role = 'USER', api = {}, audio = {}, actionPending = { current: false } } = {}) {
   const events = [], status = {};
-  const refs = { actionPending: { current: false }, callEnded: { current: false }, inTriage: { current: false }, screenMounted: { current: true }, accepted: { current: true }, acceptPromise: { current: null }, joinRequested: { current: false }, triageStage: { current: { step: 'location', location: null, symptom: null } }, activeRoom: { current: null }, connectionEnding: { current: false } };
+  const refs = { actionPending, callEnded: { current: false }, inTriage: { current: false }, screenMounted: { current: true }, accepted: { current: true }, acceptPromise: { current: null }, joinRequested: { current: false }, triageStage: { current: { step: 'location', location: null, symptom: null } }, activeRoom: { current: null }, connectionEnding: { current: false } };
   const deps = {
     ...refs, episodeId: 'episode', attempt: { id: 'attempt', target_role: role }, room: null, router: { back: () => events.push('back') }, getUserCheckinCallOutcome,
     getClosedCheckinCallStatusKey, isCheckinCallAttemptClosed, getCheckinCallTime: value => value ? new Date(value).getTime() : null,
@@ -321,6 +321,7 @@ function flowHarness({ role = 'USER', api = {} } = {}) {
       confirmFamily: async () => ({ episode: { state: 'RESOLVED' } }),
       accept: async () => ({}), decline: async () => { events.push('decline'); return { ok: true }; }, ...api,
     },
+    ...audio,
   };
   deps.acceptCheckinCallOnce = id => deps.checkinCallApi.accept(id);
   for (const name of ['Attempt', 'Joined', 'Busy', 'Error', 'TriageContext', 'SelectedLocation', 'SelectedSymptom', 'TriageStep', 'TriageOpen', 'CompletedAt', 'Ended', 'Room', 'StatusKey', 'EpisodeProgress', 'DraftReady']) {
@@ -504,27 +505,35 @@ await test('lost final response recovers the recorded outcome without claiming f
   assert.equal(h.events.includes('play:user_ok'), true);
 });
 
-function screenAudioHarness({ claim = async () => false, teardown = async () => {} } = {}) {
-  let playExpression, stopExpression, focusExpression, appStateExpression;
+function screenAudioHarness({ claim = async () => false, teardown = async () => {}, playback = null,
+  actionPending = { current: false } } = {}) {
+  let playExpression, stopExpression, focusExpression, appStateExpression, nativeExpression;
   function find(node) {
     if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'play') playExpression = node.initializer.arguments[0].getText(ast);
     if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'stopAudio') stopExpression = node.initializer.arguments[0].getText(ast);
     if (ts.isCallExpression(node) && node.expression.getText(ast) === 'useFocusEffect') focusExpression = node.arguments[0].arguments[0].getText(ast);
     if (ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect'
       && node.arguments[0]?.getText(ast).includes("AppState.addEventListener('change'")) appStateExpression = node.arguments[0].getText(ast);
+    if (ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect'
+      && node.arguments[0]?.getText(ast).includes('addVoipCallAnsweredListener')) nativeExpression = node.arguments[0].getText(ast);
     ts.forEachChild(node, find);
   }
   find(ast);
   const events = [];
   const context = { current: { attempt: null, joined: false, ended: false, prompt: null } };
-  let listener;
+  const pendingAudioPrompt = { current: null };
+  let listener, nativeListener;
   const AppState = { currentState: 'active', addEventListener: (_name, callback) => { listener = callback; return { remove() {} }; } };
-  const factory = evaluate(`module.exports = deps => { const { callScreenFocused, playAudio, stopCallAudio, playVersion, audioContext, AppState, setVoipCallUIActive } = deps; const stopAudio = ${stopExpression}; const play = ${playExpression}; return { play, focus: ${focusExpression}, observe: ${appStateExpression} }; };`);
-  const h = factory({ callScreenFocused: { current: true }, playVersion: { current: 0 }, audioContext: context, AppState,
+  const factory = evaluate(`module.exports = deps => { const { callScreenFocused, playAudio, stopCallAudio, playVersion, audioContext, AppState, setVoipCallUIActive, actionPending, addVoipCallAnsweredListener, pendingAudioPrompt } = deps; const stopAudio = ${stopExpression}; const play = ${playExpression}; return { play, stopAudio, focus: ${focusExpression}, observe: ${appStateExpression}, observeNative: ${nativeExpression} }; };`);
+  const h = factory({ callScreenFocused: { current: true }, playVersion: { current: 0 }, audioContext: context, AppState, actionPending, pendingAudioPrompt,
+    addVoipCallAnsweredListener: callback => { nativeListener = callback; },
     setVoipCallUIActive: async (id, active) => { events.push(`native:${active}`); return claim(id, active); },
-    playAudio: async () => events.push('play'), stopCallAudio: async () => { events.push('stop'); await teardown(); } });
+    playAudio: async (key, text) => { events.push('play'); await playback?.owner.play({ ...prompt(key), ...(text ? { text } : {}) }); },
+    stopCallAudio: async (clearPrompt = true) => { events.push('stop'); const stopped = playback?.owner.stop(clearPrompt); await teardown(); await stopped; } });
   h.observe();
-  return { ...h, context, events, appState: state => { AppState.currentState = state; listener(state); } };
+  h.observeNative();
+  return { ...h, context, events, actionPending, pendingAudioPrompt, nativeEnded: call => nativeListener(call),
+    appState: state => { AppState.currentState = state; listener(state); } };
 }
 await test('blur stops reading and prevents a late API response from starting off-screen speech', async () => {
   const h = screenAudioHarness();
@@ -532,10 +541,10 @@ await test('blur stops reading and prevents a late API response from starting of
   await h.play('before');
   blur();
   await h.play('late');
-  assert.deepEqual(h.events, ['play', 'stop']);
+  assert.deepEqual(h.events, ['stop', 'play', 'stop']);
   h.focus();
   await h.play('replay');
-  assert.deepEqual(h.events, ['play', 'stop', 'play']);
+  assert.deepEqual(h.events, ['stop', 'play', 'stop', 'stop', 'play']);
 });
 await test('a native audio claim that finishes after blur cannot start speech', async () => {
   const claim = deferred();
@@ -553,8 +562,8 @@ await test('a quick refocus cannot release the newly reclaimed native audio sess
   const h = screenAudioHarness({ teardown: () => teardown.promise });
   h.context.current.attempt = { id: 'native-attempt' };
   const blur = h.focus();
-  blur(); h.focus(); await h.play('user_prompt');
-  teardown.resolve(); await tick();
+  blur(); h.focus(); const playing = h.play('user_prompt');
+  teardown.resolve(); await playing; await tick();
   assert.equal(h.events.includes('native:false'), false);
   assert.equal(h.events.filter(event => event === 'play').length, 1);
 });
@@ -567,7 +576,7 @@ await test('backgrounding stops app speech and foregrounding resumes only the cu
   await h.play('offscreen');
   assert.equal(h.events.includes('play'), false);
   h.appState('active'); await tick();
-  assert.deepEqual(h.events, ['stop', 'native:false', 'native:true', 'play']);
+  assert.deepEqual(h.events, ['stop', 'native:false', 'stop', 'native:true', 'play']);
 });
 await test('a quick background/foreground transition cannot release the recovered session', async () => {
   const teardown = deferred();
@@ -592,8 +601,9 @@ await test('only an active prompt resumes after a user hangup releases CallKit a
   const context = { current: { attempt: { id: 'attempt' }, joined: true, ended: false,
     phase: 'playing', prompt: { key: 'user_prompt', text: 'Choose your response' } } };
   const played = []; let listener;
-  const install = evaluate(`module.exports = deps => { const { audioContext, addVoipCallAnsweredListener, play } = deps; return (${expression})(); };`);
-  install({ audioContext: context, addVoipCallAnsweredListener: callback => { listener = callback; },
+  const actionPending = { current: false };
+  const install = evaluate(`module.exports = deps => { const { audioContext, addVoipCallAnsweredListener, play, actionPending } = deps; return (${expression})(); };`);
+  install({ audioContext: context, actionPending, addVoipCallAnsweredListener: callback => { listener = callback; },
     play: (...args) => { played.push(args); } });
   const released = { attemptId: 'attempt', nativeEnded: '1', audioSessionReleased: '1' };
   listener({ ...released, audioSessionReleased: undefined });
@@ -606,6 +616,160 @@ await test('only an active prompt resumes after a user hangup releases CallKit a
   }
   assert.equal(played.length, 1);
 });
+
+for (const transition of ['location', 'symptom', 'back']) {
+  await test(`${transition} selection interrupts the real playing question before a slow native audio claim`, async () => {
+    const playback = harness();
+    await playback.owner.play(prompt('old_question'));
+    const claim = deferred();
+    const h = screenAudioHarness({ playback, claim: (_id, active) => active ? claim.promise : false });
+    h.context.current = { attempt: { id: 'attempt' }, joined: true, ended: false, triageOpen: true,
+      ...playback.states.at(-1) };
+    const flow = flowHarness({ audio: { stopAudio: h.stopAudio, play: h.play } });
+    const symptom = { key: 'dizzy', urgent: false };
+    const location = { key: 'head', symptoms: [symptom] };
+    let expected;
+    if (transition === 'location') {
+      flow.callable.chooseLocation(location);
+      expected = 'triage_symptom_prompt';
+    } else if (transition === 'symptom') {
+      flow.refs.triageStage.current = { step: 'symptom', location, symptom: null };
+      flow.callable.chooseSymptom(symptom);
+      expected = 'triage_intensity_prompt';
+    } else {
+      flow.refs.triageStage.current = { step: 'intensity', location, symptom };
+      flow.callable.goBackInTriage();
+      expected = 'triage_symptom_prompt';
+    }
+    assert.equal(playback.sounds[0].playing, false, 'The click must pause before awaiting any promise');
+    assert.equal(h.context.current.prompt, null, 'The old question cannot be resumed before React renders');
+    assert.equal(h.context.current.phase, 'idle');
+    assert.equal(playback.states.at(-1).prompt, null);
+    await tick();
+    assert.equal(playback.sounds.length, 1, 'The new recording waits for native ownership');
+    claim.resolve(true);
+    await tick();
+    assert.deepEqual(playback.events.filter(event => event.startsWith('play:')), ['play:old_question', `play:${expected}`]);
+  });
+}
+await test('replacement cancels a pending old download before the new native audio claim completes', async () => {
+  const download = deferred(), claim = deferred();
+  const playback = harness({ load: p => p.key === 'old_question' ? download.promise : Promise.resolve(p.key) });
+  const old = playback.owner.play(prompt('old_question'));
+  await tick();
+  const h = screenAudioHarness({ playback, claim: (_id, active) => active ? claim.promise : false });
+  h.context.current = { attempt: { id: 'attempt' }, joined: true, ended: false, ...playback.states.at(-1) };
+  const replacement = h.play('triage_symptom_prompt');
+  download.resolve('old_question');
+  await old;
+  assert.equal(playback.sounds.length, 0, 'The superseded download must never create a player');
+  claim.resolve(true);
+  await replacement;
+  assert.deepEqual(playback.events.filter(event => event.startsWith('play:')), ['play:triage_symptom_prompt']);
+});
+await test('rapid question intents and reversed native bridge completions play only the latest question', async () => {
+  const playback = harness();
+  await playback.owner.play(prompt('old_question'));
+  const claims = [];
+  const h = screenAudioHarness({ playback, claim: (_id, active) => {
+    if (!active) return false;
+    const pending = deferred(); claims.push(pending); return pending.promise;
+  } });
+  h.context.current.attempt = { id: 'attempt' };
+  const requests = Array.from({ length: 20 }, (_value, index) => h.play(`question${index}`));
+  assert.equal(playback.sounds[0].playing, false);
+  for (const claim of claims.slice().reverse()) claim.resolve(true);
+  await Promise.all(requests);
+  assert.deepEqual(playback.events.filter(event => event.startsWith('play:')), ['play:old_question', 'play:question19']);
+});
+for (const action of ['answer', 'openTriage', 'submitTriage', 'confirm', 'urgentSymptom']) {
+  await test(`${action} silences the real player immediately and rejects stale lifecycle resumes while its API is pending`, async () => {
+    const playback = harness();
+    await playback.owner.play(prompt('old_question'));
+    const result = deferred();
+    const h = screenAudioHarness({ playback });
+    const stale = { attempt: { id: 'attempt' }, joined: true, ended: false, triageOpen: action !== 'answer',
+      ...playback.states.at(-1) };
+    h.context.current = { ...stale };
+    const blur = h.focus();
+    // focus would replay a retained prompt, so settle that startup before tapping.
+    await tick();
+    const before = playback.events.filter(event => event.startsWith('play:')).length;
+    const apiName = action === 'urgentSymptom' ? 'completeTriage'
+      : action === 'submitTriage' ? 'completeTriage' : action === 'openTriage' ? 'startTriage'
+        : action === 'confirm' ? 'confirmFamily' : 'answer';
+    const flow = flowHarness({ role: action === 'confirm' ? 'FAMILY' : 'USER',
+      actionPending: h.actionPending, audio: { stopAudio: h.stopAudio, play: h.play }, api: { [apiName]: () => result.promise } });
+    const symptom = { key: 'dizzy', urgent: action === 'urgentSymptom' };
+    const location = { key: 'head', symptoms: [symptom] };
+    flow.refs.triageStage.current = { step: action === 'urgentSymptom' ? 'symptom' : 'intensity', location, symptom };
+    const request = action === 'urgentSymptom' ? flow.callable.chooseSymptom(symptom)
+      : action === 'answer' ? flow.callable.answer(1)
+        : action === 'submitTriage' ? flow.callable.submitTriage('MILD') : flow.callable[action]();
+    assert.ok(playback.sounds.every(sound => !sound.playing), 'The response must pause in the click handler');
+    assert.equal(h.context.current.prompt, null);
+    await tick();
+    assert.equal(h.actionPending.current, true);
+    // Reproduce a queued lifecycle callback seeing a pre-commit React snapshot.
+    h.context.current = { ...stale };
+    h.nativeEnded({ attemptId: 'attempt', nativeEnded: '1', audioSessionReleased: '1' });
+    blur();
+    h.focus();
+    h.appState('background');
+    h.context.current = { ...stale };
+    h.appState('active');
+    await tick();
+    assert.equal(playback.events.filter(event => event.startsWith('play:')).length, before);
+    assert.ok(playback.sounds.every(sound => !sound.playing));
+    result.resolve({ episode: { state: 'RESOLVED', severity: 'NONE', next_action_at: '2026-10-05T10:00:00Z' }, triage: { locations: [] } });
+    await request; await tick();
+    const expected = action === 'confirm' ? 'family_confirmed' : action === 'openTriage' ? 'triage_location_prompt' : 'user_ok';
+    assert.equal(playback.events.filter(event => event.startsWith('play:')).at(-1), `play:${expected}`,
+      'The explicit next question/result must still play before actionPending is released');
+    assert.equal(h.actionPending.current, false);
+  });
+}
+await test('a clear stop revokes a pending native claim immediately, while stop(false) retains the transcript', async () => {
+  const claim = deferred();
+  const h = screenAudioHarness({ claim: (_id, active) => active ? claim.promise : false });
+  h.context.current = { attempt: { id: 'attempt' }, joined: true, ended: false,
+    prompt: prompt('old_question'), phase: 'playing' };
+  const replacing = h.play('triage_symptom_prompt');
+  await h.stopAudio();
+  claim.resolve(true); await replacing;
+  assert.equal(h.events.includes('play'), false);
+  assert.equal(h.context.current.prompt, null);
+  assert.equal(h.pendingAudioPrompt.current, null);
+  h.context.current.prompt = prompt('retained');
+  h.context.current.phase = 'playing';
+  await h.stopAudio(false);
+  assert.equal(h.context.current.prompt.key, 'retained');
+  assert.equal(h.context.current.phase, 'idle');
+});
+for (const transition of ['background', 'blur']) {
+  await test(`${transition} during the next question's native claim resumes only that new question`, async () => {
+    const playback = harness();
+    await playback.owner.play(prompt('old_question'));
+    const firstClaim = deferred(), secondClaim = deferred();
+    let claims = 0;
+    const h = screenAudioHarness({ playback, claim: (_id, active) => active
+      ? (++claims === 1 ? firstClaim.promise : secondClaim.promise) : false });
+    const blur = h.focus();
+    h.context.current = { attempt: { id: 'attempt' }, joined: true, ended: false, ...playback.states.at(-1) };
+    const replacing = h.play('triage_symptom_prompt');
+    if (transition === 'background') h.appState('background');
+    else blur();
+    assert.equal(h.context.current.prompt, null);
+    assert.equal(h.pendingAudioPrompt.current.key, 'triage_symptom_prompt');
+    firstClaim.resolve(true); await replacing;
+    assert.deepEqual(playback.events.filter(event => event.startsWith('play:')), ['play:old_question']);
+    if (transition === 'background') h.appState('active');
+    else h.focus();
+    secondClaim.resolve(true); await tick();
+    assert.deepEqual(playback.events.filter(event => event.startsWith('play:')), ['play:old_question', 'play:triage_symptom_prompt']);
+    assert.equal(h.pendingAudioPrompt.current, null);
+  });
+}
 
 // The native adapter is exercised with filesystem/API stubs as well, so cache
 // coalescing, exact-attempt identity and no-autoplay are tested at the seam.
