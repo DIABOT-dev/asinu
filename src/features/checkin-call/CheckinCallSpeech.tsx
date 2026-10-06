@@ -5,11 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../components/ScaledText';
 import type { CallAudioState } from './checkin-call.audio';
 
-export function CheckinCallSpeech({ audio, disabled, onReplay, onStop }: {
+export function CheckinCallSpeech({ audio, disabled, onReplay, onStop, showTranscript = true }: {
   audio: CallAudioState;
   disabled: boolean;
   onReplay: () => void;
   onStop: () => void;
+  showTranscript?: boolean;
 }) {
   const { t } = useTranslation('checkinCall');
   if (!audio.prompt) return null;
@@ -22,7 +23,7 @@ export function CheckinCallSpeech({ audio, disabled, onReplay, onStop }: {
           : <Ionicons name={active ? 'volume-high-outline' : 'chatbubble-outline'} size={20} color="#087f6d" />}
         <Text accessibilityLiveRegion="polite" style={styles.status}>{t(`playback.${audio.phase}`)}</Text>
       </View>
-      <Text style={styles.transcript}>{audio.prompt.text}</Text>
+      {showTranscript && <Text style={styles.transcript}>{audio.prompt.text}</Text>}
       {audio.phase === 'error' && <Text style={styles.hint}>{t('playback.errorHint')}</Text>}
       <View style={styles.actions}>
         <Pressable

@@ -1,3 +1,5 @@
+import type { CallAutoplayScope } from './checkin-call.autoplay';
+
 export type CallAudioPrompt = { key: string; text: string; language: 'vi' | 'en'; attemptId?: string; personalizedUser?: boolean; noticeVersion?: string; audioVersion?: string; mimeType?: string };
 export type CallAudioState = {
   phase: 'idle' | 'loading' | 'playing' | 'finished' | 'error';
@@ -29,6 +31,7 @@ type AudioDependencies = {
     onStart: () => void; onDone: () => void; onError: () => void;
   }) => void;
   onState: (state: CallAudioState) => void;
+  claimAutoplay?: (scope: CallAutoplayScope, key: string) => Promise<boolean>;
 };
 
 /** One owner for both TTS recordings and device speech. Latest intent wins,
@@ -118,13 +121,30 @@ export class CheckinCallAudio {
     }
   }
 
-  async play(prompt: CallAudioPrompt) {
+  showPrompt(prompt: CallAudioPrompt) {
+    const { stopped } = this.cancel();
+    this.update({ phase: 'idle', prompt, fallback: false });
+    return stopped.catch(() => {});
+  }
+
+  async play(prompt: CallAudioPrompt, options: { automatic?: boolean; scope?: CallAutoplayScope } = {}) {
     if (this.disposed) return;
     const { version, stopped } = this.cancel();
     this.update({ phase: 'loading', prompt, fallback: false });
     try {
       await stopped;
       if (!this.current(version)) return;
+      // A manual replay also consumes this prompt's automatic allowance, but
+      // never depends on storage succeeding. Claim before download/playback so
+      // remounts, duplicate joins and interrupted recordings cannot start over.
+      const allowed = options.scope
+        ? await this.dependencies.claimAutoplay?.(options.scope, prompt.key).catch(() => false)
+        : false;
+      if (!this.current(version)) return;
+      if (options.automatic && !allowed) {
+        this.update({ phase: 'idle', prompt, fallback: false });
+        return;
+      }
       const uri = await this.dependencies.load(prompt);
       if (!this.current(version)) return;
       await this.dependencies.prepare();

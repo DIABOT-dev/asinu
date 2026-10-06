@@ -59,7 +59,7 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
     '../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../src/features/checkin-call/CheckinCallContact': { CheckinCallContact: 'Contact' },
     '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech' },
-    '../../src/features/checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { prompt: null }, play: noop, stopAudio: noop }) },
+    '../../src/features/checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { prompt: null }, play: noop, stopAudio: noop, showPrompt: noop }) },
     '../../src/features/checkin-call/CheckinCallPhoneAction': { CheckinCallPhoneAction: 'Phone' },
     '../../src/features/checkin-call/triage-draft': { restoreTriageDraft: noop },
     '../../src/features/auth/auth.store': { useAuthStore: selector => selector(auth) },
@@ -85,7 +85,10 @@ for (const lang of ['vi', 'en']) for (const [role, triage] of [['USER', false], 
     assert.ok(h.nodes.some(node => node.type === 'ScrollView'));
     const displayed = h.nodes.filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
     for (const key of ['statusConnecting', 'statusConnected', 'statusConnectionUnavailable', 'statusNoLiveKit']) assert.ok(!displayed.includes(h.t(key)));
-    assert.ok(displayed.includes(h.t('responseCountdown', { seconds: 90 })) || /89/.test(displayed));
+    assert.ok(!displayed.includes(h.t('responseCountdown', { seconds: 90 })) && !displayed.includes(h.t('responseDeadline')));
+    const speech = h.nodes.filter(node => node.type === 'Speech');
+    assert.ok(speech.length > 0);
+    assert.ok(speech.every(node => node.props.showTranscript === false));
     const actions = h.nodes.filter(node => node.type === 'Pressable' && node.props.accessibilityRole === 'button');
     assert.ok(actions.length > 0);
     if (role === 'USER' && !triage) {
@@ -123,5 +126,35 @@ test('saving disables all three health buttons to prevent repeated submissions',
   const choices = h.nodes.filter(node => node.type === 'Pressable' && node.props.accessibilityLabel);
   assert.equal(choices.length, 3);
   assert.ok(choices.every(node => node.props.disabled && node.props.accessibilityState.disabled));
+});
+for (const lang of ['vi', 'en']) test(`${lang}: compact speech controls hide the paragraph but keep Replay and Stop handlers`, () => {
+  const catalog = JSON.parse(read(`src/i18n/locales/${lang}/checkinCall.json`));
+  const t = key => key.split('.').reduce((value, part) => value?.[part], catalog) || key;
+  const imports = {
+    react: React,
+    'react-native': { View: 'View', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: styles => styles } },
+    '@expo/vector-icons': { Ionicons: 'Icon' },
+    'react-i18next': { useTranslation: () => ({ t }) },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+  };
+  const { CheckinCallSpeech } = evaluate(read('src/features/checkin-call/CheckinCallSpeech.tsx'), imports);
+  const onReplay = () => {}, onStop = () => {};
+  for (const phase of ['idle', 'loading', 'playing', 'finished', 'error']) {
+    const tree = CheckinCallSpeech({ audio: { phase, prompt: { key: 'user_prompt', text: 'Long spoken transcript' } },
+      disabled: false, showTranscript: false, onReplay, onStop });
+    const nodes = [];
+    const visit = node => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) return node.forEach(visit);
+      nodes.push(node); visit(node.props?.children);
+    };
+    visit(tree);
+    assert.ok(!nodes.some(node => node.type === 'Text' && node.props.children === 'Long spoken transcript'));
+    const replay = nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('replay'));
+    assert.equal(replay.props.onPress, onReplay);
+    const stop = nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('playback.stop'));
+    assert.equal(Boolean(stop), phase === 'loading' || phase === 'playing');
+    if (stop) assert.equal(stop.props.onPress, onStop);
+  }
 });
 console.log(`Check-in screen: ${checks} rendered JSX regressions passed.`);

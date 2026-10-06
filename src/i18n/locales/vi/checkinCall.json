@@ -197,7 +197,7 @@
     "playing": "Asinu đang nói",
     "finished": "Đã đọc xong lời nhắc",
     "error": "Chưa phát được lời nhắc",
-    "errorHint": "Bạn vẫn có thể đọc nội dung và trả lời ngay, hoặc bấm nghe lại.",
+    "errorHint": "Bạn vẫn có thể trả lời ngay trên màn hình, hoặc bấm nghe lại.",
     "stop": "Dừng đọc",
     "savingResponse": "Đang ghi nhận phản hồi…"
   },

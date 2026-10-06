@@ -197,7 +197,7 @@
     "playing": "Asinu is speaking",
     "finished": "Message finished",
     "error": "Unable to play the message",
-    "errorHint": "You can still read the message and respond now, or try replaying it.",
+    "errorHint": "You can still respond on screen, or try replaying the message.",
     "stop": "Stop reading",
     "savingResponse": "Saving your response…"
   },

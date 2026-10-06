@@ -14,6 +14,7 @@ function evaluate(source, requireModule = () => { throw new Error('Unexpected ru
 }
 const audioSource = fs.readFileSync('src/features/checkin-call/checkin-call.audio.ts', 'utf8');
 const { CheckinCallAudio, isFamilyNoticePrompt } = evaluate(audioSource);
+const { CheckinCallAutoplay } = evaluate(fs.readFileSync('src/features/checkin-call/checkin-call.autoplay.ts', 'utf8'));
 const { getUserCheckinCallOutcome, getClosedCheckinCallStatusKey, isCheckinCallAttemptClosed } = evaluate(fs.readFileSync('src/features/checkin-call/checkin-call.state.ts', 'utf8'));
 let checks = 0;
 const test = async (name, run) => {
@@ -521,15 +522,20 @@ function screenAudioHarness({ claim = async () => false, teardown = async () => 
   const playbackInFlight = { current: null };
   let listener, nativeListener;
   const AppState = { currentState: 'active', addEventListener: (_name, callback) => { listener = callback; return { remove() {} }; } };
-  const factory = evaluate(`module.exports = deps => { const { callScreenFocused, playAudio, stopCallAudio, playVersion, audioContext, AppState, setVoipCallUIActive, actionPending, addVoipCallAnsweredListener, pendingAudioPrompt, playbackInFlight } = deps; const stopAudio = ${stopExpression}; const play = ${playExpression}; return { play, stopAudio, focus: ${focusExpression}, observe: ${appStateExpression}, observeNative: ${nativeExpression} }; };`);
+  const plays = [];
+  const factory = evaluate(`module.exports = deps => { const { callScreenFocused, playAudio, stopCallAudio, showAudioPrompt, playVersion, audioContext, AppState, setVoipCallUIActive, actionPending, addVoipCallAnsweredListener, pendingAudioPrompt, playbackInFlight } = deps; const stopAudio = ${stopExpression}; const play = ${playExpression}; return { play, stopAudio, focus: ${focusExpression}, observe: ${appStateExpression}, observeNative: ${nativeExpression} }; };`);
   const h = factory({ callScreenFocused: { current: true }, playVersion: { current: 0 }, audioContext: context, AppState, actionPending, pendingAudioPrompt, playbackInFlight,
     addVoipCallAnsweredListener: callback => { nativeListener = callback; },
     setVoipCallUIActive: async (id, active) => { events.push(`native:${active}`); return claim(id, active); },
-    playAudio: async (key, text) => { events.push('play'); await playback?.owner.play({ ...prompt(key), ...(text ? { text } : {}) }); },
+    showAudioPrompt: async (key, text) => {
+      events.push(`show:${key}`);
+      await playback?.owner.showPrompt({ ...prompt(key), ...(text ? { text } : {}) });
+    },
+    playAudio: async (key, text, automatic) => { events.push('play'); plays.push({ key, automatic }); await playback?.owner.play({ ...prompt(key), ...(text ? { text } : {}) }); },
     stopCallAudio: async (clearPrompt = true) => { events.push('stop'); const stopped = playback?.owner.stop(clearPrompt); await teardown(); await stopped; } });
   h.observe();
   h.observeNative();
-  return { ...h, context, events, actionPending, pendingAudioPrompt, playbackInFlight, nativeEnded: call => nativeListener(call),
+  return { ...h, context, events, plays, actionPending, pendingAudioPrompt, playbackInFlight, nativeEnded: call => nativeListener(call),
     appState: state => { AppState.currentState = state; listener(state); } };
 }
 await test('blur stops reading and prevents a late API response from starting off-screen speech', async () => {
@@ -538,10 +544,10 @@ await test('blur stops reading and prevents a late API response from starting of
   await h.play('before');
   blur();
   await h.play('late');
-  assert.deepEqual(h.events, ['stop', 'play', 'stop']);
+  assert.deepEqual(h.events, ['stop', 'play', 'stop', 'show:late']);
   h.focus();
   await h.play('replay');
-  assert.deepEqual(h.events, ['stop', 'play', 'stop', 'stop', 'play']);
+  assert.deepEqual(h.events, ['stop', 'play', 'stop', 'show:late', 'stop', 'play']);
 });
 await test('a native audio claim that finishes after blur cannot start speech', async () => {
   const claim = deferred();
@@ -564,7 +570,7 @@ await test('a quick refocus cannot release the newly reclaimed native audio sess
   assert.equal(h.events.includes('native:false'), false);
   assert.equal(h.events.filter(event => event === 'play').length, 1);
 });
-await test('backgrounding stops app speech and foregrounding resumes only the current prompt', async () => {
+await test('backgrounding stops speech; returning stays silent until an explicit Replay', async () => {
   const h = screenAudioHarness(); h.focus();
   h.context.current = { attempt: { id: 'native-attempt' }, joined: true, ended: false,
     prompt: { key: 'user_prompt', text: 'Choose a response' } };
@@ -573,7 +579,10 @@ await test('backgrounding stops app speech and foregrounding resumes only the cu
   await h.play('offscreen');
   assert.equal(h.events.includes('play'), false);
   h.appState('active'); await tick();
-  assert.deepEqual(h.events, ['stop', 'native:false', 'stop', 'native:true', 'play']);
+  assert.deepEqual(h.events, ['stop', 'native:false', 'show:offscreen', 'native:true']);
+  await h.play('user_prompt', 'Choose a response', true);
+  assert.equal(h.events.filter(event => event === 'play').length, 1);
+  assert.equal(h.plays[0].automatic, false);
 });
 await test('a quick background/foreground transition cannot release the recovered session', async () => {
   const teardown = deferred();
@@ -583,7 +592,7 @@ await test('a quick background/foreground transition cannot release the recovere
   h.appState('background'); h.appState('active'); await tick();
   teardown.resolve(); await tick();
   assert.equal(h.events.includes('native:false'), false);
-  assert.equal(h.events.filter(event => event === 'play').length, 1);
+  assert.equal(h.events.filter(event => event === 'play').length, 0);
 });
 for (const phase of ['loading', 'playing', 'finished']) {
   await test(`visual-call foreground and focus do not restart a ${phase} announcement`, async () => {
@@ -594,10 +603,10 @@ for (const phase of ['loading', 'playing', 'finished']) {
     h.appState('active');
     h.appState('active');
     await tick();
-    assert.deepEqual(h.events, []);
+    assert.equal(h.events.filter(event => event === 'play').length, 0);
   });
 }
-await test('simultaneous unlock/focus recovery starts a stopped question only once', async () => {
+await test('simultaneous unlock/focus events never restart a stopped question', async () => {
   const claim = deferred();
   const h = screenAudioHarness({ claim: () => claim.promise });
   h.context.current = { attempt: { id: 'native-attempt' }, joined: true, ended: false,
@@ -607,25 +616,24 @@ await test('simultaneous unlock/focus recovery starts a stopped question only on
   h.appState('active');
   claim.resolve(true);
   await tick();
-  assert.equal(h.events.filter(event => event === 'play').length, 1);
-  assert.equal(h.events.filter(event => event === 'native:true').length, 1);
+  assert.equal(h.events.filter(event => event === 'play').length, 0);
 });
 await test('a React idle render during native handoff cannot restart an in-flight announcement', async () => {
   const claim = deferred();
   const h = screenAudioHarness({ claim: () => claim.promise });
   h.context.current = { attempt: { id: 'native-attempt' }, joined: true, ended: false,
     phase: 'idle', prompt: { key: 'user_prompt', text: 'Current question' } };
+  const playing = h.play('user_prompt');
   h.focus();
   // The old player's stop emits idle before native handoff completes. React
   // can commit that state while CallKit sends another active/focus event.
   h.context.current.phase = 'idle';
   h.focus(); h.appState('active'); await tick();
-  assert.equal(h.events.filter(event => event === 'native:true').length, 1);
-  claim.resolve(true); await tick();
+  claim.resolve(true); await playing; await tick();
   assert.equal(h.events.filter(event => event === 'play').length, 1);
   assert.equal(h.playbackInFlight.current, null);
 });
-await test('only an active prompt resumes after a user hangup releases CallKit audio', async () => {
+await test('a CallKit audio release stops the active prompt without starting it over', async () => {
   let expression;
   ts.forEachChild(ast, function find(node) {
     if (ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect'
@@ -637,21 +645,21 @@ await test('only an active prompt resumes after a user hangup releases CallKit a
   assert.ok(expression);
   const context = { current: { attempt: { id: 'attempt' }, joined: true, ended: false,
     phase: 'playing', prompt: { key: 'user_prompt', text: 'Choose your response' } } };
-  const played = []; let listener;
+  const stopped = []; let listener;
   const actionPending = { current: false };
-  const install = evaluate(`module.exports = deps => { const { audioContext, addVoipCallAnsweredListener, play, actionPending } = deps; return (${expression})(); };`);
+  const install = evaluate(`module.exports = deps => { const { audioContext, addVoipCallAnsweredListener, stopAudio, actionPending } = deps; return (${expression})(); };`);
   install({ audioContext: context, actionPending, addVoipCallAnsweredListener: callback => { listener = callback; },
-    play: (...args) => { played.push(args); } });
+    stopAudio: (...args) => { stopped.push(args); } });
   const released = { attemptId: 'attempt', nativeEnded: '1', audioSessionReleased: '1' };
   listener({ ...released, audioSessionReleased: undefined });
   listener({ ...released, attemptId: 'other' });
-  assert.equal(played.length, 0);
+  assert.equal(stopped.length, 0);
   listener(released);
-  assert.deepEqual(played, [['user_prompt', 'Choose your response']]);
+  assert.deepEqual(stopped, [[false]]);
   for (const patch of [{ ended: true }, { ended: false, phase: 'finished' }, { phase: 'idle' }, { phase: 'playing', joined: false }]) {
     Object.assign(context.current, patch); listener(released);
   }
-  assert.equal(played.length, 1);
+  assert.equal(stopped.length, 1);
 });
 
 for (const transition of ['location', 'symptom', 'back']) {
@@ -784,7 +792,7 @@ await test('a clear stop revokes a pending native claim immediately, while stop(
   assert.equal(h.context.current.phase, 'idle');
 });
 for (const transition of ['background', 'blur']) {
-  await test(`${transition} during the next question's native claim resumes only that new question`, async () => {
+  await test(`${transition} during a native claim stays silent on return; Replay plays only the new question`, async () => {
     const playback = harness();
     await playback.owner.play(prompt('old_question'));
     const firstClaim = deferred(), secondClaim = deferred();
@@ -802,7 +810,11 @@ for (const transition of ['background', 'blur']) {
     assert.deepEqual(playback.events.filter(event => event.startsWith('play:')), ['play:old_question']);
     if (transition === 'background') h.appState('active');
     else h.focus();
-    secondClaim.resolve(true); await tick();
+    await tick();
+    assert.deepEqual(playback.events.filter(event => event.startsWith('play:')), ['play:old_question']);
+    assert.equal(playback.states.at(-1).prompt.key, 'triage_symptom_prompt');
+    const replaying = h.play('triage_symptom_prompt', undefined, true);
+    secondClaim.resolve(true); await replaying; await tick();
     assert.deepEqual(playback.events.filter(event => event.startsWith('play:')), ['play:old_question', 'play:triage_symptom_prompt']);
     assert.equal(h.pendingAudioPrompt.current, null);
   });
@@ -810,7 +822,7 @@ for (const transition of ['background', 'blur']) {
 
 // The native adapter is exercised with filesystem/API stubs as well, so cache
 // coalescing, exact-attempt identity and no-autoplay are tested at the seam.
-function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwner = false, files = new Map()) {
+function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwner = false, files = new Map(), receipts = new Map()) {
   const refs = [], states = [], effects = [], calls = [];
   const configCalls = [], audioLocales = [];
   let voiceVersion = 'voice-v1';
@@ -818,6 +830,7 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
   let fileInfo = initialFile;
   let refIndex = 0, installed = false;
   const h = harness();
+  const storage = { getItem: async key => receipts.get(key) ?? null, setItem: async (key, value) => { receipts.set(key, value); } };
   const api = {
     audioConfig: async language => { configCalls.push(language); return { version: voiceVersion, language }; },
     userAudio: async (id, key, version, language) => { calls.push(`user:${id}:${key}:${version}`); audioLocales.push(language); return { base64: 'audio', audioVersion: voiceVersion }; },
@@ -826,6 +839,8 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
     conclusionAudio: async (text, language) => { calls.push(`conclusion:${text}`); audioLocales.push(language); return { base64: 'audio', audioVersion: voiceVersion }; },
   };
   const { useCheckinCallAudio } = evaluate(fs.readFileSync('src/features/checkin-call/useCheckinCallAudio.ts', 'utf8'), id => {
+    if (id === '@react-native-async-storage/async-storage') return { __esModule: true, default: storage };
+    if (id === './checkin-call.autoplay') return { CheckinCallAutoplay };
     if (id === '../../lib/voip') return { setVoipCallUIActive: async () => nativeOwner };
     if (id === 'react') return {
       useRef: initial => refs[refIndex++] ||= { current: initial },
@@ -852,20 +867,121 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
     if (id === './checkin-call.api') return { checkinCallApi: api };
     throw new Error(`Unexpected dependency ${id}`);
   });
-  const renderHook = (attempt, language = 'vi') => {
+  const renderHook = (attempt, language = 'vi', accountId = 'test-user') => {
     refIndex = 0;
     // This deterministic native-adapter harness supplies its own React hook
     // implementations; no React renderer is loaded in these Node regressions.
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useCheckinCallAudio(attempt, language, key => key);
+    return useCheckinCallAudio(attempt, language, key => key, accountId);
   };
   const controls = renderHook(initialAttempt);
   const cleanup = effects[0]();
   installed = true;
-  return { controls, render: renderHook, cleanup, calls, api, h, states, files, configCalls, audioLocales,
+  return { controls, render: renderHook, cleanup, calls, api, h, states, files, receipts, storage, configCalls, audioLocales,
     set voiceVersion(value) { voiceVersion = value; },
     get audioModeChanges() { return audioModeChanges; } };
 }
+const receiptAttempt = { id: 'receipt-attempt', episode_id: 'receipt-episode', target_role: 'USER' };
+for (const language of ['vi', 'en']) {
+  await test(`${language}: automatic prompt plays once and reopening the same call stays silent until Replay`, async () => {
+    const receipts = new Map();
+    const first = hookHarness(receiptAttempt, { exists: false }, false, new Map(), receipts);
+    await first.render(receiptAttempt, language).play('user_prompt', undefined, true);
+    assert.equal(first.h.sounds.length, 1);
+    first.cleanup();
+    const reopened = hookHarness(receiptAttempt, { exists: false }, false, new Map(), receipts);
+    await reopened.render(receiptAttempt, language).play('user_prompt', undefined, true);
+    assert.equal(reopened.h.sounds.length, 0);
+    assert.deepEqual(reopened.calls, [], 'Reopening must not download or synthesize speech');
+    assert.equal(reopened.states.at(-1).phase, 'idle');
+    assert.equal(reopened.states.at(-1).prompt.key, 'user_prompt', 'Replay must remain available');
+    await reopened.controls.play('user_prompt');
+    await reopened.controls.play('user_prompt');
+    assert.equal(reopened.h.sounds.length, 2, 'Only explicit Replay may play again');
+    reopened.cleanup();
+  });
+}
+await test('different questions get one automatic reading each; going back never repeats an old question', async () => {
+  const h = hookHarness(receiptAttempt);
+  for (const key of ['user_prompt', 'triage_location_prompt', 'triage_symptom_prompt', 'triage_location_prompt', 'user_prompt']) {
+    await h.controls.play(key, undefined, true);
+  }
+  assert.equal(h.h.sounds.length, 3);
+  h.cleanup();
+});
+await test('voice revision, language and personalized text changes do not grant another automatic reading', async () => {
+  const h = hookHarness(receiptAttempt);
+  await h.controls.play('user_prompt', 'First wording', true);
+  h.voiceVersion = 'voice-v2';
+  await h.render(receiptAttempt, 'en').play('user_prompt', 'New wording', true);
+  assert.equal(h.h.sounds.length, 1);
+  await h.controls.play('user_prompt', 'New wording');
+  assert.equal(h.h.sounds.length, 2);
+  h.cleanup();
+});
+await test('autoplay receipts are isolated by account, episode and attempt', async () => {
+  const h = hookHarness(receiptAttempt);
+  await h.controls.play('user_prompt', undefined, true);
+  await h.render({ ...receiptAttempt, id: 'new-attempt' }).play('user_prompt', undefined, true);
+  await h.render({ ...receiptAttempt, episode_id: 'new-episode' }).play('user_prompt', undefined, true);
+  await h.render(receiptAttempt, 'vi', 'another-account').play('user_prompt', undefined, true);
+  assert.equal(h.h.sounds.length, 4);
+  for (const raw of h.receipts.values()) assert.ok(!raw.includes('transcript') && !raw.includes('wording'));
+  h.cleanup();
+});
+await test('manual Replay before any automatic reading consumes the automatic allowance', async () => {
+  const h = hookHarness(receiptAttempt);
+  await h.controls.play('user_prompt');
+  await h.controls.play('user_prompt', undefined, true);
+  assert.equal(h.h.sounds.length, 1);
+  h.cleanup();
+});
+await test('concurrent receipt claims grant one permission and do not erase other question receipts', async () => {
+  const stored = new Map();
+  const receipts = new CheckinCallAutoplay({ getItem: async key => stored.get(key) ?? null, setItem: async (key, value) => { stored.set(key, value); } });
+  const scope = { accountId: 'account', episodeId: 'episode', attemptId: 'attempt' };
+  assert.deepEqual(await Promise.all([receipts.claim(scope, 'user_prompt'), receipts.claim(scope, 'user_prompt'),
+    receipts.claim(scope, 'triage_location_prompt')]), [true, false, true]);
+  assert.equal(await receipts.claim(scope, 'triage_location_prompt'), false);
+  assert.equal(await receipts.claim(scope, 'user_prompt'), false);
+});
+for (const failure of ['read', 'write', 'corrupt']) await test(`${failure} storage failure stays silent automatically but explicit Replay still works`, async () => {
+  const h = hookHarness(receiptAttempt);
+  if (failure === 'read') h.storage.getItem = async () => { throw new Error('storage unavailable'); };
+  if (failure === 'write') h.storage.setItem = async () => { throw new Error('storage unavailable'); };
+  if (failure === 'corrupt') h.storage.getItem = async () => 'invalid json';
+  await h.controls.play('user_prompt', undefined, true);
+  assert.equal(h.h.sounds.length, 0);
+  await h.controls.play('user_prompt');
+  assert.equal(h.h.sounds.length, 1);
+  h.cleanup();
+});
+await test('stopping while a receipt write is pending prevents late playback and does not auto-retry', async () => {
+  const write = deferred();
+  const h = hookHarness(receiptAttempt);
+  const original = h.storage.setItem;
+  h.storage.setItem = async (...args) => { await write.promise; await original(...args); };
+  const playing = h.controls.play('user_prompt', undefined, true);
+  await tick(); await h.controls.stopAudio(false);
+  write.resolve(); await playing;
+  assert.equal(h.h.sounds.length, 0);
+  await h.controls.play('user_prompt', undefined, true);
+  assert.equal(h.h.sounds.length, 0);
+  await h.controls.play('user_prompt');
+  assert.equal(h.h.sounds.length, 1);
+  h.cleanup();
+});
+await test('missing account/call identity never authorizes automatic audio', async () => {
+  const h = hookHarness(null);
+  await h.controls.play('user_prompt', undefined, true);
+  assert.equal(h.h.sounds.length, 0);
+  await h.controls.play('user_prompt');
+  assert.equal(h.h.sounds.length, 1);
+  h.cleanup();
+});
+await test('spoken reminders never get rescheduled by a countdown timer', () => {
+  assert.doesNotMatch(screenSource, /play\('user_retry'\)/);
+});
 await test('an answered native call keeps its audio session and skips Expo category changes', async () => {
   const h = hookHarness({ id: 'native-attempt', target_role: 'USER' }, { exists: false }, true);
   await h.controls.play('user_prompt');

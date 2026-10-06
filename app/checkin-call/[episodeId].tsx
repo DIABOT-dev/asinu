@@ -68,6 +68,7 @@ export default function CheckinCallScreen() {
 
 function AuthenticatedCheckinCallScreen() {
   const router = useRouter();
+  const accountId = useAuthStore(state => state.profile?.id);
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation('checkinCall');
   const language = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi';
@@ -87,7 +88,6 @@ function AuthenticatedCheckinCallScreen() {
   const [selectedLocation, setSelectedLocation] = useState<CheckinCallTriageLocation | null>(null);
   const [selectedSymptom, setSelectedSymptom] = useState<CheckinCallTriageSymptom | null>(null);
   const [draftReady, setDraftReady] = useState(false);
-  const [now, setNow] = useState(Date.now());
   const [reload, setReload] = useState(0);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const draftKey = `checkin-call-triage:v1:${episodeId}`;
@@ -101,7 +101,7 @@ function AuthenticatedCheckinCallScreen() {
   const [error, setError] = useState('');
   const [statusKey, setStatusKey] = useState('statusPreparing');
   const [completedAt, setCompletedAt] = useState<number | null>(null);
-  const { audio, play: playAudio, stopAudio: stopCallAudio } = useCheckinCallAudio(attempt, language, t);
+  const { audio, play: playAudio, stopAudio: stopCallAudio, showPrompt: showAudioPrompt } = useCheckinCallAudio(attempt, language, t, accountId);
   const callScreenFocused = useRef(true);
   const playVersion = useRef(0);
   const playbackInFlight = useRef<number | null>(null);
@@ -112,20 +112,30 @@ function AuthenticatedCheckinCallScreen() {
   const stopAudio = useCallback((clearPrompt = true) => {
     playVersion.current++;
     playbackInFlight.current = null;
+    const pending = pendingAudioPrompt.current;
     if (clearPrompt) pendingAudioPrompt.current = null;
     // Lifecycle events can arrive before React commits the player's idle state.
     // An answered question must immediately stop being eligible for resumption.
     audioContext.current = { ...audioContext.current, phase: 'idle',
       prompt: clearPrompt ? null : audioContext.current.prompt };
-    return stopCallAudio(clearPrompt);
-  }, [stopCallAudio]);
-  const play = useCallback(async (key: string, text?: string) => {
+    const stopped = stopCallAudio(clearPrompt);
+    if (!clearPrompt && pending) {
+      return Promise.all([stopped, showAudioPrompt(pending.key, pending.text)]).then(() => {});
+    }
+    return stopped;
+  }, [stopCallAudio, showAudioPrompt]);
+  const play = useCallback(async (key: string, text?: string, replay = false) => {
     const version = ++playVersion.current;
-    if (!callScreenFocused.current || AppState.currentState !== 'active') return;
+    if (!callScreenFocused.current || AppState.currentState !== 'active') {
+      // Retain the current question for explicit Replay, without scheduling
+      // speech to start when the user returns to the app.
+      await showAudioPrompt(key, text);
+      return;
+    }
     playbackInFlight.current = version;
     const current = audioContext.current;
-    // Keep only the new intent if focus changes while the bridge/download waits.
-    // stop(false) can then resume this question, never the superseded one.
+    // Keep the new question available for explicit Replay if focus changes
+    // while the bridge/download waits, never the superseded question.
     pendingAudioPrompt.current = { key, text };
     // Interrupt at the user's new intent, before waiting for the native bridge.
     // It may be slow while a previous question is still playing or downloading.
@@ -141,26 +151,22 @@ function AuthenticatedCheckinCallScreen() {
       if (version !== playVersion.current || !callScreenFocused.current || AppState.currentState !== 'active') return;
       await stopped;
       if (version !== playVersion.current || !callScreenFocused.current || AppState.currentState !== 'active') return;
-      await playAudio(key, text);
+      await playAudio(key, text, !replay);
       if (version === playVersion.current) pendingAudioPrompt.current = null;
     } finally {
       if (playbackInFlight.current === version) playbackInFlight.current = null;
     }
-  }, [playAudio, stopCallAudio]);
+  }, [playAudio, stopCallAudio, showAudioPrompt]);
   useEffect(() => addVoipCallAnsweredListener(call => {
     const current = audioContext.current;
     if (call.nativeEnded !== '1' || call.audioSessionReleased !== '1' || current.attempt?.id !== call.attemptId
       || actionPending.current || !current.joined || current.ended || !current.prompt || !['loading', 'playing'].includes(current.phase)) return;
-    // CallKit can end while the app is already visible (e.g. Dynamic Island).
-    // Reclaim playback after native deactivation, without another health POST.
-    void play(current.prompt.key, current.prompt.text);
-  }), [play]);
+    // Native deactivation can interrupt this recording. Do not start it over:
+    // only the user's Replay tap may request another playback.
+    void stopAudio(false);
+  }), [stopAudio]);
   useFocusEffect(useCallback(() => {
     callScreenFocused.current = true;
-    const current = audioContext.current;
-    const prompt = pendingAudioPrompt.current || current.prompt;
-    if (!actionPending.current && playbackInFlight.current === null && current.joined && !current.ended && prompt
-      && !['loading', 'playing', 'finished'].includes(current.phase)) void play(prompt.key, prompt.text);
     return () => {
       callScreenFocused.current = false;
       const id = audioContext.current.attempt?.id;
@@ -171,18 +177,15 @@ function AuthenticatedCheckinCallScreen() {
           || audioContext.current.attempt?.id !== id)) return setVoipCallUIActive(id, false);
       });
     };
-  }, [play, stopAudio]));
+  }, [stopAudio]));
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => {
       const current = audioContext.current;
       if (state === 'active') {
-        const prompt = pendingAudioPrompt.current || current.prompt;
-        // CallKit unlock, navigation focus and app activation can arrive for
-        // the same visual handoff. Resume a stopped question, never restart
-        // one already loading/playing or repeat a completed announcement.
-        if (!actionPending.current && playbackInFlight.current === null && callScreenFocused.current && current.joined && !current.ended && prompt
-          && !['loading', 'playing', 'finished'].includes(current.phase)) {
-          void play(prompt.key, prompt.text);
+        // Silence native guidance on return, but never replay app speech.
+        if (callScreenFocused.current && current.attempt && current.joined && !current.ended) {
+          void setVoipCallUIActive(current.attempt.id, true,
+            current.triageOpen ? current.attempt.next_action_at : current.attempt.confirm_deadline);
         }
       } else {
         void stopAudio(false).then(() => {
@@ -194,7 +197,7 @@ function AuthenticatedCheckinCallScreen() {
       }
     });
     return () => subscription.remove();
-  }, [play, stopAudio]);
+  }, [stopAudio]);
   useEffect(() => {
     if (!attempt || !joined || ended || !callScreenFocused.current || AppState.currentState !== 'active') return;
     void setVoipCallUIActive(attempt.id, true, triageOpen ? attempt.next_action_at : attempt.confirm_deadline);
@@ -437,12 +440,6 @@ function AuthenticatedCheckinCallScreen() {
     })).catch(() => {});
   }, [draftKey, draftReady, triageOpen, ended, selectedLocation, selectedSymptom, attempt?.next_action_at]);
 
-  useEffect(() => {
-    if (!joined || ended) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [joined, ended]);
-
   // Ending this device's call is not the end of the family escalation.
   useEffect(() => {
     if (!ended || !attempt) return;
@@ -552,27 +549,6 @@ function AuthenticatedCheckinCallScreen() {
   useEffect(() => {
     if (answeredFromCallKit && attempt && !joined && !ended) join();
   }, [answeredFromCallKit, attempt, ended, join, joined]);
-
-  useEffect(() => {
-    if (
-      !joined ||
-      ended ||
-      busy ||
-      triageOpen ||
-      attempt?.target_role !== 'USER' ||
-      !attempt.confirm_deadline
-    ) {
-      return;
-    }
-    const retryAt = new Date(attempt.confirm_deadline).getTime() - 15_000;
-    const delay = retryAt - Date.now();
-    if (!Number.isFinite(delay) || delay <= 0) return;
-    const timer = setTimeout(() => {
-      if (actionPending.current || callEnded.current || inTriage.current) return;
-      void play('user_retry');
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [attempt?.confirm_deadline, attempt?.target_role, busy, ended, joined, play, triageOpen]);
 
   const openTriage = async () => {
     if (actionPending.current || callEnded.current || inTriage.current || !episodeId) return;
@@ -790,9 +766,10 @@ function AuthenticatedCheckinCallScreen() {
     <CheckinCallSpeech
       audio={audio}
       disabled={busy}
+      showTranscript={false}
       onReplay={() => {
         if (actionPending.current || !audio.prompt) return;
-        void play(audio.prompt.key, audio.prompt.text);
+        void play(audio.prompt.key, audio.prompt.text, true);
       }}
       onStop={() => void stopAudio(false)}
     />
@@ -803,14 +780,7 @@ function AuthenticatedCheckinCallScreen() {
       <Text style={styles.processingText} accessibilityLiveRegion="polite">{t('playback.savingResponse')}</Text>
     </View>
   ) : null;
-  const deadline = getCheckinCallTime(triageOpen ? attempt?.next_action_at : attempt?.confirm_deadline || attempt?.ring_deadline);
-  const remaining = deadline === null ? null : Math.max(0, Math.ceil((deadline - now) / 1000));
   const urgent = attempt?.severity === 'URGENT' || episodeProgress?.severity === 'URGENT' || statusKey === 'statusUserUrgent';
-  const responseTiming = remaining !== null ? (
-    <Text style={styles.responseTiming}>
-      {t(remaining > 0 ? 'responseCountdown' : 'responseDeadline', { seconds: remaining })}
-    </Text>
-  ) : null;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -1045,7 +1015,6 @@ function AuthenticatedCheckinCallScreen() {
           {speechControls}
 
           <Text style={styles.familyFootnoteText}>{t('gallery.familyConfirmationNote')}</Text>
-          {responseTiming}
 
           <Image
             source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
@@ -1143,7 +1112,6 @@ function AuthenticatedCheckinCallScreen() {
                 <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
                 <Text style={styles.safetyFooterText}>{t('safetyNote')}</Text>
               </View>
-              {responseTiming}
             </View>
           ) : (
             <>
@@ -1158,7 +1126,6 @@ function AuthenticatedCheckinCallScreen() {
                   {t(`triage.${triageStep}Instruction`)}
                 </Text>
                 {speechControls}
-                {responseTiming}
               </View>
 
               {!!error && <Text style={styles.error}>{error}</Text>}
@@ -1380,7 +1347,6 @@ const styles = StyleSheet.create({
   weatherNotice: { width: '100%', maxWidth: 360, gap: 8, paddingVertical: 12 },
   weatherCopy: { fontSize: 15, lineHeight: 23, color: '#334155' },
   root: { flex: 1, backgroundColor: '#f3fbf8' },
-  responseTiming: { width: '100%', maxWidth: 390, color: '#475569', fontSize: 14, lineHeight: 22, marginTop: 8, marginBottom: 12 },
   urgentActionText: { color: '#b91c1c', fontSize: 16, fontWeight: '700', flexShrink: 1 },
   centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
   content: { flexGrow: 1, justifyContent: 'center', padding: 24, gap: 16 },

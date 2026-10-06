@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Speech from 'expo-speech';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from '../../lib/audio';
 import { setVoipCallUIActive } from '../../lib/voip';
 import { CheckinCallAudio, isFamilyNoticePrompt, type CallAudioPrompt, type CallAudioState } from './checkin-call.audio';
 import { checkinCallApi, type CheckinCallAttempt } from './checkin-call.api';
+import { CheckinCallAutoplay } from './checkin-call.autoplay';
+
+const autoplay = new CheckinCallAutoplay(AsyncStorage);
 
 export const CALL_AUDIO_TRANSLATIONS: Record<string, string> = {
   user_prompt: 'audio.userPrompt',
@@ -33,11 +37,12 @@ export function useCheckinCallAudio(
   attempt: CheckinCallAttempt | null,
   language: 'vi' | 'en',
   translate: (key: string) => string,
+  accountId?: string | number,
 ) {
   const [audio, setAudio] = useState<CallAudioState>({ phase: 'idle', prompt: null, fallback: false });
   const player = useRef<CheckinCallAudio | null>(null);
-  const context = useRef({ attempt, language, translate });
-  context.current = { attempt, language, translate };
+  const context = useRef({ attempt, language, translate, accountId });
+  context.current = { attempt, language, translate, accountId };
 
   useEffect(() => {
     // Coalesce repeated replay taps. They invalidate playback, not the same
@@ -75,6 +80,7 @@ export function useCheckinCallAudio(
       return { key, uri, personalizedFamily, personalizedUser };
     };
     const owner = new CheckinCallAudio({
+      claimAutoplay: (scope, key) => autoplay.claim(scope, key),
       load: async (prompt) => {
         // Revalidate on each playback, including replay in an already open call.
         const config = await currentVersion(prompt.language);
@@ -150,11 +156,11 @@ export function useCheckinCallAudio(
   }, []);
 
   const stopAudio = useCallback((clearPrompt = true) => player.current?.stop(clearPrompt) ?? Promise.resolve(), []);
-  const play = useCallback((key: string, text?: string) => {
+  const buildPrompt = useCallback((key: string, text?: string): CallAudioPrompt => {
     const current = context.current;
     const userText = current.attempt?.target_role === 'USER' ? current.attempt.user_notice?.prompts[key] : null;
     const personalized = isFamilyNoticePrompt(key) ? current.attempt?.family_notice?.audio_text : userText;
-    const prompt: CallAudioPrompt = {
+    return {
       key,
       text: text || personalized || current.translate(CALL_AUDIO_TRANSLATIONS[key] || 'audio.userRetry'),
       language: current.language,
@@ -162,8 +168,17 @@ export function useCheckinCallAudio(
       personalizedUser: !!userText,
       noticeVersion: userText ? current.attempt?.user_notice?.version : undefined,
     };
-    return player.current?.play(prompt) ?? Promise.resolve();
   }, []);
 
-  return { audio, play, stopAudio };
+  const showPrompt = useCallback((key: string, text?: string) =>
+    player.current?.showPrompt(buildPrompt(key, text)) ?? Promise.resolve(), [buildPrompt]);
+  const play = useCallback((key: string, text?: string, automatic = false) => {
+    const current = context.current;
+    const scope = current.accountId != null && current.attempt ? {
+      accountId: String(current.accountId), episodeId: current.attempt.episode_id, attemptId: current.attempt.id,
+    } : undefined;
+    return player.current?.play(buildPrompt(key, text), { automatic, scope }) ?? Promise.resolve();
+  }, [buildPrompt]);
+
+  return { audio, play, stopAudio, showPrompt };
 }
