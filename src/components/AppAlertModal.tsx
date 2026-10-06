@@ -179,9 +179,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       marginTop: spacing.sm,
     },
     button: {
+      minHeight: 48,
       paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
       borderRadius: radius.md,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     buttonDefault: {
       backgroundColor: colors.primaryLight,
@@ -202,6 +205,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.sm,
       fontWeight: '600',
       color: colors.primary,
+      textAlign: 'center',
+      flexShrink: 1,
     },
     buttonTextCancel: {
       color: colors.textSecondary,

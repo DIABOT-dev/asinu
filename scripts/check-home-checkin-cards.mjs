@@ -240,7 +240,7 @@ for (const language of ["vi", "en"]) {
 
 await test("the new abnormal-symptom wording and onboarding guide agree in both languages", () => {
   for (const [language, expected] of [
-    ["vi", "Tôi cảm thấy có dấu hiệu bất thường"],
+    ["vi", "Tôi có dấu hiệu bất thường"],
     ["en", "I'm noticing unusual symptoms"],
   ]) {
     const catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`));

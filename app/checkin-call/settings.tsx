@@ -182,7 +182,6 @@ export default function CheckinCallSettingsScreen() {
   const dirty = JSON.stringify(value) !== JSON.stringify(savedValue);
   const busy = saving || access === 'loading';
   const saveDisabled = busy || !dirty || access !== 'granted';
-  const dueMinutes = minutesFromTime(value.checkin_time) + value.grace_hours * 60;
 
   return (
     <View style={styles.root}>
@@ -216,8 +215,6 @@ export default function CheckinCallSettingsScreen() {
           <View style={styles.toggleRow}>
             <View style={styles.toggleCopy}>
               <Text style={styles.toggleLabel}>{t('enable')}</Text>
-              <Text style={styles.toggleStatus}>{savedValue?.enabled ? t('active') : t('inactive')}</Text>
-              <Text style={styles.toggleStatus}>{t(dirty ? 'draftSettings' : 'savedSettings')}</Text>
             </View>
             <Switch
               accessibilityRole="switch"
@@ -230,7 +227,6 @@ export default function CheckinCallSettingsScreen() {
             />
           </View>
 
-          <Text style={styles.cardSubtitle}>{t('schedulePreview', { time: timeFromMinutes(dueMinutes), timezone: value.timezone, nextDay: dueMinutes >= 1440 ? t('nextDay') : '' })}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel={t('personalization.open')}
             style={styles.setupAction} disabled={busy} onPress={() => router.push('/checkin-call/voice-settings')}>
             <Ionicons name="person-outline" size={20} color="#00897b" />
@@ -374,7 +370,6 @@ export default function CheckinCallSettingsScreen() {
 
           {!!error && <Text style={styles.error}>{error}</Text>}
           {access === 'error' && <Pressable accessibilityRole="button" style={styles.setupAction} onPress={() => setReload(current => current + 1)}><Text style={styles.setupActionText}>{tc('retry')}</Text></Pressable>}
-          <Text style={styles.cardSubtitle}>{t('settingsNotice')}</Text>
           <Text style={styles.cardSubtitle}>{t('urgentSettingsNotice')}</Text>
 
           {/* Save Button */}
@@ -463,11 +458,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#0f3e36',
-  },
-  toggleStatus: {
-    fontSize: 13,
-    color: '#00897b',
-    fontWeight: '600',
   },
   settingItemRow: {
     minHeight: 54,

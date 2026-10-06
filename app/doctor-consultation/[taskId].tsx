@@ -1676,6 +1676,8 @@ export default function DoctorConsultationThreadScreen() {
       />
       <AppAlertModal
         visible={busyModalVisible}
+        stackButtons
+        scrollable
         title={
           reopenOpen
             ? t("doctorConsultationReopenTitle")

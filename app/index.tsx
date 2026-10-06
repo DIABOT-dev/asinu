@@ -1,8 +1,7 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRootNavigationState } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, InteractionManager, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { DataConsentModal, hasDataConsent } from '../src/components/DataConsentModal';
@@ -13,35 +12,58 @@ import { getPendingVoipCall } from '../src/lib/voip';
 import { spacing } from '../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
+const splashBgVi = require('../assets/images/splash/asinu_splash_bg_vi.png');
+const splashBgEn = require('../assets/images/splash/asinu_splash_bg_en.png');
+const asinuBrandLogo = require('../assets/images/splash/asinu_brand_logo.png');
+
 function LoadingDot({ delay }: { delay: number }) {
-  const anim = useRef(new Animated.Value(0.3)).current;
+  const anim = useRef(new Animated.Value(0.35)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.delay(delay),
-        Animated.timing(anim, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.3, duration: 500, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.35, duration: 400, useNativeDriver: true }),
+        Animated.delay(Math.max(0, 600 - delay)),
       ])
     );
     loop.start();
     return () => loop.stop();
-  }, []);
-  return <Animated.View style={[styles.dot, { opacity: anim }]} />;
+  }, [anim, delay]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        {
+          opacity: anim,
+          transform: [
+            {
+              scale: anim.interpolate({
+                inputRange: [0.35, 1],
+                outputRange: [0.85, 1.15],
+              }),
+            },
+          ],
+        },
+      ]}
+    />
+  );
 }
 
 export default function Index() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const isEn = i18n.language?.startsWith('en');
+  const splashBg = isEn ? splashBgEn : splashBgVi;
   const router = useRouter();
   const navigationState = useRootNavigationState();
   const profile = useAuthStore((state) => state.profile);
   const loading = useAuthStore((state) => state.loading);
   const hydrated = useAuthStore((state) => state.hydrated);
   const isNavReady = Boolean(navigationState?.key);
-  const insets = useSafeAreaInsets();
 
-  const logoScale   = useRef(new Animated.Value(0.75)).current;
+  const logoScale   = useRef(new Animated.Value(0.9)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoFloat   = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
 
   const [consentReady, setConsentReady] = useState(false);
@@ -62,21 +84,12 @@ export default function Index() {
   // Entrance animation
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(logoScale, { toValue: 1, useNativeDriver: true, tension: 55, friction: 7 }),
-      Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(logoScale, { toValue: 1, useNativeDriver: true, tension: 55, friction: 8 }),
+      Animated.timing(logoOpacity, { toValue: 1, duration: 550, useNativeDriver: true }),
     ]).start(() =>
       Animated.timing(textOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start()
     );
-
-    const floatLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(logoFloat, { toValue: -7, duration: 950, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(logoFloat, { toValue: 0, duration: 950, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    );
-    floatLoop.start();
-    return () => floatLoop.stop();
-  }, []);
+  }, [logoOpacity, logoScale, textOpacity]);
 
   useEffect(() => {
     hasDataConsent().then((consented) => {
@@ -148,151 +161,133 @@ export default function Index() {
   }, [hydrated, isNavReady, loading, profile, router, consentReady, showConsent]);
 
   return (
-    <LinearGradient
-      colors={['#dff7f3', '#effbf9', '#fbfbfb']}
-      start={{ x: 0.2, y: 0 }}
-      end={{ x: 0.8, y: 1 }}
-      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xl }]}
-    >
-      {/* Light splash surface with the same Asinu mascot used in the app. */}
-      <Animated.View style={{ opacity: logoOpacity, transform: [{ scale: logoScale }, { translateY: logoFloat }] }}>
-        <Image
-          source={require('../assets/asinu_chat_sticker.png')}
-          style={styles.sticker}
-          resizeMode="contain"
-        />
-      </Animated.View>
+    <View style={styles.container}>
+      <StatusBar style="dark" />
+      <Image source={splashBg} style={StyleSheet.absoluteFill} resizeMode="cover" />
 
-      {/* Brand */}
-      <Animated.View style={[styles.brandWrap, { opacity: textOpacity }]}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>ASINU</Text>
-          <View style={styles.liteBadge}>
-            <Text style={styles.liteText}>Lite</Text>
+      {/* Top spacer to align content below the 3D mascot on the curved hill */}
+      <View style={styles.topSection} />
+
+      {/* Middle Interactive Section */}
+      <View style={styles.contentWrap}>
+        <Animated.View style={{ opacity: logoOpacity, transform: [{ scale: logoScale }] }}>
+          <Image
+            source={asinuBrandLogo}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+        </Animated.View>
+
+        <Animated.View style={{ opacity: textOpacity }}>
+          <Text style={styles.tagline}>{t('tagline')}</Text>
+        </Animated.View>
+
+        <View style={styles.loadingWrap}>
+          <View style={styles.dotsWrap}>
+            <LoadingDot delay={0} />
+            <LoadingDot delay={200} />
+            <LoadingDot delay={400} />
+          </View>
+          <View style={styles.progressHeader}>
+            <Text style={styles.loadingText}>{t('loading')}</Text>
+            <Text style={styles.progressPercent}>{progressPercent}%</Text>
+          </View>
+          <View style={styles.progressTrack} accessibilityLabel={`${progressPercent}%`}>
+            <Animated.View
+              style={[
+                styles.progressFill,
+                { width: progressValue.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+              ]}
+            />
           </View>
         </View>
-        <Text style={styles.tagline}>{t('tagline')}</Text>
-      </Animated.View>
-
-      {/* Loading state */}
-      <View style={styles.loadingWrap}>
-        <View style={styles.dotsWrap}>
-          <LoadingDot delay={0} />
-          <LoadingDot delay={220} />
-          <LoadingDot delay={440} />
-        </View>
-        <View style={styles.progressHeader}>
-          <Text style={styles.loadingText}>{t('loading')}</Text>
-          <Text style={styles.progressPercent}>{progressPercent}%</Text>
-        </View>
-        <View style={styles.progressTrack} accessibilityLabel={`${progressPercent}%`}>
-          <Animated.View
-            style={[styles.progressFill, { width: progressValue.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]}
-          />
-        </View>
       </View>
+
+      {/* Bottom spacer for decorative waves and heartbeat */}
+      <View style={styles.bottomSection} />
 
       <DataConsentModal
         visible={showConsent}
         onAgree={() => setShowConsent(false)}
         onDecline={() => setShowConsent(false)}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xl,
+    backgroundColor: '#ffffff',
     overflow: 'hidden',
   },
-  sticker: {
-    width: 156,
-    height: 156,
+  topSection: {
+    flex: 0.52,
   },
-  // Brand
-  brandWrap: {
+  contentWrap: {
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  title: {
-    fontSize: 44,
-    fontWeight: '900',
-    color: '#155e58',
-    letterSpacing: 5,
-  },
-  liteBadge: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(21,94,88,0.14)',
-    marginTop: 8,
-  },
-  liteText: {
-    color: '#287b72',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.5,
+  logoImage: {
+    width: 235,
+    height: 55,
   },
   tagline: {
-    color: '#6b817f',
+    color: '#547b77',
     fontSize: 15,
-    fontWeight: '400',
-    letterSpacing: 0.3,
-  },
-  // Loading dots
-  dotsWrap: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+    fontWeight: '500',
+    marginTop: 8,
+    textAlign: 'center',
   },
   loadingWrap: {
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: 26,
+    gap: 12,
+  },
+  dotsWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    height: 12,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00a896',
   },
   progressHeader: {
-    width: 220,
+    width: 230,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   loadingText: {
-    color: '#6b817f',
-    fontSize: 13,
+    color: '#437b75',
+    fontSize: 14,
     fontWeight: '600',
   },
   progressPercent: {
-    color: '#287b72',
-    fontSize: 13,
+    color: '#00796b',
+    fontSize: 14,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   progressTrack: {
-    width: 220,
-    height: 7,
+    width: 230,
+    height: 8,
     overflow: 'hidden',
     borderRadius: 4,
-    backgroundColor: 'rgba(21, 94, 88, 0.12)',
+    backgroundColor: '#daf0ee',
   },
   progressFill: {
     height: '100%',
     borderRadius: 4,
-    backgroundColor: '#159f91',
+    backgroundColor: '#00a896',
   },
-  dot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#159f91',
+  bottomSection: {
+    flex: 0.28,
   },
 });

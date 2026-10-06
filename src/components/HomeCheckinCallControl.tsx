@@ -198,24 +198,6 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
 
   const enabled = allowed === true && settings?.enabled === true;
   const busy = loading || saving || allowed === null;
-  const schedule = settings
-    ? (() => {
-        const [hours, minutes] = settings.checkin_time
-          .slice(0, 5)
-          .split(":")
-          .map(Number);
-        const due = hours * 60 + minutes + settings.grace_hours * 60;
-        const time = `${String(Math.floor((due % 1440) / 60)).padStart(
-          2,
-          "0"
-        )}:${String(due % 60).padStart(2, "0")}`;
-        return t("schedulePreview", {
-          time,
-          timezone: settings.timezone,
-          nextDay: due >= 1440 ? t("nextDay") : "",
-        });
-      })()
-    : "";
   const dialogEnabled = dialog && dialog.kind !== "access" && dialog.enabled;
   const dialogTitle =
     dialog?.kind === "access"
@@ -236,15 +218,6 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
         <Ionicons name="call-outline" size={28} color={colors.primaryDark} />
         <View style={styles.copy}>
           <Text style={styles.title}>{t("homeControl.title")}</Text>
-          <Text style={styles.status}>
-            {loading
-              ? t("loadingSettings")
-              : allowed === null
-              ? t("homeControl.unknown")
-              : enabled
-              ? t("active")
-              : t("inactive")}
-          </Text>
         </View>
         <Switch
           accessibilityRole="switch"
@@ -261,21 +234,12 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
           onValueChange={openConfirmation}
         />
       </View>
-      {!loading && allowed !== null && (
-        <Text style={styles.description}>
-          {allowed
-            ? enabled
-              ? schedule
-              : t("homeControl.offSummary")
-            : t("accessRequiredBody")}
-        </Text>
-      )}
       {!!error && (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
         </Text>
       )}
-      {!loading && (
+      {!loading && allowed === null && !!error && (
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ disabled: saving }}
@@ -284,26 +248,10 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
             styles.link,
             (pressed || saving) && styles.dimmed,
           ]}
-          onPress={() =>
-            allowed === null
-              ? void refresh()
-              : router.push(
-                  allowed ? "/checkin-call/settings" : "/subscription"
-                )
-          }
+          onPress={() => void refresh()}
         >
-          <Text style={styles.linkText}>
-            {allowed === null
-              ? tc("retry")
-              : allowed
-              ? t("homeControl.configure")
-              : t("viewPlans")}
-          </Text>
-          <Ionicons
-            name={allowed === null ? "refresh-outline" : "chevron-forward"}
-            size={20}
-            color={colors.primaryDark}
-          />
+          <Text style={styles.linkText}>{tc("retry")}</Text>
+          <Ionicons name="refresh-outline" size={20} color={colors.primaryDark} />
         </Pressable>
       )}
       <QueuedModal
@@ -350,9 +298,6 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
                 {dialogTitle}
               </Text>
               <Text style={styles.modalBody}>{dialogBody}</Text>
-              {dialogEnabled && (
-                <Text style={styles.modalBody}>{schedule}</Text>
-              )}
               {dialog?.kind === "confirm" && dialog.enabled && noContacts && (
                 <Text style={styles.modalBody}>{t("contactSetupHint")}</Text>
               )}
@@ -453,16 +398,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.md,
       fontWeight: "700",
       color: colors.textPrimary,
-    },
-    status: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      marginTop: spacing.xs,
-    },
-    description: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      marginTop: spacing.sm,
     },
     error: {
       fontSize: typography.size.sm,

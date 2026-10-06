@@ -317,19 +317,7 @@ for (const language of ["vi", "en"]) {
           .text()
           .includes(h.t(`homeControl.confirm${enabled ? "On" : "Off"}Title`))
       );
-      if (enabled)
-        assert.ok(
-          h
-            .text()
-            .includes(
-              h.t("schedulePreview", {
-                time: "05:30",
-                timezone: defaults.timezone,
-                nextDay: h.t("nextDay"),
-              })
-            )
-        );
-      else assert.ok(h.text().includes(h.t("homeControl.offBody")));
+      if (!enabled) assert.ok(h.text().includes(h.t("homeControl.offBody")));
       h.button(
         enabled ? "homeControl.turnOn" : "homeControl.turnOff"
       ).props.onPress();
@@ -512,11 +500,9 @@ await test("missing relatives expose working setup navigation without bypassing 
   assert.deepEqual(h.calls.saves, []);
   h.unmount();
 });
-await test("settings changes refresh on return and foreground, with a working configuration link", async () => {
+await test("settings changes refresh on return and foreground", async () => {
   const h = harness();
   await h.settle();
-  h.button("homeControl.configure").props.onPress();
-  assert.deepEqual(h.calls.pushes, ["/checkin-call/settings"]);
   h.blur();
   h.server.settings.enabled = true;
   await h.focus();

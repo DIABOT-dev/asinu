@@ -262,6 +262,182 @@ await test('ordinary two-button alerts preserve their original horizontal layout
   const buttons = nodes(tree).filter(node => node.type === 'Pressable' && node.props.style instanceof Function);
   for (const button of buttons) assert.equal(Object.assign({}, ...button.props.style({ pressed: false }).filter(Boolean)).flex, 1);
 });
+await test('updated app-modal buttons have readable wrapping text and 48px touch targets', () => {
+  const tree = alertHarness()({ visible: true, title: 'Long title', message: 'Long message',
+    stackButtons: true, scrollable: true, onDismiss() {},
+    buttons: [{ text: 'A long confirmation label that must wrap' }, { text: 'A long cancellation label' }] });
+  for (const button of nodes(tree).filter(node => node.type === 'Pressable' && node.props.style instanceof Function)) {
+    const style = Object.assign({}, ...button.props.style({ pressed: false }).filter(Boolean));
+    assert.ok(style.minHeight >= 48);
+    assert.equal(style.width, '100%');
+    assert.equal(style.alignItems, 'center');
+    assert.equal(style.justifyContent, 'center');
+    const label = nodes(button).find(node => node.type === 'Text');
+    const textStyle = Object.assign({}, ...label.props.style.filter(Boolean));
+    assert.equal(textStyle.textAlign, 'center');
+    assert.equal(textStyle.flexShrink, 1);
+    assert.equal(label.props.numberOfLines, undefined);
+  }
+});
+await test('the specialist busy/reopen modal opts into stacked buttons and scrolling', () => {
+  const body = read('app/doctor-consultation/[taskId].tsx');
+  const file = ts.createSourceFile('doctor.tsx', body, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let modal;
+  const find = node => {
+    if (ts.isJsxOpeningElement(node) && node.tagName.getText(file) === 'AppAlertModal'
+      && node.attributes.properties.some(attr => attr.name?.getText(file) === 'visible'
+        && attr.initializer?.expression?.getText(file) === 'busyModalVisible')) modal = node;
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(file) === 'AppAlertModal'
+      && node.attributes.properties.some(attr => attr.name?.getText(file) === 'visible'
+        && attr.initializer?.expression?.getText(file) === 'busyModalVisible')) modal = node;
+    ts.forEachChild(node, find);
+  };
+  find(file); assert.ok(modal);
+  for (const prop of ['stackButtons', 'scrollable']) {
+    assert.ok(modal.attributes.properties.some(attr => attr.name?.getText(file) === prop
+      && (attr.initializer === undefined || attr.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword)));
+  }
+});
+
+// Run the actual updated splash with native adapters: assets, consent/auth
+// gates and cold-start call routing must survive a visual-only replacement.
+function splashHarness({ language = 'vi', profile = null, hydrated = true, loading = false,
+  navigationReady = true, consent = Promise.resolve(true), call = null, response = null } = {}) {
+  let cursor = 0, pending = [], live = true;
+  const slots = [];
+  const state = { profile, hydrated, loading, navigationReady };
+  const calls = { routes: [], native: 0, push: 0, loopStarts: 0, loopStops: 0 };
+  const tasks = [];
+  const router = { replace: route => calls.routes.push(route) };
+  class Value {
+    constructor(value) { this.value = value; this.listeners = new Map(); }
+    setValue(value) { this.value = value; this.listeners.forEach(listener => listener({ value })); }
+    interpolate(config) { return { value: this.value, ...config }; }
+    addListener(listener) { const id = String(this.listeners.size); this.listeners.set(id, listener); return id; }
+    removeListener(id) { this.listeners.delete(id); }
+  }
+  const animation = (value, options) => ({ start: callback => {
+    value.setValue(options.toValue); callback?.({ finished: true });
+  } });
+  const imports = {
+    react: {
+      useRef: value => slots[cursor++] ??= { current: value },
+      useState: initial => {
+        const index = cursor++;
+        if (!slots[index]) slots[index] = { value: initial };
+        return [slots[index].value, value => {
+          assert.ok(live, 'Cannot update unmounted splash');
+          slots[index].value = typeof value === 'function' ? value(slots[index].value) : value;
+        }];
+      },
+      useEffect: (work, deps) => {
+        const index = cursor++;
+        if (!slots[index] || deps.some((value, i) => !Object.is(value, slots[index].deps[i]))) {
+          const previous = slots[index];
+          slots[index] = { deps };
+          pending.push(() => { previous?.cleanup?.(); slots[index].cleanup = work(); });
+        }
+      },
+    },
+    'react/jsx-runtime': jsxRuntime,
+    'react-native': {
+      Animated: { Value, View: 'AnimatedView', timing: animation, spring: animation,
+        parallel: items => ({ start: callback => { items.forEach(item => item.start()); callback?.(); } }),
+        sequence: value => value, delay: value => value,
+        loop: () => ({ start: () => calls.loopStarts++, stop: () => calls.loopStops++ }) },
+      Easing: { out: value => value, cubic: () => {} },
+      Image: 'Image', View: 'View', StyleSheet: { create: value => value, absoluteFill: { position: 'absolute' } },
+      InteractionManager: { runAfterInteractions: work => {
+        const task = { work, cancelled: false, cancel() { this.cancelled = true; } };
+        tasks.push(task); return task;
+      } },
+    },
+    'expo-router': { useRootNavigationState: () => state.navigationReady ? { key: 'ready' } : null },
+    'expo-status-bar': { StatusBar: 'StatusBar' },
+    'expo-notifications': { getLastNotificationResponseAsync: async () => { calls.push++; return response; } },
+    'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { language } }) },
+    '../src/components/ScaledText': { ScaledText: 'Text' },
+    '../src/components/DataConsentModal': { DataConsentModal: 'ConsentModal', hasDataConsent: () => consent },
+    '../src/features/auth/auth.store': { useAuthStore: select => select(state) },
+    '../src/lib/notifications': { routeFromNotificationData: data => data.route },
+    '../src/lib/voip': { getPendingVoipCall: async () => { calls.native++; return await call; } },
+    '../src/styles': { spacing: { lg: 24 } },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => router },
+  };
+  for (const asset of ['asinu_splash_bg_vi.png', 'asinu_splash_bg_en.png', 'asinu_brand_logo.png']) {
+    assert.ok(fs.existsSync(`assets/images/splash/${asset}`));
+    imports[`../assets/images/splash/${asset}`] = asset;
+  }
+  const components = evaluate(`${read('app/index.tsx')}\nexport { LoadingDot };`, imports);
+  const render = () => { cursor = 0; return components.default(); };
+  const settle = async () => {
+    render(); const effects = pending; pending = []; effects.forEach(work => work());
+    await Promise.resolve(); await Promise.resolve();
+    return render();
+  };
+  return { state, calls, render, settle,
+    runTasks: async () => {
+      const queued = tasks.splice(0);
+      for (const task of queued) { if (!task.cancelled) await task.work(); }
+    },
+    dot: () => { cursor = 0; return components.LoadingDot({ delay: 200 }); },
+    runEffects: () => { const effects = pending; pending = []; effects.forEach(work => work()); },
+    unmount: () => { live = false; slots.forEach(slot => slot.cleanup?.()); },
+  };
+}
+for (const language of ['vi', 'en-US']) await test(`${language}: updated splash uses its real localized image and brand logo`, async () => {
+  const h = splashHarness({ language });
+  const tree = await h.settle();
+  const images = nodes(tree).filter(node => node.type === 'Image');
+  assert.equal(images[0].props.source, language === 'vi' ? 'asinu_splash_bg_vi.png' : 'asinu_splash_bg_en.png');
+  assert.equal(images[1].props.source, 'asinu_brand_logo.png');
+  assert.equal(images[0].props.resizeMode, 'cover');
+  await h.settle(); await h.runTasks();
+  assert.deepEqual(h.calls.routes, ['/login']); h.unmount();
+});
+await test('splash cannot navigate before consent, auth hydration and navigator are ready', async () => {
+  let finishConsent;
+  const consent = new Promise(resolve => { finishConsent = resolve; });
+  const h = splashHarness({ consent, hydrated: false, loading: true, navigationReady: false });
+  await h.settle(); await h.runTasks(); assert.deepEqual(h.calls.routes, []);
+  finishConsent(false); await h.settle();
+  h.state.hydrated = true; h.state.loading = false; h.state.navigationReady = true;
+  const tree = await h.settle(); await h.runTasks(); assert.deepEqual(h.calls.routes, []);
+  const modal = nodes(tree).find(node => node.type === 'ConsentModal');
+  assert.equal(modal.props.visible, true);
+  modal.props.onAgree(); await h.settle(); await h.runTasks();
+  assert.deepEqual(h.calls.routes, ['/login']); h.unmount();
+});
+await test('updated splash preserves onboarding and Home routing without an artificial delay', async () => {
+  for (const completed of [false, true]) {
+    const h = splashHarness({ profile: { id: '7', onboardingCompleted: completed } });
+    await h.settle(); await h.settle(); await h.runTasks();
+    assert.deepEqual(h.calls.routes, [completed ? '/(tabs)/home' : '/onboarding']); h.unmount();
+  }
+});
+await test('an answered CallKit call still outranks a stale notification tap on the new splash', async () => {
+  const h = splashHarness({ profile: { id: '7', onboardingCompleted: true },
+    call: { episodeId: 'episode', attemptId: 'attempt' },
+    response: { notification: { date: Date.now() / 1000, request: { content: { data: { route: '/care-circle' } } } } } });
+  await h.settle(); await h.settle(); await h.runTasks();
+  assert.deepEqual(h.calls.routes, [{ pathname: '/checkin-call/[episodeId]', params: {
+    episodeId: 'episode', attemptId: 'attempt', nativeAnswered: '1',
+  } }]);
+  assert.equal(h.calls.push, 0); h.unmount();
+});
+await test('leaving splash during pending native recovery cannot navigate the unmounted route', async () => {
+  let finish;
+  const h = splashHarness({ profile: { id: '7', onboardingCompleted: true },
+    call: new Promise(resolve => { finish = resolve; }) });
+  await h.settle(); await h.settle();
+  const running = h.runTasks(); h.unmount(); finish({ episodeId: 'episode', attemptId: 'attempt' });
+  await running; assert.deepEqual(h.calls.routes, []);
+});
+await test('updated loading-dot animation stops its loop on unmount', () => {
+  const h = splashHarness(); h.dot(); h.runEffects();
+  assert.equal(h.calls.loopStarts, 1); h.unmount();
+  assert.equal(h.calls.loopStops, 1);
+});
 
 // Execute the real preparation effect and onShow handler from SessionProvider.
 const source = read('src/providers/SessionProvider.tsx');
