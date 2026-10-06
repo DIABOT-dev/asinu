@@ -37,6 +37,48 @@ import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { getConnectionHealthAccess } from '../../src/features/care-circle/health-access';
 import { getFamilyRoleLabel, getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
+import Svg, { Path } from 'react-native-svg';
+
+function ShieldXIcon({ color = '#475569', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="m14.5 9.5-5 5m0-5 5 5"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function ShieldCheckIcon({ color = '#0D9488', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="m9 12 2 2 4-4"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 export default function CareCircleScreen() {
   const router = useRouter();
@@ -47,7 +89,7 @@ export default function CareCircleScreen() {
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
 
   const {
@@ -636,54 +678,41 @@ export default function CareCircleScreen() {
                           key={connection.id}
                           style={styles.connectionCard}
                         >
-                        <TouchableOpacity
-                          onPress={() =>
-                            healthAccess.canViewTheirs ? router.push({
-                              pathname: '/care-circle/member/[id]',
-                              params: { id: String(otherUserId), name: otherName },
-                            }) : showAlert(t('healthProfilePrivate'), t('healthAccessRequired'))
-                          }
-                          activeOpacity={0.75}
-                        >
+                          {/* Header: Avatar, Name, Relationship Badge & 3-Dots */}
                           <View style={styles.connectionCardHeader}>
-                            <View style={styles.connectionAvatar}>
-                              <Text style={styles.connectionAvatarText}>
-                                {otherName[0]?.toUpperCase() || '?'}
-                              </Text>
-                            </View>
+                            <TouchableOpacity
+                              style={styles.connectionHeaderLeft}
+                              activeOpacity={0.75}
+                              onPress={() =>
+                                healthAccess.canViewTheirs
+                                  ? router.push({
+                                      pathname: '/care-circle/member/[id]',
+                                      params: { id: String(otherUserId), name: otherName },
+                                    })
+                                  : showAlert(t('healthProfilePrivate'), t('healthAccessRequired'))
+                              }
+                            >
+                              <View style={styles.connectionAvatar}>
+                                <Text style={styles.connectionAvatarText}>
+                                  {otherName[0]?.toUpperCase() || '?'}
+                                </Text>
+                              </View>
 
-                            <View style={styles.connectionCardInfo}>
-                              <Text style={styles.connectionCardName} numberOfLines={1}>
-                                {otherName}
-                              </Text>
+                              <View style={styles.connectionCardInfo}>
+                                <Text style={styles.connectionCardName} numberOfLines={1}>
+                                  {otherName}
+                                </Text>
 
-                              {(displayRelationship || displayRole) && (
-                                <View style={styles.connectionBadge}>
-                                  <Ionicons name="heart" size={11} color="#0D9488" />
-                                  <Text style={styles.connectionBadgeText}>
-                                    {displayRelationship || displayRole}
-                                  </Text>
-                                </View>
-                              )}
-
-                              {otherUserPhone && (
-                                <View style={styles.contactRow}>
-                                  <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
-                                  <Text style={styles.cardContact}>{otherUserPhone}</Text>
-                                </View>
-                              )}
-                              {otherUserEmail && (
-                                <View style={styles.contactRow}>
-                                  <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
-                                  <Text style={styles.cardContact} numberOfLines={1}>
-                                    {otherUserEmail}
-                                  </Text>
-                                </View>
-                              )}
-                              <Text style={styles.cardContact}>
-                                {t(healthAccess.canViewTheirs ? 'viewHealthProfile' : 'healthProfilePrivate')}
-                              </Text>
-                            </View>
+                                {(displayRelationship || displayRole) && (
+                                  <View style={styles.connectionBadge}>
+                                    <Ionicons name="heart" size={13} color={isDark ? '#5EEAD4' : '#0D9488'} />
+                                    <Text style={styles.connectionBadgeText}>
+                                      {displayRelationship || displayRole}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            </TouchableOpacity>
 
                             <TouchableOpacity
                               accessibilityRole="button"
@@ -711,19 +740,80 @@ export default function CareCircleScreen() {
                                 showAlert(t('connectionActionsTitle'), t('connectionActionsMessage', { name: otherName }), options);
                               }}
                               style={styles.moreActionsBtn}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                               {actionLoading === connection.id ? (
                                 <ActivityIndicator size="small" color={colors.textSecondary} />
                               ) : (
                                 <Ionicons
-                                  name="ellipsis-vertical"
+                                  name="ellipsis-horizontal"
                                   size={18}
-                                  color={colors.textSecondary}
+                                  color={isDark ? colors.textSecondary : '#1E293B'}
                                 />
                               )}
                             </TouchableOpacity>
                           </View>
-                        </TouchableOpacity>
+
+                          {/* Contact Info Section */}
+                          {(otherUserPhone || otherUserEmail) && (
+                            <View style={styles.contactSection}>
+                              {otherUserPhone && (
+                                <View style={styles.contactRow}>
+                                  <Ionicons name="call-outline" size={19} color={isDark ? colors.textSecondary : '#475569'} />
+                                  <Text style={styles.cardContactText}>{otherUserPhone}</Text>
+                                </View>
+                              )}
+                              {otherUserEmail && (
+                                <View style={styles.contactRow}>
+                                  <Ionicons name="mail-outline" size={19} color={isDark ? colors.textSecondary : '#475569'} />
+                                  <Text style={styles.cardContactText} numberOfLines={1}>
+                                    {otherUserEmail}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          )}
+
+                          {/* Health Profile Permission Banner */}
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() =>
+                              healthAccess.canViewTheirs
+                                ? router.push({
+                                    pathname: '/care-circle/member/[id]',
+                                    params: { id: String(otherUserId), name: otherName },
+                                  })
+                                : showAlert(t('healthProfilePrivate'), t('healthAccessRequired'))
+                            }
+                            style={[
+                              styles.healthProfileBanner,
+                              healthAccess.canViewTheirs && styles.healthProfileBannerAllowed,
+                            ]}
+                          >
+                            {healthAccess.canViewTheirs ? (
+                              <ShieldCheckIcon color={isDark ? '#6EE7B7' : '#0D9488'} size={24} />
+                            ) : (
+                              <ShieldXIcon color={isDark ? '#94A3B8' : '#475569'} size={24} />
+                            )}
+                            <View
+                              style={[
+                                styles.healthProfileDivider,
+                                healthAccess.canViewTheirs && styles.healthProfileDividerAllowed,
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.healthProfileBannerText,
+                                healthAccess.canViewTheirs && styles.healthProfileBannerTextAllowed,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {t(healthAccess.canViewTheirs ? 'viewHealthProfile' : 'healthProfilePrivate')}
+                            </Text>
+                            {healthAccess.canViewTheirs && (
+                              <Ionicons name="chevron-forward" size={18} color={isDark ? '#6EE7B7' : '#0D9488'} />
+                            )}
+                          </TouchableOpacity>
                         </View>
                       );
                     })}
@@ -923,14 +1013,14 @@ export default function CareCircleScreen() {
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark = false) {
   const androidCardSurface = Platform.select({
     android: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: isDark ? colors.surface : '#FFFFFF',
       elevation: 2,
     },
     default: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: isDark ? colors.surface : '#FFFFFF',
     },
   })!;
 
@@ -1185,80 +1275,123 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     // Connections List
     connectionsList: {
       marginHorizontal: spacing.lg,
-      gap: spacing.sm,
+      gap: spacing.md,
     },
     connectionCard: {
-      borderRadius: 20,
-      padding: spacing.md,
+      borderRadius: 22,
+      padding: 18,
       borderWidth: 1,
-      borderColor: '#EEF2F4',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
+      borderColor: isDark ? colors.border : '#EEF2F6',
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.04,
-      shadowRadius: 6,
+      shadowRadius: 10,
       ...androidCardSurface,
     },
     connectionCardHeader: {
       flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+    },
+    connectionHeaderLeft: {
+      flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
+      gap: 14,
+      flex: 1,
     },
     connectionAvatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: '#E4F8F4',
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      backgroundColor: isDark ? '#134E48' : '#E0F4F0',
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: '#D0F2E9',
     },
     connectionAvatarText: {
-      fontSize: 20,
+      fontSize: 24,
       fontWeight: '700',
-      color: '#0D9488',
+      color: isDark ? '#5EEAD4' : '#0F766E',
     },
     connectionCardInfo: {
       flex: 1,
+      justifyContent: 'center',
     },
     connectionCardName: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '700',
-      color: colors.textPrimary,
+      color: isDark ? colors.textPrimary : '#0F172A',
+      lineHeight: 24,
     },
     connectionBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      backgroundColor: '#E6F8F5',
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 10,
+      gap: 6,
+      backgroundColor: isDark ? '#134E48' : '#E6F8F5',
+      paddingHorizontal: 12,
+      paddingVertical: 4.5,
+      borderRadius: 16,
       alignSelf: 'flex-start',
-      marginTop: 4,
-      marginBottom: 2,
+      marginTop: 6,
     },
     connectionBadgeText: {
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: '600',
-      color: '#0D9488',
+      color: isDark ? '#5EEAD4' : '#0D9488',
+    },
+    moreActionsBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: isDark ? colors.surfaceMuted : '#F1F7F6',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 10,
+    },
+    contactSection: {
+      marginTop: 16,
+      gap: 12,
     },
     contactRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      marginTop: 2,
+      gap: 14,
     },
-    cardContact: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
+    cardContactText: {
+      fontSize: 15.5,
+      fontWeight: '500',
+      color: isDark ? colors.textPrimary : '#1E293B',
+      flex: 1,
     },
-    moreActionsBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+    healthProfileBanner: {
+      marginTop: 18,
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: isDark ? '#1E293B' : '#F4FAF8',
+      borderRadius: 14,
+      paddingVertical: 13,
+      paddingHorizontal: 16,
+    },
+    healthProfileBannerAllowed: {
+      backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
+    },
+    healthProfileDivider: {
+      width: 1,
+      height: 20,
+      backgroundColor: isDark ? '#475569' : '#CBD5E1',
+      marginHorizontal: 14,
+    },
+    healthProfileDividerAllowed: {
+      backgroundColor: isDark ? '#047857' : '#A7F3D0',
+    },
+    healthProfileBannerText: {
+      flex: 1,
+      fontSize: 14.5,
+      fontWeight: '500',
+      color: isDark ? '#94A3B8' : '#475569',
+    },
+    healthProfileBannerTextAllowed: {
+      fontWeight: '600',
+      color: isDark ? '#6EE7B7' : '#0D9488',
     },
     // Generic Section & Cards (Invitations)
     section: {
