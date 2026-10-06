@@ -2,7 +2,7 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -34,6 +34,7 @@ import { colors, iconColors, spacing, brandColors } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
+import { getConnectionHealthAccess } from '../../src/features/care-circle/health-access';
 
 export default function CareCircleScreen() {
   const router = useRouter();
@@ -58,6 +59,7 @@ export default function CareCircleScreen() {
     deleteConnection,
     updateConnection,
     updatePermissions,
+    updateHealthAccess,
     refresh,
     fetchInvitations,
     fetchConnections,
@@ -280,7 +282,7 @@ export default function CareCircleScreen() {
     setEditRelationType(relOption || null);
     setEditRole(roleOption || null);
     setEditPermissions({
-      can_view_logs: connection.permissions?.can_view_logs ?? true,
+      can_view_logs: connection.permissions?.can_view_logs === true,
       can_receive_alerts: connection.permissions?.can_receive_alerts ?? true,
       can_ack_escalation: connection.permissions?.can_ack_escalation ?? true,
     });
@@ -302,6 +304,19 @@ export default function CareCircleScreen() {
       showToast(t('editSuccess'), 'success');
     } catch {
       showToast(t('editError'), 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleHealthAccessChange = async (connectionId: string, canViewLogs: boolean) => {
+    if (actionLoading) return;
+    setActionLoading(connectionId);
+    try {
+      await updateHealthAccess(connectionId, canViewLogs);
+      showToast(t(canViewLogs ? 'healthAccessGranted' : 'healthAccessRevoked'), 'success');
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t, 'cannotUpdateConnection'), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -641,6 +656,7 @@ export default function CareCircleScreen() {
                   /* Active Connection Cards */
                   <View style={styles.connectionsList}>
                     {connections.map((connection) => {
+                      const healthAccess = getConnectionHealthAccess(connection, profile?.id);
                       const isRequester = String(connection.requester_id) === String(profile?.id);
                       const otherUserId = isRequester ? connection.addressee_id : connection.requester_id;
                       const otherUserFullName = isRequester
@@ -657,17 +673,19 @@ export default function CareCircleScreen() {
                         ? getRelationshipLabel(connection.relationship_type)
                         : reverseRelationship(connection.relationship_type, connection.requester_gender);
 
-                      const otherName = otherUserFullName || otherUserEmail || `#${otherUserId}`;
+                      const otherName = otherUserFullName || otherUserEmail || t('thisPerson');
 
                       return (
-                        <TouchableOpacity
+                        <View
                           key={connection.id}
                           style={styles.connectionCard}
+                        >
+                        <TouchableOpacity
                           onPress={() =>
-                            router.push({
+                            healthAccess.canViewTheirs ? router.push({
                               pathname: '/care-circle/member/[id]',
                               params: { id: String(otherUserId), name: otherName },
-                            })
+                            }) : showAlert(t('healthProfilePrivate'), t('healthAccessRequired'))
                           }
                           activeOpacity={0.75}
                         >
@@ -706,6 +724,9 @@ export default function CareCircleScreen() {
                                   </Text>
                                 </View>
                               )}
+                              <Text style={styles.cardContact}>
+                                {t(healthAccess.canViewTheirs ? 'viewHealthProfile' : 'healthProfilePrivate')}
+                              </Text>
                             </View>
 
                             <TouchableOpacity
@@ -719,7 +740,7 @@ export default function CareCircleScreen() {
                                     onPress: () =>
                                       handleEditConnection({
                                         ...connection,
-                                        name: otherUserFullName || `User ${otherUserId}`,
+                                        name: otherName,
                                       }),
                                   });
                                 }
@@ -747,6 +768,20 @@ export default function CareCircleScreen() {
                             </TouchableOpacity>
                           </View>
                         </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.cardContact}>{t('shareMyHealthProfile', { name: otherName })}</Text>
+                            <Text style={styles.cardContact}>{t('healthAccessScope')}</Text>
+                          </View>
+                          <Switch
+                            value={healthAccess.sharingMine}
+                            disabled={Boolean(actionLoading)}
+                            accessibilityLabel={t('shareMyHealthProfile', { name: otherName })}
+                            onValueChange={(value) => handleHealthAccessChange(connection.id, value)}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                          />
+                        </View>
+                        </View>
                       );
                     })}
                   </View>

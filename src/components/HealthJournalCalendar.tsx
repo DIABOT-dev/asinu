@@ -16,6 +16,7 @@ import type { HealthReportData } from '../features/checkin/checkin.api';
 import { checkinApi } from '../features/checkin/checkin.api';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { ApiError } from '../lib/apiClient';
 import { radius, shadows, spacing } from '../styles';
 import { ScaledText as Text } from './ScaledText';
 
@@ -26,6 +27,8 @@ type JournalStatus = 'fine' | 'tired' | 'very_tired' | 'specific_concern';
 
 type Props = {
   refreshKey?: number;
+  loadReport?: (month: string) => Promise<HealthReportData>;
+  subjectName?: string;
 };
 
 const STATUS_COLORS: Record<JournalStatus, { background: string; foreground: string; border: string }> = {
@@ -124,9 +127,10 @@ function uniqueDetailAnswers(session: JournalSession, bodyLabels: string[]): str
   return [...new Map(values.map((answer) => [answer.toLocaleLowerCase(), answer])).values()].slice(0, 6);
 }
 
-export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
+export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName }: Props) {
   const { t, i18n } = useTranslation('tree');
   const { t: th } = useTranslation('home');
+  const { t: tc } = useTranslation('careCircle');
   const { colors, isDark } = useThemeColors();
   const typography = useScaledTypography();
   const insets = useSafeAreaInsets();
@@ -139,6 +143,7 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
   const [selectedSession, setSelectedSession] = useState<JournalSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   const monthKey = toMonthKey(month);
@@ -149,18 +154,20 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
     let active = true;
     setLoading(true);
     setError(false);
+    setAccessDenied(false);
+    setReport(null);
     setSelectedSession(null);
-    checkinApi
-      .getReport('month', monthKey)
+    (loadReport ? loadReport(monthKey) : checkinApi.getReport('month', monthKey))
       .then((result) => {
         if (active) {
           setReport(result);
         }
       })
-      .catch(() => {
+      .catch((failure) => {
         if (active) {
           setReport(null);
           setError(true);
+          setAccessDenied(failure instanceof ApiError && (failure.statusCode === 403 || failure.statusCode === 404));
         }
       })
       .finally(() => {
@@ -171,7 +178,7 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
     return () => {
       active = false;
     };
-  }, [monthKey, refreshKey, retryKey]);
+  }, [monthKey, refreshKey, retryKey, loadReport]);
 
   const sessionsByDate = useMemo(
     () => new Map((report?.sessions || []).map((session) => [session.date.slice(0, 10), session])),
@@ -300,9 +307,11 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
               ) : (
                 <>
                   <Text style={styles.summaryTitle}>
-                    {attentionDays > 0
-                      ? t('journalSummaryAttention', { fine: fineDays, attention: attentionDays })
-                      : t('journalSummaryFine', { fine: fineDays })}
+                    {subjectName
+                      ? tc(attentionDays > 0 ? 'memberSummaryAttention' : 'memberSummaryFine', { name: subjectName, fine: fineDays, attention: attentionDays })
+                      : attentionDays > 0
+                        ? t('journalSummaryAttention', { fine: fineDays, attention: attentionDays })
+                        : t('journalSummaryFine', { fine: fineDays })}
                   </Text>
                   {latestSession ? (
                     <View style={styles.summaryMetaRow}>
@@ -329,7 +338,7 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
         {error ? (
           <View style={styles.errorState}>
             <Ionicons name="cloud-offline-outline" size={24} color={colors.textSecondary} />
-            <Text style={styles.errorText}>{t('journalLoadError')}</Text>
+            <Text style={styles.errorText}>{accessDenied ? tc('healthAccessRequired') : t('journalLoadError')}</Text>
             <Pressable onPress={() => setRetryKey((value) => value + 1)} style={styles.retryButton}>
               <Text style={styles.retryText}>{t('journalRetry')}</Text>
             </Pressable>
@@ -407,9 +416,6 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
                     <View style={[styles.legendSwatch, { backgroundColor: itemColors.background }]} />
                     <Text
                       style={styles.legendText}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.72}
                     >
                       {statusLabel(status)}
                     </Text>
@@ -420,9 +426,6 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
                 <View style={[styles.legendSwatch, styles.legendMissing]} />
                 <Text
                   style={styles.legendText}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.72}
                 >
                   {t('journalStatusMissing')}
                 </Text>
@@ -573,7 +576,9 @@ export function HealthJournalCalendar({ refreshKey = 0 }: Props) {
                     <Text style={styles.reminderTitle}>{t('journalAsinuReminder')}</Text>
                   </View>
                   <Text style={styles.reminderText}>
-                    {selectedStatus === 'fine'
+                    {subjectName
+                      ? tc('memberJournalReminder', { name: subjectName })
+                      : selectedStatus === 'fine'
                       ? t('journalFineReminder')
                       : repeatedStatusCount > 1
                         ? t('journalRepeatedReminder', {
@@ -624,13 +629,15 @@ function createStyles(
       borderRadius: 22,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: isDark ? '#064e3b' : '#ecfdf5',
+      backgroundColor: 'transparent',
     },
     monthButtonDisabled: {
       backgroundColor: isDark ? '#1e293b' : '#f8fafc',
       opacity: 0.6,
     },
     monthTitle: {
+      flex: 1,
+      textAlign: 'center',
       color: isDark ? '#f8fafc' : '#0f172a',
       fontSize: 22,
       fontWeight: '800',
@@ -717,6 +724,7 @@ function createStyles(
     dayCell: {
       width: '100%',
       aspectRatio: 1,
+      minHeight: 44,
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
@@ -761,12 +769,13 @@ function createStyles(
     legendRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
       marginTop: 22,
       paddingHorizontal: 4,
     },
     legendItem: {
-      flex: 1,
+      width: '30%',
       alignItems: 'center',
       justifyContent: 'center',
       minWidth: 0,
@@ -912,11 +921,11 @@ function createStyles(
     },
     closeButton: {
       alignItems: 'center',
-      backgroundColor: palette.surfaceMuted,
+      backgroundColor: 'transparent',
       borderRadius: 19,
-      height: 38,
+      height: 44,
       justifyContent: 'center',
-      width: 38,
+      width: 44,
     },
     statusLine: {
       alignItems: 'center',

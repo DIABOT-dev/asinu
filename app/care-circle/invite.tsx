@@ -113,7 +113,7 @@ export default function InviteScreen() {
     selectedRole ||
     customRelationship.trim() ||
     customRole.trim() ||
-    Object.values(permissions).some(value => !value)
+    !permissions.can_view_logs || !permissions.can_receive_alerts || !permissions.can_ack_escalation
   );
 
   const handleExit = () => {

@@ -62,6 +62,9 @@ jobs:
       - name: Interaction and navigation check
         run: npm run test:interactions
 
+      - name: Care Circle health access and calendar regressions
+        run: npm run test:care-circle-health
+
       - name: i18n check
         run: npm run i18n:check
 

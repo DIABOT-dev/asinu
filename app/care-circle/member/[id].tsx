@@ -1,8 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DoctorConnectButton } from '../../../src/components/DoctorConnectButton';
 import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,9 +11,12 @@ import { careCircleApi, type MemberHealthSummary } from '../../../src/features/c
 import type { HealthReportData } from '../../../src/features/checkin/checkin.api';
 import type { TreeSummary } from '../../../src/features/tree/tree.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
-import { colors, spacing, typography } from '../../../src/styles';
+import { colors, spacing } from '../../../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { ScreenBackButton } from '../../../src/components/ScreenHeaderButton';
+import { HealthJournalCalendar } from '../../../src/components/HealthJournalCalendar';
+import { ApiError, getApiErrorMessage } from '../../../src/lib/apiClient';
+import { useAuthStore } from '../../../src/features/auth/auth.store';
 
 // ── Log type config ──────────────────────────────────────────────
 const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {
@@ -125,7 +128,7 @@ const normalizeMemberTreeSummary = (raw: MemberHealthSummary['treeSummary']): Tr
   };
 };
 
-type Tab = 'overview' | 'logs' | 'checkins';
+type Tab = 'calendar' | 'overview' | 'logs' | 'checkins';
 
 type CheckinSession = {
   id: number;
@@ -150,8 +153,25 @@ export default function MemberLogsScreen() {
   const scaledTypography = useScaledTypography();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
 
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('calendar');
   const [patientName, setPatientName] = useState(name || '');
+  const accountId = useAuthStore((state) => state.profile?.id);
+  const [focused, setFocused] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const loadCalendar = useCallback((month: string) => careCircleApi.getMemberHealthCalendar(id, month), [id]);
+
+  useEffect(() => { setPatientName(name || ''); }, [id, name]);
+
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    setRefreshKey((value) => value + 1);
+    return () => {
+      setFocused(false);
+      setSummary(null);
+      setLogs([]);
+      setCheckins([]);
+    };
+  }, [id, accountId]));
 
   // Shared dashboard state
   const [summary, setSummary] = useState<MemberHealthSummary | null>(null);
@@ -169,10 +189,17 @@ export default function MemberLogsScreen() {
   const [checkinsError, setCheckinsError] = useState('');
 
   useEffect(() => {
-    if (!id) return;
-    setSummaryLoading(true);
-    careCircleApi.getMemberHealthSummary(Number(id))
+    if (!id || !focused || activeTab === 'calendar') return;
+    let active = true;
+    const errorMessage = (error: unknown) => error instanceof ApiError && error.statusCode === 403
+      ? t('healthAccessRequired') : getApiErrorMessage(error, t, 'cannotLoadLogs');
+    if (activeTab === 'overview') {
+      setSummary(null);
+      setSummaryError('');
+      setSummaryLoading(true);
+      careCircleApi.getMemberHealthSummary(Number(id))
       .then(res => {
+        if (!active) return;
         if (res.ok) {
           setSummary(res);
           if (res.patientName) setPatientName(res.patientName);
@@ -180,12 +207,18 @@ export default function MemberLogsScreen() {
           setSummaryError(t('noPermissionViewLogs'));
         }
       })
-      .catch(() => setSummaryError(t('cannotLoadLogs')))
-      .finally(() => setSummaryLoading(false));
+      .catch(error => { if (active) setSummaryError(errorMessage(error)); })
+      .finally(() => { if (active) setSummaryLoading(false); });
+    }
 
     // Load logs
-    careCircleApi.getPatientLogs(id)
+    if (activeTab === 'logs') {
+      setLogs([]);
+      setLogsError('');
+      setLogsLoading(true);
+      careCircleApi.getPatientLogs(id)
       .then(res => {
+        if (!active) return;
         if (res.ok) {
           setLogs(res.logs || []);
           if (res.patientName) setPatientName(res.patientName);
@@ -193,22 +226,30 @@ export default function MemberLogsScreen() {
           setLogsError(t('noPermissionViewLogs'));
         }
       })
-      .catch(() => setLogsError(t('cannotLoadLogs')))
-      .finally(() => setLogsLoading(false));
+      .catch(error => { if (active) setLogsError(errorMessage(error)); })
+      .finally(() => { if (active) setLogsLoading(false); });
+    }
 
     // Load checkins
-    careCircleApi.getPatientCheckins(id)
+    if (activeTab === 'checkins') {
+      setCheckins([]);
+      setCheckinsError('');
+      setCheckinsLoading(true);
+      careCircleApi.getPatientCheckins(id)
       .then(res => {
+        if (!active) return;
         if (res.ok) {
           setCheckins(res.sessions || []);
-          if (res.patientName && !patientName) setPatientName(res.patientName);
+          if (res.patientName) setPatientName(res.patientName);
         } else {
           setCheckinsError(t('noPermissionViewLogs'));
         }
       })
-      .catch(() => setCheckinsError(t('cannotLoadLogs')))
-      .finally(() => setCheckinsLoading(false));
-  }, [id]);
+      .catch(error => { if (active) setCheckinsError(errorMessage(error)); })
+      .finally(() => { if (active) setCheckinsLoading(false); });
+    }
+    return () => { active = false; };
+  }, [id, accountId, focused, activeTab, refreshKey, t]);
 
   // Group logs by date
   const groupedLogs = useMemo(() => {
@@ -218,10 +259,12 @@ export default function MemberLogsScreen() {
       if (!map[date]) map[date] = [];
       map[date].push(log);
     }
-    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
+    return Object.entries(map).sort((a, b) =>
+      new Date(b[1][0].occurred_at).getTime() - new Date(a[1][0].occurred_at).getTime()
+    );
   }, [i18n.language, logs]);
 
-  const isLoading = activeTab === 'overview' ? summaryLoading : activeTab === 'logs' ? logsLoading : checkinsLoading;
+  const isLoading = activeTab === 'calendar' ? false : activeTab === 'overview' ? summaryLoading : activeTab === 'logs' ? logsLoading : checkinsLoading;
   const report = useMemo(() => normalizeMemberReport(summary?.report), [summary?.report]);
   const treeSummary = useMemo(() => normalizeMemberTreeSummary(summary?.treeSummary), [summary?.treeSummary]);
 
@@ -236,13 +279,22 @@ export default function MemberLogsScreen() {
       {/* Flat in-app header: no native back-button bubble, shadow, or divider. */}
       <View style={[styles.topHeader, { paddingTop: insets.top + spacing.xs }]}>
         <ScreenBackButton style={styles.flatBackButton} onPress={() => router.back()} />
-        <Text style={styles.topHeaderTitle} numberOfLines={1}>
-          {patientName ? t('memberLogsTitle', { name: patientName }) : t('healthLogs')}
+        <Text style={styles.topHeaderTitle}>
+          {patientName ? t('memberHealthProfileTitle', { name: patientName }) : t('viewHealthProfile')}
         </Text>
       </View>
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
+        <Pressable
+          style={[styles.tab, activeTab === 'calendar' && styles.tabActive]}
+          onPress={() => setActiveTab('calendar')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'calendar' }}
+        >
+          <Ionicons name="calendar-outline" size={18} color={activeTab === 'calendar' ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'calendar' && styles.tabTextActive]}>{t('tabHealthCalendar')}</Text>
+        </Pressable>
         <Pressable
           style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
           onPress={() => setActiveTab('overview')}
@@ -285,6 +337,16 @@ export default function MemberLogsScreen() {
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {activeTab === 'calendar' && focused && (
+          <>
+            <Text style={styles.emptyText}>{t('healthCalendarHint')}</Text>
+            <HealthJournalCalendar
+              key={`${accountId}:${id}:${refreshKey}`}
+              loadReport={loadCalendar}
+              subjectName={patientName || t('thisPerson')}
+            />
+          </>
+        )}
         {isLoading && (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -756,12 +818,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     // ── Tab bar ──
     tabBar: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       backgroundColor: colors.surface,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
     tab: {
-      flex: 1,
+      width: '50%',
+      minHeight: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
@@ -774,6 +838,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderBottomColor: colors.primary,
     },
     tabText: {
+      flexShrink: 1,
       fontSize: typography.size.sm,
       fontWeight: '600',
       color: colors.textSecondary,

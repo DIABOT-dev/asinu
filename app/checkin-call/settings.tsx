@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal } from '../../src/components/AppAlertModal';
 import { checkinCallApi, type CheckinCallSettings } from '../../src/features/checkin-call/checkin-call.api';
@@ -60,8 +61,10 @@ export default function CheckinCallSettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [activeField, setActiveField] = useState<string | null>(null);
+  const initialized = useRef(false);
+  const saveInFlight = useRef(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     setError('');
     setAccess('loading');
@@ -73,16 +76,20 @@ export default function CheckinCallSettingsScreen() {
           setAccess('denied');
           return;
         }
-        setAccess('granted');
         const result = await checkinCallApi.settings();
         if (!active) return;
         const loaded = {
           ...result.settings,
           checkin_time: result.settings.checkin_time.slice(0, 5),
         };
-        setValue(loaded);
-        setSavedValue(loaded);
+        // Refresh eligibility on return without discarding an unsaved configuration.
+        if (!initialized.current) {
+          setValue(loaded);
+          setSavedValue(loaded);
+          initialized.current = true;
+        }
         setContacts(result.contacts || null);
+        setAccess('granted');
       })
       .catch((e) => {
         if (!active) return;
@@ -92,19 +99,32 @@ export default function CheckinCallSettingsScreen() {
     return () => {
       active = false;
     };
-  }, [tc, reload]);
+  }, [tc, reload]));
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active' && !saveInFlight.current) {
+        setReload(current => current + 1);
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   const save = async () => {
-    if (!value || saving) return;
+    if (!value || saveInFlight.current || access !== 'granted') return;
+    saveInFlight.current = true;
     setSaving(true);
     setError('');
     try {
       const result = await checkinCallApi.saveSettings(value);
-      setValue({ ...result.settings, checkin_time: result.settings.checkin_time.slice(0, 5) });
+      const saved = { ...result.settings, checkin_time: result.settings.checkin_time.slice(0, 5) };
+      setValue(saved);
+      setSavedValue(saved);
       router.back();
     } catch (e) {
       setError(getApiErrorMessage(e, tc));
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   };
@@ -160,6 +180,8 @@ export default function CheckinCallSettingsScreen() {
   }
 
   const dirty = JSON.stringify(value) !== JSON.stringify(savedValue);
+  const busy = saving || access === 'loading';
+  const saveDisabled = busy || !dirty || access !== 'granted';
   const dueMinutes = minutesFromTime(value.checkin_time) + value.grace_hours * 60;
 
   return (
@@ -200,9 +222,9 @@ export default function CheckinCallSettingsScreen() {
             <Switch
               accessibilityRole="switch"
               accessibilityLabel={t('enable')}
-              accessibilityState={{ checked: value.enabled }}
+              accessibilityState={{ checked: value.enabled, disabled: busy }}
               value={value.enabled}
-              disabled={saving || (!value.enabled && contacts?.length === 0)}
+              disabled={busy}
               onValueChange={(enabled) => setValue({ ...value, enabled })}
               trackColor={{ false: '#cbd5e1', true: '#00897b' }}
             />
@@ -211,7 +233,33 @@ export default function CheckinCallSettingsScreen() {
           <Text style={styles.cardSubtitle}>{t('schedulePreview', { time: timeFromMinutes(dueMinutes), timezone: value.timezone, nextDay: dueMinutes >= 1440 ? t('nextDay') : '' })}</Text>
           {contacts !== null && <View style={styles.contactPreview}>
             <Text style={styles.toggleLabel}>{t('eligibleContacts')}</Text>
-            {contacts.length === 0 ? <Text style={styles.cardSubtitle}>{t('noEligibleContacts')}</Text> : contacts.map((contact, index) => <Text style={styles.cardSubtitle} key={contact.id}>{index + 1}. {contact.name || t('eligibleContactFallback', { index: index + 1 })}</Text>)}
+            {contacts.length === 0 ? <>
+              <Text style={styles.cardSubtitle}>{t('noEligibleContacts')}</Text>
+              <Text style={styles.cardSubtitle}>{t('contactSetupHint')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('manageCareCircle')}
+                disabled={busy}
+                style={styles.setupAction}
+                onPress={() => router.push('/care-circle')}
+              >
+                <Ionicons name="people-outline" size={20} color="#00897b" />
+                <Text style={styles.setupActionText}>{t('manageCareCircle')}</Text>
+              </Pressable>
+            </> : contacts.map((contact, index) => <Text style={styles.cardSubtitle} key={contact.id}>{index + 1}. {contact.name || t('eligibleContactFallback', { index: index + 1 })}</Text>)}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('refreshContacts')}
+              accessibilityState={{ disabled: busy, busy: access === 'loading' }}
+              disabled={busy}
+              style={styles.setupAction}
+              onPress={() => setReload(current => current + 1)}
+            >
+              {access === 'loading'
+                ? <ActivityIndicator size="small" color="#00897b" />
+                : <Ionicons name="refresh-outline" size={20} color="#00897b" />}
+              <Text style={styles.setupActionText}>{t('refreshContacts')}</Text>
+            </Pressable>
           </View>}
 
           {/* Row 1: Check-in Time */}
@@ -320,6 +368,7 @@ export default function CheckinCallSettingsScreen() {
           })}
 
           {!!error && <Text style={styles.error}>{error}</Text>}
+          {access === 'error' && <Pressable accessibilityRole="button" style={styles.setupAction} onPress={() => setReload(current => current + 1)}><Text style={styles.setupActionText}>{tc('retry')}</Text></Pressable>}
           <Text style={styles.cardSubtitle}>{t('settingsNotice')}</Text>
           <Text style={styles.cardSubtitle}>{t('urgentSettingsNotice')}</Text>
 
@@ -327,10 +376,10 @@ export default function CheckinCallSettingsScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('saveSettings')}
-            accessibilityState={{ disabled: saving || !dirty || (value.enabled && contacts?.length === 0) }}
-            style={styles.saveBtn}
+            accessibilityState={{ disabled: saveDisabled, busy: saving }}
+            style={[styles.saveBtn, saveDisabled && styles.saveBtnDisabled]}
             onPress={save}
-            disabled={saving || !dirty || (value.enabled && contacts?.length === 0)}
+            disabled={saveDisabled}
           >
             {saving ? (
               <ActivityIndicator color="#ffffff" size="small" />
@@ -359,6 +408,8 @@ const styles = StyleSheet.create({
   },
   backButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   contactPreview: { gap: 8, paddingVertical: 12 },
+  setupAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  setupActionText: { flexShrink: 1, color: '#00897b', fontSize: 14, fontWeight: '600' },
   topBarTitle: { fontSize: 17, fontWeight: '700', color: '#0f3e36', textAlign: 'center', flex: 1 },
   container: { padding: 18, paddingTop: 4, paddingBottom: 48, gap: 14 },
   card: {
@@ -490,4 +541,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  saveBtnDisabled: { opacity: 0.45, elevation: 0, shadowOpacity: 0 },
 });

@@ -1,5 +1,6 @@
 import { apiClient } from "../../lib/apiClient";
 import { normalizeVietnamesePhone } from "../../lib/validation";
+import type { HealthReportData } from "../checkin/checkin.api";
 
 export type CareCircleInvitation = {
   id: string;
@@ -33,6 +34,8 @@ export type CareCircleConnection = {
   requester_id: string;
   addressee_id: string;
   status: "accepted";
+  /** This user's consent is independent from the requester's permission. */
+  addressee_can_view_logs?: boolean;
   relationship_type?: string;
   role?: string;
   permissions: {
@@ -287,6 +290,23 @@ export const careCircleApi = {
   },
 
   // Caregiver: view patient's health logs
+  async updateHealthAccess(connectionId: string, canViewLogs: boolean) {
+    const response = await apiClient<{ ok: boolean; connection: Pick<CareCircleConnection,
+      'id' | 'requester_id' | 'addressee_id' | 'status' | 'permissions' | 'addressee_can_view_logs' | 'updated_at'
+    > }>(
+      `/api/care-circle/connections/${connectionId}/health-access`,
+      { method: "PUT", body: { can_view_logs: canViewLogs } }
+    );
+    return response.connection;
+  },
+
+  async getMemberHealthCalendar(memberId: string, month: string) {
+    const response = await apiClient<{ ok: boolean; patientName: string; report: HealthReportData }>(
+      `/api/care-circle/member/${encodeURIComponent(memberId)}/health-calendar?month=${encodeURIComponent(month)}`
+    );
+    return response.report;
+  },
+
   async getPatientLogs(patientId: string) {
     const response = await apiClient<{
       ok: boolean;

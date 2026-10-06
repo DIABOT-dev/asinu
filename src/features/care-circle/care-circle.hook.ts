@@ -33,6 +33,7 @@ interface CareCircleStore {
     connectionId: string,
     permissions: { can_view_logs: boolean; can_receive_alerts: boolean; can_ack_escalation: boolean }
   ) => Promise<CareCircleConnection>;
+  updateHealthAccess: (connectionId: string, canViewLogs: boolean) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -178,6 +179,13 @@ export const useCareCircle = create<CareCircleStore>((set, get) => ({
     } finally {
       set({ loading: false });
     }
+  },
+
+  updateHealthAccess: async (connectionId, canViewLogs) => {
+    const updated = await careCircleApi.updateHealthAccess(connectionId, canViewLogs);
+    set({ connections: get().connections.map((connection) =>
+      connection.id === connectionId ? { ...connection, ...updated } : connection
+    ) });
   },
 
   updateConnection: async (connectionId, updates) => {

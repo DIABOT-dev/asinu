@@ -72,6 +72,7 @@ jobs:
           npm run test:checkin-connection
           npm run test:checkin-audio
           npm run test:interactions
+          npm run test:care-circle-health
           npm run i18n:check
           npm run lint:assets
           npm run lint
