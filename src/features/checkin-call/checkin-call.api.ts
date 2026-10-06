@@ -125,6 +125,12 @@ export const checkinCallApi = {
       method: 'PUT',
       body: settings,
     }),
+  // The backend merges this patch with the latest schedule and timing settings.
+  setEnabled: (enabled: boolean) =>
+    apiClient<{ ok: boolean; settings: CheckinCallSettings }>(BASE + '/settings', {
+      method: 'PUT',
+      body: { enabled },
+    }),
   active: () => apiClient<{ ok: boolean; active: ActiveCheckinCall | null }>(BASE + '/active'),
   episode: (id: string) =>
     apiClient<{ ok: boolean; episode: CheckinCallEpisode }>(BASE + '/episodes/' + id),

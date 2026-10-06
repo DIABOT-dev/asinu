@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { Avatar } from '../../../src/components/Avatar';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
+import { HomeCheckinCallControl } from '../../../src/components/HomeCheckinCallControl';
 import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
 import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
@@ -954,6 +955,7 @@ export default function HomeScreen() {
         {/* Immediate and quick-positive check-ins share the former metrics position. */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
           <View style={styles.checkinStack}>
+            {profile?.id && <HomeCheckinCallControl key={profile.id} userId={String(profile.id)} />}
             <DailyCheckinCard />
             <InstantCheckinCard />
           </View>
