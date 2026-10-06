@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
-import { AsinuEmergencyFAB } from '../asinu-brain-extension/ui/AsinuEmergencyFAB';
 import { useAuthStore } from '../src/features/auth/auth.store';
 import { GlobalToastHost } from '../src/components/GlobalToastHost';
 import { CareCircleInvitationModal } from '../src/components/CareCircleInvitationModal';
@@ -155,7 +154,6 @@ export default function RootLayout() {
               <CareCircleInvitationModal />
               <QueuedModalHost />
               <AsinuBrainOverlayHost />
-              <EmergencyFABGate />
             </CarePulseProvider>
           </WellnessProvider>
         </SafeAreaProvider>
@@ -185,31 +183,6 @@ function ScreenViewTracker() {
   }, [hydrated, pathname, token]);
 
   return null;
-}
-
-function EmergencyFABGate() {
-  const token = useAuthStore((s) => s.token);
-  const profile = useAuthStore((s) => s.profile);
-  const hydrated = useAuthStore((s) => s.hydrated);
-  const pathname = usePathname();
-  if (!hydrated) return null;
-  if (!token || !profile?.onboardingCompleted) return null;
-  // Ẩn FAB trên các route có flow riêng để tránh conflict (mất state triage,
-  // race 2 cuộc gọi /checkin/start, modal đè modal):
-  // /checkin: pure check-in flow đang chạy
-  // /onboarding, /login, /register: flow setup, FAB không có ngữ nghĩa
-  // /legal: trang xem điều khoản
-  // care-circle: trang đã có FAB mời thành viên riêng
-  if (
-    pathname.startsWith('/checkin')
-    || pathname.startsWith('/onboarding')
-    || pathname.startsWith('/login')
-    || pathname.startsWith('/register')
-    || pathname.startsWith('/legal')
-    || pathname.startsWith('/doctor-consultation')
-    || pathname.includes('care-circle')
-  ) return null;
-  return <AsinuEmergencyFAB />;
 }
 
 const styles = StyleSheet.create({
