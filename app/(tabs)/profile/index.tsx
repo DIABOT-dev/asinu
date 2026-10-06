@@ -990,18 +990,6 @@ export default function ProfileScreen() {
               <View style={styles.cardsStack}>
                 <TouchableOpacity
                   style={styles.actionCard}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="create-outline" size={22} color="#0284c7" />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("editProfile")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionCard}
                   onPress={() => router.push("/reminder-config")}
                   activeOpacity={0.7}
                 >

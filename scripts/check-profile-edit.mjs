@@ -195,6 +195,17 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
+  await test(`${language}: profile editing remains only in the personal-info header, not the actions list`, async () => {
+    const h = harness({ language });
+    const controls = nodes(h.render()).filter(node => ['Pressable', 'TouchableOpacity'].includes(node.type));
+    const editors = controls.filter(node => node.props.onPress?.name === 'handleEditProfile');
+    assert.equal(editors.length, 1, 'Exactly one profile edit entry must remain');
+    assert.equal(editors[0].props.accessibilityLabel, h.t('edit'));
+    assert.equal(text(editors[0]).trim(), h.t('edit'));
+    assert.ok(!controls.some(node => text(node).trim() === h.t('editProfile')), 'The duplicate actions card must be removed');
+    assert.ok(controls.some(node => text(node).trim() === h.t('reminderSchedule')), 'Other actions must remain');
+    editors[0].props.onPress(); assert.ok(h.modal());
+  });
   await test(`${language}: opening an unchanged profile leaves Save muted, accessible, and unable to submit`, async () => {
     const h = harness({ language }); h.open();
     const button = h.saveButton();

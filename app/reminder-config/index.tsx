@@ -711,21 +711,6 @@ export default function ReminderConfigScreen() {
             </Animated.View>
           </ScrollView>
 
-          {/* Floating Action Button (+) */}
-          <View style={styles.fabWrap}>
-            <Pressable
-              style={styles.fabBtn}
-              onPress={() => (!remindersEnabled ? null : setPickerSlot('morning'))}
-              disabled={!remindersEnabled}
-              hitSlop={8}
-            >
-              <Ionicons name="add" size={32} color="#ffffff" />
-            </Pressable>
-            {/* 3 small sparkle lines */}
-            <View style={styles.fabSparkle1} />
-            <View style={styles.fabSparkle2} />
-            <View style={styles.fabSparkle3} />
-          </View>
         </View>
       )}
     </View>
@@ -1004,54 +989,5 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       pointerEvents: 'none',
     },
 
-    // FAB Button (+)
-    fabWrap: {
-      position: 'absolute',
-      right: 22,
-      bottom: 86,
-      zIndex: 10,
-    },
-    fabBtn: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor: '#00897b',
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: '#00897b',
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 5,
-    },
-    fabSparkle1: {
-      position: 'absolute',
-      top: -3,
-      right: 0,
-      width: 6,
-      height: 2,
-      backgroundColor: '#00897b',
-      transform: [{ rotate: '45deg' }],
-      borderRadius: 1,
-    },
-    fabSparkle2: {
-      position: 'absolute',
-      top: 6,
-      right: -7,
-      width: 7,
-      height: 2,
-      backgroundColor: '#00897b',
-      borderRadius: 1,
-    },
-    fabSparkle3: {
-      position: 'absolute',
-      top: 15,
-      right: -5,
-      width: 6,
-      height: 2,
-      backgroundColor: '#00897b',
-      transform: [{ rotate: '-30deg' }],
-      borderRadius: 1,
-    },
   });
 }

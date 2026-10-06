@@ -394,15 +394,6 @@ export default function TreeScreen() {
 
       </RippleRefreshScrollView>
 
-      {/* Floating Action Button (+) */}
-      <Pressable
-        style={[styles.fabButton, { bottom: insets.bottom + 16 }]}
-        onPress={() => router.push('/checkin')}
-        accessibilityRole="button"
-        accessibilityLabel={tc('checkinAction')}
-      >
-        <Ionicons name="add" size={28} color="#ffffff" />
-      </Pressable>
     </Screen>
   );
 }
@@ -675,22 +666,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     placeholderText: {
       fontSize: typography.size.sm,
       color: colors.textSecondary,
-    },
-    fabButton: {
-      position: 'absolute',
-      right: 20,
-      width: 54,
-      height: 54,
-      borderRadius: 27,
-      backgroundColor: '#00897b',
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: '#00897b',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
-      elevation: 6,
-      zIndex: 50,
     },
   });
 }

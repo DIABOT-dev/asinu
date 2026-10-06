@@ -274,4 +274,21 @@ await test('global green plus launcher renders nothing and has no hidden interac
   const { AsinuEmergencyFAB } = evaluate(read('asinu-brain-extension/ui/AsinuEmergencyFAB.tsx'), {});
   assert.equal(AsinuEmergencyFAB({ onInteraction: () => assert.fail('Hidden launcher must not interact') }), null);
 });
+for (const file of ['app/(tabs)/missions/index.tsx', 'app/(tabs)/tree/index.tsx', 'app/reminder-config/index.tsx']) {
+  await test(`${file}: screen-specific green plus launcher and decorative remnants are removed`, () => {
+    const source = read(file);
+    const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const plusIcons = [];
+    const plusNames = new Set(['add', 'add-circle', 'add-circle-outline', 'plus', 'plus-circle', 'plus-circle-outline']);
+    const visit = node => {
+      if (ts.isJsxAttribute(node) && node.name.getText(parsed) === 'name' && node.initializer && ts.isStringLiteral(node.initializer) && plusNames.has(node.initializer.text)) {
+        plusIcons.push(node.initializer.text);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(parsed);
+    assert.deepEqual(plusIcons, [], 'Screens must not recreate the retired floating green plus');
+    assert.ok(!/\bfab(?:Wrap|Btn|Button|Sparkle\d)\b/.test(source), 'Remove unused FAB layout and sparkle styles too');
+  });
+}
 console.log(`Care Circle health and QR actions: ${checks} runtime checks passed.`);
