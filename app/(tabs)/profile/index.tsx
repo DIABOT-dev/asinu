@@ -67,7 +67,7 @@ import { ProfileTabSkeleton } from "../../../src/components/state/MainScreenSkel
 import { ModalToastHost } from "../../../src/components/GlobalToastHost";
 import { authApi, type UpdateProfilePayload } from "../../../src/features/auth/auth.api";
 import { showToast, setPendingToast } from "../../../src/stores/toast.store";
-import { useAuthStore } from "../../../src/features/auth/auth.store";
+import { useAuthStore, type Profile } from "../../../src/features/auth/auth.store";
 import { useLogsStore } from "../../../src/features/logs/logs.store";
 import { useMissionsStore } from "../../../src/features/missions/missions.store";
 import { localizedPlanName } from "../../../src/features/subscription/planName";
@@ -107,6 +107,65 @@ type SubStatus = {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 32 - 10) / 2;
+
+type ProfileEditValues = {
+  name: string;
+  phone: string;
+  age: string;
+  gender: "Nam" | "Nữ" | "";
+  height: string;
+  weight: string;
+  bloodType: string;
+  chronicDiseases: string;
+};
+
+function getProfileEditValues(profile: Profile | null): ProfileEditValues {
+  return {
+    name: profile?.name?.trim() || "",
+    phone: profile?.phone?.trim() || "",
+    age: profile?.age ? String(Math.round(profile.age)) : "",
+    gender: (profile?.gender as ProfileEditValues["gender"]) || "",
+    height: profile?.heightCm ? String(Math.round(profile.heightCm)) : "",
+    weight: profile?.weightKg ? String(Math.round(profile.weightKg)) : "",
+    bloodType: profile?.bloodType || "",
+    chronicDiseases: profile?.chronicDiseases?.join(", ") || "",
+  };
+}
+
+function normalizeBloodType(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/\s+/g, "")
+    .replace(/\u2212/g, "-")
+    .toUpperCase();
+}
+
+function getProfileEditSnapshot(values: ProfileEditValues) {
+  const normalizeNumber = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed && Number.isFinite(Number(trimmed))
+      ? String(Number(trimmed))
+      : trimmed;
+  };
+
+  return JSON.stringify({
+    name: values.name.trim(),
+    phone: values.phone.trim(),
+    age: normalizeNumber(values.age),
+    gender: values.gender,
+    height: normalizeNumber(values.height),
+    weight: normalizeNumber(values.weight),
+    bloodType: normalizeBloodType(values.bloodType),
+    chronicDiseases: [
+      ...new Set(
+        values.chronicDiseases
+          .split(",")
+          .map((disease) => disease.trim())
+          .filter(Boolean),
+      ),
+    ].sort(),
+  });
+}
 
 export default function ProfileScreen() {
   const { t } = useTranslation("profile");
@@ -223,41 +282,50 @@ export default function ProfileScreen() {
   );
 
   // Edit form state
-  const [editName, setEditName] = useState(profile?.name || "");
-  const [editPhone, setEditPhone] = useState(profile?.phone || "");
-  const [editAge, setEditAge] = useState(
-    profile?.age ? String(Math.round(profile.age)) : "",
+  const profileEditValues = getProfileEditValues(profile);
+  const [editName, setEditName] = useState(profileEditValues.name);
+  const [editPhone, setEditPhone] = useState(profileEditValues.phone);
+  const [editAge, setEditAge] = useState(profileEditValues.age);
+  const [editGender, setEditGender] = useState<ProfileEditValues["gender"]>(
+    profileEditValues.gender,
   );
-  const [editGender, setEditGender] = useState<"Nam" | "Nữ" | "">(
-    (profile?.gender as "Nam" | "Nữ") || "",
-  );
-  const [editHeight, setEditHeight] = useState(
-    profile?.heightCm ? String(Math.round(profile.heightCm)) : "",
-  );
-  const [editWeight, setEditWeight] = useState(
-    profile?.weightKg ? String(Math.round(profile.weightKg)) : "",
-  );
-  const [editBloodType, setEditBloodType] = useState(profile?.bloodType || "");
+  const [editHeight, setEditHeight] = useState(profileEditValues.height);
+  const [editWeight, setEditWeight] = useState(profileEditValues.weight);
+  const [editBloodType, setEditBloodType] = useState(profileEditValues.bloodType);
   const bloodTypeInputRef = useRef<NativeTextInput>(null);
   const [editChronicDiseases, setEditChronicDiseases] = useState(
-    profile?.chronicDiseases?.join(", ") || "",
+    profileEditValues.chronicDiseases,
   );
+  const savedProfileEditSnapshotRef = useRef(
+    getProfileEditSnapshot(profileEditValues),
+  );
+  const editSnapshot = getProfileEditSnapshot({
+    name: editName,
+    phone: editPhone,
+    age: editAge,
+    gender: editGender,
+    height: editHeight,
+    weight: editWeight,
+    bloodType: editBloodType,
+    chronicDiseases: editChronicDiseases,
+  });
+  const hasProfileChanges = editSnapshot !== savedProfileEditSnapshotRef.current;
   const [showDiseasePicker, setShowDiseasePicker] = useState(false);
   const [customDiseaseInput, setCustomDiseaseInput] = useState("");
 
   useEffect(() => {
-    if (profile) {
-      if (profile.name) setEditName(profile.name);
-      if (profile.phone) setEditPhone(profile.phone);
-      if (profile.age) setEditAge(String(Math.round(profile.age)));
-      if (profile.gender) setEditGender(profile.gender as "Nam" | "Nữ");
-      if (profile.heightCm) setEditHeight(String(Math.round(profile.heightCm)));
-      if (profile.weightKg) setEditWeight(String(Math.round(profile.weightKg)));
-      if (profile.bloodType) setEditBloodType(profile.bloodType);
-      if (profile.chronicDiseases)
-        setEditChronicDiseases(profile.chronicDiseases.join(", "));
-    }
-  }, [profile]);
+    if (isEditModalVisible) return;
+    const values = getProfileEditValues(profile);
+    setEditName(values.name);
+    setEditPhone(values.phone);
+    setEditAge(values.age);
+    setEditGender(values.gender);
+    setEditHeight(values.height);
+    setEditWeight(values.weight);
+    setEditBloodType(values.bloodType);
+    setEditChronicDiseases(values.chronicDiseases);
+    savedProfileEditSnapshotRef.current = getProfileEditSnapshot(values);
+  }, [profile, isEditModalVisible]);
 
   const diseaseList = useMemo(() => {
     return editChronicDiseases
@@ -289,6 +357,7 @@ export default function ProfileScreen() {
   const [phoneError, setPhoneError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const isSaveDisabled = isSaving || isUploadingAvatar || !hasProfileChanges;
   const avatarPickerInFlightRef = useRef(false);
   const profileSaveInFlightRef = useRef(false);
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
@@ -419,19 +488,17 @@ export default function ProfileScreen() {
   }, [logout, router, showAlert, ts, tc]);
 
   const handleEditProfile = () => {
+    const values = getProfileEditValues(profile);
     setPhoneError("");
-    setEditName(name);
-    setEditPhone(phone);
-    setEditAge(profile?.age ? String(Math.round(profile.age)) : "");
-    setEditGender((profile?.gender as "Nam" | "Nữ" | "") || "");
-    setEditHeight(
-      profile?.heightCm ? String(Math.round(profile.heightCm)) : "",
-    );
-    setEditWeight(
-      profile?.weightKg ? String(Math.round(profile.weightKg)) : "",
-    );
-    setEditBloodType(profile?.bloodType || "");
-    setEditChronicDiseases(profile?.chronicDiseases?.join(", ") || "");
+    setEditName(values.name);
+    setEditPhone(values.phone);
+    setEditAge(values.age);
+    setEditGender(values.gender);
+    setEditHeight(values.height);
+    setEditWeight(values.weight);
+    setEditBloodType(values.bloodType);
+    setEditChronicDiseases(values.chronicDiseases);
+    savedProfileEditSnapshotRef.current = getProfileEditSnapshot(values);
     setEditModalVisible(true);
   };
 
@@ -479,7 +546,13 @@ export default function ProfileScreen() {
   };
 
   const handleSaveProfile = async () => {
-    if (profileSaveInFlightRef.current) return;
+    if (
+      profileSaveInFlightRef.current ||
+      avatarPickerInFlightRef.current ||
+      editSnapshot === savedProfileEditSnapshotRef.current
+    ) {
+      return;
+    }
     if (!editName.trim()) {
       showToast(t("nameRequired"), "error");
       return;
@@ -510,11 +583,7 @@ export default function ProfileScreen() {
     }
 
     const validBloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-    const normalizedBloodType = editBloodType
-      .normalize("NFKC")
-      .replace(/\s+/g, "")
-      .replace(/\u2212/g, "-")
-      .toUpperCase();
+    const normalizedBloodType = normalizeBloodType(editBloodType);
     if (normalizedBloodType && !validBloodTypes.includes(normalizedBloodType)) {
       showToast(t("bloodTypeInvalid"), "error", 5000);
       bloodTypeInputRef.current?.focus();
@@ -550,6 +619,7 @@ export default function ProfileScreen() {
 
       const updatedProfile = await authApi.updateProfile(updateData);
       useAuthStore.setState({ profile: updatedProfile });
+      savedProfileEditSnapshotRef.current = editSnapshot;
 
       handleCloseEditModal();
       showToast(t("profileUpdated"), "success");
@@ -1821,17 +1891,34 @@ export default function ProfileScreen() {
               <Pressable
                 style={[
                   styles.sheetSaveBtn,
-                  isSaving && styles.sheetSaveBtnDisabled,
+                  isSaveDisabled && styles.sheetSaveBtnDisabled,
                 ]}
                 onPress={handleSaveProfile}
-                disabled={isSaving}
+                disabled={isSaveDisabled}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isSaveDisabled, busy: isSaving }}
               >
                 {isSaving ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark" size={18} color="#ffffff" />
-                    <Text style={styles.sheetSaveBtnText}>{tc("save")}</Text>
+                    <Ionicons
+                      name="checkmark"
+                      size={18}
+                      color={
+                        isSaveDisabled
+                          ? styles.sheetSaveBtnTextDisabled.color
+                          : "#ffffff"
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.sheetSaveBtnText,
+                        isSaveDisabled && styles.sheetSaveBtnTextDisabled,
+                      ]}
+                    >
+                      {tc("save")}
+                    </Text>
                   </>
                 )}
               </Pressable>
@@ -3057,12 +3144,17 @@ function createStyles(
       elevation: 2,
     },
     sheetSaveBtnDisabled: {
-      opacity: 0.6,
+      backgroundColor: isDark ? "#334155" : "#E2E8F0",
+      shadowOpacity: 0,
+      elevation: 0,
     },
     sheetSaveBtnText: {
       fontSize: 14.5,
       fontWeight: "700",
       color: "#FFFFFF",
+    },
+    sheetSaveBtnTextDisabled: {
+      color: textSecondaryCol,
     },
 
     // Disease Picker Modal
