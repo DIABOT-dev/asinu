@@ -57,12 +57,12 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
         accessibilityLabel={t('checkinFine')}
       >
         <View style={styles.row}>
-          <Ionicons name="checkmark-circle" size={42} color={colors.primary} />
-          <View style={{ flex: 1 }}>
+          <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
+          <View style={styles.textColumn}>
             <Text style={styles.fineTitle}>{t('checkinFine')}</Text>
             <Text style={styles.sub}>{t('checkinFineSub')}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={26} color={colors.primary} />
+          <Ionicons name="chevron-forward" size={28} color={colors.primary} />
         </View>
       </Pressable>
     );
@@ -92,7 +92,7 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
     >
       <View style={styles.row}>
         <Ionicons name="pulse" size={22} color="#d97706" />
-        <View style={{ flex: 1 }}>
+        <View style={styles.textColumn}>
           <Text style={styles.followTitle}>{t('checkinFollowTitle')}</Text>
           <Text style={styles.sub}>{followUpLabel}</Text>
         </View>
@@ -121,12 +121,12 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
       accessibilityLabel={t('checkinInstantTitle')}
     >
       <View style={styles.row}>
-        <Ionicons name="pulse" size={34} color={colors.premiumDark} />
-        <View style={{ flex: 1 }}>
+        <Ionicons name="pulse" size={48} color={colors.premiumDark} />
+        <View style={styles.textColumn}>
           <Text style={styles.instantTitle}>{t('checkinInstantTitle')}</Text>
           <Text style={styles.sub}>{t('checkinInstantSub')}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={24} color={colors.premiumDark} />
+        <Ionicons name="chevron-forward" size={28} color={colors.premiumDark} />
       </View>
     </Pressable>
   );
@@ -146,29 +146,33 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.premiumLight,
     },
     cardFine: {
-      minHeight: 120,
+      minHeight: 184,
       justifyContent: 'center',
       borderRadius: radius.xl,
       borderColor: colors.primary,
       backgroundColor: colors.primaryLight,
-      paddingVertical: spacing.xl,
+      paddingVertical: spacing.xxl,
     },
     cardInstant: {
-      minHeight: 104,
+      minHeight: 184,
       justifyContent: 'center',
       borderRadius: radius.xl,
       borderColor: colors.premiumDark,
       backgroundColor: colors.premiumLight,
-      paddingVertical: spacing.xl,
+      paddingVertical: spacing.xxl,
     },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
     },
+    textColumn: {
+      flex: 1,
+      minWidth: 0,
+    },
     followTitle:  { fontSize: typography.size.sm, fontWeight: '700', color: '#d97706' },
-    fineTitle:    { fontSize: typography.size.lg, fontWeight: '800', color: colors.textPrimary },
-    instantTitle: { fontSize: typography.size.md, fontWeight: '800', color: colors.premiumDark },
-    sub:          { fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 2 },
+    fineTitle:    { fontSize: typography.size.xl, fontWeight: '800', color: colors.textPrimary },
+    instantTitle: { fontSize: typography.size.lg + 4, fontWeight: '800', color: colors.textPrimary },
+    sub:          { fontSize: typography.size.sm, color: colors.textSecondary, marginTop: spacing.xs },
   });
 }

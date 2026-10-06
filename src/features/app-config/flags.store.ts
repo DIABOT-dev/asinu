@@ -52,12 +52,10 @@ export const useFlagsStore = create<FlagState>((set) => ({
 }));
 
 /**
- * Convenience selector: returns true when the chatbot entry point should
- * be rendered. Backed by the precomputed `chatbot.available` from the
- * server; falls back to the legacy FEATURE_AI_CHAT boolean when the
- * structured payload is missing (older backend build).
+ * Chatbot UI is hidden in this app release, including direct links.
+ * Server availability flags cannot reopen it. Other AI feature flags remain
+ * available to check-in and call-center consumers.
  */
-export const selectIsChatbotAvailable = (s: FlagState): boolean =>
-  s.chatbot?.available ?? s.FEATURE_AI_CHAT;
+export const selectIsChatbotAvailable = (_s: FlagState): boolean => false;
 
 export type { ChatbotFlags, CareCircleFlags };

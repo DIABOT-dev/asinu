@@ -9,7 +9,6 @@ import { AppState, FlatList, Image, Modal, Platform, Pressable, ScrollView, Styl
 import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, useAnimatedScrollHandler, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
-import AsinuChatSticker from '../../../src/components/AsinuChatSticker';
 import { Avatar } from '../../../src/components/Avatar';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
@@ -20,7 +19,6 @@ import { apiClient } from '../../../src/lib/apiClient';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
-const ChatModal = React.lazy(() => import('../../../src/components/ChatModal'));
 import { NotificationBell } from '../../../src/components/NotificationBell';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
@@ -30,7 +28,7 @@ import { HomeTabSkeleton } from '../../../src/components/state/MainScreenSkeleto
 import { ChartFrameSkeleton } from '../../../src/components/state/ChartFrameSkeleton';
 import { CheckinGuideCarousel, hasSeenCheckinGuide } from '../../../src/components/CheckinGuideCarousel';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
-import { useFlagsStore, selectIsChatbotAvailable } from '../../../src/features/app-config/flags.store';
+import { useFlagsStore } from '../../../src/features/app-config/flags.store';
 import { useHomeViewModel } from '../../../src/features/home/home.vm';
 import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
@@ -458,11 +456,8 @@ export default function HomeScreen() {
 
   const { t } = useTranslation('home');
   const { t: tc } = useTranslation('common');
-  const [isChatOpen, setChatOpen] = useState(false);
-  const isChatbotAvailable = useFlagsStore(selectIsChatbotAvailable);
   const fetchFlags = useFlagsStore((s) => s.fetchFlags);
-  // Pull the latest flags whenever home screen is focused so a server-side
-  // change to CHATBOT_ENABLED reaches users without an app restart.
+  // Refresh check-in and Care Circle flags whenever the home screen is focused.
   useFocusEffect(useCallback(() => { fetchFlags().catch(() => {}); }, [fetchFlags]));
   const router = useRouter();
   const {
@@ -971,12 +966,6 @@ export default function HomeScreen() {
 
         {renderHealthFeedBlock()}
 
-        {isChatbotAvailable && (
-          <Animated.View entering={FadeIn.delay(190).duration(350)}>
-            <AsinuChatSticker onPress={() => setChatOpen(true)} />
-          </Animated.View>
-        )}
-
         {/* Missions section is temporarily hidden on the home screen. */}
         {SHOW_HOME_MISSIONS && (
           <Animated.View entering={FadeIn.delay(210).duration(350)}>
@@ -1202,11 +1191,6 @@ export default function HomeScreen() {
         </>
         )}
       </RippleRefreshScrollView>
-{isChatOpen && (
-        <Suspense fallback={null}>
-          <ChatModal visible={isChatOpen} onClose={() => setChatOpen(false)} />
-        </Suspense>
-      )}
     </Screen>
   );
 }

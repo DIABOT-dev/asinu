@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import { AiChatLayout, ChatBubble } from '../src/components/AiChatLayout';
 import { AiDataConsentModal, hasAiDataConsent } from '../src/components/AiDataConsentModal';
 import { MedicalDisclaimerModal, containsMedicalKeywords } from '../src/components/MedicalDisclaimerModal';
@@ -13,8 +13,15 @@ import { useThemeColors } from '../src/hooks/useThemeColors';
 import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { ScreenBackButton } from '../src/components/ScreenHeaderButton';
+import { useFlagsStore, selectIsChatbotAvailable } from '../src/features/app-config/flags.store';
 
 export default function AiChatScreen() {
+  const isChatbotAvailable = useFlagsStore(selectIsChatbotAvailable);
+  if (!isChatbotAvailable) return <Redirect href="/home" />;
+  return <AiChatContent />;
+}
+
+function AiChatContent() {
   const { t } = useTranslation('chat');
   const router = useRouter();
 

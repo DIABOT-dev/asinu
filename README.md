@@ -344,11 +344,12 @@ Các cờ dưới đây bị ép `false` trong store, kể cả backend có tr�
 Nguồn:
 - `src/features/app-config/flags.store.ts`
 
-### 2. AI Chat được mở theo backend flag
+### 2. AI Chat tạm ẩn trên ứng dụng
 
-- Việc hiển thị entry point chatbot không mặc định luôn bật.
-- App dùng `chatbot.available` hoặc fallback `FEATURE_AI_CHAT`.
-- Nghĩa là route `app/ai-chat.tsx` tồn tại, nhưng cửa vào cho user phụ thuộc cờ backend.
+- Home không hiển thị chatbot và không mount cửa sổ chat.
+- Selector hiển thị chatbot luôn trả `false`, kể cả backend bật `chatbot.available` hoặc `FEATURE_AI_CHAT`.
+- Route `app/ai-chat.tsx` chuyển về Home trước khi mount nội dung chat. API/backend chatbot vẫn được giữ nguyên.
+- AI check-in, tổng đài viên AI và nhập log bằng giọng nói vẫn hoạt động như trước.
 
 Nguồn:
 - `src/features/app-config/flags.api.ts`
