@@ -40,6 +40,8 @@ final class CXCallUpdate {
   var supportsUngrouping = false
 }
 final class CXProvider {
+  final class Configuration { var ringtoneSound = "" }
+  var configuration = Configuration()
   var reports: [UUID] = []
   var ended: [UUID] = []
   var completions: [(Error?) -> Void] = []
@@ -87,8 +89,15 @@ test("a genuine call reports synchronously and completes only after CallKit") {
   let h = Handler(); var done = 0
   h.reportIncoming(payload: payload) { done += 1 }
   assert(h.provider.reports.count == 1 && done == 0 && h.ringTimers == 0)
+  assert(h.provider.configuration.ringtoneSound == "asinu_incoming.caf")
   h.provider.finish()
   assert(done == 1 && h.ringTimers == 1 && h.callsByUUID.count == 1)
+}
+test("urgent calls use the emergency pack without changing CallKit lifecycle") {
+  let h = Handler(); var urgent = payload; urgent["severity"] = "URGENT"
+  h.reportIncoming(payload: urgent) {}; h.provider.finish()
+  assert(h.provider.configuration.ringtoneSound == "asinu_emergency.caf")
+  assert(h.ringTimers == 1 && h.callsByUUID.count == 1)
 }
 for invalid: [AnyHashable: Any] in [
   [:], ["attemptId": "attempt"], ["episodeId": "episode"],

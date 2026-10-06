@@ -14,6 +14,11 @@ module.exports = {
   ],
   overrides: [
     {
+      files: ['scripts/check-notification-sounds.mjs'],
+      parser: 'espree',
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    },
+    {
       files: ['scripts/check-security.mjs', 'scripts/check-livekit-signal-lifecycle.mjs', 'scripts/check-checkin-call-audio.mjs', 'scripts/check-checkin-call-handoff.mjs', 'scripts/check-startup-modals.mjs', 'scripts/check-session-guide-regressions.mjs', 'scripts/check-checkin-call-personalization.mjs', 'scripts/generate-checkin-handoff-voice.mjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },

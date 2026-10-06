@@ -53,6 +53,9 @@ jobs:
       - name: Check-in native readiness
         run: npm run test:checkin-native
 
+      - name: Cross-platform notification sounds
+        run: npm run test:notification-sounds
+
       - name: Check-in state, signaling and audio regressions
         run: |
           npm run test:checkin-state

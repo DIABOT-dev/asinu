@@ -39,7 +39,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     configuration.maximumCallsPerCallGroup = 1
     configuration.supportedHandleTypes = [.generic]
     configuration.includesCallsInRecents = false
-    configuration.ringtoneSound = "asinu_alert.wav"
+    configuration.ringtoneSound = "asinu_incoming.caf"
     let provider = CXProvider(configuration: configuration)
     provider.setDelegate(self, queue: .main)
     return provider
@@ -255,6 +255,10 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     update.supportsGrouping = false
     update.supportsUngrouping = false
 
+    let ringtoneConfiguration = provider.configuration
+    ringtoneConfiguration.ringtoneSound = severity.uppercased() == "URGENT"
+      ? "asinu_emergency.caf" : "asinu_incoming.caf"
+    provider.configuration = ringtoneConfiguration
     configureAudioSession()
     provider.reportNewIncomingCall(with: uuid, update: update) { error in
       DispatchQueue.main.async {

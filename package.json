@@ -31,6 +31,8 @@
     "build:android": "cd android && ./gradlew bundleRelease",
     "build:android:release": "npm run build:android",
     "lint:assets": "node scripts/check-assets.js",
+    "sounds:sync": "node scripts/sync-notification-sounds.cjs",
+    "test:notification-sounds": "node scripts/check-notification-sounds.mjs",
     "postinstall": "patch-package --error-on-fail && node scripts/patch-livekit-signal-lifecycle.cjs"
   },
   "dependencies": {

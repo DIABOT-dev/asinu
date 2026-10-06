@@ -19,7 +19,11 @@ import expo.modules.notifications.service.ExpoFirebaseMessagingService
 
 class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
   companion object {
-    private const val CALL_CHANNEL_ID = "asinu_checkin_call_v1"
+    private const val CALL_CHANNEL_ID = "asinu_checkin_call_warm_v2"
+    private const val URGENT_CHANNEL_ID = "asinu_checkin_call_urgent_warm_v2"
+    private const val ALERT_CHANNEL_ID = "asinu_checkin_alert_warm_v2"
+    private const val MISSED_CHANNEL_ID = "asinu_checkin_missed_warm_v2"
+    private const val NOTICE_CHANNEL_ID = "asinu_checkin_notice_warm_v2"
   }
 
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
@@ -44,12 +48,29 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
     }
     val kind = data["kind"].orEmpty()
     val incomingCall = kind == "INCOMING_CALL" || kind == "URGENT_REPEAT"
+    val urgent = data["severity"].equals("URGENT", ignoreCase = true) || kind == "URGENT_REPEAT"
+    val missed = kind == "FALLBACK" || kind == "MISSED_CALL"
+    val channelId = when {
+      urgent && incomingCall -> URGENT_CHANNEL_ID
+      urgent -> ALERT_CHANNEL_ID
+      incomingCall -> CALL_CHANNEL_ID
+      missed -> MISSED_CHANNEL_ID
+      else -> NOTICE_CHANNEL_ID
+    }
+    val soundName = when {
+      urgent -> "asinu_emergency"
+      incomingCall -> "asinu_incoming"
+      missed -> "asinu_missed"
+      else -> "asinu_notification"
+    }
+    // Named resource URIs remain stable when raw resource IDs change on upgrade.
+    val sound = Uri.parse("android.resource://$packageName/raw/$soundName")
     val title = data["title"] ?: getString(
       if (data["severity"] == "URGENT") R.string.checkin_call_urgent_title else R.string.checkin_call_title,
     )
     val body = data["body"] ?: getString(R.string.checkin_call_body)
 
-    createCallChannel()
+    createCallChannel(channelId, sound, incomingCall)
 
     val deepLink = Uri.Builder()
       .scheme("asinu-lite")
@@ -68,7 +89,7 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    val builder = NotificationCompat.Builder(this, CALL_CHANNEL_ID)
+    val builder = NotificationCompat.Builder(this, channelId)
       .setSmallIcon(R.mipmap.ic_launcher)
       .setContentTitle(title)
       .setContentText(body)
@@ -80,6 +101,8 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
       .setContentIntent(pendingIntent)
       .setAutoCancel(!incomingCall)
       .setOngoing(incomingCall)
+      // Explicit sound for pre-O Android; Android O+ follows its channel.
+      .setSound(sound)
       .setVibrate(longArrayOf(0, 700, 300, 700, 300, 700))
 
     if (incomingCall) {
@@ -96,16 +119,15 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
     }
   }
 
-  private fun createCallChannel() {
+  private fun createCallChannel(channelId: String, sound: Uri, incomingCall: Boolean) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    val sound = Uri.parse("android.resource://$packageName/${R.raw.asinu_alert}")
     val audio = AudioAttributes.Builder()
-      .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+      .setUsage(if (incomingCall) AudioAttributes.USAGE_NOTIFICATION_RINGTONE else AudioAttributes.USAGE_NOTIFICATION)
       .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
       .build()
     val channel = NotificationChannel(
-      CALL_CHANNEL_ID,
+      channelId,
       getString(R.string.checkin_call_channel_name),
       NotificationManager.IMPORTANCE_HIGH,
     ).apply {

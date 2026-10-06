@@ -7,6 +7,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import i18n from "../i18n";
 import { useNotificationStore } from "../stores/notification.store";
+import { notificationSoundConfig, notificationSoundManifest, type NotificationSoundGroup } from './notification-sounds';
 
 /**
  * Initialize the notification handler. Must be called explicitly (e.g. inside
@@ -118,24 +119,11 @@ export interface NotificationData {
   [key: string]: unknown;
 }
 
-const NOTIFICATION_CHANNEL_IDS = [
-  "reminder",
-  "alert",
-  "care-circle",
-  "checkin",
-  "milestone",
-  "doctor-consultation",
-] as const;
-
 async function configureNotificationChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
-
-  await Promise.allSettled(
-    NOTIFICATION_CHANNEL_IDS.map((id) =>
-      Notifications.deleteNotificationChannelAsync(id)
-    )
-  );
-
+  // Retain legacy IDs/assets while older backend versions are still sending
+  // them. Never delete/recreate channels: Android restores immutable settings
+  // and users' choices must survive language changes and app starts.
   await Notifications.setNotificationChannelAsync("reminder", {
     name: i18n.t("notificationChannelReminder", { ns: "common" }),
     importance: Notifications.AndroidImportance.DEFAULT,
@@ -190,6 +178,29 @@ async function configureNotificationChannels(): Promise<void> {
     lightColor: "#FFD700",
     sound: "asinu_milestone.wav",
   });
+
+  // Versioned channels are required when migrating to a different sound.
+  // Registering an existing channel again only refreshes its translated name.
+  const settings: Record<NotificationSoundGroup, Omit<Notifications.NotificationChannelInput, 'name'>> = {
+    reminder: { importance: Notifications.AndroidImportance.DEFAULT, vibrationPattern: [0, 200], lightColor: '#08b8a2' },
+    alert: { importance: Notifications.AndroidImportance.MAX, vibrationPattern: [0, 300, 150, 300], lightColor: '#FF6B6B', bypassDnd: true },
+    'care-circle': { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250, 100, 250], lightColor: '#6B8FFF' },
+    'doctor-consultation': { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250, 100, 250], lightColor: '#08b8a2' },
+    checkin: { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 300, 100, 300], lightColor: '#08b8a2' },
+    milestone: { importance: Notifications.AndroidImportance.DEFAULT, vibrationPattern: [0, 100, 50, 100, 50, 200], lightColor: '#FFD700' },
+    incoming: { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 700, 300, 700], lightColor: '#08b8a2' },
+    missed: { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 200], lightColor: '#08b8a2' },
+    billing: { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 200], lightColor: '#08b8a2' },
+  };
+  for (const [group, config] of Object.entries(notificationSoundManifest.groups)) {
+    const sound = notificationSoundManifest.sounds[config.sound as keyof typeof notificationSoundManifest.sounds];
+    await Notifications.setNotificationChannelAsync(config.channelId, {
+      ...settings[group as NotificationSoundGroup],
+      name: i18n.t(config.label, { ns: 'common' }),
+      sound: sound.android,
+      enableVibrate: true,
+    });
+  }
 }
 
 /** Refresh native notification labels after the app language changes. */
@@ -299,15 +310,17 @@ export async function scheduleLocalNotification(
   data?: NotificationData
 ) {
   try {
+    if (Platform.OS === 'android') { await configureNotificationChannels(); }
+    const config = notificationSoundConfig(data, Platform.OS);
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
         data: data || {},
-        sound: "asinu_reminder.wav",
+        sound: config.sound,
         priority: Notifications.AndroidNotificationPriority.HIGH,
       },
-      trigger: null,
+      trigger: Platform.OS === 'android' ? { channelId: config.channelId } : null,
     });
   } catch (error) {}
 }
@@ -324,16 +337,18 @@ export async function reNotifyAsLocal(
   data: Record<string, unknown>
 ): Promise<void> {
   try {
+    if (Platform.OS === 'android') { await configureNotificationChannels(); }
+    const config = notificationSoundConfig({ type: 'health_alert' }, Platform.OS);
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
         data,
-        sound: "asinu_alert.wav",
+        sound: config.sound,
         categoryIdentifier: "health_alert",
         priority: Notifications.AndroidNotificationPriority.MAX,
       },
-      trigger: null, // immediate
+      trigger: Platform.OS === 'android' ? { channelId: config.channelId } : null,
     });
   } catch {}
 }
