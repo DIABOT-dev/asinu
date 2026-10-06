@@ -21,7 +21,7 @@ function harness({ language = 'vi', settings = defaults, contacts = [], status, 
   const slots = [];
   const appStateListeners = new Set();
   const server = { settings: { ...settings }, contacts, status: status || { callCenterEnabled: true } };
-  const calls = { settings: 0, saves: [], back: 0, pushes: [], replacements: [] };
+  const calls = { settings: 0, saves: [], back: 0, pushes: [], replacements: [], toasts: [] };
   const memo = (fn, deps) => {
     const index = cursor++;
     if (!slots[index] || deps.some((value, i) => !Object.is(value, slots[index].deps[i]))) {
@@ -92,6 +92,7 @@ function harness({ language = 'vi', settings = defaults, contacts = [], status, 
     '../../src/components/AppAlertModal': { AppAlertModal: 'AppModal' },
     '../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../src/stores/font-size.store': { useFontSizeStore: selector => selector({ scale: fontScale }) },
+    '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
     '../../src/lib/apiClient': { apiClient: async path => {
       assert.equal(path, '/api/subscriptions/status');
       if (server.status instanceof Error) throw server.status;
@@ -137,6 +138,15 @@ function harness({ language = 'vi', settings = defaults, contacts = [], status, 
     text: () => render().filter(node => node.type === 'Text').map(node => node.props.children).join(' '),
     button: key => render().find(node => node.type === 'Button' && node.props.accessibilityLabel === translations.checkinCall(key)),
     toggle: () => render().find(node => node.type === 'Switch'),
+    modal: () => render().find(node => node.type === 'AppModal' && node.props.visible),
+    confirmWarning: () => {
+      const modal = h.modal(); assert.ok(modal, 'The no-relative warning must be shown');
+      modal.props.onDismiss(); return modal.props.buttons[0].onPress?.();
+    },
+    enable: () => {
+      h.toggle().props.onValueChange(true);
+      if (h.modal()) h.confirmWarning();
+    },
     settle: async () => { render(); effects(); await flush(); return render(); },
     blur: () => { focused = false; slots.filter(slot => slot.kind === 'focus').forEach(slot => { slot.cleanup?.(); slot.cleanup = null; }); },
     focus: async () => {
@@ -156,6 +166,12 @@ for (const language of ['vi', 'en']) {
     assert.equal(h.toggle().props.disabled, false);
     assert.equal(h.button('saveSettings').props.disabled, true);
     h.toggle().props.onValueChange(true);
+    assert.equal(h.toggle().props.value, false, 'Warning needs explicit confirmation, not a disabled switch');
+    assert.equal(h.modal().props.message, h.t('noContactsWarning.body'));
+    assert.equal(h.modal().props.queued, true);
+    assert.equal(h.modal().props.stackButtons, true);
+    assert.equal(h.modal().props.scrollable, true);
+    h.confirmWarning();
     assert.equal(h.toggle().props.value, true);
     assert.equal(h.button('saveSettings').props.disabled, false);
     h.button('manageCareCircle').props.onPress();
@@ -163,16 +179,17 @@ for (const language of ['vi', 'en']) {
   });
   await test(`${language}: successful save sends the edited draft and leaves only after success`, async () => {
     const h = harness({ language, contacts: [{ id: 8, name: 'Relative' }] }); await h.settle();
-    h.toggle().props.onValueChange(true);
+    h.enable();
     await h.button('saveSettings').props.onPress();
     assert.equal(h.calls.saves[0].enabled, true);
     assert.equal(h.calls.saves[0].checkin_time, '08:00');
     assert.equal(h.calls.back, 1);
+    assert.deepEqual(h.calls.toasts.at(-1), [h.t('savedSettings'), 'success']);
     assert.equal(h.button('saveSettings').props.disabled, true); h.unmount();
   });
   await test(`${language}: empty cached contacts do not prevent saving when backend eligibility has changed`, async () => {
     const h = harness({ language }); await h.settle();
-    h.toggle().props.onValueChange(true);
+    h.enable();
     const button = h.button('saveSettings'); assert.equal(button.props.disabled, false);
     await button.props.onPress(); assert.equal(h.calls.saves.length, 1); assert.equal(h.calls.back, 1); h.unmount();
   });
@@ -183,15 +200,33 @@ for (const language of ['vi', 'en']) {
       if (attempts++ === 0) throw new Error(reason);
       return { ok: true, settings: value };
     } }); await h.settle();
-    h.toggle().props.onValueChange(true); await h.button('saveSettings').props.onPress();
+    h.enable(); await h.button('saveSettings').props.onPress();
     assert.equal(h.calls.back, 0); assert.equal(h.toggle().props.value, true);
-    assert.ok(h.text().includes(reason)); assert.equal(h.button('saveSettings').props.disabled, false);
+    assert.deepEqual(h.calls.toasts.at(-1), [reason, 'error', 5000]);
+    assert.ok(!h.text().includes(reason)); assert.equal(h.button('saveSettings').props.disabled, false);
     await h.button('saveSettings').props.onPress(); assert.equal(h.calls.back, 1); h.unmount();
+  });
+}
+for (const language of ['vi', 'en']) {
+  await test(`${language}: cancelling the empty-circle warning leaves the configuration unchanged`, async () => {
+    const h = harness({ language }); await h.settle(); h.toggle().props.onValueChange(true);
+    const modal = h.modal(); modal.props.onDismiss(); modal.props.buttons[2].onPress?.();
+    assert.equal(h.toggle().props.value, false); assert.equal(h.button('saveSettings').props.disabled, true);
+    assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []); h.unmount();
+  });
+  await test(`${language}: an enabled schedule can be edited and saved while the circle stays empty`, async () => {
+    const h = harness({ language, settings: { ...defaults, enabled: true } }); await h.settle();
+    h.button('checkinTime').props.onPress();
+    const increase = h.render().find(node => node.type === 'Button' && node.props.accessibilityLabel === h.t('increaseValue', { label: h.t('checkinTime') }));
+    increase.props.onPress({ stopPropagation() {} });
+    assert.equal(h.modal(), undefined); await h.button('saveSettings').props.onPress();
+    assert.equal(h.calls.saves[0].enabled, true); assert.equal(h.calls.saves[0].checkin_time, '08:30');
+    assert.deepEqual(h.calls.toasts.at(-1), [h.t('savedSettings'), 'success']); h.unmount();
   });
 }
 await test('returning from Care Circle refreshes contacts without dropping an unsaved schedule', async () => {
   const h = harness(); await h.settle();
-  h.toggle().props.onValueChange(true);
+  h.enable();
   h.button('checkinTime').props.onPress();
   const increase = h.render().find(node => node.type === 'Button' && node.props.accessibilityLabel === h.t('increaseValue', { label: h.t('checkinTime') }));
   increase.props.onPress({ stopPropagation() {} });
@@ -210,7 +245,7 @@ await test('manual refresh and returning from background both recheck eligibilit
 await test('duplicate taps cannot send two saves before React updates the busy state', async () => {
   let complete;
   const h = harness({ save: value => new Promise(resolve => { complete = () => resolve({ ok: true, settings: value }); }) });
-  await h.settle(); h.toggle().props.onValueChange(true);
+  await h.settle(); h.enable();
   const press = h.button('saveSettings').props.onPress;
   const first = press(); const second = press();
   assert.equal(h.calls.saves.length, 1); assert.equal(h.button('saveSettings').props.disabled, true);
@@ -222,10 +257,11 @@ await test('expired subscription still blocks configuration with the app modal',
   h.unmount();
 });
 await test('a failed refresh cannot save under an unknown entitlement and can recover', async () => {
-  const h = harness(); await h.settle(); h.toggle().props.onValueChange(true);
+  const h = harness(); await h.settle(); h.enable();
   h.server.status = new Error('Offline'); h.button('refreshContacts').props.onPress(); await h.settle();
   assert.equal(h.button('saveSettings').props.disabled, true); assert.equal(h.calls.saves.length, 0);
-  assert.ok(h.text().includes('Offline'));
+  assert.deepEqual(h.calls.toasts.at(-1), ['Offline', 'error', 5000]);
+  assert.ok(!h.text().includes('Offline'));
   h.server.status = { callCenterEnabled: true }; h.button('refreshContacts').props.onPress(); await h.settle();
   assert.equal(h.button('saveSettings').props.disabled, false); h.unmount();
 });
@@ -236,5 +272,15 @@ await test('large text keeps setup actions readable with accessible touch target
     assert.equal(button.props.children[1].props.numberOfLines, undefined);
   }
   const row = h.button('checkinTime'); assert.equal(row.props.style[1].flexDirection, 'column'); h.unmount();
+});
+await test('a failed initial settings load uses a toast and a neutral retry state, never a red error paragraph', async () => {
+  const h = harness({ status: new Error('Offline') }); await h.settle();
+  assert.deepEqual(h.calls.toasts.at(-1), ['Offline', 'error', 5000]); assert.ok(!h.text().includes('Offline'));
+  assert.ok(h.text().includes(h.t('settingsLoadFailed'))); assert.equal(h.calls.back, 0); h.unmount();
+});
+await test('leaving settings before a save finishes cannot show a success toast or navigate another screen', async () => {
+  let complete; const h = harness({ save: value => new Promise(resolve => { complete = () => resolve({ ok: true, settings: value }); }) });
+  await h.settle(); h.enable(); const save = h.button('saveSettings').props.onPress();
+  h.unmount(); complete(); await save; assert.equal(h.calls.back, 0); assert.deepEqual(h.calls.toasts, []);
 });
 console.log(`Check-in call settings: ${checks} runtime checks passed.`);

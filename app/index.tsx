@@ -1,8 +1,9 @@
 import { useRootNavigationState } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, InteractionManager, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, Easing, Image, InteractionManager, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ScaledText as Text } from '../src/components/ScaledText';
 import { DataConsentModal, hasDataConsent } from '../src/components/DataConsentModal';
 import { useTranslation } from 'react-i18next';
@@ -13,8 +14,10 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 
 const splashBgVi = require('../assets/images/splash/asinu_splash_bg_vi.png');
 const splashBgEn = require('../assets/images/splash/asinu_splash_bg_en.png');
+const ARTWORK_WIDTH = 1280;
+const ARTWORK_HEIGHT = 2776;
 
-function LoadingDot({ delay }: { delay: number }) {
+function LoadingDot({ delay, size = 8 }: { delay: number; size?: number }) {
   const anim = useRef(new Animated.Value(0.35)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -30,27 +33,14 @@ function LoadingDot({ delay }: { delay: number }) {
   }, [anim, delay]);
 
   return (
-    <Animated.View
-      style={[
-        styles.dot,
-        {
-          opacity: anim,
-          transform: [
-            {
-              scale: anim.interpolate({
-                inputRange: [0.35, 1],
-                outputRange: [0.85, 1.15],
-              }),
-            },
-          ],
-        },
-      ]}
-    />
+    <View style={[styles.dot, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Animated.View style={[styles.dotFill, { opacity: anim }]} />
+    </View>
   );
 }
 
 export default function Index() {
-  const { i18n } = useTranslation('common');
+  const { i18n, t } = useTranslation('common');
   const isEn = i18n.language?.startsWith('en');
   const splashBg = isEn ? splashBgEn : splashBgVi;
   const router = useRouter();
@@ -64,7 +54,20 @@ export default function Index() {
   const [showConsent, setShowConsent]   = useState(false);
   const [minSplashDone, setMinSplashDone] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
+  const win = typeof Dimensions?.get === 'function' ? Dimensions.get('window') : { width: 393, height: 852 };
+  const [viewport, setViewport] = useState({ width: win?.width || 393, height: win?.height || 852 });
   const progressValue = useRef(new Animated.Value(0)).current;
+  // Match Image's centered cover crop so overlays stay on the artwork's
+  // loading indicators on shorter phones, tablets and edge-to-edge screens.
+  const artworkScale = Math.max(viewport.width / ARTWORK_WIDTH, viewport.height / ARTWORK_HEIGHT);
+  const artworkWidth = ARTWORK_WIDTH * artworkScale;
+  const artworkHeight = ARTWORK_HEIGHT * artworkScale;
+  const artworkFrame = {
+    width: artworkWidth,
+    height: artworkHeight,
+    left: (viewport.width - artworkWidth) / 2,
+    top: (viewport.height - artworkHeight) / 2,
+  };
 
   // Minimum splash display time so user sees the progress animation smoothly
   useEffect(() => {
@@ -145,29 +148,60 @@ export default function Index() {
   }, [minSplashDone, hydrated, isNavReady, loading, profile, router, consentReady, showConsent]);
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={({ nativeEvent: { layout } }) => setViewport(current =>
+        current.width === layout.width && current.height === layout.height
+          ? current : { width: layout.width, height: layout.height })}
+    >
       <StatusBar style="dark" />
-      <Image source={splashBg} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image
+        source={splashBg}
+        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+        resizeMode="cover"
+      />
 
-      {/* Synchronized 3-dot pulse overlay */}
-      <View style={styles.dotsOverlay} pointerEvents="none">
-        <LoadingDot delay={0} />
-        <LoadingDot delay={200} />
-        <LoadingDot delay={400} />
-      </View>
-
-      {/* Dynamic progress bar & percentage overlay matching mockup track */}
-      <View style={styles.progressOverlay} pointerEvents="none">
-        <View style={styles.pctRow}>
-          <Text style={styles.progressPercent}>{progressPercent}%</Text>
+      <View style={[styles.artworkOverlay, artworkFrame]} pointerEvents="none">
+        <View style={[styles.dotsOverlay, {
+          top: 1810 * artworkScale,
+          marginLeft: -54 * artworkScale,
+          gap: 22 * artworkScale,
+        }]}>
+          <LoadingDot delay={0} size={22 * artworkScale} />
+          <LoadingDot delay={200} size={22 * artworkScale} />
+          <LoadingDot delay={400} size={22 * artworkScale} />
         </View>
-        <View style={styles.progressTrack} accessibilityLabel={`${progressPercent}%`}>
-          <Animated.View
-            style={[
-              styles.progressFill,
-              { width: progressValue.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
-            ]}
-          />
+
+        <View style={[styles.statusRow, {
+          top: 1898 * artworkScale,
+          left: 287 * artworkScale,
+          width: 706 * artworkScale,
+        }]}>
+          <Text style={[styles.loadingText, { fontSize: Math.max(13, 38 * artworkScale) }]}>
+            {t('loading', { defaultValue: isEn ? 'Loading...' : 'Đang tải...' })}
+          </Text>
+          <Text style={[styles.progressPercent, { fontSize: Math.max(14, 40 * artworkScale) }]}>
+            {progressPercent}%
+          </Text>
+        </View>
+        <View
+          style={[styles.progressTrack, {
+            top: 1966 * artworkScale,
+            left: 287 * artworkScale,
+            width: 706 * artworkScale,
+            height: 22 * artworkScale,
+          }]}
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel={t('loading')}
+          accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
+        >
+          <Animated.View style={[
+            styles.progressFill,
+            { width: progressValue.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+          ]}>
+            <LinearGradient colors={['#00a98c', '#06c7b1']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          </Animated.View>
         </View>
       </View>
 
@@ -183,52 +217,54 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    overflow: 'hidden',
+    backgroundColor: '#f1fbfc',
+  },
+  artworkOverlay: {
+    position: 'absolute',
   },
   dotsOverlay: {
     position: 'absolute',
-    top: '64.7%',
-    alignSelf: 'center',
+    left: '50%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
-    height: 12,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00a896',
+    overflow: 'hidden',
+    backgroundColor: '#bce9e5',
   },
-  progressOverlay: {
+  dotFill: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#00b5a4',
+  },
+  statusRow: {
     position: 'absolute',
-    top: '67.95%',
-    alignSelf: 'center',
-    width: '55.11%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 24,
   },
-  pctRow: {
-    height: 24,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginBottom: 6,
+  loadingText: {
+    color: '#1d5349',
+    fontSize: 14,
+    fontWeight: '600',
   },
   progressPercent: {
-    color: '#00796b',
+    color: '#007e71',
     fontSize: 14,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   progressTrack: {
-    width: '100%',
-    height: 8,
+    position: 'absolute',
     overflow: 'hidden',
-    borderRadius: 4,
-    backgroundColor: 'transparent',
+    borderRadius: 999,
+    backgroundColor: '#daf0ee',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
-    backgroundColor: '#00a896',
+    borderRadius: 999,
+    overflow: 'hidden',
   },
 });

@@ -14,7 +14,7 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['scripts/check-notification-sounds.mjs'],
+      files: ['scripts/check-notification-sounds.mjs', 'scripts/check-profile-edit.mjs', 'scripts/check-care-circle-health.mjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },

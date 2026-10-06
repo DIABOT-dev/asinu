@@ -797,6 +797,17 @@ function AuthenticatedCheckinCallScreen() {
         />
       )}
 
+      <View
+        pointerEvents="none"
+        style={[styles.callBottomDeco, { bottom: -insets.bottom, height: 140 + insets.bottom }]}
+      >
+        <Image
+          source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
+      </View>
+
       {!attempt && (
         <View style={styles.centerContainer}>
           {!error && <ActivityIndicator size="large" color="#059669" />}
@@ -864,12 +875,6 @@ function AuthenticatedCheckinCallScreen() {
               <Text style={styles.callButtonLabel}>{t('gallery.accept')}</Text>
             </Pressable>
           </View>
-
-          <Image
-            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
-            style={styles.callBottomDeco}
-            resizeMode="cover"
-          />
         </ScrollView>
       )}
 
@@ -954,12 +959,6 @@ function AuthenticatedCheckinCallScreen() {
               <Text style={styles.weatherCopy}>{t('personalization.weatherCredit')}</Text>
             </View>
           )}
-
-          <Image
-            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
-            style={styles.callBottomDeco}
-            resizeMode="cover"
-          />
         </ScrollView>
       )}
 
@@ -1015,12 +1014,6 @@ function AuthenticatedCheckinCallScreen() {
           {speechControls}
 
           <Text style={styles.familyFootnoteText}>{t('gallery.familyConfirmationNote')}</Text>
-
-          <Image
-            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
-            style={styles.callBottomDeco}
-            resizeMode="cover"
-          />
         </ScrollView>
       )}
 
@@ -1331,12 +1324,6 @@ function AuthenticatedCheckinCallScreen() {
               </View>
             </>
           )}
-
-          <Image
-            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
-            style={styles.callBottomDeco}
-            resizeMode="cover"
-          />
         </ScrollView>
       )}
     </View>
@@ -1474,12 +1461,10 @@ const styles = StyleSheet.create({
   },
   callBottomDeco: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     width: '100%',
-    height: 125,
-    opacity: 0.9,
+    zIndex: 0,
   },
 
   // Screen 2: Result (Image 2)
@@ -1490,7 +1475,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     alignItems: 'center',
     position: 'relative',
-    backgroundColor: '#f3fbf8',
+    backgroundColor: 'transparent',
   },
   resultSuccessArt: {
     width: 140,
@@ -1621,7 +1606,7 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     alignItems: 'center',
     position: 'relative',
-    backgroundColor: '#f3fbf8',
+    backgroundColor: 'transparent',
   },
   familyCard: {
     width: '100%',

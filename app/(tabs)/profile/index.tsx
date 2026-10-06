@@ -32,6 +32,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import type { TextInput as NativeTextInput } from "react-native";
 import {
   AppAlertModal,
   useAppAlert,
@@ -63,7 +64,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../../src/components/ScaledText";
 import { Screen } from "../../../src/components/Screen";
 import { ProfileTabSkeleton } from "../../../src/components/state/MainScreenSkeletons";
-import { authApi } from "../../../src/features/auth/auth.api";
+import { ModalToastHost } from "../../../src/components/GlobalToastHost";
+import { authApi, type UpdateProfilePayload } from "../../../src/features/auth/auth.api";
 import { showToast, setPendingToast } from "../../../src/stores/toast.store";
 import { useAuthStore } from "../../../src/features/auth/auth.store";
 import { useLogsStore } from "../../../src/features/logs/logs.store";
@@ -236,6 +238,7 @@ export default function ProfileScreen() {
     profile?.weightKg ? String(Math.round(profile.weightKg)) : "",
   );
   const [editBloodType, setEditBloodType] = useState(profile?.bloodType || "");
+  const bloodTypeInputRef = useRef<NativeTextInput>(null);
   const [editChronicDiseases, setEditChronicDiseases] = useState(
     profile?.chronicDiseases?.join(", ") || "",
   );
@@ -287,6 +290,7 @@ export default function ProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const avatarPickerInFlightRef = useRef(false);
+  const profileSaveInFlightRef = useRef(false);
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
   const profileReadyRef = useRef(false);
   const [profileReady, setProfileReady] = useState(false);
@@ -475,6 +479,7 @@ export default function ProfileScreen() {
   };
 
   const handleSaveProfile = async () => {
+    if (profileSaveInFlightRef.current) return;
     if (!editName.trim()) {
       showToast(t("nameRequired"), "error");
       return;
@@ -505,11 +510,18 @@ export default function ProfileScreen() {
     }
 
     const validBloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-    if (editBloodType && !validBloodTypes.includes(editBloodType)) {
-      showToast(t("bloodTypeInvalid"), "error");
+    const normalizedBloodType = editBloodType
+      .normalize("NFKC")
+      .replace(/\s+/g, "")
+      .replace(/\u2212/g, "-")
+      .toUpperCase();
+    if (normalizedBloodType && !validBloodTypes.includes(normalizedBloodType)) {
+      showToast(t("bloodTypeInvalid"), "error", 5000);
+      bloodTypeInputRef.current?.focus();
       return;
     }
 
+    profileSaveInFlightRef.current = true;
     setIsSaving(true);
     try {
       let dateOfBirth = null;
@@ -519,16 +531,16 @@ export default function ProfileScreen() {
         dateOfBirth = `${birthYear}-01-01`;
       }
 
-      const updateData: any = {
+      const updateData: UpdateProfilePayload = {
         name: editName.trim(),
         phone: editPhone.trim(),
+        bloodType: normalizedBloodType || null,
       };
 
       if (dateOfBirth) updateData.dateOfBirth = dateOfBirth;
       if (editGender) updateData.gender = editGender;
       if (editHeight) updateData.heightCm = parseFloat(editHeight);
       if (editWeight) updateData.weightKg = parseFloat(editWeight);
-      if (editBloodType) updateData.bloodType = editBloodType;
       updateData.chronicDiseases = editChronicDiseases.trim()
         ? editChronicDiseases
             .split(",")
@@ -551,6 +563,7 @@ export default function ProfileScreen() {
         );
       }
     } finally {
+      profileSaveInFlightRef.current = false;
       setIsSaving(false);
     }
   };
@@ -1729,17 +1742,22 @@ export default function ProfileScreen() {
                       <Text style={styles.statBoxLabel}>{t("bloodType")}</Text>
                     </View>
                     <TextInput
+                      ref={bloodTypeInputRef}
                       style={styles.statBoxInput}
                       value={editBloodType}
                       onChangeText={setEditBloodType}
                       placeholder={t('bloodTypePlaceholder')}
                       placeholderTextColor={colors.textSecondary}
+                      accessibilityLabel={t("bloodType")}
+                      accessibilityHint={t("bloodTypeExample")}
                       autoCapitalize="characters"
-                      maxLength={4}
+                      autoCorrect={false}
+                      maxLength={8}
                     />
                     <Text style={styles.statBoxUnit}> </Text>
                   </View>
                 </View>
+                <Text style={styles.bloodTypeHint}>{t("bloodTypeExample")}</Text>
               </View>
 
               {/* Section 4: Sức khỏe / Bệnh nền */}
@@ -1819,6 +1837,7 @@ export default function ProfileScreen() {
               </Pressable>
             </View>
           </View>
+          {isEditModalVisible && <ModalToastHost />}
         </KeyboardAvoidingView>
       </Modal>
 
@@ -2908,6 +2927,11 @@ function createStyles(
     },
 
     // 4 Stats Row (Tuổi, Chiều cao, Cân nặng, Nhóm máu)
+    bloodTypeHint: {
+      marginTop: spacing.sm,
+      fontSize: typography.size.xs,
+      color: textSecondaryCol,
+    },
     fourStatsRow: {
       flexDirection: "row",
       gap: 8,

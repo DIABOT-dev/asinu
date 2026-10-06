@@ -16,6 +16,7 @@
     "test:api-contract": "node scripts/check-api-contract.mjs",
     "test:checkin-contract": "node scripts/check-checkin-api-contract.mjs",
     "test:care-circle-health": "node scripts/check-care-circle-health.mjs",
+    "test:profile-edit": "node scripts/check-profile-edit.mjs",
     "test:checkin-settings": "node scripts/check-checkin-call-settings.mjs",
     "test:checkin-personalization": "node scripts/check-checkin-call-personalization.mjs",
     "test:home-checkin": "node scripts/check-home-checkin-cards.mjs",

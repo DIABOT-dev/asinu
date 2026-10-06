@@ -53,8 +53,12 @@
   "nextDay": ", the next day",
   "eligibleContacts": "Current eligible contact order",
   "eligibleContactFallback": "Family member {{index}}",
-  "noEligibleContacts": "No relative currently has alert and confirmation permissions with a registered notification device. The schedule cannot be enabled yet.",
-  "contactSetupHint": "You can still adjust your settings. To enable the schedule, connect at least one relative, grant alert and confirmation permissions, and ask them to enable notifications in Asinu.",
+  "noEligibleContacts": "No relative in your Care Circle is currently eligible to receive alerts.",
+  "contactSetupHint": "You can still enable and save your own reminder schedule. For Asinu to alert a relative, connect them, grant alert and confirmation permissions, and ask them to enable notifications in the app.",
+  "noContactsWarning": {
+    "title": "No relative can receive alerts yet",
+    "body": "You can still configure settings. To enable the call schedule, connect at least one family member, grant permission to receive and confirm alerts, and ask them to turn on notifications in Asinu."
+  },
   "manageCareCircle": "Set up relatives in Care Circle",
   "refreshContacts": "Check recipients again",
   "urgentSettingsNotice": "Urgent alerts contact relatives simultaneously for up to 30 minutes. Picking up does not stop other calls; select I will check on them. After accepting an urgent call, you have up to 2 minutes to confirm.",
@@ -97,6 +101,7 @@
   "settingsNotice": "Feeling slightly unwell: call family members one at a time. Urgent support: call everyone in the Care Circle. Family members must enable notifications and have permission to receive alerts. Disabling this feature only cancels schedules that have not started; active alerts will continue.",
   "saveSettings": "Save settings",
   "loadingSettings": "Loading settings...",
+  "settingsLoadFailed": "Unable to load settings. Please try again.",
   "accessRequiredTitle": "You cannot configure this feature yet",
   "accessRequiredBody": "Check-in calls are included with An Tam. Upgrade to enable call schedules and configure how Asinu contacts your family.",
   "viewPlans": "View An Tam plans",

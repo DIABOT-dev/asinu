@@ -210,6 +210,7 @@ function alertHarness() {
     '../hooks/useScaledTypography': { useScaledTypography: () => ({ size: { md: 17, sm: 14 } }) },
     '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) },
     'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     '../styles': { colors: {}, iconColors: {}, radius: {}, spacing: {} },
   };
   const { AppAlertModal } = evaluate(read('src/components/AppAlertModal.tsx'), imports);
@@ -247,7 +248,7 @@ await test('the actual personalized-consent modal bounds scrolling content and s
   const scroll = all.find(node => node.type === 'ScrollView');
   assert.ok(scroll); assert.equal(scroll.props.style.flexShrink, 1);
   assert.ok(nodes(scroll).some(node => node.type === 'Text' && node.props.children === 'Long consent content'));
-  const card = all.find(node => node.type === 'Pressable' && Array.isArray(node.props.style));
+  const card = all.find(node => node.type === 'Pressable' && node.props.accessibilityViewIsModal);
   assert.equal(card.props.style[1].maxHeight, '85%');
   const buttons = all.filter(node => node.type === 'Pressable' && node.props.style instanceof Function);
   assert.equal(buttons.length, 2);
@@ -356,6 +357,7 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
     },
     'expo-router': { useRootNavigationState: () => state.navigationReady ? { key: 'ready' } : null },
     'expo-status-bar': { StatusBar: 'StatusBar' },
+    'expo-linear-gradient': { LinearGradient: 'LinearGradient' },
     'expo-notifications': { getLastNotificationResponseAsync: async () => { calls.push++; return response; } },
     'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { language } }) },
     '../src/components/ScaledText': { ScaledText: 'Text' },

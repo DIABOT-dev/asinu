@@ -18,6 +18,7 @@ import { apiClient, getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { useFontSizeStore } from '../../src/stores/font-size.store';
+import { showToast } from '../../src/stores/toast.store';
 
 const FIELDS: Array<{
   key: keyof CheckinCallSettings;
@@ -59,14 +60,25 @@ export default function CheckinCallSettingsScreen() {
   const [reload, setReload] = useState(0);
   const [access, setAccess] = useState<'loading' | 'granted' | 'denied' | 'error'>('loading');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [noContactsWarning, setNoContactsWarning] = useState(false);
   const [activeField, setActiveField] = useState<string | null>(null);
   const initialized = useRef(false);
   const saveInFlight = useRef(false);
+  const mounted = useRef(true);
+  const focused = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    setError('');
+    focused.current = true;
+    setNoContactsWarning(false);
+    setLoadFailed(false);
+    if (!saveInFlight.current) setSaving(false);
     setAccess('loading');
     apiClient<{ isAnTam: boolean; callCenterEnabled?: boolean }>('/api/subscriptions/status')
       .then(async (status) => {
@@ -94,10 +106,12 @@ export default function CheckinCallSettingsScreen() {
       .catch((e) => {
         if (!active) return;
         setAccess('error');
-        setError(getApiErrorMessage(e, tc));
+        setLoadFailed(true);
+        showToast(getApiErrorMessage(e, tc), 'error', 5000);
       });
     return () => {
       active = false;
+      focused.current = false;
     };
   }, [tc, reload]));
 
@@ -111,22 +125,33 @@ export default function CheckinCallSettingsScreen() {
   }, []);
 
   const save = async () => {
-    if (!value || saveInFlight.current || access !== 'granted') return;
+    if (!value || saveInFlight.current || access !== 'granted' || noContactsWarning || !focused.current) return;
     saveInFlight.current = true;
     setSaving(true);
-    setError('');
     try {
       const result = await checkinCallApi.saveSettings(value);
+      if (!mounted.current || !focused.current) return;
+      if (!result.ok) throw new Error(t('homeControl.updateFailed'));
       const saved = { ...result.settings, checkin_time: result.settings.checkin_time.slice(0, 5) };
       setValue(saved);
       setSavedValue(saved);
+      showToast(t('savedSettings'), 'success');
       router.back();
     } catch (e) {
-      setError(getApiErrorMessage(e, tc));
+      if (mounted.current && focused.current) showToast(getApiErrorMessage(e, tc), 'error', 5000);
     } finally {
       saveInFlight.current = false;
-      setSaving(false);
+      if (mounted.current) setSaving(false);
     }
+  };
+
+  const toggleDraft = (enabled: boolean) => {
+    if (saveInFlight.current || access !== 'granted' || noContactsWarning || !focused.current) return;
+    if (enabled && !value?.enabled && contacts?.length === 0) {
+      setNoContactsWarning(true);
+      return;
+    }
+    setValue(current => current ? { ...current, enabled } : current);
   };
 
   const shiftTime = (direction: 1 | -1) => {
@@ -152,6 +177,8 @@ export default function CheckinCallSettingsScreen() {
       <View style={styles.center}>
         <AppAlertModal
           visible
+          stackButtons
+          scrollable
           title={t('accessRequiredTitle')}
           message={t('accessRequiredBody')}
           icon={{ name: 'lock-outline', color: '#c2410c' }}
@@ -172,15 +199,15 @@ export default function CheckinCallSettingsScreen() {
   if (!value) {
     return (
       <View style={styles.center}>
-        {!error && <ActivityIndicator size="large" color="#059669" />}
-        <Text style={styles.loadingText}>{error || t('loadingSettings')}</Text>
-        {!!error && <Pressable accessibilityRole="button" style={styles.stepBtn} onPress={() => setReload(current => current + 1)}><Text>{tc('retry')}</Text></Pressable>}
+        {!loadFailed && <ActivityIndicator size="large" color="#059669" />}
+        <Text style={styles.loadingText}>{t(loadFailed ? 'settingsLoadFailed' : 'loadingSettings')}</Text>
+        {loadFailed && <Pressable accessibilityRole="button" style={styles.stepBtn} onPress={() => setReload(current => current + 1)}><Text>{tc('retry')}</Text></Pressable>}
       </View>
     );
   }
 
   const dirty = JSON.stringify(value) !== JSON.stringify(savedValue);
-  const busy = saving || access === 'loading';
+  const busy = saving || access !== 'granted' || noContactsWarning;
   const saveDisabled = busy || !dirty || access !== 'granted';
 
   return (
@@ -222,7 +249,7 @@ export default function CheckinCallSettingsScreen() {
               accessibilityState={{ checked: value.enabled, disabled: busy }}
               value={value.enabled}
               disabled={busy}
-              onValueChange={(enabled) => setValue({ ...value, enabled })}
+              onValueChange={toggleDraft}
               trackColor={{ false: '#cbd5e1', true: '#00897b' }}
             />
           </View>
@@ -368,7 +395,6 @@ export default function CheckinCallSettingsScreen() {
             );
           })}
 
-          {!!error && <Text style={styles.error}>{error}</Text>}
           {access === 'error' && <Pressable accessibilityRole="button" style={styles.setupAction} onPress={() => setReload(current => current + 1)}><Text style={styles.setupActionText}>{tc('retry')}</Text></Pressable>}
           <Text style={styles.cardSubtitle}>{t('urgentSettingsNotice')}</Text>
 
@@ -390,6 +416,27 @@ export default function CheckinCallSettingsScreen() {
 
         </View>
       </ScrollView>
+      <AppAlertModal
+        queued
+        visible={noContactsWarning}
+        title={t('noContactsWarning.title')}
+        message={t('noContactsWarning.body')}
+        icon={{ name: 'account-alert-outline', color: '#b45309' }}
+        stackButtons
+        scrollable
+        buttons={[
+          { text: t('homeControl.turnOn'), onPress: () => {
+            if (mounted.current && focused.current && !saveInFlight.current) {
+              setValue(current => current ? { ...current, enabled: true } : current);
+            }
+          } },
+          { text: t('manageCareCircle'), style: 'cancel', onPress: () => {
+            if (mounted.current && focused.current) router.push('/care-circle');
+          } },
+          { text: tc('cancel'), style: 'cancel' },
+        ]}
+        onDismiss={() => setNoContactsWarning(false)}
+      />
     </View>
   );
 }
@@ -517,7 +564,6 @@ const styles = StyleSheet.create({
     color: '#00897b',
     marginTop: -2,
   },
-  error: { color: '#dc2626', fontSize: 13, marginTop: 10, textAlign: 'center' },
   saveBtn: {
     backgroundColor: '#00897b',
     borderRadius: 20,

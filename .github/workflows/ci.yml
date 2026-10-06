@@ -68,6 +68,9 @@ jobs:
       - name: Care Circle health access and calendar regressions
         run: npm run test:care-circle-health
 
+      - name: Profile editing and validation regressions
+        run: npm run test:profile-edit
+
       - name: i18n check
         run: npm run i18n:check
 

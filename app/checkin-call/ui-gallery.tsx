@@ -307,11 +307,13 @@ function InAppIncomingPreview({ role }: { role: 'USER' | 'FAMILY' }) {
           </View>
         </View>
 
-        <Image
-          source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
-          style={styles.callBottomDeco}
-          resizeMode="cover"
-        />
+        <View pointerEvents="none" style={styles.callBottomDeco}>
+          <Image
+            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        </View>
       </View>
     </PreviewFrame>
   );
@@ -453,11 +455,13 @@ function FamilyPreview({ severity }: { severity: 'UNKNOWN' | 'MILD' | 'URGENT' }
           {t('gallery.familyConfirmationNote')}
         </Text>
 
-        <Image
-          source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
-          style={styles.callBottomDeco}
-          resizeMode="cover"
-        />
+        <View pointerEvents="none" style={styles.callBottomDeco}>
+          <Image
+            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        </View>
       </View>
     </PreviewFrame>
   );
@@ -545,11 +549,13 @@ function ResultPreview({ kind }: { kind: 'USER_OK' | 'USER_MILD' | 'USER_URGENT'
           <Text style={styles.resultCloseBtnText}>{t('close', { ns: 'common' })}</Text>
         </View>
 
-        <Image
-          source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
-          style={styles.callBottomDeco}
-          resizeMode="cover"
-        />
+        <View pointerEvents="none" style={styles.callBottomDeco}>
+          <Image
+            source={require('../../assets/images/checkin-call/call_bottom_deco.png')}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        </View>
       </View>
     </PreviewFrame>
   );
@@ -947,11 +953,10 @@ const styles = StyleSheet.create({
   callBottomDeco: {
     position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
-    width: '100%',
-    height: 110,
-    opacity: 0.85,
+    left: -20,
+    right: -20,
+    height: 120,
+    opacity: 0.95,
   },
 
   // Screen 3 - Settings
@@ -1064,7 +1069,7 @@ const styles = StyleSheet.create({
     minHeight: 560,
     backgroundColor: '#eff8f5',
     borderRadius: 24,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingTop: 28,
     paddingBottom: 30,
     alignItems: 'center',

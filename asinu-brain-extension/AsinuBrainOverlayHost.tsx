@@ -11,7 +11,6 @@ import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { showToast } from '../src/stores/toast.store';
 import { colors, spacing } from '../src/styles';
 import { BrainOutcome, BrainQuestion, fetchBrainNext, sendBrainAnswer } from './asinuBrain.api';
-import { AsinuEmergencyFAB } from './ui/AsinuEmergencyFAB';
 
 const OUTCOME_HISTORY_KEY = '@asinu_brain_outcomes';
 const MAX_OUTCOMES = 50;
@@ -313,7 +312,6 @@ export const AsinuBrainOverlayHost = () => {
       </Modal>
       */}
 
-      {/* FAB moved to _layout.tsx — rendered outside OverlayHost for Android touch compatibility */}
     </View>
   );
 };

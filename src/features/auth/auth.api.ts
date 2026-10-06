@@ -23,7 +23,7 @@ export type UpdateProfilePayload = {
   dateOfBirth?: string;
   heightCm?: number;
   weightKg?: number;
-  bloodType?: string;
+  bloodType?: string | null;
   chronicDiseases?: string[];
   ageRange?: string;
   gender?: string;
