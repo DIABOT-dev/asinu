@@ -197,6 +197,12 @@ export default function DoctorConsultationThreadScreen() {
   const [sending, setSending] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
+  const [messageActionBusy, setMessageActionBusy] = useState(false);
+  const messageActionInFlight = useRef(false);
+  const editedMessage = messages.find(message => message.id === editingMessageId);
+  const hasMessageEditChanges = Boolean(editedMessage) && Boolean(editingDraft.trim()) &&
+    editingDraft.trim() !== (editedMessage?.content ?? "").trim();
+  const editMessageSaveDisabled = messageActionBusy || !hasMessageEditChanges;
   const [recording, setRecording] = useState(false);
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
   const recordingRef = useRef<any>(null);
@@ -427,7 +433,17 @@ export default function DoctorConsultationThreadScreen() {
     action: "edit" | "unsend" | "delete_for_me" | "pin" | "unpin",
     content?: string
   ) => {
-    if (!taskId) return;
+    if (!taskId || messageActionInFlight.current) {
+      return;
+    }
+    if (action === "edit" && (
+      messageId !== editingMessageId || !hasMessageEditChanges ||
+      content?.trim() !== editingDraft.trim()
+    )) {
+      return;
+    }
+    messageActionInFlight.current = true;
+    setMessageActionBusy(true);
     try {
       await apiClient(
         `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages/action`,
@@ -446,6 +462,9 @@ export default function DoctorConsultationThreadScreen() {
       await loadThread();
     } catch {
       showToast(t("doctorConsultationMessageError"), "error");
+    } finally {
+      messageActionInFlight.current = false;
+      setMessageActionBusy(false);
     }
   };
 
@@ -1040,6 +1059,7 @@ export default function DoctorConsultationThreadScreen() {
                           <TextInput
                             autoFocus
                             maxLength={5000}
+                            editable={!messageActionBusy}
                             onChangeText={setEditingDraft}
                             style={[
                               styles.editMessageInput,
@@ -1050,12 +1070,17 @@ export default function DoctorConsultationThreadScreen() {
                           <View style={styles.editMessageActions}>
                             <Pressable
                               onPress={() => setEditingMessageId(null)}
+                              disabled={messageActionBusy}
                             >
                               <Text style={styles.editCancelText}>
                                 {t("doctorConsultationCancel")}
                               </Text>
                             </Pressable>
                             <Pressable
+                              disabled={editMessageSaveDisabled}
+                              accessibilityRole="button"
+                              accessibilityState={{ disabled: editMessageSaveDisabled, busy: messageActionBusy }}
+                              style={editMessageSaveDisabled && styles.editSaveDisabled}
                               onPress={() =>
                                 void runMessageAction(
                                   message.id,
@@ -1313,6 +1338,7 @@ export default function DoctorConsultationThreadScreen() {
                         <TextInput
                           autoFocus
                           maxLength={5000}
+                          editable={!messageActionBusy}
                           onChangeText={setEditingDraft}
                           style={[
                             styles.editMessageInput,
@@ -1321,12 +1347,16 @@ export default function DoctorConsultationThreadScreen() {
                           value={editingDraft}
                         />
                         <View style={styles.editMessageActions}>
-                          <Pressable onPress={() => setEditingMessageId(null)}>
+                          <Pressable disabled={messageActionBusy} onPress={() => setEditingMessageId(null)}>
                             <Text style={styles.editCancelText}>
                               {t("doctorConsultationCancel")}
                             </Text>
                           </Pressable>
                           <Pressable
+                            disabled={editMessageSaveDisabled}
+                            accessibilityRole="button"
+                            accessibilityState={{ disabled: editMessageSaveDisabled, busy: messageActionBusy }}
+                            style={editMessageSaveDisabled && styles.editSaveDisabled}
                             onPress={() =>
                               void runMessageAction(
                                 message.id,
@@ -1979,6 +2009,9 @@ const styles = StyleSheet.create({
     color: "#64748B",
     fontSize: 12,
     fontWeight: "600",
+  },
+  editSaveDisabled: {
+    opacity: 0.4,
   },
   editSaveText: {
     color: "#008B76",

@@ -71,6 +71,9 @@ jobs:
       - name: Profile editing and validation regressions
         run: npm run test:profile-edit
 
+      - name: Edit forms reject unchanged saves
+        run: npm run test:edit-save-state
+
       - name: i18n check
         run: npm run i18n:check
 

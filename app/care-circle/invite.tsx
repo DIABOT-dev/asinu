@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -25,7 +26,6 @@ import { careCircleApi, type CareCircleQrPreview, useCareCircle } from '../../sr
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, iconColors, radius, spacing, brandColors} from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { normalizeVietnamesePhone } from '../../src/lib/validation';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
@@ -42,25 +42,19 @@ const PERM_META = [
     key: 'can_view_logs' as const,
     titleKey: 'permViewLogs',
     descKey: 'permViewLogsDesc',
-    icon: 'file-document-outline' as const,
-    color: '#3b82f6',
-    bg: '#eff6ff',
+    icon: 'document-text-outline' as const,
   },
   {
     key: 'can_receive_alerts' as const,
     titleKey: 'permReceiveAlerts',
     descKey: 'permReceiveAlertsDesc',
-    icon: 'bell-ring-outline' as const,
-    color: '#f59e0b',
-    bg: '#fffbeb',
+    icon: 'notifications-outline' as const,
   },
   {
     key: 'can_ack_escalation' as const,
     titleKey: 'permAckEscalation',
     descKey: 'permAckEscalationDesc',
-    icon: 'shield-check-outline' as const,
-    color: '#10b981',
-    bg: '#ecfdf5',
+    icon: 'shield-outline' as const,
   },
 ];
 
@@ -274,32 +268,48 @@ export default function InviteScreen() {
         }}
       />
       <View style={[styles.screenHeader, { paddingTop: insets.top }]}>
-        <ScreenBackButton onPress={handleExit} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={tc('back')}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+          onPress={handleExit}
+        >
+          <Ionicons name="chevron-back" size={22} color="#0F172A" />
+        </Pressable>
         <Text style={styles.screenHeaderTitle}>{t('inviteTitle')}</Text>
         <View style={styles.screenHeaderSpacer} />
       </View>
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, backgroundColor: '#F3FBF8' }}>
         <ScrollView
           style={{ flex: 1, backgroundColor: 'transparent' }}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: (selectedUser || qrPreview) ? insets.bottom + 96 : spacing.xl }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: (selectedUser || qrPreview) ? insets.bottom + 96 : insets.bottom + spacing.xl }]}
           keyboardShouldPersistTaps="handled"
         >
         <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.md }}>
         {/* ─── Hero ─── */}
         <View style={styles.heroCard}>
-            <MaterialCommunityIcons name="account-plus-outline" size={28} color={iconColors.primary} />
-            <Text style={styles.heroSubtitle}>{t('inviteSubtitle')}</Text>
+          <View style={styles.heroTextWrap}>
+            <Text style={styles.heroTitle}>{t('inviteSubtitle')}</Text>
+            <Text style={styles.heroSubtitle}>{t('inviteHeroDesc')}</Text>
           </View>
+          <Image
+            source={require('../../assets/images/care-circle/family_3d_art.png')}
+            style={styles.heroArt}
+            resizeMode="contain"
+          />
+        </View>
 
         {/* ─── Recipient ─── */}
         <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <MaterialCommunityIcons
-                name={qrToken ? 'qrcode-scan' : 'phone-outline'}
-                size={18}
-                color={iconColors.indigo}
-              />
-              <Text style={styles.cardTitle}>{qrToken ? t('qrRecipient') : t('searchByPhone')}</Text>
+              <View style={styles.headerLeftRow}>
+                <Ionicons
+                  name={qrToken ? 'qr-code-outline' : 'call'}
+                  size={18}
+                  color="#0D9488"
+                />
+                <Text style={styles.cardTitle}>{qrToken ? t('qrRecipient') : t('searchByPhone')}</Text>
+              </View>
             </View>
 
             {qrToken ? (
@@ -311,51 +321,56 @@ export default function InviteScreen() {
                   </View>
                 ) : qrPreview ? (
                   <View style={styles.selectedUserCard}>
-                    <MaterialCommunityIcons name="account-check-outline" size={32} color={colors.primary} />
+                    <View style={styles.selectedAvatar}>
+                      <Ionicons name="checkmark-circle" size={24} color="#0D9488" />
+                    </View>
                     <View style={styles.foundUserInfo}>
                       <Text style={styles.foundUserName}>{qrPreview.name}</Text>
                       <Text style={styles.foundUserPhone}>{t('qrVerifiedPerson')}</Text>
                     </View>
-                    <Ionicons name="shield-checkmark" size={22} color={colors.primary} />
+                    <Ionicons name="shield-checkmark" size={22} color="#0D9488" />
                   </View>
                 ) : null}
                 {!qrLoading && !qrPreview ? (
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('scanAgain')}
                     onPress={() => router.replace('/care-circle/scan' as never)}
                     style={({ pressed }) => [styles.scanAgainButton, pressed && { opacity: 0.82 }]}
                   >
-                    <Ionicons name="scan" size={19} color={colors.primary} />
+                    <Ionicons name="scan" size={19} color="#0D9488" />
                     <Text style={styles.scanAgainText}>{t('scanAgain')}</Text>
                   </Pressable>
                 ) : null}
               </>
             ) : (
-            <><View style={styles.phoneSearchRow}>
-              <View style={styles.phoneInputWrap}>
-                <TextInput
-                  style={[styles.comboInput, { fontSize: 15 }]}
-                  value={phoneQuery}
-                  onChangeText={text => {
-                    setPhoneQuery(text);
-                    setSearchedUser(null);
-                    setSelectedUser(null);
-                    setSearchError('');
-                  }}
-                  placeholder={t('enterPhoneNumber')}
-                  placeholderTextColor={colors.textSecondary + '88'}
-                  keyboardType="phone-pad"
-                  returnKeyType="search"
-                  onSubmitEditing={handleSearchByPhone}
-                />
-              </View>
+            <>
+            <View style={styles.phoneInputRow}>
+              <TextInput
+                style={styles.phoneInput}
+                value={phoneQuery}
+                onChangeText={text => {
+                  setPhoneQuery(text);
+                  setSearchedUser(null);
+                  setSelectedUser(null);
+                  setSearchError('');
+                }}
+                placeholder={t('enterPhoneNumber')}
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                returnKeyType="search"
+                onSubmitEditing={handleSearchByPhone}
+              />
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('search')}
                 style={({ pressed }) => [styles.searchBtn, searchLoading && { opacity: 0.6 }, pressed && { opacity: 0.85 }]}
                 onPress={handleSearchByPhone}
                 disabled={searchLoading}
               >
                 {searchLoading
-                  ? <ActivityIndicator size="small" color={colors.primary} />
-                  : <Ionicons name="search" size={20} color={colors.primary} />
+                  ? <ActivityIndicator size="small" color="#FFFFFF" />
+                  : <Ionicons name="search" size={18} color="#FFFFFF" />
                 }
               </Pressable>
             </View>
@@ -363,11 +378,13 @@ export default function InviteScreen() {
             {/* Search result */}
             {searchedUser && !selectedUser && (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('selectThisUser')}
                 style={({ pressed }) => [styles.foundUserCard, pressed && { opacity: 0.85 }]}
                 onPress={handleSelectSearchedUser}
               >
                 <View style={styles.foundUserAvatar}>
-                  <MaterialCommunityIcons name="account-outline" size={24} color={colors.primary} />
+                  <Ionicons name="person" size={20} color="#0D9488" />
                 </View>
                 <View style={styles.foundUserInfo}>
                   <Text style={styles.foundUserName}>{searchedUser.name}</Text>
@@ -376,7 +393,7 @@ export default function InviteScreen() {
                   )}
                 </View>
                 <View style={styles.selectBtnWrap}>
-                  <MaterialCommunityIcons name="plus-circle" size={14} color={colors.primary} />
+                  <Ionicons name="checkmark-circle-outline" size={15} color="#FFFFFF" />
                   <Text style={styles.selectBtnText}>{t('selectThisUser')}</Text>
                 </View>
               </Pressable>
@@ -385,7 +402,9 @@ export default function InviteScreen() {
             {/* Selected user */}
             {selectedUser && (
               <View style={styles.selectedUserCard}>
-                <MaterialCommunityIcons name="account-check-outline" size={32} color={colors.primary} />
+                <View style={styles.selectedAvatar}>
+                  <Ionicons name="checkmark-circle" size={24} color="#0D9488" />
+                </View>
                 <View style={styles.foundUserInfo}>
                   <Text style={styles.foundUserName}>{selectedUser.name}</Text>
                   {selectedUser.phone && (
@@ -393,10 +412,12 @@ export default function InviteScreen() {
                   )}
                 </View>
                 <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={tc('close')}
                   onPress={() => { setSelectedUser(null); setSearchedUser(null); }}
                   style={styles.clearBtn}
                 >
-                  <Ionicons name="close" size={16} color={colors.textSecondary} />
+                  <Ionicons name="close" size={16} color="#64748B" />
                 </TouchableOpacity>
               </View>
             )}
@@ -405,7 +426,7 @@ export default function InviteScreen() {
 
             {searchError ? (
               <View style={styles.errorRow}>
-                <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                <Ionicons name="alert-circle" size={16} color="#EF4444" />
                 <Text style={styles.errorText}>{searchError}</Text>
               </View>
             ) : null}
@@ -414,30 +435,44 @@ export default function InviteScreen() {
         {/* ─── Relationship & Role ─── */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <MaterialCommunityIcons name="heart-outline" size={18} color={iconColors.pink} />
-              <Text style={styles.cardTitle}>{t('relationship')}</Text>
-              <Text style={styles.optionalBadge}>{t('optional')}</Text>
+              <View style={styles.headerLeftRow}>
+                <Ionicons name="heart-outline" size={19} color="#EF4444" />
+                <Text style={styles.cardTitle}>{t('relationship')}</Text>
+              </View>
+              <View style={styles.optionalBadge}>
+                <Text style={styles.optionalBadgeText}>{t('optional')}</Text>
+              </View>
             </View>
             <View style={styles.comboInputRow}>
               <TextInput
-                style={[styles.comboInput, { fontSize: 15 }]}
+                style={styles.comboInput}
                 value={selectedRelationship ? selectedRelationship.label : customRelationship}
                 onChangeText={text => { setCustomRelationship(text); setSelectedRelationship(null); }}
                 placeholder={t('relPlaceholder')}
-                placeholderTextColor={colors.textSecondary + '88'}
+                placeholderTextColor="#94A3B8"
               />
-              <Pressable style={styles.comboDropBtn} onPress={() => setShowRelDropdown(v => !v)}>
-                <Ionicons name={showRelDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primary} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('relationship')}
+                style={styles.comboDropBtn}
+                onPress={() => setShowRelDropdown(v => !v)}
+              >
+                <Ionicons name={showRelDropdown ? 'chevron-up' : 'chevron-down'} size={20} color="#0D9488" />
               </Pressable>
             </View>
             {showRelDropdown && (
               <ScrollView style={styles.suggestionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                 {relationshipOptions.map(opt => (
-                  <Pressable key={opt.id} style={styles.suggestionItem} onPress={() => {
-                    setSelectedRelationship(opt);
-                    setCustomRelationship('');
-                    setShowRelDropdown(false);
-                  }}>
+                  <Pressable
+                    key={opt.id}
+                    accessibilityRole="button"
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                      setSelectedRelationship(opt);
+                      setCustomRelationship('');
+                      setShowRelDropdown(false);
+                    }}
+                  >
                     <Text style={styles.suggestionText}>{opt.label}</Text>
                   </Pressable>
                 ))}
@@ -447,9 +482,13 @@ export default function InviteScreen() {
 
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <MaterialCommunityIcons name="badge-account-horizontal-outline" size={18} color={iconColors.violet} />
-              <Text style={styles.cardTitle}>{t('role')}</Text>
-              <Text style={styles.optionalBadge}>{t('optional')}</Text>
+              <View style={styles.headerLeftRow}>
+                <Ionicons name="people-outline" size={19} color="#0D9488" />
+                <Text style={styles.cardTitle}>{t('role')}</Text>
+              </View>
+              <View style={styles.optionalBadge}>
+                <Text style={styles.optionalBadgeText}>{t('optional')}</Text>
+              </View>
             </View>
             <Pressable
               style={styles.comboInputRow}
@@ -458,23 +497,30 @@ export default function InviteScreen() {
               accessibilityState={{ expanded: showRoleDropdown }}
               onPress={() => setShowRoleDropdown(v => !v)}
             >
-              <Text style={[styles.comboInput, !selectedRole && { color: colors.textSecondary }]}>
+              <Text style={[styles.comboInputText, !selectedRole && styles.placeholderText]}>
                 {selectedRole?.label || t('rolePlaceholder')}
               </Text>
-              <Ionicons
-                name={showRoleDropdown ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={colors.primary}
-                style={{ marginRight: spacing.md }}
-              />
+              <View style={styles.comboDropBtn}>
+                <Ionicons
+                  name={showRoleDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#0D9488"
+                />
+              </View>
             </Pressable>
             {showRoleDropdown && (
               <ScrollView style={styles.suggestionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                 {roleOptions.map(opt => (
-                  <Pressable key={opt.id} style={styles.suggestionItem} accessibilityRole="button" accessibilityState={{ selected: selectedRole?.id === opt.id }} onPress={() => {
-                    setSelectedRole(opt);
-                    setShowRoleDropdown(false);
-                  }}>
+                  <Pressable
+                    key={opt.id}
+                    style={styles.suggestionItem}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedRole?.id === opt.id }}
+                    onPress={() => {
+                      setSelectedRole(opt);
+                      setShowRoleDropdown(false);
+                    }}
+                  >
                     <Text style={styles.suggestionText}>{opt.label}</Text>
                   </Pressable>
                 ))}
@@ -484,9 +530,12 @@ export default function InviteScreen() {
 
         {/* ─── Permissions ─── */}
           <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <MaterialCommunityIcons name="lock-open-outline" size={18} color={iconColors.emerald} />
-              <Text style={styles.cardTitle}>{t('permissions')}</Text>
+            <View style={styles.permHeader}>
+              <View style={styles.headerLeftRow}>
+                <Ionicons name="shield-outline" size={20} color="#0D9488" />
+                <Text style={styles.cardTitle}>{t('permissions')}</Text>
+              </View>
+              <Text style={styles.permHeaderSubtitle}>{t('permissionsDesc')}</Text>
             </View>
 
             {PERM_META.map((perm, i) => (
@@ -494,9 +543,7 @@ export default function InviteScreen() {
                 key={perm.key}
                 style={[styles.permissionRow, i === PERM_META.length - 1 && { borderBottomWidth: 0 }]}
               >
-                <View style={styles.permIconWrap}>
-                  <MaterialCommunityIcons name={perm.icon} size={18} color={perm.color} />
-                </View>
+                <Ionicons name={perm.icon} size={22} color="#0D9488" style={styles.permIcon} />
                 <View style={styles.permissionInfo}>
                   <Text style={styles.permissionTitle}>{t(perm.titleKey)}</Text>
                   <Text style={styles.permissionDesc}>{t(perm.descKey)}</Text>
@@ -504,8 +551,9 @@ export default function InviteScreen() {
                 <Switch
                   value={permissions[perm.key]}
                   onValueChange={(value) => setPermissions(prev => ({ ...prev, [perm.key]: value }))}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={colors.surface}
+                  trackColor={{ false: '#CBD5E1', true: '#0D9488' }}
+                  thumbColor="#FFFFFF"
+                  ios_backgroundColor="#CBD5E1"
                 />
               </View>
             ))}
@@ -516,19 +564,19 @@ export default function InviteScreen() {
       </View>
 
       {(selectedUser || qrPreview) && (
-        <View style={[styles.stickyActions, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+        <View style={[styles.stickyActions, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <Pressable
-            style={({ pressed }) => [styles.sendBtn, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [styles.sendBtn, pressed && { opacity: 0.88 }]}
             onPress={handleSend}
             disabled={loading}
             accessibilityRole="button"
             accessibilityLabel={t('sendInvite')}
           >
             {loading ? (
-              <ActivityIndicator size="small" color={colors.primaryDark} />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <>
-                <MaterialCommunityIcons name="send-outline" size={18} color={colors.primaryDark} />
+                <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
                 <Text style={styles.sendBtnText}>{t('sendInvite')}</Text>
               </>
             )}
@@ -570,22 +618,39 @@ export default function InviteScreen() {
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     scrollContent: {
-      padding: spacing.xl,
-      gap: spacing.md,
+      padding: 16,
+      gap: 14,
     },
     screenHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: spacing.xl,
-      paddingBottom: spacing.md,
-      backgroundColor: colors.primaryLight,
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      backgroundColor: '#F3FBF8',
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      shadowColor: '#000',
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 1,
+      zIndex: 10,
     },
     screenHeaderTitle: {
       flex: 1,
       textAlign: 'center',
       fontSize: typography.size.lg,
       fontWeight: '700',
-      color: colors.textPrimary,
+      color: '#0F172A',
     },
     screenHeaderSpacer: {
       width: 40,
@@ -593,33 +658,47 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     // ── Hero ──
     heroCard: {
-      borderRadius: radius.xl,
-      padding: spacing.xl,
-      alignItems: 'center',
-      backgroundColor: colors.primaryLight,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      gap: spacing.sm,
+      borderRadius: 24,
+      paddingHorizontal: 18,
+      paddingVertical: 18,
+      backgroundColor: '#E8F7F4',
+      borderWidth: 1,
+      borderColor: '#D4F0EA',
+      position: 'relative',
+      minHeight: 112,
+      justifyContent: 'center',
+    },
+    heroTextWrap: {
+      flex: 1,
+      paddingRight: 124,
     },
     heroTitle: {
-      fontSize: typography.size.lg,
-      fontWeight: '800',
-      color: colors.textPrimary,
+      fontSize: 15.5,
+      fontWeight: '700',
+      color: '#0F172A',
+      lineHeight: 22,
     },
     heroSubtitle: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 20,
+      fontSize: 12.5,
+      color: '#475569',
+      lineHeight: 18,
+      marginTop: 6,
+    },
+    heroArt: {
+      position: 'absolute',
+      right: 2,
+      bottom: 0,
+      width: 135,
+      height: 112,
     },
 
     // ── Card ──
     card: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 22,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
       shadowColor: '#000',
       shadowOpacity: 0.04,
       shadowRadius: 8,
@@ -629,48 +708,55 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     cardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.md,
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    },
+    headerLeftRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
     },
     cardTitle: {
-      fontSize: typography.size.sm,
+      fontSize: 15,
       fontWeight: '700',
-      color: colors.textPrimary,
+      color: '#0F172A',
+    },
+    optionalBadge: {
+      backgroundColor: '#F1F5F9',
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 12,
+    },
+    optionalBadgeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: '#64748B',
     },
 
     // ── Phone Search ──
-    phoneSearchRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      alignItems: 'center',
-    },
-    phoneInputWrap: {
-      flex: 1,
+    phoneInputRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      overflow: 'hidden',
+      backgroundColor: '#F8FAFC',
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      paddingLeft: 14,
+      paddingRight: 5,
+      paddingVertical: 4,
+      height: 50,
     },
     phoneInput: {
       flex: 1,
-      paddingHorizontal: spacing.sm,
-      paddingRight: spacing.md,
+      fontSize: 14.5,
+      color: '#0F172A',
       paddingVertical: 0,
-      fontSize: typography.size.sm,
-      color: colors.textPrimary,
-      height: 48,
-      textAlignVertical: 'center',
     },
     searchBtn: {
-      width: 48,
-      height: 48,
-      backgroundColor: colors.primaryLight,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
+      width: 40,
+      height: 40,
+      backgroundColor: '#0D9488',
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -679,19 +765,19 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     foundUserCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: spacing.md,
-      padding: spacing.md,
-      borderRadius: radius.lg,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.primaryLight,
-      gap: spacing.md,
+      marginTop: 12,
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: '#CCFBF1',
+      backgroundColor: '#F0FDFA',
+      gap: 12,
     },
     foundUserAvatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.primary + '15',
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: '#CCFBF1',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -699,41 +785,49 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flex: 1,
     },
     foundUserName: {
-      fontSize: typography.size.sm,
+      fontSize: 14.5,
       fontWeight: '700',
-      color: colors.textPrimary,
+      color: '#0F172A',
     },
     foundUserPhone: {
-      fontSize: typography.size.xs,
-      color: colors.textSecondary,
+      fontSize: 12.5,
+      color: '#64748B',
       marginTop: 2,
     },
     selectBtnWrap: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: colors.primary + '15',
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: spacing.xs + 2,
+      backgroundColor: '#0D9488',
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
     },
     selectBtnText: {
-      fontSize: typography.size.xxs,
+      fontSize: 12,
       fontWeight: '700',
-      color: colors.primary,
+      color: '#FFFFFF',
     },
 
     // ── Selected User ──
     selectedUserCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: spacing.md,
-      padding: spacing.md,
-      borderRadius: radius.lg,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.primaryLight,
-      gap: spacing.md,
+      marginTop: 12,
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: '#0D9488',
+      backgroundColor: '#F0FDFA',
+      gap: 12,
+    },
+    selectedAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: '#CCFBF1',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     qrRecipientLoading: {
       alignItems: 'center',
@@ -751,15 +845,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingHorizontal: spacing.sm,
     },
     scanAgainText: {
-      color: colors.primary,
-      fontSize: typography.size.sm,
+      color: '#0D9488',
+      fontSize: 14,
       fontWeight: '700',
     },
     clearBtn: {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: colors.border,
+      backgroundColor: '#E2E8F0',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -769,119 +863,121 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      marginTop: spacing.sm,
+      marginTop: 10,
     },
     errorText: {
-      fontSize: typography.size.xs,
-      color: colors.danger,
+      fontSize: 12.5,
+      color: '#EF4444',
       flex: 1,
     },
 
+    // ── Relationship / Role combo box ──
+    comboInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      borderRadius: 14,
+      backgroundColor: '#F8FAFC',
+      height: 50,
+      paddingHorizontal: 14,
+    },
+    comboInput: {
+      flex: 1,
+      fontSize: 14.5,
+      color: '#0F172A',
+      paddingVertical: 0,
+    },
+    comboInputText: {
+      flex: 1,
+      fontSize: 14.5,
+      color: '#0F172A',
+    },
+    placeholderText: {
+      color: '#94A3B8',
+    },
+    comboDropBtn: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingLeft: 8,
+    },
+    suggestionList: {
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      borderRadius: 14,
+      backgroundColor: '#FFFFFF',
+      maxHeight: 200,
+    },
+    suggestionItem: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: '#F1F5F9',
+    },
+    suggestionText: {
+      fontSize: 14.5,
+      color: '#0F172A',
+    },
+
     // ── Permissions ──
+    permHeader: {
+      marginBottom: 14,
+    },
+    permHeaderSubtitle: {
+      fontSize: 12.5,
+      color: '#64748B',
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    permIcon: {
+      marginRight: 12,
+    },
     permissionRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.md,
+      paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-      gap: spacing.md,
-    },
-    permIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
+      borderBottomColor: '#F1F5F9',
     },
     permissionInfo: {
       flex: 1,
+      paddingRight: 8,
     },
     permissionTitle: {
-      fontSize: typography.size.sm,
-      fontWeight: '600',
-      color: colors.textPrimary,
+      fontSize: 14.5,
+      fontWeight: '700',
+      color: '#0F172A',
     },
     permissionDesc: {
-      fontSize: typography.size.xxs,
-      color: colors.textSecondary,
-      marginTop: 2,
-      lineHeight: 16,
+      fontSize: 12.5,
+      color: '#64748B',
+      marginTop: 3,
+      lineHeight: 17,
     },
 
     // ── Sticky action ──
     stickyActions: {
-      paddingHorizontal: spacing.xl,
-      paddingTop: spacing.sm,
-      backgroundColor: colors.surface,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      backgroundColor: '#FFFFFF',
+      borderTopWidth: 1,
+      borderTopColor: '#E2E8F0',
     },
     sendBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.sm,
-      minHeight: 52,
-      paddingHorizontal: spacing.xl,
-      backgroundColor: colors.primaryLight,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
+      gap: 8,
+      height: 52,
+      backgroundColor: '#0D9488',
+      borderRadius: 16,
     },
     sendBtnText: {
-      color: colors.primaryDark,
-      fontSize: typography.size.md,
+      color: '#FFFFFF',
+      fontSize: 16,
       fontWeight: '700',
       textAlign: 'center',
-    },
-    optionalBadge: {
-      fontSize: typography.size.xxs,
-      color: colors.textSecondary,
-      backgroundColor: colors.surfaceMuted,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
-      borderRadius: 6,
-      marginLeft: 'auto' as any,
-    },
-    comboInputRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      borderRadius: 12,
-      backgroundColor: colors.background,
-      overflow: 'hidden',
-    },
-    comboInput: {
-      flex: 1,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-      fontSize: typography.size.sm,
-      color: colors.textPrimary,
-    },
-    comboDropBtn: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-      borderLeftWidth: 1,
-      borderLeftColor: colors.border,
-    },
-    suggestionList: {
-      marginTop: spacing.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      maxHeight: 200,
-    },
-    suggestionItem: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm + 2,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    suggestionText: {
-      fontSize: typography.size.sm,
-      color: colors.textPrimary,
     },
 
     // Premium modal

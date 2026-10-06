@@ -109,6 +109,7 @@
   "loadingPrices": "Loading An Tam plans…",
   "iapNoProducts": "No An Tam plan is available in the Store. Check the Store setup or try again later.",
   "restorePurchases": "Restore a purchased plan",
+  "restorePurchasesShort": "Restore",
   "restorePurchasesDesc": "Use this after changing devices, reinstalling the app, or if a plan was not activated.",
   "restoreSuccess": "Restored",
   "restoreSuccessDesc": "Restored {{count}} An Tam subscription(s).",

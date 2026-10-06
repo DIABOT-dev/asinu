@@ -162,6 +162,14 @@ function harness({ language = 'vi', settings = defaults, contacts = [], status, 
 }
 
 for (const language of ['vi', 'en']) {
+  await test(`${language}: Save rejects unchanged settings and returns to disabled after reverting a toggle`, async () => {
+    const h = harness({ language, contacts: [{ id: 1, name: 'Family' }] }); await h.settle();
+    const initial = h.button('saveSettings'); assert.equal(initial.props.disabled, true);
+    await initial.props.onPress(); assert.equal(h.calls.saves.length, 0);
+    h.toggle().props.onValueChange(true); assert.equal(h.button('saveSettings').props.disabled, false);
+    h.toggle().props.onValueChange(false); assert.equal(h.button('saveSettings').props.disabled, true);
+    await h.button('saveSettings').props.onPress(); assert.equal(h.calls.saves.length, 0); h.unmount();
+  });
   await test(`${language}: empty contacts never make the draft switch inert, and setup has a working route`, async () => {
     const h = harness({ language }); await h.settle();
     assert.equal(h.toggle().props.disabled, false);

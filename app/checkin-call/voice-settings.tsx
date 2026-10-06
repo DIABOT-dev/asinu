@@ -164,9 +164,11 @@ export function VoiceSettings({ userId }: { userId: string }) {
     []
   );
 
+  const dirty = value && JSON.stringify(value) !== JSON.stringify(saved);
   const save = async () => {
-    if (!value || inFlight.current || !weatherRegionReady(value) || !current())
+    if (!value || !dirty || inFlight.current || !weatherRegionReady(value) || !current()) {
       return;
+    }
     inFlight.current = true;
     setBusy(true);
     setError('');
@@ -183,7 +185,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
       if (current()) setBusy(false);
     }
   };
-  const dirty = value && JSON.stringify(value) !== JSON.stringify(saved);
   const ready = value && weatherRegionReady(value);
 
   return (

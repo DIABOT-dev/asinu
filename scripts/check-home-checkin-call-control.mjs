@@ -630,7 +630,8 @@ await test("large-font no-relative warnings stay centered, scroll and keep three
     for (const action of actions) {
       const style = Object.assign({}, ...action.props.style({ pressed: false }).filter(Boolean));
       assert.equal(style.width, "100%"); assert.ok(style.minHeight >= 48);
-      const label = action.props.children;
+      const label = React.Children.toArray(action.props.children).find(node => node.type === "Text");
+      assert.ok(label, "Each alert action must retain its text label");
       assert.equal(label.props.numberOfLines, undefined);
       assert.equal(label.props.style[0].fontSize, 26); assert.equal(label.props.style[0].textAlign, "center");
     }

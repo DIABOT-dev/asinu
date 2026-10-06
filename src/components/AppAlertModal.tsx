@@ -28,6 +28,8 @@ export type AlertIcon = {
   color?: string;
 };
 
+type AlertLayout = 'alert' | 'actions';
+
 type Props = {
   visible: boolean;
   title: string;
@@ -44,6 +46,7 @@ type Props = {
   titleAlign?: 'center' | 'left';
   messageAlign?: 'center' | 'left';
   children?: React.ReactNode;
+  layout?: AlertLayout;
 };
 
 export function AppAlertModal({
@@ -62,19 +65,22 @@ export function AppAlertModal({
   titleAlign = 'center',
   messageAlign = 'center',
   children,
+  layout = 'alert',
 }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
   const afterDismissRef = useRef<AlertButton['onPress']>(undefined);
   const closingRef = useRef(false);
   const ModalComponent = queued ? QueuedModal : Modal;
 
   const resolvedButtons: AlertButton[] =
     buttons && buttons.length > 0 ? buttons : [{ text: t('ok'), style: 'default' }];
-  const verticalButtons = stackButtons || resolvedButtons.length > 2;
+  const actionList = layout === 'actions';
+  const boundedContent = scrollable || actionList;
+  const verticalButtons = actionList || stackButtons || resolvedButtons.length > 2;
   const content = (
     <View style={headerImage ? styles.contentWithHeader : undefined}>
       <Text
@@ -83,6 +89,7 @@ export function AppAlertModal({
           styles.title,
           titleAlign === 'left' && styles.titleLeft,
           headerImage && styles.titleWithHeader,
+          actionList && styles.actionTitle,
         ]}
       >
         {title}
@@ -93,6 +100,7 @@ export function AppAlertModal({
             styles.message,
             messageAlign === 'left' && styles.messageLeft,
             headerImage && styles.messageWithHeader,
+            actionList && styles.actionMessage,
           ]}
         >
           {message}
@@ -119,20 +127,85 @@ export function AppAlertModal({
     return action?.();
   };
 
+  const buttonList = (
+    <View style={[
+      styles.buttonRow,
+      verticalButtons && { flexDirection: 'column' },
+      headerImage && styles.buttonRowWithHeader,
+      actionList && styles.actionList,
+    ]}>
+      {resolvedButtons.map((btn, i) => {
+        const isCancel = btn.style === 'cancel';
+        const isDestructive = btn.variant === 'destructive' || (!btn.variant && btn.style === 'destructive');
+        const tint = actionList
+          ? isDestructive ? colors.danger : isCancel ? colors.textSecondary : colors.primaryText
+          : btn.variant === 'primary' ? '#ffffff'
+          : btn.variant === 'outline' ? '#466d82'
+          : isDestructive ? iconColors.danger
+          : isCancel ? colors.textSecondary : colors.primary;
+        return (
+          <Pressable
+            key={i}
+            accessibilityRole="button"
+            accessibilityLabel={btn.text}
+            style={({ pressed }) => [
+              styles.button,
+              verticalButtons ? { width: '100%', minHeight: 48, justifyContent: 'center' } : { flex: 1 },
+              btn.variant === 'primary' && styles.buttonTealPrimary,
+              btn.variant === 'outline' && styles.buttonOutlineSecondary,
+              btn.variant === 'text' && styles.buttonTextOnly,
+              !btn.variant && isCancel && styles.buttonCancel,
+              isDestructive && styles.buttonDestructive,
+              !btn.variant && !isCancel && !isDestructive && styles.buttonDefault,
+              actionList && styles.actionButton,
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={() => handlePress(btn)}
+          >
+            {actionList && btn.icon ? (
+              <View style={styles.actionIcon} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                <MaterialCommunityIcons name={btn.icon} size={25} color={tint} />
+              </View>
+            ) : null}
+            <Text style={[
+              styles.buttonText,
+              btn.variant === 'primary' && styles.buttonTextTealPrimary,
+              btn.variant === 'outline' && styles.buttonTextOutlineSecondary,
+              btn.variant === 'text' && styles.buttonTextOnlyText,
+              !btn.variant && isCancel && styles.buttonTextCancel,
+              isDestructive && styles.buttonTextDestructive,
+              actionList && styles.actionButtonText,
+              actionList && { color: tint },
+            ]}>
+              {!actionList && btn.icon ? <MaterialCommunityIcons name={btn.icon} size={18} color={tint} /> : null}
+              {!actionList && btn.icon ? '  ' : null}
+              {btn.text}
+            </Text>
+            {actionList && !isCancel ? (
+              <MaterialCommunityIcons name="chevron-right" size={23} color={tint} />
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
   return (
     <ModalComponent visible={visible} transparent animationType="fade" onRequestClose={onDismiss} onShow={onShow} onDismiss={handleModalDismiss}>
-      <Pressable style={[styles.overlay, scrollable && {
+      <Pressable style={[styles.overlay, boundedContent && {
         paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl,
       }]} onPress={onDismiss}>
         <Pressable
           accessibilityViewIsModal
           style={[
             styles.card,
-            scrollable && { maxHeight: '85%' },
+            boundedContent && { maxHeight: '85%' },
             headerImage && styles.cardWithHeader,
+            actionList && styles.actionCard,
           ]}
           onPress={(e) => e.stopPropagation()}
         >
+          {actionList ? <View style={styles.actionHandle} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" /> : null}
           {headerImage ? (
             <View style={styles.headerImageWrap}>
               <SafeImage source={headerImage} style={styles.headerImage} resizeMode="cover" />
@@ -165,70 +238,13 @@ export function AppAlertModal({
               <MaterialCommunityIcons name={icon.name} size={30} color={icon.color ?? colors.primary} />
             </View>
           ) : null}
-          {scrollable ? <ScrollView style={{ flexShrink: 1 }}>{content}</ScrollView> : content}
-
-          <View
-            style={[
-              styles.buttonRow,
-              verticalButtons && { flexDirection: 'column' },
-              headerImage && styles.buttonRowWithHeader,
-            ]}
-          >
-            {resolvedButtons.map((btn, i) => {
-              const isCancel = btn.style === 'cancel';
-              const isDestructive = btn.variant === 'destructive' || (!btn.variant && btn.style === 'destructive');
-              return (
-                <Pressable
-                  key={i}
-                  accessibilityRole="button"
-                  accessibilityLabel={btn.text}
-                  style={({ pressed }) => [
-                    styles.button,
-                    verticalButtons ? { width: '100%', minHeight: 48, justifyContent: 'center' } : { flex: 1 },
-                    btn.variant === 'primary' && styles.buttonTealPrimary,
-                    btn.variant === 'outline' && styles.buttonOutlineSecondary,
-                    btn.variant === 'text' && styles.buttonTextOnly,
-                    !btn.variant && isCancel && styles.buttonCancel,
-                    isDestructive && styles.buttonDestructive,
-                    !btn.variant && !isCancel && !isDestructive && styles.buttonDefault,
-                    pressed && { opacity: 0.8 },
-                  ]}
-                  onPress={() => handlePress(btn)}
-                >
-                  <Text
-                    style={[
-                      styles.buttonText,
-                      btn.variant === 'primary' && styles.buttonTextTealPrimary,
-                      btn.variant === 'outline' && styles.buttonTextOutlineSecondary,
-                      btn.variant === 'text' && styles.buttonTextOnlyText,
-                      !btn.variant && isCancel && styles.buttonTextCancel,
-                      isDestructive && styles.buttonTextDestructive,
-                    ]}
-                  >
-                    {btn.icon ? (
-                      <MaterialCommunityIcons
-                        name={btn.icon}
-                        size={18}
-                        color={
-                          btn.variant === 'primary'
-                            ? '#ffffff'
-                            : btn.variant === 'outline'
-                            ? '#466d82'
-                            : isDestructive
-                            ? iconColors.danger
-                            : isCancel
-                            ? colors.textSecondary
-                            : colors.primary
-                        }
-                      />
-                    ) : null}
-                    {btn.icon ? '  ' : null}
-                    {btn.text}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          {boundedContent ? (
+            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
+              {content}
+              {actionList ? buttonList : null}
+            </ScrollView>
+          ) : content}
+          {!actionList ? buttonList : null}
         </Pressable>
       </Pressable>
     </ModalComponent>
@@ -243,10 +259,11 @@ export function useAppAlert() {
     message: '',
     buttons: [] as AlertButton[],
     icon: undefined as AlertIcon | undefined,
+    layout: 'alert' as AlertLayout,
   });
 
-  const showAlert = (title: string, message?: string, buttons?: AlertButton[], icon?: AlertIcon) => {
-    setState({ visible: true, title, message: message ?? '', buttons: buttons ?? [], icon });
+  const showAlert = (title: string, message?: string, buttons?: AlertButton[], icon?: AlertIcon, options?: { layout?: AlertLayout }) => {
+    setState({ visible: true, title, message: message ?? '', buttons: buttons ?? [], icon, layout: options?.layout ?? 'alert' });
   };
 
   const dismissAlert = () => setState(prev => ({ ...prev, visible: false }));
@@ -254,7 +271,7 @@ export function useAppAlert() {
   return { alertState: state, showAlert, dismissAlert };
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
   return StyleSheet.create({
     overlay: {
       flex: 1,
@@ -271,6 +288,55 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       padding: spacing.xl,
       width: '100%',
       maxWidth: 340,
+    },
+    actionCard: {
+      maxWidth: 380,
+      borderRadius: radius.xxl,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xl,
+    },
+    actionHandle: {
+      alignSelf: 'center',
+      width: 48,
+      height: 4,
+      borderRadius: radius.full,
+      backgroundColor: colors.textSecondary + '45',
+      marginBottom: spacing.xl,
+    },
+    actionTitle: {
+      fontSize: typography.size.md + 2,
+      fontWeight: '700',
+      lineHeight: 28,
+    },
+    actionMessage: {
+      lineHeight: 22,
+      marginBottom: spacing.lg,
+    },
+    actionList: {
+      gap: spacing.md,
+      marginTop: spacing.xs,
+    },
+    actionButton: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      minHeight: 56,
+      borderRadius: radius.lg,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    actionIcon: {
+      width: 28,
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionButtonText: {
+      flex: 1,
+      minWidth: 0,
+      textAlign: 'left',
+      fontSize: typography.size.sm + 1,
+      fontWeight: '700',
+      lineHeight: 24,
     },
     title: {
       fontSize: typography.size.md,
@@ -315,7 +381,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderColor: colors.border,
     },
     buttonDestructive: {
-      backgroundColor: colors.danger + '12',
+      backgroundColor: colors.danger + (isDark ? '20' : '12'),
       borderWidth: 1,
       borderColor: colors.danger + '35',
     },

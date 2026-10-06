@@ -6,7 +6,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from '../../components/ScaledText';
@@ -18,21 +18,29 @@ import { SubscriptionFeedbackModal, type SubscriptionFeedback } from './Subscrip
 
 type Props = {
   onRestored?: () => void;
+  compact?: boolean;
+  disabled?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 };
 
-export function RestoreLink({ onRestored }: Props) {
+export function RestoreLink({ onRestored, compact = false, disabled = false, onBusyChange }: Props) {
   const { t } = useTranslation('subscription');
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(isDark), [isDark]);
   const [feedback, setFeedback] = useState<SubscriptionFeedback | null>(null);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const unavailable = busy || disabled;
 
   if (env.paymentMethod !== 'iap') {
     return null;
   }
 
   const handlePress = async () => {
+    if (busyRef.current || disabled) return;
+    busyRef.current = true;
     setBusy(true);
+    onBusyChange?.(true);
     try {
       const res = await restorePurchases();
       if (res.restored > 0) {
@@ -71,7 +79,9 @@ export function RestoreLink({ onRestored }: Props) {
         message: t('iapRestoreFailedBody'),
       });
     } finally {
+      busyRef.current = false;
       setBusy(false);
+      onBusyChange?.(false);
     }
   };
 
@@ -81,30 +91,32 @@ export function RestoreLink({ onRestored }: Props) {
         accessibilityHint={t('restorePurchasesDesc')}
         accessibilityLabel={t('restorePurchases')}
         accessibilityRole="button"
-        disabled={busy}
+        accessibilityState={{ disabled: unavailable, busy }}
+        disabled={unavailable}
         onPress={handlePress}
         style={({ pressed }) => [
           styles.btn,
+          compact && styles.compactButton,
           pressed && styles.pressed,
-          busy && styles.busy,
+          unavailable && styles.busy,
         ]}
       >
-        <View style={styles.leading}>
+        <View style={[styles.leading, compact && styles.compactLeading]}>
           {busy ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <Ionicons name="refresh-outline" size={21} color={colors.primary} />
           )}
-          <View style={styles.copy}>
-            <Text style={styles.title}>{t('restorePurchases')}</Text>
-            <Text style={styles.description}>{t('restorePurchasesDesc')}</Text>
+          <View style={[styles.copy, compact && styles.compactCopy]}>
+            <Text style={[styles.title, compact && styles.compactTitle]}>{t(compact ? 'restorePurchasesShort' : 'restorePurchases')}</Text>
+            {!compact ? <Text style={styles.description}>{t('restorePurchasesDesc')}</Text> : null}
           </View>
         </View>
-        <Ionicons
+        {!compact ? <Ionicons
           name="chevron-forward"
           size={18}
           color={isDark ? '#64748b' : '#94a3b8'}
-        />
+        /> : null}
       </Pressable>
       <SubscriptionFeedbackModal feedback={feedback} onDismiss={() => setFeedback(null)} />
     </>
@@ -121,6 +133,31 @@ function createStyles(isDark: boolean) {
       minHeight: 60,
       paddingHorizontal: spacing.xs,
       paddingVertical: spacing.sm,
+    },
+    compactButton: {
+      marginTop: 0,
+      minHeight: 56,
+      minWidth: 104,
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary + '35',
+      borderWidth: 1,
+      borderRadius: 16,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+    },
+    compactLeading: {
+      flexDirection: 'column',
+      gap: spacing.xs,
+      justifyContent: 'center',
+    },
+    compactCopy: {
+      flex: 0,
+      width: '100%',
+    },
+    compactTitle: {
+      color: colors.primaryText,
+      textAlign: 'center',
+      fontSize: typography.size.sm,
     },
     pressed: {
       opacity: 0.68,

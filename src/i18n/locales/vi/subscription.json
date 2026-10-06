@@ -109,6 +109,7 @@
   "loadingPrices": "Đang tải các gói An Tâm…",
   "iapNoProducts": "Chưa có gói An Tâm khả dụng trên Store. Hãy kiểm tra cấu hình Store hoặc thử lại sau.",
   "restorePurchases": "Khôi phục gói đã mua",
+  "restorePurchasesShort": "Khôi phục",
   "restorePurchasesDesc": "Dùng khi bạn đổi máy, cài lại app hoặc gói chưa được kích hoạt.",
   "restoreSuccess": "Khôi phục thành công",
   "restoreSuccessDesc": "Đã khôi phục {{count}} gói An Tâm.",

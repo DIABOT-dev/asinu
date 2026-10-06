@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -18,9 +18,8 @@ import {
 } from 'react-native';
 import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from '../../src/components/Button';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
-import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
+import { AppAlertModal, useAppAlert, type AlertButton } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { CareCircleTabSkeleton } from '../../src/components/state/MainScreenSkeletons';
@@ -30,12 +29,13 @@ import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
 import { useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, iconColors, spacing, brandColors } from '../../src/styles';
+import { colors, iconColors, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { getConnectionHealthAccess } from '../../src/features/care-circle/health-access';
 import { getFamilyRoleLabel, getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
+import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
 import Svg, { Path } from 'react-native-svg';
 
@@ -128,6 +128,16 @@ export default function CareCircleScreen() {
     can_receive_alerts: true,
     can_ack_escalation: true,
   });
+  const [savedEditValues, setSavedEditValues] = useState<ConnectionEditValues | null>(null);
+  const editSaveInFlight = useRef(false);
+  const editValues: ConnectionEditValues = {
+    relationship_type: editRelationType?.id,
+    role: editRole?.id,
+    permissions: editPermissions,
+  };
+  const editChanges = savedEditValues && getConnectionEditChanges(savedEditValues, editValues);
+  const isEditSaving = actionLoading === editConnection?.id;
+  const editSaveDisabled = !editConnection || !editChanges?.hasChanges || actionLoading !== null;
 
   // Profile modal
   type ProfileTarget = {
@@ -304,6 +314,9 @@ export default function CareCircleScreen() {
   };
 
   const handleEditConnection = (connection: any) => {
+    if (editSaveInFlight.current) {
+      return;
+    }
     setEditConnection(connection);
     const relOption = relationshipOptions.find(
       opt => opt.id === connection.relationship_type || opt.label === connection.relationship_type
@@ -313,30 +326,43 @@ export default function CareCircleScreen() {
     );
     setEditRelationType(relOption || null);
     setEditRole(roleOption || null);
-    setEditPermissions({
+    const permissions = {
       can_view_logs: connection.permissions?.can_view_logs === true,
       can_receive_alerts: connection.permissions?.can_receive_alerts ?? true,
       can_ack_escalation: connection.permissions?.can_ack_escalation ?? true,
+    };
+    setEditPermissions(permissions);
+    setSavedEditValues({
+      relationship_type: relOption?.id,
+      role: roleOption?.id,
+      permissions,
     });
     setEditModalVisible(true);
   };
 
   const handleSaveEdit = async () => {
-    if (!editConnection) return;
+    if (!editConnection || editSaveDisabled || !editChanges || editSaveInFlight.current) {
+      return;
+    }
+    editSaveInFlight.current = true;
     try {
       setActionLoading(editConnection.id);
-      await Promise.all([
-        updateConnection(editConnection.id, {
-          relationship_type: editRelationType?.id,
-          role: editRole?.id,
-        }),
-        updatePermissions(editConnection.id, editPermissions),
-      ]);
+      if (Object.keys(editChanges.updates).length > 0) {
+        await updateConnection(editConnection.id, editChanges.updates);
+        // Retain successful changes if the permission update fails, so retry
+        // only sends the portion that is still unsaved.
+        setSavedEditValues(previous => previous && { ...previous, ...editChanges.updates });
+      }
+      if (editChanges.permissionsChanged) {
+        await updatePermissions(editConnection.id, editValues.permissions);
+        setSavedEditValues(previous => previous && { ...previous, permissions: editValues.permissions });
+      }
       setEditModalVisible(false);
       showToast(t('editSuccess'), 'success');
     } catch {
       showToast(t('editError'), 'error');
     } finally {
+      editSaveInFlight.current = false;
       setActionLoading(null);
     }
   };
@@ -355,7 +381,7 @@ export default function CareCircleScreen() {
 
   return (
     <>
-      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+      <AppAlertModal {...alertState} queued onDismiss={dismissAlert} />
       <Stack.Screen options={{ headerShown: false }} />
       <Screen style={styles.screen}>
         {/* Custom Header matching design */}
@@ -718,10 +744,11 @@ export default function CareCircleScreen() {
                               accessibilityRole="button"
                               accessibilityLabel={tc('notificationMoreActions')}
                               onPress={() => {
-                                const options: any[] = [];
+                                const options: AlertButton[] = [];
                                 if (isRequester) {
                                   options.push({
                                     text: t('editConnection'),
+                                    icon: 'pencil-outline',
                                     onPress: () =>
                                       handleEditConnection({
                                         ...connection,
@@ -731,13 +758,14 @@ export default function CareCircleScreen() {
                                 }
                                 options.push(
                                   {
-                                    text: tc('delete'),
+                                    text: t('deleteConnection'),
                                     style: 'destructive',
+                                    icon: 'trash-can-outline',
                                     onPress: () => handleDeleteConnection(connection.id, otherName),
                                   },
-                                  { text: tc('cancel'), style: 'cancel' }
+                                  { text: tc('cancel'), style: 'cancel', icon: 'close' }
                                 );
-                                showAlert(t('connectionActionsTitle'), t('connectionActionsMessage', { name: otherName }), options);
+                                showAlert(t('connectionActionsTitle'), t('connectionActionsMessage', { name: otherName }), options, undefined, { layout: 'actions' });
                               }}
                               style={styles.moreActionsBtn}
                               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -906,22 +934,46 @@ export default function CareCircleScreen() {
           transparent={false}
           onRequestClose={() => setEditModalVisible(false)}
         >
-          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent}>
+          <SafeAreaView style={styles.modalSafeArea}>
+            <View style={styles.modalBgWrapper} pointerEvents="none">
+              <Image
+                source={require('../../assets/images/care-circle/header_cross_leaves_left.png')}
+                style={styles.modalHeaderDecoLeft}
+                resizeMode="contain"
+              />
+              <Image
+                source={require('../../assets/images/missions/header_cross_heart.png')}
+                style={styles.modalHeaderDecoRight}
+                resizeMode="contain"
+              />
+            </View>
+
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.modalHeader}>
-                <Ionicons name="person" size={24} color={iconColors.indigo} />
+                <Ionicons name="person" size={28} color="#0D9488" />
                 <Text style={styles.modalTitle}>{t('editConnection')}</Text>
                 <Text style={styles.modalSubtitle}>{editConnection?.name}</Text>
               </View>
 
               <View style={styles.currentInfoBox}>
-                <Text style={styles.currentInfoTitle}>{t('currentInfo')}</Text>
-                <Text style={styles.currentInfoText}>
-                  {t('relationship')}: {editRelationType?.label || t('notSet')}
-                </Text>
-                <Text style={styles.currentInfoText}>
-                  {t('role')}: {editRole?.label || t('notSet')}
-                </Text>
+                <View style={styles.currentInfoTextWrap}>
+                  <Text style={styles.currentInfoTitle}>{t('currentInfo')}</Text>
+                  <Text style={styles.currentInfoText}>
+                    {t('relationship')}: {editRelationType?.label || t('notSet')}
+                  </Text>
+                  <Text style={styles.currentInfoText}>
+                    {t('role')}: {editRole?.label || t('notSet')}
+                  </Text>
+                </View>
+                <Image
+                  source={require('../../assets/images/care-circle/edit_connection_card_art.png')}
+                  style={styles.currentInfoArt}
+                  resizeMode="contain"
+                />
               </View>
 
               <View style={styles.modalSection}>
@@ -931,7 +983,23 @@ export default function CareCircleScreen() {
                   options={relationshipOptions}
                   value={editRelationType}
                   onChange={setEditRelationType}
+                  loading={isEditSaving}
                   searchable
+                  leftIcon={
+                    <Ionicons
+                      name="people"
+                      size={20}
+                      color="#0D9488"
+                      style={styles.dropdownLeftIcon}
+                    />
+                  }
+                  showDivider
+                  chevronColor="#64748B"
+                  chevronSize={18}
+                  containerStyle={styles.dropdownContainer}
+                  labelStyle={styles.sectionLabel}
+                  triggerStyle={styles.dropdownTrigger}
+                  triggerTextStyle={styles.dropdownTriggerText}
                 />
               </View>
 
@@ -942,68 +1010,101 @@ export default function CareCircleScreen() {
                   options={roleOptions}
                   value={editRole}
                   onChange={setEditRole}
+                  loading={isEditSaving}
                   searchable
+                  leftIcon={
+                    <MaterialCommunityIcons
+                      name="account-heart"
+                      size={20}
+                      color="#0D9488"
+                      style={styles.dropdownLeftIcon}
+                    />
+                  }
+                  showDivider
+                  chevronColor="#64748B"
+                  chevronSize={18}
+                  containerStyle={styles.dropdownContainer}
+                  labelStyle={styles.sectionLabel}
+                  triggerStyle={styles.dropdownTrigger}
+                  triggerTextStyle={styles.dropdownTriggerText}
                 />
               </View>
 
               <View style={styles.modalSection}>
-                <Text style={[styles.currentInfoTitle, { marginBottom: spacing.sm }]}>
+                <Text style={styles.sectionLabel}>
                   {t('permissions')}
                 </Text>
-                {[
-                  {
-                    key: 'can_view_logs' as const,
-                    icon: 'eye-outline',
-                    color: '#3b82f6',
-                    label: t('permViewLogs'),
-                  },
-                  {
-                    key: 'can_receive_alerts' as const,
-                    icon: 'notifications-outline',
-                    color: '#f59e0b',
-                    label: t('permReceiveAlerts'),
-                  },
-                  {
-                    key: 'can_ack_escalation' as const,
-                    icon: 'shield-checkmark-outline',
-                    color: '#10b981',
-                    label: t('permAckEscalation'),
-                  },
-                ].map((perm) => (
-                  <View key={perm.key} style={styles.permRow}>
-                    <Ionicons
-                      name={perm.icon as any}
-                      size={20}
-                      color={perm.color}
-                      style={{ marginRight: spacing.sm }}
-                    />
-                    <Text style={styles.permLabel}>{perm.label}</Text>
-                    <Switch
-                      value={editPermissions[perm.key]}
-                      onValueChange={(val) =>
-                        setEditPermissions((prev) => ({ ...prev, [perm.key]: val }))
-                      }
-                      trackColor={{ false: colors.border, true: perm.color + '55' }}
-                      thumbColor={editPermissions[perm.key] ? perm.color : colors.textSecondary}
-                    />
-                  </View>
-                ))}
+                <View style={styles.permCard}>
+                  {[
+                    {
+                      key: 'can_view_logs' as const,
+                      icon: 'eye-outline',
+                      iconColor: '#0284C7',
+                      label: t('permViewLogs'),
+                    },
+                    {
+                      key: 'can_receive_alerts' as const,
+                      icon: 'notifications-outline',
+                      iconColor: '#0D9488',
+                      label: t('permReceiveAlerts'),
+                    },
+                    {
+                      key: 'can_ack_escalation' as const,
+                      icon: 'shield-checkmark-outline',
+                      iconColor: '#0D9488',
+                      label: t('permAckEscalation'),
+                    },
+                  ].map((perm, index, arr) => (
+                    <React.Fragment key={perm.key}>
+                      <View style={styles.permRow}>
+                        <Ionicons
+                          name={perm.icon as any}
+                          size={22}
+                          color={perm.iconColor}
+                          style={styles.permIcon}
+                        />
+                        <Text style={styles.permLabel}>{perm.label}</Text>
+                        <Switch
+                          value={editPermissions[perm.key]}
+                          disabled={isEditSaving}
+                          onValueChange={(val) =>
+                            setEditPermissions((prev) => ({ ...prev, [perm.key]: val }))
+                          }
+                          trackColor={{ false: '#E2E8F0', true: '#0D9488' }}
+                          thumbColor="#FFFFFF"
+                          ios_backgroundColor="#E2E8F0"
+                        />
+                      </View>
+                      {index < arr.length - 1 && <View style={styles.permDivider} />}
+                    </React.Fragment>
+                  ))}
+                </View>
               </View>
 
-              <View style={styles.buttonGroup}>
-                <Button
-                  label={tc('cancel')}
-                  variant="ghost"
+              <View style={styles.modalButtonGroup}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
                   onPress={() => setEditModalVisible(false)}
-                  style={{ flex: 1, borderColor: colors.textSecondary }}
-                  textStyle={{ color: colors.textSecondary }}
-                />
-                <Button
-                  label={tc('save')}
-                  variant="primary"
+                  disabled={isEditSaving}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCancelBtnText}>{tc('cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalSaveBtn, editSaveDisabled && styles.modalSaveBtnDisabled]}
                   onPress={handleSaveEdit}
-                  style={{ flex: 1 }}
-                />
+                  disabled={editSaveDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel={tc('save')}
+                  accessibilityState={{ disabled: editSaveDisabled, busy: isEditSaving }}
+                  activeOpacity={0.7}
+                >
+                  {isEditSaving ? (
+                    <ActivityIndicator size="small" color={colors.textSecondary} />
+                  ) : (
+                    <Text style={[styles.modalSaveBtnText, editSaveDisabled && styles.modalSaveBtnTextDisabled]}>{tc('save')}</Text>
+                  )}
+                </TouchableOpacity>
               </View>
             </ScrollView>
           </SafeAreaView>
@@ -1626,62 +1727,190 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       color: colors.textSecondary,
       fontWeight: '600',
     },
+    modalSafeArea: {
+      flex: 1,
+      backgroundColor: isDark ? colors.background : '#F3FBF8',
+    },
+    modalBgWrapper: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 220,
+      overflow: 'hidden',
+    },
+    modalHeaderDecoLeft: {
+      position: 'absolute',
+      top: -10,
+      left: 0,
+      width: 140,
+      height: 180,
+      opacity: 0.85,
+    },
+    modalHeaderDecoRight: {
+      position: 'absolute',
+      top: -20,
+      right: -20,
+      width: 220,
+      height: 190,
+      opacity: 0.85,
+    },
     modalContent: {
-      padding: spacing.lg,
+      paddingHorizontal: spacing.lg,
       paddingTop: spacing.lg,
       paddingBottom: spacing.xl,
     },
     modalHeader: {
       alignItems: 'center',
-      marginBottom: spacing.lg,
+      marginBottom: spacing.md,
+      marginTop: spacing.xs,
     },
     modalTitle: {
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: '700',
       color: colors.textPrimary,
+      marginTop: spacing.xs,
     },
     modalSubtitle: {
-      fontSize: typography.size.md,
+      fontSize: 15,
+      fontWeight: '500',
       color: colors.textSecondary,
+      marginTop: 2,
+    },
+    currentInfoBox: {
+      backgroundColor: isDark ? colors.surface : '#EBF7F5',
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#CCFBF1',
+      paddingLeft: spacing.lg,
+      paddingVertical: spacing.md,
+      paddingRight: spacing.sm,
+      marginBottom: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      overflow: 'hidden',
+      position: 'relative',
+      minHeight: 96,
+    },
+    currentInfoTextWrap: {
+      flex: 1,
+      zIndex: 1,
+      paddingRight: spacing.sm,
+    },
+    currentInfoTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: '#0F766E',
+      marginBottom: 4,
+    },
+    currentInfoText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: '#0D5A50',
+      marginTop: 2,
+    },
+    currentInfoArt: {
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: 140,
+      height: '100%',
     },
     modalSection: {
-      marginBottom: spacing.lg,
+      marginBottom: spacing.md,
     },
-    buttonGroup: {
-      flexDirection: 'row',
-      gap: spacing.md,
-      marginTop: spacing.lg,
+    sectionLabel: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+    },
+    dropdownContainer: {
+      marginBottom: 0,
+    },
+    dropdownTrigger: {
+      backgroundColor: isDark ? colors.surface : '#FFFFFF',
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E2E8F0',
+      paddingHorizontal: spacing.md,
+      minHeight: 56,
+      height: 56,
+    },
+    dropdownTriggerText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    dropdownLeftIcon: {
+      marginRight: spacing.sm,
+    },
+    permCard: {
+      backgroundColor: isDark ? colors.surface : '#FFFFFF',
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E2E8F0',
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.md,
     },
     permRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.sm,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      paddingVertical: spacing.md,
+    },
+    permIcon: {
+      marginRight: spacing.md,
     },
     permLabel: {
       flex: 1,
-      fontSize: typography.size.md,
+      fontSize: 15,
+      fontWeight: '500',
       color: colors.textPrimary,
     },
-    currentInfoBox: {
-      backgroundColor: brandColors.cyan + '18',
-      borderRadius: 12,
-      padding: spacing.md,
-      marginBottom: spacing.lg,
+    permDivider: {
+      height: 1,
+      backgroundColor: isDark ? colors.border : '#F1F5F9',
+    },
+    modalButtonGroup: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      marginTop: spacing.lg,
+      marginBottom: spacing.md,
+    },
+    modalCancelBtn: {
+      flex: 1,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: isDark ? colors.surface : '#FFFFFF',
       borderWidth: 1.5,
-      borderColor: '#bae6fd',
+      borderColor: isDark ? colors.border : '#CBD5E1',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    currentInfoTitle: {
-      fontSize: typography.size.sm,
+    modalCancelBtnText: {
+      fontSize: 16,
       fontWeight: '600',
-      color: '#0369a1',
-      marginBottom: spacing.xs,
+      color: colors.textSecondary,
     },
-    currentInfoText: {
-      fontSize: typography.size.sm,
-      color: '#0c4a6e',
-      marginTop: spacing.xs / 2,
+    modalSaveBtn: {
+      flex: 1,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: '#0D9488',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalSaveBtnText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    modalSaveBtnDisabled: {
+      backgroundColor: colors.border,
+    },
+    modalSaveBtnTextDisabled: {
+      color: colors.textSecondary,
     },
   });
 }

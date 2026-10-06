@@ -448,6 +448,11 @@ await test('late location and Save completions cannot update an unmounted or dif
   assert.equal(other.calls.back, 0);
   other.unmount();
 });
+await test('unchanged voice preferences cannot submit even when invoking the disabled handler', async () => {
+  const h = harness(); await h.settle();
+  const button = h.button('personalization.save'); assert.equal(button.props.disabled, true);
+  await button.props.onPress(); assert.equal(h.calls.saves.length, 0); h.unmount();
+});
 await test('access-token renewal for the same account does not silently disable the settings screen', async () => {
   const h = harness();
   await h.settle();

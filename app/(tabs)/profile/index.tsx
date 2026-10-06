@@ -32,7 +32,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { TextInput as NativeTextInput } from "react-native";
 import {
   AppAlertModal,
   useAppAlert,
@@ -107,6 +106,17 @@ type SubStatus = {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 32 - 10) / 2;
+const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const CHRONIC_DISEASE_OPTIONS = [
+  { value: "Tiểu đường", labelKey: "diseaseDiabetes" },
+  { value: "Cao huyết áp", labelKey: "diseaseHypertension" },
+  { value: "Tim mạch", labelKey: "diseaseHeart" },
+  { value: "Mỡ máu", labelKey: "diseaseCholesterol" },
+  { value: "Gút (Gout)", labelKey: "diseaseGout" },
+  { value: "Hen suyễn", labelKey: "diseaseAsthma" },
+  { value: "Dạ dày", labelKey: "diseaseStomach" },
+  { value: "Gan nhiễm mỡ", labelKey: "diseaseFattyLiver" },
+];
 
 type ProfileEditValues = {
   name: string;
@@ -292,7 +302,7 @@ export default function ProfileScreen() {
   const [editHeight, setEditHeight] = useState(profileEditValues.height);
   const [editWeight, setEditWeight] = useState(profileEditValues.weight);
   const [editBloodType, setEditBloodType] = useState(profileEditValues.bloodType);
-  const bloodTypeInputRef = useRef<NativeTextInput>(null);
+  const [showBloodTypePicker, setShowBloodTypePicker] = useState(false);
   const [editChronicDiseases, setEditChronicDiseases] = useState(
     profileEditValues.chronicDiseases,
   );
@@ -312,6 +322,7 @@ export default function ProfileScreen() {
   const hasProfileChanges = editSnapshot !== savedProfileEditSnapshotRef.current;
   const [showDiseasePicker, setShowDiseasePicker] = useState(false);
   const [customDiseaseInput, setCustomDiseaseInput] = useState("");
+  const [customDiseaseOptions, setCustomDiseaseOptions] = useState<string[]>([]);
 
   useEffect(() => {
     if (isEditModalVisible) return;
@@ -333,6 +344,18 @@ export default function ProfileScreen() {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
   }, [editChronicDiseases]);
+  const diseaseOptions = [
+    ...CHRONIC_DISEASE_OPTIONS,
+    ...[...new Set([...customDiseaseOptions, ...diseaseList])]
+      .filter((disease) =>
+        !CHRONIC_DISEASE_OPTIONS.some((option) => option.value === disease),
+      )
+      .map((value) => ({ value, labelKey: "" })),
+  ];
+  const selectedBloodType = normalizeBloodType(editBloodType);
+  const bloodTypeLabel = BLOOD_TYPES.includes(selectedBloodType)
+    ? selectedBloodType
+    : selectedBloodType ? tc("select") : t("bloodTypeUnknown");
 
   const toggleDisease = (disease: string) => {
     let list = [...diseaseList];
@@ -345,12 +368,13 @@ export default function ProfileScreen() {
   };
 
   const addCustomDisease = () => {
-    const trimmed = customDiseaseInput.trim();
-    if (!trimmed) return;
-    if (!diseaseList.includes(trimmed)) {
-      const list = [...diseaseList, trimmed];
-      setEditChronicDiseases(list.join(", "));
-    }
+    const additions = customDiseaseInput
+      .split(",")
+      .map((disease) => disease.trim())
+      .filter(Boolean);
+    if (!additions.length) return;
+    setEditChronicDiseases([...new Set([...diseaseList, ...additions])].join(", "));
+    setCustomDiseaseOptions((options) => [...new Set([...options, ...additions])]);
     setCustomDiseaseInput("");
   };
 
@@ -490,6 +514,10 @@ export default function ProfileScreen() {
   const handleEditProfile = () => {
     const values = getProfileEditValues(profile);
     setPhoneError("");
+    setShowBloodTypePicker(false);
+    setShowDiseasePicker(false);
+    setCustomDiseaseInput("");
+    setCustomDiseaseOptions(profile?.chronicDiseases || []);
     setEditName(values.name);
     setEditPhone(values.phone);
     setEditAge(values.age);
@@ -503,6 +531,10 @@ export default function ProfileScreen() {
   };
 
   const handleCloseEditModal = () => {
+    setShowBloodTypePicker(false);
+    setShowDiseasePicker(false);
+    setCustomDiseaseInput("");
+    setCustomDiseaseOptions([]);
     setEditModalVisible(false);
   };
 
@@ -582,11 +614,10 @@ export default function ProfileScreen() {
       return;
     }
 
-    const validBloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
     const normalizedBloodType = normalizeBloodType(editBloodType);
-    if (normalizedBloodType && !validBloodTypes.includes(normalizedBloodType)) {
+    if (normalizedBloodType && !BLOOD_TYPES.includes(normalizedBloodType)) {
       showToast(t("bloodTypeInvalid"), "error", 5000);
-      bloodTypeInputRef.current?.focus();
+      setShowBloodTypePicker(true);
       return;
     }
 
@@ -1539,12 +1570,9 @@ export default function ProfileScreen() {
               </Pressable>
             </View>
 
-            {/* Sheet Title & Subtitle */}
+            {/* Sheet Title */}
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{t("editProfileTitle")}</Text>
-              <Text style={styles.sheetSubtitle}>
-                {t("editProfileSubtitle")}
-              </Text>
             </View>
 
             <ScrollView
@@ -1616,14 +1644,9 @@ export default function ProfileScreen() {
 
               {/* Section 1: Thông tin cá nhân */}
               <View style={styles.sheetSection}>
-                <View style={styles.sheetSectionHeaderRow}>
-                  <Text style={styles.sheetSectionTitle}>
-                    {t("personalInfo")}
-                  </Text>
-                  <Text style={styles.sheetSectionSubtitle}>
-                    {t("basicInfoSubtitle")}
-                  </Text>
-                </View>
+                <Text style={styles.sheetSectionTitleOnly}>
+                  {t("personalInfo")}
+                </Text>
 
                 <View style={styles.twoColumnRow}>
                   {/* Họ tên */}
@@ -1811,39 +1834,87 @@ export default function ProfileScreen() {
                       />
                       <Text style={styles.statBoxLabel}>{t("bloodType")}</Text>
                     </View>
-                    <TextInput
-                      ref={bloodTypeInputRef}
-                      style={styles.statBoxInput}
-                      value={editBloodType}
-                      onChangeText={setEditBloodType}
-                      placeholder={t('bloodTypePlaceholder')}
-                      placeholderTextColor={colors.textSecondary}
+                    <Pressable
+                      style={styles.bloodTypeField}
+                      onPress={() => setShowBloodTypePicker((visible) => !visible)}
+                      disabled={isSaving}
+                      accessibilityRole="button"
                       accessibilityLabel={t("bloodType")}
-                      accessibilityHint={t("bloodTypeExample")}
-                      autoCapitalize="characters"
-                      autoCorrect={false}
-                      maxLength={8}
-                    />
+                      accessibilityValue={{ text: bloodTypeLabel }}
+                      accessibilityState={{
+                        expanded: showBloodTypePicker,
+                        disabled: isSaving,
+                      }}
+                    >
+                      <Text style={styles.bloodTypeValue}>
+                        {bloodTypeLabel}
+                      </Text>
+                      <Ionicons
+                        name={showBloodTypePicker ? "chevron-up" : "chevron-down"}
+                        size={14}
+                        color={colors.primaryDark}
+                      />
+                    </Pressable>
                     <Text style={styles.statBoxUnit}> </Text>
                   </View>
                 </View>
-                <Text style={styles.bloodTypeHint}>{t("bloodTypeExample")}</Text>
+                {showBloodTypePicker && (
+                  <View
+                    style={styles.bloodTypeOptions}
+                    accessibilityRole="radiogroup"
+                    accessibilityLabel={t("bloodType")}
+                  >
+                    {[...BLOOD_TYPES, ""].map((value) => {
+                      const selected = selectedBloodType === value;
+                      const label = value || t("bloodTypeUnknown");
+                      return (
+                        <Pressable
+                          key={value || "unknown"}
+                          style={[
+                            styles.bloodTypeOption,
+                            selected && styles.diseaseSelectChipActive,
+                          ]}
+                          accessibilityRole="radio"
+                          accessibilityLabel={label}
+                          accessibilityState={{
+                            checked: selected,
+                            disabled: isSaving,
+                          }}
+                          disabled={isSaving}
+                          onPress={() => {
+                            setEditBloodType(value);
+                            setShowBloodTypePicker(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.diseaseSelectChipText,
+                            selected && styles.diseaseSelectChipTextActive,
+                          ]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
 
               {/* Section 4: Sức khỏe / Bệnh nền */}
               <View style={styles.sheetSection}>
-                <View style={styles.sheetSectionHeaderRow}>
-                  <Text style={styles.sheetSectionTitle}>
-                    {t("healthInfo")}
-                  </Text>
-                  <Text style={styles.sheetSectionSubtitle}>
-                    {t("healthInfoSubtitle")}
-                  </Text>
-                </View>
+                <Text style={styles.sheetSectionTitleOnly}>
+                  {t("healthInfo")}
+                </Text>
 
                 <Pressable
                   style={styles.sheetChronicDiseaseCard}
-                  onPress={() => setShowDiseasePicker(true)}
+                  onPress={() => setShowDiseasePicker((visible) => !visible)}
+                  disabled={isSaving}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("chronicDiseases")}
+                  accessibilityState={{
+                    expanded: showDiseasePicker,
+                    disabled: isSaving,
+                  }}
                 >
                   <View style={styles.chronicCardLeft}>
                     <MaterialCommunityIcons
@@ -1858,11 +1929,18 @@ export default function ProfileScreen() {
 
                   <View style={styles.chronicChipsContainer}>
                     {diseaseList.length > 0 ? (
-                      diseaseList.map((disease, idx) => (
-                        <View key={idx} style={styles.diseaseChip}>
-                          <Text style={styles.diseaseChipText}>{disease}</Text>
-                        </View>
-                      ))
+                      diseaseList.map((disease) => {
+                        const option = CHRONIC_DISEASE_OPTIONS.find(
+                          (item) => item.value === disease,
+                        );
+                        return (
+                          <View key={disease} style={styles.diseaseChip}>
+                            <Text style={styles.diseaseChipText}>
+                              {option ? t(option.labelKey) : disease}
+                            </Text>
+                          </View>
+                        );
+                      })
                     ) : (
                       <Text style={styles.chronicCardEmpty}>
                         {t("noChronicDiseases")}
@@ -1871,11 +1949,92 @@ export default function ProfileScreen() {
                   </View>
 
                   <Ionicons
-                    name="chevron-forward"
+                    name={showDiseasePicker ? "chevron-up" : "chevron-down"}
                     size={18}
                     color={colors.textSecondary}
                   />
                 </Pressable>
+                {showDiseasePicker && (
+                  <View style={styles.diseasePickerInline}>
+                    <View style={styles.diseaseChipsGrid}>
+                      {diseaseOptions.map((item) => {
+                        const selected = diseaseList.includes(item.value);
+                        const label = item.labelKey ? t(item.labelKey) : item.value;
+                        return (
+                          <Pressable
+                            key={item.value}
+                            style={[
+                              styles.diseaseSelectChip,
+                              selected && styles.diseaseSelectChipActive,
+                            ]}
+                            onPress={() => toggleDisease(item.value)}
+                            disabled={isSaving}
+                            accessibilityRole="checkbox"
+                            accessibilityLabel={label}
+                            accessibilityState={{
+                              checked: selected,
+                              disabled: isSaving,
+                            }}
+                          >
+                            {selected && (
+                              <Ionicons
+                                name="checkmark"
+                                size={14}
+                                color={colors.primaryDark}
+                              />
+                            )}
+                            <Text style={[
+                              styles.diseaseSelectChipText,
+                              selected && styles.diseaseSelectChipTextActive,
+                            ]}>
+                              {label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <View style={styles.customDiseaseRow}>
+                      <TextInput
+                        style={styles.customDiseaseInput}
+                        value={customDiseaseInput}
+                        onChangeText={setCustomDiseaseInput}
+                        placeholder={t("enterCustomDisease")}
+                        placeholderTextColor={colors.textSecondary}
+                        accessibilityLabel={t("addCustomDisease")}
+                        editable={!isSaving}
+                        onSubmitEditing={addCustomDisease}
+                        returnKeyType="done"
+                      />
+                      <Pressable
+                        style={[
+                          styles.addDiseaseBtn,
+                          (!customDiseaseInput.trim() || isSaving) && styles.sheetSaveBtnDisabled,
+                        ]}
+                        onPress={addCustomDisease}
+                        disabled={!customDiseaseInput.trim() || isSaving}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("addCustomDisease")}
+                        accessibilityState={{
+                          disabled: !customDiseaseInput.trim() || isSaving,
+                        }}
+                      >
+                        <Ionicons
+                          name="add"
+                          size={18}
+                          color={!customDiseaseInput.trim() || isSaving
+                            ? styles.sheetSaveBtnTextDisabled.color
+                            : styles.addDiseaseBtnText.color}
+                        />
+                        <Text style={[
+                          styles.addDiseaseBtnText,
+                          (!customDiseaseInput.trim() || isSaving) && styles.sheetSaveBtnTextDisabled,
+                        ]}>
+                          {tc("add")}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
               </View>
             </ScrollView>
 
@@ -1926,98 +2085,6 @@ export default function ProfileScreen() {
           </View>
           {isEditModalVisible && <ModalToastHost />}
         </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ==================== DISEASE PICKER MODAL ==================== */}
-      <Modal
-        visible={showDiseasePicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDiseasePicker(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowDiseasePicker(false)}
-        >
-          <Pressable style={styles.pickerModalCard} onPress={(event) => event.stopPropagation()}>
-            <View style={styles.diseaseModalHeader}>
-              <Text style={styles.pickerModalTitle}>{t("selectDiseases")}</Text>
-              <Text style={styles.diseaseModalSubtitle}>
-                {t("selectDiseasesDesc")}
-              </Text>
-            </View>
-
-            <View style={styles.diseaseChipsGrid}>
-              {[
-                { value: "Tiểu đường", labelKey: "diseaseDiabetes" },
-                { value: "Cao huyết áp", labelKey: "diseaseHypertension" },
-                { value: "Tim mạch", labelKey: "diseaseHeart" },
-                { value: "Mỡ máu", labelKey: "diseaseCholesterol" },
-                { value: "Gút (Gout)", labelKey: "diseaseGout" },
-                { value: "Hen suyễn", labelKey: "diseaseAsthma" },
-                { value: "Dạ dày", labelKey: "diseaseStomach" },
-                { value: "Gan nhiễm mỡ", labelKey: "diseaseFattyLiver" },
-              ].map((item) => {
-                const selected = diseaseList.includes(item.value);
-                return (
-                  <Pressable
-                    key={item.value}
-                    style={[
-                      styles.diseaseSelectChip,
-                      selected && styles.diseaseSelectChipActive,
-                    ]}
-                    onPress={() => toggleDisease(item.value)}
-                  >
-                    {selected && (
-                      <Ionicons
-                        name="checkmark"
-                        size={14}
-                        color={colors.primaryDark}
-                        style={{ marginRight: 4 }}
-                      />
-                    )}
-                    <Text
-                      style={[
-                        styles.diseaseSelectChipText,
-                        selected && styles.diseaseSelectChipTextActive,
-                      ]}
-                    >
-                      {t(item.labelKey)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={styles.customDiseaseRow}>
-              <TextInput
-                style={styles.customDiseaseInput}
-                value={customDiseaseInput}
-                onChangeText={setCustomDiseaseInput}
-                placeholder={t("enterCustomDisease")}
-                placeholderTextColor={colors.textSecondary}
-              />
-              <Pressable
-                style={styles.addDiseaseBtn}
-                onPress={addCustomDisease}
-              >
-                <Ionicons name="add" size={18} color="#ffffff" />
-                <Text style={styles.addDiseaseBtnText}>
-                  {tc("add")}
-                </Text>
-              </Pressable>
-            </View>
-
-            <Pressable
-              style={styles.diseaseDoneBtn}
-              onPress={() => setShowDiseasePicker(false)}
-            >
-              <Text style={styles.diseaseDoneBtnText}>
-                {tc("save")}
-              </Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
       </Modal>
 
       {/* ==================== FONT SIZE PICKER ==================== */}
@@ -2796,12 +2863,6 @@ function createStyles(
       color: textPrimaryCol,
       letterSpacing: -0.2,
     },
-    sheetSubtitle: {
-      fontSize: 12,
-      color: textSecondaryCol,
-      marginTop: 2,
-      textAlign: "center",
-    },
     sheetScrollContent: {
       paddingBottom: 16,
     },
@@ -2908,22 +2969,6 @@ function createStyles(
     sheetSection: {
       marginBottom: 12,
     },
-    sheetSectionHeaderRow: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      justifyContent: "space-between",
-      marginBottom: 6,
-      paddingHorizontal: 2,
-    },
-    sheetSectionTitle: {
-      fontSize: 13.5,
-      fontWeight: "700",
-      color: textPrimaryCol,
-    },
-    sheetSectionSubtitle: {
-      fontSize: 11,
-      color: textSecondaryCol,
-    },
     sheetSectionTitleOnly: {
       fontSize: 13.5,
       fontWeight: "700",
@@ -3014,10 +3059,39 @@ function createStyles(
     },
 
     // 4 Stats Row (Tuổi, Chiều cao, Cân nặng, Nhóm máu)
-    bloodTypeHint: {
-      marginTop: spacing.sm,
-      fontSize: typography.size.xs,
-      color: textSecondaryCol,
+    bloodTypeField: {
+      minHeight: 44,
+      width: "100%",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 2,
+    },
+    bloodTypeValue: {
+      flexShrink: 1,
+      fontSize: 15,
+      fontWeight: "700",
+      color: textPrimaryCol,
+      textAlign: "center",
+    },
+    bloodTypeOptions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 10,
+    },
+    bloodTypeOption: {
+      flexBasis: "22%",
+      flexGrow: 1,
+      minHeight: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+      borderWidth: 1,
+      borderColor: borderCol,
     },
     fourStatsRow: {
       flexDirection: "row",
@@ -3052,7 +3126,7 @@ function createStyles(
       textAlign: "center",
       padding: 0,
       minWidth: 32,
-      height: 22,
+      minHeight: 44,
     },
     statBoxUnit: {
       fontSize: 10.5,
@@ -3157,16 +3231,9 @@ function createStyles(
       color: textSecondaryCol,
     },
 
-    // Disease Picker Modal
-    diseaseModalHeader: {
-      marginBottom: spacing.md,
-      alignItems: "center",
-    },
-    diseaseModalSubtitle: {
-      fontSize: 12,
-      color: textSecondaryCol,
-      marginTop: 3,
-      textAlign: "center",
+    // Inline chronic condition picker
+    diseasePickerInline: {
+      marginTop: 10,
     },
     diseaseChipsGrid: {
       flexDirection: "row",
@@ -3178,6 +3245,9 @@ function createStyles(
     diseaseSelectChip: {
       flexDirection: "row",
       alignItems: "center",
+      minHeight: 44,
+      maxWidth: "100%",
+      gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 7,
       borderRadius: 14,
@@ -3190,6 +3260,7 @@ function createStyles(
       borderColor: colors.primaryDark,
     },
     diseaseSelectChipText: {
+      flexShrink: 1,
       fontSize: 12.5,
       color: textSecondaryCol,
     },
@@ -3205,6 +3276,7 @@ function createStyles(
     },
     customDiseaseInput: {
       flex: 1,
+      minHeight: 44,
       backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
       borderWidth: 1,
       borderColor: borderCol,
@@ -3215,6 +3287,7 @@ function createStyles(
       color: textPrimaryCol,
     },
     addDiseaseBtn: {
+      minHeight: 44,
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
@@ -3226,18 +3299,6 @@ function createStyles(
     addDiseaseBtnText: {
       fontSize: 13,
       fontWeight: "600",
-      color: "#FFFFFF",
-    },
-    diseaseDoneBtn: {
-      width: "100%",
-      paddingVertical: 12,
-      borderRadius: 12,
-      backgroundColor: colors.primaryDark,
-      alignItems: "center",
-    },
-    diseaseDoneBtnText: {
-      fontSize: 14.5,
-      fontWeight: "700",
       color: "#FFFFFF",
     },
 

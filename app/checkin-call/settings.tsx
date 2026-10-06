@@ -125,8 +125,11 @@ export default function CheckinCallSettingsScreen() {
     return () => subscription.remove();
   }, []);
 
+  const dirty = value !== null && JSON.stringify(value) !== JSON.stringify(savedValue);
   const save = async () => {
-    if (!value || saveInFlight.current || access !== 'granted' || noContactsWarning || !focused.current) return;
+    if (!value || !dirty || saveInFlight.current || access !== 'granted' || noContactsWarning || !focused.current) {
+      return;
+    }
     saveInFlight.current = true;
     setSaving(true);
     try {
@@ -207,7 +210,6 @@ export default function CheckinCallSettingsScreen() {
     );
   }
 
-  const dirty = JSON.stringify(value) !== JSON.stringify(savedValue);
   const busy = saving || access !== 'granted' || noContactsWarning;
   const saveDisabled = busy || !dirty || access !== 'granted';
 

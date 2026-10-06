@@ -8,7 +8,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import type { TextInput as RNTextInputInstance } from 'react-native';
+import type { StyleProp, TextStyle, ViewStyle, TextInput as RNTextInputInstance } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { ScaledText as Text } from './ScaledText';
@@ -32,6 +32,14 @@ interface DropdownProps {
   searchable?: boolean;
   loading?: boolean;
   error?: string;
+  leftIcon?: React.ReactNode;
+  triggerStyle?: StyleProp<ViewStyle>;
+  triggerTextStyle?: StyleProp<TextStyle>;
+  labelStyle?: StyleProp<TextStyle>;
+  containerStyle?: StyleProp<ViewStyle>;
+  showDivider?: boolean;
+  chevronColor?: string;
+  chevronSize?: number;
 }
 
 export function Dropdown({
@@ -42,7 +50,15 @@ export function Dropdown({
   onChange,
   searchable = true,
   loading = false,
-  error
+  error,
+  leftIcon,
+  triggerStyle,
+  triggerTextStyle,
+  labelStyle,
+  containerStyle,
+  showDivider = false,
+  chevronColor,
+  chevronSize = 20,
 }: DropdownProps) {
   const { t } = useTranslation('common');
   const [isOpen, setIsOpen] = useState(false);
@@ -80,6 +96,12 @@ export function Dropdown({
     },
     triggerTextPlaceholder: {
       color: colors.textSecondary,
+    },
+    triggerDivider: {
+      width: 1,
+      height: 24,
+      backgroundColor: colors.border,
+      marginRight: spacing.sm,
     },
     errorText: {
       color: colors.danger,
@@ -215,25 +237,31 @@ export function Dropdown({
   );
 
   return (
-    <View style={styles.container}>
-      {label && <Text style={[styles.label, { fontSize: scaledTypography.size.sm }]}>{label}</Text>}
+    <View style={[styles.container, containerStyle]}>
+      {label && <Text style={[styles.label, { fontSize: scaledTypography.size.sm }, labelStyle]}>{label}</Text>}
       
       <TouchableOpacity
-        style={[styles.trigger, error && styles.triggerError]}
+        style={[styles.trigger, error && styles.triggerError, triggerStyle]}
         onPress={() => setIsOpen(true)}
         disabled={loading}
       >
-        <Text style={[
-          styles.triggerText,
-          { fontSize: scaledTypography.size.md },
-          !value && styles.triggerTextPlaceholder
-        ]}>
+        {leftIcon}
+        <Text
+          style={[
+            styles.triggerText,
+            { fontSize: scaledTypography.size.md },
+            !value && styles.triggerTextPlaceholder,
+            triggerTextStyle,
+          ]}
+          numberOfLines={1}
+        >
           {loading ? t('loading') : (value?.label || displayPlaceholder)}
         </Text>
+        {showDivider ? <View style={styles.triggerDivider} /> : null}
         <Ionicons 
           name={isOpen ? 'chevron-up' : 'chevron-down'} 
-          size={20} 
-          color={colors.textSecondary} 
+          size={chevronSize}
+          color={chevronColor ?? colors.textSecondary}
         />
       </TouchableOpacity>
 

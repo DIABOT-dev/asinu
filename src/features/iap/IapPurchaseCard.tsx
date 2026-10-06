@@ -3,9 +3,10 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
+import { useScaledTypography } from "../../hooks/useScaledTypography";
 import { colors, radius, spacing, typography } from "../../styles";
 import { FALLBACK_IAP_PRODUCTS } from "./iap.catalog";
 import {
@@ -15,6 +16,7 @@ import {
 } from "./iap.service";
 import { SubscriptionFeedbackModal, type SubscriptionFeedback } from "./SubscriptionFeedbackModal";
 import { localizedPlanName } from "../subscription/planName";
+import { RestoreLink } from "./RestoreLink";
 
 const PLAN_ANTAM_2_IMG = require("../../../assets/images/subscription/plan_antam_2.png");
 const PLAN_ANTAM_4_IMG = require("../../../assets/images/subscription/plan_antam_4.png");
@@ -43,6 +45,9 @@ export function IapPurchaseCard({
 }: Props) {
   const { t, i18n } = useTranslation("subscription");
   const { isDark } = useThemeColors();
+  const { width } = useWindowDimensions();
+  const { size, scaledSize } = useScaledTypography();
+  const stackActions = width < 390 || scaledSize.sm > size.sm * 1.1;
   const styles = useMemo(() => createStyles(isDark), [isDark]);
   const [feedback, setFeedback] = useState<SubscriptionFeedback | null>(null);
   const [products, setProducts] = useState<LocalProduct[]>(() => [
@@ -52,6 +57,8 @@ export function IapPurchaseCard({
   const [selectedPlan, setSelectedPlan] = useState("antam_4");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const actionBusy = busy || restoring;
 
   useEffect(() => {
     let active = true;
@@ -360,49 +367,55 @@ export function IapPurchaseCard({
         </View>
       )}
 
-      {/* Primary CTA */}
-      <Pressable
-        style={[
-          styles.buyButtonWrap,
-          (!selected || busy || selectedIsCurrent) && styles.disabled,
-        ]}
-        onPress={buy}
-        disabled={!selected || busy || selectedIsCurrent}
-      >
-        <LinearGradient
-          colors={
-            selected?.plan_code === "antam_4"
-              ? ["#f97316", "#ea580c"]
-              : ["#059669", "#047857"]
-          }
-          end={{ x: 1, y: 0 }}
-          start={{ x: 0, y: 0 }}
-          style={styles.buyButtonGradient}
+      {/* Purchase and restore remain together, with room for large text. */}
+      <View style={[styles.purchaseActions, stackActions && styles.purchaseActionsStacked]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !selected || actionBusy || selectedIsCurrent, busy }}
+          style={[
+            styles.buyButtonWrap,
+            !stackActions && styles.buyButtonInline,
+            (!selected || actionBusy || selectedIsCurrent) && styles.disabled,
+          ]}
+          onPress={buy}
+          disabled={!selected || actionBusy || selectedIsCurrent}
         >
-          {busy ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <MaterialCommunityIcons
-                name="shield-check"
-                size={20}
-                color="#fff"
-              />
-              <Text style={styles.buyText}>
-                {selectedIsCurrent
-                  ? t("iapCurrentExact")
-                  : `${t("iapContinue", {
-                      plan: selected ? localizedPlanName(selected.plan_code, t) : t("premium"),
-                    })} · ${
-                      selected?.localizedPrice ??
-                      formatVnd(selected?.display_price_vnd ?? 0, i18n.language)
-                    }`}
-              </Text>
-              <Ionicons name="arrow-forward" size={16} color="#fff" />
-            </>
-          )}
-        </LinearGradient>
-      </Pressable>
+          <LinearGradient
+            colors={
+              selected?.plan_code === "antam_4"
+                ? ["#f97316", "#ea580c"]
+                : ["#059669", "#047857"]
+            }
+            end={{ x: 1, y: 0 }}
+            start={{ x: 0, y: 0 }}
+            style={styles.buyButtonGradient}
+          >
+            {busy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <MaterialCommunityIcons
+                  name="shield-check"
+                  size={20}
+                  color="#fff"
+                />
+                <Text style={styles.buyText}>
+                  {selectedIsCurrent
+                    ? t("iapCurrentExact")
+                    : `${t("iapContinue", {
+                        plan: selected ? localizedPlanName(selected.plan_code, t) : t("premium"),
+                      })} · ${
+                        selected?.localizedPrice ??
+                        formatVnd(selected?.display_price_vnd ?? 0, i18n.language)
+                      }`}
+                </Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+        <RestoreLink compact disabled={busy} onBusyChange={setRestoring} onRestored={onPurchased} />
+      </View>
 
       <SubscriptionFeedbackModal feedback={feedback} onDismiss={() => setFeedback(null)} />
     </View>
@@ -683,6 +696,18 @@ function createStyles(isDark: boolean) {
       flexDirection: "row",
       gap: 4,
     },
+    purchaseActions: {
+      flexDirection: "row",
+      alignItems: "stretch",
+      gap: spacing.sm,
+    },
+    purchaseActionsStacked: {
+      flexDirection: "column",
+    },
+    buyButtonInline: {
+      flex: 1,
+      minWidth: 0,
+    },
     buyButtonWrap: {
       borderRadius: 16,
       overflow: "hidden",
@@ -693,18 +718,22 @@ function createStyles(isDark: boolean) {
       elevation: 4,
     },
     buyButtonGradient: {
+      flex: 1,
       alignItems: "center",
       flexDirection: "row",
       gap: 8,
       justifyContent: "center",
-      minHeight: 50,
+      minHeight: 56,
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
     buyText: {
+      flex: 1,
+      minWidth: 0,
       color: "#ffffff",
       fontSize: typography.size.sm,
       fontWeight: "800",
+      textAlign: "center",
     },
     disabled: {
       elevation: 0,

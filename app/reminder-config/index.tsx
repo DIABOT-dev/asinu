@@ -82,6 +82,8 @@ const SLOT_META: Array<{
 function TimePickerModal({
   visible,
   initialTime,
+  isAuto,
+  saving,
   hourRange,
   onConfirm,
   onCancel,
@@ -89,6 +91,8 @@ function TimePickerModal({
 }: {
   visible: boolean;
   initialTime: string;
+  isAuto: boolean;
+  saving: boolean;
   hourRange: [number, number];
   onConfirm: (time: string) => void;
   onCancel: () => void;
@@ -120,9 +124,13 @@ function TimePickerModal({
     return arr;
   }, []);
 
+  const selectedTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  const confirmDisabled = saving || selectedTime === initialTime.slice(0, 5);
+  const resetDisabled = saving || isAuto;
   const handleConfirm = () => {
-    const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-    onConfirm(time);
+    if (!confirmDisabled) {
+      onConfirm(selectedTime);
+    }
   };
 
   return (
@@ -193,12 +201,25 @@ function TimePickerModal({
 
           {/* Actions */}
           <View style={pickerStyles.actions}>
-            <Pressable style={pickerStyles.cancelBtn} onPress={onResetToAuto}>
+            <Pressable
+              style={[pickerStyles.cancelBtn, resetDisabled && pickerStyles.disabled]}
+              onPress={() => {
+                if (!resetDisabled) {
+                  onResetToAuto();
+                }
+              }}
+              disabled={resetDisabled}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: resetDisabled }}
+            >
               <Text style={pickerStyles.cancelText}>{t('scheduleAuto')}</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [pickerStyles.confirmBtn, pressed && { opacity: 0.9 }]}
+              style={({ pressed }) => [pickerStyles.confirmBtn, confirmDisabled && pickerStyles.disabled, pressed && { opacity: 0.9 }]}
               onPress={handleConfirm}
+              disabled={confirmDisabled}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: confirmDisabled, busy: saving }}
             >
               <View style={pickerStyles.confirmGradient}>
                 <MaterialCommunityIcons name="check" size={18} color={colors.primaryDark} />
@@ -213,6 +234,9 @@ function TimePickerModal({
 }
 
 const pickerStyles = StyleSheet.create({
+  disabled: {
+    opacity: 0.4,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -396,7 +420,13 @@ export default function ReminderConfigScreen() {
   };
 
   const handleTimeConfirm = useCallback(async (time: string) => {
-    if (!prefs || !pickerSlot) return;
+    if (!prefs || !pickerSlot || saving) {
+      return;
+    }
+    const previousTime = prefs[`effective_${pickerSlot}_time`] ?? SLOT_META.find(meta => meta.slot === pickerSlot)!.defaultTime;
+    if (time === previousTime.slice(0, 5)) {
+      return;
+    }
     const field = `${pickerSlot}_time`;
     const updated = { ...prefs, [field]: time, [`effective_${pickerSlot}_time`]: time };
     setPrefs(updated);
@@ -408,16 +438,20 @@ export default function ReminderConfigScreen() {
         setPrefs(result);
         showToast(t('scheduleSaved'), 'success');
       } else {
+        setPrefs(prefs);
         showToast(t('scheduleSaveError'), 'error');
       }
     } catch {
+      setPrefs(prefs);
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs, pickerSlot, t]);
+  }, [prefs, pickerSlot, saving, t]);
 
   const handleResetToAuto = useCallback(async (slot: TimeSlot) => {
-    if (!prefs) return;
+    if (!prefs || saving || prefs[`${slot}_time`] === null) {
+      return;
+    }
     const field = `${slot}_time`;
     const updated = { ...prefs, [field]: null };
     setPrefs(updated as any);
@@ -428,13 +462,15 @@ export default function ReminderConfigScreen() {
         setPrefs(result);
         showToast(t('scheduleSaved'), 'success');
       } else {
+        setPrefs(prefs);
         showToast(t('scheduleSaveError'), 'error');
       }
     } catch {
+      setPrefs(prefs);
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs, t]);
+  }, [prefs, saving, t]);
 
   const handlePickerCancel = useCallback(() => {
     setPickerSlot(null);
@@ -518,6 +554,8 @@ export default function ReminderConfigScreen() {
       <TimePickerModal
         visible={!!pickerSlot}
         initialTime={pickerSlot ? getEffectiveTime(pickerSlot) : '08:00'}
+        isAuto={pickerSlot ? isAutoTime(pickerSlot) : true}
+        saving={saving}
         hourRange={pickerMeta?.hourRange ?? [0, 23]}
         onConfirm={handleTimeConfirm}
         onCancel={handlePickerCancel}
@@ -581,7 +619,7 @@ export default function ReminderConfigScreen() {
 
             {/* Schedule Cards */}
             {SLOT_META.map((meta, idx) => {
-              const disabled = !remindersEnabled;
+              const disabled = !remindersEnabled || saving;
               const effectiveTime = getEffectiveTime(meta.slot);
               const isAuto = isAutoTime(meta.slot);
 

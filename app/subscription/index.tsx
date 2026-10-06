@@ -613,6 +613,10 @@ export default function SubscriptionScreen() {
             t={t}
           />
 
+          {!showPurchaseSection && !status?.isAnTam ? (
+            <RestoreLink onRestored={refresh} />
+          ) : null}
+
           {(showPurchaseSection || status?.isAnTam) && (
             <Animated.View
               entering={FadeInDown.duration(400).springify()}
@@ -641,8 +645,6 @@ export default function SubscriptionScreen() {
           <View style={styles.faqWrapper}>
             <SubscriptionFAQ />
           </View>
-
-          <RestoreLink onRestored={refresh} />
 
           <Text style={styles.footerNote}>{t("v2EmergencyContactHint")}</Text>
         </Animated.View>
