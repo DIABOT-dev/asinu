@@ -21,7 +21,7 @@ function evaluate(source, dependencies = {}) {
 const state = evaluate(read('src/features/checkin-call/checkin-call.state.ts'));
 let checks = 0;
 function test(label, run) { run(); checks++; console.log(`PASS ${label}`); }
-function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
+function render({ lang = 'vi', role = 'USER', triage = false, busy = false, ended = false, hasHistory = false, stopAudio = () => {},
   params = { episodeId: 'episode', attemptId: 'attempt', nativeAnswered: '1' },
   auth = { hydrated: true, loading: false, token: 'test-token', profile: { id: 'test-user' } } } = {}) {
   const catalog = JSON.parse(read(`src/i18n/locales/${lang}/checkinCall.json`));
@@ -34,7 +34,7 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
     0: { id: 'attempt', episode_id: 'episode', target_role: role, severity: 'MILD',
       state: 'CONNECTED', episode_state: triage ? 'TRIAGE_USER' : 'CONTACT_USER',
       confirm_deadline: new Date(Date.now() + 90000).toISOString(), next_action_at: new Date(Date.now() + 90000).toISOString() },
-    2: true, 3: busy, 6: triage,
+    2: true, 3: busy, 4: ended, 6: triage,
   };
   const hooks = {
     createElement: React.createElement, Fragment: React.Fragment,
@@ -42,13 +42,19 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
     useRef: initial => ({ current: initial }), useEffect: () => {}, useLayoutEffect: () => {}, useCallback: callback => callback,
   };
   const noop = () => {};
+  const navigation = [];
+  const audioStops = [];
   const imports = {
     react: { __esModule: true, default: hooks, ...hooks },
     'react-native': { View: 'View', Pressable: 'Pressable', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
       Image: 'Image', Platform: { OS: 'ios' }, AppState: { currentState: 'active' }, StyleSheet: { create: styles => styles } },
     '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
     'expo-router': { Redirect: 'Redirect', useFocusEffect: noop, useLocalSearchParams: () => params },
-    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back: noop, replace: noop }) },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({
+      canGoBack: () => hasHistory,
+      back: () => navigation.push({ action: 'back' }),
+      replace: route => navigation.push({ action: 'replace', route }),
+    }) },
     '@livekit/react-native': { LiveKitRoom: 'Room' }, 'livekit-client': { Room: class {} },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     '@react-native-async-storage/async-storage': { default: {} },
@@ -61,7 +67,8 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
     '../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../src/features/checkin-call/CheckinCallContact': { CheckinCallContact: 'Contact' },
     '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech', CheckinCallSafetyNote: 'SafetyNote' },
-    '../../src/features/checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { prompt: null }, play: noop, stopAudio: noop, showPrompt: noop }) },
+    '../../src/features/checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { prompt: null }, play: noop,
+      stopAudio: clearPrompt => { audioStops.push(clearPrompt); return stopAudio(clearPrompt); }, showPrompt: noop }) },
     '../../src/features/checkin-call/CheckinCallPhoneAction': { CheckinCallPhoneAction: 'Phone' },
     '../../src/features/checkin-call/triage-draft': { restoreTriageDraft: noop },
     '../../src/features/auth/auth.store': { useAuthStore: selector => selector(auth) },
@@ -77,7 +84,7 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
     visit(node.props?.children);
   };
   visit(tree);
-  return { tree, nodes, t, outer };
+  return { tree, nodes, t, outer, navigation, audioStops };
 }
 for (const lang of ['vi', 'en']) for (const [role, triage] of [['USER', false], ['USER', true], ['FAMILY', false]]) {
   test(`${lang} ${role}${triage ? ' triage' : ''}: response is scrollable, safe-area protected and has no connection banner`, () => {
@@ -140,6 +147,20 @@ test('saving disables all three health buttons to prevent repeated submissions',
   const choices = h.nodes.filter(node => node.type === 'Pressable' && node.props.accessibilityLabel);
   assert.equal(choices.length, 3);
   assert.ok(choices.every(node => node.props.disabled && node.props.accessibilityState.disabled));
+});
+for (const lang of ['vi', 'en']) for (const hasHistory of [false, true]) {
+  test(`${lang}: Close returns completed calls to Home with ${hasHistory ? 'an existing' : 'no'} navigation history`, () => {
+    const h = render({ lang, ended: true, hasHistory });
+    const close = h.nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === h.t('close'));
+    assert.ok(close); close.props.onPress();
+    assert.deepEqual(h.navigation, [{ action: 'replace', route: '/(tabs)/home' }]);
+    assert.deepEqual(h.audioStops, [true]);
+  });
+}
+test('slow audio cleanup cannot keep the completed call screen open', () => {
+  const h = render({ ended: true, stopAudio: () => new Promise(() => {}) });
+  h.nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === h.t('close')).props.onPress();
+  assert.deepEqual(h.navigation, [{ action: 'replace', route: '/(tabs)/home' }]);
 });
 const theme = evaluate(read('src/styles/theme.ts'));
 const speechNodes = tree => {

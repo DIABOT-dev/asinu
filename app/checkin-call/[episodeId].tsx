@@ -128,6 +128,12 @@ function AuthenticatedCheckinCallScreen() {
     }
     return stopped;
   }, [stopCallAudio, showAudioPrompt]);
+  const closeScreen = useCallback(() => {
+    void stopAudio();
+    // A CallKit cold start can make this the only route in the stack.
+    // Closing the response always returns to the app's main screen.
+    router.replace('/(tabs)/home');
+  }, [router, stopAudio]);
   const play = useCallback(async (key: string, text?: string, replay = false) => {
     const version = ++playVersion.current;
     if (!callScreenFocused.current || AppState.currentState !== 'active') {
@@ -727,7 +733,7 @@ function AuthenticatedCheckinCallScreen() {
       await checkinCallApi.decline(attempt.id);
       await endVoipCall(attempt.id);
       callEnded.current = true;
-      router.back();
+      router.replace('/(tabs)/home');
     } catch (e) {
       if (screenMounted.current) setError(getApiErrorMessage(e, t, 'errorConfirm'));
       await restoreRoomAfterFailedAction();
@@ -822,7 +828,7 @@ function AuthenticatedCheckinCallScreen() {
             </Pressable>
           )}
           {!!error && (
-            <Pressable style={styles.replay} onPress={() => router.back()}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('close', { ns: 'common' })} style={styles.replay} onPress={closeScreen}>
               <Text style={styles.replayText}>{t('close', { ns: 'common' })}</Text>
             </Pressable>
           )}
@@ -945,10 +951,7 @@ function AuthenticatedCheckinCallScreen() {
             accessibilityRole="button"
             accessibilityLabel={t('close', { ns: 'common' })}
             style={styles.resultCloseBtn}
-            onPress={() => {
-              void stopAudio();
-              router.back();
-            }}
+            onPress={closeScreen}
           >
             <Text style={styles.resultCloseBtnText}>{t('close', { ns: 'common' })}</Text>
           </Pressable>
