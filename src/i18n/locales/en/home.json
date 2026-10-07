@@ -108,7 +108,7 @@
   "checkinFineSub": "Feeling normal, healthy",
   "checkinAbnormal": "Something feels unusual",
   "checkinAbnormalSub": "Tap to update your health status",
-  "checkinInstantTitle": "I'm noticing unusual symptoms",
+  "checkinInstantTitle": "I'm not feeling well",
   "checkinInstantSub": "Record how you feel and the symptoms you are experiencing.",
   "checkinAbnormalUnavailable": "This feature is still in development",
   "checkinTired": "A bit tired",

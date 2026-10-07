@@ -37,6 +37,12 @@ type AudioDependencies = {
 /** One owner for both TTS recordings and device speech. Latest intent wins,
  * including while a download, native player creation or Speech.stop is pending. */
 export class CheckinCallAudio {
+  private static readonly externalStops = new Set<() => Promise<void>>();
+  static registerExternalStop(stop: () => Promise<void>) {
+    this.externalStops.add(stop);
+    return () => { this.externalStops.delete(stop); };
+  }
+  static stopAll() { return Promise.all([...this.owners].map(owner => owner.stop())); }
   // Navigation/remounts can briefly leave more than one call screen alive.
   // All instances share the same output ownership, not just their own player.
   private static activeOwner: CheckinCallAudio | null = null;
@@ -183,6 +189,7 @@ export class CheckinCallAudio {
   async play(prompt: CallAudioPrompt, options: { automatic?: boolean; scope?: CallAutoplayScope } = {}) {
     if (this.disposed) return;
     CheckinCallAudio.activeOwner = this;
+    const externalStops = [...CheckinCallAudio.externalStops].map(stop => stop());
     const otherStops = [...CheckinCallAudio.owners]
       .filter(owner => owner !== this)
       .map(owner => {
@@ -194,7 +201,7 @@ export class CheckinCallAudio {
     const { version, stopped } = this.cancel();
     this.update({ phase: 'loading', prompt, fallback: false });
     try {
-      await Promise.all([stopped, ...otherStops]);
+      await Promise.all([stopped, ...otherStops, ...externalStops]);
     } catch {
       // Failed cancellation is not a synthesis failure: falling back to TTS
       // here could speak over a recording that native code could not silence.

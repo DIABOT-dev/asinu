@@ -17,6 +17,7 @@ import { checkinApi, type CheckinSession } from '../features/checkin/checkin.api
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { GuideTarget } from '../features/guidance/GuidanceProvider';
 
 // Cache session across hot reloads to prevent flash
 let _cachedSession: CheckinSession | null | undefined;
@@ -50,6 +51,7 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   // Keep the quick positive check-in available alongside the immediate flow.
   if (!session) {
     return (
+      <GuideTarget step="home.fine">
       <Pressable
         style={({ pressed }) => [styles.card, styles.cardFine, pressed && { opacity: 0.9 }]}
         onPress={() => router.push({ pathname: '/checkin', params: { preset_status: 'fine' } })}
@@ -59,12 +61,13 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
         <View style={styles.row}>
           <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
           <View style={styles.textColumn}>
-            <Text style={styles.fineTitle}>{t('checkinFine')}</Text>
+            <Text allowFontScaling style={styles.fineTitle}>{t('checkinFine')}</Text>
             <Text style={styles.sub}>{t('checkinFineSub')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={28} color={colors.primary} />
         </View>
       </Pressable>
+      </GuideTarget>
     );
   }
 
@@ -114,6 +117,7 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   return (
+    <GuideTarget step="home.unwell">
     <Pressable
       style={({ pressed }) => [styles.card, styles.cardInstant, pressed && { opacity: 0.9 }]}
       onPress={() => router.push({ pathname: '/checkin', params: { mode: 'random' } })}
@@ -123,12 +127,13 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
       <View style={styles.row}>
         <Ionicons name="pulse" size={48} color={colors.premiumDark} />
         <View style={styles.textColumn}>
-          <Text style={styles.instantTitle}>{t('checkinInstantTitle')}</Text>
+          <Text allowFontScaling style={styles.instantTitle}>{t('checkinInstantTitle')}</Text>
           <Text style={styles.sub}>{t('checkinInstantSub')}</Text>
         </View>
         <Ionicons name="chevron-forward" size={28} color={colors.premiumDark} />
       </View>
     </Pressable>
+    </GuideTarget>
   );
 });
 

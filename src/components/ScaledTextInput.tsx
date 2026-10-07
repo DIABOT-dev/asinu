@@ -35,8 +35,7 @@ export const ScaledTextInput = forwardRef<RNTextInput, TextInputProps>(function 
       ref={ref}
       {...props}
       style={[style, scaledStyle]}
-      allowFontScaling={false}
+    allowFontScaling={props.allowFontScaling ?? false}
     />
   );
 });
-

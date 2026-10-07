@@ -40,7 +40,10 @@ import { showToast } from '../../src/stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
-import { CheckinGuideCarousel, hasSeenCheckinGuide } from '../../src/components/CheckinGuideCarousel';
+import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
+import { useReviewGuidance } from '../../src/features/guidance/GuidanceSettings';
+import { useGuidanceStore } from '../../src/features/guidance/guidance.store';
+import { VoiceAnswerButton } from '../../src/features/guidance/VoiceAnswerButton';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 
 const MAX_TRIAGE_QUESTIONS = 4;
@@ -134,6 +137,7 @@ const BODY_LOCATION_OPTIONS: Array<{ key: BodyLocation; icon: MciName; labelKey:
 ];
 
 export default function CheckinScreen() {
+  const reviewGuidance = useReviewGuidance();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('home');
@@ -142,6 +146,7 @@ export default function CheckinScreen() {
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const userId = useAuthStore((state) => state.profile?.id);
+  const guidanceReady = useGuidanceStore(state => state.ready);
   const { language } = useLanguageStore();
   const params = useLocalSearchParams<{
     checkin_id?: string;
@@ -154,30 +159,6 @@ export default function CheckinScreen() {
   const isResultPreview = params.mode === 'result_preview';
   const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
   const presetStatus = params.preset_status as CheckinStatus | undefined;
-
-  const [showGuideModal, setShowGuideModal] = useState(params.guide === '1');
-  const [guideCheckComplete, setGuideCheckComplete] = useState(params.guide === '1');
-
-  useEffect(() => {
-    if (params.guide === '1') {
-      setShowGuideModal(true);
-      setGuideCheckComplete(true);
-      return;
-    }
-    let isMounted = true;
-    setGuideCheckComplete(false);
-    hasSeenCheckinGuide(userId).then((seen) => {
-      if (isMounted) {
-        if (!seen && !isResultPreview) {
-          setShowGuideModal(true);
-        }
-        setGuideCheckComplete(true);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [params.guide, isResultPreview, userId]);
 
   const [screen, setScreen] = useState<Screen>(isResultPreview ? 'done' : 'status');
   const [loading, setLoading] = useState(
@@ -195,7 +176,6 @@ export default function CheckinScreen() {
   // Auto-detect: đã check-in hôm nay chưa? Nếu rồi → redirect đúng mode
   // Random mode: bỏ qua check, luôn cho check-in
   useEffect(() => {
-    if (!guideCheckComplete || showGuideModal) return;
     if (isResultPreview || isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
     let mounted = true;
     checkinApi.getToday()
@@ -216,7 +196,15 @@ export default function CheckinScreen() {
       })
       .catch(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, [existingCheckinId, guideCheckComplete, isFollowUp, isRandom, isResultPreview, router, showGuideModal]);
+  }, [existingCheckinId, isFollowUp, isRandom, isResultPreview, router]);
+
+  useEffect(() => {
+    if (screen !== 'done' || isResultPreview || !session || session.id <= 0) return;
+    const guidance = useGuidanceStore.getState();
+    if (guidance.account === String(userId) && !guidance.progress.firstCheckin) {
+      guidance.update({ firstCheckin: true });
+    }
+  }, [guidanceReady, isResultPreview, screen, session, userId]);
 
   // Auto-start nếu có preset_status từ FAB
   const presetHandled = useRef(false);
@@ -245,6 +233,7 @@ export default function CheckinScreen() {
   const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
   const [customAnswer, setCustomAnswer] = useState('');
   const mainScrollRef = useRef<ScrollView>(null);
+  const guideScrollOffset = useRef(0);
   const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(() =>
     isResultPreview
       ? {
@@ -261,6 +250,7 @@ export default function CheckinScreen() {
   const lastQuestionIdRef = useRef<string>('');
   const handleMainScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    guideScrollOffset.current = contentOffset.y;
     const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
     userAtBottomRef.current = distanceFromBottom < 80;
   };
@@ -591,7 +581,7 @@ export default function CheckinScreen() {
           accessibilityLabel={t('checkinGuide.badge')}
           accessibilityRole="button"
           hitSlop={8}
-          onPress={() => setShowGuideModal(true)}
+          onPress={() => void reviewGuidance()}
           style={{
             alignItems: 'center',
             backgroundColor: '#ffffff',
@@ -612,12 +602,7 @@ export default function CheckinScreen() {
         onAgree={handleAiConsentAgree}
         onDecline={handleAiConsentDecline}
       />
-      <CheckinGuideCarousel
-        visible={showGuideModal}
-        onClose={() => setShowGuideModal(false)}
-        onStartCheckin={() => setShowGuideModal(false)}
-      />
-
+      <GuideScrollScope scrollRef={mainScrollRef} offset={guideScrollOffset}>
       <ScrollView
         ref={mainScrollRef}
         style={{ flex: 1, backgroundColor: '#f3fbf8' }}
@@ -646,6 +631,7 @@ export default function CheckinScreen() {
             onConfirm={handleLocationsConfirm}
             onBack={() => { setPendingStatus(null); setScreen('status'); }}
             loading={loading}
+            onBeforeAi={requestAiConsent}
           />
         )}
         {screen === 'triage' && (
@@ -676,6 +662,7 @@ export default function CheckinScreen() {
           />
         )}
       </ScrollView>
+      </GuideScrollScope>
     </>
   );
 }
@@ -736,13 +723,16 @@ function LocationScreen({
   onConfirm,
   onBack,
   loading,
+  onBeforeAi,
 }: {
   styles: Styles;
   onConfirm: (locs: BodyLocation[], other: string) => void;
   onBack: () => void;
   loading: boolean;
+  onBeforeAi: () => Promise<boolean>;
 }) {
   const { t } = useTranslation('home');
+  const { t: tg } = useTranslation('onboarding');
   const [selected, setSelected] = useState<Set<BodyLocation>>(new Set());
   const [other, setOther] = useState('');
 
@@ -773,9 +763,10 @@ function LocationScreen({
       </View>
 
       <View style={{ gap: spacing.sm }}>
-        {BODY_LOCATION_OPTIONS.map((opt) => {
+        {BODY_LOCATION_OPTIONS.map((opt, optionIndex) => {
           const isSelected = selected.has(opt.key);
           return (
+            <GuideTarget key={opt.key} step="checkin.choices" enabled={optionIndex === 0 && !loading}>
             <Pressable
               key={opt.key}
               onPress={() => !loading && toggle(opt.key)}
@@ -810,7 +801,7 @@ function LocationScreen({
                 color={isSelected ? '#00897b' : '#64748b'}
               />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: isSelected ? '#064e3b' : colors.textPrimary, marginBottom: 2 }}>
+                <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: isSelected ? '#064e3b' : colors.textPrimary, marginBottom: 2 }}>
                   {t(opt.labelKey)}
                 </Text>
                 <Text style={{ fontSize: 12, color: colors.textSecondary }}>
@@ -819,14 +810,16 @@ function LocationScreen({
               </View>
               <Ionicons name="chevron-forward" size={18} color={isSelected ? '#00897b' : '#cbd5e1'} />
             </Pressable>
+            </GuideTarget>
           );
         })}
       </View>
 
       {/* Free-text "Khác" — user gõ vùng tự do (đồng bộ kích thước với card body location ở trên) */}
+      <GuideTarget step="checkin.other" enabled={!loading}>
       <View style={{ marginTop: spacing.lg }}>
-        <Text style={{ color: colors.textSecondary, marginBottom: spacing.sm, fontSize: 13 }}>
-          {t('checkinLocationOtherHint')}
+        <Text allowFontScaling style={{ color: colors.textPrimary, marginBottom: spacing.sm, fontSize: 22, fontWeight: '700' }}>
+          {tg('guidance.otherAnswer')}
         </Text>
         <View
           style={{
@@ -840,15 +833,10 @@ function LocationScreen({
             gap: spacing.md,
           }}
         >
-          {/* Spacer 22px = chỗ checkbox của các card phía trên (giữ alignment) */}
-          <View style={{ width: 22 }} />
-          {/* Icon pencil — parallel với icon body location của các card */}
-          <MaterialCommunityIcons
-            name="pencil-outline"
-            size={28}
-            color={other.trim() ? '#00897b' : '#64748b'}
-          />
+          <VoiceAnswerButton onText={text => setOther(previous => `${previous} ${text}`.trim())}
+            onBeforeAi={onBeforeAi} disabled={loading} />
           <TextInput
+            allowFontScaling
             value={other}
             onChangeText={setOther}
             placeholder={t('checkinLocationOtherPlaceholder')}
@@ -857,7 +845,7 @@ function LocationScreen({
             maxLength={200}
             style={{
               flex: 1,
-              fontSize: 17,
+              fontSize: 22,
               fontWeight: '600',
               color: colors.textPrimary,
               padding: 0,
@@ -866,6 +854,7 @@ function LocationScreen({
           />
         </View>
       </View>
+      </GuideTarget>
 
       <Pressable
         onPress={() => onConfirm(Array.from(selected), other)}
@@ -1126,7 +1115,7 @@ function TriageScreen({
                 aware T2). Else render flat list như cũ. */}
             {optionsGrouped && optionsGrouped.length > 0 ? (
               <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
-                {optionsGrouped.map((group) => (
+                {optionsGrouped.map((group, groupIndex) => (
                   <View key={group.key} style={{ marginBottom: spacing.md }}>
                     {/* Section header — vùng cơ thể */}
                     <View style={{
@@ -1141,9 +1130,10 @@ function TriageScreen({
                       </Text>
                       <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
                     </View>
-                    {group.items.map((opt) => {
+                    {group.items.map((opt, optionIndex) => {
                       const isSelected = selected.has(opt);
                       return (
+                        <GuideTarget key={`${group.key}-${opt}`} step="checkin.choices" enabled={groupIndex === 0 && optionIndex === 0 && !loading}>
                         <Pressable
                           key={`${group.key}-${opt}`}
                           style={[styles.optionCard, isSelected && styles.optionCardSelected]}
@@ -1152,8 +1142,9 @@ function TriageScreen({
                           <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
                             {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
                           </View>
-                          <Text style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
+                          <Text allowFontScaling style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
                         </Pressable>
+                        </GuideTarget>
                       );
                     })}
                   </View>
@@ -1161,9 +1152,10 @@ function TriageScreen({
               </Animated.View>
             ) : options.length > 0 && (
               <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
-                {options.map((opt) => {
+                {options.map((opt, optionIndex) => {
                   const isSelected = selected.has(opt);
                   return (
+                    <GuideTarget key={opt} step="checkin.choices" enabled={optionIndex === 0 && !loading}>
                     <Pressable
                       key={opt}
                       style={[
@@ -1181,18 +1173,20 @@ function TriageScreen({
                           {isSelected && <View style={styles.optionRadioDot} />}
                         </View>
                       )}
-                      <Text style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
+                      <Text allowFontScaling style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
                       {!multiSelect && (
                         <Ionicons name="chevron-forward" size={16} color={colors.primary + '66'} />
                       )}
                     </Pressable>
+                    </GuideTarget>
                   );
                 })}
               </Animated.View>
             )}
 
             {/* Custom text input + mic — show when multi-select, allowFreeText, or no options */}
-            {(multiSelect || allowFreeText || options.length === 0) && <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
+            {(multiSelect || allowFreeText || options.length === 0) && <GuideTarget step="checkin.other" enabled={!loading}>
+            <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
               <Pressable
                 onPress={handleMicPress}
                 style={[styles.micBtn, isRecording && styles.micBtnActive]}
@@ -1219,7 +1213,7 @@ function TriageScreen({
                   editable={!isTranscribing}
                 />
               </View>
-            </Animated.View>}
+            </Animated.View></GuideTarget>}
 
             {/* Confirm button — show when multi-select OR no options (text-only input) */}
             {(multiSelect || options.length === 0) && <View style={styles.confirmWrap}>
@@ -2110,7 +2104,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: colors.primary,
     },
     optionCardText: {
-      fontSize: typography.size.sm,
+      fontSize: Math.max(22, typography.size.sm),
       fontWeight: '600',
       color: colors.textPrimary,
       flex: 1,

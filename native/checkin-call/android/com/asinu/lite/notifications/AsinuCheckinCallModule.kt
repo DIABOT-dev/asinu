@@ -3,6 +3,7 @@ package com.asinu.lite.notifications
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -23,6 +24,11 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
   override fun invalidate() { CheckinCallStore.detach(context); super.invalidate() }
   @ReactMethod fun addListener(name: String) {}
   @ReactMethod fun removeListeners(count: Double) {}
+  @ReactMethod fun isGuidanceSoundAllowed(promise: Promise) {
+    val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    promise.resolve(audio.ringerMode == AudioManager.RINGER_MODE_NORMAL &&
+      audio.getStreamVolume(AudioManager.STREAM_MUSIC) > 0)
+  }
   @ReactMethod fun configure(apiBaseUrl: String, promise: Promise) {
     CheckinCallStore.preferences(context).edit().putString("apiBaseUrl", apiBaseUrl).commit()
     promise.resolve(true)

@@ -29,6 +29,12 @@ function useModalQueue() {
   return queue;
 }
 
+/** Inline guidance yields to every native presenter, never occupying its slot. */
+export function useQueuedModalBusy() {
+  const queue = useModalQueue();
+  return Boolean(useSyncExternalStore(queue.subscribe, queue.getSnapshot, queue.getSnapshot).active);
+}
+
 /** Portal into the root presenter so route/unmount changes cannot orphan a modal. */
 export function QueuedModal(props: Props) {
   const queue = useModalQueue();

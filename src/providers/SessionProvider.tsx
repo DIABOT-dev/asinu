@@ -12,6 +12,7 @@ import { AppState, Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGlobalSearchParams, usePathname, useRootNavigationState } from "expo-router";
 import { useGuardedRouter, useNavigationGuardObserver } from "../hooks/useGuardedRouter";
+import { useGuidanceStore } from '../features/guidance/guidance.store';
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../features/auth/auth.store";
 import { authApi } from "../features/auth/auth.api";
@@ -78,6 +79,7 @@ export const SessionProvider = ({ children }: Props) => {
   const hydrated = useAuthStore((state) => state.hydrated);
   const authToken = useAuthStore((state) => state.token);
   const profile = useAuthStore((state) => state.profile);
+  const guidanceWelcomed = useGuidanceStore(state => state.account === String(profile?.id) && state.ready && state.progress.welcomeSeen);
   const pathname = usePathname();
   const navigationState = useRootNavigationState();
   const callParams = useGlobalSearchParams<{ attemptId?: string; nativeAnswered?: string }>();
@@ -266,7 +268,7 @@ export const SessionProvider = ({ children }: Props) => {
   // avoiding a native permission prompt on the login or onboarding screens.
   useEffect(() => {
     setNotificationPromptVisible(false);
-    if (!hydrated || !authToken || !profile?.onboardingCompleted) return;
+    if (!hydrated || !authToken || !profile || (!profile.onboardingCompleted && !guidanceWelcomed)) return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -304,6 +306,7 @@ export const SessionProvider = ({ children }: Props) => {
     hydrated,
     profile?.id,
     profile?.onboardingCompleted,
+    guidanceWelcomed,
     syncExistingPushToken,
   ]);
 

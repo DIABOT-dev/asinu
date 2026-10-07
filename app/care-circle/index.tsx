@@ -37,6 +37,7 @@ import { getConnectionHealthAccess } from '../../src/features/care-circle/health
 import { getFamilyRoleLabel, getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
 import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
+import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 import Svg, { Path } from 'react-native-svg';
 
 function ShieldXIcon({ color = '#475569', size = 22 }: { color?: string; size?: number }) {
@@ -81,6 +82,8 @@ function ShieldCheckIcon({ color = '#0D9488', size = 22 }: { color?: string; siz
 }
 
 export default function CareCircleScreen() {
+  const guideScrollRef = useRef<ScrollView>(null);
+  const guideScrollOffset = useRef(0);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const profile = useAuthStore((state) => state.profile);
@@ -392,7 +395,11 @@ export default function CareCircleScreen() {
           </View>
         </View>
 
+        <GuideScrollScope scrollRef={guideScrollRef} offset={guideScrollOffset}>
         <RippleRefreshScrollView
+          nativeScrollRef={guideScrollRef}
+          onScroll={event => { guideScrollOffset.current = event.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={32}
           refreshing={refreshing}
           onRefresh={refresh}
           style={styles.container}
@@ -472,6 +479,7 @@ export default function CareCircleScreen() {
               </View>
 
               {/* Quick Action Banner: Mời người mới */}
+              <GuideTarget step="circle.add">
               <TouchableOpacity
                 style={styles.inviteBanner}
                 activeOpacity={0.88}
@@ -493,6 +501,7 @@ export default function CareCircleScreen() {
                   <Ionicons name="chevron-forward" size={13} color="#FFFFFF" style={{ marginLeft: 2 }} />
                 </View>
               </TouchableOpacity>
+              </GuideTarget>
 
               <CareCircleQrActions
                 onShowQr={() => router.push('/care-circle/qr' as never)}
@@ -678,7 +687,7 @@ export default function CareCircleScreen() {
                 ) : (
                   /* Active Connection Cards */
                   <View style={styles.connectionsList}>
-                    {connections.map((connection) => {
+                    {connections.map((connection, connectionIndex) => {
                       const healthAccess = getConnectionHealthAccess(connection, profile?.id);
                       const displayRole = getFamilyRoleLabel(connection.role, t);
                       const isRequester = String(connection.requester_id) === String(profile?.id);
@@ -706,6 +715,7 @@ export default function CareCircleScreen() {
                         >
                           {/* Header: Avatar, Name, Relationship Badge & 3-Dots */}
                           <View style={styles.connectionCardHeader}>
+                            <GuideTarget step="circle.member" enabled={connectionIndex === 0 && healthAccess.canViewTheirs} name={otherName} style={{ flex: 1 }}>
                             <TouchableOpacity
                               style={styles.connectionHeaderLeft}
                               activeOpacity={0.75}
@@ -739,6 +749,7 @@ export default function CareCircleScreen() {
                                 )}
                               </View>
                             </TouchableOpacity>
+                            </GuideTarget>
 
                             <TouchableOpacity
                               accessibilityRole="button"
@@ -851,6 +862,7 @@ export default function CareCircleScreen() {
             </>
           )}
         </RippleRefreshScrollView>
+        </GuideScrollScope>
 
         {/* Profile Modal */}
         <Modal

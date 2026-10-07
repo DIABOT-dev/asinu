@@ -432,7 +432,7 @@ await test('splash cannot navigate before consent, auth hydration and navigator 
   modal.props.onAgree(); await h.settle(); await h.runTasks();
   assert.deepEqual(h.calls.routes, ['/login']); h.unmount();
 });
-await test('splash preserves onboarding and Home routing after its minimum display time', async () => {
+await test('splash opens Home for the single welcome instead of forcing the old health wizard', async () => {
   for (const completed of [false, true]) {
     const h = splashHarness({ profile: { id: '7', onboardingCompleted: completed } });
     await h.settle(); await h.settle(); await h.runTasks();
@@ -440,7 +440,7 @@ await test('splash preserves onboarding and Home routing after its minimum displ
     h.advanceTime(1799); await h.settle(); await h.runTasks();
     assert.deepEqual(h.calls.routes, []);
     h.advanceTime(1); await h.settle(); await h.runTasks();
-    assert.deepEqual(h.calls.routes, [completed ? '/(tabs)/home' : '/onboarding']); h.unmount();
+    assert.deepEqual(h.calls.routes, ['/(tabs)/home']); h.unmount();
   }
 });
 await test('leaving splash cancels its pending minimum-display timer', async () => {
@@ -543,23 +543,25 @@ await test('a failed native permission request is handled in-app and does not re
   });
   assert.deepEqual(feedback, [['scheduleSaveError', 'error']]);
 });
-await test('leaving Home cancels delayed guide loading and dismisses any visible guide', async () => {
-  const home = read('app/(tabs)/home/index.tsx');
-  const homeAst = ts.createSourceFile('Home.tsx', home, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let focusEffect;
+await test('leaving a coach target cancels a delayed native measurement without displaying a stale bubble', async () => {
+  const guide = read('src/features/guidance/GuidanceProvider.tsx');
+  const guideAst = ts.createSourceFile('Guide.tsx', guide, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let measureEffect;
   function find(node) {
-    if (ts.isCallExpression(node) && node.expression.getText(homeAst) === 'useFocusEffect'
-      && node.arguments[0]?.getText(homeAst).includes('hasSeenCheckinGuide(profile.id)')) focusEffect = node.arguments[0].arguments[0].getText(homeAst);
+    if (ts.isCallExpression(node) && node.expression.getText(guideAst) === 'useEffect'
+      && node.arguments[0]?.getText(guideAst).includes('const measure =')) measureEffect = node.arguments[0].getText(guideAst);
     ts.forEachChild(node, find);
   }
-  find(homeAst); assert.ok(focusEffect);
-  let finish; const loading = new Promise(resolve => { finish = resolve; }); const visibility = [];
-  const cleanup = withDeps(focusEffect, {
-    profile: { id: 'account-a' }, hasSeenCheckinGuide: () => loading,
-    setShowCheckinGuide: value => visibility.push(value),
+  find(guideAst); assert.ok(measureEffect);
+  let finish; const visibility = [];
+  const cleanup = withDeps(measureEffect, {
+    target: { node: { current: { measureInWindow: callback => { finish = callback; } } } },
+    candidate: 'home.fine', setRect: value => visibility.push(value),
+    insets: { top: 0, bottom: 0 }, width: 393, height: 852,
+    setInterval: () => 1, clearInterval() {},
   });
-  cleanup(); finish(false); await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(visibility, [false]);
+  cleanup(); finish(20, 100, 300, 60);
+  assert.deepEqual(visibility, [null]);
 });
 await test('all automatically displayed first-launch dialogs use the shared presenter', () => {
   for (const file of ['CheckinGuideCarousel', 'CareCircleInvitationModal', 'CaregiverAlertModal', 'AiDataConsentModal']) {

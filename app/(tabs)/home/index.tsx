@@ -27,7 +27,7 @@ import { Screen } from '../../../src/components/Screen';
 import { StateError } from '../../../src/components/state/StateError';
 import { HomeTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { ChartFrameSkeleton } from '../../../src/components/state/ChartFrameSkeleton';
-import { CheckinGuideCarousel, hasSeenCheckinGuide } from '../../../src/components/CheckinGuideCarousel';
+import { GuideScrollScope, GuideTarget } from '../../../src/features/guidance/GuidanceProvider';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useFlagsStore } from '../../../src/features/app-config/flags.store';
 import { useHomeViewModel } from '../../../src/features/home/home.vm';
@@ -479,7 +479,9 @@ export default function HomeScreen() {
     refreshAll
   } = useHomeViewModel();
   const profile = useAuthStore((state) => state.profile);
-  const [showCheckinGuide, setShowCheckinGuide] = useState(false);
+  const guideScrollRef = useRef<ScrollView>(null);
+  const guideScrollOffset = useRef(0);
+  const { t: tg } = useTranslation('onboarding');
   const unreadCount = useNotificationStore(s => s.unreadCount);
   const fetchFromBackend = useNotificationStore(s => s.fetchFromBackend);
   const insets = useSafeAreaInsets();
@@ -487,22 +489,6 @@ export default function HomeScreen() {
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
   const padTop = insets.top + spacing.lg;
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!profile?.id) return;
-
-      let active = true;
-      hasSeenCheckinGuide(profile.id).then((seen) => {
-        if (active) setShowCheckinGuide(!seen);
-      });
-
-      return () => {
-        active = false;
-        setShowCheckinGuide(false);
-      };
-    }, [profile?.id]),
-  );
 
   // Re-fetch when screen focuses, but throttle to avoid jank on quick tab switches
   const lastFetchRef = useRef(0);
@@ -843,15 +829,6 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      <CheckinGuideCarousel
-        visible={showCheckinGuide}
-        onClose={() => setShowCheckinGuide(false)}
-        onStartCheckin={() => {
-          setShowCheckinGuide(false);
-          router.push('/checkin');
-        }}
-      />
-
       {isOffline ? <OfflineBanner /> : null}
       
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
@@ -878,7 +855,11 @@ export default function HomeScreen() {
 
       {!showInitialSkeleton && noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
       {!showInitialSkeleton && !hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
+      <GuideScrollScope scrollRef={guideScrollRef} offset={guideScrollOffset}>
       <RippleRefreshScrollView
+        nativeScrollRef={guideScrollRef}
+        onScroll={event => { guideScrollOffset.current = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={32}
         refreshing={refreshing || loading}
         onRefresh={handleRefresh}
         contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
@@ -966,6 +947,17 @@ export default function HomeScreen() {
           <EarlySignalCard healthScore={healthScore} />
         </Animated.View>
 
+        {healthFeedVisible && <GuideTarget step="home.suggestions">
+          <Pressable accessibilityRole="button" accessibilityLabel={tg('guidance.healthSuggestions')}
+            onPress={() => router.push('/feed')} style={{ minHeight: 60, padding: 16,
+              backgroundColor: colors.surface, borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Ionicons name="sparkles-outline" size={28} color={colors.primaryDark} />
+            <Text allowFontScaling style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, flex: 1 }}>
+              {tg('guidance.healthSuggestions')}
+            </Text>
+            <Ionicons name="chevron-forward" size={24} color={colors.primaryDark} />
+          </Pressable>
+        </GuideTarget>}
         {renderHealthFeedBlock()}
 
         {/* Missions section is temporarily hidden on the home screen. */}
@@ -1193,6 +1185,7 @@ export default function HomeScreen() {
         </>
         )}
       </RippleRefreshScrollView>
+      </GuideScrollScope>
     </Screen>
   );
 }

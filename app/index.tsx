@@ -108,7 +108,7 @@ export default function Index() {
     const task = InteractionManager.runAfterInteractions(async () => {
       // Cold-start deep link: nếu user mở app bằng cách tap notification,
       // ưu tiên route đó thay vì replace về home (nếu không sẽ ghi đè).
-      if (profile?.onboardingCompleted) {
+      if (profile) {
         try {
           // An answered CallKit call takes priority over a previous push tap.
           // The native handoff remains pending until this screen owns audio.
@@ -139,7 +139,7 @@ export default function Index() {
 
       if (cancelled) return;
       if (profile) {
-        router.replace(profile.onboardingCompleted ? '/(tabs)/home' : '/onboarding');
+        router.replace('/(tabs)/home');
       } else {
         router.replace('/login');
       }

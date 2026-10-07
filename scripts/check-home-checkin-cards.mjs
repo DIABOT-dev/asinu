@@ -118,6 +118,7 @@ function harness({
     "@expo/vector-icons": { Ionicons: "Icon" },
     "react-i18next": { useTranslation: () => ({ t }) },
     "./ScaledText": { ScaledText },
+    "../features/guidance/GuidanceProvider": { GuideTarget: props => props.children },
     "../hooks/useScaledTypography": { useScaledTypography: () => typography },
     "../hooks/useThemeColors": { useThemeColors: () => ({ isDark }) },
     "../styles": {
@@ -238,14 +239,15 @@ for (const language of ["vi", "en"]) {
   }
 }
 
-await test("the new abnormal-symptom wording and onboarding guide agree in both languages", () => {
+await test("the simplified unwell action and contextual guide are available in both languages", () => {
   for (const [language, expected] of [
-    ["vi", "Tôi có dấu hiệu bất thường"],
-    ["en", "I'm noticing unusual symptoms"],
+    ["vi", "Không ổn"],
+    ["en", "I'm not feeling well"],
   ]) {
     const catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`));
     assert.equal(catalog.checkinInstantTitle, expected);
-    assert.ok(catalog.checkinGuide.slide3Desc.includes(expected));
+    const guide = JSON.parse(read(`src/i18n/locales/${language}/onboarding.json`)).guidance;
+    assert.ok(guide.steps.home_unwell.length > 0);
   }
 });
 

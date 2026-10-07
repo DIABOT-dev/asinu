@@ -33,6 +33,7 @@ import '../src/lib/initErrorHandler';
 import { initializeIap, teardownIap } from '../src/features/iap/iap.service';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SessionProvider } from '../src/providers/SessionProvider';
+import { GuidanceProvider } from '../src/features/guidance/GuidanceProvider';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { applyTheme, spacing } from '../src/styles';
 import { useScaledTypography } from '../src/hooks/useScaledTypography';
@@ -131,6 +132,7 @@ export default function RootLayout() {
       <SessionProvider>
         <ScreenViewTracker />
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+          <GuidanceProvider>
           <WellnessProvider>
             <CarePulseProvider>
               <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -158,6 +160,7 @@ export default function RootLayout() {
               <AsinuBrainOverlayHost />
             </CarePulseProvider>
           </WellnessProvider>
+          </GuidanceProvider>
         </SafeAreaProvider>
       </SessionProvider>
       </QueuedModalProvider>

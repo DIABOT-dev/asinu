@@ -72,12 +72,9 @@ export default function LoginEmailScreen() {
   const router = useRouter();
 
   const navigateAfterLogin = () => {
-    const profile = useAuthStore.getState().profile;
-    if (profile?.onboardingCompleted === true) {
-      router.replace('/(tabs)/home');
-    } else {
-      router.replace('/onboarding');
-    }
+    // The single welcome and role choice now live in GuidanceProvider.
+    // Detailed health-profile collection remains available separately.
+    router.replace('/(tabs)/home');
   };
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();

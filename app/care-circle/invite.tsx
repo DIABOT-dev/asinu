@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
@@ -29,6 +29,7 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { normalizeVietnamesePhone } from '../../src/lib/validation';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
+import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 
 type SearchUser = {
   id: string;
@@ -59,12 +60,15 @@ const PERM_META = [
 ];
 
 export default function InviteScreen() {
+  const guideScrollRef = useRef<ScrollView>(null);
+  const guideScrollOffset = useRef(0);
   const router = useRouter();
   const params = useLocalSearchParams<{ qrToken?: string | string[] }>();
   const qrToken = Array.isArray(params.qrToken) ? params.qrToken[0] : params.qrToken;
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
+  const { t: tg } = useTranslation('onboarding');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
@@ -90,7 +94,6 @@ export default function InviteScreen() {
   const [selectedRelationship, setSelectedRelationship] = useState<DropdownOption | null>(null);
   const [selectedRole, setSelectedRole] = useState<DropdownOption | null>(null);
   const [customRelationship, setCustomRelationship] = useState('');
-  const [showRelDropdown, setShowRelDropdown] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [permissions, setPermissions] = useState({
     can_view_logs: true,
@@ -122,22 +125,11 @@ export default function InviteScreen() {
   };
 
   const relationshipOptions: DropdownOption[] = [
-    { id: 'vo', label: t('relWife'), subtitle: t('relSpouse') },
-    { id: 'chong', label: t('relHusband'), subtitle: t('relSpouse') },
     { id: 'con-trai', label: t('relSon'), subtitle: t('relChild') },
     { id: 'con-gai', label: t('relDaughter'), subtitle: t('relChild') },
-    { id: 'me', label: t('relMother'), subtitle: t('relParent') },
-    { id: 'bo', label: t('relFather'), subtitle: t('relParent') },
-    { id: 'anh-trai', label: t('relOlderBrother'), subtitle: t('relSibling') },
-    { id: 'chi-gai', label: t('relOlderSister'), subtitle: t('relSibling') },
-    { id: 'em-trai', label: t('relYoungerBrother'), subtitle: t('relSibling') },
-    { id: 'em-gai', label: t('relYoungerSister'), subtitle: t('relSibling') },
-    { id: 'ong-noi', label: t('relGrandfatherPaternal'), subtitle: t('relGrandparentPaternal') },
-    { id: 'ba-noi', label: t('relGrandmotherPaternal'), subtitle: t('relGrandparentPaternal') },
-    { id: 'ong-ngoai', label: t('relGrandfatherMaternal'), subtitle: t('relGrandparentMaternal') },
-    { id: 'ba-ngoai', label: t('relGrandmotherMaternal'), subtitle: t('relGrandparentMaternal') },
-    { id: 'ban-than', label: t('relBestFriend'), subtitle: t('relCloseFriend') },
-    { id: 'nguoi-yeu', label: t('relPartner'), subtitle: t('relSoulmate') },
+    { id: 'chau', label: tg('guidance.relGrandchild') },
+    { id: 'vo-chong', label: tg('guidance.relSpouse') },
+    { id: 'khac', label: tg('guidance.relOther') },
   ];
 
   const roleOptions = getFamilyRoleOptions(t);
@@ -280,7 +272,11 @@ export default function InviteScreen() {
         <View style={styles.screenHeaderSpacer} />
       </View>
       <View style={{ flex: 1, backgroundColor: '#F3FBF8' }}>
+        <GuideScrollScope scrollRef={guideScrollRef} offset={guideScrollOffset}>
         <ScrollView
+          ref={guideScrollRef}
+          onScroll={event => { guideScrollOffset.current = event.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={32}
           style={{ flex: 1, backgroundColor: 'transparent' }}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: (selectedUser || qrPreview) ? insets.bottom + 96 : insets.bottom + spacing.xl }]}
           keyboardShouldPersistTaps="handled"
@@ -345,9 +341,11 @@ export default function InviteScreen() {
               </>
             ) : (
             <>
+            <GuideTarget step="circle.phone">
             <View style={styles.phoneInputRow}>
               <TextInput
-                style={styles.phoneInput}
+                style={[styles.phoneInput, { fontSize: 22, minHeight: 56 }]}
+                allowFontScaling
                 value={phoneQuery}
                 onChangeText={text => {
                   setPhoneQuery(text);
@@ -374,6 +372,7 @@ export default function InviteScreen() {
                 }
               </Pressable>
             </View>
+            </GuideTarget>
 
             {/* Search result */}
             {searchedUser && !selectedUser && (
@@ -433,6 +432,7 @@ export default function InviteScreen() {
           </View>
 
         {/* ─── Relationship & Role ─── */}
+          <GuideTarget step="circle.relationship" enabled={Boolean(normalizeVietnamesePhone(phoneQuery) || qrPreview)}>
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={styles.headerLeftRow}>
@@ -443,42 +443,26 @@ export default function InviteScreen() {
                 <Text style={styles.optionalBadgeText}>{t('optional')}</Text>
               </View>
             </View>
-            <View style={styles.comboInputRow}>
-              <TextInput
-                style={styles.comboInput}
-                value={selectedRelationship ? selectedRelationship.label : customRelationship}
-                onChangeText={text => { setCustomRelationship(text); setSelectedRelationship(null); }}
-                placeholder={t('relPlaceholder')}
-                placeholderTextColor="#94A3B8"
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('relationship')}
-                style={styles.comboDropBtn}
-                onPress={() => setShowRelDropdown(v => !v)}
-              >
-                <Ionicons name={showRelDropdown ? 'chevron-up' : 'chevron-down'} size={20} color="#0D9488" />
-              </Pressable>
-            </View>
-            {showRelDropdown && (
-              <ScrollView style={styles.suggestionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            <View style={{ gap: 10 }}>
                 {relationshipOptions.map(opt => (
                   <Pressable
                     key={opt.id}
                     accessibilityRole="button"
-                    style={styles.suggestionItem}
+                    accessibilityState={{ selected: selectedRelationship?.id === opt.id }}
+                    style={{ minHeight: 56, borderRadius: 14, borderWidth: 1,
+                      borderColor: selectedRelationship?.id === opt.id ? '#125d50' : '#8fa9a1',
+                      backgroundColor: selectedRelationship?.id === opt.id ? '#e2f0e9' : '#f9fcfb', padding: 14 }}
                     onPress={() => {
                       setSelectedRelationship(opt);
                       setCustomRelationship('');
-                      setShowRelDropdown(false);
                     }}
                   >
-                    <Text style={styles.suggestionText}>{opt.label}</Text>
+                    <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: '#123b35' }}>{opt.label}</Text>
                   </Pressable>
                 ))}
-              </ScrollView>
-            )}
+            </View>
           </View>
+          </GuideTarget>
 
           <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -561,10 +545,12 @@ export default function InviteScreen() {
 
         </Animated.View>
       </ScrollView>
+      </GuideScrollScope>
       </View>
 
       {(selectedUser || qrPreview) && (
         <View style={[styles.stickyActions, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <GuideTarget step="circle.send" enabled={Boolean(selectedRelationship || customRelationship.trim()) && !loading}>
           <Pressable
             style={({ pressed }) => [styles.sendBtn, pressed && { opacity: 0.88 }]}
             onPress={handleSend}
@@ -577,10 +563,11 @@ export default function InviteScreen() {
             ) : (
               <>
                 <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.sendBtnText}>{t('sendInvite')}</Text>
+                <Text allowFontScaling style={[styles.sendBtnText, { fontSize: 22 }]}>{t('sendInvite')}</Text>
               </>
             )}
           </Pressable>
+          </GuideTarget>
         </View>
       )}
 

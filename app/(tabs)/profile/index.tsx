@@ -42,7 +42,7 @@ import {
   revokeAiDataConsent,
 } from "../../../src/components/AiDataConsentModal";
 import { ScaledTextInput as TextInput } from "../../../src/components/ScaledTextInput";
-import { CheckinGuideCarousel } from "../../../src/components/CheckinGuideCarousel";
+import { GuidanceSettings } from "../../../src/features/guidance/GuidanceSettings";
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -208,7 +208,6 @@ export default function ProfileScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showAiConsentModal, setShowAiConsentModal] = useState(false);
-  const [showGuideModal, setShowGuideModal] = useState(false);
   const [healthFeedEnabled, setHealthFeedEnabled] = useState(true);
   const [aiConsentEnabled, setAiConsentEnabled] = useState(false);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
@@ -1204,21 +1203,7 @@ export default function ProfileScreen() {
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => setShowGuideModal(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="book-outline"
-                      size={22}
-                      color={colors.primary}
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>{ts("userGuide")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
+                <GuidanceSettings />
               </View>
             </Animated.View>
 
@@ -2309,14 +2294,6 @@ export default function ProfileScreen() {
         </Pressable>
       </Modal>
 
-      <CheckinGuideCarousel
-        visible={showGuideModal}
-        onClose={() => setShowGuideModal(false)}
-        onStartCheckin={() => {
-          setShowGuideModal(false);
-          router.push('/checkin');
-        }}
-      />
     </Screen>
   );
 }

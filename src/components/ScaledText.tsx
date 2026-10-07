@@ -62,5 +62,5 @@ export const ScaledText = ({ style, ...props }: RNTextProps) => {
     ? [...(style as TextStyle[]), overrides]
     : [style as TextStyle, overrides];
 
-  return <RNText {...props} style={finalStyle} allowFontScaling={false} />;
+  return <RNText {...props} style={finalStyle} allowFontScaling={props.allowFontScaling ?? false} />;
 };
