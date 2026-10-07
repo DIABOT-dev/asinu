@@ -99,7 +99,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/components/AppAlertModal': { AppAlertModal: 'AppAlertModal', useAppAlert: () => ({ alertState: { visible: false }, showAlert() {}, dismissAlert() {} }) },
     '../../../src/components/AiDataConsentModal': { AiDataConsentModal: 'AiDataConsentModal', hasAiDataConsent: async () => false, revokeAiDataConsent: async () => {} },
     '../../../src/components/ScaledTextInput': { ScaledTextInput: 'TextInput' },
-    '../../../src/components/CheckinGuideCarousel': { CheckinGuideCarousel: 'CheckinGuideCarousel' },
+    '../../../src/features/guidance/GuidanceSettings': { GuidanceSettings: 'GuidanceSettings' },
     '../../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../../src/components/Screen': { Screen: 'Screen' },

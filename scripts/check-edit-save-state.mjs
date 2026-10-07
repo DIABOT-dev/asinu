@@ -116,6 +116,7 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/features/care-circle/family-roles': familyRoles,
     '../../src/features/care-circle/connection-edit': connectionEdit,
     '../../src/features/care-circle/components/CareCircleQrActions': { CareCircleQrActions: 'QrActions' },
+    '../../src/features/guidance/GuidanceProvider': { GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget' },
   });
   const render = () => h.render(Screen);
   const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible);
