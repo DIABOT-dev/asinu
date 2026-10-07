@@ -103,12 +103,12 @@ export function RestoreLink({ onRestored, compact = false, disabled = false, onB
       >
         <View style={[styles.leading, compact && styles.compactLeading]}>
           {busy ? (
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={compact ? colors.primaryText : colors.primary} />
           ) : (
-            <Ionicons name="refresh-outline" size={21} color={colors.primary} />
+            <Ionicons name="refresh-outline" size={21} color={compact ? colors.primaryText : colors.primary} />
           )}
           <View style={[styles.copy, compact && styles.compactCopy]}>
-            <Text style={[styles.title, compact && styles.compactTitle]}>{t(compact ? 'restorePurchasesShort' : 'restorePurchases')}</Text>
+            <Text allowFontScaling style={[styles.title, compact && styles.compactTitle]}>{t(compact ? 'restorePurchasesShort' : 'restorePurchases')}</Text>
             {!compact ? <Text style={styles.description}>{t('restorePurchasesDesc')}</Text> : null}
           </View>
         </View>
@@ -135,29 +135,37 @@ function createStyles(isDark: boolean) {
       paddingVertical: spacing.sm,
     },
     compactButton: {
-      marginTop: 0,
-      minHeight: 56,
-      minWidth: 104,
+      alignItems: 'center',
+      alignSelf: 'stretch',
       backgroundColor: colors.primaryLight,
-      borderColor: colors.primary + '35',
-      borderWidth: 1,
-      borderRadius: 16,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
+      borderColor: colors.primary,
+      borderRadius: 27,
+      borderWidth: 1.2,
+      flexShrink: 0,
+      justifyContent: 'center',
+      marginTop: 0,
+      minHeight: 64,
+      minWidth: 112,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
     },
     compactLeading: {
+      alignItems: 'center',
+      // Do not inherit the full-width link's flex: 1: Yoga otherwise measures
+      // an inline button as padding only and collapses its icon and label.
+      flex: 0,
       flexDirection: 'column',
-      gap: spacing.xs,
+      gap: 4,
       justifyContent: 'center',
     },
     compactCopy: {
       flex: 0,
-      width: '100%',
     },
     compactTitle: {
       color: colors.primaryText,
+      fontSize: 14,
+      fontWeight: '700',
       textAlign: 'center',
-      fontSize: typography.size.sm,
     },
     pressed: {
       opacity: 0.68,

@@ -45,9 +45,9 @@ export function IapPurchaseCard({
 }: Props) {
   const { t, i18n } = useTranslation("subscription");
   const { isDark } = useThemeColors();
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
   const { size, scaledSize } = useScaledTypography();
-  const stackActions = width < 390 || scaledSize.sm > size.sm * 1.1;
+  const stackActions = width < 390 || fontScale > 1.1 || scaledSize.sm > size.sm * 1.1;
   const styles = useMemo(() => createStyles(isDark), [isDark]);
   const [feedback, setFeedback] = useState<SubscriptionFeedback | null>(null);
   const [products, setProducts] = useState<LocalProduct[]>(() => [
@@ -215,68 +215,73 @@ export function IapPurchaseCard({
       >
         {isPopular && (
           <View style={styles.popularBadge}>
-            <Text style={styles.popularBadgePlus}>+</Text>
-            <Text style={styles.popularBadgeText}>{t("mostPopular")}</Text>
+            <Ionicons name="sparkles" size={12} color="#ffffff" />
+            <Text style={styles.popularBadgeText}>
+              {t("mostPopular").replace(/^[★*✦\s+]+/, "")}
+            </Text>
           </View>
         )}
 
-        <View style={styles.planCardMainRow}>
-          {getPlanAvatar()}
-
-          <View style={styles.planInfoCol}>
-            <Text
-              style={[styles.planTitle, active && styles.planTitleActive]}
-            >
-              {localizedPlanName(product.plan_code, t)}
-            </Text>
-            <View style={styles.planPriceRow}>
+        <View style={styles.planCardColumns}>
+          {/* Left Column: Avatar + Title + Price */}
+          <View style={styles.planLeftCol}>
+            {getPlanAvatar()}
+            <View style={styles.planTitlePriceWrap}>
               <Text
-                style={[
-                  styles.planPriceText,
-                  active && styles.planPriceTextActive,
-                ]}
+                style={[styles.planTitle, active && styles.planTitleActive]}
               >
-                {product.localizedPrice ??
-                  formatVnd(product.display_price_vnd, i18n.language)}
+                {localizedPlanName(product.plan_code, t)}
               </Text>
-              <Text style={styles.planPricePeriod}>
-                {period === "yearly" ? ` ${t("iapPerYear")}` : ` ${t("iapPerMonth")}`}
-              </Text>
+              <View style={styles.planPriceRow}>
+                <Text
+                  style={[
+                    styles.planPriceText,
+                    active && styles.planPriceTextActive,
+                  ]}
+                >
+                  {product.localizedPrice ??
+                    formatVnd(product.display_price_vnd, i18n.language)}
+                </Text>
+                <Text style={styles.planPricePeriod}>
+                  {period === "yearly" ? t("iapPerYear") : t("iapPerMonth")}
+                </Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.planFeatureCol}>
-            {features.map((item, idx) => (
-              <View key={idx} style={styles.featureBulletRow}>
-                <Text style={styles.featureBulletDot}>•</Text>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.featureBulletText,
-                    active && styles.featureBulletTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
+          {/* Vertical Divider */}
+          <View style={styles.planVerticalDivider} />
 
-        <View style={styles.planCardFooter}>
-          <View style={active ? styles.cardActivePill : styles.cardInactivePill}>
-            {active ? (
-              <View style={styles.pillRow}>
-                <Ionicons name="checkmark" size={13} color="#fff" />
-                <Text style={styles.cardActivePillText}>
-                  {current ? t("iapCurrent") : t("iapSelected")}
+          {/* Right Column: 4 Features + Action Button */}
+          <View style={styles.planRightCol}>
+            <View style={styles.planFeatureList}>
+              {features.map((item, idx) => (
+                <View key={idx} style={styles.featureItemRow}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={16}
+                    color="#10b981"
+                    style={styles.featureCheckIcon}
+                  />
+                  <Text style={styles.featureItemText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={active ? styles.cardActivePill : styles.cardInactivePill}>
+              {active ? (
+                <View style={styles.pillRow}>
+                  <Ionicons name="checkmark" size={14} color="#ffffff" />
+                  <Text style={styles.cardActivePillText}>
+                    {current ? t("iapCurrent") : t("iapSelected")}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.cardInactivePillText}>
+                  {current ? t("iapCurrent") : t("iapSelectPlan")}
                 </Text>
-              </View>
-            ) : (
-              <Text style={styles.cardInactivePillText}>
-                {current ? t("iapCurrent") : t("iapSelectPlan")}
-              </Text>
-            )}
+              )}
+            </View>
           </View>
         </View>
       </Pressable>
@@ -382,7 +387,7 @@ export function IapPurchaseCard({
                   size={20}
                   color="#fff"
                 />
-                <Text style={styles.buyText}>
+                <Text allowFontScaling style={styles.buyText}>
                   {selectedIsCurrent
                     ? t("iapCurrentExact")
                     : `${t("iapContinue", {
@@ -498,17 +503,17 @@ function createStyles(isDark: boolean) {
       color: isDark ? "#f8fafc" : "#0f172a",
     },
     savingsBadge: {
-      backgroundColor: "#fef3c7",
-      borderColor: "#f59e0b",
-      borderRadius: 8,
+      backgroundColor: "#dcfce7",
+      borderColor: "#86efac",
+      borderRadius: 12,
       borderWidth: 1,
       marginLeft: 6,
-      paddingHorizontal: 5,
-      paddingVertical: 1,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
     },
     savingsBadgeText: {
-      color: "#b45309",
-      fontSize: 10,
+      color: "#15803d",
+      fontSize: 10.5,
       fontWeight: "800",
     },
     loading: {
@@ -523,7 +528,8 @@ function createStyles(isDark: boolean) {
       textAlign: "center",
     },
     planListWrap: {
-      gap: 12,
+      gap: 14,
+      paddingTop: 8,
     },
     planCard: {
       backgroundColor: isDark ? colors.surface : "#ffffff",
@@ -547,48 +553,52 @@ function createStyles(isDark: boolean) {
     },
     popularBadge: {
       alignItems: "center",
-      backgroundColor: "#fff7ed",
-      borderColor: "#fdba74",
-      borderRadius: 12,
-      borderWidth: 1,
+      backgroundColor: "#ea580c",
+      borderRadius: 999,
+      elevation: 4,
       flexDirection: "row",
-      gap: 3,
-      paddingHorizontal: 8,
-      paddingVertical: 2.5,
+      gap: 4,
+      paddingHorizontal: 11,
+      paddingVertical: 4.5,
       position: "absolute",
-      right: 12,
-      top: 10,
-      zIndex: 2,
-    },
-    popularBadgePlus: {
-      color: "#ea580c",
-      fontSize: 11,
-      fontWeight: "800",
+      right: 18,
+      shadowColor: "#ea580c",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      top: -12,
+      zIndex: 10,
     },
     popularBadgeText: {
-      color: "#ea580c",
-      fontSize: 10.5,
+      color: "#ffffff",
+      fontSize: 11.5,
       fontWeight: "800",
     },
-    planCardMainRow: {
-      alignItems: "center",
+    planCardColumns: {
+      alignItems: "stretch",
       flexDirection: "row",
-      marginTop: 6,
+      marginTop: 4,
+    },
+    planLeftCol: {
+      alignItems: "center",
+      flex: 1,
+      flexDirection: "row",
+      paddingRight: 4,
     },
     cardAvatarWrap: {
       alignItems: "center",
-      height: 64,
+      height: 60,
       justifyContent: "center",
-      width: 64,
+      width: 60,
     },
     cardAvatarImg: {
-      height: 64,
-      width: 64,
+      height: 60,
+      width: 60,
     },
-    planInfoCol: {
-      flex: 1.1,
+    planTitlePriceWrap: {
+      flex: 1,
       justifyContent: "center",
-      marginLeft: 10,
+      marginLeft: 8,
     },
     planTitle: {
       color: isDark ? "#f8fafc" : "#0f172a",
@@ -611,72 +621,71 @@ function createStyles(isDark: boolean) {
       letterSpacing: -0.3,
     },
     planPriceTextActive: {
-      color: "#0f172a",
+      color: "#ea580c",
     },
     planPricePeriod: {
       color: isDark ? "#94a3b8" : "#64748b",
       fontSize: 12,
       fontWeight: "500",
     },
-    planFeatureCol: {
-      flex: 1.4,
-      justifyContent: "center",
-      marginLeft: 8,
+    planVerticalDivider: {
+      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#f1f5f9",
+      marginHorizontal: 8,
+      width: 1,
     },
-    featureBulletRow: {
+    planRightCol: {
+      flex: 1.25,
+      justifyContent: "space-between",
+      paddingLeft: 4,
+    },
+    planFeatureList: {
+      gap: 5,
+    },
+    featureItemRow: {
       alignItems: "center",
       flexDirection: "row",
-      marginVertical: 1.5,
     },
-    featureBulletDot: {
-      color: "#059669",
-      fontSize: 13,
-      fontWeight: "700",
-      marginRight: 5,
+    featureCheckIcon: {
+      marginRight: 6,
     },
-    featureBulletText: {
-      color: isDark ? "#94a3b8" : "#475569",
-      fontSize: 11.5,
-      lineHeight: 16,
-    },
-    featureBulletTextActive: {
-      color: isDark ? "#e2e8f0" : "#1e293b",
+    featureItemText: {
+      color: isDark ? "#cbd5e1" : "#334155",
+      flex: 1,
+      fontSize: 12,
       fontWeight: "500",
-    },
-    planCardFooter: {
-      flexDirection: "row",
-      justifyContent: "flex-end",
-      marginTop: 8,
+      lineHeight: 17,
     },
     cardActivePill: {
       alignItems: "center",
+      alignSelf: "flex-end",
       backgroundColor: "#ea580c",
-      borderRadius: 14,
-      flexDirection: "row",
-      gap: 4,
+      borderRadius: 18,
       justifyContent: "center",
-      paddingHorizontal: 14,
-      paddingVertical: 6,
+      marginTop: 10,
+      paddingHorizontal: 18,
+      paddingVertical: 7,
     },
     cardActivePillText: {
       color: "#ffffff",
-      fontSize: 12,
+      fontSize: 12.5,
       fontWeight: "700",
     },
     cardInactivePill: {
       alignItems: "center",
-      backgroundColor: isDark ? "#1e293b" : "#f8fafc",
-      borderColor: isDark ? "#334155" : "#cbd5e1",
-      borderRadius: 14,
-      borderWidth: 1,
+      alignSelf: "flex-end",
+      backgroundColor: isDark ? "rgba(45,212,191,0.1)" : "#f0fdf9",
+      borderColor: isDark ? "#2dd4bf" : "#5eead4",
+      borderRadius: 18,
+      borderWidth: 1.2,
       justifyContent: "center",
-      paddingHorizontal: 14,
-      paddingVertical: 6,
+      marginTop: 10,
+      paddingHorizontal: 20,
+      paddingVertical: 7,
     },
     cardInactivePillText: {
-      color: isDark ? "#94a3b8" : "#64748b",
-      fontSize: 12,
-      fontWeight: "600",
+      color: isDark ? "#5eead4" : "#0d9488",
+      fontSize: 12.5,
+      fontWeight: "700",
     },
     pillRow: {
       alignItems: "center",
@@ -684,9 +693,10 @@ function createStyles(isDark: boolean) {
       gap: 4,
     },
     purchaseActions: {
-      flexDirection: "row",
       alignItems: "stretch",
+      flexDirection: "row",
       gap: spacing.sm,
+      marginTop: spacing.xs,
     },
     purchaseActionsStacked: {
       flexDirection: "column",
@@ -696,30 +706,32 @@ function createStyles(isDark: boolean) {
       minWidth: 0,
     },
     buyButtonWrap: {
-      borderRadius: 16,
+      borderRadius: 27,
+      elevation: 4,
+      minHeight: 64,
       overflow: "hidden",
       shadowColor: "#ea580c",
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.25,
       shadowRadius: 8,
-      elevation: 4,
     },
     buyButtonGradient: {
-      flex: 1,
       alignItems: "center",
+      borderRadius: 27,
+      flex: 1,
       flexDirection: "row",
       gap: 8,
       justifyContent: "center",
-      minHeight: 56,
+      minHeight: 64,
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingVertical: 14,
     },
     buyText: {
-      flex: 1,
-      minWidth: 0,
       color: "#ffffff",
-      fontSize: typography.size.sm,
-      fontWeight: "800",
+      flex: 1,
+      fontSize: 13.5,
+      fontWeight: "700",
+      minWidth: 0,
       textAlign: "center",
     },
     disabled: {

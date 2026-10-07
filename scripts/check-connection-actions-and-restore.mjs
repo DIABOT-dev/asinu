@@ -142,12 +142,28 @@ for (const language of ['vi', 'en']) {
     const pending = nodes(h.render()).find(node => node.type === 'Pressable').props.onPress(); h.finish(); await pending;
     assert.equal(nodes(h.render()).find(node => node.type === 'Feedback').props.feedback.kind, 'error'); assert.equal(h.calls.at(-1), false);
   });
-  for (const [width, multiplier, stacked] of [[430, 1, false], [320, 1, true], [430, 1.25, true]]) {
-    await test(`${language}: purchase/restore are adjacent at ${width}px and font scale ${multiplier}`, async () => {
+  await test(`${language}: compact restore retains a visible icon/label, stable width and scalable height`, () => {
+    const h = restoreHarness({ restored: 0, errors: [] });
+    const tree = h.render(); const button = nodes(tree).find(node => node.type === 'Pressable');
+    const buttonStyle = style(button.props.style({ pressed: false }));
+    assert.equal(buttonStyle.alignSelf, 'stretch'); assert.equal(buttonStyle.flexShrink, 0);
+    assert.ok(buttonStyle.minWidth >= 112); assert.ok(buttonStyle.minHeight >= 64);
+    assert.equal(buttonStyle.height, undefined); assert.equal(buttonStyle.marginTop, 0);
+    assert.equal(buttonStyle.backgroundColor, theme.colors.primaryLight); assert.equal(buttonStyle.borderColor, theme.colors.primary);
+    const leading = nodes(button).find(node => node.type === 'View');
+    assert.equal(style(leading.props.style).flex, 0); assert.equal(style(leading.props.style).flexDirection, 'column');
+    assert.equal(style(leading.props.style).alignItems, 'center');
+    const label = nodes(button).find(node => node.type === 'Text');
+    assert.equal(label.props.allowFontScaling, true); assert.equal(label.props.numberOfLines, undefined);
+    assert.equal(style(label.props.style).color, theme.colors.primaryText);
+    assert.ok(nodes(button).some(node => node.type === 'Icon' && node.props.name === 'refresh-outline' && node.props.size >= 21));
+  });
+  for (const [width, multiplier, fontScale, stacked] of [[430, 1, 1, false], [393, 1, 1, false], [320, 1, 1, true], [430, 1.25, 1, true], [430, 1, 1.5, true]]) {
+    await test(`${language}: purchase/restore are adjacent at ${width}px, app scale ${multiplier}, system scale ${fontScale}`, async () => {
       const h = hooks(); const calls = [];
       const products = evaluate('src/features/iap/iap.catalog.ts', { 'react-native': { Platform: { OS: 'ios' } } }).FALLBACK_IAP_PRODUCTS.map(item => ({ ...item, nativeProduct: {} }));
       const { IapPurchaseCard } = evaluate('src/features/iap/IapPurchaseCard.tsx', {
-        react: h.react, 'react-native': { ...native, useWindowDimensions: () => ({ width }) }, '@expo/vector-icons': icons,
+        react: h.react, 'react-native': { ...native, useWindowDimensions: () => ({ width, fontScale }) }, '@expo/vector-icons': icons,
         'expo-image': { Image: 'Image' }, 'expo-linear-gradient': { LinearGradient: 'Gradient' },
         'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) }, '../../components/ScaledText': { ScaledText: 'Text' },
         '../../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) }, '../../styles': theme,
@@ -164,7 +180,13 @@ for (const language of ['vi', 'en']) {
       assert.equal(restore.props.onRestored, props.onPurchased);
       const group = nodes(tree).find(node => [node.props.children].flat().includes(restore));
       assert.equal(style(group.props.style).flexDirection, stacked ? 'column' : 'row');
+      assert.equal(style(group.props.style).alignItems, 'stretch');
       let buy = nodes(group).find(node => node.type === 'Pressable'); assert.ok(buy); assert.equal(buy.props.disabled, false);
+      assert.equal(style(buy.props.style).height, undefined); assert.ok(style(buy.props.style).minHeight >= 64);
+      const gradient = nodes(buy).find(node => node.type === 'Gradient');
+      assert.equal(style(gradient.props.style).height, undefined); assert.ok(style(gradient.props.style).minHeight >= 64);
+      const label = nodes(buy).find(node => node.type === 'Text');
+      assert.equal(label.props.allowFontScaling, true); assert.equal(label.props.numberOfLines, undefined);
       restore.props.onBusyChange(true); tree = h.render(IapPurchaseCard, props);
       buy = nodes(tree).find(node => node.type === 'Pressable' && node.props.accessibilityRole === 'button'); assert.equal(buy.props.disabled, true);
       nodes(tree).find(node => node.type === 'Restore').props.onBusyChange(false);
