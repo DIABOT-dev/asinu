@@ -1,15 +1,42 @@
 import type { GuideStep } from './guidance.model';
 
-export type GuidanceClip = 'welcome' | GuideStep;
+export type GuidanceClip = 'welcome' | 'practice_result' | GuideStep;
+
+// Different screens keep independent account progress, but reuse the same
+// fixed Tuấn Anh sentence rather than synthesizing or bundling duplicate audio.
+export const guidanceAudioAliases = {
+  'checkin.location_other': 'checkin.other',
+  'checkin.finished': 'checkin.result_close',
+} as const;
 
 // Literal requires let Metro bundle every Tuấn Anh recording for offline use.
 export const guidanceAssets: Record<'vi' | 'en', Record<GuidanceClip, number>> = {
   vi: {
     welcome: require('../../../assets/sounds/guidance/vi_welcome.mp3'),
+    practice_result: require('../../../assets/sounds/guidance/vi_practice_result.mp3'),
     'home.fine': require('../../../assets/sounds/guidance/vi_home_fine.mp3'),
     'home.unwell': require('../../../assets/sounds/guidance/vi_home_unwell.mp3'),
+    'checkin.status': require('../../../assets/sounds/guidance/vi_checkin_status.mp3'),
+    'checkin.location': require('../../../assets/sounds/guidance/vi_checkin_location.mp3'),
+    'checkin.location_other': require('../../../assets/sounds/guidance/vi_checkin_other.mp3'),
     'checkin.choices': require('../../../assets/sounds/guidance/vi_checkin_choices.mp3'),
     'checkin.other': require('../../../assets/sounds/guidance/vi_checkin_other.mp3'),
+    'checkin.practice': require('../../../assets/sounds/guidance/vi_checkin_practice.mp3'),
+    'checkin.voice': require('../../../assets/sounds/guidance/vi_checkin_voice.mp3'),
+    'checkin.location_confirm': require('../../../assets/sounds/guidance/vi_checkin_location_confirm.mp3'),
+    'checkin.multiple': require('../../../assets/sounds/guidance/vi_checkin_multiple.mp3'),
+    'checkin.single': require('../../../assets/sounds/guidance/vi_checkin_single.mp3'),
+    'checkin.confirm': require('../../../assets/sounds/guidance/vi_checkin_confirm.mp3'),
+    'checkin.result_status': require('../../../assets/sounds/guidance/vi_checkin_result_status.mp3'),
+    'checkin.result_symptoms': require('../../../assets/sounds/guidance/vi_checkin_result_symptoms.mp3'),
+    'checkin.result_advice': require('../../../assets/sounds/guidance/vi_checkin_result_advice.mp3'),
+    'checkin.result_replay': require('../../../assets/sounds/guidance/vi_checkin_result_replay.mp3'),
+    'checkin.result_doctor': require('../../../assets/sounds/guidance/vi_checkin_result_doctor.mp3'),
+    'checkin.result_emergency': require('../../../assets/sounds/guidance/vi_checkin_result_emergency.mp3'),
+    'checkin.result_family': require('../../../assets/sounds/guidance/vi_checkin_result_family.mp3'),
+    'checkin.result_variants': require('../../../assets/sounds/guidance/vi_checkin_result_variants.mp3'),
+    'checkin.result_close': require('../../../assets/sounds/guidance/vi_checkin_result_close.mp3'),
+    'checkin.finished': require('../../../assets/sounds/guidance/vi_checkin_result_close.mp3'),
     'home.suggestions': require('../../../assets/sounds/guidance/vi_home_suggestions.mp3'),
     'circle.add': require('../../../assets/sounds/guidance/vi_circle_add.mp3'),
     'circle.phone': require('../../../assets/sounds/guidance/vi_circle_phone.mp3'),
@@ -19,10 +46,30 @@ export const guidanceAssets: Record<'vi' | 'en', Record<GuidanceClip, number>> =
   },
   en: {
     welcome: require('../../../assets/sounds/guidance/en_welcome.mp3'),
+    practice_result: require('../../../assets/sounds/guidance/en_practice_result.mp3'),
     'home.fine': require('../../../assets/sounds/guidance/en_home_fine.mp3'),
     'home.unwell': require('../../../assets/sounds/guidance/en_home_unwell.mp3'),
+    'checkin.status': require('../../../assets/sounds/guidance/en_checkin_status.mp3'),
+    'checkin.location': require('../../../assets/sounds/guidance/en_checkin_location.mp3'),
+    'checkin.location_other': require('../../../assets/sounds/guidance/en_checkin_other.mp3'),
     'checkin.choices': require('../../../assets/sounds/guidance/en_checkin_choices.mp3'),
     'checkin.other': require('../../../assets/sounds/guidance/en_checkin_other.mp3'),
+    'checkin.practice': require('../../../assets/sounds/guidance/en_checkin_practice.mp3'),
+    'checkin.voice': require('../../../assets/sounds/guidance/en_checkin_voice.mp3'),
+    'checkin.location_confirm': require('../../../assets/sounds/guidance/en_checkin_location_confirm.mp3'),
+    'checkin.multiple': require('../../../assets/sounds/guidance/en_checkin_multiple.mp3'),
+    'checkin.single': require('../../../assets/sounds/guidance/en_checkin_single.mp3'),
+    'checkin.confirm': require('../../../assets/sounds/guidance/en_checkin_confirm.mp3'),
+    'checkin.result_status': require('../../../assets/sounds/guidance/en_checkin_result_status.mp3'),
+    'checkin.result_symptoms': require('../../../assets/sounds/guidance/en_checkin_result_symptoms.mp3'),
+    'checkin.result_advice': require('../../../assets/sounds/guidance/en_checkin_result_advice.mp3'),
+    'checkin.result_replay': require('../../../assets/sounds/guidance/en_checkin_result_replay.mp3'),
+    'checkin.result_doctor': require('../../../assets/sounds/guidance/en_checkin_result_doctor.mp3'),
+    'checkin.result_emergency': require('../../../assets/sounds/guidance/en_checkin_result_emergency.mp3'),
+    'checkin.result_family': require('../../../assets/sounds/guidance/en_checkin_result_family.mp3'),
+    'checkin.result_variants': require('../../../assets/sounds/guidance/en_checkin_result_variants.mp3'),
+    'checkin.result_close': require('../../../assets/sounds/guidance/en_checkin_result_close.mp3'),
+    'checkin.finished': require('../../../assets/sounds/guidance/en_checkin_result_close.mp3'),
     'home.suggestions': require('../../../assets/sounds/guidance/en_home_suggestions.mp3'),
     'circle.add': require('../../../assets/sounds/guidance/en_circle_add.mp3'),
     'circle.phone': require('../../../assets/sounds/guidance/en_circle_phone.mp3'),

@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AppState, BackHandler, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,21 +7,41 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../auth/auth.store';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useQueuedModalBusy } from '../../components/QueuedModal';
+import { ScreenBackButton } from '../../components/ScreenHeaderButton';
 import { useGuidanceStore } from './guidance.store';
 import { guidanceAudio } from './guidance.audio';
 import { guideColors as c, nextGuideStep, type GuideRole, type GuideStep } from './guidance.model';
 
 type Rect = { x: number; y: number; width: number; height: number };
-type Target = { node: React.RefObject<View | null>; reveal?: () => void; name?: string };
+type Target = { node: React.RefObject<View | null>; reveal?: () => void; name?: string; withoutChoices?: boolean };
+type TargetMeasurement = Rect & { step: GuideStep; target: Target; account: string | null; epoch: number; path: string };
 const Context = createContext<{
   register: (id: GuideStep, target: Target) => () => void;
   acknowledge: (id: GuideStep) => void;
+  beginPractice: (key: string) => void;
+  endPractice: (key: string) => void;
 } | null>(null);
+export function useGuideAcknowledgement() {
+  const context = useContext(Context);
+  return useCallback((step: GuideStep) => context?.acknowledge(step), [context]);
+}
 const ScrollContext = createContext<((node: React.RefObject<View | null>) => void) | undefined>(undefined);
 
+/** Practice acknowledgements live only in memory, never in account progress. */
+export function GuidePracticeScope({ runKey, enabled = true, children }: { runKey: string; enabled?: boolean; children: React.ReactNode }) {
+  const context = useContext(Context);
+  useEffect(() => {
+    if (!enabled) return;
+    context?.beginPractice(runKey);
+    return () => context?.endPractice(runKey);
+  }, [context, enabled, runKey]);
+  return <>{children}</>;
+}
+
 /** Register the real, tappable native view, not a screenshot or a cloned button. */
-export function GuideTarget({ step, children, enabled = true, name, style }: {
-  step: GuideStep; children: React.ReactNode; enabled?: boolean; name?: string;
+export function GuideTarget({ step, children, enabled = true, name, style, withoutChoices = false, acknowledgeOnTouch = true }: {
+  step: GuideStep; children: React.ReactNode; enabled?: boolean; name?: string; withoutChoices?: boolean;
+  acknowledgeOnTouch?: boolean;
   style?: React.ComponentProps<typeof View>['style'];
 }) {
   const context = useContext(Context);
@@ -30,10 +50,10 @@ export function GuideTarget({ step, children, enabled = true, name, style }: {
   const node = useRef<View>(null);
   useEffect(() => {
     if (!focused || !enabled || !context) return;
-    return context.register(step, { node, name, reveal: reveal ? () => reveal(node) : undefined });
-  }, [context, enabled, focused, name, reveal, step]);
+    return context.register(step, { node, name, withoutChoices, reveal: reveal ? () => reveal(node) : undefined });
+  }, [context, enabled, focused, name, reveal, step, withoutChoices]);
   return <View ref={node} collapsable={false} style={style}
-    onTouchEnd={() => { if (focused && enabled) context?.acknowledge(step); }}>{children}</View>;
+    onTouchEnd={() => { if (focused && enabled && acknowledgeOnTouch) context?.acknowledge(step); }}>{children}</View>;
 }
 
 /** Share the owning scroll container so off-screen targets can be revealed. */
@@ -59,19 +79,35 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   const token = useAuthStore(state => state.token);
   const hydrated = useAuthStore(state => state.hydrated);
   const account = profile?.id ? String(profile.id) : null;
-  const { progress, ready: loaded, account: loadedAccount, load, refresh, update, acknowledge } = useGuidanceStore();
+  const { progress: accountProgress, ready: loaded, account: loadedAccount, load, refresh, update, acknowledge } = useGuidanceStore();
   const ready = loaded && loadedAccount === account;
   const modalBusy = useQueuedModalBusy();
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [keyboard, setKeyboard] = useState(false);
+  const [dismissedWelcome, setDismissedWelcome] = useState<string | null>(null);
   const [targets, setTargets] = useState<Map<GuideStep, Target>>(new Map());
-  const [rect, setRect] = useState<Rect | null>(null);
+  const [measurement, setRect] = useState<TargetMeasurement | null>(null);
+  const [practice, setPractice] = useState<{ key: string; account: string | null; completed: GuideStep[] } | null>(null);
+  const practicing = Boolean(practice && practice.account === account && path === '/checkin');
+  const progress = practicing && practice ? { ...accountProgress, welcomeSeen: true, completed: practice.completed }
+    : accountProgress;
+  const practiceRef = useRef(practicing); practiceRef.current = practicing;
+  const beginPractice = useCallback((key: string) => {
+    setPractice(previous => previous?.key === key && previous.account === account
+      ? previous : { key, account, completed: [] });
+  }, [account]);
+  const endPractice = useCallback((key: string) => {
+    setPractice(previous => previous?.key === key ? null : previous);
+  }, []);
   const choiceBusy = useRef(false);
   const activeStep = useRef<GuideStep | undefined>(undefined);
   const backgroundCall = path.startsWith('/checkin-call/') && path !== '/checkin-call/settings';
   const suspended = modalBusy || !foreground || keyboard || backgroundCall;
+  const welcomeKey = account ? `${account}:${progress.epoch}` : null;
+  const dismissedForVisit = welcomeKey !== null && dismissedWelcome === welcomeKey;
 
   useEffect(() => { void load(account); }, [account, load]);
+  useEffect(() => { setDismissedWelcome(null); }, [account, token]);
   useEffect(() => {
     const state = AppState.addEventListener('change', value => {
       setForeground(value === 'active');
@@ -85,14 +121,35 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
 
   // Guidance follows sign-in AND the health-profile onboarding, never either
   // form. Requiring this account's progress also prevents stale account tours.
-  const eligible = hydrated && Boolean(token) && Boolean(account) && profile?.onboardingCompleted === true && ready && !suspended;
+  const eligible = hydrated && Boolean(token) && Boolean(account) && profile?.onboardingCompleted === true && (ready || practicing) && !suspended && (!dismissedForVisit || practicing);
   const welcomeRoute = path === '/home' || path === '/care-circle';
   const guideRoute = welcomeRoute || path === '/checkin' || path === '/care-circle/invite';
   const welcome = eligible && welcomeRoute && !progress.welcomeSeen;
+  // Welcome is an overlay, not a navigation route. Back uncovers the existing
+  // app screen without popping login/onboarding or recording a role/completion.
+  const leaveWelcome = useCallback(() => {
+    if (!welcome || !welcomeKey || choiceBusy.current) return;
+    void guidanceAudio.stop();
+    setDismissedWelcome(welcomeKey);
+  }, [welcome, welcomeKey]);
+  useEffect(() => {
+    if (!welcome) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      leaveWelcome(); return true;
+    });
+    return () => subscription.remove();
+  }, [leaveWelcome, welcome]);
   const candidate = eligible && guideRoute && !welcome
-    ? nextGuideStep(progress, [...targets.keys()]) : undefined;
+    ? nextGuideStep(progress, [...targets.keys()], {
+      checkinHasNoChoices: targets.get('checkin.other')?.withoutChoices === true,
+    }) : undefined;
   activeStep.current = candidate;
   const target = candidate ? targets.get(candidate) : undefined;
+  // A newly selected step must never reuse the previous step's highlight.
+  // Off-screen targets are measured only after their owning scroll reveals them.
+  const rect = measurement && measurement.step === candidate && measurement.target === target
+    && measurement.account === account && measurement.epoch === progress.epoch && measurement.path === path
+    ? measurement : null;
 
   const register = useCallback((id: GuideStep, value: Target) => {
     setTargets(previous => new Map(previous).set(id, value));
@@ -104,9 +161,13 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   const acknowledgeTarget = useCallback((id: GuideStep) => {
     if (activeStep.current !== id) return;
     void guidanceAudio.stop();
-    acknowledge(id);
+    if (practiceRef.current) {
+      setPractice(previous => previous && !previous.completed.includes(id)
+        ? { ...previous, completed: [...previous.completed, id] } : previous);
+    } else acknowledge(id);
   }, [acknowledge]);
-  const context = useMemo(() => ({ register, acknowledge: acknowledgeTarget }), [acknowledgeTarget, register]);
+  const context = useMemo(() => ({ register, acknowledge: acknowledgeTarget, beginPractice, endPractice }),
+    [acknowledgeTarget, beginPractice, endPractice, register]);
 
   useEffect(() => {
     setRect(null);
@@ -120,27 +181,36 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
       }
       if (y + h < insets.top || y > height - insets.bottom) return;
       const top = Math.max(insets.top + 4, y - 4);
-      const next = { x: Math.max(4, x - 4), y: top, width: Math.min(width - 8, w + 8),
-        height: Math.min(h + 8, height - insets.bottom - top - 4) };
-      setRect(previous => previous && JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+      const next: TargetMeasurement = { x: Math.max(4, x - 4), y: top, width: Math.min(width - 8, w + 8),
+        height: Math.min(h + 8, height - insets.bottom - top - 4), step: candidate, target,
+        account, epoch: progress.epoch, path };
+      setRect(previous => previous?.step === next.step && previous.target === next.target
+        && previous.account === next.account && previous.epoch === next.epoch && previous.path === next.path
+        && previous.x === next.x && previous.y === next.y && previous.width === next.width && previous.height === next.height
+        ? previous : next);
     });
     const timer = setInterval(measure, 180);
     measure();
     return () => { active = false; clearInterval(timer); };
-  }, [candidate, height, insets.bottom, insets.top, target, width]);
+  }, [account, candidate, height, insets.bottom, insets.top, path, progress.epoch, target, width]);
 
   const text = candidate ? String(t(`guidance.steps.${candidate.replace('.', '_')}`, { name: target?.name || '' })) : '';
   // A suspended coach resumes visually without repeating an already-read phrase.
   const spoken = useRef(new Set<string>());
+  const audioScope = welcome ? `welcome:${account}:${progress.epoch}`
+    : candidate ? `${account}:${progress.epoch}:${practicing ? practice?.key : 'account'}:${candidate}` : null;
+  const presentationKey = welcome || rect ? audioScope : null;
+  // Stop when the actual step/session changes, not when its layout is remeasured.
   useEffect(() => {
-    const key = welcome ? `welcome:${account}:${progress.epoch}`
-      : candidate && rect ? `${account}:${progress.epoch}:${candidate}` : null;
-    if (!key || !progress.readAloud || spoken.current.has(key)) return;
-    spoken.current.add(key);
+    if (!audioScope) void guidanceAudio.stop();
+    return () => { void guidanceAudio.stop(); };
+  }, [audioScope, i18n.language, progress.readAloud]);
+  useEffect(() => {
+    if (!presentationKey || !progress.readAloud || spoken.current.has(presentationKey)) return;
+    spoken.current.add(presentationKey);
     const clip = welcome ? 'welcome' : candidate;
     if (clip) void guidanceAudio.speak(clip, i18n.language);
-    return () => { void guidanceAudio.stop(); };
-  }, [account, candidate, i18n.language, progress.epoch, progress.readAloud, rect !== null, text, t, welcome]);
+  }, [candidate, i18n.language, presentationKey, progress.readAloud, welcome]);
   useEffect(() => { if (suspended) void guidanceAudio.stop(); }, [suspended]);
 
   const chooseRole = async (role: GuideRole) => {
@@ -161,14 +231,19 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
     <View style={styles.root}>
       <View style={styles.root} importantForAccessibility={welcome ? 'no-hide-descendants' : 'auto'}>{children}</View>
       {welcome && <View style={styles.welcome} accessibilityViewIsModal>
-        <ScrollView contentContainerStyle={[styles.welcomeContent, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 24 }]}>
+        <ScrollView contentContainerStyle={[styles.welcomeContent, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 24 }]}>
           <Image source={require('../../../assets/asinu_chat_sticker.png')} style={styles.mascot} resizeMode="contain" accessible={false} />
-          <Text style={styles.welcomeTitle} allowFontScaling>{t('guidance.welcomeTitle')}</Text>
+          <View style={styles.welcomeHeading}>
+            <Text style={[styles.welcomeTitle, styles.welcomeHeadingText]} allowFontScaling>{t('guidance.welcomeTitle')}</Text>
+            <GuideReplay onPress={() => void guidanceAudio.speak('welcome', i18n.language, true)} />
+          </View>
           <Text style={styles.sentence} allowFontScaling>{t('guidance.welcomeBody')}</Text>
-          <GuideReplay onPress={() => void guidanceAudio.speak('welcome', i18n.language, true)} />
           <GuideButton icon="person-outline" label={t('guidance.roleSelf')} onPress={() => void chooseRole('self')} />
-          <GuideButton icon="heart-outline" label={t('guidance.roleCaregiver')} secondary onPress={() => void chooseRole('caregiver')} />
+          <GuideButton icon="heart-outline" label={t('guidance.roleCaregiver')} onPress={() => void chooseRole('caregiver')} />
         </ScrollView>
+        <View style={[styles.welcomeBack, { top: insets.top + 8 }]}>
+          <ScreenBackButton onPress={leaveWelcome} style={styles.welcomeBackButton} />
+        </View>
       </View>}
       {candidate && rect && !suspended && <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
         {/* Four independent scrims leave an actual touch-through target hole. */}
@@ -184,8 +259,10 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
             ...(below ? { top: -8 } : { bottom: -8 }) }]} />
           <ScrollView contentContainerStyle={styles.bubbleContent} bounces={false}>
             <Text allowFontScaling style={styles.sentence}>{text}</Text>
-            <GuideReplay onPress={() => void guidanceAudio.speak(candidate, i18n.language, true)} />
-            <GuideButton label={t('guidance.understood')} onPress={() => acknowledgeTarget(candidate)} />
+            <View style={styles.coachActions}>
+              <GuideReplay style={styles.coachReplayButton} onPress={() => void guidanceAudio.speak(candidate, i18n.language, true)} />
+              <GuideButton label={t('guidance.understood')} style={styles.understoodButton} onPress={() => acknowledgeTarget(candidate)} />
+            </View>
           </ScrollView>
         </View>
       </View>}
@@ -193,36 +270,42 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   </Context.Provider>;
 }
 
-function GuideReplay({ onPress }: { onPress: () => void }) {
+function GuideReplay({ onPress, style }: { onPress: () => void; style?: React.ComponentProps<typeof View>['style'] }) {
   const { t } = useTranslation('onboarding');
-  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={t('guidance.replayAudio')}
-    style={({ pressed }) => [styles.replay, pressed && styles.pressed]}>
-    <Ionicons name="volume-high-outline" size={28} color={c.primary} />
-    <Text allowFontScaling style={styles.replayText}>{t('guidance.replayAudio')}</Text>
+  return <Pressable accessibilityRole="button" accessibilityLabel={t('guidance.replayAudio')} onPress={onPress}
+    style={({ pressed }) => [styles.replayButton, style, pressed && styles.pressed]}>
+    <Ionicons name="volume-high-outline" size={30} color={c.onAction} accessible={false} />
   </Pressable>;
 }
-function GuideButton({ label, onPress, secondary = false, icon }: {
-  label: string; onPress: () => void; secondary?: boolean; icon?: React.ComponentProps<typeof Ionicons>['name'];
+function GuideButton({ label, onPress, icon, style }: {
+  label: string; onPress: () => void; icon?: React.ComponentProps<typeof Ionicons>['name'];
+  style?: React.ComponentProps<typeof View>['style'];
 }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
-    style={({ pressed }) => [styles.button, secondary && styles.secondary, pressed && styles.pressed]}>
-    {icon && <Ionicons name={icon} size={28} color={secondary ? c.ink : c.onPrimary} />}
-    <Text allowFontScaling style={[styles.buttonText, secondary && { color: c.ink }]}>{label}</Text>
+    style={({ pressed }) => [styles.button, style, pressed && styles.pressed]}>
+    {icon && <Ionicons name={icon} size={28} color={c.onAction} />}
+    <Text allowFontScaling style={styles.buttonText}>{label}</Text>
   </Pressable>;
 }
 const styles = StyleSheet.create({
   root: { flex: 1 },
   welcome: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.background },
   welcomeContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 18 },
+  welcomeBack: { position: 'absolute', left: 24 },
+  welcomeBackButton: { width: 56, height: 56, backgroundColor: c.background, borderColor: c.border },
   mascot: { width: 156, height: 156, alignSelf: 'center' },
   welcomeTitle: { fontSize: 30, fontWeight: '800', color: c.ink, textAlign: 'center' },
+  welcomeHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  welcomeHeadingText: { flex: 1, minWidth: 0 },
   sentence: { fontSize: 22, color: c.ink, lineHeight: 32 },
   button: { minHeight: 60, width: '100%', paddingVertical: 16, paddingHorizontal: 18,
-    backgroundColor: c.primary, borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  secondary: { backgroundColor: '#e2f0e9', borderWidth: 1, borderColor: c.border },
-  buttonText: { fontSize: 22, fontWeight: '800', color: c.onPrimary, flex: 1, textAlign: 'center' },
-  replay: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  replayText: { fontSize: 22, fontWeight: '800', color: c.primary, flexShrink: 1 },
+    backgroundColor: c.actionBackground, borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  buttonText: { fontSize: 22, fontWeight: '800', color: c.onAction, flex: 1, textAlign: 'center' },
+  coachActions: { flexDirection: 'row', alignItems: 'stretch', gap: 12, marginTop: 8 },
+  understoodButton: { flex: 1, minWidth: 0, width: undefined },
+  replayButton: { width: 60, height: 60, minHeight: 60, flexShrink: 0, borderRadius: 18,
+    backgroundColor: c.actionBackground, alignItems: 'center', justifyContent: 'center' },
+  coachReplayButton: { height: undefined, alignSelf: 'stretch' },
   pressed: { opacity: 0.8 },
   dim: { position: 'absolute', backgroundColor: c.dim },
   outline: { position: 'absolute', borderRadius: 18, borderWidth: 3, borderColor: '#c8f3d9' },

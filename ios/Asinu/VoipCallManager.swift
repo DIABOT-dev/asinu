@@ -15,6 +15,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   private let tokenKey = "asinu.voip.token"
   private let pendingCallKey = "asinu.voip.pendingCall"
+  private let maximumCallDuration: TimeInterval = 10 * 60
   private var pushRegistry: PKPushRegistry?
   private var callsByUUID: [UUID: [String: String]] = [:]
   private var uuidByAttempt: [String: UUID] = [:]
@@ -24,12 +25,9 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private var answerTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
   private var responseTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
   private var responseDeadlinesByUUID: [UUID: String] = [:]
-  private var callUIOwners = Set<UUID>()
+  private var callTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
+  private var callDeadlinesByUUID: [UUID: Date] = [:]
   private var audioSessionActive = false
-  private var handoffRecording: AVAudioPlayer?
-  // Keep the receipt for the whole call, not just while its audio is playing.
-  // CallKit can reactivate audio repeatedly when switching to/from the app.
-  private var handoffPromptConsumed = Set<UUID>()
   private var responseAfterAudioRelease: [String: String]?
   private var applicationObservers: [NSObjectProtocol] = []
 
@@ -76,18 +74,14 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     applicationObservers = [
         center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
           guard let self else { return }
-          for (uuid, call) in self.callsByUUID where call["nativeAnswered"] == "1" {
-            self.callUIOwners.remove(uuid)
+          for call in self.callsByUUID.values where call["nativeAnswered"] == "1" {
             UserDefaults.standard.set(call, forKey: self.pendingCallKey)
-          }
-          // Let React stop its recording before any still-unplayed native
-          // guidance. App-owned/previously played guidance stays consumed.
-          DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) { [weak self] in
-            self?.playHandoffPromptIfNeeded()
           }
         },
         center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-          guard let self, let call = self.pendingCall() else { return }
+          guard let self else { return }
+          self.expireCallsIfNeeded()
+          guard let call = self.pendingCall() else { return }
           NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: call)
         },
     ]
@@ -113,9 +107,10 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func activeCalls() -> [[String: String]] {
+    expireCallsIfNeeded()
     // Unlike the pending navigation handoff, this survives app audio ownership.
     // Take a snapshot so a saved check-in can retire only its original calls.
-    Array(callsByUUID.values)
+    return Array(callsByUUID.values)
   }
 
   func consumePendingCall() -> [String: String]? {
@@ -125,6 +120,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func pendingCall() -> [String: String]? {
+    expireCallsIfNeeded()
     guard let value = UserDefaults.standard.dictionary(forKey: pendingCallKey) as? [String: String],
           let attemptId = value["attemptId"], !attemptId.isEmpty else { return nil }
     if let uuid = uuidByAttempt[attemptId], callsByUUID[uuid]?["nativeAnswered"] == "1" {
@@ -142,6 +138,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func completeAnswer(attemptId: String, connected: Bool, deadline: String) {
+    expireCallsIfNeeded()
     guard let uuid = uuidByAttempt[attemptId], let action = answerActionsByUUID.removeValue(forKey: uuid) else { return }
     answerTimeoutsByUUID.removeValue(forKey: uuid)?.cancel()
     guard connected else {
@@ -156,6 +153,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func setCallUIActive(attemptId: String, active: Bool, deadline: String) -> Bool {
+    expireCallsIfNeeded()
     guard let uuid = uuidByAttempt[attemptId], let call = callsByUUID[uuid], call["nativeAnswered"] == "1" else {
       if active && UIApplication.shared.applicationState == .active && pendingCall()?["attemptId"] == attemptId {
         UserDefaults.standard.removeObject(forKey: pendingCallKey)
@@ -163,18 +161,11 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
       return false
     }
     if active && UIApplication.shared.applicationState == .active {
-      callUIOwners.insert(uuid)
-      // Once the response screen owns playback, returning to CallKit must
-      // never start (or restart) the automatic open-app guidance.
-      handoffPromptConsumed.insert(uuid)
-      stopHandoffPrompt()
       if pendingCall()?["attemptId"] == attemptId {
         UserDefaults.standard.removeObject(forKey: pendingCallKey)
       }
     } else {
-      callUIOwners.remove(uuid)
       UserDefaults.standard.set(call, forKey: pendingCallKey)
-      playHandoffPromptIfNeeded()
     }
     if !deadline.isEmpty { scheduleResponseTimeout(uuid: uuid, deadline: deadline) }
     // Return whether CallKit owns this call's audio session, even when the
@@ -185,6 +176,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   // The self-link only brings the app forward. Routing has one owner in React,
   // so Expo's URL handler and the native event cannot stack duplicate screens.
   func handleAnsweredCallURL(_ url: URL) -> Bool {
+    expireCallsIfNeeded()
     guard url.scheme == "asinu-lite", url.host == "checkin-call",
           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
           components.queryItems?.contains(where: { $0.name == "nativeAnswered" && $0.value == "1" }) == true,
@@ -253,6 +245,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     ]
     callsByUUID[uuid] = call
     uuidByAttempt[attemptId] = uuid
+    scheduleCallTimeout(uuid: uuid)
 
     let update = CXCallUpdate()
     update.remoteHandle = CXHandle(
@@ -359,6 +352,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+    expireCallsIfNeeded()
     guard var call = callsByUUID[action.callUUID] else {
       action.fail()
       return
@@ -380,6 +374,8 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     UserDefaults.standard.set(call, forKey: pendingCallKey)
     NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: call)
 
+    // Answering opens the app's response screen immediately. CallKit does
+    // not read a separate reminder while the app is opening or locked.
     openResponseScreen(call)
   }
 
@@ -411,6 +407,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+    expireCallsIfNeeded()
     let continuation = responseContinuation(uuid: action.callUUID)
     removeCall(uuid: action.callUUID)
     action.fulfill()
@@ -442,18 +439,16 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     responseAfterAudioRelease = nil
     for uuid in Array(callsByUUID.keys) { removeCall(uuid: uuid) }
     audioSessionActive = false
-    stopHandoffPrompt()
   }
 
   func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+    expireCallsIfNeeded()
     audioSessionActive = true
     configureAudioSession()
-    playHandoffPromptIfNeeded()
   }
 
   func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
     audioSessionActive = false
-    stopHandoffPrompt()
     // An already-visible response screen may have been playing through the
     // native session. Let it re-prepare Expo playback only AFTER CallKit has
     // released that session; do not replay completed or declined calls.
@@ -473,7 +468,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   private func configureAudioSession() {
     do {
-      // These calls play a reminder; they do not capture two-way speech.
+      // The app reads prompts on its response screen, without two-way speech.
       // voiceChat without a voice-processing I/O unit lowers playback gain.
       // Default to speaker, but keep headset/Bluetooth and user route choices.
       try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothHFP, .defaultToSpeaker])
@@ -482,34 +477,31 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     }
   }
 
-  private func playHandoffPromptIfNeeded() {
-    guard audioSessionActive,
-          let entry = callsByUUID.first(where: {
-            $0.value["nativeAnswered"] == "1"
-              && !callUIOwners.contains($0.key)
-              && !handoffPromptConsumed.contains($0.key)
-          }),
-          answerActionsByUUID[entry.key] == nil else { return }
-    if handoffRecording?.isPlaying == true { return }
-    let language = entry.value["lang"] == "en" ? "en" : "vi"
-    // Both locales use the bundled private Asinu Tuấn Anh v4 recordings:
-    // cold/locked launches need neither React nor a network download, and
-    // missing recordings must never silently switch to Apple's narrator.
-    guard let url = Bundle.main.url(forResource: "asinu_checkin_open_app_" + language, withExtension: "mp3"),
-          let recording = try? AVAudioPlayer(contentsOf: url) else { return }
-    handoffRecording = recording
-    recording.volume = 1.0
-    recording.prepareToPlay()
-    guard recording.play() else { handoffRecording = nil; return }
-    // A successful start consumes automatic playback even if it is later
-    // interrupted. Only a new call or the app's explicit replay may speak again.
-    // Failed/missing recordings have not played and may still be retried.
-    handoffPromptConsumed.insert(entry.key)
+  // This cap starts with the incoming call and is independent of React,
+  // server deadlines, and whether the user has already opened the app.
+  // Accepting or refreshing a response must never extend its lifetime.
+  private func scheduleCallTimeout(uuid: UUID) {
+    guard callsByUUID[uuid] != nil, callDeadlinesByUUID[uuid] == nil else { return }
+    callDeadlinesByUUID[uuid] = Date().addingTimeInterval(maximumCallDuration)
+    let timeout = DispatchWorkItem { [weak self] in
+      guard let self, self.callsByUUID[uuid] != nil else { return }
+      self.provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+      self.removeCall(uuid: uuid)
+    }
+    callTimeoutsByUUID[uuid] = timeout
+    DispatchQueue.main.asyncAfter(deadline: .now() + maximumCallDuration, execute: timeout)
   }
 
-  private func stopHandoffPrompt() {
-    handoffRecording?.stop()
-    handoffRecording = nil
+  private func expireCallsIfNeeded() {
+    // Reconcile wall-clock deadlines after iOS suspends/resumes the app,
+    // before restoring navigation or claiming the native audio session.
+    let now = Date()
+    let expired = callDeadlinesByUUID.filter { $0.value <= now }.map { $0.key }
+    for uuid in expired {
+      guard callsByUUID[uuid] != nil else { continue }
+      provider.reportCall(with: uuid, endedAt: now, reason: .remoteEnded)
+      removeCall(uuid: uuid)
+    }
   }
 
   private func scheduleResponseTimeout(uuid: UUID, deadline: String) {
@@ -531,14 +523,13 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   }
 
   private func removeCall(uuid: UUID) {
+    callTimeoutsByUUID.removeValue(forKey: uuid)?.cancel()
+    callDeadlinesByUUID.removeValue(forKey: uuid)
     cancelRingTimeout(uuid: uuid)
     answerTimeoutsByUUID.removeValue(forKey: uuid)?.cancel()
     answerActionsByUUID.removeValue(forKey: uuid)?.fail()
     responseTimeoutsByUUID.removeValue(forKey: uuid)?.cancel()
     responseDeadlinesByUUID.removeValue(forKey: uuid)
-    callUIOwners.remove(uuid)
-    handoffPromptConsumed.remove(uuid)
-    stopHandoffPrompt()
     guard let call = callsByUUID.removeValue(forKey: uuid) else { return }
     let attemptId = call["attemptId"] ?? ""
     if !attemptId.isEmpty {

@@ -49,6 +49,7 @@ function harness({
   multiplier = 1,
   session = null,
   fail = false,
+  practice = false,
 } = {}) {
   let cursor = 0;
   const slots = [];
@@ -119,6 +120,7 @@ function harness({
     "react-i18next": { useTranslation: () => ({ t }) },
     "./ScaledText": { ScaledText },
     "../features/guidance/GuidanceProvider": { GuideTarget: props => props.children },
+    "../features/guidance/useCheckinPracticeEntry": { useCheckinPracticeEntry: () => practice },
     "../hooks/useScaledTypography": { useScaledTypography: () => typography },
     "../hooks/useThemeColors": { useThemeColors: () => ({ isDark }) },
     "../styles": {
@@ -159,6 +161,16 @@ function harness({
     },
   };
 }
+
+await test('unfinished check-in guidance opens only practice routes for both real Home controls', async () => {
+  const h = harness({ practice: true }); h.render('DailyCheckinCard'); await h.focus();
+  h.render('DailyCheckinCard').find(node => node.type === 'Pressable').props.onPress();
+  h.render('InstantCheckinCard').find(node => node.type === 'Pressable').props.onPress();
+  assert.deepEqual(h.pushes, [
+    { pathname: '/checkin', params: { preset_status: 'fine', mode: 'guide' } },
+    { pathname: '/checkin', params: { mode: 'guide' } },
+  ]);
+});
 
 for (const language of ["vi", "en"]) {
   for (const isDark of [false, true]) {

@@ -20,7 +20,11 @@ const directory = new URL('../assets/sounds/guidance/', import.meta.url);
 const speed = 0.92;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const steps = ['home.fine', 'home.unwell', 'checkin.choices', 'checkin.other', 'home.suggestions',
-  'circle.add', 'circle.phone', 'circle.relationship', 'circle.send', 'circle.member'];
+  'circle.add', 'circle.phone', 'circle.relationship', 'circle.send', 'circle.member',
+  'checkin.practice', 'checkin.status', 'checkin.location', 'checkin.voice', 'checkin.location_confirm', 'checkin.multiple', 'checkin.single',
+  'checkin.confirm', 'checkin.result_status', 'checkin.result_symptoms', 'checkin.result_advice',
+  'checkin.result_replay', 'checkin.result_doctor', 'checkin.result_emergency', 'checkin.result_family',
+  'checkin.result_variants', 'checkin.result_close'];
 const run = args => {
   const result = spawnSync('ffmpeg', ['-hide_banner', '-nostats', ...args], {
     encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024,
@@ -50,9 +54,10 @@ await mkdir(sourceCache, { recursive: true });
 const clips = [];
 for (const language of ['vi', 'en']) {
   const { guidance } = JSON.parse(await readFile(new URL(`../src/i18n/locales/${language}/onboarding.json`, import.meta.url), 'utf8'));
-  for (const id of ['welcome', ...steps]) {
+  for (const id of ['welcome', 'practice_result', ...steps]) {
     // Personal names remain visible in the UI, never uploaded to the voice provider.
     const text = id === 'welcome' ? `${guidance.welcomeTitle}. ${guidance.welcomeBody}`
+      : id === 'practice_result' ? guidance.practiceResultAudio
       : id === 'circle.member' ? guidance.circleMemberAudio : guidance.steps[id.replace('.', '_')];
     if (typeof text !== 'string' || !text.trim() || text.includes('{{')) throw new Error(`Missing fixed guidance text: ${language}/${id}`);
     const file = `${language}_${id.replace('.', '_')}.mp3`;

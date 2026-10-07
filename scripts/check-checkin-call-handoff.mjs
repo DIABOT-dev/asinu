@@ -151,27 +151,21 @@ await test('native foreground URL is intercepted and has only one routing owner'
   assert.ok(index.indexOf('getPendingVoipCall()') < index.indexOf('Notifications.getLastNotificationResponseAsync()'));
   assert.ok(index.includes('if (cancelled) return;'));
 });
-await test('the response screen stops native guidance before playing its prompt', () => {
+await test('the response screen claims the CallKit audio session before playing its prompt', () => {
   const start = screen.indexOf('const play = useCallback');
   const play = screen.slice(start, screen.indexOf('useFocusEffect', start));
   assert.ok(play.indexOf('await setVoipCallUIActive') < play.indexOf('await playAudio'));
   assert.ok(play.includes('version !== playVersion.current'));
   assert.ok(screen.includes('AppState.addEventListener'));
 });
-await test('native guidance is bounded, localized, and never submits a health response', () => {
-  const guidance = native.slice(native.indexOf('private func playHandoffPromptIfNeeded'), native.indexOf('private func removeCall'));
-  assert.ok(guidance.includes('guard audioSessionActive'));
-  assert.ok(guidance.includes('!callUIOwners.contains'));
-  assert.ok(guidance.includes('answerActionsByUUID[entry.key] == nil'));
-  assert.ok(guidance.includes('handoffRecording?.stop()'));
-  assert.ok(!native.includes('AVSpeechSynthesizer'), 'All native guidance uses bundled Tuấn Anh recordings');
+await test('answering opens the app with no separate spoken reminder or implicit health response', () => {
+  const answer = native.slice(native.indexOf('  func provider(_ provider: CXProvider, perform action: CXAnswerCallAction)'), native.indexOf('  private func openResponseScreen('));
+  assert.ok(answer.includes('UserDefaults.standard.set(call, forKey: pendingCallKey)'));
+  assert.ok(answer.includes('NotificationCenter.default.post(name: .asinuVoipCallAnswered'));
+  assert.ok(answer.includes('openResponseScreen(call)'));
+  assert.ok(!/AVAudioPlayer|AVPlayer|AVSpeechSynthesizer|AVSpeechUtterance|playHandoffPrompt/.test(native));
   assert.ok(native.includes('scheduleResponseTimeout(uuid: uuid, deadline: deadline)'));
   assert.ok(!native.includes('family-confirm') && !native.includes('/answer'));
-  for (const lang of ['vi', 'en']) {
-    const catalog = JSON.parse(read(`locales/${lang}.json`));
-    const text = catalog.ios['Localizable.strings'].checkin_call_open_app_prompt;
-    assert.ok(text && read(`ios/Asinu/Supporting/${lang}.lproj/Localizable.strings`).includes(text));
-  }
 });
 await test('late incoming-call completion cannot re-arm the ring timer after answering', () => {
   const incoming = native.slice(native.indexOf('provider.reportNewIncomingCall'), native.indexOf('#if DEBUG\n  func simulateIncoming'));

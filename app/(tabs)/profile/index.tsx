@@ -1203,7 +1203,6 @@ export default function ProfileScreen() {
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                 </TouchableOpacity>
 
-                <GuidanceSettings />
               </View>
             </Animated.View>
 
@@ -1214,6 +1213,8 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionHeading}>{t("sectionSystem")}</Text>
               </View>
               <View style={styles.cardsStack}>
+                <GuidanceSettings />
+
                 {/* Trợ giúp qua Zalo */}
                 <TouchableOpacity
                   style={styles.actionCard}

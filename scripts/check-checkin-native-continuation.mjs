@@ -2,42 +2,25 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 const read = file => fs.readFileSync(file, 'utf8');
 const native = read('ios/Asinu/VoipCallManager.swift');
-assert.ok(!native.includes('AVSpeechSynthesizer') && !native.includes('AVSpeechUtterance'), 'Native prompts must not use Apple speech');
-for (const language of ['vi', 'en']) {
-  const manifest = JSON.parse(read(`assets/sounds/asinu_checkin_open_app_${language}.json`));
-  const audio = fs.readFileSync('assets/sounds/' + manifest.file);
-  const text = JSON.parse(read(`locales/${language}.json`)).ios['Localizable.strings'].checkin_call_open_app_prompt;
-  assert.equal(manifest.language, language);
-  assert.equal(manifest.voice, 'clone_b935a451-7d65-4b73-a083-d46e56c47d4f');
-  assert.equal(manifest.text, text);
-  assert.equal(manifest.textSha256, createHash('sha256').update(text).digest('hex'));
-  assert.equal(manifest.audioSha256, createHash('sha256').update(audio).digest('hex'));
-  assert.ok(audio.length > 1000 && audio.length < 2000000);
-  assert.ok(read('ios/Asinu.xcodeproj/project.pbxproj').includes(`${manifest.file} in Resources`));
-  console.log(`PASS ${language} private Tuấn Anh clone matches localized prompt, audio checksum and Xcode resource`);
-  assert.ok(manifest.loudness);
-  assert.ok(['ebu-r128-two-pass', 'ebu-r128-dynamic-verified'].includes(manifest.loudness.normalization));
-  assert.equal(manifest.loudness.targetIntegratedLufs, -16);
-  assert.equal(manifest.loudness.targetTruePeakDbtp, -1.5);
-  assert.ok(Math.abs(manifest.loudness.integratedLufs + 16) <= 0.5);
-  assert.ok(manifest.loudness.truePeakDbtp <= -1);
-}
-const configuration = native.slice(native.indexOf('  private func configureAudioSession()'), native.indexOf('  private func playHandoffPromptIfNeeded()'));
+assert.ok(!/AVAudioPlayer|AVPlayer|AVSpeechSynthesizer|AVSpeechUtterance|playHandoffPrompt/.test(native), 'CallKit must leave spoken guidance to the app');
+const duration = native.match(/private let maximumCallDuration: TimeInterval = ([^\n]+)/);
+assert.ok(duration);
+assert.equal(duration[1].trim(), '10 * 60');
+const configuration = native.slice(native.indexOf('  private func configureAudioSession()'), native.indexOf('  private func scheduleCallTimeout('));
 assert.ok(configuration.includes('mode: .default'));
 assert.ok(configuration.includes('.defaultToSpeaker') && configuration.includes('.allowBluetoothHFP'));
 assert.ok(!configuration.includes('overrideOutputAudioPort') && !native.includes('setActive('));
-console.log('PASS reminder uses normalized speech, speaker default and no forced route/system volume');
-assert.ok(!native.includes('handoffPromptTimer'), 'Automatic native guidance must not schedule a repeat');
-assert.ok(native.includes('private var handoffPromptConsumed = Set<UUID>()'));
-console.log('PASS automatic native guidance has per-call receipts and no repeat timer');
+console.log('PASS CallKit has no native spoken reminder; app audio retains speaker/Bluetooth routes');
+const foreground = native.slice(native.indexOf('center.addObserver(forName: UIApplication.didBecomeActiveNotification'), native.indexOf('    #if DEBUG'));
+assert.ok(foreground.indexOf('self.expireCallsIfNeeded()') >= 0 && foreground.indexOf('self.expireCallsIfNeeded()') < foreground.indexOf('self.pendingCall()'));
+console.log('PASS the native 10-minute cap is checked before foreground handoff');
 
 if (process.platform !== 'darwin') {
-  console.log('SKIP native Swift runtime checks (macOS required); asset checks passed');
+  console.log('SKIP native Swift runtime checks (macOS required); source checks passed');
   process.exit(0);
 }
 // Extract checked-in handlers; only Apple framework adapters are mocked.
@@ -49,12 +32,15 @@ const method = (start, end) => {
 const handlers = [
   method('  func activeCalls()', '  func consumePendingCall()'),
   method('  func pendingCall()', '  func completeAnswer('),
+  method('  func completeAnswer(', '  func setCallUIActive('),
   method('  func setCallUIActive(', '  // The self-link'),
   method('  func handleAnsweredCallURL(', '  func reportIncoming('),
+  method('  func provider(_ provider: CXProvider, perform action: CXAnswerCallAction)', '  private func openResponseScreen('),
   method('  private func openResponseScreen(', '  func providerDidReset('),
+  method('  func providerDidReset(', '  func provider(_ provider: CXProvider, didActivate'),
   method('  func provider(_ provider: CXProvider, didActivate', '  func provider(_ provider: CXProvider, timedOutPerforming'),
-  method('  private func configureAudioSession()', '  private func playHandoffPromptIfNeeded()'),
-  method('  private func playHandoffPromptIfNeeded()', '  private func scheduleResponseTimeout('),
+  method('  private func configureAudioSession()', '  private func scheduleCallTimeout('),
+  method('  private func scheduleCallTimeout(', '  private func removeCall('),
   method('  private func removeCall(', '  private func scheduleRingTimeout('),
 ].join('\n');
 const swift = `
@@ -63,15 +49,28 @@ extension Notification.Name {
   static let asinuVoipCallAnswered = Notification.Name("TestAnswered")
   static let asinuVoipCallEnded = Notification.Name("TestEnded")
 }
-enum CXCallEndedReason { case remoteEnded }
-final class CXProvider { func reportCall(with: UUID, endedAt: Date, reason: CXCallEndedReason) {} }
+enum CXCallEndedReason { case remoteEnded, failed }
+final class CXProvider {
+  var ended: [UUID] = []
+  var reasons: [CXCallEndedReason] = []
+  func reportCall(with uuid: UUID, endedAt: Date, reason: CXCallEndedReason) {
+    ended.append(uuid); reasons.append(reason)
+  }
+}
 final class CXEndCallAction {
   let callUUID: UUID
   var fulfilled = false
   init(_ uuid: UUID) { callUUID = uuid }
   func fulfill() { fulfilled = true }
 }
-final class CXAnswerCallAction { func fail() {} }
+final class CXAnswerCallAction {
+  let callUUID: UUID
+  var fulfilled = false
+  var failed = false
+  init(_ uuid: UUID = UUID()) { callUUID = uuid }
+  func fail() { failed = true }
+  func fulfill() { fulfilled = true }
+}
 final class AVAudioSession {
   enum Category { case playAndRecord }
   enum Mode { case \`default\`, voiceChat }
@@ -102,32 +101,9 @@ final class UIApplication {
     completionHandler?(openSucceeds)
   }
 }
-final class Bundle {
-  static let main = Bundle()
-  static var recordingAvailable = true
-  init() {}
-  init?(path: String) {}
-  func path(forResource: String, ofType: String) -> String? { nil }
-  func url(forResource: String, withExtension: String) -> URL? { Self.recordingAvailable ? URL(fileURLWithPath: "/" + forResource + "." + withExtension) : nil }
-}
-func NSLocalizedString(_ key: String, bundle: Bundle, comment: String) -> String { "English guidance" }
-final class AVAudioPlayer {
-  static var playSucceeds = true
-  static var successfulStarts = 0
-  var isPlaying = false
-  var volume: Float = 0.5
-  let url: URL
-  init(contentsOf: URL) throws { url = contentsOf }
-  func prepareToPlay() {}
-  func play() -> Bool {
-    isPlaying = Self.playSucceeds
-    if isPlaying { Self.successfulStarts += 1 }
-    return isPlaying
-  }
-  func stop() { isPlaying = false }
-}
 final class Handler {
   let pendingCallKey = "asinu.continuation.test." + UUID().uuidString
+  let maximumCallDuration: TimeInterval
   var callsByUUID: [UUID: [String: String]] = [:]
   var uuidByAttempt: [String: UUID] = [:]
   var endedAttempts: [String: Date] = [:]
@@ -135,24 +111,29 @@ final class Handler {
   var answerTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
   var responseTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
   var responseDeadlinesByUUID: [UUID: String] = [:]
-  var callUIOwners = Set<UUID>()
+  var callTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
+  var callDeadlinesByUUID: [UUID: Date] = [:]
   var audioSessionActive = true
-  var handoffRecording: AVAudioPlayer?
-  var handoffPromptConsumed = Set<UUID>()
   var responseAfterAudioRelease: [String: String]?
   let provider = CXProvider()
+  init(maximumCallDuration: TimeInterval = ${duration[1]}) { self.maximumCallDuration = maximumCallDuration }
   func cancelRingTimeout(uuid: UUID) {}
-  func scheduleResponseTimeout(uuid: UUID, deadline: String) {}
   func seed(answered: Bool = true, accepted: Bool = true, remaining: TimeInterval = 60, lang: String = "vi") -> UUID {
     let uuid = UUID()
     callsByUUID[uuid] = ["episodeId": "episode", "attemptId": "attempt", "nativeAnswered": answered ? "1" : "0", "lang": lang]
     uuidByAttempt["attempt"] = uuid
+    scheduleCallTimeout(uuid: uuid)
     UserDefaults.standard.set(callsByUUID[uuid], forKey: pendingCallKey)
-    if !accepted { answerActionsByUUID[uuid] = CXAnswerCallAction() }
+    if !accepted { answerActionsByUUID[uuid] = CXAnswerCallAction(uuid) }
     responseDeadlinesByUUID[uuid] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(remaining))
     return uuid
   }
-  deinit { UserDefaults.standard.removeObject(forKey: pendingCallKey) }
+  deinit {
+    for timeout in callTimeoutsByUUID.values { timeout.cancel() }
+    for timeout in answerTimeoutsByUUID.values { timeout.cancel() }
+    for timeout in responseTimeoutsByUUID.values { timeout.cancel() }
+    UserDefaults.standard.removeObject(forKey: pendingCallKey)
+  }
   ${handlers}
 }
 var checks = 0
@@ -253,134 +234,167 @@ check("active call snapshot survives consuming the navigation handoff and app au
   h.endCall(attemptId: "attempt")
   assert(h.activeCalls().isEmpty && snapshot.first?["attemptId"] == "attempt")
 }
-check("Vietnamese locked-call prompt plays the private Tuấn Anh clone and releases it on app handoff") {
-  let h = Handler(); _ = h.seed()
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording?.isPlaying == true)
-  assert(h.handoffRecording?.url.lastPathComponent == "asinu_checkin_open_app_vi.mp3")
-  assert(h.handoffRecording?.volume == 1)
-  let recording = h.handoffRecording!
-  h.stopHandoffPrompt()
-  assert(!recording.isPlaying && h.handoffRecording == nil)
+check("answer routes to the app immediately while authenticated acceptance remains pending") {
+  UIApplication.shared.applicationState = .background
+  defer { UIApplication.shared.applicationState = .active }
+  let h = Handler(), uuid = h.seed(answered: false)
+  let action = CXAnswerCallAction(uuid)
+  var answeredEvents = 0
+  let observer = NotificationCenter.default.addObserver(forName: .asinuVoipCallAnswered, object: nil, queue: nil) { event in
+    if event.userInfo?["attemptId"] as? String == "attempt" { answeredEvents += 1 }
+  }
+  defer { NotificationCenter.default.removeObserver(observer) }
+  h.provider(h.provider, perform: action)
+  assert(!action.fulfilled && !action.failed)
+  assert(answeredEvents == 1 && h.pendingCall()?["nativeAnswered"] == "1")
+  assert(h.answerActionsByUUID[uuid] === action)
+  RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+  let url = UIApplication.shared.opened.last!
+  assert(url.host == "checkin-call" && url.path == "/episode")
+  assert(h.handleAnsweredCallURL(url))
 }
-check("CallKit activation configures full-level one-way reminder playback with speaker/headset defaults") {
-  let h = Handler(); _ = h.seed(); h.audioSessionActive = false
+check("foreground answer uses the native event without reopening the app") {
+  let h = Handler(), uuid = h.seed(answered: false)
+  let before = UIApplication.shared.opened.count
+  h.provider(h.provider, perform: CXAnswerCallAction(uuid))
+  RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+  assert(UIApplication.shared.opened.count == before)
+  assert(h.pendingCall()?["nativeAnswered"] == "1")
+}
+check("an unknown or closed answer fails without opening a response screen") {
+  let h = Handler(), action = CXAnswerCallAction()
+  let before = UIApplication.shared.opened.count
+  h.provider(h.provider, perform: action)
+  assert(action.failed && !action.fulfilled && h.pendingCall() == nil)
+  RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+  assert(UIApplication.shared.opened.count == before)
+}
+check("successful authenticated acceptance fulfills CallKit without extending the hard deadline") {
+  let h = Handler(), uuid = h.seed(answered: false)
+  let deadline = h.callDeadlinesByUUID[uuid]!, action = CXAnswerCallAction(uuid)
+  h.provider(h.provider, perform: action)
+  assert(!action.fulfilled)
+  h.completeAnswer(attemptId: "attempt", connected: true, deadline: ISO8601DateFormatter().string(from: Date().addingTimeInterval(1800)))
+  assert(action.fulfilled && !action.failed)
+  assert(h.answerActionsByUUID.isEmpty && h.answerTimeoutsByUUID.isEmpty)
+  assert(h.callDeadlinesByUUID[uuid] == deadline && h.responseTimeoutsByUUID[uuid] != nil)
+}
+check("rejected authenticated acceptance retires the call and all its native timers") {
+  let h = Handler(), uuid = h.seed(answered: false)
+  let action = CXAnswerCallAction(uuid)
+  h.provider(h.provider, perform: action)
+  h.completeAnswer(attemptId: "attempt", connected: false, deadline: "")
+  assert(action.failed && !action.fulfilled && h.provider.reasons == [.failed])
+  assert(h.callsByUUID.isEmpty && h.callTimeoutsByUUID.isEmpty && h.callDeadlinesByUUID.isEmpty)
+  assert(h.answerTimeoutsByUUID.isEmpty && h.pendingCall() == nil)
+}
+check("audio activation only prepares the app session with speaker and Bluetooth routes") {
+  let h = Handler(); _ = h.seed()
   let session = AVAudioSession.sharedInstance(), before = session.configurations
-  h.provider(h.provider, didActivate: session)
-  assert(h.audioSessionActive && session.configurations == before + 1)
-  assert(session.mode == .default && session.options.contains(.defaultToSpeaker) && session.options.contains(.allowBluetoothHFP))
-  assert(h.handoffRecording?.isPlaying == true && h.handoffRecording?.volume == 1)
-  h.stopHandoffPrompt()
+  for _ in 0..<3 { h.provider(h.provider, didActivate: session) }
+  assert(h.audioSessionActive && session.configurations == before + 3)
+  assert(session.mode == .default)
+  assert(session.options.contains(.defaultToSpeaker) && session.options.contains(.allowBluetoothHFP))
+  h.provider(h.provider, didDeactivate: session)
+  assert(!h.audioSessionActive)
 }
-check("finished native guidance never restarts on repeated CallKit activations") {
-  let h = Handler(); _ = h.seed()
-  let before = AVAudioPlayer.successfulStarts
-  h.provider(h.provider, didActivate: AVAudioSession())
-  let recording = h.handoffRecording!
-  recording.isPlaying = false // Natural completion, without an app handoff.
-  for _ in 0..<5 { h.provider(h.provider, didActivate: AVAudioSession()) }
-  assert(AVAudioPlayer.successfulStarts == before + 1)
-  assert(h.handoffRecording === recording && !recording.isPlaying)
-  h.stopHandoffPrompt()
+check("the production timer starts at incoming registration with a ten-minute maximum") {
+  let h = Handler(), before = Date(), uuid = h.seed(answered: false)
+  assert(h.maximumCallDuration == 600)
+  let remaining = h.callDeadlinesByUUID[uuid]!.timeIntervalSince(before)
+  assert(remaining >= 600 && remaining < 601 && h.callTimeoutsByUUID[uuid] != nil)
 }
-check("audio interruption and reactivation cannot replay a native prompt mid-call") {
-  let h = Handler(); _ = h.seed()
-  let before = AVAudioPlayer.successfulStarts
-  h.provider(h.provider, didActivate: AVAudioSession())
-  let recording = h.handoffRecording!
-  h.provider(h.provider, didDeactivate: AVAudioSession())
-  assert(!recording.isPlaying && h.handoffRecording == nil)
-  h.provider(h.provider, didActivate: AVAudioSession())
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording == nil && AVAudioPlayer.successfulStarts == before + 1)
-}
-check("CallKit to app to CallKit stops guidance without starting it again") {
-  let h = Handler(); _ = h.seed()
-  let before = AVAudioPlayer.successfulStarts
-  h.playHandoffPromptIfNeeded()
-  let recording = h.handoffRecording!
+check("the native timer closes an accepted call while the user is inside the app") {
+  let h = Handler(maximumCallDuration: 0.04), uuid = h.seed()
+  let before = UIApplication.shared.opened.count
+  var endedEvents = 0
+  let observer = NotificationCenter.default.addObserver(forName: .asinuVoipCallEnded, object: nil, queue: nil) { _ in endedEvents += 1 }
+  defer { NotificationCenter.default.removeObserver(observer) }
   assert(h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
-  assert(!recording.isPlaying && h.handoffRecording == nil)
+  RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+  assert(h.provider.ended == [uuid] && endedEvents == 1)
+  assert(h.callsByUUID.isEmpty && h.uuidByAttempt.isEmpty && h.pendingCall() == nil)
+  assert(h.callTimeoutsByUUID.isEmpty && h.callDeadlinesByUUID.isEmpty)
+  assert(h.responseTimeoutsByUUID.isEmpty && h.responseDeadlinesByUUID.isEmpty)
+  assert(UIApplication.shared.opened.count == before && h.responseAfterAudioRelease == nil)
+}
+check("accepting, refreshing backend deadlines, and changing app state never restart the cap") {
+  let h = Handler(maximumCallDuration: 0.06), uuid = h.seed()
+  let deadline = h.callDeadlinesByUUID[uuid]!, timeout = h.callTimeoutsByUUID[uuid]!
+  let backendDeadline = ISO8601DateFormatter().string(from: Date().addingTimeInterval(1800))
+  assert(h.setCallUIActive(attemptId: "attempt", active: true, deadline: backendDeadline))
+  UIApplication.shared.applicationState = .background
+  assert(h.setCallUIActive(attemptId: "attempt", active: false, deadline: backendDeadline))
+  UIApplication.shared.applicationState = .active
+  h.provider(h.provider, didActivate: AVAudioSession())
+  h.scheduleCallTimeout(uuid: uuid)
+  assert(h.callDeadlinesByUUID[uuid] == deadline && h.callTimeoutsByUUID[uuid] === timeout)
+  RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+  assert(h.provider.ended == [uuid] && h.pendingCall() == nil && h.responseTimeoutsByUUID.isEmpty)
+}
+check("resume reconciles expired wall-clock deadlines before restoring pending navigation") {
   UIApplication.shared.applicationState = .background
   defer { UIApplication.shared.applicationState = .active }
-  for _ in 0..<5 {
-    assert(h.setCallUIActive(attemptId: "attempt", active: false, deadline: ""))
-    h.playHandoffPromptIfNeeded() // Includes the delayed background callback.
-    h.provider(h.provider, didActivate: AVAudioSession())
-  }
-  assert(h.handoffRecording == nil && AVAudioPlayer.successfulStarts == before + 1)
+  let h = Handler(), uuid = h.seed()
+  let before = UIApplication.shared.opened.count
+  h.openResponseScreen(h.pendingCall()!)
+  h.callDeadlinesByUUID[uuid] = Date().addingTimeInterval(-1)
+  h.expireCallsIfNeeded()
+  RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+  assert(h.provider.ended == [uuid] && h.pendingCall() == nil && h.activeCalls().isEmpty)
+  assert(UIApplication.shared.opened.count == before)
 }
-check("an app-first answer never starts native guidance when returning to CallKit") {
-  let h = Handler(); _ = h.seed(); h.audioSessionActive = false
-  let before = AVAudioPlayer.successfulStarts
-  assert(h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
-  h.provider(h.provider, didActivate: AVAudioSession())
-  UIApplication.shared.applicationState = .background
-  defer { UIApplication.shared.applicationState = .active }
-  assert(h.setCallUIActive(attemptId: "attempt", active: false, deadline: ""))
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording == nil && AVAudioPlayer.successfulStarts == before)
+check("an expired call cannot claim audio or resume from a self-link") {
+  let h = Handler(), uuid = h.seed()
+  h.callDeadlinesByUUID[uuid] = Date().addingTimeInterval(-1)
+  assert(!h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
+  assert(!h.handleAnsweredCallURL(URL(string: "asinu-lite://checkin-call/episode?attemptId=attempt&nativeAnswered=1")!))
+  assert(h.provider.ended == [uuid] && h.callTimeoutsByUUID.isEmpty)
 }
-check("ending a call cleans its receipt and a genuinely new call can speak once") {
-  let h = Handler(), first = h.seed()
-  let before = AVAudioPlayer.successfulStarts
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffPromptConsumed.contains(first))
+check("late backend acceptance cannot fulfill an expired CallKit action") {
+  let h = Handler(), uuid = h.seed(answered: false)
+  let action = CXAnswerCallAction(uuid)
+  h.provider(h.provider, perform: action)
+  h.callDeadlinesByUUID[uuid] = Date().addingTimeInterval(-1)
+  h.completeAnswer(attemptId: "attempt", connected: true, deadline: "")
+  assert(action.failed && !action.fulfilled && h.provider.ended == [uuid])
+  assert(h.answerActionsByUUID.isEmpty && h.answerTimeoutsByUUID.isEmpty)
+}
+check("expired hangup closes without creating a new continuation") {
+  let h = Handler(), uuid = h.seed()
+  h.callDeadlinesByUUID[uuid] = Date().addingTimeInterval(-1)
+  let action = CXEndCallAction(uuid)
+  h.provider(h.provider, perform: action)
+  assert(action.fulfilled && h.pendingCall() == nil && h.responseAfterAudioRelease == nil)
+}
+check("normal completion cancels the cap and its old work cannot end a newer call") {
+  let h = Handler(), first = h.seed(), oldTimeout = h.callTimeoutsByUUID[first]!
   h.endCall(attemptId: "attempt")
-  assert(h.handoffPromptConsumed.isEmpty && h.handoffRecording == nil)
-  h.provider(h.provider, didActivate: AVAudioSession())
-  assert(AVAudioPlayer.successfulStarts == before + 1)
-  let second = h.seed(lang: "en")
-  h.provider(h.provider, didActivate: AVAudioSession())
-  assert(h.handoffRecording?.isPlaying == true && h.handoffPromptConsumed == Set([second]))
-  assert(AVAudioPlayer.successfulStarts == before + 2)
-  h.endCall(attemptId: "attempt")
-  assert(h.handoffPromptConsumed.isEmpty)
+  assert(oldTimeout.isCancelled && h.callDeadlinesByUUID.isEmpty)
+  let second = h.seed()
+  oldTimeout.perform()
+  assert(h.provider.ended == [first] && h.callsByUUID[second] != nil)
+  assert(h.callTimeoutsByUUID.count == 1 && h.callDeadlinesByUUID.count == 1)
 }
-check("background UI events alone do not consume a never-played native prompt") {
-  let h = Handler(); _ = h.seed(); h.audioSessionActive = false
-  UIApplication.shared.applicationState = .background
-  defer { UIApplication.shared.applicationState = .active }
-  assert(h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
-  assert(h.handoffPromptConsumed.isEmpty)
-  h.provider(h.provider, didActivate: AVAudioSession())
-  assert(h.handoffRecording?.isPlaying == true)
-  h.stopHandoffPrompt()
+check("backend response deadline can still end a call earlier than ten minutes") {
+  let h = Handler(), uuid = h.seed()
+  let parser = ISO8601DateFormatter()
+  parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+  h.scheduleResponseTimeout(uuid: uuid, deadline: parser.string(from: Date().addingTimeInterval(0.04)))
+  RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+  assert(h.provider.ended == [uuid] && h.callTimeoutsByUUID.isEmpty && h.pendingCall() == nil)
 }
-check("unanswered or accept-pending calls cannot consume or play guidance") {
-  for scenario in ["unanswered", "accept-pending"] {
-    let h = Handler(); _ = h.seed(answered: scenario != "unanswered", accepted: scenario != "accept-pending")
-    let before = AVAudioPlayer.successfulStarts
-    h.provider(h.provider, didActivate: AVAudioSession())
-    assert(h.handoffRecording == nil && h.handoffPromptConsumed.isEmpty)
-    assert(AVAudioPlayer.successfulStarts == before)
-  }
+check("CallKit reset retires every call and timer without resuming guidance") {
+  let h = Handler(), uuid = h.seed(answered: false)
+  let action = CXAnswerCallAction(uuid)
+  h.provider(h.provider, perform: action)
+  let timeout = h.callTimeoutsByUUID[uuid]!
+  h.providerDidReset(h.provider)
+  assert(action.failed && timeout.isCancelled && !h.audioSessionActive)
+  assert(h.callsByUUID.isEmpty && h.callTimeoutsByUUID.isEmpty && h.callDeadlinesByUUID.isEmpty)
+  assert(h.answerTimeoutsByUUID.isEmpty && h.responseTimeoutsByUUID.isEmpty && h.pendingCall() == nil)
 }
-check("missing/failed recordings never use Apple speech in either locale") {
-  for language in ["vi", "en"] {
-  let h = Handler(); _ = h.seed(lang: language)
-  Bundle.recordingAvailable = false
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording == nil && h.handoffPromptConsumed.isEmpty)
-  Bundle.recordingAvailable = true; AVAudioPlayer.playSucceeds = false
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording == nil && h.handoffPromptConsumed.isEmpty)
-  AVAudioPlayer.playSucceeds = true
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording?.isPlaying == true)
-  h.stopHandoffPrompt()
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording == nil)
-  }
-}
-check("English locked-call guidance also uses the private Tuấn Anh recording") {
-  let h = Handler(); _ = h.seed(lang: "en")
-  h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording?.isPlaying == true && h.handoffRecording?.volume == 1)
-  assert(h.handoffRecording?.url.lastPathComponent == "asinu_checkin_open_app_en.mp3")
-  h.stopHandoffPrompt()
-}
-print("Native continuation and voice: \\(checks) runtime checks passed")
+print("Native CallKit handoff and timeout: \\(checks) runtime checks passed")
 `;
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'asinu-continuation-'));
 try {

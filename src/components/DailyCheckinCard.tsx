@@ -18,12 +18,14 @@ import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { GuideTarget } from '../features/guidance/GuidanceProvider';
+import { useCheckinPracticeEntry } from '../features/guidance/useCheckinPracticeEntry';
 
 // Cache session across hot reloads to prevent flash
 let _cachedSession: CheckinSession | null | undefined;
 
 export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   const router = useRouter();
+  const practice = useCheckinPracticeEntry();
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -54,7 +56,7 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
       <GuideTarget step="home.fine">
       <Pressable
         style={({ pressed }) => [styles.card, styles.cardFine, pressed && { opacity: 0.9 }]}
-        onPress={() => router.push({ pathname: '/checkin', params: { preset_status: 'fine' } })}
+        onPress={() => router.push({ pathname: '/checkin', params: { preset_status: 'fine', ...(practice ? { mode: 'guide' } : {}) } })}
         accessibilityRole="button"
         accessibilityLabel={t('checkinFine')}
       >
@@ -111,6 +113,7 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
  */
 export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
   const router = useRouter();
+  const practice = useCheckinPracticeEntry();
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -120,7 +123,7 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
     <GuideTarget step="home.unwell">
     <Pressable
       style={({ pressed }) => [styles.card, styles.cardInstant, pressed && { opacity: 0.9 }]}
-      onPress={() => router.push({ pathname: '/checkin', params: { mode: 'random' } })}
+      onPress={() => router.push({ pathname: '/checkin', params: { mode: practice ? 'guide' : 'random' } })}
       accessibilityRole="button"
       accessibilityLabel={t('checkinInstantTitle')}
     >

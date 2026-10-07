@@ -10,8 +10,8 @@ import { guidanceAudio } from './guidance.audio';
 import { guideColors as c } from './guidance.model';
 
 /** Reuses the existing, consented transcription endpoint, never submits an answer. */
-export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false }: {
-  onText: (text: string) => void; onBeforeAi: () => Promise<boolean>; disabled?: boolean;
+export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false, practice = false }: {
+  onText: (text: string) => void; onBeforeAi: () => Promise<boolean>; disabled?: boolean; practice?: boolean;
 }) {
   const { t, i18n } = useTranslation('onboarding');
   const focused = useIsFocused();
@@ -42,6 +42,13 @@ export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false }: {
     try {
       await guidanceAudio.stop();
       if (!current()) return;
+      if (practice) {
+        if (recording) {
+          setRecording(false); onText(t('guidance.practiceVoiceExample'));
+          showToast(t('guidance.practiceVoiceNotice'), 'info');
+        } else setRecording(true);
+        return;
+      }
       if (recorder.current) {
         const previous = recorder.current; recorder.current = null;
         await previous.stopAndUnloadAsync();
@@ -67,9 +74,11 @@ export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false }: {
   };
   const label = t(recording ? 'guidance.stopRecording' : 'guidance.speak');
   return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled}
-    onPress={() => void press()} style={{ minHeight: 56, padding: 12, borderRadius: 14,
-      backgroundColor: c.primary, alignItems: 'center', gap: 4, maxWidth: 110 }}>
-    {busy ? <ActivityIndicator color={c.onPrimary} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={c.onPrimary} />}
-    <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: c.onPrimary }}>{label}</Text>
+    accessibilityState={{ disabled: busy || disabled, busy }}
+    onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, padding: 12, borderRadius: 14,
+      backgroundColor: c.actionBackground, alignItems: 'center', gap: 4, maxWidth: 110,
+      opacity: busy || disabled ? 0.5 : pressed ? 0.8 : 1 })}>
+    {busy ? <ActivityIndicator color={c.onAction} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={c.onAction} />}
+    <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: c.onAction }}>{label}</Text>
   </Pressable>;
 }

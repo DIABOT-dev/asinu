@@ -31,6 +31,7 @@
     "test:checkin-audio": "node scripts/check-checkin-call-audio.mjs && node scripts/check-checkin-call-screen.mjs && node scripts/check-checkin-call-completion.mjs",
     "test:interactions": "node scripts/check-interactions.mjs && node scripts/check-navigation-stack.mjs",
     "test:guidance": "node scripts/check-guided-onboarding.mjs",
+    "test:checkin-practice": "node scripts/check-checkin-practice.mjs",
     "test:security": "node scripts/check-security.mjs",
     "build:android": "cd android && ./gradlew bundleRelease",
     "build:android:release": "npm run build:android",

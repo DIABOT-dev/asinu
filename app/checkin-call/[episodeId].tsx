@@ -147,7 +147,7 @@ function AuthenticatedCheckinCallScreen() {
     try {
       const stopped = stopCallAudio();
       if (current.attempt && !current.ended) {
-        // Silence native unlock guidance before the in-app recording starts.
+        // Claim CallKit's audio session before the in-app recording starts.
         // A late bridge response must not revive a cancelled prompt.
         await setVoipCallUIActive(current.attempt.id, true,
           current.triageOpen ? current.attempt.next_action_at : current.attempt.confirm_deadline);
@@ -186,7 +186,7 @@ function AuthenticatedCheckinCallScreen() {
     const subscription = AppState.addEventListener('change', state => {
       const current = audioContext.current;
       if (state === 'active') {
-        // Silence native guidance on return, but never replay app speech.
+        // Restore audio ownership on return, without replaying app speech.
         if (callScreenFocused.current && current.attempt && current.joined && !current.ended) {
           void setVoipCallUIActive(current.attempt.id, true,
             current.triageOpen ? current.attempt.next_action_at : current.attempt.confirm_deadline);

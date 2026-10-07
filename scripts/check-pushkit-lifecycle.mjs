@@ -65,8 +65,10 @@ final class Handler {
   var endedAttempts: [String: Date] = [:]
   var audioConfigurations = 0
   var ringTimers = 0
+  var callTimers: [UUID] = []
   func configureAudioSession() { audioConfigurations += 1 }
   func scheduleRingTimeout(uuid: UUID, attemptId: String, seconds: Int) { ringTimers += 1 }
+  func scheduleCallTimeout(uuid: UUID) { callTimers.append(uuid) }
   func endCall(attemptId: String) {
     guard let uuid = uuidByAttempt[attemptId] else { return }
     provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
@@ -92,6 +94,7 @@ test("a genuine call reports synchronously and completes only after CallKit") {
   let h = Handler(); var done = 0
   h.reportIncoming(payload: payload) { done += 1 }
   assert(h.provider.reports.count == 1 && done == 0 && h.ringTimers == 0)
+  assert(h.callTimers == [h.uuidByAttempt["attempt"]!])
   assert(h.provider.configuration.ringtoneSound == "asinu_incoming.caf")
   assert(h.provider.updates.last?.hasVideo == true)
   h.provider.finish()
@@ -121,6 +124,7 @@ for invalid: [AnyHashable: Any] in [
     h.reportIncoming(payload: invalid) { done += 1 }
     assert(h.provider.reports.count == 1 && done == 0)
     assert(h.callsByUUID.isEmpty && h.audioConfigurations == 0)
+    assert(h.callTimers.isEmpty)
     assert(h.provider.updates.last?.hasVideo == false)
     h.provider.finish()
     assert(done == 1 && h.provider.ended.count == 1 && h.ringTimers == 0)
@@ -143,6 +147,7 @@ test("duplicate push does not replace an answered call or restart its timer") {
   assert(h.provider.updates.last?.hasVideo == false)
   h.provider.finish()
   assert(done == 1 && h.ringTimers == 1 && h.callsByUUID.count == 1 && !h.provider.ended.contains(original))
+  assert(h.callTimers == [original])
 }
 test("CallKit rejection still completes PushKit exactly once and preserves the live call") {
   let h = Handler(); h.reportIncoming(payload: payload) {}; h.provider.finish()
@@ -161,6 +166,7 @@ test("fast answer before the incoming completion does not re-arm ringing") {
   h.reportIncoming(payload: payload) { done += 1 }
   h.callsByUUID[h.uuidByAttempt["attempt"]!]?["nativeAnswered"] = "1"
   h.provider.finish(); assert(done == 1 && h.ringTimers == 0)
+  assert(h.callTimers.count == 1)
 }
 test("late completion after a remote end cannot resurrect a call") {
   let h = Handler(); var done = 0

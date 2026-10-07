@@ -40,11 +40,14 @@ import { showToast } from '../../src/stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
-import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
+import { GuidePracticeScope, GuideScrollScope, GuideTarget, useGuideAcknowledgement } from '../../src/features/guidance/GuidanceProvider';
 import { useReviewGuidance } from '../../src/features/guidance/GuidanceSettings';
 import { useGuidanceStore } from '../../src/features/guidance/guidance.store';
 import { VoiceAnswerButton } from '../../src/features/guidance/VoiceAnswerButton';
 import { useAuthStore } from '../../src/features/auth/auth.store';
+import { createCheckinPractice } from '../../src/features/guidance/checkin.practice';
+import { guidanceAudio } from '../../src/features/guidance/guidance.audio';
+import { guideColors as guideColors } from '../../src/features/guidance/guidance.model';
 
 const MAX_TRIAGE_QUESTIONS = 4;
 
@@ -136,11 +139,17 @@ const BODY_LOCATION_OPTIONS: Array<{ key: BodyLocation; icon: MciName; labelKey:
   { key: 'mental', icon: 'brain', labelKey: 'checkinLocationMental', descKey: 'checkinLocationMentalDesc' },
 ];
 
-export default function CheckinScreen() {
-  const reviewGuidance = useReviewGuidance();
+export default function CheckinRoute() {
+  const params = useLocalSearchParams<{ mode?: string; checkin_id?: string; guide?: string }>();
+  return <CheckinScreen key={`${params.mode || 'daily'}:${params.checkin_id || ''}:${params.guide || ''}`} />;
+}
+
+function CheckinScreen() {
+  const reviewGuidance = useReviewGuidance('checkin');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('home');
+  const { t: tg } = useTranslation('onboarding');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
@@ -153,16 +162,23 @@ export default function CheckinScreen() {
     mode?: string;
     preset_status?: string;
     guide?: string;
+    guide_followup?: string;
   }>();
-  const isFollowUp = params.mode === 'followup';
+  const isPractice = params.mode === 'guide';
+  const practiceRunKey = useRef(`checkin-practice:${Date.now()}:${Math.random()}`).current;
+  const checkinClient = useMemo(() => isPractice ? createCheckinPractice(t) : checkinApi, [isPractice, t]);
+  const [practiceFollowup, setPracticeFollowup] = useState(params.guide_followup === '1');
+  const [practiceRevision, setPracticeRevision] = useState(0);
+  const isFollowUp = isPractice ? practiceFollowup : params.mode === 'followup';
   const isRandom = params.mode === 'random';
   const isResultPreview = params.mode === 'result_preview';
-  const existingCheckinId = params.checkin_id ? parseInt(params.checkin_id) : null;
+  const existingCheckinId = isPractice ? (practiceFollowup ? -1 : null)
+    : params.checkin_id ? parseInt(params.checkin_id) : null;
   const presetStatus = params.preset_status as CheckinStatus | undefined;
 
   const [screen, setScreen] = useState<Screen>(isResultPreview ? 'done' : 'status');
   const [loading, setLoading] = useState(
-    !isResultPreview && !isFollowUp && !existingCheckinId && !isRandom,
+    !isPractice && !isResultPreview && !isFollowUp && !existingCheckinId && !isRandom,
   );
   const [session, setSession] = useState<CheckinSession | null>(() =>
     isResultPreview
@@ -176,9 +192,9 @@ export default function CheckinScreen() {
   // Auto-detect: đã check-in hôm nay chưa? Nếu rồi → redirect đúng mode
   // Random mode: bỏ qua check, luôn cho check-in
   useEffect(() => {
-    if (isResultPreview || isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
+    if (isPractice || isResultPreview || isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
     let mounted = true;
-    checkinApi.getToday()
+    checkinClient.getToday()
       .then(res => {
         if (!mounted) return;
         if (res.session) {
@@ -196,15 +212,15 @@ export default function CheckinScreen() {
       })
       .catch(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, [existingCheckinId, isFollowUp, isRandom, isResultPreview, router]);
+  }, [checkinClient, existingCheckinId, isFollowUp, isPractice, isRandom, isResultPreview, router]);
 
   useEffect(() => {
-    if (screen !== 'done' || isResultPreview || !session || session.id <= 0) return;
+    if (screen !== 'done' || isPractice || isResultPreview || !session || session.id <= 0) return;
     const guidance = useGuidanceStore.getState();
     if (guidance.account === String(userId) && !guidance.progress.firstCheckin) {
       guidance.update({ firstCheckin: true });
     }
-  }, [guidanceReady, isResultPreview, screen, session, userId]);
+  }, [guidanceReady, isPractice, isResultPreview, screen, session, userId]);
 
   // Auto-start nếu có preset_status từ FAB
   const presetHandled = useRef(false);
@@ -264,11 +280,12 @@ export default function CheckinScreen() {
   const requestAiConsent = useCallback(async (
     resumeAfterConsent?: () => void | Promise<void>,
   ): Promise<boolean> => {
+    if (isPractice) return true; // No health details, audio or examples leave the device.
     if (await hasAiDataConsent()) return true;
     pendingAiActionRef.current = resumeAfterConsent || null;
     setShowAiConsent(true);
     return false;
-  }, []);
+  }, [isPractice]);
 
   const handleAiConsentAgree = useCallback(() => {
     setShowAiConsent(false);
@@ -300,11 +317,11 @@ export default function CheckinScreen() {
       ) return;
       setLoading(true);
       try {
-        const res = await checkinApi.followUp(existingCheckinId, status);
+        const res = await checkinClient.followUp(existingCheckinId, status);
         setSession(res.session);
         if (status === 'fine') {
           setScreen('done');
-          showToast(t('checkinSaved'), 'success');
+          showToast(isPractice ? tg('guidance.practiceSaved') : t('checkinSaved'), 'success');
           setLoading(false);
           return;
         }
@@ -322,10 +339,10 @@ export default function CheckinScreen() {
     if (status === 'fine') {
       setLoading(true);
       try {
-        const res = await checkinApi.start(status, null, null, isRandom);
+        const res = await checkinClient.start(status, null, null, isRandom);
         setSession(res.session);
         setScreen('done');
-        showToast(t('checkinSaved'), 'success');
+        showToast(isPractice ? tg('guidance.practiceSaved') : t('checkinSaved'), 'success');
         setLoading(false);
       } catch (err: any) {
         if (__DEV__) console.warn('[Checkin] handleStatusSelect fine:', err?.message || err);
@@ -342,7 +359,7 @@ export default function CheckinScreen() {
       if (!(await requestAiConsent(() => handleStatusSelect(status)))) return;
       setLoading(true);
       try {
-        const res = await checkinApi.start(status, null, null, isRandom);
+        const res = await checkinClient.start(status, null, null, isRandom);
         setSession(res.session);
         setScreen('triage');
         await fetchNextQuestion(res.session, [], true);
@@ -357,7 +374,7 @@ export default function CheckinScreen() {
     // "Hơi mệt" / "Rất mệt" keep the body-location shortcut.
     setPendingStatus(status);
     setScreen('location');
-  }, [isFollowUp, existingCheckinId, requestAiConsent]);
+  }, [checkinClient, isPractice, isFollowUp, existingCheckinId, requestAiConsent]);
 
   const handleLocationsConfirm = useCallback(async (locs: BodyLocation[], other: string) => {
     if (!pendingStatus) return;
@@ -368,7 +385,7 @@ export default function CheckinScreen() {
     if (!(await requestAiConsent(() => handleLocationsConfirm(locs, other)))) return;
     setLoading(true);
     try {
-      const res = await checkinApi.start(
+      const res = await checkinClient.start(
         pendingStatus,
         locs,
         other.trim() || null,
@@ -382,7 +399,7 @@ export default function CheckinScreen() {
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
       setLoading(false);
     }
-  }, [pendingStatus, language, requestAiConsent]);
+  }, [checkinClient, pendingStatus, language, requestAiConsent]);
 
   // ─── Triage ────────────────────────────────────────────────────────────────
 
@@ -393,7 +410,7 @@ export default function CheckinScreen() {
     }
     if (!skipLoadingStart) setLoading(true);
     try {
-      const result = await checkinApi.triage(sess.id, prevAnswers);
+      const result = await checkinClient.triage(sess.id, prevAnswers);
       if (__DEV__) console.log('[Checkin] triage result:', JSON.stringify(result));
       if ((result as any).ok === false) {
         throw new Error((result as any).error || 'Triage API error');
@@ -527,6 +544,18 @@ export default function CheckinScreen() {
   };
 
   // ─── Render screens ────────────────────────────────────────────────────────
+  const repeatPractice = (followup = false) => {
+    void guidanceAudio.stop();
+    setPracticeRevision(value => value + 1);
+    setPracticeFollowup(followup); setSession(null); setAnswers([]); setTriageSummary(null);
+    setPendingStatus(null); setScreen('status'); setLoading(false);
+    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+  const closeCheckin = () => {
+    void guidanceAudio.stop();
+    if (isPractice && screen === 'done') useGuidanceStore.getState().acknowledge('checkin.finished');
+    if (router.canGoBack()) router.back(); else router.replace('/(tabs)/home');
+  };
 
   if (loading && screen === 'status') {
     return (
@@ -537,7 +566,7 @@ export default function CheckinScreen() {
   }
 
   return (
-    <>
+    <GuidePracticeScope runKey={`${practiceRunKey}:${params.guide || ''}:${practiceRevision}`} enabled={isPractice}>
       <Stack.Screen options={{ headerShown: false }} />
       <View
         style={{
@@ -560,7 +589,11 @@ export default function CheckinScreen() {
             }
           }}
         />
-        <Text
+        {isPractice ? <GuideTarget step="checkin.practice" style={{ flex: 1, marginHorizontal: 12 }}>
+          <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: guideColors.ink, textAlign: 'center' }}>
+            {tg('guidance.practiceTitle')}
+          </Text>
+        </GuideTarget> : <Text
           style={{
             fontSize: 17,
             fontWeight: '700',
@@ -576,7 +609,7 @@ export default function CheckinScreen() {
             : isFollowUp
               ? t('checkinHeaderFollowUp')
               : t('checkinHeaderTitle')}
-        </Text>
+        </Text>}
         <Pressable
           accessibilityLabel={t('checkinGuide.badge')}
           accessibilityRole="button"
@@ -624,7 +657,7 @@ export default function CheckinScreen() {
           }
         }}
       >
-        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} />}
+        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} practice={isPractice} />}
         {screen === 'location' && (
           <LocationScreen
             styles={styles}
@@ -632,6 +665,7 @@ export default function CheckinScreen() {
             onBack={() => { setPendingStatus(null); setScreen('status'); }}
             loading={loading}
             onBeforeAi={requestAiConsent}
+            practice={isPractice}
           />
         )}
         {screen === 'triage' && (
@@ -649,6 +683,7 @@ export default function CheckinScreen() {
             continuity={currentContinuity}
             greeting={currentGreeting}
             onBeforeAi={requestAiConsent}
+            practice={isPractice}
           />
         )}
         {screen === 'done' && (
@@ -658,12 +693,14 @@ export default function CheckinScreen() {
             triageSummary={triageSummary}
             isFollowUp={isFollowUp}
             answers={answers}
-            onClose={() => router.back()}
+            onClose={closeCheckin}
+            practice={isPractice}
+            onRepeatPractice={repeatPractice}
           />
         )}
       </ScrollView>
       </GuideScrollScope>
-    </>
+    </GuidePracticeScope>
   );
 }
 
@@ -675,10 +712,12 @@ function StatusScreen({
   styles,
   onSelect,
   isFollowUp,
+  practice = false,
 }: {
   styles: Styles;
   onSelect: (s: CheckinStatus) => void;
   isFollowUp: boolean;
+  practice?: boolean;
 }) {
   const { t } = useTranslation('home');
 
@@ -705,13 +744,13 @@ function StatusScreen({
         <Text style={styles.subheading}>{t('checkinSubheading')}</Text>
       </Animated.View>
 
-      <View style={styles.optionList}>
+      <GuideTarget step="checkin.status" style={styles.optionList} enabled={practice}>
         {CHECKIN_STATUS_CHOICES.map((choice, idx) => (
           <Animated.View key={choice.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
             <CheckinStatusChoice choice={choice} onSelect={onSelect} />
           </Animated.View>
         ))}
-      </View>
+      </GuideTarget>
     </View>
   );
 }
@@ -724,15 +763,18 @@ function LocationScreen({
   onBack,
   loading,
   onBeforeAi,
+  practice = false,
 }: {
   styles: Styles;
   onConfirm: (locs: BodyLocation[], other: string) => void;
   onBack: () => void;
   loading: boolean;
   onBeforeAi: () => Promise<boolean>;
+  practice?: boolean;
 }) {
   const { t } = useTranslation('home');
   const { t: tg } = useTranslation('onboarding');
+  const acknowledgeGuide = useGuideAcknowledgement();
   const [selected, setSelected] = useState<Set<BodyLocation>>(new Set());
   const [other, setOther] = useState('');
 
@@ -766,7 +808,7 @@ function LocationScreen({
         {BODY_LOCATION_OPTIONS.map((opt, optionIndex) => {
           const isSelected = selected.has(opt.key);
           return (
-            <GuideTarget key={opt.key} step="checkin.choices" enabled={optionIndex === 0 && !loading}>
+            <GuideTarget key={opt.key} step="checkin.location" enabled={practice && optionIndex === 0 && !loading}>
             <Pressable
               key={opt.key}
               onPress={() => !loading && toggle(opt.key)}
@@ -816,7 +858,7 @@ function LocationScreen({
       </View>
 
       {/* Free-text "Khác" — user gõ vùng tự do (đồng bộ kích thước với card body location ở trên) */}
-      <GuideTarget step="checkin.other" enabled={!loading}>
+      <GuideTarget step="checkin.location_other" enabled={practice && !loading}>
       <View style={{ marginTop: spacing.lg }}>
         <Text allowFontScaling style={{ color: colors.textPrimary, marginBottom: spacing.sm, fontSize: 22, fontWeight: '700' }}>
           {tg('guidance.otherAnswer')}
@@ -833,8 +875,10 @@ function LocationScreen({
             gap: spacing.md,
           }}
         >
-          <VoiceAnswerButton onText={text => setOther(previous => `${previous} ${text}`.trim())}
-            onBeforeAi={onBeforeAi} disabled={loading} />
+          <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
+            <VoiceAnswerButton onText={text => { setOther(previous => `${previous} ${text}`.trim()); acknowledgeGuide('checkin.voice'); }}
+              onBeforeAi={onBeforeAi} disabled={loading} practice={practice} />
+          </GuideTarget>
           <TextInput
             allowFontScaling
             value={other}
@@ -856,22 +900,25 @@ function LocationScreen({
       </View>
       </GuideTarget>
 
+      <GuideTarget step="checkin.location_confirm" enabled={practice && canConfirm}>
       <Pressable
         onPress={() => onConfirm(Array.from(selected), other)}
         disabled={!canConfirm}
         style={({ pressed }) => [{
           marginTop: spacing.lg,
-          backgroundColor: canConfirm ? '#00897b' : '#cbd5e1',
+          backgroundColor: canConfirm ? guideColors.actionBackground : '#cbd5e1',
+          minHeight: 60,
           paddingVertical: 15,
           borderRadius: 18,
           alignItems: 'center',
           opacity: pressed ? 0.88 : 1,
         }]}
       >
-        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
+        <Text allowFontScaling style={{ color: guideColors.onAction, fontWeight: '800', fontSize: 22 }}>
           {confirmLabel}
         </Text>
       </Pressable>
+      </GuideTarget>
     </View>
   );
 }
@@ -892,6 +939,7 @@ function TriageScreen({
   empathy,
   continuity,
   greeting,
+  practice = false,
 }: {
   styles: Styles;
   question: string;
@@ -906,8 +954,11 @@ function TriageScreen({
   empathy?: { text: string; templateId: string } | null;
   continuity?: { text: string; templateId: string } | null;
   greeting?: { displayText: string; templateId: string } | null;
+  practice?: boolean;
 }) {
   const { t } = useTranslation('home');
+  const { t: tg } = useTranslation('onboarding');
+  const acknowledgeGuide = useGuideAcknowledgement();
   const [custom, setCustom] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
@@ -930,6 +981,14 @@ function TriageScreen({
   }, []);
 
   const handleMicPress = async () => {
+    await guidanceAudio.stop();
+    if (practice) {
+      if (isRecording) {
+        setIsRecording(false); setCustom(tg('guidance.practiceVoiceExample')); acknowledgeGuide('checkin.voice');
+        showToast(tg('guidance.practiceVoiceNotice'), 'info');
+      } else setIsRecording(true);
+      return;
+    }
     if (isRecording) {
       // Stop recording
       setIsRecording(false);
@@ -1008,6 +1067,8 @@ function TriageScreen({
   };
 
   const hasSelection = selected.size > 0 || custom.trim().length > 0;
+  const firstOptionGroupIndex = optionsGrouped?.findIndex(group => group.items.length > 0) ?? -1;
+  const hasAnswerChoices = firstOptionGroupIndex >= 0 || options.length > 0;
 
   return (
     <View style={styles.section}>
@@ -1099,7 +1160,7 @@ function TriageScreen({
                 <Ionicons name="heart" size={16} color="#fff" />
               </View>
               <View style={styles.currentQuestionBubble}>
-                <Text style={styles.currentQuestionText}>{question}</Text>
+                <Text allowFontScaling style={[styles.currentQuestionText, practice && { fontSize: 22, lineHeight: 32 }]}>{question}</Text>
               </View>
             </Animated.View>
 
@@ -1113,7 +1174,7 @@ function TriageScreen({
 
             {/* Option cards — render grouped theo location nếu có optionsGrouped (T3
                 aware T2). Else render flat list như cũ. */}
-            {optionsGrouped && optionsGrouped.length > 0 ? (
+            {optionsGrouped && firstOptionGroupIndex >= 0 ? (
               <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
                 {optionsGrouped.map((group, groupIndex) => (
                   <View key={group.key} style={{ marginBottom: spacing.md }}>
@@ -1133,7 +1194,8 @@ function TriageScreen({
                     {group.items.map((opt, optionIndex) => {
                       const isSelected = selected.has(opt);
                       return (
-                        <GuideTarget key={`${group.key}-${opt}`} step="checkin.choices" enabled={groupIndex === 0 && optionIndex === 0 && !loading}>
+                        <GuideTarget key={`${group.key}-${opt}`} step="checkin.choices" enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
+                        <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
                         <Pressable
                           key={`${group.key}-${opt}`}
                           style={[styles.optionCard, isSelected && styles.optionCardSelected]}
@@ -1144,7 +1206,7 @@ function TriageScreen({
                           </View>
                           <Text allowFontScaling style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
                         </Pressable>
-                        </GuideTarget>
+                        </GuideTarget></GuideTarget>
                       );
                     })}
                   </View>
@@ -1155,7 +1217,8 @@ function TriageScreen({
                 {options.map((opt, optionIndex) => {
                   const isSelected = selected.has(opt);
                   return (
-                    <GuideTarget key={opt} step="checkin.choices" enabled={optionIndex === 0 && !loading}>
+                    <GuideTarget key={opt} step="checkin.choices" enabled={practice && optionIndex === 0 && !loading}>
+                    <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && optionIndex === 0 && !loading}>
                     <Pressable
                       key={opt}
                       style={[
@@ -1178,15 +1241,18 @@ function TriageScreen({
                         <Ionicons name="chevron-forward" size={16} color={colors.primary + '66'} />
                       )}
                     </Pressable>
-                    </GuideTarget>
+                    </GuideTarget></GuideTarget>
                   );
                 })}
               </Animated.View>
             )}
 
             {/* Custom text input + mic — show when multi-select, allowFreeText, or no options */}
-            {(multiSelect || allowFreeText || options.length === 0) && <GuideTarget step="checkin.other" enabled={!loading}>
+            {(multiSelect || allowFreeText || options.length === 0) && <GuideTarget step="checkin.other" enabled={practice && !loading} withoutChoices={!hasAnswerChoices}>
             <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
+              <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
+              {practice ? <VoiceAnswerButton practice onBeforeAi={onBeforeAi}
+                onText={text => { setCustom(text); acknowledgeGuide('checkin.voice'); }} /> :
               <Pressable
                 onPress={handleMicPress}
                 style={[styles.micBtn, isRecording && styles.micBtnActive]}
@@ -1201,10 +1267,11 @@ function TriageScreen({
                     color={isRecording ? '#fff' : colors.primary}
                   />
                 )}
-              </Pressable>
+              </Pressable>}</GuideTarget>
               <View style={styles.inputWrap}>
                 <TextInput
-                  style={[styles.input, { fontSize: 15 }]}
+                  allowFontScaling
+                  style={[styles.input, { fontSize: practice ? 22 : 15 }]}
                   placeholder={isTranscribing ? '...' : t('checkinCustomPlaceholder')}
                   placeholderTextColor={colors.textSecondary + '77'}
                   value={custom}
@@ -1216,7 +1283,7 @@ function TriageScreen({
             </Animated.View></GuideTarget>}
 
             {/* Confirm button — show when multi-select OR no options (text-only input) */}
-            {(multiSelect || options.length === 0) && <View style={styles.confirmWrap}>
+            {(multiSelect || options.length === 0 || allowFreeText && custom.trim().length > 0) && <GuideTarget step="checkin.confirm" enabled={practice && hasSelection && !loading}><View style={styles.confirmWrap}>
               <Pressable
                 style={({ pressed }) => [
                   styles.confirmBtn,
@@ -1226,8 +1293,8 @@ function TriageScreen({
                 disabled={!hasSelection}
                 onPress={handleConfirm}
               >
-                <View style={[styles.confirmBtnGradient, { backgroundColor: hasSelection ? colors.primaryLight : colors.surfaceMuted }]}>
-                  <Text style={[styles.confirmBtnText, { color: hasSelection ? colors.primaryDark : colors.textSecondary }]}>
+                <View style={[styles.confirmBtnGradient, { backgroundColor: hasSelection ? (practice ? guideColors.actionBackground : colors.primaryLight) : colors.surfaceMuted, minHeight: practice ? 60 : undefined }]}>
+                  <Text allowFontScaling style={[styles.confirmBtnText, practice && { fontSize: 22 }, { color: hasSelection ? (practice ? guideColors.onAction : colors.primaryDark) : colors.textSecondary }]}>
                     {t('checkinConfirmSelection')}
                     {selected.size > 0 ? ` (${selected.size})` : ''}
                   </Text>
@@ -1238,7 +1305,7 @@ function TriageScreen({
                   />
                 </View>
               </Pressable>
-            </View>}
+            </View></GuideTarget>}
           </>
         )}
       </View>
@@ -1369,6 +1436,8 @@ function DoneScreen({
   isFollowUp,
   answers,
   onClose,
+  practice = false,
+  onRepeatPractice,
 }: {
   styles: Styles;
   session: CheckinSession | null;
@@ -1376,20 +1445,27 @@ function DoneScreen({
   isFollowUp: boolean;
   answers?: TriageAnswer[];
   onClose: () => void;
+  practice?: boolean;
+  onRepeatPractice?: (followup?: boolean) => void;
 }) {
   const { t, i18n } = useTranslation('home');
+  const { t: tg } = useTranslation('onboarding');
   const router = useRouter();
+  const [practiceSeverity, setPracticeSeverity] = useState<'low' | 'medium' | 'high' | 'emergency' | null>(null);
   const conclusionSpeechPlayedRef = useRef(false);
   const [speechReplayKey, setSpeechReplayKey] = useState(0);
   const language = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi';
   const { audio: conclusionAudio, play: playConclusionAudio, stopAudio: stopConclusionAudio } =
     useCheckinCallAudio(null, language, t);
   const isSpeakingConclusion = ['loading', 'playing'].includes(conclusionAudio.phase);
-  const isFine = session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
+  const isFine = practice && practiceSeverity ? practiceSeverity === 'low'
+    : session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
 
-  const isEmergency = triageSummary?.severity === 'emergency';
-  const isHigh = triageSummary?.severity === 'high';
-  const isMedium = triageSummary?.severity === 'medium';
+  const severity = practice && practiceSeverity ? practiceSeverity : triageSummary?.severity;
+  const practiceText = practice ? { fontSize: 22, lineHeight: 32, color: guideColors.ink } : undefined;
+  const isEmergency = severity === 'emergency';
+  const isHigh = severity === 'high';
+  const isMedium = severity === 'medium';
 
   // Severity configurations
   const pillBg = isEmergency
@@ -1425,6 +1501,7 @@ function DoneScreen({
     : 'checkmark-circle';
 
   const handleCall115 = () => {
+    if (practice) { showToast(tg('guidance.practiceActionNotice'), 'info'); return; }
     Linking.openURL('tel:115').catch(() => {});
   };
 
@@ -1474,6 +1551,7 @@ function DoneScreen({
     .join('. ') + '.';
 
   useEffect(() => {
+    if (practice) return; // The bundled coach recordings explain example results offline.
     const timer = setTimeout(() => {
       if (conclusionSpeechPlayedRef.current || !conclusionSpeechText) {
         return;
@@ -1488,9 +1566,10 @@ function DoneScreen({
       clearTimeout(timer);
       void stopConclusionAudio();
     };
-  }, [conclusionSpeechText, language, session?.id, speechReplayKey, playConclusionAudio, stopConclusionAudio]);
+  }, [practice, conclusionSpeechText, language, session?.id, speechReplayKey, playConclusionAudio, stopConclusionAudio]);
 
   const replayConclusionSpeech = () => {
+    if (practice) { void guidanceAudio.speak('practice_result', language, true); return; }
     conclusionSpeechPlayedRef.current = false;
     setSpeechReplayKey((value) => value + 1);
   };
@@ -1516,16 +1595,17 @@ function DoneScreen({
           color="#007F6D"
         />
         <Text
-          style={{
+          style={[{
             flex: 1,
             color: '#0F5F54',
             fontSize: 13,
             lineHeight: 18,
             fontWeight: '600',
-          }}
+          }, practiceText]}
         >
-          {t('checkinResultPreviewNotice')}
+          {practice ? tg('guidance.practiceResultTitle') : t('checkinResultPreviewNotice')}
         </Text>
+        <GuideTarget step="checkin.result_replay" enabled={practice}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('checkinReplaySound')}
@@ -1543,6 +1623,7 @@ function DoneScreen({
         >
           <Ionicons name="refresh" size={21} color="#007F6D" />
         </Pressable>
+        </GuideTarget>
       </View>
 
       {conclusionAudio.phase === 'error' && (
@@ -1564,15 +1645,15 @@ function DoneScreen({
 
       {/* Hero Badge with radiating burst rays */}
       <Animated.View entering={FadeIn.duration(450)}>
-        <CheckinHeroBadge severity={triageSummary?.severity} isFine={isFine} />
+        <CheckinHeroBadge severity={severity} isFine={isFine} />
       </Animated.View>
 
       {/* Title & Verdict Subtitle */}
       <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ alignItems: 'center', paddingHorizontal: 12 }}>
         <Text style={{ fontSize: 24, fontWeight: '800', color: '#0F172A', textAlign: 'center', letterSpacing: -0.3 }}>
-          {t('checkinDoneNoted')}
+          {practice ? tg('guidance.practiceResultTitle') : t('checkinDoneNoted')}
         </Text>
-        <Text style={{ fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 21, marginTop: 6, maxWidth: 330 }}>
+        <Text allowFontScaling style={[{ fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 21, marginTop: 6, maxWidth: 330 }, practiceText]}>
           {cleanSubtitle}
         </Text>
       </Animated.View>
@@ -1595,6 +1676,7 @@ function DoneScreen({
           }}
         >
           {/* Status Pill */}
+          <GuideTarget step="checkin.result_status" enabled={practice}>
           <View
             style={{
               flexDirection: 'row',
@@ -1608,13 +1690,15 @@ function DoneScreen({
             }}
           >
             <Ionicons name={pillIcon as any} size={14} color={pillColor} />
-            <Text style={{ fontSize: 12, fontWeight: '800', color: pillColor, letterSpacing: 0.4 }}>
+            <Text allowFontScaling style={[{ fontSize: 12, fontWeight: '800', color: pillColor, letterSpacing: 0.4 }, practiceText]}>
               {pillText}
             </Text>
           </View>
+          </GuideTarget>
 
           {/* Emergency Call Button (Only for Emergency) */}
           {isEmergency && (
+            <GuideTarget step="checkin.result_emergency" enabled={practice}>
             <View>
               <Pressable
                 onPress={handleCall115}
@@ -1637,7 +1721,7 @@ function DoneScreen({
                 ]}
               >
                 <Ionicons name="call" size={22} color="#FFFFFF" />
-                <Text style={{ flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.4, lineHeight: 24, textAlign: 'center' }}>
+                <Text allowFontScaling style={[{ flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.4, lineHeight: 24, textAlign: 'center' }, practice && { fontSize: 22, lineHeight: 32 }]}>
                   {t('checkinCallEmergency')}
                 </Text>
                 <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
@@ -1646,9 +1730,11 @@ function DoneScreen({
                 {t('checkinCallEmergencyHint')}
               </Text>
             </View>
+            </GuideTarget>
           )}
 
           {/* Triệu chứng đã ghi nhận */}
+          <GuideTarget step="checkin.result_symptoms" enabled={practice}>
           <View style={{ gap: 6 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons
@@ -1656,16 +1742,18 @@ function DoneScreen({
                 size={18}
                 color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
               />
-              <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
+              <Text allowFontScaling style={[{ flex: 1, fontSize: 15, fontWeight: '700', color: '#0F172A' }, practiceText]}>
                 {t('checkinRecordedSymptoms')}
               </Text>
             </View>
-            <Text style={{ fontSize: 14, color: '#334155', lineHeight: 22 }}>
+            <Text allowFontScaling style={[{ fontSize: 14, color: '#334155', lineHeight: 22 }, practiceText]}>
               {recordedSymptoms}
             </Text>
           </View>
+          </GuideTarget>
 
           {/* Lời khuyên box */}
+          <GuideTarget step="checkin.result_advice" enabled={practice}>
           <View
             style={{
               flexDirection: 'row',
@@ -1685,14 +1773,15 @@ function DoneScreen({
               style={{ marginTop: 1 }}
             />
             <View style={{ flex: 1, gap: 3 }}>
-              <Text style={{ flexShrink: 1, fontSize: 14, fontWeight: '700', color: isFine ? '#166534' : '#92400E' }}>
+              <Text allowFontScaling style={[{ flexShrink: 1, fontSize: 14, fontWeight: '700', color: isFine ? '#166534' : '#92400E' }, practiceText]}>
                 {t('checkinAdvice')}
               </Text>
-              <Text style={{ fontSize: 13.5, color: isFine ? '#14532D' : '#78350F', lineHeight: 20 }}>
+              <Text allowFontScaling style={[{ fontSize: 13.5, color: isFine ? '#14532D' : '#78350F', lineHeight: 20 }, practiceText]}>
                 {cleanAdvice}
               </Text>
             </View>
           </View>
+          </GuideTarget>
 
           {/* Specialist recommendation prompt */}
           <View
@@ -1728,8 +1817,9 @@ function DoneScreen({
 
           {/* Nút kết nối với chuyên gia */}
           {(!isFine || triageSummary?.needsDoctor) && (
+            <GuideTarget step="checkin.result_doctor" enabled={practice}>
             <Pressable
-              onPress={() => router.push('/doctor-consultation' as any)}
+              onPress={() => practice ? showToast(tg('guidance.practiceActionNotice'), 'info') : router.push('/doctor-consultation' as any)}
               style={({ pressed }) => [
                 {
                   flexDirection: 'row',
@@ -1747,7 +1837,7 @@ function DoneScreen({
               ]}
             >
               <Text
-                style={{
+                allowFontScaling style={[{
                   flex: 1,
                   fontSize: 15,
                   fontWeight: '700',
@@ -1755,7 +1845,7 @@ function DoneScreen({
                   lineHeight: 21,
                   paddingHorizontal: 8,
                   textAlign: 'center',
-                }}
+                }, practiceText]}
               >
                 {t('checkinConnectDoctor')}
               </Text>
@@ -1766,7 +1856,12 @@ function DoneScreen({
                 style={{ position: 'absolute', right: 16 }}
               />
             </Pressable>
+            </GuideTarget>
           )}
+
+          {practice && <GuideTarget step="checkin.result_family">
+            <Text allowFontScaling style={{ fontSize: 22, lineHeight: 32, color: guideColors.ink }}>{tg('guidance.practiceFamilyNotice')}</Text>
+          </GuideTarget>}
 
           {/* Family Alert Result if present */}
           {triageSummary?.familyAlertResult?.attempted && (
@@ -1790,7 +1885,7 @@ function DoneScreen({
           {/* Caregiver CTA if applicable */}
           {triageSummary?.show_urgent_caregiver_warning && (
             <Pressable
-              onPress={() => router.push('/care-circle/invite')}
+              onPress={() => practice ? showToast(tg('guidance.practiceActionNotice'), 'info') : router.push('/care-circle/invite')}
               style={({ pressed }) => [
                 {
                   flexDirection: 'row',
@@ -1819,13 +1914,37 @@ function DoneScreen({
       </Animated.View>
 
       {/* Close button outside card */}
+      {practice && <GuideTarget step="checkin.result_variants">
+        <View style={{ gap: 12 }}>
+          <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: guideColors.ink }}>{tg('guidance.practiceResultVariants')}</Text>
+          {(['low', 'medium', 'high', 'emergency'] as const).map(level => <Pressable key={level}
+            accessibilityRole="button" accessibilityState={{ selected: severity === level || level === 'low' && isFine }}
+            onPress={() => { void guidanceAudio.stop(); setPracticeSeverity(level); }}
+            style={({ pressed }) => ({ minHeight: 60, padding: 16, borderRadius: 18,
+              backgroundColor: guideColors.actionBackground, opacity: pressed ? 0.8 : 1 })}>
+            <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: guideColors.onAction }}>
+              {tg(`guidance.${level === 'low' ? 'practiceVariantLow' : level === 'medium' ? 'practiceVariantMedium' : level === 'high' ? 'practiceVariantHigh' : 'practiceVariantEmergency'}`)}
+            </Text>
+          </Pressable>)}
+          <Pressable accessibilityRole="button" onPress={() => onRepeatPractice?.()}
+            style={{ minHeight: 60, padding: 16, borderRadius: 18, backgroundColor: guideColors.actionBackground }}>
+            <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: guideColors.onAction }}>{tg('guidance.practiceRepeat')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => onRepeatPractice?.(true)}
+            style={{ minHeight: 60, padding: 16, borderRadius: 18, backgroundColor: guideColors.actionBackground }}>
+            <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: guideColors.onAction }}>{tg('guidance.practiceFollowup')}</Text>
+          </Pressable>
+        </View>
+      </GuideTarget>}
+      <GuideTarget step="checkin.result_close" enabled={practice}>
       <Animated.View entering={FadeInDown.delay(300).duration(400)}>
         <Pressable
           style={({ pressed }) => [
             {
-              backgroundColor: '#5EEAD4',
+              backgroundColor: practice ? guideColors.actionBackground : '#5EEAD4',
               borderRadius: 28,
-              height: 52,
+              minHeight: practice ? 60 : 52,
+              paddingVertical: 16,
               alignItems: 'center',
               justifyContent: 'center',
               shadowColor: '#2DD4BF',
@@ -1839,11 +1958,12 @@ function DoneScreen({
           ]}
           onPress={onClose}
         >
-          <Text style={{ fontSize: 17, fontWeight: '700', color: '#0F766E' }}>
-            {t('checkinClose')}
+          <Text allowFontScaling style={{ fontSize: practice ? 22 : 17, fontWeight: '700', color: practice ? guideColors.onAction : '#0F766E' }}>
+            {practice ? tg('guidance.practiceFinish') : t('checkinClose')}
           </Text>
         </Pressable>
       </Animated.View>
+      </GuideTarget>
 
       {/* Footer reassurance */}
       <Animated.View entering={FadeInDown.delay(350).duration(400)}>
