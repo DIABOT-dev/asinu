@@ -12,6 +12,9 @@ RCT_EXTERN_METHOD(consumePendingCall:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(getPendingCall:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getActiveCalls:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(completeAnswer:(NSString *)attemptId
                   connected:(BOOL)connected
                   deadline:(NSString *)deadline

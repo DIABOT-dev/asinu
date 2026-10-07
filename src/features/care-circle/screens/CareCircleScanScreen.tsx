@@ -197,7 +197,10 @@ function CareCircleScanScreen() {
           >
             <Ionicons name="arrow-back" size={24} color={isDark ? '#5EEAD4' : '#0D766E'} />
           </Pressable>
-          <Text style={styles.permissionHeaderTitle}>{t('scanQrTitle')}</Text>
+          <View style={styles.permissionHeaderTextWrap}>
+            <Text style={styles.permissionHeaderTitle}>{t('cameraPermissionHeaderTitle')}</Text>
+            <Text style={styles.permissionHeaderSubtitle}>{t('cameraPermissionHeaderSubtitle')}</Text>
+          </View>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -208,14 +211,25 @@ function CareCircleScanScreen() {
           showsVerticalScrollIndicator={false}
           style={styles.permissionScroll}
         >
+          {/* Family photo hero banner behind the card */}
+          <View pointerEvents="none" style={styles.heroBannerWrap}>
+            <Image
+              source={require('../../../../assets/images/care-circle/camera_permission_family_hero.png')}
+              style={styles.heroBannerImage}
+              resizeMode="cover"
+            />
+          </View>
+
           {/* Main White Card */}
           <View style={styles.permissionCard}>
-            {/* Hero Art */}
-            <Image
-              source={require('../../../../assets/images/care-circle/camera_permission_hero_art.png')}
-              style={styles.cameraHeroArt}
-              resizeMode="contain"
-            />
+            {/* Minimalist Camera Icon */}
+            <View style={styles.cameraIconCircle}>
+              <Ionicons
+                name="camera-outline"
+                size={32}
+                color={isDark ? '#2DD4BF' : '#0D9488'}
+              />
+            </View>
 
             {/* Title & Body */}
             <Text style={styles.permissionTitle}>{t('cameraPermissionTitle')}</Text>
@@ -227,28 +241,42 @@ function CareCircleScanScreen() {
 
             {/* Feature 1 */}
             <View style={styles.featureCard}>
-              <Ionicons
-                name="qr-code-outline"
-                size={26}
-                color={isDark ? '#2DD4BF' : '#0D9488'}
-              />
+              <View style={styles.featureIconWrap}>
+                <Ionicons
+                  name="qr-code-outline"
+                  size={22}
+                  color={isDark ? '#2DD4BF' : '#0D9488'}
+                />
+              </View>
               <View style={styles.featureTextWrap}>
                 <Text style={styles.featureTitle}>{t('cameraPermissionFeature1')}</Text>
                 <Text style={styles.featureDesc}>{t('cameraPermissionFeatureDesc1')}</Text>
               </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={isDark ? '#52525B' : '#94A3B8'}
+              />
             </View>
 
             {/* Feature 2 */}
             <View style={styles.featureCard}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={26}
-                color={isDark ? '#2DD4BF' : '#0D9488'}
-              />
+              <View style={styles.featureIconWrap}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={22}
+                  color={isDark ? '#2DD4BF' : '#0D9488'}
+                />
+              </View>
               <View style={styles.featureTextWrap}>
                 <Text style={styles.featureTitle}>{t('cameraPermissionFeature2')}</Text>
                 <Text style={styles.featureDesc}>{t('cameraPermissionFeatureDesc2')}</Text>
               </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={isDark ? '#52525B' : '#94A3B8'}
+              />
             </View>
 
             {/* Primary Action Button */}
@@ -394,11 +422,22 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       paddingHorizontal: spacing.lg,
       zIndex: 2,
     },
+    permissionHeaderTextWrap: {
+      alignItems: 'center',
+      flex: 1,
+      justifyContent: 'center',
+    },
     permissionHeaderTitle: {
       color: isDark ? '#f8fafc' : '#0F172A',
-      flex: 1,
       fontSize: typography.size.lg,
       fontWeight: '800',
+      textAlign: 'center',
+    },
+    permissionHeaderSubtitle: {
+      color: isDark ? '#94a3b8' : '#0D766E',
+      fontSize: typography.size.xs,
+      fontWeight: '500',
+      marginTop: 2,
       textAlign: 'center',
     },
     headerSpacer: { width: 44 },
@@ -438,6 +477,19 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       right: 0,
       width: '100%',
     },
+    heroBannerWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: -24,
+      marginTop: spacing.xs,
+      overflow: 'hidden',
+      width: '100%',
+      zIndex: 1,
+    },
+    heroBannerImage: {
+      aspectRatio: 1024 / 360,
+      width: '100%',
+    },
     permissionScroll: {
       flex: 1,
     },
@@ -469,6 +521,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       shadowRadius: 18,
       elevation: 4,
       width: '100%',
+      zIndex: 2,
+    },
+    cameraIconCircle: {
+      alignItems: 'center',
+      alignSelf: 'center',
+      backgroundColor: isDark ? 'rgba(45, 212, 191, 0.15)' : '#CCFBF1',
+      borderRadius: 32,
+      height: 64,
+      justifyContent: 'center',
+      marginBottom: spacing.sm,
+      width: 64,
     },
     cameraHeroArt: {
       alignSelf: 'center',
@@ -505,6 +568,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       paddingHorizontal: 16,
       paddingVertical: 14,
       width: '100%',
+    },
+    featureIconWrap: {
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(45, 212, 191, 0.12)' : '#E6F4EA',
+      borderRadius: 12,
+      height: 38,
+      justifyContent: 'center',
+      width: 38,
     },
     featureTextWrap: {
       flex: 1,

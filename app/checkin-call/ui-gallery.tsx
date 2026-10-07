@@ -8,9 +8,11 @@ import {
   View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { CheckinCallSafetyNote, CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
+import type { CallAudioState } from '../../src/features/checkin-call/checkin-call.audio';
 
 type PreviewId =
   | 'settings'
@@ -344,12 +346,8 @@ function UserCallPreview() {
           </ActionButton>
         </View>
 
-        <View style={styles.replayPill}>
-          <Ionicons name="volume-high" size={20} color="#0284c7" />
-          <Text style={styles.replayPillText}>{t('replay')}</Text>
-        </View>
-
-        <SafetyNote />
+        <SpeechPreview />
+        <CheckinCallSafetyNote />
       </View>
     </PreviewFrame>
   );
@@ -398,8 +396,8 @@ function TriagePreview({ step }: { step: 'location' | 'symptom' | 'intensity' })
         </>
       )}
       <Text style={styles.triageGuaranteePreview}>{t('triageGuarantee')}</Text>
-      <View style={styles.replayRow}><Ionicons name="volume-high-outline" size={20} color={COLORS.teal} /><Text style={styles.replayText}>{t('replay')}</Text></View>
-      <SafetyNote />
+      <SpeechPreview promptKey={`audio.triage${step[0].toUpperCase()}${step.slice(1)}Prompt`} />
+      <CheckinCallSafetyNote />
     </PreviewFrame>
   );
 }
@@ -611,13 +609,17 @@ function ConnectionStatesPreview() {
   );
 }
 
-function SafetyNote() {
-  const { t } = useTranslation('checkinCall');
+function SpeechPreview({ promptKey = 'audio.userPrompt' }: { promptKey?: string }) {
+  const { t, i18n } = useTranslation('checkinCall');
+  const [phase, setPhase] = useState<CallAudioState['phase']>('playing');
   return (
-    <View style={styles.safetyFooterRow}>
-      <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
-      <Text style={styles.safetyFooterText}>{t('safetyNote')}</Text>
-    </View>
+    <CheckinCallSpeech
+      audio={{ phase, fallback: false, prompt: { key: promptKey, text: t(promptKey), language: i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi' } }}
+      disabled={false}
+      showTranscript={false}
+      onReplay={() => setPhase('playing')}
+      onStop={() => setPhase('idle')}
+    />
   );
 }
 
@@ -785,39 +787,6 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 12,
   },
-  replayPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#e0f2fe',
-    borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  replayPillText: {
-    color: '#0284c7',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  safetyFooterRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
-    paddingTop: 14,
-    marginTop: 4,
-  },
-  safetyFooterText: {
-    flex: 1,
-    color: '#64748b',
-    fontSize: 12,
-    lineHeight: 17,
-  },
   incoming: { minHeight: 620, borderRadius: 24, alignItems: 'center', paddingHorizontal: 24, paddingTop: 62, paddingBottom: 34 },
   incomingIos: { backgroundColor: '#15201e' },
   incomingAndroid: { backgroundColor: '#eaf2f0', borderWidth: 1, borderColor: '#cfdedb' },
@@ -836,8 +805,6 @@ const styles = StyleSheet.create({
   callActionLabel: { color: COLORS.ink, fontSize: 13, fontWeight: '600' },
   callHeaderIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 14 },
   callStatus: { color: COLORS.muted, fontSize: 15, lineHeight: 23, textAlign: 'center', marginBottom: 6 },
-  replayRow: { minHeight: 48, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  replayText: { color: COLORS.teal, fontSize: 15, fontWeight: '700' },
   safetyNote: { color: COLORS.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 8 },
   severityIcon: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 12 },
   severityMessage: { borderRadius: 14, padding: 14, borderWidth: 1 },

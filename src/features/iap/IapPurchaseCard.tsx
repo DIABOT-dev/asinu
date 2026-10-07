@@ -22,7 +22,7 @@ const PLAN_ANTAM_2_IMG = require("../../../assets/images/subscription/plan_antam
 const PLAN_ANTAM_4_IMG = require("../../../assets/images/subscription/plan_antam_4.png");
 const PLAN_ANTAM_8_IMG = require("../../../assets/images/subscription/plan_antam_8.png");
 
-const PLAN_ORDER = ["antam_2", "antam_4", "antam_8"] as const;
+const PLAN_ORDER = ["antam_4", "antam_2", "antam_8"] as const;
 const SUPPORTED_PLAN_CODES = new Set<string>(PLAN_ORDER);
 
 type Props = {
@@ -183,12 +183,12 @@ export function IapPurchaseCard({
       }
 
       return (
-        <View style={styles.gridCardAvatar}>
+        <View style={styles.cardAvatarWrap}>
           <Image
             cachePolicy="memory-disk"
             contentFit="contain"
             source={source}
-            style={styles.gridCardBadgeImg}
+            style={styles.cardAvatarImg}
           />
         </View>
       );
@@ -207,79 +207,77 @@ export function IapPurchaseCard({
       <Pressable
         key={product.id}
         style={[
-          styles.gridCard,
-          active && styles.gridCardActive,
-          isPopular && !active && styles.gridCardPopularBorder,
+          styles.planCard,
+          active && styles.planCardActive,
+          isPopular && !active && styles.planCardPopularBorder,
         ]}
         onPress={() => setSelectedPlan(product.plan_code)}
       >
         {isPopular && (
           <View style={styles.popularBadge}>
+            <Text style={styles.popularBadgePlus}>+</Text>
             <Text style={styles.popularBadgeText}>{t("mostPopular")}</Text>
           </View>
         )}
 
-        <View style={styles.gridCardHeader}>
+        <View style={styles.planCardMainRow}>
           {getPlanAvatar()}
-          <Text
-            style={[styles.gridCardTitle, active && styles.gridCardTitleActive]}
-          >
-            {localizedPlanName(product.plan_code, t)}
-          </Text>
-          <View style={styles.gridPriceWrap}>
+
+          <View style={styles.planInfoCol}>
             <Text
-              style={[
-                styles.gridPriceText,
-                active && styles.gridPriceTextActive,
-              ]}
+              style={[styles.planTitle, active && styles.planTitleActive]}
             >
-              {product.localizedPrice ??
-                formatVnd(product.display_price_vnd, i18n.language)}
+              {localizedPlanName(product.plan_code, t)}
             </Text>
-            <Text style={styles.gridPricePeriod}>
-              {period === "yearly" ? t("iapPerYear") : t("iapPerMonth")}
-            </Text>
+            <View style={styles.planPriceRow}>
+              <Text
+                style={[
+                  styles.planPriceText,
+                  active && styles.planPriceTextActive,
+                ]}
+              >
+                {product.localizedPrice ??
+                  formatVnd(product.display_price_vnd, i18n.language)}
+              </Text>
+              <Text style={styles.planPricePeriod}>
+                {period === "yearly" ? ` ${t("iapPerYear")}` : ` ${t("iapPerMonth")}`}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.planFeatureCol}>
+            {features.map((item, idx) => (
+              <View key={idx} style={styles.featureBulletRow}>
+                <Text style={styles.featureBulletDot}>•</Text>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.featureBulletText,
+                    active && styles.featureBulletTextActive,
+                  ]}
+                >
+                  {item}
+                </Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        <View style={styles.gridFeatureList}>
-          {features.map((item, idx) => (
-            <View key={idx} style={styles.gridFeatureRow}>
-              <View style={styles.gridFeatureIconWrap}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={15}
-                  color={
-                    active ? (isPopular ? "#ea580c" : "#059669") : "#059669"
-                  }
-                />
+        <View style={styles.planCardFooter}>
+          <View style={active ? styles.cardActivePill : styles.cardInactivePill}>
+            {active ? (
+              <View style={styles.pillRow}>
+                <Ionicons name="checkmark" size={13} color="#fff" />
+                <Text style={styles.cardActivePillText}>
+                  {current ? t("iapCurrent") : t("iapSelected")}
+                </Text>
               </View>
-              <Text
-                numberOfLines={2}
-                style={[
-                  styles.gridFeatureText,
-                  active && styles.gridFeatureTextActive,
-                ]}
-              >
-                {item}
+            ) : (
+              <Text style={styles.cardInactivePillText}>
+                {current ? t("iapCurrent") : t("iapSelectPlan")}
               </Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={active ? styles.cardActivePill : styles.cardInactivePill}>
-          {active ? (
-            <View style={styles.pillRow}>
-              <Ionicons name="checkmark" size={13} color="#fff" />
-              <Text style={styles.cardActivePillText}>
-                {current ? t("iapCurrent") : t("iapSelected")}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.cardInactivePillText}>
-              {current ? t("iapCurrent") : t("iapSelectPlan")}
-            </Text>
-          )}
+            )}
+          </View>
         </View>
       </Pressable>
     );
@@ -290,19 +288,8 @@ export function IapPurchaseCard({
       {/* Header */}
       <View style={styles.headingRow}>
         <View style={styles.headerInfo}>
-          <View style={styles.eyebrowBadge}>
-            <Ionicons name="sparkles" size={12} color="#059669" />
-            <Text style={styles.eyebrow}>{t("iapEyebrow")}</Text>
-          </View>
           <Text style={styles.title}>{t("iapPackageSectionTitle")}</Text>
           <Text style={styles.subtitle}>{t("iapPackageSectionSubtitle")}</Text>
-        </View>
-        <View style={styles.headerIconWrap}>
-          <MaterialCommunityIcons
-            name="shield-check"
-            size={26}
-            color="#059669"
-          />
         </View>
       </View>
 
@@ -350,20 +337,16 @@ export function IapPurchaseCard({
         </Pressable>
       </View>
 
-      {/* Plans grid */}
-      {planRows.length === 0 ? (
+      {/* Plans list */}
+      {choices.length === 0 ? (
         loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loading} />
         ) : (
           <Text style={styles.noProducts}>{t("iapNoProducts")}</Text>
         )
       ) : (
-        <View style={styles.gridWrap}>
-          {planRows.map((row) => (
-            <View key={row.map((product) => product.id).join(":")} style={styles.gridRow}>
-              {row.map((product) => renderCard(product))}
-            </View>
-          ))}
+        <View style={styles.planListWrap}>
+          {choices.map((product) => renderCard(product))}
         </View>
       )}
 
@@ -404,10 +387,7 @@ export function IapPurchaseCard({
                     ? t("iapCurrentExact")
                     : `${t("iapContinue", {
                         plan: selected ? localizedPlanName(selected.plan_code, t) : t("premium"),
-                      })} · ${
-                        selected?.localizedPrice ??
-                        formatVnd(selected?.display_price_vnd ?? 0, i18n.language)
-                      }`}
+                      })}`}
                 </Text>
                 <Ionicons name="arrow-forward" size={16} color="#fff" />
               </>
@@ -542,153 +522,160 @@ function createStyles(isDark: boolean) {
       paddingVertical: spacing.lg,
       textAlign: "center",
     },
-    gridWrap: {
+    planListWrap: {
       gap: 12,
     },
-    gridRow: {
-      alignItems: "stretch",
-      flexDirection: "row",
-      gap: 10,
-    },
-    gridCard: {
-      backgroundColor: isDark ? colors.surface : "#fffdfa",
+    planCard: {
+      backgroundColor: isDark ? colors.surface : "#ffffff",
       borderColor: isDark ? colors.border : "#e2e8f0",
       borderRadius: 20,
       borderWidth: 1.5,
-      flex: 1,
-      justifyContent: "space-between",
-      padding: 12,
+      padding: 14,
       position: "relative",
     },
-    gridCardActive: {
-      backgroundColor: isDark ? "#1c1917" : "#fffbf5",
+    planCardActive: {
+      backgroundColor: isDark ? "#1c1917" : "#fffdfa",
       borderColor: "#ea580c",
       shadowColor: "#ea580c",
       shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.15,
+      shadowOpacity: 0.12,
       shadowRadius: 8,
       elevation: 3,
     },
-    gridCardPopularBorder: {
+    planCardPopularBorder: {
       borderColor: "#fed7aa",
     },
     popularBadge: {
-      backgroundColor: "#ea580c",
-      borderRadius: 10,
+      alignItems: "center",
+      backgroundColor: "#fff7ed",
+      borderColor: "#fdba74",
+      borderRadius: 12,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: 3,
       paddingHorizontal: 8,
-      paddingVertical: 3,
+      paddingVertical: 2.5,
       position: "absolute",
-      right: 10,
-      top: -10,
+      right: 12,
+      top: 10,
       zIndex: 2,
     },
-    popularBadgeText: {
-      color: "#fffaf5",
-      fontSize: 9.5,
+    popularBadgePlus: {
+      color: "#ea580c",
+      fontSize: 11,
       fontWeight: "800",
     },
-    gridCardHeader: {
-      alignItems: "center",
-      justifyContent: "flex-start",
-      minHeight: 116,
-      paddingBottom: 4,
-      paddingTop: 4,
-    },
-    gridCardAvatar: {
-      alignItems: "center",
-      height: 48,
-      justifyContent: "center",
-      marginBottom: 6,
-      width: 48,
-    },
-    gridCardBadgeImg: {
-      height: 48,
-      width: 48,
-    },
-    gridCardTitle: {
-      color: isDark ? "#f8fafc" : "#0f172a",
-      fontSize: 14,
-      fontWeight: "700",
-      textAlign: "center",
-    },
-    gridCardTitleActive: {
+    popularBadgeText: {
       color: "#ea580c",
+      fontSize: 10.5,
+      fontWeight: "800",
     },
-    gridPriceWrap: {
+    planCardMainRow: {
       alignItems: "center",
-      justifyContent: "center",
-      marginTop: 2,
-      minHeight: 38,
-      paddingVertical: 2,
+      flexDirection: "row",
+      marginTop: 6,
     },
-    gridPriceText: {
+    cardAvatarWrap: {
+      alignItems: "center",
+      height: 64,
+      justifyContent: "center",
+      width: 64,
+    },
+    cardAvatarImg: {
+      height: 64,
+      width: 64,
+    },
+    planInfoCol: {
+      flex: 1.1,
+      justifyContent: "center",
+      marginLeft: 10,
+    },
+    planTitle: {
       color: isDark ? "#f8fafc" : "#0f172a",
       fontSize: 16,
       fontWeight: "800",
-      letterSpacing: -0.4,
     },
-    gridPriceTextActive: {
-      color: "#ea580c",
+    planTitleActive: {
+      color: "#0f172a",
     },
-    gridPricePeriod: {
-      color: isDark ? "#94a3b8" : "#64748b",
-      fontSize: 10.5,
-      marginTop: -2,
-    },
-    gridFeatureList: {
-      gap: 8,
-      marginVertical: 10,
-    },
-    gridFeatureRow: {
-      alignItems: "flex-start",
+    planPriceRow: {
+      alignItems: "baseline",
       flexDirection: "row",
-      minHeight: 28,
+      flexWrap: "wrap",
+      marginTop: 4,
     },
-    gridFeatureIconWrap: {
-      alignItems: "center",
+    planPriceText: {
+      color: isDark ? "#f8fafc" : "#0f172a",
+      fontSize: 16,
+      fontWeight: "800",
+      letterSpacing: -0.3,
+    },
+    planPriceTextActive: {
+      color: "#0f172a",
+    },
+    planPricePeriod: {
+      color: isDark ? "#94a3b8" : "#64748b",
+      fontSize: 12,
+      fontWeight: "500",
+    },
+    planFeatureCol: {
+      flex: 1.4,
       justifyContent: "center",
+      marginLeft: 8,
+    },
+    featureBulletRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      marginVertical: 1.5,
+    },
+    featureBulletDot: {
+      color: "#059669",
+      fontSize: 13,
+      fontWeight: "700",
       marginRight: 5,
-      marginTop: 1,
-      width: 16,
     },
-    gridFeatureText: {
-      color: isDark ? "#cbd5e1" : "#475569",
-      flex: 1,
-      fontSize: 10.5,
-      lineHeight: 14.5,
+    featureBulletText: {
+      color: isDark ? "#94a3b8" : "#475569",
+      fontSize: 11.5,
+      lineHeight: 16,
     },
-    gridFeatureTextActive: {
-      color: isDark ? "#f8fafc" : "#1e293b",
-      fontWeight: "600",
+    featureBulletTextActive: {
+      color: isDark ? "#e2e8f0" : "#1e293b",
+      fontWeight: "500",
+    },
+    planCardFooter: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginTop: 8,
     },
     cardActivePill: {
       alignItems: "center",
       backgroundColor: "#ea580c",
-      borderRadius: 10,
+      borderRadius: 14,
+      flexDirection: "row",
+      gap: 4,
       justifyContent: "center",
-      marginTop: 6,
-      minHeight: 34,
-      paddingHorizontal: 6,
+      paddingHorizontal: 14,
       paddingVertical: 6,
     },
     cardActivePillText: {
-      color: "#fffaf5",
-      fontSize: 11,
+      color: "#ffffff",
+      fontSize: 12,
       fontWeight: "700",
     },
     cardInactivePill: {
       alignItems: "center",
-      backgroundColor: isDark ? "#1e293b" : "#f1f5f9",
-      borderRadius: 10,
+      backgroundColor: isDark ? "#1e293b" : "#f8fafc",
+      borderColor: isDark ? "#334155" : "#cbd5e1",
+      borderRadius: 14,
+      borderWidth: 1,
       justifyContent: "center",
-      marginTop: 6,
-      minHeight: 34,
-      paddingHorizontal: 6,
+      paddingHorizontal: 14,
       paddingVertical: 6,
     },
     cardInactivePillText: {
       color: isDark ? "#94a3b8" : "#64748b",
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: "600",
     },
     pillRow: {

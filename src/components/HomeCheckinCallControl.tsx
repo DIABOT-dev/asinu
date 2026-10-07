@@ -163,7 +163,7 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
       style: "cancel" as const,
     },
   ] : [
-    { text: t("viewPlans"), variant: "primary", onPress: () => navigate("/subscription") },
+    { text: `${t("viewPlans")} →`, variant: "primary", onPress: () => navigate("/subscription") },
     { text: tc("later"), variant: "text", style: "cancel" },
   ];
 

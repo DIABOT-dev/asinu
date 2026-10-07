@@ -9,10 +9,10 @@ export const navigation = {
   },
   goToLogs(type?: 'glucose' | 'blood-pressure' | 'medication' | 'weight' | 'water' | 'meal' | 'insulin') {
     if (!type) {
-      router.push('/logs' as Href);
+      router.navigate('/logs' as Href);
       return;
     }
     const path = `/logs/${type === 'blood-pressure' ? 'blood-pressure' : type}` as Href;
-    router.push(path);
+    router.navigate(path);
   }
 };

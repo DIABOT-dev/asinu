@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useGuardedRouter as useRouter } from '../hooks/useGuardedRouter';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';

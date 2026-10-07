@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal } from '../../src/components/AppAlertModal';
 import { checkinCallApi, type CheckinCallSettings } from '../../src/features/checkin-call/checkin-call.api';
@@ -185,10 +186,18 @@ export default function CheckinCallSettingsScreen() {
           scrollable
           title={t('accessRequiredTitle')}
           message={t('accessRequiredBody')}
-          icon={{ name: 'lock-outline', color: '#c2410c' }}
+          icon={{ name: 'lock-outline', color: '#0D9488' }}
           buttons={[
-            { text: tc('later'), style: 'cancel' },
-            { text: t('viewPlans'), onPress: () => router.replace('/subscription') },
+            {
+              text: `${t('viewPlans')} →`,
+              variant: 'primary',
+              onPress: () => router.replace('/subscription'),
+            },
+            {
+              text: tc('later'),
+              variant: 'text',
+              style: 'cancel',
+            },
           ]}
           onDismiss={() =>
             router.canGoBack()

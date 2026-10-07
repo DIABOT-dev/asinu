@@ -37,6 +37,7 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { applyTheme, spacing } from '../src/styles';
 import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { trackScreenViewed } from '../src/lib/screenTracking';
+import { useGuardedRouter } from '../src/hooks/useGuardedRouter';
 
 registerGlobals();
 
@@ -47,6 +48,7 @@ type ScreenOptionsProps = {
 };
 
 export default function RootLayout() {
+  const router = useGuardedRouter();
   const { t } = useTranslation('auth');
   const { colors, isDark } = useThemeColors();
   const scaledTypography = useScaledTypography();
@@ -94,7 +96,7 @@ export default function RootLayout() {
   );
 
   const legalScreenOptions = useCallback(
-    ({ navigation }: ScreenOptionsProps) => ({
+    (_props: ScreenOptionsProps) => ({
       presentation: 'modal' as const,
       headerShown: true,
       title: t('legalTitle'),
@@ -105,7 +107,7 @@ export default function RootLayout() {
       headerBackVisible: false,
       headerLeft: () => (
         <Pressable
-          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('index')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
           style={styles.headerCloseButton}
           hitSlop={8}
           accessibilityRole="button"
@@ -115,7 +117,7 @@ export default function RootLayout() {
         </Pressable>
       )
     }),
-    [t, colors, scaledTypography]
+    [t, colors, scaledTypography, router]
   );
 
   // Block render đến khi font load xong → tránh flash of unstyled text

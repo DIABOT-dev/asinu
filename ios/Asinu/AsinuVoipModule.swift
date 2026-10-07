@@ -73,6 +73,11 @@ final class AsinuVoipModule: RCTEventEmitter {
     DispatchQueue.main.async { resolve(VoipCallManager.shared.pendingCall()) }
   }
 
+  @objc(getActiveCalls:rejecter:)
+  func getActiveCalls(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async { resolve(VoipCallManager.shared.activeCalls()) }
+  }
+
   @objc(completeAnswer:connected:deadline:resolver:rejecter:)
   func completeAnswer(_ attemptId: String, connected: Bool, deadline: String,
                       resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {

@@ -27,7 +27,9 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private var callUIOwners = Set<UUID>()
   private var audioSessionActive = false
   private var handoffRecording: AVAudioPlayer?
-  private var handoffPromptTimer: DispatchWorkItem?
+  // Keep the receipt for the whole call, not just while its audio is playing.
+  // CallKit can reactivate audio repeatedly when switching to/from the app.
+  private var handoffPromptConsumed = Set<UUID>()
   private var responseAfterAudioRelease: [String: String]?
   private var applicationObservers: [NSObjectProtocol] = []
 
@@ -78,8 +80,8 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
             self.callUIOwners.remove(uuid)
             UserDefaults.standard.set(call, forKey: self.pendingCallKey)
           }
-          // Let the React AppState handler stop its current recording/speech
-          // before handing the audio session back to the unlock guidance.
+          // Let React stop its recording before any still-unplayed native
+          // guidance. App-owned/previously played guidance stays consumed.
           DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) { [weak self] in
             self?.playHandoffPromptIfNeeded()
           }
@@ -108,6 +110,12 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   func registration() -> [String: String]? {
     guard let token = UserDefaults.standard.string(forKey: tokenKey), !token.isEmpty else { return nil }
     return ["token": token, "environment": environment]
+  }
+
+  func activeCalls() -> [[String: String]] {
+    // Unlike the pending navigation handoff, this survives app audio ownership.
+    // Take a snapshot so a saved check-in can retire only its original calls.
+    Array(callsByUUID.values)
   }
 
   func consumePendingCall() -> [String: String]? {
@@ -156,6 +164,9 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     }
     if active && UIApplication.shared.applicationState == .active {
       callUIOwners.insert(uuid)
+      // Once the response screen owns playback, returning to CallKit must
+      // never start (or restart) the automatic open-app guidance.
+      handoffPromptConsumed.insert(uuid)
       stopHandoffPrompt()
       if pendingCall()?["attemptId"] == attemptId {
         UserDefaults.standard.removeObject(forKey: pendingCallKey)
@@ -473,9 +484,13 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   private func playHandoffPromptIfNeeded() {
     guard audioSessionActive,
-          let entry = callsByUUID.first(where: { $0.value["nativeAnswered"] == "1" && !callUIOwners.contains($0.key) }),
+          let entry = callsByUUID.first(where: {
+            $0.value["nativeAnswered"] == "1"
+              && !callUIOwners.contains($0.key)
+              && !handoffPromptConsumed.contains($0.key)
+          }),
           answerActionsByUUID[entry.key] == nil else { return }
-    if handoffRecording?.isPlaying == true || handoffPromptTimer != nil { return }
+    if handoffRecording?.isPlaying == true { return }
     let language = entry.value["lang"] == "en" ? "en" : "vi"
     // Both locales use the bundled private Asinu Tuấn Anh v4 recordings:
     // cold/locked launches need neither React nor a network download, and
@@ -486,19 +501,13 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     recording.volume = 1.0
     recording.prepareToPlay()
     guard recording.play() else { handoffRecording = nil; return }
-    // A bounded reminder, only during this accepted call. Never synthesize
-    // medical conclusions, create a check-in, or send family confirmation here.
-    let reminder = DispatchWorkItem { [weak self] in
-      self?.handoffPromptTimer = nil
-      self?.playHandoffPromptIfNeeded()
-    }
-    handoffPromptTimer = reminder
-    DispatchQueue.main.asyncAfter(deadline: .now() + 25, execute: reminder)
+    // A successful start consumes automatic playback even if it is later
+    // interrupted. Only a new call or the app's explicit replay may speak again.
+    // Failed/missing recordings have not played and may still be retried.
+    handoffPromptConsumed.insert(entry.key)
   }
 
   private func stopHandoffPrompt() {
-    handoffPromptTimer?.cancel()
-    handoffPromptTimer = nil
     handoffRecording?.stop()
     handoffRecording = nil
   }
@@ -528,6 +537,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     responseTimeoutsByUUID.removeValue(forKey: uuid)?.cancel()
     responseDeadlinesByUUID.removeValue(forKey: uuid)
     callUIOwners.remove(uuid)
+    handoffPromptConsumed.remove(uuid)
     stopHandoffPrompt()
     guard let call = callsByUUID.removeValue(forKey: uuid) else { return }
     let attemptId = call["attemptId"] ?? ""

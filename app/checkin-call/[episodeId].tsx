@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { LiveKitRoom } from '@livekit/react-native';
 import { Room } from 'livekit-client';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +30,7 @@ import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { CheckinCallContact } from '../../src/features/checkin-call/CheckinCallContact';
-import { CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
+import { CheckinCallSafetyNote, CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CheckinCallPhoneAction } from '../../src/features/checkin-call/CheckinCallPhoneAction';
 import { restoreTriageDraft } from '../../src/features/checkin-call/triage-draft';
@@ -49,6 +50,7 @@ const LOCATION_ICONS: Record<string, React.ComponentProps<typeof MaterialCommuni
 };
 
 export default function CheckinCallScreen() {
+  const params = useLocalSearchParams<{ episodeId?: string; attemptId?: string }>();
   const hydrated = useAuthStore(state => state.hydrated);
   const loading = useAuthStore(state => state.loading);
   const token = useAuthStore(state => state.token);
@@ -63,7 +65,9 @@ export default function CheckinCallScreen() {
     </View>
   );
   if (!token) return <Redirect href="/login" />;
-  return <AuthenticatedCheckinCallScreen key={accountId} />;
+  // Queued native/push events can change attempts on the same route before
+  // React renders. Keep audio, triage and submission refs scoped to that call.
+  return <AuthenticatedCheckinCallScreen key={JSON.stringify([accountId, params.episodeId, params.attemptId])} />;
 }
 
 function AuthenticatedCheckinCallScreen() {
@@ -1101,10 +1105,7 @@ function AuthenticatedCheckinCallScreen() {
 
               {speechControls}
 
-              <View style={styles.safetyFooterRow}>
-                <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
-                <Text style={styles.safetyFooterText}>{t('safetyNote')}</Text>
-              </View>
+              <CheckinCallSafetyNote />
             </View>
           ) : (
             <>
@@ -1318,10 +1319,7 @@ function AuthenticatedCheckinCallScreen() {
                 <Text style={styles.triageGuarantee}>{t('triageGuarantee')}</Text>
               </View>
 
-              <View style={styles.safetyFooterRow}>
-                <Ionicons name="shield-checkmark-outline" size={22} color="#64748b" />
-                <Text style={styles.safetyFooterText}>{t('safetyNote')}</Text>
-              </View>
+              <CheckinCallSafetyNote />
             </>
           )}
         </ScrollView>
@@ -1835,20 +1833,6 @@ const styles = StyleSheet.create({
     color: '#0284c7',
     fontSize: 14,
     fontWeight: '700',
-  },
-  safetyFooterRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingTop: 14,
-    marginTop: 4,
-  },
-  safetyFooterText: {
-    flex: 1,
-    color: '#64748b',
-    fontSize: 12,
-    lineHeight: 17,
   },
   userOptionBtn: {
     minHeight: 54,

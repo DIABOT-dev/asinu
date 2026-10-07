@@ -244,5 +244,7 @@
   "cameraPermissionFeature2": "Bảo mật & an tâm tuyệt đối",
   "cameraPermissionFeatureDesc2": "Camera chỉ mở khi bạn quét mã, không lưu ảnh hay video vào máy.",
   "cameraPermissionLater": "Để sau",
-  "cameraPermissionNeedSettings": "Bạn đã tắt quyền camera. Vui lòng mở Cài đặt thiết bị để cho phép Asinu sử dụng camera."
+  "cameraPermissionNeedSettings": "Bạn đã tắt quyền camera. Vui lòng mở Cài đặt thiết bị để cho phép Asinu sử dụng camera.",
+  "cameraPermissionHeaderTitle": "Chụp/Chọn ảnh",
+  "cameraPermissionHeaderSubtitle": "Ảnh của bạn giúp chúng tôi xác thực nhanh hơn"
 }

@@ -22,6 +22,7 @@ const state = evaluate(read('src/features/checkin-call/checkin-call.state.ts'));
 let checks = 0;
 function test(label, run) { run(); checks++; console.log(`PASS ${label}`); }
 function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
+  params = { episodeId: 'episode', attemptId: 'attempt', nativeAnswered: '1' },
   auth = { hydrated: true, loading: false, token: 'test-token', profile: { id: 'test-user' } } } = {}) {
   const catalog = JSON.parse(read(`src/i18n/locales/${lang}/checkinCall.json`));
   const t = (key, values = {}) => {
@@ -46,7 +47,8 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
     'react-native': { View: 'View', Pressable: 'Pressable', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
       Image: 'Image', Platform: { OS: 'ios' }, AppState: { currentState: 'active' }, StyleSheet: { create: styles => styles } },
     '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
-    'expo-router': { Redirect: 'Redirect', useFocusEffect: noop, useLocalSearchParams: () => ({ episodeId: 'episode', attemptId: 'attempt', nativeAnswered: '1' }), useRouter: () => ({ back: noop, replace: noop }) },
+    'expo-router': { Redirect: 'Redirect', useFocusEffect: noop, useLocalSearchParams: () => params },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back: noop, replace: noop }) },
     '@livekit/react-native': { LiveKitRoom: 'Room' }, 'livekit-client': { Room: class {} },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     '@react-native-async-storage/async-storage': { default: {} },
@@ -58,7 +60,7 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false,
     'react-i18next': { useTranslation: () => ({ t, i18n: { resolvedLanguage: lang } }) },
     '../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../src/features/checkin-call/CheckinCallContact': { CheckinCallContact: 'Contact' },
-    '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech' },
+    '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech', CheckinCallSafetyNote: 'SafetyNote' },
     '../../src/features/checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { prompt: null }, play: noop, stopAudio: noop, showPrompt: noop }) },
     '../../src/features/checkin-call/CheckinCallPhoneAction': { CheckinCallPhoneAction: 'Phone' },
     '../../src/features/checkin-call/triage-draft': { restoreTriageDraft: noop },
@@ -89,6 +91,8 @@ for (const lang of ['vi', 'en']) for (const [role, triage] of [['USER', false], 
     const speech = h.nodes.filter(node => node.type === 'Speech');
     assert.ok(speech.length > 0);
     assert.ok(speech.every(node => node.props.showTranscript === false));
+    assert.equal(h.nodes.filter(node => node.type === 'SafetyNote').length, role === 'USER' ? 1 : 0,
+      'The user safety notice stays visible once, including while the prompt is loading');
     const actions = h.nodes.filter(node => node.type === 'Pressable' && node.props.accessibilityRole === 'button');
     assert.ok(actions.length > 0);
     if (role === 'USER' && !triage) {
@@ -119,7 +123,17 @@ test('logged-out call routes go to app login without mounting protected UI', () 
   assert.equal(h.tree.type, 'Redirect'); assert.equal(h.tree.props.href, '/login');
 });
 test('the response component key never exposes the session token', () => {
-  const h = render(); assert.equal(h.outer.key, 'test-user');
+  const h = render(); assert.equal(h.outer.key, JSON.stringify(['test-user', 'episode', 'attempt']));
+});
+test('a new attempt on the same route gets fresh audio, triage and submission refs', () => {
+  const first = render();
+  const second = render({ params: { episodeId: 'episode', attemptId: 'next-attempt', nativeAnswered: '1' } });
+  assert.notEqual(first.outer.key, second.outer.key);
+});
+test('native answer upgrades the same call without remounting or replaying its audio', () => {
+  const first = render({ params: { episodeId: 'episode', attemptId: 'attempt' } });
+  const second = render();
+  assert.equal(first.outer.key, second.outer.key);
 });
 test('saving disables all three health buttons to prevent repeated submissions', () => {
   const h = render({ busy: true });
@@ -127,34 +141,80 @@ test('saving disables all three health buttons to prevent repeated submissions',
   assert.equal(choices.length, 3);
   assert.ok(choices.every(node => node.props.disabled && node.props.accessibilityState.disabled));
 });
-for (const lang of ['vi', 'en']) test(`${lang}: compact speech controls hide the paragraph but keep Replay and Stop handlers`, () => {
+const theme = evaluate(read('src/styles/theme.ts'));
+const speechNodes = tree => {
+  const nodes = [];
+  const visit = node => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) return node.forEach(visit);
+    nodes.push(node); visit(node.props?.children);
+  };
+  visit(tree);
+  return nodes;
+};
+const flatten = styles => Object.assign({}, ...[styles].flat(Infinity).filter(Boolean));
+
+for (const lang of ['vi', 'en']) for (const mode of ['light', 'dark']) for (const multiplier of [1, 1.25]) {
+test(`${lang} ${mode} font ${multiplier}: playback actions, status and safety use the app theme without truncation`, () => {
   const catalog = JSON.parse(read(`src/i18n/locales/${lang}/checkinCall.json`));
   const t = key => key.split('.').reduce((value, part) => value?.[part], catalog) || key;
+  const colors = mode === 'light' ? theme.lightColors : theme.darkColors;
   const imports = {
-    react: React,
-    'react-native': { View: 'View', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: styles => styles } },
-    '@expo/vector-icons': { Ionicons: 'Icon' },
+    react: { __esModule: true, default: React, useMemo: create => create() },
+    'react-native': { View: 'View', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: styles => styles, hairlineWidth: 0.5 } },
+    '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
     'react-i18next': { useTranslation: () => ({ t }) },
     '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors }) },
+    '../../stores/font-size.store': { useFontSizeStore: selector => selector({ multiplier }) },
+    '../../styles/theme': theme,
   };
-  const { CheckinCallSpeech } = evaluate(read('src/features/checkin-call/CheckinCallSpeech.tsx'), imports);
+  const { CheckinCallSpeech, CheckinCallSafetyNote } = evaluate(read('src/features/checkin-call/CheckinCallSpeech.tsx'), imports);
   const onReplay = () => {}, onStop = () => {};
+  const prompt = { key: 'user_prompt', text: 'Long spoken transcript', language: lang };
   for (const phase of ['idle', 'loading', 'playing', 'finished', 'error']) {
-    const tree = CheckinCallSpeech({ audio: { phase, prompt: { key: 'user_prompt', text: 'Long spoken transcript' } },
+    const tree = CheckinCallSpeech({ audio: { phase, prompt },
       disabled: false, showTranscript: false, onReplay, onStop });
-    const nodes = [];
-    const visit = node => {
-      if (!node || typeof node !== 'object') return;
-      if (Array.isArray(node)) return node.forEach(visit);
-      nodes.push(node); visit(node.props?.children);
-    };
-    visit(tree);
+    const nodes = speechNodes(tree);
     assert.ok(!nodes.some(node => node.type === 'Text' && node.props.children === 'Long spoken transcript'));
+    const status = nodes.find(node => node.type === 'Text' && node.props.accessibilityLiveRegion === 'polite');
+    assert.equal(status.props.children, t(`playback.${phase}`));
+    assert.equal(status.props.style.color, colors.primaryText);
+    assert.equal(tree.props.children[0].props.style.backgroundColor, colors.primaryLight);
+    assert.equal(nodes.some(node => node.type === 'Spinner'), phase === 'loading');
+    assert.equal(nodes.some(node => node.props.importantForAccessibility === 'no-hide-descendants'), phase === 'playing');
+    assert.equal(nodes.some(node => node.type === 'Text' && node.props.children === t('playback.errorHint')), phase === 'error');
+    assert.equal(nodes.filter(node => node.type === 'Pressable').length, 2, 'Both controls stay in the layout after playback');
     const replay = nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('replay'));
     assert.equal(replay.props.onPress, onReplay);
+    assert.equal(replay.props.disabled, false);
     const stop = nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('playback.stop'));
-    assert.equal(Boolean(stop), phase === 'loading' || phase === 'playing');
-    if (stop) assert.equal(stop.props.onPress, onStop);
+    assert.equal(stop.props.onPress, onStop);
+    assert.equal(stop.props.disabled, !(phase === 'loading' || phase === 'playing'));
+    assert.equal(stop.props.accessibilityState.disabled, stop.props.disabled);
+    for (const control of [replay, stop]) {
+      const style = flatten(control.props.style({ pressed: false }));
+      assert.ok(style.minHeight >= 44);
+      assert.equal(style.flexGrow, 1);
+      assert.ok(style.flexBasis * 2 + theme.spacing.md <= 320 === (multiplier === 1),
+        'At 320px the actions fit together at normal font size and wrap at the largest app size');
+      const label = control.props.children.find(node => node.type === 'Text');
+      assert.equal(label.props.numberOfLines, undefined);
+      assert.equal(label.props.ellipsizeMode, undefined);
+    }
   }
+  const busyNodes = speechNodes(CheckinCallSpeech({ audio: { phase: 'playing', prompt }, disabled: true, onReplay, onStop }));
+  const busyReplay = busyNodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('replay'));
+  assert.ok(busyReplay.props.disabled && busyReplay.props.accessibilityState.disabled);
+  assert.equal(busyNodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('playback.stop')).props.disabled, false,
+    'Saving a response must not prevent silencing speech');
+  assert.equal(CheckinCallSpeech({ audio: { phase: 'idle', prompt: null }, disabled: false, onReplay, onStop }), null);
+  const notice = speechNodes(CheckinCallSafetyNote());
+  const safetyText = notice.find(node => node.type === 'Text');
+  assert.equal(safetyText.props.children, t('safetyNote'));
+  assert.equal(safetyText.props.style.color, colors.textSecondary);
+  assert.equal(safetyText.props.numberOfLines, undefined);
+  assert.equal(notice.find(node => node.type === 'Icon').props.color, colors.primaryText);
 });
+}
 console.log(`Check-in screen: ${checks} rendered JSX regressions passed.`);

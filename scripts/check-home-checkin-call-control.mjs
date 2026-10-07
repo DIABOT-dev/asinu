@@ -276,7 +276,7 @@ function harness({
     button: (key, common = false) => {
       const label = (common ? h.tc : h.t)(key);
       const button = render()
-        .filter((node) => node.type === "Button" && text(node).trim() === label)
+        .filter((node) => node.type === "Button" && text(node).trim().replace(/\s*→$/, "") === label)
         .at(-1);
       assert.ok(button, `Missing button ${key}`);
       return button;

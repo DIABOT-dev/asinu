@@ -22,6 +22,7 @@ type NativeVoipModule = {
   getRegistration(): Promise<VoipRegistration | null>;
   consumePendingCall(): Promise<VoipCallPayload | null>;
   getPendingCall?(): Promise<VoipCallPayload | null>;
+  getActiveCalls?(): Promise<VoipCallPayload[]>;
   completeAnswer?(attemptId: string, connected: boolean, deadline: string): Promise<boolean>;
   setCallUIActive?(attemptId: string, active: boolean, deadline: string): Promise<boolean>;
   endCall(attemptId: string): Promise<boolean>;
@@ -71,6 +72,16 @@ export async function getPendingVoipCall(): Promise<VoipCallPayload | null> {
 export async function completeVoipCallAnswer(attemptId: string, connected: boolean, deadline?: string | null): Promise<void> {
   if (!attemptId) return;
   await nativeModule?.completeAnswer?.(attemptId, connected, deadline || '');
+}
+
+export async function getActiveVoipCalls(): Promise<VoipCallPayload[]> {
+  if (!nativeModule?.getActiveCalls) return [];
+  try {
+    const calls = await nativeModule.getActiveCalls();
+    return Array.isArray(calls) ? calls.filter(call =>
+      typeof call?.episodeId === 'string' && Boolean(call.episodeId)
+      && typeof call?.attemptId === 'string' && Boolean(call.attemptId)) : [];
+  } catch { return []; }
 }
 
 export async function setVoipCallUIActive(attemptId: string, active: boolean, deadline?: string | null): Promise<boolean> {

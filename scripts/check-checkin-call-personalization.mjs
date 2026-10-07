@@ -155,6 +155,7 @@ function harness({
       Linking: { openURL: async (url) => calls.source.push(url) },
     },
     '@expo/vector-icons': { Ionicons: 'Icon' },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back: () => calls.back++ }) },
     'expo-router': {
       Redirect: 'Redirect',
       useRouter: () => ({ back: () => calls.back++ }),

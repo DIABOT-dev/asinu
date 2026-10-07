@@ -72,6 +72,10 @@ function harness({ language = 'vi', settings = defaults, contacts = [], status, 
       } },
     },
     '@expo/vector-icons': { Ionicons: 'Icon' },
+    '@/hooks/useGuardedRouter': {
+      useGuardedRouter: () => ({ back: () => calls.back++, push: route => calls.pushes.push(route),
+        replace: route => calls.replacements.push(route), canGoBack: () => true }),
+    },
     'expo-router': {
       useRouter: () => ({ back: () => calls.back++, push: route => calls.pushes.push(route),
         replace: route => calls.replacements.push(route), canGoBack: () => true }),

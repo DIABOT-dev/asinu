@@ -24,6 +24,7 @@ function loadApi(relativePath) {
   const module = { exports: {} };
   const localRequire = (id) => {
     if (id.endsWith('/lib/apiClient') || id.endsWith('lib/apiClient')) return { apiClient };
+    if (id === '../checkin-call/checkin-call.completion') return { withManualCheckinCallCompletion: save => save() };
     throw new Error(`Unexpected dependency in ${relativePath}: ${id}`);
   };
   // This isolated harness evaluates transpiled API modules with a stubbed request client.

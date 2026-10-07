@@ -1,4 +1,5 @@
 import { apiClient } from '../../lib/apiClient';
+import { withManualCheckinCallCompletion } from '../checkin-call/checkin-call.completion';
 
 export type CheckinStatus = 'fine' | 'specific_concern' | 'tired' | 'very_tired';
 export type FlowState = 'monitoring' | 'follow_up' | 'high_alert' | 'resolved';
@@ -154,7 +155,7 @@ export const checkinApi = {
     bodyLocationOther?: string | null,
     restart = false,
   ) =>
-    apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/start', {
+    withManualCheckinCallCompletion(() => apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/start', {
       method: 'POST',
       body: {
         status,
@@ -163,13 +164,13 @@ export const checkinApi = {
         restart,
         source: restart ? 'instant' : 'scheduled',
       },
-    }),
+    })),
 
   followUp: (checkin_id: number, status: CheckinStatus) =>
-    apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/followup', {
+    withManualCheckinCallCompletion(() => apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/followup', {
       method: 'POST',
       body: { checkin_id, status },
-    }),
+    })),
 
   triage: (checkin_id: number, previous_answers: TriageAnswer[]) =>
     apiClient<TriageResult>('/api/mobile/checkin/triage', {

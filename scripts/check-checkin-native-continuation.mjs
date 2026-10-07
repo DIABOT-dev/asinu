@@ -32,6 +32,9 @@ assert.ok(configuration.includes('mode: .default'));
 assert.ok(configuration.includes('.defaultToSpeaker') && configuration.includes('.allowBluetoothHFP'));
 assert.ok(!configuration.includes('overrideOutputAudioPort') && !native.includes('setActive('));
 console.log('PASS reminder uses normalized speech, speaker default and no forced route/system volume');
+assert.ok(!native.includes('handoffPromptTimer'), 'Automatic native guidance must not schedule a repeat');
+assert.ok(native.includes('private var handoffPromptConsumed = Set<UUID>()'));
+console.log('PASS automatic native guidance has per-call receipts and no repeat timer');
 
 if (process.platform !== 'darwin') {
   console.log('SKIP native Swift runtime checks (macOS required); asset checks passed');
@@ -44,6 +47,7 @@ const method = (start, end) => {
   return native.slice(from, to).replace(/private func /g, 'func ');
 };
 const handlers = [
+  method('  func activeCalls()', '  func consumePendingCall()'),
   method('  func pendingCall()', '  func completeAnswer('),
   method('  func setCallUIActive(', '  // The self-link'),
   method('  func handleAnsweredCallURL(', '  func reportIncoming('),
@@ -109,12 +113,17 @@ final class Bundle {
 func NSLocalizedString(_ key: String, bundle: Bundle, comment: String) -> String { "English guidance" }
 final class AVAudioPlayer {
   static var playSucceeds = true
+  static var successfulStarts = 0
   var isPlaying = false
   var volume: Float = 0.5
   let url: URL
   init(contentsOf: URL) throws { url = contentsOf }
   func prepareToPlay() {}
-  func play() -> Bool { isPlaying = Self.playSucceeds; return isPlaying }
+  func play() -> Bool {
+    isPlaying = Self.playSucceeds
+    if isPlaying { Self.successfulStarts += 1 }
+    return isPlaying
+  }
   func stop() { isPlaying = false }
 }
 final class Handler {
@@ -129,7 +138,7 @@ final class Handler {
   var callUIOwners = Set<UUID>()
   var audioSessionActive = true
   var handoffRecording: AVAudioPlayer?
-  var handoffPromptTimer: DispatchWorkItem?
+  var handoffPromptConsumed = Set<UUID>()
   var responseAfterAudioRelease: [String: String]?
   let provider = CXProvider()
   func cancelRingTimeout(uuid: UUID) {}
@@ -235,6 +244,15 @@ check("stale/restarted native calls do not revive without a valid ended-call TTL
     assert(h.pendingCall() == nil)
   }
 }
+check("active call snapshot survives consuming the navigation handoff and app audio ownership") {
+  let h = Handler(), uuid = h.seed()
+  UserDefaults.standard.removeObject(forKey: h.pendingCallKey)
+  assert(h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
+  assert(h.pendingCall() == nil && h.activeCalls() == [h.callsByUUID[uuid]!])
+  let snapshot = h.activeCalls()
+  h.endCall(attemptId: "attempt")
+  assert(h.activeCalls().isEmpty && snapshot.first?["attemptId"] == "attempt")
+}
 check("Vietnamese locked-call prompt plays the private Tuấn Anh clone and releases it on app handoff") {
   let h = Handler(); _ = h.seed()
   h.playHandoffPromptIfNeeded()
@@ -243,7 +261,7 @@ check("Vietnamese locked-call prompt plays the private Tuấn Anh clone and rele
   assert(h.handoffRecording?.volume == 1)
   let recording = h.handoffRecording!
   h.stopHandoffPrompt()
-  assert(!recording.isPlaying && h.handoffRecording == nil && h.handoffPromptTimer == nil)
+  assert(!recording.isPlaying && h.handoffRecording == nil)
 }
 check("CallKit activation configures full-level one-way reminder playback with speaker/headset defaults") {
   let h = Handler(); _ = h.seed(); h.audioSessionActive = false
@@ -254,16 +272,105 @@ check("CallKit activation configures full-level one-way reminder playback with s
   assert(h.handoffRecording?.isPlaying == true && h.handoffRecording?.volume == 1)
   h.stopHandoffPrompt()
 }
+check("finished native guidance never restarts on repeated CallKit activations") {
+  let h = Handler(); _ = h.seed()
+  let before = AVAudioPlayer.successfulStarts
+  h.provider(h.provider, didActivate: AVAudioSession())
+  let recording = h.handoffRecording!
+  recording.isPlaying = false // Natural completion, without an app handoff.
+  for _ in 0..<5 { h.provider(h.provider, didActivate: AVAudioSession()) }
+  assert(AVAudioPlayer.successfulStarts == before + 1)
+  assert(h.handoffRecording === recording && !recording.isPlaying)
+  h.stopHandoffPrompt()
+}
+check("audio interruption and reactivation cannot replay a native prompt mid-call") {
+  let h = Handler(); _ = h.seed()
+  let before = AVAudioPlayer.successfulStarts
+  h.provider(h.provider, didActivate: AVAudioSession())
+  let recording = h.handoffRecording!
+  h.provider(h.provider, didDeactivate: AVAudioSession())
+  assert(!recording.isPlaying && h.handoffRecording == nil)
+  h.provider(h.provider, didActivate: AVAudioSession())
+  h.playHandoffPromptIfNeeded()
+  assert(h.handoffRecording == nil && AVAudioPlayer.successfulStarts == before + 1)
+}
+check("CallKit to app to CallKit stops guidance without starting it again") {
+  let h = Handler(); _ = h.seed()
+  let before = AVAudioPlayer.successfulStarts
+  h.playHandoffPromptIfNeeded()
+  let recording = h.handoffRecording!
+  assert(h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
+  assert(!recording.isPlaying && h.handoffRecording == nil)
+  UIApplication.shared.applicationState = .background
+  defer { UIApplication.shared.applicationState = .active }
+  for _ in 0..<5 {
+    assert(h.setCallUIActive(attemptId: "attempt", active: false, deadline: ""))
+    h.playHandoffPromptIfNeeded() // Includes the delayed background callback.
+    h.provider(h.provider, didActivate: AVAudioSession())
+  }
+  assert(h.handoffRecording == nil && AVAudioPlayer.successfulStarts == before + 1)
+}
+check("an app-first answer never starts native guidance when returning to CallKit") {
+  let h = Handler(); _ = h.seed(); h.audioSessionActive = false
+  let before = AVAudioPlayer.successfulStarts
+  assert(h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
+  h.provider(h.provider, didActivate: AVAudioSession())
+  UIApplication.shared.applicationState = .background
+  defer { UIApplication.shared.applicationState = .active }
+  assert(h.setCallUIActive(attemptId: "attempt", active: false, deadline: ""))
+  h.playHandoffPromptIfNeeded()
+  assert(h.handoffRecording == nil && AVAudioPlayer.successfulStarts == before)
+}
+check("ending a call cleans its receipt and a genuinely new call can speak once") {
+  let h = Handler(), first = h.seed()
+  let before = AVAudioPlayer.successfulStarts
+  h.playHandoffPromptIfNeeded()
+  assert(h.handoffPromptConsumed.contains(first))
+  h.endCall(attemptId: "attempt")
+  assert(h.handoffPromptConsumed.isEmpty && h.handoffRecording == nil)
+  h.provider(h.provider, didActivate: AVAudioSession())
+  assert(AVAudioPlayer.successfulStarts == before + 1)
+  let second = h.seed(lang: "en")
+  h.provider(h.provider, didActivate: AVAudioSession())
+  assert(h.handoffRecording?.isPlaying == true && h.handoffPromptConsumed == Set([second]))
+  assert(AVAudioPlayer.successfulStarts == before + 2)
+  h.endCall(attemptId: "attempt")
+  assert(h.handoffPromptConsumed.isEmpty)
+}
+check("background UI events alone do not consume a never-played native prompt") {
+  let h = Handler(); _ = h.seed(); h.audioSessionActive = false
+  UIApplication.shared.applicationState = .background
+  defer { UIApplication.shared.applicationState = .active }
+  assert(h.setCallUIActive(attemptId: "attempt", active: true, deadline: ""))
+  assert(h.handoffPromptConsumed.isEmpty)
+  h.provider(h.provider, didActivate: AVAudioSession())
+  assert(h.handoffRecording?.isPlaying == true)
+  h.stopHandoffPrompt()
+}
+check("unanswered or accept-pending calls cannot consume or play guidance") {
+  for scenario in ["unanswered", "accept-pending"] {
+    let h = Handler(); _ = h.seed(answered: scenario != "unanswered", accepted: scenario != "accept-pending")
+    let before = AVAudioPlayer.successfulStarts
+    h.provider(h.provider, didActivate: AVAudioSession())
+    assert(h.handoffRecording == nil && h.handoffPromptConsumed.isEmpty)
+    assert(AVAudioPlayer.successfulStarts == before)
+  }
+}
 check("missing/failed recordings never use Apple speech in either locale") {
   for language in ["vi", "en"] {
   let h = Handler(); _ = h.seed(lang: language)
   Bundle.recordingAvailable = false
   h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording == nil && h.handoffPromptTimer == nil)
+  assert(h.handoffRecording == nil && h.handoffPromptConsumed.isEmpty)
   Bundle.recordingAvailable = true; AVAudioPlayer.playSucceeds = false
   h.playHandoffPromptIfNeeded()
-  assert(h.handoffRecording == nil && h.handoffPromptTimer == nil)
+  assert(h.handoffRecording == nil && h.handoffPromptConsumed.isEmpty)
   AVAudioPlayer.playSucceeds = true
+  h.playHandoffPromptIfNeeded()
+  assert(h.handoffRecording?.isPlaying == true)
+  h.stopHandoffPrompt()
+  h.playHandoffPromptIfNeeded()
+  assert(h.handoffRecording == nil)
   }
 }
 check("English locked-call guidance also uses the private Tuấn Anh recording") {

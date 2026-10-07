@@ -10,7 +10,8 @@ import {
 } from "react";
 import { AppState, Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, useGlobalSearchParams, usePathname, useRootNavigationState } from "expo-router";
+import { useGlobalSearchParams, usePathname, useRootNavigationState } from "expo-router";
+import { useGuardedRouter, useNavigationGuardObserver } from "../hooks/useGuardedRouter";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../features/auth/auth.store";
 import { authApi } from "../features/auth/auth.api";
@@ -69,6 +70,8 @@ const createClientMessageId = () => {
 };
 
 export const SessionProvider = ({ children }: Props) => {
+  useNavigationGuardObserver();
+  const router = useGuardedRouter({ external: true });
   const { t } = useTranslation("settings");
   const bootstrap = useAuthStore((state) => state.bootstrap);
   const loading = useAuthStore((state) => state.loading);
@@ -190,7 +193,7 @@ export const SessionProvider = ({ children }: Props) => {
       if (action.kind === "replace") router.replace(route as any);
       else router.navigate(route as any);
     }
-  }, []);
+  }, [router]);
 
   const openVoipCall = useCallback((call: VoipCallPayload) => {
     callHandoff.current.receive(call);
@@ -326,7 +329,7 @@ export const SessionProvider = ({ children }: Props) => {
 
         if (data?.checkinCall === true && data?.kind === 'INCOMING_CALL') {
           const route = routeFromNotificationData(data);
-          if (route) router.push(route as any);
+          if (route) router.navigate(route as any);
           return;
         }
 
@@ -367,7 +370,7 @@ export const SessionProvider = ({ children }: Props) => {
       },
     );
     return () => sub.remove();
-  }, []);
+  }, [router]);
 
   // ── Notification deep link routing ──
   // Logic dùng chung ở src/lib/notifications.ts (routeFromNotificationData)
@@ -376,13 +379,12 @@ export const SessionProvider = ({ children }: Props) => {
     (data: Record<string, unknown>) => {
       const route = routeFromNotificationData(data);
       if (!route) {
-        router.push("/(tabs)/home");
+        router.navigate("/(tabs)/home");
         return;
       }
-      if (typeof route === "string") router.push(route as any);
-      else router.push(route as any);
+      router.navigate(route as any);
     },
-    [],
+    [router],
   );
 
   // Handle notification taps: deep link + action buttons (warm start)

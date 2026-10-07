@@ -37,9 +37,16 @@ type AudioDependencies = {
 /** One owner for both TTS recordings and device speech. Latest intent wins,
  * including while a download, native player creation or Speech.stop is pending. */
 export class CheckinCallAudio {
+  // Navigation/remounts can briefly leave more than one call screen alive.
+  // All instances share the same output ownership, not just their own player.
+  private static activeOwner: CheckinCallAudio | null = null;
+  private static readonly owners = new Set<CheckinCallAudio>();
   private version = 0;
   private sound: CallAudioSound | null = null;
+  private readonly retiringSounds = new Set<CallAudioSound>();
+  private readonly releases = new Map<CallAudioSound, Promise<void>>();
   private speechStop: Promise<void> = Promise.resolve();
+  private speechVersion: number | null = null;
   private disposed = false;
   private fallbackVersion: number | null = null;
   private state: CallAudioState = { phase: 'idle', prompt: null, fallback: false };
@@ -47,7 +54,7 @@ export class CheckinCallAudio {
   constructor(private readonly dependencies: AudioDependencies) {}
 
   private current(version: number) {
-    return !this.disposed && this.version === version;
+    return !this.disposed && this.version === version && CheckinCallAudio.activeOwner === this;
   }
 
   private update(state: CallAudioState) {
@@ -57,21 +64,61 @@ export class CheckinCallAudio {
 
   private release(sound: CallAudioSound | null) {
     if (!sound) return Promise.resolve();
+    const pending = this.releases.get(sound);
+    if (pending) return pending;
+    this.retiringSounds.add(sound);
     // pauseAsync calls native pause synchronously before its Promise resolves.
     // Do not wait for network or speech cancellation to silence a recording.
-    const paused = sound.pauseAsync().catch(() => {});
-    return paused.then(() => sound.unloadAsync()).catch(() => {});
+    const released = (async () => {
+      let paused = false;
+      try { await sound.pauseAsync(); paused = true; } catch {}
+      try { await sound.unloadAsync(); } catch (error) {
+        // A paused sound is already silent even if disposing it fails. If both
+        // operations fail, do not start another recording or fallback voice.
+        if (!paused) throw error;
+      }
+    })();
+    this.releases.set(sound, released);
+    void released.then(() => {
+      this.retiringSounds.delete(sound);
+      this.releases.delete(sound);
+    }, () => {
+      // Retain the resource so a later explicit replay/stop can retry cleanup.
+      this.releases.delete(sound);
+    });
+    return released;
   }
 
   private cancel() {
     this.version += 1;
     const previous = this.sound;
     this.sound = null;
-    const released = this.release(previous);
+    if (previous) this.retiringSounds.add(previous);
+    // A rapid third intent must also wait for the first recording's cleanup,
+    // even though the second intent already detached it from this.sound.
+    const released = Promise.all([...this.retiringSounds].map(sound => this.release(sound)));
     // Serialize native Speech.stop calls. A late stop from an older request
     // must never silence the new fallback voice after it has started.
-    this.speechStop = this.speechStop.catch(() => {}).then(() => this.dependencies.stopSpeech());
-    return { version: this.version, stopped: Promise.all([released, this.speechStop]) };
+    if (CheckinCallAudio.activeOwner === this || CheckinCallAudio.owners.has(this)) {
+      this.speechStop = this.speechStop.catch(() => {}).then(() => this.dependencies.stopSpeech())
+        .then(() => { this.speechVersion = null; });
+    }
+    const version = this.version;
+    const stopped = Promise.all([released, this.speechStop]);
+    void stopped.then(() => {
+      if (this.version === version && (this.disposed || CheckinCallAudio.activeOwner !== this)) {
+        CheckinCallAudio.owners.delete(this);
+        if (CheckinCallAudio.activeOwner === this) CheckinCallAudio.activeOwner = null;
+      }
+    }, () => {
+      // An unmounted instance that never started speech and owns no recording
+      // has nothing audible left to block future call screens.
+      if (this.disposed && this.version === version && this.retiringSounds.size === 0 && this.speechVersion === null) {
+        CheckinCallAudio.owners.delete(this);
+        if (CheckinCallAudio.activeOwner === this) CheckinCallAudio.activeOwner = null;
+      }
+    });
+    return { version, stopped };
   }
 
   async stop(clearPrompt = false) {
@@ -88,7 +135,10 @@ export class CheckinCallAudio {
     this.fallbackVersion = version;
     const failed = this.sound;
     this.sound = null;
-    await this.release(failed);
+    try { await this.release(failed); } catch {
+      if (this.current(version)) this.update({ phase: 'error', prompt, fallback: false });
+      return;
+    }
     if (!this.current(version)) return;
     if (failed) {
       // A corrupt native recording must not be reused forever on every replay.
@@ -105,14 +155,17 @@ export class CheckinCallAudio {
       await this.speechStop;
       if (!this.current(version)) return;
       this.update({ phase: 'loading', prompt, fallback: true });
+      this.speechVersion = version;
       this.dependencies.speak(prompt, {
         onStart: () => {
           if (this.current(version)) this.update({ phase: 'playing', prompt, fallback: true });
         },
         onDone: () => {
+          if (this.speechVersion === version) this.speechVersion = null;
           if (this.current(version)) this.update({ phase: 'finished', prompt, fallback: true });
         },
         onError: () => {
+          if (this.speechVersion === version) this.speechVersion = null;
           if (this.current(version)) this.update({ phase: 'error', prompt, fallback: true });
         },
       });
@@ -129,10 +182,26 @@ export class CheckinCallAudio {
 
   async play(prompt: CallAudioPrompt, options: { automatic?: boolean; scope?: CallAutoplayScope } = {}) {
     if (this.disposed) return;
+    CheckinCallAudio.activeOwner = this;
+    const otherStops = [...CheckinCallAudio.owners]
+      .filter(owner => owner !== this)
+      .map(owner => {
+        const interrupted = owner.cancel();
+        owner.update({ ...owner.state, phase: 'idle' });
+        return interrupted.stopped;
+      });
+    CheckinCallAudio.owners.add(this);
     const { version, stopped } = this.cancel();
     this.update({ phase: 'loading', prompt, fallback: false });
     try {
-      await stopped;
+      await Promise.all([stopped, ...otherStops]);
+    } catch {
+      // Failed cancellation is not a synthesis failure: falling back to TTS
+      // here could speak over a recording that native code could not silence.
+      if (this.current(version)) this.update({ phase: 'error', prompt, fallback: false });
+      return;
+    }
+    try {
       if (!this.current(version)) return;
       // A manual replay also consumes this prompt's automatic allowance, but
       // never depends on storage succeeding. Claim before download/playback so
@@ -165,7 +234,7 @@ export class CheckinCallAudio {
         } else if (status.didJustFinish) {
           this.sound = null;
           this.update({ phase: 'finished', prompt, fallback: false });
-          void this.release(sound);
+          void this.release(sound).catch(() => {});
         } else if (status.playing && this.state.phase !== 'playing') {
           this.update({ phase: 'playing', prompt, fallback: false });
         }

@@ -244,5 +244,7 @@
   "cameraPermissionFeature2": "Complete privacy & security",
   "cameraPermissionFeatureDesc2": "The camera only turns on while scanning. No photos or videos are stored.",
   "cameraPermissionLater": "Maybe later",
-  "cameraPermissionNeedSettings": "Camera permission is turned off. Please open device Settings to allow camera access for Asinu."
+  "cameraPermissionNeedSettings": "Camera permission is turned off. Please open device Settings to allow camera access for Asinu.",
+  "cameraPermissionHeaderTitle": "Take/Choose photo",
+  "cameraPermissionHeaderSubtitle": "Your photo helps us verify faster"
 }

@@ -17,8 +17,13 @@ const { CheckinCallAudio, isFamilyNoticePrompt } = evaluate(audioSource);
 const { CheckinCallAutoplay } = evaluate(fs.readFileSync('src/features/checkin-call/checkin-call.autoplay.ts', 'utf8'));
 const { getUserCheckinCallOutcome, getClosedCheckinCallStatusKey, isCheckinCallAttemptClosed } = evaluate(fs.readFileSync('src/features/checkin-call/checkin-call.state.ts', 'utf8'));
 let checks = 0;
+const testOwners = new Set();
 const test = async (name, run) => {
-  await run();
+  try { await run(); } finally {
+    for (const owner of testOwners) owner.dispose();
+    testOwners.clear();
+    await tick();
+  }
   checks += 1;
   console.log(`PASS ${name}`);
 };
@@ -56,7 +61,9 @@ function harness(overrides = {}) {
     onState: state => states.push(state),
     ...overrides,
   };
-  return { owner: new CheckinCallAudio(dependencies), dependencies, events, states, sounds, voices };
+  const owner = new CheckinCallAudio(dependencies);
+  testOwners.add(owner);
+  return { owner, dependencies, events, states, sounds, voices };
 }
 
 await test('replacement pauses the old recording immediately, before awaiting native cancellation', async () => {
@@ -67,6 +74,126 @@ await test('replacement pauses the old recording immediately, before awaiting na
   await replaced;
   assert.deepEqual(h.events.filter(e => e.startsWith('play:')), ['play:first', 'play:second']);
   assert.equal(h.sounds[0].released, true);
+});
+await test('rapid replacement still waits for an older in-flight recording stop', async () => {
+  const h = harness(), stopped = deferred();
+  await h.owner.play(prompt('first'));
+  const first = h.sounds[0];
+  first.pauseAsync = async () => { await stopped.promise; first.playing = false; };
+  const second = h.owner.play(prompt('second'));
+  await tick();
+  const third = h.owner.play(prompt('third'));
+  await tick();
+  assert.equal(h.sounds.length, 1, 'Latest request must not bypass a still-playing older recording');
+  stopped.resolve();
+  await Promise.all([second, third]);
+  assert.deepEqual(h.events.filter(event => event.startsWith('play:')), ['play:first', 'play:third']);
+  assert.equal(first.released, true);
+});
+await test('another mounted call player interrupts the old player synchronously', async () => {
+  const first = harness(), next = harness();
+  await first.owner.play(prompt('first-screen'));
+  const replacement = next.owner.play(prompt('next-screen'));
+  assert.equal(first.sounds[0].playing, false, 'There must be one audio owner across mounted call screens');
+  await replacement;
+  assert.equal(first.sounds[0].released, true);
+  assert.equal(next.sounds[0].playing, true);
+});
+await test('three mounted players cannot bypass the first player pending cleanup', async () => {
+  const first = harness(), second = harness(), latest = harness(), stopped = deferred();
+  await first.owner.play(prompt('first-screen'));
+  const old = first.sounds[0];
+  old.pauseAsync = async () => { await stopped.promise; old.playing = false; };
+  const superseded = second.owner.play(prompt('second-screen'));
+  await tick();
+  const replacement = latest.owner.play(prompt('latest-screen'));
+  await tick();
+  assert.equal(second.sounds.length + latest.sounds.length, 0);
+  stopped.resolve();
+  await Promise.all([superseded, replacement]);
+  assert.equal(second.sounds.length, 0);
+  assert.equal(old.playing, false);
+  assert.equal(latest.sounds[0].playing, true);
+});
+await test('another screen invalidates an old pending download and late unmount cannot silence the new recording', async () => {
+  const download = deferred();
+  const old = harness({ load: () => download.promise }), latest = harness();
+  const pending = old.owner.play(prompt('old'));
+  await tick();
+  await latest.owner.play(prompt('latest'));
+  download.resolve('old');
+  await pending;
+  assert.equal(old.sounds.length, 0);
+  const oldStops = old.events.filter(event => event === 'speech:stop').length;
+  old.owner.dispose();
+  await tick();
+  assert.equal(latest.sounds[0].playing, true);
+  assert.equal(old.events.filter(event => event === 'speech:stop').length, oldStops);
+});
+await test('failed native pause falls back to unloading the old recording before a replacement plays', async () => {
+  const h = harness();
+  await h.owner.play(prompt('old'));
+  h.sounds[0].pauseAsync = async () => { throw new Error('pause failed'); };
+  await h.owner.play(prompt('new'));
+  assert.equal(h.sounds[0].playing, false);
+  assert.equal(h.sounds[0].released, true);
+  assert.equal(h.sounds[1].playing, true);
+});
+await test('failed disposal after a successful pause cannot create overlap or block the replacement', async () => {
+  const h = harness();
+  await h.owner.play(prompt('old'));
+  h.sounds[0].unloadAsync = async () => { throw new Error('remove failed'); };
+  await h.owner.play(prompt('new'));
+  assert.equal(h.sounds[0].playing, false);
+  assert.equal(h.sounds[1].playing, true);
+});
+await test('failed pause and unload forbid both a new recording and fallback speech, and Replay retries cleanup', async () => {
+  const h = harness();
+  await h.owner.play(prompt('old'));
+  const old = h.sounds[0], pause = old.pauseAsync, unload = old.unloadAsync;
+  old.pauseAsync = async () => { throw new Error('pause failed'); };
+  old.unloadAsync = async () => { throw new Error('remove failed'); };
+  await h.owner.play(prompt('blocked'));
+  assert.equal(old.playing, true);
+  assert.equal(h.sounds.length, 1);
+  assert.equal(h.voices.length, 0);
+  assert.equal(h.states.at(-1).phase, 'error');
+  old.pauseAsync = pause; old.unloadAsync = unload;
+  await h.owner.play(prompt('replay'));
+  assert.equal(old.playing, false);
+  assert.equal(old.released, true);
+  assert.equal(h.sounds[1].playing, true);
+});
+await test('a new screen cannot forget an older unmounted player whose native stop failed', async () => {
+  const first = harness(), next = harness();
+  await first.owner.play(prompt('first'));
+  const old = first.sounds[0], pause = old.pauseAsync, unload = old.unloadAsync;
+  old.pauseAsync = async () => { throw new Error('pause failed'); };
+  old.unloadAsync = async () => { throw new Error('remove failed'); };
+  first.owner.dispose();
+  await tick();
+  await next.owner.play(prompt('blocked'));
+  assert.equal(next.sounds.length, 0);
+  assert.equal(next.voices.length, 0);
+  assert.equal(next.states.at(-1).phase, 'error');
+  old.pauseAsync = pause; old.unloadAsync = unload;
+  await next.owner.play(prompt('replay'));
+  assert.equal(old.playing, false);
+  assert.equal(next.sounds[0].playing, true);
+});
+await test('an older playback-completion cleanup must finish before the next recording starts', async () => {
+  const h = harness(), stopped = deferred();
+  await h.owner.play(prompt('old'));
+  const old = h.sounds[0];
+  old.pauseAsync = async () => { await stopped.promise; old.playing = false; };
+  old.listener({ isLoaded: true, didJustFinish: true });
+  const replacement = h.owner.play(prompt('new'));
+  await tick();
+  assert.equal(h.sounds.length, 1);
+  stopped.resolve();
+  await replacement;
+  assert.equal(old.playing, false);
+  assert.equal(h.sounds[1].playing, true);
 });
 await test('slow old download completing after a newer prompt cannot play', async () => {
   const old = deferred();
@@ -428,6 +555,42 @@ await test('family confirmation sends one action and plays only the confirmation
   assert.equal(h.status.StatusKey, 'statusFamilyConfirmed');
   assert.deepEqual(h.events.filter(e => e.startsWith('play:')), ['play:family_confirmed']);
 });
+for (const action of ['answer', 'submitTriage', 'confirm']) {
+  await test(`${action}: CallKit ends once after the saved response, before result speech`, async () => {
+    const pending = deferred();
+    const apiMethod = action === 'answer' ? 'answer' : action === 'confirm' ? 'confirmFamily' : 'completeTriage';
+    const h = flowHarness({ role: action === 'confirm' ? 'FAMILY' : 'USER', api: {
+      [apiMethod]: async () => {
+        const result = await pending.promise;
+        h.events.push('saved');
+        return result;
+      },
+    } });
+    h.refs.triageStage.current = { step: 'intensity', location: { key: 'head' }, symptom: { key: 'dizzy' } };
+    const request = action === 'answer' ? h.callable.answer(1)
+      : action === 'confirm' ? h.callable.confirm() : h.callable.submitTriage('MILD');
+    await tick();
+    assert.equal(h.events.includes('endNative'), false);
+    pending.resolve({ episode: { state: 'RESOLVED', severity: 'NONE' } });
+    await request;
+    assert.equal(h.events.filter(event => event === 'endNative').length, 1);
+    assert.ok(h.events.indexOf('endNative') > h.events.indexOf('saved'));
+    assert.ok(h.events.findIndex(event => event.startsWith('play:')) > h.events.indexOf('endNative'));
+  });
+  await test(`${action}: failed submission leaves CallKit alive for retry`, async () => {
+    const apiMethod = action === 'answer' ? 'answer' : action === 'confirm' ? 'confirmFamily' : 'completeTriage';
+    const h = flowHarness({ role: action === 'confirm' ? 'FAMILY' : 'USER', api: {
+      [apiMethod]: async () => { throw new Error('offline'); },
+    } });
+    h.refs.triageStage.current = { step: 'intensity', location: { key: 'head' }, symptom: { key: 'dizzy' } };
+    if (action === 'answer') await h.callable.answer(1);
+    else if (action === 'confirm') await h.callable.confirm();
+    else await h.callable.submitTriage('MILD');
+    assert.equal(h.events.includes('endNative'), false);
+    assert.equal(h.refs.callEnded.current, false);
+    assert.equal(h.refs.actionPending.current, false);
+  });
+}
 await test('opening triage waits for accept, preserving the triage timeout ordering', async () => {
   let starts = 0;
   const accepting = deferred();
