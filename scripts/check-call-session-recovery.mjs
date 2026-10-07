@@ -43,15 +43,15 @@ function effectFrom(file, marker) {
 }
 
 function tokenHarness() {
-  let value = null, error = null, deletes = 0;
+  let value = null, error = null, deletes = 0, reads = 0;
   const { tokenStore } = evaluate(read('src/lib/tokenStore.ts'), {
     'expo-secure-store': {
-      getItemAsync: async () => { if (error) throw error; return value; },
+      getItemAsync: async () => { reads++; if (error) throw error; return value; },
       setItemAsync: async (_key, token) => { value = token; },
       deleteItemAsync: async () => { deletes++; value = null; },
     },
   });
-  return { tokenStore, saved: token => { value = token; }, fail: failure => { error = failure; }, deleted: () => deletes };
+  return { tokenStore, saved: token => { value = token; }, fail: failure => { error = failure; }, deleted: () => deletes, reads: () => reads };
 }
 
 await test('a locked Keychain read is retryable, distinct from a missing session', async () => {
@@ -135,20 +135,26 @@ await test('foreground and root recovery share one in-flight bootstrap', async (
 });
 
 const mountRecovery = effectFrom('src/providers/SessionProvider.tsx', 'setupNotificationHandler();');
-function recoveryHarness({ state = 'background', failures = 0, pending = null } = {}) {
+function recoveryHarness({ state = 'background', failures = 0, pending = null, authStore = null, bootstrap = null } = {}) {
   const auth = { hydrated: false };
+  const sessionStore = authStore ?? { getState: () => auth };
   const timers = new Map(); let nextTimer = 0, boots = 0, listener;
   const AppState = { currentState: state, addEventListener: (_name, callback) => {
     listener = callback; return { remove: () => { listener = null; } };
   } };
   const cleanup = mountRecovery({
-    setupNotificationHandler() {}, AppState, useAuthStore: { getState: () => auth },
-    bootstrap: async () => { boots++; if (pending) await pending.promise; if (boots > failures) auth.hydrated = true; },
+    setupNotificationHandler() {}, AppState, useAuthStore: sessionStore,
+    bootstrap: async () => {
+      boots++;
+      if (bootstrap) { await bootstrap(); return; }
+      if (pending) await pending.promise;
+      if (boots > failures) auth.hydrated = true;
+    },
     setTimeout: (callback, delay) => { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; },
     clearTimeout: id => { timers.delete(id); },
   });
   return {
-    auth, timers, cleanup, boots: () => boots,
+    get auth() { return sessionStore.getState(); }, timers, cleanup, boots: () => boots,
     change: next => { AppState.currentState = next; listener?.(next); },
     fire: async () => { const [id, timer] = timers.entries().next().value; timers.delete(id); timer.callback(); await tick(); },
   };
@@ -194,10 +200,10 @@ await test('a completed logged-out startup is not repeatedly retried', async () 
 });
 
 const mountStartupRoute = effectFrom('app/index.tsx', 'InteractionManager.runAfterInteractions');
-function routeHarness({ authToken = 'protected-test-session', profile = null, call = { episodeId: 'episode', attemptId: 'attempt' }, hydrated = true } = {}) {
+function routeHarness({ authToken = 'protected-test-session', profile = null, call = { episodeId: 'episode', attemptId: 'attempt' }, hydrated = true, loading = false } = {}) {
   const routes = []; let work, reads = 0;
   const cleanup = mountStartupRoute({
-    minSplashDone: true, hydrated, isNavReady: true, loading: false, consentReady: true, showConsent: false,
+    minSplashDone: true, hydrated, isNavReady: true, loading, consentReady: true, showConsent: false,
     profile, authToken, router: { replace: href => routes.push(href) },
     InteractionManager: { runAfterInteractions: callback => { work = callback; return { cancel() {} }; } },
     getPendingVoipCall: async () => { reads++; return await call; },
@@ -229,6 +235,42 @@ await test('normal authenticated startup still respects profile onboarding', asy
     const h = routeHarness({ call: null, profile: { id: '7', onboardingCompleted: onboarded } });
     await h.run(); assert.deepEqual(h.routes, [onboarded ? '/(tabs)/home' : '/onboarding']);
   }
+});
+
+await test('terminated app, locked phone, answer, unlock and delayed profile preserve the call without login', async () => {
+  const token = tokenHarness(); token.saved('protected-test-session'); token.fail(new Error('Keychain temporarily locked'));
+  const profileRequest = deferred();
+  const { store } = authHarness(token.tokenStore, () => profileRequest.promise);
+  const recovery = recoveryHarness({ authStore: store, bootstrap: () => store.getState().bootstrap() });
+  const call = { episodeId: 'answered-episode', attemptId: 'answered-attempt' };
+  const { CheckinCallHandoff } = evaluate(read('src/features/checkin-call/checkin-call.handoff.ts'));
+  const handoff = new CheckinCallHandoff(); handoff.receive(call);
+  const gate = () => ({ ready: recovery.auth.hydrated && !recovery.auth.loading && Boolean(recovery.auth.token), active: true, pathname: '/home' });
+  await tick(); assert.equal(token.reads(), 0); assert.equal(handoff.route(gate()), null);
+  recovery.change('inactive'); await tick(); assert.equal(token.reads(), 0);
+  recovery.change('active'); await tick();
+  assert.equal(recovery.auth.hydrated, false); assert.equal(handoff.route(gate()), null);
+  token.fail(null); await recovery.fire();
+  assert.equal(recovery.auth.token, 'protected-test-session'); assert.equal(recovery.auth.loading, true);
+  assert.equal(handoff.route(gate()), null);
+  const waiting = routeHarness({ authToken: recovery.auth.token, hydrated: recovery.auth.hydrated, loading: recovery.auth.loading, call });
+  await waiting.run(); assert.deepEqual(waiting.routes, []);
+  profileRequest.resolve({ id: '7', name: 'Test', onboardingCompleted: true }); await tick();
+  const route = routeHarness({ authToken: recovery.auth.token, profile: recovery.auth.profile, hydrated: recovery.auth.hydrated, call });
+  await route.run();
+  assert.equal(route.routes.length, 1); assert.equal(route.routes[0].pathname, '/checkin-call/[episodeId]');
+  assert.equal(route.routes[0].params.attemptId, call.attemptId);
+  assert.equal(handoff.route(gate()).call.attemptId, call.attemptId); assert.equal(token.deleted(), 0);
+  recovery.cleanup();
+});
+await test('an already-running app resumes the call using its existing authenticated session', async () => {
+  const token = tokenHarness(); token.saved('protected-test-session');
+  const { store } = authHarness(token.tokenStore); await store.getState().bootstrap();
+  const recovery = recoveryHarness({ authStore: store, bootstrap: () => store.getState().bootstrap() });
+  recovery.change('active'); await tick(); assert.equal(recovery.boots(), 0);
+  const route = routeHarness({ authToken: recovery.auth.token, profile: recovery.auth.profile });
+  await route.run(); assert.equal(route.routes[0].pathname, '/checkin-call/[episodeId]');
+  assert.equal(token.reads(), 1); recovery.cleanup();
 });
 
 console.log(`\n${checks} call session recovery checks passed.`);

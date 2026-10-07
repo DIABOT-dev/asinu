@@ -303,12 +303,12 @@ await test('the specialist busy/reopen modal opts into stacked buttons and scrol
 // Run the actual updated splash with native adapters: assets, consent/auth
 // gates and cold-start call routing must survive a visual-only replacement.
 function splashHarness({ language = 'vi', profile = null, hydrated = true, loading = false,
-  navigationReady = true, consent = Promise.resolve(true), call = null, response = null } = {}) {
+  token = profile ? 'test-session' : null, navigationReady = true, consent = Promise.resolve(true), call = null, response = null } = {}) {
   let cursor = 0, pending = [], live = true;
   let now = 0, nextTimerId = 0;
   const timers = new Map();
   const slots = [];
-  const state = { profile, hydrated, loading, navigationReady };
+  const state = { profile, token, hydrated, loading, navigationReady };
   const calls = { routes: [], native: 0, push: 0, loopStarts: 0, loopStops: 0 };
   const tasks = [];
   const router = { replace: route => calls.routes.push(route) };
@@ -457,6 +457,14 @@ await test('an answered CallKit call still outranks a stale notification tap on 
     episodeId: 'episode', attemptId: 'attempt', nativeAnswered: '1',
   } }]);
   assert.equal(h.calls.push, 0); h.unmount();
+});
+await test('answered cold-start call uses the saved token when profile loading failed', async () => {
+  const h = splashHarness({ token: 'test-session', profile: null, call: { episodeId: 'episode', attemptId: 'attempt' } });
+  await h.settle(); h.advanceTime(1800); await h.settle(); await h.runTasks();
+  assert.deepEqual(h.calls.routes, [{ pathname: '/checkin-call/[episodeId]', params: {
+    episodeId: 'episode', attemptId: 'attempt', nativeAnswered: '1',
+  } }]);
+  h.unmount();
 });
 await test('leaving splash during pending native recovery cannot navigate the unmounted route', async () => {
   let finish;
