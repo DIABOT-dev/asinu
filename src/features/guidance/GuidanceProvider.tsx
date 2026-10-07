@@ -1,8 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused } from '@react-navigation/native';
-import { usePathname } from 'expo-router';
+import { useIsFocused, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -156,7 +155,8 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
       : candidate && rect ? `${account}:${progress.epoch}:${candidate}` : null;
     if (!key || !progress.readAloud || spoken.current.has(key)) return;
     spoken.current.add(key);
-    void guidanceAudio.speak(welcome ? `${t('guidance.welcomeTitle')} ${t('guidance.welcomeBody')}` : text, i18n.language);
+    const clip = welcome ? 'welcome' : candidate;
+    if (clip) void guidanceAudio.speak(clip, i18n.language);
     return () => { void guidanceAudio.stop(); };
   }, [account, candidate, i18n.language, progress.epoch, progress.readAloud, rect !== null, text, t, welcome]);
   useEffect(() => { if (suspended) void guidanceAudio.stop(); }, [suspended]);
@@ -187,7 +187,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
           <Image source={require('../../../assets/asinu_chat_sticker.png')} style={styles.mascot} resizeMode="contain" accessible={false} />
           <Text style={styles.welcomeTitle} allowFontScaling>{t('guidance.welcomeTitle')}</Text>
           <Text style={styles.sentence} allowFontScaling>{t('guidance.welcomeBody')}</Text>
-          <GuideReplay onPress={() => void guidanceAudio.speak(`${t('guidance.welcomeTitle')} ${t('guidance.welcomeBody')}`, i18n.language, true)} />
+          <GuideReplay onPress={() => void guidanceAudio.speak('welcome', i18n.language, true)} />
           <GuideButton icon="person-outline" label={t('guidance.roleSelf')} onPress={() => void chooseRole('self')} />
           <GuideButton icon="heart-outline" label={t('guidance.roleCaregiver')} secondary onPress={() => void chooseRole('caregiver')} />
         </ScrollView>
@@ -206,7 +206,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
             ...(below ? { top: -8 } : { bottom: -8 }) }]} />
           <ScrollView contentContainerStyle={styles.bubbleContent} bounces={false}>
             <Text allowFontScaling style={styles.sentence}>{text}</Text>
-            <GuideReplay onPress={() => void guidanceAudio.speak(text, i18n.language, true)} />
+            <GuideReplay onPress={() => void guidanceAudio.speak(candidate, i18n.language, true)} />
             <GuideButton label={t('guidance.understood')} onPress={() => acknowledgeTarget(candidate)} />
           </ScrollView>
         </View>

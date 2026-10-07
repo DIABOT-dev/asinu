@@ -41,6 +41,9 @@ jobs:
       - name: Type-check
         run: npm run type-check
 
+      - name: Guided onboarding and Expo Router compatibility
+        run: npm run test:guidance
+
       - name: Security regressions and dependency patches
         run: npm run test:security
 

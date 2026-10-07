@@ -6,7 +6,7 @@ const sourceRoots = ["app", "src"].map((directory) =>
   path.join(projectRoot, directory),
 );
 const sourceExtensions = new Set([".js", ".jsx", ".ts", ".tsx"]);
-const assetExtensions = [".png", ".jpg", ".jpeg", ".webp", ".svg", ".wav"];
+const assetExtensions = [".png", ".jpg", ".jpeg", ".webp", ".svg", ".wav", ".mp3"];
 const missing = [];
 const requirePattern = /require\(\s*["']([^"']+)["']\s*\)/g;
 

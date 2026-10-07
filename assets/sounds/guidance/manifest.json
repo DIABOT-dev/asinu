@@ -1,0 +1,211 @@
+{
+  "schema": 1,
+  "voice": "clone_b935a451-7d65-4b73-a083-d46e56c47d4f",
+  "voiceLabel": "Asinu Tuan Anh v4",
+  "engine": "v4",
+  "speed": 0.92,
+  "clips": {
+    "vi": {
+      "welcome": {
+        "file": "vi_welcome.mp3",
+        "text": "Chào bạn, mình là Asinu. Mỗi ngày hỏi thăm sức khỏe bạn, để cả nhà yên tâm.",
+        "textSha256": "ac850d98b95cd3aa87672f9065f15d2b49a8fa2c4135510d72129ca8407d0b37",
+        "audioSha256": "f1e554878905cb994f0bda5f8435e7062b5c35c7105332214c97753a87c66f73",
+        "bytes": 84525,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -2.1
+      },
+      "home.fine": {
+        "file": "vi_home_fine.mp3",
+        "text": "Thấy khỏe thì bấm Tôi ổn nhé, mỗi ngày một lần.",
+        "textSha256": "f1d90459ef5b4fd3556a0767934fb24e043c539545889cbe7696825f2dcc2664",
+        "audioSha256": "8e543b0bde8f62650d028798070575ecbbd37435844117a3ffc9b1b9137ce1f8",
+        "bytes": 47661,
+        "integratedLufs": -16.43,
+        "truePeakDbtp": -2.37
+      },
+      "home.unwell": {
+        "file": "vi_home_unwell.mp3",
+        "text": "Thấy mệt hay khó chịu thì bấm vào đây.",
+        "textSha256": "fb5b28f94acf12e393955a2be89ca37fa3cd830cc78962a5c6624cd4942a12f3",
+        "audioSha256": "99937cacb04e10d9c6b34322d5df667c2fe160bcf02f88e23e26d8f6d9836f22",
+        "bytes": 31917,
+        "integratedLufs": -16.14,
+        "truePeakDbtp": -2.43
+      },
+      "checkin.choices": {
+        "file": "vi_checkin_choices.mp3",
+        "text": "Chọn câu giống với bạn nhất.",
+        "textSha256": "990a4f3174563bb13e1df102a0ec9003ebf8a7a3fbea09eaee46ad56af1c7bdd",
+        "audioSha256": "b8761ac644e538fefe6f554ef2845019f2932adcbfd45ae4e163281615a614bb",
+        "bytes": 23853,
+        "integratedLufs": -16.48,
+        "truePeakDbtp": -2.48
+      },
+      "checkin.other": {
+        "file": "vi_checkin_other.mp3",
+        "text": "Bấm đây để nói hoặc gõ khi không có câu nào đúng.",
+        "textSha256": "58c585592e15d09c48db1d562080f52614e9514197854b5a5908e0162d9aded9",
+        "audioSha256": "c4105fb3eb04c076d86dcdbdb7e57505010a54bae22f5577177528b405420881",
+        "bytes": 47661,
+        "integratedLufs": -16.48,
+        "truePeakDbtp": -1.9
+      },
+      "home.suggestions": {
+        "file": "vi_home_suggestions.mp3",
+        "text": "Bấm đây xem gợi ý sức khỏe hôm nay, dành riêng cho bạn.",
+        "textSha256": "223fa505ffa0e88251d499827f3b1cafe63b1b9efa5cf81970ca87e95ea4b6f3",
+        "audioSha256": "ffa848fb7162f7656628a703a8f8c85db50441a374b6630731c31925f9083b1c",
+        "bytes": 52269,
+        "integratedLufs": -16.3,
+        "truePeakDbtp": -2.33
+      },
+      "circle.add": {
+        "file": "vi_circle_add.mp3",
+        "text": "Bấm đây để thêm con cháu, người thân của bạn.",
+        "textSha256": "98ce5af1fc3c9dc41184389578fae260642ac0fa16465ca62996ad99e2c8a972",
+        "audioSha256": "a434f9b20aa45e7fb9d97a2326e8ff23c8e34d6ca902d5258016600461e3d98d",
+        "bytes": 45357,
+        "integratedLufs": -16.32,
+        "truePeakDbtp": -2.42
+      },
+      "circle.phone": {
+        "file": "vi_circle_phone.mp3",
+        "text": "Nhập số điện thoại người thân, rồi bấm tìm.",
+        "textSha256": "6c4ea6fc8e1c22520211468f95f46e895ce657c52bf19fe321fcbb006f45a625",
+        "audioSha256": "db1290e533e13207be5b4853af3bb511b1a171e1eb9a086eabdfced13c532eba",
+        "bytes": 41517,
+        "integratedLufs": -16.44,
+        "truePeakDbtp": -2.05
+      },
+      "circle.relationship": {
+        "file": "vi_circle_relationship.mp3",
+        "text": "Người này là gì của bạn: con, cháu, vợ hoặc chồng?",
+        "textSha256": "1bbfc60a75c6d85b0d126ece211cc92385e0a8a8e9181c65d683b635f4221ca5",
+        "audioSha256": "57ceff41f23f060da5dbd190b5f43f929f20e32e2da2a55467967b9c55763700",
+        "bytes": 57645,
+        "integratedLufs": -16.44,
+        "truePeakDbtp": -2.4
+      },
+      "circle.send": {
+        "file": "vi_circle_send.mp3",
+        "text": "Bấm Gửi để mời, người thân nhận lời là kết nối xong.",
+        "textSha256": "3fd682f2edaf84b0db2e1e8db0ad647b12721f5977a3656b5ca18465f0136cbf",
+        "audioSha256": "2909cb71b52b1c1c0967a7b4501703df3669772895a7d91c59d494ee0216ac6a",
+        "bytes": 51885,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -2.47
+      },
+      "circle.member": {
+        "file": "vi_circle_member.mp3",
+        "text": "Bấm vào đây để xem tin của người thân này.",
+        "textSha256": "9a4a8f9a037c08db02f7982678d0947313221a67b8444ae94b631feb1876039d",
+        "audioSha256": "4c6f597c437bb99799fd0d6b9d66ba149a3f563df512d45432e2971680f053fb",
+        "bytes": 38445,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -1.98
+      }
+    },
+    "en": {
+      "welcome": {
+        "file": "en_welcome.mp3",
+        "text": "Hello, I'm Asinu. A daily health check for you, and peace of mind for your family.",
+        "textSha256": "f82fa37e630172f6189519f558872c0f4988dcf0449ece3d95b595efba041df9",
+        "audioSha256": "44689348d2859d523091d6edeef0d25c93aeedb83f8ecaf648ffd787d1a44d17",
+        "bytes": 107565,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -2.3
+      },
+      "home.fine": {
+        "file": "en_home_fine.mp3",
+        "text": "Feeling well? Tap I'm fine, once a day.",
+        "textSha256": "6c606404d52f2c2b943d33a8ec4fffedaa1ff2b573b04cceafa2c8f4fc0164db",
+        "audioSha256": "417039efd97bba01d4e7934ddef6173ebbbc675de2f4511497262efd01a222d7",
+        "bytes": 56493,
+        "integratedLufs": -16.31,
+        "truePeakDbtp": -2.42
+      },
+      "home.unwell": {
+        "file": "en_home_unwell.mp3",
+        "text": "Feeling tired or uncomfortable? Tap here.",
+        "textSha256": "b596d6f999a179c5d915c2778429b429a3db969953a172602b204b8cec3c8657",
+        "audioSha256": "d8097630d41c48f729acf22fe6863322c80d6c1fa5e77d2adc95f644f545e1c6",
+        "bytes": 56109,
+        "integratedLufs": -16.34,
+        "truePeakDbtp": -2.43
+      },
+      "checkin.choices": {
+        "file": "en_checkin_choices.mp3",
+        "text": "Choose the answer that best describes you.",
+        "textSha256": "b3546bd850af7f4acd39124a71e416f7ea2d830b75595248ce6e651e56d08449",
+        "audioSha256": "0ed8daa6e584368a95b8a34ce3f03f856bad3fc965e1302354690df18afca9f8",
+        "bytes": 55725,
+        "integratedLufs": -16.5,
+        "truePeakDbtp": -1.99
+      },
+      "checkin.other": {
+        "file": "en_checkin_other.mp3",
+        "text": "No answer fits? Tap here to speak or type.",
+        "textSha256": "71964b0eccdd8c3af80f13cecfb640c4f3eafd2870b187d903e7c90da3a7be2a",
+        "audioSha256": "3246346f0e8db913c92add8adb1acea1bfee8a317f2ab65c8ac7470349f5fbea",
+        "bytes": 61869,
+        "integratedLufs": -16.33,
+        "truePeakDbtp": -2.37
+      },
+      "home.suggestions": {
+        "file": "en_home_suggestions.mp3",
+        "text": "Tap here for today's health suggestions, just for you.",
+        "textSha256": "5762515b1e5ab16efd909a91c3418f569dd0c2b61c3fd1066456e069b2721ef6",
+        "audioSha256": "76be4241775b6bc30d3a293b50905e9c00fabcafe51f1023a2d9ad2dda3929f6",
+        "bytes": 60333,
+        "integratedLufs": -16.25,
+        "truePeakDbtp": -2.4
+      },
+      "circle.add": {
+        "file": "en_circle_add.mp3",
+        "text": "Tap here to add a family member.",
+        "textSha256": "795f25970ae0158f75288b5b4bca1c3800fc0b99c658f0db5357c3d38b239409",
+        "audioSha256": "67bcbdc9c881d1f95ccadcaffb38ed45ac13cec32c26b34daa239836bbde50eb",
+        "bytes": 39597,
+        "integratedLufs": -16.44,
+        "truePeakDbtp": -2.13
+      },
+      "circle.phone": {
+        "file": "en_circle_phone.mp3",
+        "text": "Enter your family member's phone number, then tap search.",
+        "textSha256": "2a83a92a01af0ef5f1e724a032f08d59b3ae541c8e4cc355e898b8068246440f",
+        "audioSha256": "84a712a28d942a3d8250f9922fc0ca317dc977f67f6f4933b48256c60894dfb4",
+        "bytes": 64557,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -2
+      },
+      "circle.relationship": {
+        "file": "en_circle_relationship.mp3",
+        "text": "How are you related: child, grandchild, or spouse?",
+        "textSha256": "209e0326093ed99791a343e561fd5c8c37b2ea25219a33fda8115e737969cbf5",
+        "audioSha256": "d0f98dd711bde64b2b65cce8e03bd85f85e0486b28998789722d639ceff52ef5",
+        "bytes": 63405,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -2.12
+      },
+      "circle.send": {
+        "file": "en_circle_send.mp3",
+        "text": "Tap Send to invite, then wait for your relative to accept.",
+        "textSha256": "6f8e5dd86a9604df99c67c82bb0cef5a198063a1c61094dffd22d09f1b165d37",
+        "audioSha256": "b9ba290152db1b4f9f8cbe7893e02f3681476f21817a31d5480b3645426ee7b5",
+        "bytes": 61485,
+        "integratedLufs": -16.24,
+        "truePeakDbtp": -2.39
+      },
+      "circle.member": {
+        "file": "en_circle_member.mp3",
+        "text": "Tap here to see updates from this family member.",
+        "textSha256": "8f88cf1694b1cf273983b6e0294b04400fc5d74d55aa675e53cf061dbf932b83",
+        "audioSha256": "b5c710620d616bb166441b70083a21bb14ddcda82165336408077b638974dfdf",
+        "bytes": 54189,
+        "integratedLufs": -16.18,
+        "truePeakDbtp": -2.24
+      }
+    }
+  }
+}

@@ -1,31 +1,51 @@
 import { NativeModules, Platform } from 'react-native';
-import * as Speech from 'expo-speech';
 import { Audio } from '../../lib/audio';
-import { CheckinCallAudio } from '../checkin-call/checkin-call.audio';
+import { CheckinCallAudio, type CallAudioSound } from '../checkin-call/checkin-call.audio';
+import { guidanceAssets, type GuidanceClip } from './guidance.assets';
 
-/** Only fixed guidance text uses the permitted temporary device-voice fallback.
- * Check-in calls keep their existing Tuấn Anh recordings and audio policy. */
+/** Bundled Asinu Tuấn Anh v4 only, never the platform's default TTS voice. */
 export class GuidanceAudio {
   private version = 0;
   private barrier: Promise<void> = Promise.resolve();
-  private active = false;
+  private sound: CallAudioSound | null = null;
+  private readonly retiring = new Set<CallAudioSound>();
+  private readonly releases = new Map<CallAudioSound, Promise<void>>();
+
   constructor() { CheckinCallAudio.registerExternalStop(() => this.stop()); }
+
+  private release(sound: CallAudioSound) {
+    const existing = this.releases.get(sound);
+    if (existing) return existing;
+    this.retiring.add(sound);
+    const release = (async () => {
+      let paused = false;
+      // Native pause begins now, not after awaiting an older cancellation.
+      try { await sound.pauseAsync(); paused = true; } catch {}
+      try { await sound.unloadAsync(); } catch (error) { if (!paused) throw error; }
+    })();
+    this.releases.set(sound, release);
+    void release.then(() => {
+      this.retiring.delete(sound); this.releases.delete(sound);
+    }, () => { this.releases.delete(sound); });
+    return release;
+  }
+
   stop() {
     ++this.version;
-    if (!this.active) return this.barrier;
-    this.active = false;
-    // Invoke native cancellation immediately, not after another async request.
-    const stop = Speech.stop();
-    this.barrier = Promise.all([this.barrier, stop]).then(() => {});
+    const previous = this.sound; this.sound = null;
+    if (previous) this.retiring.add(previous);
+    const releases = [...this.retiring].map(sound => this.release(sound));
+    this.barrier = Promise.all([this.barrier.catch(() => {}), ...releases]).then(() => {});
     void this.barrier.catch(() => {});
     return this.barrier;
   }
-  async speak(text: string, language: string, manual = false) {
+
+  async speak(clip: GuidanceClip, language: string, manual = false) {
     const cancelled = this.stop();
     const version = this.version;
-    this.active = true;
     try {
       await cancelled;
+      if (version !== this.version) return;
       await CheckinCallAudio.stopAll();
       if (version !== this.version) return;
       if (!manual && Platform.OS === 'android') {
@@ -33,25 +53,30 @@ export class GuidanceAudio {
         // automatically, while explicit Replay remains available.
         const native = NativeModules.AsinuCheckinCallModule;
         if (!native?.isGuidanceSoundAllowed || !(await native.isGuidanceSoundAllowed())) {
-          if (version === this.version) this.active = false;
           return;
         }
       }
       if (version !== this.version) return;
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: manual, allowsRecordingIOS: false });
       if (version !== this.version) return;
-      const voices = await Speech.getAvailableVoicesAsync();
-      if (version !== this.version) return;
       const locale = language.startsWith('en') ? 'en' : 'vi';
-      const voice = voices.find(candidate => candidate.language.startsWith(locale));
-      // Do not substitute an unrelated language if Vietnamese isn't installed.
-      if (!voice) { this.active = false; return; }
-      Speech.speak(text, { language: locale === 'vi' ? 'vi-VN' : 'en-US', voice: voice.identifier,
-        rate: 0.82, pitch: 1, volume: 1, useApplicationAudioSession: true,
-        onDone: () => { if (version === this.version) this.active = false; },
-        onError: () => { if (version === this.version) this.active = false; },
+      const source = guidanceAssets[locale][clip];
+      if (typeof source !== 'number') return;
+      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: false });
+      if (version !== this.version) { await this.release(sound); return; }
+      this.sound = sound;
+      sound.setOnPlaybackStatusUpdate(status => {
+        if (version !== this.version || this.sound !== sound) return;
+        if (status.didJustFinish || status.error) {
+          this.sound = null;
+          void this.release(sound).catch(() => {});
+        }
       });
-    } catch { if (version === this.version) this.active = false; }
+      sound.play();
+    } catch {
+      // Keep text and health actions usable on audio failure. No OS-voice fallback.
+      if (version === this.version) await this.stop().catch(() => {});
+    }
   }
 }
 export const guidanceAudio = new GuidanceAudio();
