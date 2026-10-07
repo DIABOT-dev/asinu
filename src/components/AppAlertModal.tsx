@@ -26,6 +26,7 @@ export type AlertButton = {
 export type AlertIcon = {
   name: ComponentProps<typeof MaterialCommunityIcons>['name'];
   color?: string;
+  background?: 'circle' | 'none';
 };
 
 type AlertLayout = 'alert' | 'actions';
@@ -47,6 +48,7 @@ type Props = {
   messageAlign?: 'center' | 'left';
   children?: React.ReactNode;
   layout?: AlertLayout;
+  primaryButtonColors?: { background: string; foreground: string };
 };
 
 export function AppAlertModal({
@@ -66,6 +68,7 @@ export function AppAlertModal({
   messageAlign = 'center',
   children,
   layout = 'alert',
+  primaryButtonColors,
 }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
@@ -139,7 +142,7 @@ export function AppAlertModal({
         const isDestructive = btn.variant === 'destructive' || (!btn.variant && btn.style === 'destructive');
         const tint = actionList
           ? isDestructive ? colors.danger : isCancel ? colors.textSecondary : colors.primaryText
-          : btn.variant === 'primary' ? '#ffffff'
+          : btn.variant === 'primary' ? primaryButtonColors?.foreground ?? '#ffffff'
           : btn.variant === 'outline' ? '#466d82'
           : isDestructive ? iconColors.danger
           : isCancel ? colors.textSecondary : colors.primary;
@@ -152,6 +155,7 @@ export function AppAlertModal({
               styles.button,
               verticalButtons ? { width: '100%', minHeight: 48, justifyContent: 'center' } : { flex: 1 },
               btn.variant === 'primary' && styles.buttonTealPrimary,
+              btn.variant === 'primary' && primaryButtonColors && { backgroundColor: primaryButtonColors.background },
               btn.variant === 'outline' && styles.buttonOutlineSecondary,
               btn.variant === 'text' && styles.buttonTextOnly,
               !btn.variant && isCancel && styles.buttonCancel,
@@ -170,6 +174,7 @@ export function AppAlertModal({
             <Text style={[
               styles.buttonText,
               btn.variant === 'primary' && styles.buttonTextTealPrimary,
+              btn.variant === 'primary' && primaryButtonColors && { color: primaryButtonColors.foreground },
               btn.variant === 'outline' && styles.buttonTextOutlineSecondary,
               btn.variant === 'text' && styles.buttonTextOnlyText,
               !btn.variant && isCancel && styles.buttonTextCancel,
@@ -234,7 +239,7 @@ export function AppAlertModal({
           ) : null}
 
           {icon && !headerImage ? (
-            <View style={styles.iconWrap}>
+            <View style={icon.background === 'none' ? styles.iconStandalone : styles.iconWrap}>
               <MaterialCommunityIcons name={icon.name} size={30} color={icon.color ?? colors.primary} />
             </View>
           ) : null}
@@ -356,6 +361,14 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       justifyContent: 'center',
       marginBottom: spacing.md,
       width: 64,
+    },
+    iconStandalone: {
+      alignItems: 'center',
+      alignSelf: 'center',
+      height: 48,
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+      width: 48,
     },
     message: {
       fontSize: typography.size.sm,

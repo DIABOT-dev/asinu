@@ -99,7 +99,6 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/components/AppAlertModal': { AppAlertModal: 'AppAlertModal', useAppAlert: () => ({ alertState: { visible: false }, showAlert() {}, dismissAlert() {} }) },
     '../../../src/components/AiDataConsentModal': { AiDataConsentModal: 'AiDataConsentModal', hasAiDataConsent: async () => false, revokeAiDataConsent: async () => {} },
     '../../../src/components/ScaledTextInput': { ScaledTextInput: 'TextInput' },
-    '../../../src/features/guidance/GuidanceSettings': { GuidanceSettings: 'GuidanceSettings' },
     '../../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../../src/components/Screen': { Screen: 'Screen' },
@@ -195,6 +194,17 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
+  for (const isDark of [false, true]) {
+    await test(`${language}/${isDark ? 'dark' : 'light'}: the care promotion banner is hidden without removing profile actions`, async () => {
+      const h = harness({ language, isDark });
+      const tree = h.render();
+      const all = nodes(tree);
+      assert.ok(!all.some(node => node.type === 'Text' && [h.t('careBannerTitle'), h.t('careBannerSubtitle')].includes(node.props.children)));
+      assert.ok(all.some(node => node.type === 'Text' && node.props.children === h.t('sectionActions')));
+      assert.ok(all.some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t('reminderSchedule')));
+      h.open(); assert.ok(h.modal());
+    });
+  }
   await test(`${language}: profile editing remains only in the personal-info header, not the actions list`, async () => {
     const h = harness({ language });
     const controls = nodes(h.render()).filter(node => ['Pressable', 'TouchableOpacity'].includes(node.type));

@@ -429,7 +429,8 @@ function flowHarness({ role = 'USER', api = {}, audio = {}, actionPending = { cu
   const events = [], status = {};
   const refs = { actionPending, callEnded: { current: false }, inTriage: { current: false }, screenMounted: { current: true }, accepted: { current: true }, acceptPromise: { current: null }, joinRequested: { current: false }, triageStage: { current: { step: 'location', location: null, symptom: null } }, activeRoom: { current: null }, connectionEnding: { current: false } };
   const deps = {
-    ...refs, episodeId: 'episode', attempt: { id: 'attempt', target_role: role }, room: null, router: { back: () => events.push('back') }, getUserCheckinCallOutcome,
+    ...refs, episodeId: 'episode', attempt: { id: 'attempt', target_role: role }, room: null,
+    router: { back: () => events.push('back'), replace: route => events.push(`replace:${route}`) }, getUserCheckinCallOutcome,
     getClosedCheckinCallStatusKey, isCheckinCallAttemptClosed, getCheckinCallTime: value => value ? new Date(value).getTime() : null,
     AsyncStorage: { removeItem: async () => {} }, draftKey: 'draft',
     t: key => key, getApiErrorMessage: () => 'retry',
@@ -636,8 +637,16 @@ await test('urgent and skip-details shortcuts remain available at every triage s
 await test('declining notifies backend before navigation and ignores repeated taps', async () => {
   const h = flowHarness();
   await Promise.all([h.callable.decline(), h.callable.decline()]);
-  assert.deepEqual(h.events, ['stop', 'disconnect', 'decline', 'endNative', 'back']);
+  assert.deepEqual(h.events, ['stop', 'disconnect', 'decline', 'endNative', 'replace:/(tabs)/home']);
   assert.equal(h.refs.callEnded.current, true);
+});
+await test('failed decline does not navigate home or end CallKit and remains retryable', async () => {
+  const h = flowHarness({ api: { decline: async () => { throw new Error('offline'); } } });
+  await h.callable.decline();
+  assert.equal(h.events.some(event => event.startsWith('replace:') || event === 'back' || event === 'endNative'), false);
+  assert.equal(h.refs.callEnded.current, false);
+  assert.equal(h.refs.actionPending.current, false);
+  assert.equal(h.status.Error, 'retry');
 });
 await test('lost triage response recovers committed backend state instead of stale initial buttons', async () => {
   let starts = 0;

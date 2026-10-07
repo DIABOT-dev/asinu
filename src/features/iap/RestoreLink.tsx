@@ -1,8 +1,6 @@
 /**
- * Plain "Restore purchases" link — Apple Guideline 3.1.1 requires this
- * to be reachable even when the user has an active plan (e.g. they switched
- * App Store account, or signed into a different Asinu account on the
- * same device). Hidden when env.paymentMethod !== 'iap'.
+ * Restore verified Store purchases. This reads the Store account's transactions;
+ * it never buys a plan. Hidden when env.paymentMethod !== 'iap'.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -108,7 +106,7 @@ export function RestoreLink({ onRestored, compact = false, disabled = false, onB
             <Ionicons name="refresh-outline" size={21} color={compact ? colors.primaryText : colors.primary} />
           )}
           <View style={[styles.copy, compact && styles.compactCopy]}>
-            <Text allowFontScaling style={[styles.title, compact && styles.compactTitle]}>{t(compact ? 'restorePurchasesShort' : 'restorePurchases')}</Text>
+            <Text allowFontScaling style={[styles.title, compact && styles.compactTitle]}>{t('restorePurchases')}</Text>
             {!compact ? <Text style={styles.description}>{t('restorePurchasesDesc')}</Text> : null}
           </View>
         </View>
@@ -138,33 +136,33 @@ function createStyles(isDark: boolean) {
       alignItems: 'center',
       alignSelf: 'stretch',
       backgroundColor: colors.primaryLight,
-      borderColor: colors.primary,
-      borderRadius: 27,
-      borderWidth: 1.2,
-      flexShrink: 0,
+      borderColor: colors.border,
+      borderRadius: 16,
+      borderWidth: 1,
+      flexShrink: 1,
       justifyContent: 'center',
       marginTop: 0,
-      minHeight: 64,
-      minWidth: 112,
+      maxWidth: '100%',
+      minHeight: 56,
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
     compactLeading: {
       alignItems: 'center',
-      // Do not inherit the full-width link's flex: 1: Yoga otherwise measures
-      // an inline button as padding only and collapses its icon and label.
       flex: 0,
-      flexDirection: 'column',
-      gap: 4,
+      flexDirection: 'row',
+      flexShrink: 1,
+      gap: spacing.sm,
       justifyContent: 'center',
     },
     compactCopy: {
       flex: 0,
+      flexShrink: 1,
     },
     compactTitle: {
       color: colors.primaryText,
-      fontSize: 14,
-      fontWeight: '700',
+      fontSize: 16,
+      fontWeight: '600',
       textAlign: 'center',
     },
     pressed: {

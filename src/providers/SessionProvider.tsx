@@ -79,7 +79,8 @@ export const SessionProvider = ({ children }: Props) => {
   const hydrated = useAuthStore((state) => state.hydrated);
   const authToken = useAuthStore((state) => state.token);
   const profile = useAuthStore((state) => state.profile);
-  const guidanceWelcomed = useGuidanceStore(state => state.account === String(profile?.id) && state.ready && state.progress.welcomeSeen);
+  const guidanceWelcomed = useGuidanceStore(state => state.account === String(profile?.id) && state.ready
+    && state.progress.welcomeSeen && !state.welcomeOpen);
   const pathname = usePathname();
   const navigationState = useRootNavigationState();
   const callParams = useGlobalSearchParams<{ attemptId?: string; nativeAnswered?: string }>();

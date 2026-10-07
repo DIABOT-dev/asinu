@@ -42,7 +42,6 @@ import {
   revokeAiDataConsent,
 } from "../../../src/components/AiDataConsentModal";
 import { ScaledTextInput as TextInput } from "../../../src/components/ScaledTextInput";
-import { GuidanceSettings } from "../../../src/features/guidance/GuidanceSettings";
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -51,6 +50,7 @@ const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
 const SHOW_CHECKIN_CALL_UI_GALLERY = false;
+const SHOW_CARE_BANNER = false;
 
 const DeleteAccountModal = React.lazy(
   () => import("../../../src/components/DeleteAccountModal"),
@@ -958,27 +958,29 @@ export default function ProfileScreen() {
             </Animated.View>
 
             {/* ==================== BANNER CHĂM SÓC SỨC KHỎE ==================== */}
-            <Animated.View entering={FadeIn.delay(180).duration(350)}>
-              <TouchableOpacity
-                style={styles.careBanner}
-                onPress={() => router.push("/subscription")}
-                activeOpacity={0.88}
-              >
-                <Image
-                  source={require("../../../assets/images/profile/care_banner_art.png")}
-                  style={styles.careBannerArt}
-                />
-                <View style={styles.careBannerTextGroup}>
-                  <Text style={styles.careBannerTitle} numberOfLines={1}>
-                    {t("careBannerTitle")}
-                  </Text>
-                  <Text style={styles.careBannerSubtitle} numberOfLines={1}>
-                    {t("careBannerSubtitle")}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#059669" />
-              </TouchableOpacity>
-            </Animated.View>
+            {SHOW_CARE_BANNER && (
+              <Animated.View entering={FadeIn.delay(180).duration(350)}>
+                <TouchableOpacity
+                  style={styles.careBanner}
+                  onPress={() => router.push("/subscription")}
+                  activeOpacity={0.88}
+                >
+                  <Image
+                    source={require("../../../assets/images/profile/care_banner_art.png")}
+                    style={styles.careBannerArt}
+                  />
+                  <View style={styles.careBannerTextGroup}>
+                    <Text style={styles.careBannerTitle} numberOfLines={1}>
+                      {t("careBannerTitle")}
+                    </Text>
+                    <Text style={styles.careBannerSubtitle} numberOfLines={1}>
+                      {t("careBannerSubtitle")}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#059669" />
+                </TouchableOpacity>
+              </Animated.View>
+            )}
 
             {/* ==================== 02 MIDDLE: THAO TÁC ==================== */}
             <Animated.View entering={FadeIn.delay(220).duration(350)}>
@@ -1213,8 +1215,6 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionHeading}>{t("sectionSystem")}</Text>
               </View>
               <View style={styles.cardsStack}>
-                <GuidanceSettings style={styles.actionCard} labelStyle={styles.rowLabel} />
-
                 {/* Trợ giúp qua Zalo */}
                 <TouchableOpacity
                   style={styles.actionCard}

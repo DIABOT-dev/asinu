@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DropdownOption } from '../../src/components/Dropdown';
+import { Dropdown, type DropdownOption } from '../../src/components/Dropdown';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
@@ -28,7 +28,8 @@ import { colors, iconColors, radius, spacing, brandColors} from '../../src/style
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { normalizeVietnamesePhone } from '../../src/lib/validation';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
-import { getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
+import { DEFAULT_FAMILY_ROLE } from '../../src/features/care-circle/family-roles';
+import { getFamilyRelationshipOptions } from '../../src/features/care-circle/family-relationships';
 import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 
 type SearchUser = {
@@ -68,7 +69,6 @@ export default function InviteScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
-  const { t: tg } = useTranslation('onboarding');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
@@ -92,9 +92,7 @@ export default function InviteScreen() {
   const [qrPreview, setQrPreview] = useState<CareCircleQrPreview | null>(null);
   const [qrLoading, setQrLoading] = useState(Boolean(qrToken));
   const [selectedRelationship, setSelectedRelationship] = useState<DropdownOption | null>(null);
-  const [selectedRole, setSelectedRole] = useState<DropdownOption | null>(null);
   const [customRelationship, setCustomRelationship] = useState('');
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [permissions, setPermissions] = useState({
     can_view_logs: true,
     can_receive_alerts: true,
@@ -107,7 +105,6 @@ export default function InviteScreen() {
     selectedUser ||
     qrPreview ||
     selectedRelationship ||
-    selectedRole ||
     customRelationship.trim() ||
     !permissions.can_view_logs || !permissions.can_receive_alerts || !permissions.can_ack_escalation
   );
@@ -124,15 +121,7 @@ export default function InviteScreen() {
     ], { name: 'logout-variant', color: iconColors.danger });
   };
 
-  const relationshipOptions: DropdownOption[] = [
-    { id: 'con-trai', label: t('relSon'), subtitle: t('relChild') },
-    { id: 'con-gai', label: t('relDaughter'), subtitle: t('relChild') },
-    { id: 'chau', label: tg('guidance.relGrandchild') },
-    { id: 'vo-chong', label: tg('guidance.relSpouse') },
-    { id: 'khac', label: tg('guidance.relOther') },
-  ];
-
-  const roleOptions = getFamilyRoleOptions(t);
+  const relationshipOptions = getFamilyRelationshipOptions(t);
 
   const handleSearchByPhone = async () => {
     const phone = normalizeVietnamesePhone(phoneQuery);
@@ -231,8 +220,8 @@ export default function InviteScreen() {
     }
     try {
       const invitationData = {
-        relationship_type: selectedRelationship?.label || customRelationship || undefined,
-        role: selectedRole?.id,
+        relationship_type: selectedRelationship?.id || customRelationship || undefined,
+        role: DEFAULT_FAMILY_ROLE,
         permissions,
       };
       if (qrToken && qrPreview) {
@@ -431,7 +420,7 @@ export default function InviteScreen() {
             ) : null}
           </View>
 
-        {/* ─── Relationship & Role ─── */}
+        {/* ─── Relationship ─── */}
           <GuideTarget step="circle.relationship" enabled={Boolean(normalizeVietnamesePhone(phoneQuery) || qrPreview)}>
           <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -443,74 +432,21 @@ export default function InviteScreen() {
                 <Text style={styles.optionalBadgeText}>{t('optional')}</Text>
               </View>
             </View>
-            <View style={{ gap: 10 }}>
-                {relationshipOptions.map(opt => (
-                  <Pressable
-                    key={opt.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: selectedRelationship?.id === opt.id }}
-                    style={{ minHeight: 56, borderRadius: 14, borderWidth: 1,
-                      borderColor: selectedRelationship?.id === opt.id ? '#125d50' : '#8fa9a1',
-                      backgroundColor: selectedRelationship?.id === opt.id ? '#e2f0e9' : '#f9fcfb', padding: 14 }}
-                    onPress={() => {
-                      setSelectedRelationship(opt);
-                      setCustomRelationship('');
-                    }}
-                  >
-                    <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: '#123b35' }}>{opt.label}</Text>
-                  </Pressable>
-                ))}
-            </View>
+            <Dropdown
+              accessibilityLabel={t('relationship')}
+              placeholder={t('relationshipPlaceholder')}
+              options={relationshipOptions}
+              value={selectedRelationship}
+              onChange={option => {
+                setSelectedRelationship(option);
+                setCustomRelationship('');
+              }}
+              loading={loading}
+              searchable
+              containerStyle={styles.relationshipDropdown}
+            />
           </View>
           </GuideTarget>
-
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.headerLeftRow}>
-                <Ionicons name="people-outline" size={19} color="#0D9488" />
-                <Text style={styles.cardTitle}>{t('role')}</Text>
-              </View>
-              <View style={styles.optionalBadge}>
-                <Text style={styles.optionalBadgeText}>{t('optional')}</Text>
-              </View>
-            </View>
-            <Pressable
-              style={styles.comboInputRow}
-              accessibilityRole="button"
-              accessibilityLabel={t('role')}
-              accessibilityState={{ expanded: showRoleDropdown }}
-              onPress={() => setShowRoleDropdown(v => !v)}
-            >
-              <Text style={[styles.comboInputText, !selectedRole && styles.placeholderText]}>
-                {selectedRole?.label || t('rolePlaceholder')}
-              </Text>
-              <View style={styles.comboDropBtn}>
-                <Ionicons
-                  name={showRoleDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#0D9488"
-                />
-              </View>
-            </Pressable>
-            {showRoleDropdown && (
-              <ScrollView style={styles.suggestionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                {roleOptions.map(opt => (
-                  <Pressable
-                    key={opt.id}
-                    style={styles.suggestionItem}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: selectedRole?.id === opt.id }}
-                    onPress={() => {
-                      setSelectedRole(opt);
-                      setShowRoleDropdown(false);
-                    }}
-                  >
-                    <Text style={styles.suggestionText}>{opt.label}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-          </View>
 
         {/* ─── Permissions ─── */}
           <View style={styles.card}>
@@ -858,53 +794,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flex: 1,
     },
 
-    // ── Relationship / Role combo box ──
-    comboInputRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: '#E2E8F0',
-      borderRadius: 14,
-      backgroundColor: '#F8FAFC',
-      height: 50,
-      paddingHorizontal: 14,
-    },
-    comboInput: {
-      flex: 1,
-      fontSize: 14.5,
-      color: '#0F172A',
-      paddingVertical: 0,
-    },
-    comboInputText: {
-      flex: 1,
-      fontSize: 14.5,
-      color: '#0F172A',
-    },
-    placeholderText: {
-      color: '#94A3B8',
-    },
-    comboDropBtn: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingLeft: 8,
-    },
-    suggestionList: {
-      marginTop: 8,
-      borderWidth: 1,
-      borderColor: '#E2E8F0',
-      borderRadius: 14,
-      backgroundColor: '#FFFFFF',
-      maxHeight: 200,
-    },
-    suggestionItem: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: '#F1F5F9',
-    },
-    suggestionText: {
-      fontSize: 14.5,
-      color: '#0F172A',
+    // ── Relationship selector ──
+    relationshipDropdown: {
+      marginBottom: 0,
     },
 
     // ── Permissions ──

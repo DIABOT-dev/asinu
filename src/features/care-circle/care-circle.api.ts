@@ -138,13 +138,11 @@ export type CreateInvitationPayload = {
 export type CareCircleQrToken = {
   token: string;
   value: string;
-  expiresAt: string;
 };
 
 export type CareCircleQrPreview = {
   name: string;
   avatarUrl: string | null;
-  expiresAt: string;
 };
 
 export type CreateQrInvitationPayload = Omit<

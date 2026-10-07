@@ -9,12 +9,10 @@ import {
   UIManager,
   View,
 } from "react-native";
-import { Image } from "expo-image";
 import { ScaledText as Text } from "./ScaledText";
 import { useThemeColors } from "../hooks/useThemeColors";
 import { radius, spacing } from "../styles";
 
-const FAQ_LEAVES = require("../../assets/images/subscription/faq_leaves.png");
 const QUESTION_INDICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 if (
@@ -66,6 +64,9 @@ const FAQItem = memo(function FAQItem({
 
   return (
     <Pressable
+      accessibilityLabel={question}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: isOpen }}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.qItem,
@@ -97,6 +98,7 @@ const FAQItem = memo(function FAQItem({
         </View>
 
         <Text
+          allowFontScaling
           style={[
             styles.questionText,
             { color: isOpen ? (isDark ? "#fb923c" : "#9a3412") : textColor },
@@ -117,6 +119,7 @@ const FAQItem = memo(function FAQItem({
       {isOpen && (
         <View style={styles.answerWrap}>
           <Text
+            allowFontScaling
             style={[
               styles.answerText,
               { color: isDark ? "#fed7aa" : "#7c2d12" },
@@ -133,8 +136,13 @@ const FAQItem = memo(function FAQItem({
 export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
   const { t } = useTranslation("subscription");
   const { colors, isDark } = useThemeColors();
-  // Default question 4 is open matching design
-  const [openIndex, setOpenIndex] = useState<number | null>(3);
+  const [expanded, setExpanded] = useState(false);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const toggleCard = useCallback(() => {
+    LayoutAnimation.configureNext(ANIMATION_CONFIG);
+    setExpanded(previous => !previous);
+  }, []);
 
   const toggleQuestion = useCallback((idx: number) => {
     LayoutAnimation.configureNext(ANIMATION_CONFIG);
@@ -155,29 +163,37 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
   return (
     <View style={cardStyle}>
       {/* Header */}
-      <View style={styles.header}>
+      <Pressable
+        accessibilityHint={t(expanded ? "faqCollapseHint" : "faqTapHint")}
+        accessibilityLabel={t("faqTitle")}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        onPress={toggleCard}
+        style={({ pressed }) => [styles.header, !expanded && styles.headerCollapsed, pressed && styles.pressedState]}
+      >
         <View style={styles.headerLeft}>
           <View style={styles.helpIconWrap}>
             <Text style={styles.helpQuestionMark}>?</Text>
           </View>
           <View style={styles.headerTextWrap}>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+            <Text allowFontScaling style={[styles.headerTitle, { color: colors.textPrimary }]}>
               {t("faqTitle")}
             </Text>
-            <Text style={styles.headerSubtitle}>{t("faqSubtitle")}</Text>
+            <Text allowFontScaling style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+              {t(expanded ? "faqSubtitle" : "faqTapHint")}
+            </Text>
           </View>
         </View>
-        <Image
-          source={FAQ_LEAVES}
-          style={styles.headerLeaves}
-          contentFit="contain"
-          cachePolicy="memory-disk"
-          priority="high"
+        <Ionicons
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={22}
+          color={colors.primaryText}
+          style={styles.headerChevron}
         />
-      </View>
+      </Pressable>
 
       {/* Questions list */}
-      <View style={styles.body}>
+      {expanded && <View style={styles.body}>
         {QUESTION_INDICES.map((i) => (
           <FAQItem
             key={i}
@@ -191,7 +207,7 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
             onToggle={toggleQuestion}
           />
         ))}
-      </View>
+      </View>}
     </View>
   );
 });
@@ -210,6 +226,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#e2e8f0",
     marginBottom: spacing.xs,
+    minHeight: 60,
+  },
+  headerCollapsed: {
+    borderBottomWidth: 0,
+    marginBottom: 0,
+    paddingBottom: 0,
   },
   headerLeft: {
     flex: 1,
@@ -231,6 +253,7 @@ const styles = StyleSheet.create({
   },
   headerTextWrap: {
     flex: 1,
+    minWidth: 0,
   },
   headerTitle: {
     fontSize: 18,
@@ -239,13 +262,10 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12.5,
-    color: "#64748b",
     marginTop: 2,
   },
-  headerLeaves: {
-    width: 60,
-    height: 32,
-    opacity: 0.85,
+  headerChevron: {
+    marginLeft: spacing.sm,
   },
   body: {
     paddingTop: spacing.xs,
@@ -255,6 +275,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   qItem: {
+    minHeight: 56,
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 14,

@@ -39,7 +39,8 @@ function guidanceHarness(overrides = {}) {
     if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i]))) slots[index] = { deps, value: work() };
     return slots[index].value;
   };
-  const progress = { account: 'a', ready: true, progress: model.defaultProgress(),
+  const progress = { account: 'a', ready: true, welcomeOpen: false, progress: model.defaultProgress(),
+    setWelcomeOpen(open) { progress.welcomeOpen = open; },
     load() {}, refresh() {}, acknowledge(step) {
       progress.progress = model.mergeProgress(progress.progress, { completed: [step] });
     }, update(patch) {
@@ -73,7 +74,8 @@ function guidanceHarness(overrides = {}) {
       Image: 'Image', Pressable: 'Pressable', ScrollView: 'ScrollView', Text: 'Text', View: 'View',
       StyleSheet: { create: value => value, absoluteFill: {} }, useWindowDimensions: () => ({ width: 393, height: 852 }) },
     '@expo/vector-icons': { Ionicons: 'Icon' },
-    'expo-router': { usePathname: () => state.path, useIsFocused: () => true },
+    'expo-router': { usePathname: () => state.path, useIsFocused: () => true,
+      useGlobalSearchParams: () => state.params ?? (state.path === '/checkin' ? { mode: 'guide' } : {}) },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     'react-i18next': { useTranslation: () => ({ t: translate, i18n: { language: 'vi' } }) },
     '../auth/auth.store': { useAuthStore: select => select(state) },
@@ -165,12 +167,13 @@ await test('finishing onboarding opens the welcome and reads it once, then the a
     await h.settle(); assert.equal(h.calls.audio.length, 1);
     const button = nodes(tree).find(node => node.props?.label === `guidance.${role === 'self' ? 'roleSelf' : 'roleCaregiver'}`);
     await button.props.onPress();
-    assert.deepEqual(h.calls.updates, [{ role, welcomeSeen: true }]);
+    assert.deepEqual(h.calls.updates, [{ welcomeSeen: true }, { role, welcomeSeen: true }]);
+    await h.settle(); assert.equal(h.progress.welcomeOpen, false);
     assert.deepEqual(h.calls.routes, [role === 'self' ? '/(tabs)/home' : '/(tabs)/care-circle']);
     h.unmount();
   }
 });
-await test('welcome Back uncovers the app, stops narration and never chooses a role or saves completion', async () => {
+await test('welcome Back uncovers the app, remembers its display and never chooses a role or completes coach steps', async () => {
   for (const path of ['/home', '/care-circle']) {
     const h = guidanceHarness({ path });
     let tree = await h.settle();
@@ -187,8 +190,9 @@ await test('welcome Back uncovers the app, stops narration and never chooses a r
     assert.equal(nodes(tree).some(node => node.props?.source === 'mascot'), false);
     assert.equal(nodes(tree).some(node => node.props?.importantForAccessibility === 'no-hide-descendants'), false);
     assert.ok(h.calls.stops > stops); assert.equal(h.calls.audio.length, 1);
-    assert.deepEqual(h.calls.updates, []); assert.deepEqual(h.calls.routes, []);
-    assert.equal(h.progress.progress.role, null); assert.equal(h.progress.progress.welcomeSeen, false);
+    assert.deepEqual(h.calls.updates, [{ welcomeSeen: true }]); assert.deepEqual(h.calls.routes, []);
+    assert.equal(h.progress.progress.role, null); assert.equal(h.progress.progress.welcomeSeen, true);
+    assert.deepEqual(h.progress.progress.completed, []); assert.equal(h.progress.welcomeOpen, false);
     assert.equal(h.backListeners.size, 0);
     h.state.path = path === '/home' ? '/care-circle' : '/home'; await h.settle();
     assert.equal(h.calls.audio.length, 1, 'a tab change must not reopen a dismissed welcome');
@@ -202,10 +206,10 @@ await test('Android hardware Back dismisses only the welcome and releases its ha
   const tree = await h.settle();
   assert.equal(nodes(tree).some(node => node.type === 'ScreenBackButton'), false);
   assert.equal(h.backListeners.size, 0);
-  assert.deepEqual(h.calls.routes, []); assert.deepEqual(h.calls.updates, []);
+  assert.deepEqual(h.calls.routes, []); assert.deepEqual(h.calls.updates, [{ welcomeSeen: true }]);
   h.unmount();
 });
-await test('back dismissal is local to this visit, account and replay epoch', async () => {
+await test('a seen welcome cannot return on sign-in, and reopens only for a new account or explicit replay', async () => {
   const h = guidanceHarness();
   let tree = await h.settle(); nodes(tree).find(node => node.type === 'ScreenBackButton').props.onPress();
   tree = await h.settle(); assert.equal(nodes(tree).some(node => node.props?.source === 'mascot'), false);
@@ -213,11 +217,59 @@ await test('back dismissal is local to this visit, account and replay epoch', as
   assert.ok(nodes(tree).some(node => node.props?.source === 'mascot'), 'explicit replay reopens welcome');
   nodes(tree).find(node => node.type === 'ScreenBackButton').props.onPress(); await h.settle();
   h.state.profile = { id: 'b', onboardingCompleted: true }; h.progress.account = 'b';
+  h.progress.progress = model.defaultProgress();
   tree = await h.settle(); assert.ok(nodes(tree).some(node => node.props?.source === 'mascot'));
   nodes(tree).find(node => node.type === 'ScreenBackButton').props.onPress(); await h.settle();
   h.state.token = 'new-session'; tree = await h.settle();
-  assert.ok(nodes(tree).some(node => node.props?.source === 'mascot'), 'new sign-in can resume an unfinished welcome');
-  assert.deepEqual(h.calls.updates, []); h.unmount();
+  assert.equal(nodes(tree).some(node => node.props?.source === 'mascot'), false, 'sign-in is not an explicit guide replay');
+  assert.deepEqual(h.calls.updates, Array(3).fill({ welcomeSeen: true })); h.unmount();
+});
+await test('simply seeing the welcome is remembered on provider reload without requiring Back or a role choice', async () => {
+  const first = guidanceHarness(); const firstTree = await first.settle();
+  assert.ok(nodes(firstTree).some(node => node.props?.source === 'mascot'), 'saving seen must keep the initial role choice open');
+  assert.equal(first.progress.welcomeOpen, true);
+  assert.equal(first.progress.progress.welcomeSeen, true);
+  assert.equal(first.progress.progress.role, null);
+  assert.deepEqual(first.calls.updates, [{ welcomeSeen: true }]);
+  const saved = first.progress.progress;
+  first.unmount(); assert.equal(first.progress.welcomeOpen, false);
+  const reloaded = guidanceHarness({ guidance: { progress: saved } });
+  const tree = await reloaded.settle();
+  assert.equal(nodes(tree).some(node => node.props?.source === 'mascot'), false);
+  assert.deepEqual(reloaded.calls.audio, []); assert.deepEqual(reloaded.calls.updates, []);
+  reloaded.unmount();
+});
+await test('an urgent modal can suspend the first welcome without forgetting it or repeating its narration', async () => {
+  const h = guidanceHarness(); await h.settle();
+  assert.equal(h.progress.welcomeOpen, true);
+  h.state.modalBusy = true;
+  let tree = await h.settle();
+  assert.equal(nodes(tree).some(node => node.props?.source === 'mascot'), false);
+  assert.equal(h.progress.welcomeOpen, false);
+  h.state.modalBusy = false; tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.props?.source === 'mascot'));
+  assert.equal(h.progress.welcomeOpen, true);
+  assert.deepEqual(h.calls.audio, [['welcome', 'vi']]);
+  assert.deepEqual(h.calls.updates, [{ welcomeSeen: true }]);
+  h.unmount();
+});
+await test('saving welcome-seen on display cannot unlock notification prompts while role selection is still open', () => {
+  const source = ts.createSourceFile('SessionProvider.tsx', read('src/providers/SessionProvider.tsx'),
+    ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let selector;
+  const visit = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'guidanceWelcomed') {
+      selector = node.initializer.arguments[0].getText(source);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source); assert.ok(selector);
+  const gate = evaluateSource(`module.exports = ${selector};`, {}, { profile: { id: 'a' } });
+  const state = { account: 'a', ready: true, welcomeOpen: true, progress: { welcomeSeen: true } };
+  assert.equal(gate(state), false);
+  assert.equal(gate({ ...state, welcomeOpen: false }), true);
+  assert.equal(gate({ ...state, welcomeOpen: false, account: 'b' }), false);
+  assert.equal(gate({ ...state, welcomeOpen: false, ready: false }), false);
 });
 await test('completed account welcome stays completed and anonymous device state is never imported', async () => {
   const h = guidanceHarness({ guidance: { progress: completedWelcome() } });
@@ -456,6 +508,47 @@ await test('care-circle steps follow actual form progress without a five-step bl
     assert.equal(model.nextGuideStep(progress, [id]), undefined);
   }
 });
+await test('automatic check-in guidance is limited to the first visit in the current account tour', () => {
+  const state = { userId: 'a', account: 'a', ready: true, progress: completedWelcome() };
+  const { useCheckinPracticeEntry } = evaluate('src/features/guidance/useCheckinPracticeEntry.ts', {
+    '../auth/auth.store': { useAuthStore: select => select({ profile: { id: state.userId } }) },
+    './guidance.store': { useGuidanceStore: select => select(state) },
+  });
+  assert.equal(useCheckinPracticeEntry(), true);
+  state.progress = model.mergeProgress(state.progress, { completed: ['checkin.practice'] });
+  assert.equal(useCheckinPracticeEntry(), false, 'Leaving the first guide early must not force it on the next check-in');
+  state.progress = { ...completedWelcome(), completed: ['checkin.finished'] };
+  assert.equal(useCheckinPracticeEntry(), false, 'Previously finished tours stay finished');
+  state.progress = { ...completedWelcome(), firstCheckin: true };
+  assert.equal(useCheckinPracticeEntry(), false, 'Existing real check-ins must not become examples');
+  state.progress = { ...state.progress, epoch: 1 };
+  assert.equal(useCheckinPracticeEntry(), true, 'An explicit full-tour replay still includes check-in');
+  state.ready = false; assert.equal(useCheckinPracticeEntry(), false);
+  state.ready = true; state.account = 'b'; assert.equal(useCheckinPracticeEntry(), false);
+  state.account = 'a'; state.progress.welcomeSeen = false; assert.equal(useCheckinPracticeEntry(), false);
+});
+await test('normal check-in cannot display or narrate leftover guide targets, even with an unfinished practice scope', async () => {
+  const h = guidanceHarness({ path: '/checkin', params: { mode: 'guide' }, guidance: { progress: completedWelcome() } });
+  let tree = await h.settle(); tree.props.value.beginPractice('first-visit');
+  tree.props.value.register('checkin.status', { node: { current: { measureInWindow: work => work(20, 180, 300, 90) } } });
+  tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.props?.children === 'guidance.steps.checkin_status'));
+  for (const mode of [undefined, 'random', 'followup', 'result_preview']) {
+    h.state.params = mode ? { mode } : {};
+    const before = h.calls.audio.length;
+    tree = await h.settle();
+    assert.equal(nodes(tree).some(node => node.props?.children === 'guidance.steps.checkin_status'), false);
+    tree.props.value.acknowledge('checkin.status');
+    assert.equal(h.calls.audio.length, before);
+    assert.deepEqual(h.progress.progress.completed, []);
+  }
+  h.state.params = { mode: 'guide' };
+  tree = await h.settle(); tree.props.value.beginPractice('explicit-replay');
+  tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.props?.children === 'guidance.steps.checkin_status'));
+  assert.deepEqual(h.calls.audio.at(-1), ['checkin.status', 'vi']);
+  h.unmount();
+});
 await test('practice coaches keep every acknowledgement in memory, even for an already-completed account', async () => {
   const saved = { ...completedWelcome(), completed: [...model.GUIDE_STEPS] };
   const h = guidanceHarness({ path: '/checkin', guidance: { progress: saved } });
@@ -682,14 +775,33 @@ await test('guide replay is a neutral settings row with no read-aloud switch and
       'profile typography is reused instead of an independent guide button size');
   }
 });
-await test('automatic read-aloud restores old disabled preferences without completing the welcome or steps', async () => {
+await test('the check-in Help button explicitly reopens a seen guide without resetting the welcome or account tour', async () => {
+  const routes = [];
+  const state = { account: 'a', ready: true, progress: { ...completedWelcome(),
+    firstCheckin: true, completed: [...model.GUIDE_STEPS] },
+    replay: () => assert.fail('Check-in Help must not reset the entire account tour') };
+  const saved = state.progress;
+  const h = controlHarness('src/features/guidance/GuidanceSettings.tsx', {
+    './guidance.store': { useGuidanceStore: Object.assign(() => state, { getState: () => state }) },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors }) },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ replace: route => routes.push(route) }) },
+    '../../stores/toast.store': { showToast: () => assert.fail('Unexpected guide failure') },
+  });
+  await h.render('useReviewGuidance', 'checkin')();
+  assert.equal(routes.length, 1);
+  assert.equal(routes[0].pathname, '/checkin'); assert.equal(routes[0].params.mode, 'guide');
+  assert.ok(routes[0].params.guide);
+  assert.equal(state.progress, saved); assert.equal(state.progress.welcomeSeen, true);
+});
+await test('automatic read-aloud restores old disabled preferences without choosing a role or completing coach steps', async () => {
   const h = guidanceHarness({ guidance: { progress: { ...model.defaultProgress(), readAloud: false } } });
   await h.settle();
-  assert.deepEqual(h.calls.updates, [{ readAloud: true }]);
+  assert.deepEqual(h.calls.updates, [{ readAloud: true }, { welcomeSeen: true }]);
   assert.deepEqual(h.calls.audio, [['welcome', 'vi']]);
-  assert.equal(h.progress.progress.welcomeSeen, false); assert.equal(h.progress.progress.role, null);
+  assert.equal(h.progress.progress.welcomeSeen, true); assert.equal(h.progress.progress.role, null);
   assert.deepEqual(h.progress.progress.completed, []);
-  await h.settle(); assert.equal(h.calls.updates.length, 1, 'enabling narration is not a repeating write');
+  await h.settle(); assert.equal(h.calls.updates.length, 2, 'enabling narration and remembering display are not repeating writes');
   h.unmount();
   for (const override of [{ token: null }, { hydrated: false }, { profile: { id: 'a', onboardingCompleted: false } },
     { guidance: { account: 'another-account' } }, { guidance: { ready: false } }]) {
@@ -743,6 +855,35 @@ await test('offline acknowledgements remain pending, then merge with server prog
   assert.ok(store.getState().progress.completed.includes('home.fine'));
   requestImpl = server; await store.getState().refresh();
   assert.ok(remote.get('offline').completed.includes('home.fine'));
+});
+await test('the first check-in guide visit survives offline restart and syncs only account-owned tour metadata', async () => {
+  requestImpl = server; await store.getState().load('checkin-once');
+  requestImpl = async () => { throw new Error('offline'); };
+  store.getState().update({ completed: ['checkin.practice'] }); await tick();
+  await store.getState().load('checkin-once');
+  assert.ok(store.getState().progress.completed.includes('checkin.practice'));
+  assert.equal(store.getState().progress.firstCheckin, false);
+  assert.deepEqual(store.getState().pending, { completed: ['checkin.practice'] });
+  requestImpl = server; await store.getState().refresh();
+  assert.ok(remote.get('checkin-once').completed.includes('checkin.practice'));
+  await store.getState().load('checkin-other');
+  assert.deepEqual(store.getState().progress.completed, []);
+});
+await test('an old guidance GET cannot undo a seen welcome or completed guide after a successful save', async () => {
+  requestImpl = server; await store.getState().load('stale-guidance-read');
+  const oldProgress = { ...model.defaultProgress(), role: 'self' };
+  const old = deferred();
+  requestImpl = (path, options) => options?.method === 'PUT' ? server(path, options) : old.promise;
+  const refreshing = store.getState().refresh();
+  store.getState().update({ welcomeSeen: true, firstCheckin: true, completed: ['checkin.practice'] });
+  await tick(); assert.equal(store.getState().syncing, false);
+  old.resolve({ ok: true, progress: oldProgress }); await refreshing;
+  assert.equal(store.getState().progress.welcomeSeen, true);
+  assert.equal(store.getState().progress.firstCheckin, true);
+  assert.ok(store.getState().progress.completed.includes('checkin.practice'));
+  requestImpl = server; await store.getState().load('stale-guidance-read');
+  assert.equal(store.getState().progress.welcomeSeen, true);
+  assert.ok(store.getState().progress.completed.includes('checkin.practice'));
 });
 await test('rapid acknowledgements and a sound toggle keep both batches and account cache intact', async () => {
   requestImpl = server; await store.getState().load('rapid');
@@ -966,8 +1107,9 @@ await test('all bundled clips match their fixed translations, voice identity and
   }
 });
 
-await test('only guide replay is shown once as a standard row in the profile System section', () => {
-  const source = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'),
+await test('the profile System section has no guide replay or read-aloud setting', () => {
+  const profileSource = read('app/(tabs)/profile/index.tsx');
+  const source = ts.createSourceFile('profile.tsx', profileSource,
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const settings = [], sections = [];
   const visit = node => {
@@ -977,12 +1119,10 @@ await test('only guide replay is shown once as a standard row in the profile Sys
     ts.forEachChild(node, visit);
   };
   visit(source);
-  assert.equal(settings.length, 1); assert.equal(sections.length, 1);
-  assert.ok(settings[0].pos > sections[0].pos && settings[0].end < sections[0].end);
-  assert.match(settings[0].getText(source), /style=\{styles\.actionCard\}/);
-  assert.match(settings[0].getText(source), /labelStyle=\{styles\.rowLabel\}/);
-  assert.match(read('src/features/guidance/GuidanceSettings.tsx'), /ScaledText as Text/);
-  assert.doesNotMatch(read('src/features/guidance/GuidanceSettings.tsx'), /<Switch\b|t\('guidance\.readAloud'\)/);
+  assert.equal(settings.length, 0); assert.equal(sections.length, 1);
+  assert.doesNotMatch(profileSource, /GuidanceSettings|useReviewGuidance|guidance\.(review|readAloud)/);
+  assert.match(sections[0].getText(source), /ts\("helpSupport"\)/);
+  assert.match(sections[0].getText(source), /t\("shareApp"\)/);
   assert.doesNotMatch(read('src/features/guidance/GuidanceProvider.tsx'), /<Switch\b/,
     'read-aloud has no visible toggle on any guidance screen');
 });

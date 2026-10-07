@@ -76,11 +76,19 @@ const native = { View: 'View', Text: 'Text', TextInput: 'Input', Pressable: 'Pre
   Animated: { View: 'Animated' }, FadeIn: animation, FadeInDown: animation, FadeInLeft: animation,
   Svg: 'Svg', Path: 'Path', CheckinHeroBadge: 'Badge', guideColors: { background: '#f9fcfb', ink: '#123b35',
     actionBackground: '#08b8a2', onAction: '#061c19' }, colors: { primary: '#08b8a2' } };
-function routeHarness(language, params = { mode: 'guide' }) {
+function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
   const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [] };
   const tr = translations(language);
-  const guideState = { account: '7', ready: true, progress: { firstCheckin: false },
-    update: patch => calls.progress.push(patch), acknowledge: id => calls.finished.push(id) };
+  const guideState = { account: '7', ready: true,
+    progress: { firstCheckin: false, welcomeSeen: true, completed: [], epoch: 0 }, ...guidance,
+    update: patch => {
+      calls.progress.push(patch);
+      guideState.progress = { ...guideState.progress, ...patch,
+        completed: [...new Set([...guideState.progress.completed, ...(patch.completed || [])])] };
+    }, acknowledge: id => {
+      calls.finished.push(id);
+      guideState.progress.completed = [...new Set([...guideState.progress.completed, id])];
+    } };
   const useGuidanceStore = Object.assign(select => select(guideState), { getState: () => guideState });
   const real = createCheckinPractice(tr.t);
   const realApi = Object.fromEntries(Object.keys(real).map(name => [name, async (...args) => {
@@ -100,7 +108,7 @@ function routeHarness(language, params = { mode: 'guide' }) {
     guidanceAudio: { stop: async () => calls.audio.push('stop') }, Platform: { OS: 'ios' },
     StatusScreen: 'Status', LocationScreen: 'Location', TriageScreen: 'Question', DoneScreen: 'Result',
     getLocalFallbackQuestion: () => assert.fail('Practice must not require an API fallback'), __DEV__: false });
-  return { calls, settle: () => runtime.settle(() => CheckinScreen()) };
+  return { calls, guideState, settle: () => runtime.settle(() => CheckinScreen()) };
 }
 for (const language of ['vi', 'en']) {
   for (const status of ['fine', 'tired', 'very_tired', 'specific_concern']) {
@@ -124,7 +132,8 @@ for (const language of ['vi', 'en']) {
       }
       const result = nodes(tree).find(node => node.type === 'Result'); assert.ok(result);
       assert.equal(result.props.session.id, -1); assert.equal(result.props.practice, true);
-      assert.deepEqual(h.calls.network, []); assert.equal(h.calls.consent, 0); assert.deepEqual(h.calls.progress, []);
+      assert.deepEqual(h.calls.network, []); assert.equal(h.calls.consent, 0);
+      assert.deepEqual(h.calls.progress, [{ completed: ['checkin.practice'] }], 'Only the first guide visit is remembered');
       result.props.onClose(); assert.deepEqual(h.calls.finished, ['checkin.finished']);
       assert.deepEqual(h.calls.routes, ['back']); assert.deepEqual(h.calls.alerts, []);
     });
@@ -147,6 +156,48 @@ for (const language of ['vi', 'en']) {
     assert.equal(nodes(tree).find(node => node.type === 'Result').props.practice, false);
     assert.deepEqual(h.calls.progress, [{ firstCheckin: true }]);
     nodes(tree).find(node => node.type === 'Result').props.onClose(); assert.deepEqual(h.calls.finished, []);
+  });
+  await test(`${language}: leaving the first tutorial early remembers the visit, not a completion or a health check-in`, async () => {
+    const h = routeHarness(language);
+    const tree = await h.settle();
+    assert.equal(tree.props.enabled, true);
+    nodes(tree).find(node => node.type === 'Back').props.onPress();
+    assert.deepEqual(h.calls.routes, ['back']);
+    assert.deepEqual(h.guideState.progress.completed, ['checkin.practice']);
+    assert.equal(h.guideState.progress.firstCheckin, false);
+    assert.deepEqual(h.calls.finished, []);
+    assert.deepEqual(h.calls.network, []);
+    await h.settle();
+    assert.deepEqual(h.calls.progress, [{ completed: ['checkin.practice'] }]);
+    const normal = routeHarness(language, { mode: 'random' }, { progress: h.guideState.progress });
+    const normalTree = await normal.settle();
+    assert.equal(normalTree.props.enabled, false);
+    assert.equal(nodes(normalTree).find(node => node.type === 'Status').props.practice, false);
+    assert.deepEqual(normal.calls.progress, []);
+  });
+  await test(`${language}: explicitly reopening an already-seen guide still works without rewriting progress`, async () => {
+    const h = routeHarness(language, { mode: 'guide', guide: 'manual-replay' }, {
+      progress: { firstCheckin: true, welcomeSeen: true, completed: ['checkin.practice', 'checkin.finished'], epoch: 0 },
+    });
+    let tree = await h.settle();
+    assert.equal(tree.props.enabled, true);
+    assert.equal(nodes(tree).find(node => node.type === 'Status').props.practice, true);
+    await nodes(tree).find(node => node.type === 'Status').props.onSelect('tired');
+    tree = await h.settle();
+    assert.equal(nodes(tree).find(node => node.type === 'Location').props.practice, true);
+    assert.deepEqual(h.calls.progress, []); assert.deepEqual(h.calls.network, []);
+  });
+  await test(`${language}: a guide visit cannot be saved to another account or before progress is ready`, async () => {
+    for (const state of [{ account: 'other-account' }, { ready: false }]) {
+      const h = routeHarness(language, { mode: 'guide' }, state);
+      await h.settle();
+      assert.deepEqual(h.calls.progress, []);
+      assert.deepEqual(h.calls.network, []);
+    }
+    const delayed = routeHarness(language, { mode: 'guide' }, { ready: false });
+    await delayed.settle();
+    delayed.guideState.ready = true; await delayed.settle();
+    assert.deepEqual(delayed.calls.progress, [{ completed: ['checkin.practice'] }]);
   });
   await test(`${language}: all example result levels explain actions but never call, consult or synthesize`, async () => {
     const runtime = hooks(), tr = translations(language), calls = { network: [], playback: [], repeats: [] };

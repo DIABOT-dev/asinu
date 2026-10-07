@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -28,19 +28,6 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { radius, spacing } from '../../src/styles';
 
-function secondsUntil(value?: string) {
-  if (!value) {
-    return 0;
-  }
-  return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000));
-}
-
-function formatRemaining(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return `${minutes}:${String(rest).padStart(2, '0')}`;
-}
-
 export default function CareCircleQrScreen() {
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
@@ -55,11 +42,14 @@ export default function CareCircleQrScreen() {
   );
 
   const authProfile = useAuthStore((state) => state.profile);
+  const authToken = useAuthStore((state) => state.token);
+  const account = authProfile?.id == null ? null : String(authProfile.id);
   const profileStore = useProfileStore((state) => state.profile);
   const profile = authProfile || profileStore;
 
-  const [qr, setQr] = useState<CareCircleQrToken | null>(null);
-  const [remaining, setRemaining] = useState(0);
+  const [code, setCode] = useState<{ account: string; qr: CareCircleQrToken } | null>(null);
+  const qr = code?.account === account ? code.qr : null;
+  const requestVersion = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -69,46 +59,51 @@ export default function CareCircleQrScreen() {
 
   // Refresh profile from server on mount to ensure fresh avatar & name
   useEffect(() => {
+    if (!account || !authToken) return;
+    let active = true;
     authApi
       .fetchProfile()
       .then((p) => {
-        if (p) {
+        const current = useAuthStore.getState();
+        if (active && p && String(p.id) === account
+          && String(current.profile?.id) === account && current.token === authToken) {
           useAuthStore.setState({ profile: p });
         }
       })
       .catch(() => {});
-  }, []);
+    return () => { active = false; };
+  }, [account, authToken]);
 
-  const createCode = useCallback(async () => {
+  const loadCode = useCallback(async () => {
+    const version = ++requestVersion.current;
+    if (!account || !authToken) {
+      setCode(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
+      // The server returns the same account-owned code on every visit/device.
       const next = await careCircleApi.createQrToken();
-      setQr(next);
-      setRemaining(secondsUntil(next.expiresAt));
+      if (version !== requestVersion.current) return;
+      setCode({ account, qr: next });
     } catch (err) {
-      setQr(null);
+      if (version !== requestVersion.current) return;
+      setCode(null);
       setError(getApiErrorMessage(err, t, 'qrCreateError'));
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
-  }, [t]);
+  }, [account, authToken, t]);
 
   useEffect(() => {
-    createCode().catch(() => {});
-  }, [createCode]);
-
-  useEffect(() => {
-    if (!qr?.expiresAt) {
-      return;
-    }
-    const timer = setInterval(() => setRemaining(secondsUntil(qr.expiresAt)), 1000);
-    return () => clearInterval(timer);
-  }, [qr?.expiresAt]);
+    void loadCode();
+    return () => { ++requestVersion.current; };
+  }, [loadCode]);
 
   const displayName = profile?.name || profileStore?.name || t('qrFallbackName');
   const avatarUrl = profile?.avatarUrl || profileStore?.avatarUrl;
-  const expired = Boolean(qr) && remaining === 0;
 
   return (
     <Screen>
@@ -206,7 +201,7 @@ export default function CareCircleQrScreen() {
                   <ActivityIndicator size="large" color={colors.primary} />
                   <Text style={styles.loadingText}>{t('qrCreating')}</Text>
                 </View>
-              ) : qr && !expired ? (
+              ) : qr ? (
                 <View style={styles.qrInner}>
                   <QRCode
                     backgroundColor="transparent"
@@ -217,32 +212,20 @@ export default function CareCircleQrScreen() {
                   />
                 </View>
               ) : (
-                <View style={styles.qrExpiredBox}>
-                  <Ionicons name="time-outline" size={38} color={colors.textSecondary} />
-                  <Text style={styles.expiredTitle}>{t('qrExpiredTitle')}</Text>
-                  <Text style={styles.expiredSubtext}>{error || t('qrExpiredDescription')}</Text>
+                <View style={styles.qrErrorBox}>
+                  <Ionicons name="qr-code-outline" size={38} color={colors.textSecondary} />
+                  <Text style={styles.errorTitle}>{t('qrUnavailableTitle')}</Text>
+                  <Text style={styles.errorSubtext}>{error || t('qrCreateError')}</Text>
                 </View>
               )}
             </View>
 
-            {/* Timer Pill */}
-            {!loading && qr && !expired ? (
-              <View style={styles.timerPill}>
-                <Ionicons name="time-outline" size={20} color={colors.primary} />
-                <View style={styles.timerDivider} />
-                <Text style={styles.timerLabel}>{t('qrExpiresInPrefix')}</Text>
-                <Text style={styles.timerTime}>{formatRemaining(remaining)}</Text>
-              </View>
-            ) : null}
-
-            {error && !qr ? <Text style={styles.errorText}>{error}</Text> : null}
-
-            {/* Refresh Button */}
-            <Pressable
-              accessibilityLabel={t('qrRefresh')}
+            {/* Retry fetch only on failure; never replace an existing code. */}
+            {!loading && !qr && error ? <Pressable
+              accessibilityLabel={tc('retry')}
               accessibilityRole="button"
               disabled={loading}
-              onPress={() => createCode().catch(() => {})}
+              onPress={() => void loadCode()}
               style={({ pressed }) => [
                 styles.refreshBtn,
                 pressed && styles.pressed,
@@ -250,8 +233,8 @@ export default function CareCircleQrScreen() {
               ]}
             >
               <Ionicons name="reload" size={17} color={colors.primary} />
-              <Text style={styles.refreshText}>{t('qrRefresh')}</Text>
-            </Pressable>
+              <Text style={styles.refreshText}>{tc('retry')}</Text>
+            </Pressable> : null}
           </View>
 
           {/* Action Button: Quét mã của người thân */}
@@ -556,54 +539,22 @@ function createStyles(
       marginTop: spacing.sm,
       textAlign: 'center',
     },
-    qrExpiredBox: {
+    qrErrorBox: {
       alignItems: 'center',
       justifyContent: 'center',
       padding: spacing.lg,
     },
-    expiredTitle: {
+    errorTitle: {
       color: colors.textPrimary,
       fontSize: typography.size.md,
       fontWeight: '800',
       marginTop: spacing.xs,
     },
-    expiredSubtext: {
+    errorSubtext: {
       color: colors.textSecondary,
       fontSize: typography.size.xs,
       lineHeight: 18,
       marginTop: 4,
-      textAlign: 'center',
-    },
-    timerPill: {
-      alignItems: 'center',
-      backgroundColor: isDark ? '#06342e' : '#eaf7f5',
-      borderRadius: radius.full,
-      flexDirection: 'row',
-      gap: 6,
-      marginTop: 18,
-      paddingHorizontal: 16,
-      paddingVertical: 9,
-    },
-    timerDivider: {
-      backgroundColor: isDark ? '#0d5c52' : '#c8e8e2',
-      height: 14,
-      marginHorizontal: 4,
-      width: 1,
-    },
-    timerLabel: {
-      color: isDark ? '#94a3b8' : '#64748b',
-      fontSize: 13.5,
-      fontWeight: '500',
-    },
-    timerTime: {
-      color: colors.primary,
-      fontSize: 15.5,
-      fontWeight: '800',
-    },
-    errorText: {
-      color: colors.danger,
-      fontSize: typography.size.sm,
-      marginTop: spacing.md,
       textAlign: 'center',
     },
     refreshBtn: {
@@ -612,6 +563,7 @@ function createStyles(
       gap: 6,
       justifyContent: 'center',
       marginTop: 12,
+      minHeight: 48,
       paddingVertical: 6,
     },
     refreshText: {

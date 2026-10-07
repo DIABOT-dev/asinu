@@ -33,7 +33,7 @@ const { StackRouter } = evaluate(read('node_modules/expo-router/build/layouts/St
   '../useScreens': { getSingularId }, './stack-utils': {}, '../react-navigation/native': { StackRouter: BaseStackRouter },
   '../utils/children': {}, '../views/Protected': {},
 });
-const names = ['home', 'subscription/index', 'care-circle/index', 'checkin', 'login/index', 'logs/index',
+const names = ['home', 'subscription/index', 'subscription/plans', 'care-circle/index', 'checkin', 'login/index', 'logs/index',
   'logs/glucose', 'legal/content', 'checkin-call/settings', 'checkin-call/voice-settings',
   'checkin-call/[episodeId]', 'feed/[id]', 'doctor-consultation/[taskId]'];
 const options = { routeNames: names, routeParamList: {}, routeGetIdList: {} };
@@ -112,6 +112,15 @@ test('reproduces the original raw PUSH screen-stacking bug using Expo', () => {
 test('100 rapid button taps queue exactly one screen', () => {
   const h = harness(); for (let i = 0; i < 100; i++) h.ui.push('/subscription');
   assert.equal(h.actions.length, 1); h.commit(); assert.equal(h.count('subscription/index'), 1);
+});
+test('choosing An Tam repeatedly opens one separate picker and Back returns to the overview', () => {
+  const h = harness(); h.ui.push('/subscription'); h.commit(); h.advance(900);
+  for (let i = 0; i < 100; i++) h.ui.push('/subscription/plans');
+  h.commit(); assert.equal(h.count('subscription/plans'), 1);
+  assert.equal(h.current().name, 'subscription/plans');
+  h.advance(900); h.ui.back(); h.commit(); assert.equal(h.current().name, 'subscription/index');
+  h.advance(1000); h.ui.push('/subscription/plans'); h.commit();
+  assert.equal(h.count('subscription/plans'), 1);
 });
 test('a slow JS thread/transition cannot outlive the old 650 ms guard', () => {
   const h = harness();

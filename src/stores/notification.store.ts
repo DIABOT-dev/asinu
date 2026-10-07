@@ -30,9 +30,18 @@ interface NotificationStore {
 
 // Convert backend notification to UI notification
 function convertNotification(data: NotificationData): Notification {
+  // Inbox-only previews use a separate stored type so they never satisfy
+  // the backend's real-event deduplication queries. Display their original
+  // category only when both the preview marker and namespace agree.
+  const preview = data.data;
+  const type = preview?.demo === true
+    && typeof preview.demoBatch === 'string' && preview.demoBatch.length > 0
+    && typeof preview.type === 'string'
+    && data.type === `demo:${preview.type}`
+    ? preview.type : data.type;
   return {
     id: String(data.id),
-    type: data.type,
+    type,
     title: data.title,
     body: data.message,
     timestamp: new Date(data.created_at.endsWith('Z') ? data.created_at : data.created_at + 'Z'),

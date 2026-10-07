@@ -34,7 +34,13 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { getConnectionHealthAccess } from '../../src/features/care-circle/health-access';
-import { getFamilyRoleLabel, getFamilyRoleOptions } from '../../src/features/care-circle/family-roles';
+import { getFamilyRoleLabel } from '../../src/features/care-circle/family-roles';
+import {
+  findFamilyRelationship,
+  getFamilyRelationshipLabel,
+  getFamilyRelationshipOptions,
+  getReverseFamilyRelationshipLabel,
+} from '../../src/features/care-circle/family-relationships';
 import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
 import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
@@ -125,7 +131,6 @@ export default function CareCircleScreen() {
     };
   } | null>(null);
   const [editRelationType, setEditRelationType] = useState<DropdownOption | null>(null);
-  const [editRole, setEditRole] = useState<DropdownOption | null>(null);
   const [editPermissions, setEditPermissions] = useState({
     can_view_logs: true,
     can_receive_alerts: true,
@@ -135,7 +140,7 @@ export default function CareCircleScreen() {
   const editSaveInFlight = useRef(false);
   const editValues: ConnectionEditValues = {
     relationship_type: editRelationType?.id,
-    role: editRole?.id,
+    role: editConnection?.role,
     permissions: editPermissions,
   };
   const editChanges = savedEditValues && getConnectionEditChanges(savedEditValues, editValues);
@@ -154,84 +159,14 @@ export default function CareCircleScreen() {
   const [profileTarget, setProfileTarget] = useState<ProfileTarget | null>(null);
 
   // Relationship options
-  const relationshipOptions: DropdownOption[] = [
-    { id: 'vo', label: t('relWife'), subtitle: t('relSpouse') },
-    { id: 'chong', label: t('relHusband'), subtitle: t('relSpouse') },
-    { id: 'con-trai', label: t('relSon'), subtitle: t('relChild') },
-    { id: 'con-gai', label: t('relDaughter'), subtitle: t('relChild') },
-    { id: 'me', label: t('relMother'), subtitle: t('relParent') },
-    { id: 'bo', label: t('relFather'), subtitle: t('relParent') },
-    { id: 'anh-trai', label: t('relOlderBrother'), subtitle: t('relSibling') },
-    { id: 'chi-gai', label: t('relOlderSister'), subtitle: t('relSibling') },
-    { id: 'em-trai', label: t('relYoungerBrother'), subtitle: t('relSibling') },
-    { id: 'em-gai', label: t('relYoungerSister'), subtitle: t('relSibling') },
-    { id: 'ong-noi', label: t('relGrandfatherPaternal'), subtitle: t('relGrandparentPaternal') },
-    { id: 'ba-noi', label: t('relGrandmotherPaternal'), subtitle: t('relGrandparentPaternal') },
-    { id: 'ong-ngoai', label: t('relGrandfatherMaternal'), subtitle: t('relGrandparentMaternal') },
-    { id: 'ba-ngoai', label: t('relGrandmotherMaternal'), subtitle: t('relGrandparentMaternal') },
-    { id: 'ban-than', label: t('relBestFriend'), subtitle: t('relCloseFriend') },
-    { id: 'nguoi-yeu', label: t('relPartner'), subtitle: t('relSoulmate') },
-  ];
-
-  // Role options
-  const roleOptions = getFamilyRoleOptions(t);
+  const relationshipOptions = getFamilyRelationshipOptions(t);
 
   const reverseRelationship = (relationshipType: string | undefined, otherGender?: string): string => {
-    if (!relationshipType) return '';
-
-    const isMale = otherGender === 'Nam';
-    const isFemale = otherGender === 'Nữ';
-
-    const symmetric: Record<string, string> = {
-      'vo': t('relHusband'), 'Vợ': t('relHusband'),
-      'chong': t('relWife'), 'Chồng': t('relWife'),
-      'ban-than': t('relBestFriend'), 'Bạn thân': t('relBestFriend'),
-      'nguoi-yeu': t('relPartner'), 'Người yêu': t('relPartner'),
-    };
-    if (symmetric[relationshipType]) return symmetric[relationshipType];
-
-    const parentSet = new Set(['bo', 'Bố', 'me', 'Mẹ']);
-    const childSet = new Set(['con-trai', 'Con trai', 'con-gai', 'Con gái']);
-    if (parentSet.has(relationshipType)) {
-      if (isMale) return t('relSon');
-      if (isFemale) return t('relDaughter');
-      return relationshipType;
-    }
-    if (childSet.has(relationshipType)) {
-      if (isMale) return t('relFather');
-      if (isFemale) return t('relMother');
-      return relationshipType;
-    }
-
-    const olderSet = new Set(['anh-trai', 'Anh trai', 'chi-gai', 'Chị gái']);
-    const youngerSet = new Set(['em-trai', 'Em trai', 'em-gai', 'Em gái']);
-    if (olderSet.has(relationshipType)) {
-      if (isMale) return t('relYoungerBrother');
-      if (isFemale) return t('relYoungerSister');
-      return relationshipType;
-    }
-    if (youngerSet.has(relationshipType)) {
-      if (isMale) return t('relOlderBrother');
-      if (isFemale) return t('relOlderSister');
-      return relationshipType;
-    }
-
-    const grandparentSet = new Set(['ong-noi', 'Ông nội', 'ba-noi', 'Bà nội', 'ong-ngoai', 'Ông ngoại', 'ba-ngoai', 'Bà ngoại']);
-    if (grandparentSet.has(relationshipType)) {
-      if (isMale) return t('relGrandson');
-      if (isFemale) return t('relGranddaughter');
-      return relationshipType;
-    }
-
-    return relationshipType;
+    return getReverseFamilyRelationshipLabel(relationshipType, otherGender, t);
   };
 
   const getRelationshipLabel = (relationshipType: string | undefined): string => {
-    if (!relationshipType) return '';
-    const option = relationshipOptions.find(
-      opt => opt.id === relationshipType || opt.label === relationshipType
-    );
-    return option?.label || relationshipType;
+    return getFamilyRelationshipLabel(relationshipType, t);
   };
 
   useFocusEffect(
@@ -321,14 +256,10 @@ export default function CareCircleScreen() {
       return;
     }
     setEditConnection(connection);
-    const relOption = relationshipOptions.find(
-      opt => opt.id === connection.relationship_type || opt.label === connection.relationship_type
-    );
-    const roleOption = roleOptions.find(
-      opt => opt.label === getFamilyRoleLabel(connection.role, t)
-    );
+    const relationshipId = findFamilyRelationship(connection.relationship_type)?.id;
+    const relOption = relationshipOptions.find(opt => opt.id === relationshipId) ||
+      (connection.relationship_type ? { id: connection.relationship_type, label: connection.relationship_type } : null);
     setEditRelationType(relOption || null);
-    setEditRole(roleOption || null);
     const permissions = {
       can_view_logs: connection.permissions?.can_view_logs === true,
       can_receive_alerts: connection.permissions?.can_receive_alerts ?? true,
@@ -337,7 +268,7 @@ export default function CareCircleScreen() {
     setEditPermissions(permissions);
     setSavedEditValues({
       relationship_type: relOption?.id,
-      role: roleOption?.id,
+      role: connection.role,
       permissions,
     });
     setEditModalVisible(true);
@@ -616,7 +547,7 @@ export default function CareCircleScreen() {
                             name,
                             email: invitation.addressee_email,
                             phone: invitation.addressee_phone,
-                            relationship: invitation.relationship_type,
+                            relationship: getRelationshipLabel(invitation.relationship_type),
                             role: getFamilyRoleLabel(invitation.role, t),
                             invitationId: invitation.id,
                           })
@@ -977,9 +908,6 @@ export default function CareCircleScreen() {
                   <Text style={styles.currentInfoText}>
                     {t('relationship')}: {editRelationType?.label || t('notSet')}
                   </Text>
-                  <Text style={styles.currentInfoText}>
-                    {t('role')}: {editRole?.label || t('notSet')}
-                  </Text>
                 </View>
                 <Image
                   source={require('../../assets/images/care-circle/edit_connection_card_art.png')}
@@ -1000,33 +928,6 @@ export default function CareCircleScreen() {
                   leftIcon={
                     <Ionicons
                       name="people"
-                      size={20}
-                      color="#0D9488"
-                      style={styles.dropdownLeftIcon}
-                    />
-                  }
-                  showDivider
-                  chevronColor="#64748B"
-                  chevronSize={18}
-                  containerStyle={styles.dropdownContainer}
-                  labelStyle={styles.sectionLabel}
-                  triggerStyle={styles.dropdownTrigger}
-                  triggerTextStyle={styles.dropdownTriggerText}
-                />
-              </View>
-
-              <View style={styles.modalSection}>
-                <Dropdown
-                  label={t('role')}
-                  placeholder={t('rolePlaceholder')}
-                  options={roleOptions}
-                  value={editRole}
-                  onChange={setEditRole}
-                  loading={isEditSaving}
-                  searchable
-                  leftIcon={
-                    <MaterialCommunityIcons
-                      name="account-heart"
                       size={20}
                       color="#0D9488"
                       style={styles.dropdownLeftIcon}

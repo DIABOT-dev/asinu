@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused, usePathname } from 'expo-router';
+import { useGlobalSearchParams, useIsFocused, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../auth/auth.store';
@@ -74,21 +74,24 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const path = usePathname();
+  const { mode } = useGlobalSearchParams<{ mode?: string }>();
+  const checkinGuide = path === '/checkin' && mode === 'guide';
   const router = useGuardedRouter();
   const profile = useAuthStore(state => state.profile);
   const token = useAuthStore(state => state.token);
   const hydrated = useAuthStore(state => state.hydrated);
   const account = profile?.id ? String(profile.id) : null;
-  const { progress: accountProgress, ready: loaded, account: loadedAccount, load, refresh, update, acknowledge } = useGuidanceStore();
+  const { progress: accountProgress, ready: loaded, account: loadedAccount, load, refresh, update, acknowledge, setWelcomeOpen } = useGuidanceStore();
   const ready = loaded && loadedAccount === account;
   const modalBusy = useQueuedModalBusy();
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [keyboard, setKeyboard] = useState(false);
   const [dismissedWelcome, setDismissedWelcome] = useState<string | null>(null);
+  const [welcomeVisit, setWelcomeVisit] = useState<{ key: string; token: string | null } | null>(null);
   const [targets, setTargets] = useState<Map<GuideStep, Target>>(new Map());
   const [measurement, setRect] = useState<TargetMeasurement | null>(null);
   const [practice, setPractice] = useState<{ key: string; account: string | null; completed: GuideStep[] } | null>(null);
-  const practicing = Boolean(practice && practice.account === account && path === '/checkin');
+  const practicing = Boolean(practice && practice.account === account && checkinGuide);
   const progress = practicing && practice ? { ...accountProgress, welcomeSeen: true, completed: practice.completed }
     : accountProgress;
   const practiceRef = useRef(practicing); practiceRef.current = practicing;
@@ -130,13 +133,28 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   // form. Requiring this account's progress also prevents stale account tours.
   const eligible = hydrated && Boolean(token) && Boolean(account) && profile?.onboardingCompleted === true && (ready || practicing) && !suspended && (!dismissedForVisit || practicing);
   const welcomeRoute = path === '/home' || path === '/care-circle';
-  const guideRoute = welcomeRoute || path === '/checkin' || path === '/care-circle/invite';
-  const welcome = eligible && welcomeRoute && !progress.welcomeSeen;
+  const guideRoute = welcomeRoute || checkinGuide || path === '/care-circle/invite';
+  const welcome = eligible && welcomeRoute && (!progress.welcomeSeen
+    || welcomeVisit?.key === welcomeKey && welcomeVisit.token === token);
+  useEffect(() => {
+    // Saving "seen" must not let the permission prompt cover the open welcome.
+    setWelcomeOpen(welcome);
+    return () => setWelcomeOpen(false);
+  }, [setWelcomeOpen, welcome]);
+  useEffect(() => {
+    if (!welcome || !welcomeKey) return;
+    // Keep this first presentation open for role selection, while remembering
+    // the actual display across reloads, logout and another device.
+    setWelcomeVisit(previous => previous?.key === welcomeKey && previous.token === token
+      ? previous : { key: welcomeKey, token });
+    if (!accountProgress.welcomeSeen) update({ welcomeSeen: true });
+  }, [accountProgress.welcomeSeen, token, update, welcome, welcomeKey]);
   // Welcome is an overlay, not a navigation route. Back uncovers the existing
   // app screen without popping login/onboarding or recording a role/completion.
   const leaveWelcome = useCallback(() => {
     if (!welcome || !welcomeKey || choiceBusy.current) return;
     void guidanceAudio.stop();
+    setWelcomeVisit(null);
     setDismissedWelcome(welcomeKey);
   }, [welcome, welcomeKey]);
   useEffect(() => {
@@ -225,6 +243,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
     choiceBusy.current = true;
     void guidanceAudio.stop();
     try {
+      setWelcomeVisit(null);
       update({ role, welcomeSeen: true });
       router.replace(role === 'caregiver' ? '/(tabs)/care-circle' : '/(tabs)/home');
     } finally { choiceBusy.current = false; }

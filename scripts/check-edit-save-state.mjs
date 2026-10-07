@@ -21,6 +21,10 @@ function evaluate(source, imports = {}) {
 const theme = evaluate(read('src/styles/theme.ts'));
 const connectionEdit = evaluate(read('src/features/care-circle/connection-edit.ts'));
 const familyRoles = evaluate(read('src/features/care-circle/family-roles.ts'));
+const familyRelationships = evaluate(read('src/features/care-circle/family-relationships.ts'), {
+  '../../i18n/locales/vi/careCircle.json': { __esModule: true, default: JSON.parse(read('src/i18n/locales/vi/careCircle.json')) },
+  '../../i18n/locales/en/careCircle.json': { __esModule: true, default: JSON.parse(read('src/i18n/locales/en/careCircle.json')) },
+});
 const healthAccess = evaluate(read('src/features/care-circle/health-access.ts'));
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree)
   ? tree.flatMap(nodes) : [tree, ...nodes(tree.props?.children)];
@@ -71,6 +75,122 @@ const icons = { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' };
 let checks = 0;
 async function test(label, work) { await work(); checks++; console.log(`PASS ${label}`); }
 
+const inviteAst = ts.createSourceFile('invite.tsx', read('app/care-circle/invite.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const inviteComponent = inviteAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'InviteScreen');
+const permissionMeta = inviteAst.statements.flatMap(node => ts.isVariableStatement(node) ? [...node.declarationList.declarations] : [])
+  .find(node => node.name.getText(inviteAst) === 'PERM_META').initializer.getText(inviteAst);
+function invitationHarness(language, qr = false) {
+  const h = hooks(); const t = translate(language, 'careCircle'); const tc = translate(language, 'common');
+  const calls = { writes: [], alerts: [], routes: [], toasts: [] };
+  const care = { invitations: [], connections: [], loading: false, fetchInvitations() {}, fetchConnections() {},
+    createInvitation: async payload => calls.writes.push({ kind: 'phone', payload }),
+    createInvitationFromQr: async payload => calls.writes.push({ kind: 'qr', payload }),
+  };
+  const deps = {
+    useState: h.react.useState, useRef: h.react.useRef, useMemo: h.react.useMemo, useEffect: h.react.useEffect,
+    ...native, ...icons, Text: 'Text', TextInput: 'TextInput', Dropdown: 'Dropdown', AppAlertModal: 'AlertModal',
+    Stack: { Screen: 'StackScreen' }, Animated: { View: 'AnimatedView' },
+    GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget',
+    FadeIn: { duration() { return this; } },
+    useRouter: () => ({ back: () => calls.routes.push('back'), push: route => calls.routes.push(route), replace() {} }),
+    useLocalSearchParams: () => qr ? { qrToken: 'test-qr-code' } : {},
+    useSafeAreaInsets: () => ({ top: 59, bottom: 34 }), useTranslation: ns => ({ t: ns === 'common' ? tc : t }),
+    useScaledTypography: () => theme.typography, useThemeColors: () => ({ isDark: false }), createStyles: () => ({}),
+    useAppAlert: () => ({ alertState: {}, showAlert: (...args) => calls.alerts.push(args), dismissAlert() {} }),
+    useAuthStore: select => select({ profile: { id: 'me', phone: '0900000000' } }), useCareCircle: () => care,
+    normalizeVietnamesePhone: value => /^0\d{9}$/.test(value) ? value : null,
+    careCircleApi: { searchUsers: async () => [{ id: 'relative', name: 'Relative', phone: '0900000001' }],
+      previewQrToken: async () => ({ name: 'Relative', avatarUrl: null }) },
+    getFamilyRelationshipOptions: familyRelationships.getFamilyRelationshipOptions,
+    DEFAULT_FAMILY_ROLE: familyRoles.DEFAULT_FAMILY_ROLE, colors: theme.colors, iconColors: theme.iconColors, spacing: theme.spacing,
+    getApiErrorMessage: (_error, _t, fallback) => t(fallback), showToast: (...args) => calls.toasts.push(args), setTimeout() {},
+  };
+  const { makeScreen } = evaluate(`
+    import React from 'react';
+    export function makeScreen(deps) {
+      const { ${Object.keys(deps).join(', ')} } = deps;
+      const PERM_META = ${permissionMeta};
+      ${inviteComponent.getText(inviteAst).replace('export default ', '')}
+      return InviteScreen;
+    }
+  `, { react: h.react });
+  const component = makeScreen(deps); const render = () => h.render(component);
+  const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
+  const control = label => nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === t(label));
+  return { calls, render, t,
+    async selectRecipient() {
+      render(); h.effects(); await flush();
+      if (!qr) {
+        nodes(render()).find(node => node.type === 'TextInput').props.onChangeText('0900000001');
+        await control('search').props.onPress(); control('selectThisUser').props.onPress();
+      }
+    },
+    choose: id => {
+      const field = nodes(render()).find(node => node.type === 'Dropdown');
+      field.props.onChange(field.props.options.find(option => option.id === id));
+    },
+    send: () => control('sendInvite').props.onPress(),
+  };
+}
+for (const language of ['vi', 'en']) for (const qr of [false, true]) {
+  await test(`${language}/${qr ? 'QR' : 'phone'}: invitations hide role and send all family choices with a fixed family role`, async () => {
+    const h = invitationHarness(language, qr);
+    const initial = nodes(h.render());
+    assert.ok(!initial.some(node => node.type === 'Text' && node.props.children === h.t('role')));
+    const fields = initial.filter(node => node.type === 'Dropdown');
+    assert.equal(fields.length, 1); assert.equal(fields[0].props.searchable, true);
+    assert.equal(fields[0].props.options.length, 54);
+    await h.selectRecipient();
+    for (const option of familyRelationships.FAMILY_RELATIONSHIPS) {
+      h.choose(option.id); await h.send();
+      const write = h.calls.writes.at(-1);
+      assert.equal(write.kind, qr ? 'qr' : 'phone');
+      assert.equal(write.payload.relationship_type, option.id);
+      assert.equal(write.payload.role, 'than-nhan');
+      assert.deepEqual(write.payload.permissions, { can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true });
+    }
+    assert.equal(h.calls.writes.length, 54);
+  });
+}
+for (const language of ['vi', 'en']) {
+  await test(`${language}: all relationship labels and legacy labels round-trip through the shared catalog`, () => {
+    const t = translate(language, 'careCircle');
+    for (const option of familyRelationships.FAMILY_RELATIONSHIPS) {
+      assert.equal(familyRelationships.findFamilyRelationship(t(option.labelKey)).id, option.id);
+      assert.equal(familyRelationships.getFamilyRelationshipLabel(option.id, t), t(option.labelKey));
+      for (const gender of [undefined, 'Nam', 'Nữ']) {
+        const label = familyRelationships.getReverseFamilyRelationshipLabel(option.id, gender, t);
+        assert.equal(typeof label, 'string'); assert.ok(label.length);
+      }
+    }
+    assert.equal(familyRoles.getFamilyRoleLabel('nguoi-cham-soc', t), t('roleRelative'));
+    assert.equal(familyRoles.getFamilyRoleLabel(undefined, t), t('roleRelative'));
+  });
+}
+
+await test('family dropdown searches accents and unaccented text using the actual filter', () => {
+  const ast = ts.createSourceFile('Dropdown.tsx', read('src/components/Dropdown.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const normalize = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'normalizeSearchTerm');
+  let filter;
+  const visit = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'filteredOptions') filter = node.initializer.getText(ast);
+    ts.forEachChild(node, visit);
+  };
+  visit(ast); assert.ok(normalize && filter);
+  const { filterOptions } = evaluate(`${normalize.getText(ast)}
+    export function filterOptions(options, searchQuery) {
+      const searchable = true;
+      return ${filter};
+    }`);
+  const options = familyRelationships.getFamilyRelationshipOptions(translate('vi', 'careCircle'));
+  for (const [query, id] of [['chu', 'chu'], ['  CHÚ  ', 'chu'], ['ong noi', 'ong-noi'], ['di', 'di'],
+    ['chau trai', 'chau-trai'], ['con dau', 'con-dau'], ['chong', 'chong']]) {
+    assert.ok(filterOptions(options, query).some(option => option.id === id), `${query} must find ${id}`);
+  }
+  assert.equal(filterOptions(options, 'relationship that does not exist').length, 0);
+  assert.equal(filterOptions(options, '').length, 54);
+});
+
 function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update } = {}) {
   theme.applyTheme(isDark ? 'dark' : 'light');
   const h = hooks();
@@ -114,6 +234,7 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/lib/apiClient': { getApiErrorMessage: error => error.message },
     '../../src/features/care-circle/health-access': healthAccess,
     '../../src/features/care-circle/family-roles': familyRoles,
+    '../../src/features/care-circle/family-relationships': familyRelationships,
     '../../src/features/care-circle/connection-edit': connectionEdit,
     '../../src/features/care-circle/components/CareCircleQrActions': { CareCircleQrActions: 'QrActions' },
     '../../src/features/guidance/GuidanceProvider': { GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget' },
@@ -141,8 +262,8 @@ for (const language of ['vi', 'en']) for (const isDark of [false, true]) {
     assert.deepEqual(button.props.accessibilityState, { disabled: true, busy: false });
     assert.equal(flatten(button.props.style).backgroundColor, theme.colors.border);
     await button.props.onPress(); assert.equal(h.calls.writes.length, 0); assert.equal(h.calls.toasts.length, 0);
-    h.choose('role', 'nguoi-cham-soc'); assert.equal(h.save().props.disabled, false);
-    h.choose('role', 'than-nhan'); assert.equal(h.save().props.disabled, true);
+    assert.ok(!nodes(h.modal()).some(node => node.type === 'Dropdown' && node.props.label === translate(language, 'careCircle')('role')));
+    assert.equal(nodes(h.modal()).filter(node => node.type === 'Dropdown').length, 1);
     h.choose('relationship', 'me'); assert.equal(h.save().props.disabled, false);
     h.choose('relationship', 'bo'); assert.equal(h.save().props.disabled, true);
     for (let index = 0; index < 3; index++) {
@@ -160,9 +281,30 @@ await test('permission-only edits submit only permissions, including a connectio
   assert.equal(h.modal(), undefined); h.open(); assert.equal(h.save().props.disabled, true);
 });
 await test('metadata-only edits omit unchanged fields and permission writes', async () => {
-  const h = connectionHarness(); h.open(); h.choose('role', 'nguoi-cham-soc');
+  const h = connectionHarness(); h.open(); h.choose('relationship', 'di');
   await h.save().props.onPress();
-  assert.deepEqual(h.calls.writes, [{ kind: 'metadata', id: 'connection', values: { role: 'nguoi-cham-soc' } }]);
+  assert.deepEqual(h.calls.writes, [{ kind: 'metadata', id: 'connection', values: { relationship_type: 'di' } }]);
+});
+for (const language of ['vi', 'en']) {
+  await test(`${language}: all family relationships can be selected and saved without changing permissions or role`, async () => {
+    for (const option of familyRelationships.FAMILY_RELATIONSHIPS) {
+      const h = connectionHarness({ language, relationship: '' }); h.open();
+      const dropdown = nodes(h.modal()).find(node => node.type === 'Dropdown');
+      assert.equal(dropdown.props.searchable, true);
+      assert.equal(dropdown.props.options.length, 54);
+      h.choose('relationship', option.id); await h.save().props.onPress();
+      assert.deepEqual(h.calls.writes, [{ kind: 'metadata', id: 'connection', values: { relationship_type: option.id } }]);
+      h.open(); assert.equal(h.save().props.disabled, true);
+    }
+  });
+}
+await test('legacy caregiver and custom relationship are preserved when only viewing consent changes', async () => {
+  const h = connectionHarness({ role: 'nguoi-cham-soc', relationship: 'Người trong gia đình lớn' });
+  h.open(); assert.equal(h.save().props.disabled, true);
+  h.permission(0, false); await h.save().props.onPress();
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['permissions']);
+  assert.equal(h.connection.role, 'nguoi-cham-soc');
+  assert.equal(h.connection.relationship_type, 'Người trong gia đình lớn');
 });
 await test('saving locks the form immediately and suppresses a second tap from the same render', async () => {
   let finish;

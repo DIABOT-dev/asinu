@@ -23,7 +23,13 @@ export type DropdownOption = {
   disabled?: boolean;
 };
 
+function normalizeSearchTerm(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+}
+
 interface DropdownProps {
+  accessibilityLabel?: string;
   label?: string;
   placeholder?: string;
   options: DropdownOption[];
@@ -43,6 +49,7 @@ interface DropdownProps {
 }
 
 export function Dropdown({
+  accessibilityLabel,
   label,
   placeholder,
   options,
@@ -193,8 +200,8 @@ export function Dropdown({
 
   const filteredOptions = searchable && searchQuery
     ? options.filter(opt => 
-        opt.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        opt.subtitle?.toLowerCase().includes(searchQuery.toLowerCase())
+        normalizeSearchTerm(opt.label).includes(normalizeSearchTerm(searchQuery)) ||
+        (opt.subtitle && normalizeSearchTerm(opt.subtitle).includes(normalizeSearchTerm(searchQuery)))
       )
     : options;
 
@@ -207,6 +214,9 @@ export function Dropdown({
 
   const renderOption = ({ item }: { item: DropdownOption }) => (
     <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={item.label}
+      accessibilityState={{ selected: value?.id === item.id, disabled: Boolean(item.disabled) }}
       style={[
         styles.option,
         value?.id === item.id && styles.optionSelected,
@@ -241,6 +251,10 @@ export function Dropdown({
       {label && <Text style={[styles.label, { fontSize: scaledTypography.size.sm }, labelStyle]}>{label}</Text>}
       
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label ?? displayPlaceholder}
+        accessibilityState={{ expanded: isOpen, disabled: loading }}
+        accessibilityValue={{ text: value?.label || displayPlaceholder }}
         style={[styles.trigger, error && styles.triggerError, triggerStyle]}
         onPress={() => setIsOpen(true)}
         disabled={loading}

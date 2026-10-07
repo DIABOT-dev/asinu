@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  FlatList,
+  SectionList,
   Pressable,
   StyleSheet,
   View,
@@ -14,11 +14,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../src/components/ScaledText";
 import { Screen } from "../src/components/Screen";
 import { ScreenBackButton } from "../src/components/ScreenHeaderButton";
-import { useScaledTypography } from "../src/hooks/useScaledTypography";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useGuardedRouter as useRouter } from "../src/hooks/useGuardedRouter";
 import { apiClient } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
+import { radius, spacing, typography } from "../src/styles";
 
 type ConsultationTask = {
   tenant_id?: string;
@@ -63,7 +63,7 @@ const previewText = (
   task: ConsultationTask,
   waitingLabel: string,
   attachmentLabel: string,
-  voiceLabel: string,
+  voiceLabel: string
 ) => {
   if (task.latest_message?.startsWith("[ASINU_ATTACHMENT]"))
     return attachmentLabel;
@@ -75,13 +75,13 @@ const isFollowUpOpen = (task: ConsultationTask) =>
   task.status === "completed" &&
   Boolean(
     task.follow_up_until &&
-    new Date(task.follow_up_until).getTime() > Date.now(),
+      new Date(task.follow_up_until).getTime() > Date.now()
   );
 
 const formatDate = (value: string, language: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString(language === "en" ? "en-US" : "vi-VN", {
+  return date.toLocaleString(language.startsWith("en") ? "en-US" : "vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -96,16 +96,26 @@ export default function DoctorConsultationHistoryScreen() {
   const { t: tSettings } = useTranslation("settings");
   const { t: tCommon } = useTranslation("common");
   const { colors } = useThemeColors();
-  const scaledTypography = useScaledTypography();
   const insets = useSafeAreaInsets();
   const [tasks, setTasks] = useState<ConsultationTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const styles = useMemo(
-    () => createStyles(colors, scaledTypography.size),
-    [colors, scaledTypography.size],
-  );
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const sections = useMemo(() => {
+    const ongoing = tasks.filter(
+      (task) =>
+        !TERMINAL_STATUSES.has(task.status || "queued") || isFollowUpOpen(task)
+    );
+    const closed = tasks.filter(
+      (task) =>
+        TERMINAL_STATUSES.has(task.status || "queued") && !isFollowUpOpen(task)
+    );
+    return [
+      { title: tSettings("doctorConsultationHistoryOngoing"), data: ongoing },
+      { title: tSettings("doctorConsultationHistoryClosed"), data: closed },
+    ].filter((section) => section.data.length > 0);
+  }, [tasks, tSettings]);
 
   const loadHistory = useCallback(async () => {
     setLoading(true);
@@ -113,17 +123,17 @@ export default function DoctorConsultationHistoryScreen() {
     try {
       const clinicResponse = await apiClient<ClinicListResponse>(
         "/api/doctor/clinics",
-        { method: "POST", body: {} },
+        { method: "POST", body: {} }
       ).catch(() => null);
       const tenantIds = Array.from(
         new Set(
           [
             env.doctorTenantId,
             ...(clinicResponse?.data?.items ?? []).map(
-              (item) => item.tenant_id,
+              (item) => item.tenant_id
             ),
-          ].filter(Boolean),
-        ),
+          ].filter(Boolean)
+        )
       );
       const responses = await Promise.allSettled(
         tenantIds.map((tenantId) =>
@@ -131,21 +141,19 @@ export default function DoctorConsultationHistoryScreen() {
             `/api/doctor/tasks?tenant_id=${encodeURIComponent(tenantId)}`,
             {
               retry: { attempts: 3, initialDelayMs: 500, backoffFactor: 2 },
-            },
-          ),
-        ),
+            }
+          )
+        )
       );
       const merged = responses.flatMap((response) =>
-        response.status === "fulfilled"
-          ? (response.value.data?.tasks ?? [])
-          : [],
+        response.status === "fulfilled" ? response.value.data?.tasks ?? [] : []
       );
       const unique = Array.from(
-        new Map(merged.map((task) => [task.task_id, task])).values(),
+        new Map(merged.map((task) => [task.task_id, task])).values()
       ).sort(
         (left, right) =>
           new Date(right.latest_message_at || right.created_at).getTime() -
-          new Date(left.latest_message_at || left.created_at).getTime(),
+          new Date(left.latest_message_at || left.created_at).getTime()
       );
       setTasks(unique);
       if (responses.every((response) => response.status === "rejected")) {
@@ -162,7 +170,7 @@ export default function DoctorConsultationHistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadHistory();
-    }, [loadHistory]),
+    }, [loadHistory])
   );
 
   const renderTask = useCallback(
@@ -173,11 +181,15 @@ export default function DoctorConsultationHistoryScreen() {
         item,
         tHome("doctorConsultationWaiting"),
         tHome("doctorConsultationAttachPhoto"),
-        tHome("doctorConsultationVoiceMessage"),
+        tHome("doctorConsultationVoiceMessage")
       );
       return (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`${item.summary}, ${tHome(
+            statusKey(item.status),
+            { defaultValue: tHome("doctorConsultationStatusUnknown") }
+          )}`}
           onPress={() =>
             router.push({
               pathname: "/doctor-consultation/[taskId]",
@@ -189,52 +201,56 @@ export default function DoctorConsultationHistoryScreen() {
           }
           style={({ pressed }) => [styles.taskCard, pressed && styles.pressed]}
         >
-          <View style={styles.taskIcon}>
+          <View style={styles.taskMetaRow}>
+            <Text style={styles.taskDate}>
+              {formatDate(
+                item.created_at,
+                i18n.resolvedLanguage ?? i18n.language
+              )}
+            </Text>
+            <Text
+              style={[
+                styles.status,
+                active ? styles.statusActive : styles.statusDone,
+              ]}
+            >
+              {tHome(statusKey(item.status), {
+                defaultValue: tHome("doctorConsultationStatusUnknown"),
+              })}
+            </Text>
+          </View>
+          <View style={styles.taskContent}>
+            <View style={styles.taskBody}>
+              <Text numberOfLines={2} style={styles.taskTitle}>
+                {item.summary}
+              </Text>
+              <Text numberOfLines={2} style={styles.taskPreview}>
+                {preview}
+              </Text>
+              {isFollowUpOpen(item) ? (
+                <Text style={styles.followup}>
+                  {tSettings("doctorConsultationHistoryFollowup")}
+                </Text>
+              ) : null}
+            </View>
             <Ionicons
-              name={
-                active
-                  ? "chatbubble-ellipses-outline"
-                  : "checkmark-done-outline"
-              }
-              size={22}
-              color={active ? colors.primary : colors.textSecondary}
+              name="chevron-forward"
+              size={18}
+              color={colors.textSecondary}
             />
           </View>
-          <View style={styles.taskBody}>
-            <Text numberOfLines={1} style={styles.taskTitle}>
-              {item.summary}
-            </Text>
-            <Text numberOfLines={2} style={styles.taskPreview}>
-              {preview}
-            </Text>
-            <View style={styles.taskMetaRow}>
-              <Text style={styles.taskDate}>
-                {formatDate(
-                  item.latest_message_at || item.created_at,
-                  i18n.language,
-                )}
-              </Text>
-              <Text
-                style={[
-                  styles.status,
-                  active ? styles.statusActive : styles.statusDone,
-                ]}
-              >
-                  {tHome(statusKey(item.status), {
-                    defaultValue: tHome("doctorConsultationStatusUnknown"),
-                  })}
-              </Text>
-            </View>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={colors.textSecondary}
-          />
         </Pressable>
       );
     },
-    [colors, i18n.language, router, styles, tHome],
+    [
+      colors,
+      i18n.language,
+      i18n.resolvedLanguage,
+      router,
+      styles,
+      tHome,
+      tSettings,
+    ]
   );
 
   return (
@@ -243,22 +259,27 @@ export default function DoctorConsultationHistoryScreen() {
       <View style={[styles.page, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
           <ScreenBackButton
-            onPress={() => router.back()}
+            onPress={() =>
+              router.canGoBack()
+                ? router.back()
+                : router.replace("/(tabs)/profile")
+            }
             accessibilityLabel={tCommon("back")}
           />
-          <Text
-            adjustsFontSizeToFit
-            minimumFontScale={0.72}
-            numberOfLines={1}
-            style={styles.headerTitle}
-          >
+          <Text accessibilityRole="header" style={styles.headerTitle}>
             {tSettings("doctorConsultationHistory")}
           </Text>
           <View pointerEvents="none" style={styles.headerSpacer} />
         </View>
 
-        <FlatList
-          data={tasks}
+        <SectionList
+          sections={sections}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => (
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              {section.title}
+            </Text>
+          )}
           keyExtractor={(item) => item.task_id}
           renderItem={renderTask}
           contentContainerStyle={[
@@ -285,6 +306,8 @@ export default function DoctorConsultationHistoryScreen() {
                   {tHome("doctorConsultationThreadError")}
                 </Text>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={tCommon("retry")}
                   style={styles.retry}
                   onPress={() => void loadHistory()}
                 >
@@ -313,10 +336,8 @@ export default function DoctorConsultationHistoryScreen() {
   );
 }
 
-function createStyles(
-  colors: ReturnType<typeof useThemeColors>["colors"],
-  textSize: ReturnType<typeof useScaledTypography>["size"],
-) {
+function createStyles(colors: ReturnType<typeof useThemeColors>["colors"]) {
+  const textSize = typography.size;
   return StyleSheet.create({
     page: { flex: 1 },
     header: {
@@ -340,18 +361,28 @@ function createStyles(
       alignItems: "center",
       backgroundColor: colors.surface,
       borderColor: colors.border,
-      borderRadius: 18,
+      borderRadius: radius.lg,
       borderWidth: 1,
-      flexDirection: "row",
-      gap: 12,
-      padding: 14,
+      gap: spacing.md,
+      padding: spacing.lg,
     },
-    taskIcon: {
+    taskContent: {
+      flexDirection: "row",
       alignItems: "center",
-      borderRadius: 14,
-      height: 44,
-      justifyContent: "center",
-      width: 44,
+      gap: spacing.md,
+      width: "100%",
+    },
+    sectionTitle: {
+      color: colors.textPrimary,
+      fontSize: textSize.sm,
+      fontWeight: "600",
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.sm,
+    },
+    followup: {
+      color: colors.primaryText,
+      fontSize: textSize.xs,
+      marginTop: spacing.sm,
     },
     taskBody: { flex: 1, minWidth: 0 },
     taskTitle: {
@@ -369,8 +400,8 @@ function createStyles(
       alignItems: "flex-start",
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 8,
-      marginTop: 8,
+      gap: spacing.sm,
+      width: "100%",
     },
     taskDate: {
       color: colors.textSecondary,
@@ -389,7 +420,10 @@ function createStyles(
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
-    statusActive: { backgroundColor: "#E6F6EC", color: "#3F8F59" },
+    statusActive: {
+      backgroundColor: colors.primaryLight,
+      color: colors.primaryText,
+    },
     statusDone: {
       backgroundColor: colors.surfaceMuted,
       color: colors.textSecondary,

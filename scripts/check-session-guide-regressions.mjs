@@ -30,6 +30,22 @@ const { useNotificationStore: store } = evaluate(fs.readFileSync('src/stores/not
 });
 const notification = id => ({ id, type: 'general', title: id, message: id, created_at: '2026-10-05T07:00:00Z', is_read: false });
 const response = id => ({ ok: true, notifications: [notification(id)], pagination: { unreadCount: 1, page: 1, total: 1, limit: 50 } });
+await test('isolated inbox previews retain their real display category without altering ordinary notifications', async () => {
+  store.getState().reset();
+  const rows = [
+    { ...notification('demo'), type: 'demo:care_circle_invitation', data: { demo: true, demoBatch: 'test-catalog', type: 'care_circle_invitation' } },
+    { ...notification('real'), type: 'caregiver_alert', data: { type: 'emergency' } },
+    { ...notification('unmarked'), type: 'demo:emergency', data: { type: 'emergency' } },
+    { ...notification('no-batch'), type: 'demo:emergency', data: { demo: true, type: 'emergency' } },
+    { ...notification('mismatch'), type: 'demo:health_alert', data: { demo: true, demoBatch: 'test-catalog', type: 'emergency' } },
+  ];
+  api.fetchNotifications = async () => ({ ok: true, notifications: rows, pagination: { unreadCount: 5, page: 1, total: 5, limit: 50 } });
+  await store.getState().fetchFromBackend();
+  assert.deepEqual(store.getState().notifications.map(item => item.type), ['care_circle_invitation', 'caregiver_alert', 'demo:emergency', 'demo:emergency', 'demo:health_alert']);
+  assert.deepEqual(store.getState().notifications[0].data, rows[0].data);
+  assert.equal(store.getState().unreadCount, 5);
+  store.getState().reset();
+});
 await test('local reset clears the inbox without deleting server history', async () => {
   let deletes = 0;
   api.deleteAllNotifications = async () => { deletes++; return { ok: true }; };

@@ -1,12 +1,13 @@
 import type { TFunction } from 'i18next';
-import type { DropdownOption } from '../../components/Dropdown';
+
+export const DEFAULT_FAMILY_ROLE = 'than-nhan' as const;
 
 const FAMILY_ROLES = [
   {
     id: 'than-nhan',
     labelKey: 'roleRelative',
     subtitleKey: 'roleRelativeDesc',
-    legacyLabels: ['Thân nhân', 'Relative'],
+    legacyLabels: ['Thân nhân', 'Relative', 'Người thân', 'Family member'],
   },
   {
     id: 'nguoi-cham-soc',
@@ -16,18 +17,11 @@ const FAMILY_ROLES = [
   },
 ] as const;
 
-export function getFamilyRoleOptions(t: TFunction<'careCircle'>): DropdownOption[] {
-  return FAMILY_ROLES.map((role) => ({
-    id: role.id,
-    label: t(role.labelKey),
-    subtitle: t(role.subtitleKey),
-  }));
-}
-
 export function getFamilyRoleLabel(value: string | undefined, t: TFunction<'careCircle'>): string {
   const role = FAMILY_ROLES.find((option) =>
     option.id === value || t(option.labelKey) === value ||
     option.legacyLabels.some((label) => label === value)
   );
-  return role ? t(role.labelKey) : '';
+  // Old caregiver labels remain readable, but there is only one family role now.
+  return role || !value ? t('roleRelative') : '';
 }

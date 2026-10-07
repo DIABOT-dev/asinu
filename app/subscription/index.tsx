@@ -1,13 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { Stack } from "expo-router";
+import { Stack, useFocusEffect } from "expo-router";
 import React, {
   memo,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
@@ -26,9 +23,8 @@ import { ScaledText as Text } from "../../src/components/ScaledText";
 import { Screen } from "../../src/components/Screen";
 import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { SubscriptionFAQ } from "../../src/components/SubscriptionFAQ";
-import { IapPurchaseCard } from "../../src/features/iap/IapPurchaseCard";
-import { RestoreLink } from "../../src/features/iap/RestoreLink";
 import { localizedPlanName } from "../../src/features/subscription/planName";
+import type { PlanCode, SubscriptionStatus } from "../../src/features/subscription/subscription.types";
 import {
   careCircleApi,
   type CareCircleConnection,
@@ -84,22 +80,6 @@ function getPlanImageByCode(planCode?: PlanCode, isAnTam?: boolean) {
   }
 }
 
-type PlanCode = "free" | "antam_2" | "antam_4" | "antam_8";
-type SubscriptionStatus = {
-  ok: boolean;
-  planCode: PlanCode;
-  planName: string;
-  tier: "free" | "antam";
-  isAnTam: boolean;
-  isOwner: boolean;
-  ownerUserId: number;
-  protectedMemberLimit: number;
-  protectedMemberCount: number;
-  connectionLimit: number;
-  billingPeriod: "monthly" | "yearly" | null;
-  expiresAt: string | null;
-  consultationCredits: number;
-};
 type ProtectedMember = {
   userId: number;
   name: string;
@@ -311,16 +291,9 @@ const PlanComparison = memo(function PlanComparison({
         <Pressable
           accessibilityRole="button"
           onPress={onChoosePlan}
-          style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+          style={({ pressed }) => [styles.premiumCTABtn, { opacity: pressed ? 0.85 : 1 }]}
         >
-          <LinearGradient
-            colors={["#f97316", "#ea580c"]}
-            end={{ x: 1, y: 0 }}
-            start={{ x: 0, y: 0 }}
-            style={styles.premiumCTABtn}
-          >
-            <Text style={styles.premiumCTAText}>{t("iapChooseTitle")}</Text>
-          </LinearGradient>
+          <Text style={styles.premiumCTAText}>{t("iapChooseTitle")}</Text>
         </Pressable>
       </View>
     </View>
@@ -362,8 +335,6 @@ export default function SubscriptionScreen() {
     () => createStyles(scaledTypography, isDark),
     [isDark, scaledTypography]
   );
-  const scrollRef = useRef<ScrollView>(null);
-  const purchaseSectionYRef = useRef(0);
   const profile = useAuthStore((state) => state.profile);
   const currentUserId = Number(profile?.id || 0);
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
@@ -372,29 +343,30 @@ export default function SubscriptionScreen() {
   const [loading, setLoading] = useState(true);
   const [memberModal, setMemberModal] = useState(false);
   const [memberBusy, setMemberBusy] = useState<number | null>(null);
-  const [showPurchaseSection, setShowPurchaseSection] = useState(false);
-  const isFirstRevealRef = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
     try {
       const [nextStatus, nextHousehold, nextConnections] = await Promise.all([
         apiClient<SubscriptionStatus>("/api/subscriptions/status"),
         apiClient<Household>("/api/subscription-household"),
         careCircleApi.getConnections(),
       ]);
+      if (!isCurrent()) return;
       setStatus(nextStatus);
       setHousehold(nextHousehold);
       setConnections(nextConnections);
     } catch (error) {
-      showToast(getApiErrorMessage(error, t, "v2LoadError"), "error");
+      if (isCurrent()) showToast(getApiErrorMessage(error, t, "v2LoadError"), "error");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [t]);
 
-  useEffect(() => {
-    refresh().catch(() => {});
-  }, [refresh]);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void refresh(() => active);
+    return () => { active = false; };
+  }, [currentUserId, refresh]));
 
   const connectionAvatarMap = useMemo(() => {
     const map = new Map<number, string>();
@@ -500,22 +472,13 @@ export default function SubscriptionScreen() {
   );
 
   const handleChoosePlan = useCallback(() => {
-    if (!showPurchaseSection) {
-      isFirstRevealRef.current = true;
-      setShowPurchaseSection(true);
-    } else {
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, purchaseSectionYRef.current - spacing.sm),
-        animated: true,
-      });
-    }
-  }, [showPurchaseSection]);
+    router.push("/subscription/plans");
+  }, [router]);
 
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
-        ref={scrollRef}
         contentContainerStyle={[
           styles.scrollContent,
           { paddingTop: insets.top + spacing.sm },
@@ -604,6 +567,10 @@ export default function SubscriptionScreen() {
             userName={profile?.name}
           />
 
+          <View style={styles.faqWrapper}>
+            <SubscriptionFAQ />
+          </View>
+
           <PlanComparison
             anTamFeatures={anTamFeatures}
             freeFeatures={freeFeatures}
@@ -613,40 +580,6 @@ export default function SubscriptionScreen() {
             t={t}
           />
 
-          {!showPurchaseSection && !status?.isAnTam ? (
-            <RestoreLink onRestored={refresh} />
-          ) : null}
-
-          {(showPurchaseSection || status?.isAnTam) && (
-            <Animated.View
-              entering={FadeInDown.duration(400).springify()}
-              onLayout={(event) => {
-                const layoutY = event.nativeEvent.layout.y;
-                purchaseSectionYRef.current = layoutY;
-                if (isFirstRevealRef.current) {
-                  isFirstRevealRef.current = false;
-                  setTimeout(() => {
-                    scrollRef.current?.scrollTo({
-                      y: Math.max(0, layoutY - spacing.sm),
-                      animated: true,
-                    });
-                  }, 80);
-                }
-              }}
-            >
-              <IapPurchaseCard
-                currentBillingPeriod={status?.billingPeriod}
-                currentPlanCode={status?.planCode}
-                onPurchased={refresh}
-              />
-            </Animated.View>
-          )}
-
-          <View style={styles.faqWrapper}>
-            <SubscriptionFAQ />
-          </View>
-
-          <Text style={styles.footerNote}>{t("v2EmergencyContactHint")}</Text>
         </Animated.View>
       </ScrollView>
 
@@ -948,16 +881,6 @@ export default function SubscriptionScreen() {
               </View>
             ) : null}
 
-            <View style={styles.sheetFootnoteRow}>
-              <Ionicons
-                name="information-circle-outline"
-                size={20}
-                color={isDark ? "#94a3b8" : "#64748b"}
-              />
-              <Text style={styles.sheetFootnoteText}>
-                {t("v2EmergencyContactHint")}
-              </Text>
-            </View>
           </ScrollView>
         </View>
       </Modal>
@@ -1257,7 +1180,10 @@ function createStyles(
     },
     premiumCTABtn: {
       alignItems: "center",
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primaryDark,
       borderRadius: 12,
+      borderWidth: 1,
       justifyContent: "center",
       marginTop: 6,
       minHeight: 42,
@@ -1265,7 +1191,7 @@ function createStyles(
       paddingVertical: 8,
     },
     premiumCTAText: {
-      color: "#fffaf5",
+      color: colors.primaryText,
       fontSize: 12,
       fontWeight: "700",
       textAlign: "center",
@@ -1344,12 +1270,6 @@ function createStyles(
       lineHeight: 18,
     },
     faqWrapper: { marginTop: 16 },
-    footerNote: {
-      color: colors.textSecondary,
-      fontSize: typography.size.xs,
-      marginTop: spacing.md,
-      textAlign: "center",
-    },
     backdrop: {
       backgroundColor: "rgba(15,23,42,0.45)",
       bottom: 0,
@@ -1550,19 +1470,6 @@ function createStyles(
       fontSize: typography.size.xs - 0.5,
       lineHeight: 18,
       marginTop: 4,
-    },
-    sheetFootnoteRow: {
-      alignItems: "center",
-      flexDirection: "row",
-      gap: 8,
-      marginTop: spacing.xl,
-      paddingBottom: spacing.sm,
-    },
-    sheetFootnoteText: {
-      color: isDark ? "#94a3b8" : "#64748b",
-      flex: 1,
-      fontSize: typography.size.xs,
-      lineHeight: 18,
     },
   });
 }

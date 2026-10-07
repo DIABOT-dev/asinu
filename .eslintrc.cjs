@@ -14,7 +14,7 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['scripts/check-notification-sounds.mjs', 'scripts/check-profile-edit.mjs', 'scripts/check-care-circle-health.mjs', 'scripts/check-edit-save-state.mjs', 'scripts/check-checkin-call-settings.mjs', 'scripts/check-connection-actions-and-restore.mjs'],
+      files: ['scripts/check-notification-sounds.mjs', 'scripts/check-profile-edit.mjs', 'scripts/check-care-circle-health.mjs', 'scripts/check-edit-save-state.mjs', 'scripts/check-checkin-call-settings.mjs', 'scripts/check-connection-actions-and-restore.mjs', 'scripts/check-doctor-privacy.cjs', 'scripts/check-privacy-modal-visuals.cjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },

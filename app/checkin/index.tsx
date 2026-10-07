@@ -189,6 +189,16 @@ function CheckinScreen() {
       : null,
   );
 
+  useEffect(() => {
+    if (!isPractice || !guidanceReady) return;
+    const guidance = useGuidanceStore.getState();
+    if (guidance.account === String(userId) && !guidance.progress.completed.includes('checkin.practice')) {
+      // Remember the first visit even if Back closes the guide before its end.
+      // Only tour metadata is saved, never example answers or health results.
+      guidance.update({ completed: ['checkin.practice'] });
+    }
+  }, [guidanceReady, isPractice, userId]);
+
   // Auto-detect: đã check-in hôm nay chưa? Nếu rồi → redirect đúng mode
   // Random mode: bỏ qua check, luôn cho check-in
   useEffect(() => {

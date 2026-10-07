@@ -11,6 +11,8 @@ type State = {
   inFlight: GuidePatch;
   ready: boolean;
   syncing: boolean;
+  welcomeOpen: boolean;
+  setWelcomeOpen: (open: boolean) => void;
   load: (account: string | null) => Promise<void>;
   refresh: () => Promise<void>;
   update: (patch: GuidePatch) => void;
@@ -30,10 +32,11 @@ function cache(account: string, value: Cache) {
 }
 
 export const useGuidanceStore = create<State>((set, get) => ({
-  account: null, progress: defaultProgress(), pending: {}, inFlight: {}, ready: false, syncing: false,
+  account: null, progress: defaultProgress(), pending: {}, inFlight: {}, ready: false, syncing: false, welcomeOpen: false,
+  setWelcomeOpen(welcomeOpen) { if (get().welcomeOpen !== welcomeOpen) set({ welcomeOpen }); },
   async load(account) {
     const epoch = ++generation;
-    set({ account, progress: defaultProgress(), pending: {}, inFlight: {}, ready: false, syncing: false });
+    set({ account, progress: defaultProgress(), pending: {}, inFlight: {}, ready: false, syncing: false, welcomeOpen: false });
     if (!account) return;
     try {
       const raw = await AsyncStorage.getItem(keyFor(account));
@@ -59,7 +62,15 @@ export const useGuidanceStore = create<State>((set, get) => ({
       const pending = sameEpoch ? current.pending : {};
       const inFlight = sameEpoch ? current.inFlight : {};
       const allPending = combinePatches(inFlight, pending);
-      const progress = mergeProgress(response.progress, allPending);
+      // A GET started before a successful PUT may finish after that PUT.
+      // Seen/completed flags are monotonic within an epoch; only explicit
+      // replay (a new epoch) can clear them, not an older server snapshot.
+      const known = sameEpoch && current.ready ? mergeProgress(response.progress, {
+        welcomeSeen: current.progress.welcomeSeen,
+        firstCheckin: current.progress.firstCheckin,
+        completed: current.progress.completed,
+      }) : response.progress;
+      const progress = mergeProgress(known, allPending);
       if (!sameEpoch) ++generation;
       set({ progress, pending, inFlight, ready: true, syncing: sameEpoch && current.syncing });
       cache(account, { progress, pending: allPending });
