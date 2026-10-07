@@ -153,7 +153,39 @@ export const SessionProvider = ({ children }: Props) => {
   // Bootstrap belongs at the root so every entry route shares one session startup.
   useEffect(() => {
     setupNotificationHandler();
-    void bootstrap();
+    let live = true;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let recovering = false;
+    let retries = 0;
+
+    const restoreSession = async () => {
+      if (!live || recovering || AppState.currentState !== "active" || useAuthStore.getState().hydrated) return;
+      recovering = true;
+      try {
+        await bootstrap();
+      } finally {
+        recovering = false;
+      }
+      // Keychain availability can lag the foreground event during unlock.
+      // Retry briefly, keeping the existing WHEN_UNLOCKED protection.
+      if (live && !useAuthStore.getState().hydrated && AppState.currentState === "active" && retries < 3) {
+        retries++;
+        retryTimer = setTimeout(() => { void restoreSession(); }, 500 * retries);
+      }
+    };
+
+    const foreground = AppState.addEventListener("change", state => {
+      if (retryTimer) clearTimeout(retryTimer);
+      if (state !== "active") return;
+      retries = 0;
+      void restoreSession();
+    });
+    void restoreSession();
+    return () => {
+      live = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      foreground.remove();
+    };
   }, [bootstrap]);
 
   // Push registration needs the restored auth session, so run it after hydration.

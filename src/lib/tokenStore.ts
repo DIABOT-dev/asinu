@@ -22,12 +22,10 @@ export const tokenStore = {
   },
   async loadToken() {
     if (memoryToken !== null) return memoryToken;
-    try {
-      const stored = await SecureStore.getItemAsync(TOKEN_KEY);
-      memoryToken = stored;
-    } catch {
-      memoryToken = null;
-    }
+    // A locked iPhone can temporarily reject Keychain reads. Only a
+    // successful null result means logged out; let startup retry read errors.
+    const stored = await SecureStore.getItemAsync(TOKEN_KEY);
+    memoryToken = stored;
     return memoryToken;
   },
   async setToken(token: string) {

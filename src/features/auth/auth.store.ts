@@ -119,7 +119,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
               set({ profile: null, loading: false, hydrated: true });
             }
           } catch (error) {
-            set({ loading: false, error: (error as Error).message, hydrated: true });
+            // Storage may be unavailable during a locked CallKit launch.
+            // Keep auth unresolved so protected routes cannot redirect to login.
+            set({ loading: false, error: (error as Error).message, hydrated: false });
           }
         })();
 

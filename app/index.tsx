@@ -46,6 +46,7 @@ export default function Index() {
   const router = useRouter();
   const navigationState = useRootNavigationState();
   const profile = useAuthStore((state) => state.profile);
+  const authToken = useAuthStore((state) => state.token);
   const loading = useAuthStore((state) => state.loading);
   const hydrated = useAuthStore((state) => state.hydrated);
   const isNavReady = Boolean(navigationState?.key);
@@ -108,7 +109,9 @@ export default function Index() {
     const task = InteractionManager.runAfterInteractions(async () => {
       // Cold-start deep link: nếu user mở app bằng cách tap notification,
       // ưu tiên route đó thay vì replace về home (nếu không sẽ ghi đè).
-      if (profile) {
+      // A failed profile request does not invalidate the restored session.
+      // Native call recovery only needs the token; the call API checks access.
+      if (authToken) {
         try {
           // An answered CallKit call takes priority over a previous push tap.
           // The native handoff remains pending until this screen owns audio.
@@ -145,7 +148,7 @@ export default function Index() {
       }
     });
     return () => { cancelled = true; task.cancel(); };
-  }, [minSplashDone, hydrated, isNavReady, loading, profile, router, consentReady, showConsent]);
+  }, [minSplashDone, hydrated, isNavReady, loading, profile, authToken, router, consentReady, showConsent]);
 
   return (
     <View

@@ -23,7 +23,7 @@
     "test:home-checkin": "node scripts/check-home-checkin-cards.mjs",
     "test:home-checkin-call": "node scripts/check-home-checkin-call-control.mjs",
     "test:chatbot-hidden": "node scripts/check-chatbot-ui-hidden.mjs",
-    "test:checkin-native": "node scripts/check-checkin-native-readiness.mjs && node scripts/check-checkin-call-handoff.mjs && node scripts/check-pushkit-lifecycle.mjs && node scripts/check-checkin-native-continuation.mjs && node scripts/check-android-checkin-call.mjs",
+    "test:checkin-native": "node scripts/check-call-session-recovery.mjs && node scripts/check-checkin-native-readiness.mjs && node scripts/check-checkin-call-handoff.mjs && node scripts/check-pushkit-lifecycle.mjs && node scripts/check-checkin-native-continuation.mjs && node scripts/check-android-checkin-call.mjs",
     "test:checkin-android": "node scripts/check-android-checkin-call.mjs && cd android && ./gradlew :app:testDebugUnitTest --tests com.asinu.lite.notifications.CheckinCallAndroidTest --console=plain",
     "test:checkin-state": "node scripts/check-checkin-call-state.mjs && node scripts/check-session-guide-regressions.mjs && npm run test:startup-modals && npm run test:checkin-settings && npm run test:checkin-personalization && npm run test:home-checkin && npm run test:home-checkin-call && npm run test:chatbot-hidden",
     "test:startup-modals": "node scripts/check-startup-modals.mjs && node scripts/check-connection-actions-and-restore.mjs",
