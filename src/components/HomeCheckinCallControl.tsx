@@ -39,6 +39,8 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
   const focused = useRef(false);
   const requestVersion = useRef(0);
   const saveInFlight = useRef(false);
+  const settingsOwner = useRef({ userId, token });
+  const sameSession = settingsOwner.current.userId === userId && settingsOwner.current.token === token;
 
   const isCurrentAuth = useCallback(
     (requestToken: string | null) => {
@@ -67,7 +69,8 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
       setNoContacts(result.contacts?.length === 0);
     } catch (e) {
       if (version !== requestVersion.current || !isCurrentAuth(requestToken)) return;
-      setAllowed(null);
+      // A failed revalidation does not mean the saved setting was turned off.
+      // Retain the display, but block changes until access can be checked again.
       setLoadFailed(true);
       setDialog(current => current?.kind === "confirm" ? null : current);
       showToast(getApiErrorMessage(e, tc), "error", 5000);
@@ -84,8 +87,15 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
   useFocusEffect(useCallback(() => {
     focused.current = true;
     setDialog(null);
-    setAllowed(null);
-    setSettings(null);
+    if (settingsOwner.current.userId !== userId || settingsOwner.current.token !== token) {
+      settingsOwner.current = { userId, token };
+      setAllowed(null);
+      setSettings(null);
+      setNoContacts(false);
+      setLoadFailed(false);
+    }
+    // Keep the last confirmed value visible when returning from another tab.
+    // The refresh still reconciles it with the current backend setting/access.
     setLoading(true);
     void refresh();
     return () => {
@@ -93,7 +103,7 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
       requestVersion.current++;
       setDialog(null);
     };
-  }, [refresh, token]));
+  }, [refresh, token, userId]));
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", next => {
@@ -107,12 +117,12 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
     if (focused.current && isCurrentAuth(useAuthStore.getState().token)) router.push(route);
   };
   const openConfirmation = (enabled: boolean) => {
-    if (loading || saveInFlight.current || dialog || allowed === null) return;
+    if (loading || loadFailed || saveInFlight.current || dialog || allowed === null || !sameSession || !focused.current || !isCurrentAuth(token)) return;
     setDialog(allowed ? { kind: "confirm", enabled } : { kind: "access" });
   };
   const confirm = async (enabled: boolean) => {
     const requestToken = useAuthStore.getState().token;
-    if (saveInFlight.current || !settings || !allowed || !focused.current || !isCurrentAuth(requestToken)) return;
+    if (saveInFlight.current || loadFailed || !settings || !allowed || !sameSession || !focused.current || requestToken !== token || !isCurrentAuth(requestToken)) return;
     saveInFlight.current = true;
     requestVersion.current++;
     setLoading(false);
@@ -135,8 +145,8 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
     }
   };
 
-  const enabled = allowed === true && settings?.enabled === true;
-  const busy = loading || saving || allowed === null;
+  const enabled = sameSession && allowed === true && settings?.enabled === true;
+  const busy = loading || saving || loadFailed || allowed === null || !sameSession;
   const isConfirmOn = dialog?.kind === "confirm" && dialog.enabled;
   const warnNoContacts = isConfirmOn && noContacts;
   const dialogTitle = dialog?.kind === "access" ? t("accessRequiredTitle")
@@ -183,7 +193,7 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
           onValueChange={openConfirmation}
         />
       </View>
-      {!loading && allowed === null && loadFailed && (
+      {!loading && loadFailed && (
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ disabled: saving }}

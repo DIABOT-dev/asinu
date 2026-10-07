@@ -62,6 +62,7 @@ function harness({
   let cursor = 0;
   let focused = true;
   let pending = [];
+  let userId = "7";
   const slots = [];
   const listeners = new Set();
   const auth = { profile: { id: "7" }, token: "session-A" };
@@ -249,7 +250,7 @@ function harness({
       nodes.push(node);
       visit(node.props?.children);
     };
-    visit(HomeCheckinCallControl({ userId: "7" }));
+    visit(HomeCheckinCallControl({ userId }));
     return nodes;
   };
   const effects = () => {
@@ -268,6 +269,7 @@ function harness({
     calls,
     server,
     auth,
+    setUserId: (value) => { userId = value; },
     t: translations.checkinCall,
     tc: translations.common,
     toggle: () => render().find((node) => node.type === "Switch"),
@@ -560,6 +562,114 @@ await test("settings changes refresh on return and foreground", async () => {
   assert.equal(h.toggle().props.value, false);
   h.unmount();
 });
+for (const language of ["vi", "en"]) {
+  for (const enabled of [true, false]) {
+    await test(`${language}: switching tabs preserves ${enabled ? "on" : "off"} while a slow refresh is pending`, async () => {
+      let finish;
+      const h = harness({ language, enabled, load: (server, count) => {
+        if (count === 1) return { ok: true, settings: { ...server.settings }, contacts: server.contacts };
+        return new Promise(resolve => {
+          finish = () => resolve({ ok: true, settings: { ...server.settings }, contacts: server.contacts });
+        });
+      } });
+      await h.settle();
+      for (let visit = 0; visit < 3; visit++) {
+        h.blur();
+        await h.focus();
+        assert.equal(h.toggle().props.value, enabled, "Refocusing must not reset the saved switch");
+        assert.equal(h.toggle().props.accessibilityState.checked, enabled);
+        assert.equal(h.toggle().props.disabled, true);
+        assert.equal(h.toggle().props.accessibilityState.busy, true);
+        h.toggle().props.onValueChange(!enabled);
+        assert.equal(h.modal().props.visible, false);
+        finish();
+        await h.settle();
+        assert.equal(h.toggle().props.value, enabled);
+        assert.equal(h.toggle().props.disabled, false);
+      }
+      assert.equal(h.calls.loads, 4, "The retained display must still refresh from the backend");
+      assert.deepEqual(h.calls.saves, []);
+      assert.deepEqual(h.calls.toasts, []);
+      h.unmount();
+    });
+  }
+  await test(`${language}: failed revalidation preserves the last switch but blocks edits until retry succeeds`, async () => {
+    const h = harness({ language, enabled: true });
+    await h.settle();
+    h.blur();
+    h.server.status = new Error("Offline");
+    await h.focus();
+    assert.equal(h.toggle().props.value, true, "A load error is not a saved off setting");
+    assert.equal(h.toggle().props.disabled, true);
+    h.toggle().props.onValueChange(false);
+    assert.equal(h.modal().props.visible, false);
+    assert.deepEqual(h.calls.saves, []);
+    h.server.status = { callCenterEnabled: true };
+    h.button("retry", true).props.onPress();
+    await h.settle();
+    assert.equal(h.toggle().props.value, true);
+    assert.equal(h.toggle().props.disabled, false);
+    h.server.status = { callCenterEnabled: false, isAnTam: true };
+    await h.resume();
+    assert.equal(h.toggle().props.value, false, "A real permission change must override the retained display");
+    h.toggle().props.onValueChange(true);
+    assert.ok(h.text().includes(h.t("accessRequiredBody")));
+    assert.deepEqual(h.calls.saves, []);
+    h.unmount();
+  });
+}
+await test("a superseded tab refresh cannot replace the newest canonical setting", async () => {
+  const pendingLoads = [];
+  const h = harness({ enabled: true, load: (server, count) => {
+    if (count === 1) return { ok: true, settings: { ...server.settings }, contacts: server.contacts };
+    return new Promise(resolve => pendingLoads.push(enabled => resolve({
+      ok: true, settings: { ...server.settings, enabled }, contacts: server.contacts,
+    })));
+  } });
+  await h.settle();
+  h.blur(); await h.focus();
+  assert.equal(h.toggle().props.value, true);
+  h.blur(); await h.focus();
+  assert.equal(h.toggle().props.value, true);
+  pendingLoads[1](false); await h.settle();
+  assert.equal(h.toggle().props.value, false);
+  pendingLoads[0](true); await h.settle();
+  assert.equal(h.toggle().props.value, false);
+  assert.equal(h.toggle().props.disabled, false);
+  assert.deepEqual(h.calls.saves, []);
+  h.unmount();
+});
+for (const changeAccount of [false, true]) {
+  await test(`${changeAccount ? "another account" : "a new session"} cannot reuse the previous saved switch`, async () => {
+    let finish;
+    const h = harness({ enabled: true, load: (server, count) => {
+      if (count === 1) return { ok: true, settings: { ...server.settings }, contacts: server.contacts };
+      return new Promise(resolve => {
+        finish = () => resolve({ ok: true, settings: { ...server.settings, enabled: false }, contacts: server.contacts });
+      });
+    } });
+    await h.settle();
+    assert.equal(h.toggle().props.value, true);
+    const oldToggle = h.toggle().props.onValueChange;
+    h.auth.token = "session-B";
+    if (changeAccount) {
+      h.auth.profile = { id: "8" };
+      h.setUserId("8");
+    }
+    assert.equal(h.toggle().props.value, false, "The prior session must be hidden before focus effects run");
+    assert.equal(h.toggle().props.disabled, true);
+    oldToggle(false);
+    assert.equal(h.modal().props.visible, false);
+    await h.settle();
+    assert.equal(h.toggle().props.value, false);
+    assert.equal(h.toggle().props.disabled, true);
+    finish(); await h.settle();
+    assert.equal(h.toggle().props.value, false);
+    assert.equal(h.toggle().props.disabled, false);
+    assert.deepEqual(h.calls.saves, []);
+    h.unmount();
+  });
+}
 await test("returning while a save is pending cannot strand the control in a loading state", async () => {
   let complete;
   const h = harness({
