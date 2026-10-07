@@ -257,6 +257,8 @@ await test('email and social sign-in both route unfinished accounts through prof
   find(ast); assert.ok(navigate);
   for (const completed of [undefined, false, true]) {
     const routes = [];
+    // Execute the checked-in login handler with isolated store/router adapters.
+    // eslint-disable-next-line no-new-func
     const run = new Function('useAuthStore', 'router', `return (${navigate})();`);
     run({ getState: () => ({ profile: { onboardingCompleted: completed } }) }, { replace: route => routes.push(route) });
     assert.deepEqual(routes, [completed === true ? '/(tabs)/home' : '/onboarding']);
@@ -634,31 +636,67 @@ await test('practice Speak and Done use example text, never recording, permissio
   button = h.render('VoiceAnswerButton', props); assert.equal(button.props.accessibilityLabel, 'guidance.speak');
   assert.deepEqual(texts, ['guidance.practiceVoiceExample']); assert.deepEqual(notices, ['guidance.practiceVoiceNotice']);
 });
-await test('guide replay and read-aloud switch use brand colors while preserving loading and preference behavior', async () => {
-  const pending = deferred(), routes = [], patches = [];
-  const state = { account: 'a', ready: true, progress: model.defaultProgress(), replay: () => pending.promise,
-    update: patch => { patches.push(patch); state.progress = model.mergeProgress(state.progress, patch); } };
-  const useGuidanceStore = Object.assign(() => state, { getState: () => state });
-  const h = controlHarness('src/features/guidance/GuidanceSettings.tsx', {
-    './guidance.store': { useGuidanceStore },
-    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ replace: route => routes.push(route) }) },
-    '../../stores/toast.store': { showToast: () => assert.fail('Unexpected replay failure') },
-  });
-  let tree = h.render('GuidanceSettings');
-  const toggle = nodes(tree).find(node => node.type === 'Switch');
-  assert.equal(toggle.props.value, true, 'read aloud is enabled by default in Settings');
-  assert.equal(toggle.props.accessibilityLabel, 'guidance.readAloud');
-  assert.equal(toggle.props.trackColor.true, theme.lightColors.primary);
-  toggle.props.onValueChange(false); assert.deepEqual(patches, [{ readAloud: false }]);
-  let button = nodes(tree).find(node => node.type === 'Pressable'); assertBrandButton(button);
-  button.props.onPress(); await tick();
-  tree = h.render('GuidanceSettings'); button = nodes(tree).find(node => node.type === 'Pressable');
-  assertBrandButton(button); assert.equal(button.props.disabled, true); assert.equal(buttonStyle(button).opacity, 0.5);
-  pending.resolve(); await tick();
-  tree = h.render('GuidanceSettings'); button = nodes(tree).find(node => node.type === 'Pressable');
-  assert.equal(button.props.disabled, false); assert.deepEqual(routes, ['/(tabs)/home']);
-  state.ready = false; tree = h.render('GuidanceSettings'); button = nodes(tree).find(node => node.type === 'Pressable');
-  assertBrandButton(button); assert.equal(button.props.disabled, true);
+await test('guide replay is a neutral settings row with no read-aloud switch and preserves its loading behavior', async () => {
+  for (const colors of [theme.lightColors, theme.darkColors]) {
+    const pending = deferred(), routes = [];
+    const state = { account: 'a', ready: true, progress: model.defaultProgress(), replay: () => pending.promise };
+    const useGuidanceStore = Object.assign(() => state, { getState: () => state });
+    const h = controlHarness('src/features/guidance/GuidanceSettings.tsx', {
+      './guidance.store': { useGuidanceStore },
+      '../../hooks/useThemeColors': { useThemeColors: () => ({ colors }) },
+      '../../components/ScaledText': { ScaledText: 'Text' },
+      '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ replace: route => routes.push(route) }) },
+      '../../stores/toast.store': { showToast: () => assert.fail('Unexpected replay failure') },
+    });
+    const assertRow = tree => {
+      assert.equal(tree.type, 'Pressable');
+      assert.equal(buttonStyle(tree).backgroundColor, colors.surface);
+      assert.notEqual(buttonStyle(tree).backgroundColor, colors.primary);
+      assert.ok(buttonStyle(tree).minHeight >= 44);
+      assert.equal(buttonStyle(tree).paddingVertical, 13); assert.equal(buttonStyle(tree).paddingHorizontal, 16);
+      assert.equal(nodes(tree).filter(node => node.type === 'Switch').length, 0);
+      assert.equal(nodes(tree).some(node => node.props?.children === 'guidance.readAloud'), false);
+      const label = nodes(tree).find(node => node.type === 'Text');
+      assert.equal(label.props.children, 'guidance.review');
+      assert.equal(flattenStyle(label.props.style).fontSize, 15); assert.equal(flattenStyle(label.props.style).fontWeight, '600');
+      assert.equal(flattenStyle(label.props.style).color, colors.textPrimary);
+      assert.equal(nodes(tree).find(node => node.props?.name === 'book-outline').props.color, colors.primaryText);
+      assert.equal(nodes(tree).find(node => node.props?.name === 'book-outline').props.size, 22);
+      assert.equal(nodes(tree).find(node => node.props?.name === 'chevron-forward').props.size, 16);
+      assert.equal(tree.props.accessibilityLabel, 'guidance.review');
+    };
+    let tree = h.render('GuidanceSettings'); assertRow(tree);
+    assert.equal(buttonStyle(tree, true).opacity, 0.8);
+    tree.props.onPress(); await tick();
+    tree = h.render('GuidanceSettings'); assertRow(tree);
+    assert.equal(tree.props.disabled, true); assert.equal(buttonStyle(tree).opacity, 0.5);
+    pending.resolve(); await tick();
+    tree = h.render('GuidanceSettings'); assertRow(tree);
+    assert.equal(tree.props.disabled, false); assert.deepEqual(routes, ['/(tabs)/home']);
+    state.ready = false; tree = h.render('GuidanceSettings'); assertRow(tree); assert.equal(tree.props.disabled, true);
+    const inherited = { backgroundColor: colors.surface, borderRadius: 16, paddingVertical: 13 };
+    const labelStyle = { color: colors.textPrimary, fontSize: 15, fontWeight: '600' };
+    tree = h.render('GuidanceSettings', { style: inherited, labelStyle });
+    assert.equal(buttonStyle(tree).paddingVertical, 13, 'profile row styles are preserved');
+    assert.equal(nodes(tree).find(node => node.type === 'Text').props.style.at(-1), labelStyle,
+      'profile typography is reused instead of an independent guide button size');
+  }
+});
+await test('automatic read-aloud restores old disabled preferences without completing the welcome or steps', async () => {
+  const h = guidanceHarness({ guidance: { progress: { ...model.defaultProgress(), readAloud: false } } });
+  await h.settle();
+  assert.deepEqual(h.calls.updates, [{ readAloud: true }]);
+  assert.deepEqual(h.calls.audio, [['welcome', 'vi']]);
+  assert.equal(h.progress.progress.welcomeSeen, false); assert.equal(h.progress.progress.role, null);
+  assert.deepEqual(h.progress.progress.completed, []);
+  await h.settle(); assert.equal(h.calls.updates.length, 1, 'enabling narration is not a repeating write');
+  h.unmount();
+  for (const override of [{ token: null }, { hydrated: false }, { profile: { id: 'a', onboardingCompleted: false } },
+    { guidance: { account: 'another-account' } }, { guidance: { ready: false } }]) {
+    const isolated = guidanceHarness({ ...override, guidance: { ...override.guidance,
+      progress: { ...model.defaultProgress(), readAloud: false } } });
+    await isolated.settle(); assert.deepEqual(isolated.calls.updates, []); isolated.unmount();
+  }
 });
 
 const storage = new Map(); let requestImpl;
@@ -928,7 +966,7 @@ await test('all bundled clips match their fixed translations, voice identity and
   }
 });
 
-await test('read-aloud preferences and explicit guide replay are placed once in the profile System section', () => {
+await test('only guide replay is shown once as a standard row in the profile System section', () => {
   const source = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const settings = [], sections = [];
@@ -941,8 +979,12 @@ await test('read-aloud preferences and explicit guide replay are placed once in 
   visit(source);
   assert.equal(settings.length, 1); assert.equal(sections.length, 1);
   assert.ok(settings[0].pos > sections[0].pos && settings[0].end < sections[0].end);
+  assert.match(settings[0].getText(source), /style=\{styles\.actionCard\}/);
+  assert.match(settings[0].getText(source), /labelStyle=\{styles\.rowLabel\}/);
+  assert.match(read('src/features/guidance/GuidanceSettings.tsx'), /ScaledText as Text/);
+  assert.doesNotMatch(read('src/features/guidance/GuidanceSettings.tsx'), /<Switch\b|t\('guidance\.readAloud'\)/);
   assert.doesNotMatch(read('src/features/guidance/GuidanceProvider.tsx'), /<Switch\b/,
-    'welcome exposes Replay only; the read-aloud toggle stays in Settings');
+    'read-aloud has no visible toggle on any guidance screen');
 });
 
 await test('onboarding uses inline touch-through scrims, native text scaling and no carousel', () => {

@@ -109,6 +109,13 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { void load(account); }, [account, load]);
   useEffect(() => { setDismissedWelcome(null); }, [account, token]);
   useEffect(() => {
+    // Read-aloud is automatic now that its settings switch is hidden. Restore
+    // accounts that disabled the old switch, without changing tour progress.
+    if (ready && hydrated && token && account && profile?.onboardingCompleted === true && accountProgress.readAloud === false) {
+      update({ readAloud: true });
+    }
+  }, [account, accountProgress.readAloud, hydrated, profile?.onboardingCompleted, ready, token, update]);
+  useEffect(() => {
     const state = AppState.addEventListener('change', value => {
       setForeground(value === 'active');
       if (value !== 'active') void guidanceAudio.stop();

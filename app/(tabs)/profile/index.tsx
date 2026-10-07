@@ -1213,7 +1213,7 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionHeading}>{t("sectionSystem")}</Text>
               </View>
               <View style={styles.cardsStack}>
-                <GuidanceSettings />
+                <GuidanceSettings style={styles.actionCard} labelStyle={styles.rowLabel} />
 
                 {/* Trợ giúp qua Zalo */}
                 <TouchableOpacity
