@@ -139,7 +139,7 @@ export default function Index() {
 
       if (cancelled) return;
       if (profile) {
-        router.replace('/(tabs)/home');
+        router.replace(profile.onboardingCompleted === true ? '/(tabs)/home' : '/onboarding');
       } else {
         router.replace('/login');
       }

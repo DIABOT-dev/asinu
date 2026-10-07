@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../auth/auth.store';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useQueuedModalBusy } from '../../components/QueuedModal';
@@ -19,7 +18,6 @@ const Context = createContext<{
   acknowledge: (id: GuideStep) => void;
 } | null>(null);
 const ScrollContext = createContext<((node: React.RefObject<View | null>) => void) | undefined>(undefined);
-const ANONYMOUS_WELCOME = 'guidance:welcome-before-login:v1';
 
 /** Register the real, tappable native view, not a screenshot or a cloned button. */
 export function GuideTarget({ step, children, enabled = true, name, style }: {
@@ -58,6 +56,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useGuardedRouter();
   const profile = useAuthStore(state => state.profile);
+  const token = useAuthStore(state => state.token);
   const hydrated = useAuthStore(state => state.hydrated);
   const account = profile?.id ? String(profile.id) : null;
   const { progress, ready: loaded, account: loadedAccount, load, refresh, update, acknowledge } = useGuidanceStore();
@@ -65,9 +64,6 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   const modalBusy = useQueuedModalBusy();
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [keyboard, setKeyboard] = useState(false);
-  const [anonymousReady, setAnonymousReady] = useState(false);
-  const [anonymousRole, setAnonymousRole] = useState<GuideRole | null>(null);
-  const [anonymousSeen, setAnonymousSeen] = useState(true);
   const [targets, setTargets] = useState<Map<GuideStep, Target>>(new Map());
   const [rect, setRect] = useState<Rect | null>(null);
   const choiceBusy = useRef(false);
@@ -76,22 +72,6 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   const suspended = modalBusy || !foreground || keyboard || backgroundCall;
 
   useEffect(() => { void load(account); }, [account, load]);
-  useEffect(() => {
-    let active = true;
-    AsyncStorage.getItem(ANONYMOUS_WELCOME).then(raw => {
-      if (!active) return;
-      const role = raw === 'self' || raw === 'caregiver' ? raw : null;
-      setAnonymousSeen(raw === 'seen' || Boolean(role)); setAnonymousRole(role); setAnonymousReady(true);
-    }).catch(() => { if (active) { setAnonymousSeen(false); setAnonymousReady(true); } });
-    return () => { active = false; };
-  }, []);
-  useEffect(() => {
-    if (!account || !ready || !anonymousRole || progress.welcomeSeen) return;
-    update({ role: anonymousRole, welcomeSeen: true });
-    if (anonymousRole === 'caregiver' && path === '/home') router.replace('/(tabs)/care-circle');
-    setAnonymousRole(null);
-    void AsyncStorage.setItem(ANONYMOUS_WELCOME, 'seen').catch(() => {});
-  }, [account, anonymousRole, path, progress.welcomeSeen, ready, router, update]);
   useEffect(() => {
     const state = AppState.addEventListener('change', value => {
       setForeground(value === 'active');
@@ -103,11 +83,13 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
     return () => { state.remove(); show.remove(); hide.remove(); void guidanceAudio.stop(); };
   }, [refresh]);
 
-  const welcomeRoute = path === '/' || path.startsWith('/login') || path.startsWith('/onboarding') || path === '/home';
-  const welcome = hydrated && !suspended && welcomeRoute && (account
-    ? ready && !progress.welcomeSeen && !anonymousRole
-    : anonymousReady && !anonymousSeen);
-  const candidate = !welcome && !suspended && account && ready
+  // Guidance follows sign-in AND the health-profile onboarding, never either
+  // form. Requiring this account's progress also prevents stale account tours.
+  const eligible = hydrated && Boolean(token) && Boolean(account) && profile?.onboardingCompleted === true && ready && !suspended;
+  const welcomeRoute = path === '/home' || path === '/care-circle';
+  const guideRoute = welcomeRoute || path === '/checkin' || path === '/care-circle/invite';
+  const welcome = eligible && welcomeRoute && !progress.welcomeSeen;
+  const candidate = eligible && guideRoute && !welcome
     ? nextGuideStep(progress, [...targets.keys()]) : undefined;
   activeStep.current = candidate;
   const target = candidate ? targets.get(candidate) : undefined;
@@ -151,7 +133,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   // A suspended coach resumes visually without repeating an already-read phrase.
   const spoken = useRef(new Set<string>());
   useEffect(() => {
-    const key = welcome ? `welcome:${account || 'anonymous'}:${progress.epoch}`
+    const key = welcome ? `welcome:${account}:${progress.epoch}`
       : candidate && rect ? `${account}:${progress.epoch}:${candidate}` : null;
     if (!key || !progress.readAloud || spoken.current.has(key)) return;
     spoken.current.add(key);
@@ -162,17 +144,13 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (suspended) void guidanceAudio.stop(); }, [suspended]);
 
   const chooseRole = async (role: GuideRole) => {
-    if (choiceBusy.current) return;
+    if (!welcome || choiceBusy.current) return;
     choiceBusy.current = true;
     void guidanceAudio.stop();
-    if (account) {
+    try {
       update({ role, welcomeSeen: true });
       router.replace(role === 'caregiver' ? '/(tabs)/care-circle' : '/(tabs)/home');
-    } else {
-      setAnonymousRole(role); setAnonymousSeen(true);
-      await AsyncStorage.setItem(ANONYMOUS_WELCOME, role).catch(() => {});
-    }
-    choiceBusy.current = false;
+    } finally { choiceBusy.current = false; }
   };
 
   const below = rect ? height - insets.bottom - rect.y - rect.height >= rect.y - insets.top : true;

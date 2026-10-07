@@ -21,6 +21,142 @@ const tick = async () => { for (let i = 0; i < 30; i++) await Promise.resolve();
 const deferred = () => { let resolve, reject; const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; }); return { promise, resolve, reject }; };
 const model = evaluate('src/features/guidance/guidance.model.ts');
 const completedWelcome = () => ({ ...model.defaultProgress(), welcomeSeen: true, role: 'self' });
+
+// Render the real provider and run its real effects, including narration.
+function guidanceHarness(overrides = {}) {
+  const slots = []; let cursor = 0, pending = [];
+  const state = { hydrated: true, token: 'session', profile: { id: 'a', onboardingCompleted: true },
+    path: '/home', foreground: true, modalBusy: false, ...overrides };
+  const calls = { audio: [], updates: [], routes: [] };
+  const progress = { account: 'a', ready: true, progress: model.defaultProgress(),
+    load() {}, refresh() {}, acknowledge(step) {
+      progress.progress = model.mergeProgress(progress.progress, { completed: [step] });
+    }, update(patch) {
+      calls.updates.push(patch); progress.progress = model.mergeProgress(progress.progress, patch);
+    }, ...overrides.guidance };
+  const jsx = (type, props) => ({ type, props });
+  const { GuidanceProvider } = evaluate('src/features/guidance/GuidanceProvider.tsx', {
+    react: {
+      createContext: () => ({ Provider: 'Provider' }), useContext: () => null,
+      useRef: initial => slots[cursor++] ??= { current: initial },
+      useState: initial => {
+        const index = cursor++;
+        slots[index] ??= { value: initial };
+        return [slots[index].value, value => { slots[index].value = typeof value === 'function' ? value(slots[index].value) : value; }];
+      },
+      useMemo: work => work(), useCallback: work => work,
+      useEffect: (work, deps) => {
+        const index = cursor++, previous = slots[index];
+        if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i]))) {
+          slots[index] = { deps };
+          pending.push(() => { previous?.cleanup?.(); slots[index].cleanup = work(); });
+        }
+      },
+    },
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { AppState: { currentState: state.foreground ? 'active' : 'background',
+      addEventListener: () => ({ remove() {} }) }, Keyboard: { addListener: () => ({ remove() {} }) },
+      Image: 'Image', Pressable: 'Pressable', ScrollView: 'ScrollView', Text: 'Text', View: 'View',
+      StyleSheet: { create: value => value, absoluteFill: {} }, useWindowDimensions: () => ({ width: 393, height: 852 }) },
+    '@expo/vector-icons': { Ionicons: 'Icon' },
+    'expo-router': { usePathname: () => state.path, useIsFocused: () => true },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+    'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { language: 'vi' } }) },
+    '../auth/auth.store': { useAuthStore: select => select(state) },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ replace: route => calls.routes.push(route) }) },
+    '../../components/QueuedModal': { useQueuedModalBusy: () => state.modalBusy },
+    './guidance.store': { useGuidanceStore: () => progress }, './guidance.model': model,
+    './guidance.audio': { guidanceAudio: { speak: (...args) => { calls.audio.push(args); }, stop: async () => {} } },
+    '../../../assets/asinu_chat_sticker.png': 'mascot',
+  });
+  const render = () => { cursor = 0; return GuidanceProvider({ children: 'App' }); };
+  return { state, progress, calls, async settle() {
+    let tree;
+    for (let pass = 0; pass < 4; pass++) {
+      tree = render(); const effects = pending; pending = []; effects.forEach(work => work()); await tick();
+    }
+    return tree;
+  }, unmount() { slots.forEach(slot => slot.cleanup?.()); } };
+}
+const nodes = tree => !tree || typeof tree !== 'object' ? []
+  : Array.isArray(tree) ? tree.flatMap(nodes) : [tree, ...nodes(tree.props?.children)];
+
+await test('welcome and its narration stay hidden until authenticated profile onboarding is complete', async () => {
+  for (const state of [
+    { profile: null, token: null }, { token: null }, { hydrated: false },
+    { profile: { id: 'a', onboardingCompleted: false } }, { profile: { id: 'a' } },
+    { path: '/' }, { path: '/login' }, { path: '/login/email' }, { path: '/register' },
+    { path: '/onboarding' }, { path: '/auth/google/callback' },
+    { guidance: { ready: false } }, { guidance: { account: 'another-account' } },
+    { modalBusy: true }, { foreground: false }, { path: '/checkin-call/episode' },
+  ]) {
+    const h = guidanceHarness(state); const tree = await h.settle();
+    assert.equal(nodes(tree).some(node => node.props?.source === 'mascot'), false, JSON.stringify(state));
+    assert.deepEqual(h.calls.audio, [], JSON.stringify(state)); assert.deepEqual(h.calls.updates, []);
+    h.unmount();
+  }
+});
+await test('finishing onboarding opens the welcome and reads it once, then the account role starts its tour', async () => {
+  for (const role of ['self', 'caregiver']) {
+    const h = guidanceHarness({ path: '/onboarding', profile: { id: 'a', onboardingCompleted: false } });
+    await h.settle(); assert.deepEqual(h.calls.audio, []);
+    h.state.profile = { id: 'a', onboardingCompleted: true };
+    await h.settle(); assert.deepEqual(h.calls.audio, []);
+    h.state.path = '/home'; const tree = await h.settle();
+    assert.equal(nodes(tree).some(node => node.props?.source === 'mascot'), true);
+    assert.deepEqual(h.calls.audio, [['welcome', 'vi']]);
+    await h.settle(); assert.equal(h.calls.audio.length, 1);
+    const button = nodes(tree).find(node => node.props?.label === `guidance.${role === 'self' ? 'roleSelf' : 'roleCaregiver'}`);
+    await button.props.onPress();
+    assert.deepEqual(h.calls.updates, [{ role, welcomeSeen: true }]);
+    assert.deepEqual(h.calls.routes, [role === 'self' ? '/(tabs)/home' : '/(tabs)/care-circle']);
+    h.unmount();
+  }
+});
+await test('completed account welcome stays completed and anonymous device state is never imported', async () => {
+  const h = guidanceHarness({ guidance: { progress: completedWelcome() } });
+  const tree = await h.settle();
+  assert.equal(nodes(tree).some(node => node.props?.source === 'mascot'), false);
+  assert.deepEqual(h.calls.audio, []); assert.deepEqual(h.calls.updates, []); h.unmount();
+  assert.doesNotMatch(read('src/features/guidance/GuidanceProvider.tsx'), /anonymous|AsyncStorage/);
+});
+await test('coach marks cannot leak onto auth or profile onboarding from a registered target', async () => {
+  for (const path of ['/login', '/onboarding', '/register', '/checkin-call/episode']) {
+    const h = guidanceHarness({ path, guidance: { progress: completedWelcome() } });
+    const tree = await h.settle();
+    tree.props.value.register('home.fine', { node: { current: { measureInWindow: work => work(20, 160, 300, 70) } } });
+    await h.settle(); assert.deepEqual(h.calls.audio, []); h.unmount();
+  }
+});
+await test('even a previously welcomed account needs completed onboarding before its real home target is guided', async () => {
+  for (const completed of [undefined, false, true]) {
+    const h = guidanceHarness({ profile: { id: 'a', onboardingCompleted: completed },
+      guidance: { progress: completedWelcome() } });
+    const tree = await h.settle();
+    tree.props.value.register('home.fine', { node: { current: { measureInWindow: work => work(20, 160, 300, 70) } } });
+    const guided = await h.settle();
+    assert.deepEqual(h.calls.audio, completed === true ? [['home.fine', 'vi']] : []);
+    assert.equal(nodes(guided).some(node => node.props?.children === 'guidance.steps.home_fine'), completed === true);
+    h.unmount();
+  }
+});
+await test('email and social sign-in both route unfinished accounts through profile onboarding', () => {
+  const source = read('app/login/email.tsx');
+  const ast = ts.createSourceFile('login.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let navigate;
+  const find = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'navigateAfterLogin') navigate = node.initializer.getText(ast);
+    ts.forEachChild(node, find);
+  };
+  find(ast); assert.ok(navigate);
+  for (const completed of [undefined, false, true]) {
+    const routes = [];
+    const run = new Function('useAuthStore', 'router', `return (${navigate})();`);
+    run({ getState: () => ({ profile: { onboardingCompleted: completed } }) }, { replace: route => routes.push(route) });
+    assert.deepEqual(routes, [completed === true ? '/(tabs)/home' : '/onboarding']);
+  }
+  assert.equal((source.match(/navigateAfterLogin\(\);/g) || []).length, 2);
+});
 await test('focus-aware guidance uses the installed Expo Router API', () => {
   for (const file of ['src/features/guidance/GuidanceProvider.tsx', 'src/features/guidance/VoiceAnswerButton.tsx']) {
     const ast = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

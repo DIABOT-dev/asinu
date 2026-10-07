@@ -432,15 +432,15 @@ await test('splash cannot navigate before consent, auth hydration and navigator 
   modal.props.onAgree(); await h.settle(); await h.runTasks();
   assert.deepEqual(h.calls.routes, ['/login']); h.unmount();
 });
-await test('splash opens Home for the single welcome instead of forcing the old health wizard', async () => {
-  for (const completed of [false, true]) {
+await test('splash requires completed profile onboarding before opening Home and guidance', async () => {
+  for (const completed of [undefined, false, true]) {
     const h = splashHarness({ profile: { id: '7', onboardingCompleted: completed } });
     await h.settle(); await h.settle(); await h.runTasks();
     assert.deepEqual(h.calls.routes, []);
     h.advanceTime(1799); await h.settle(); await h.runTasks();
     assert.deepEqual(h.calls.routes, []);
     h.advanceTime(1); await h.settle(); await h.runTasks();
-    assert.deepEqual(h.calls.routes, ['/(tabs)/home']); h.unmount();
+    assert.deepEqual(h.calls.routes, [completed === true ? '/(tabs)/home' : '/onboarding']); h.unmount();
   }
 });
 await test('leaving splash cancels its pending minimum-display timer', async () => {
@@ -490,7 +490,7 @@ const withDeps = (body, deps) => evaluate(`module.exports = deps => { const { ${
 await test('notification prompt is persisted only on actual display, not during async preparation/queueing', async () => {
   const writes = []; const timers = []; const visibility = [];
   const deps = {
-    hydrated: true, authToken: 'session', profile: { id: 'account-a', onboardingCompleted: true },
+    hydrated: true, authToken: 'session', profile: { id: 'account-a', onboardingCompleted: true }, guidanceWelcomed: true,
     setNotificationPromptVisible: value => visibility.push(value),
     checkNotificationPermission: async () => false, getNotificationPreferences: async () => ({}), syncExistingPushToken: async () => {},
     AsyncStorage: { getItem: async () => null, setItem: async (...args) => writes.push(args) },
@@ -507,13 +507,29 @@ await test('notification prompt is persisted only on actual display, not during 
 await test('logout during permission preparation cannot queue another account’s first-launch prompt', async () => {
   let finish; const pending = new Promise(resolve => { finish = resolve; }); let timers = 0;
   const deps = {
-    hydrated: true, authToken: 'session', profile: { id: 'account-a', onboardingCompleted: true }, setNotificationPromptVisible() {},
+    hydrated: true, authToken: 'session', profile: { id: 'account-a', onboardingCompleted: true }, guidanceWelcomed: true, setNotificationPromptVisible() {},
     checkNotificationPermission: () => pending, getNotificationPreferences: async () => ({}), syncExistingPushToken: async () => {},
     AsyncStorage: { getItem: async () => null }, setTimeout: () => { timers++; }, clearTimeout() {},
   };
   withDeps(prepareEffect, deps)(); finish(false);
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(timers, 0);
+});
+await test('notification opt-in cannot interrupt login, profile onboarding, or the welcome role choice', () => {
+  const complete = { hydrated: true, authToken: 'session', profile: { id: 'a', onboardingCompleted: true }, guidanceWelcomed: true };
+  for (const state of [
+    { ...complete, hydrated: false }, { ...complete, authToken: null },
+    { ...complete, profile: null }, { ...complete, profile: { id: 'a' } },
+    { ...complete, profile: { id: 'a', onboardingCompleted: false } },
+    { ...complete, guidanceWelcomed: false },
+  ]) {
+    const visibility = [];
+    withDeps(prepareEffect, { ...state, setNotificationPromptVisible: value => visibility.push(value),
+      checkNotificationPermission: () => assert.fail('permission requested before onboarding and welcome completion'),
+      getNotificationPreferences: () => assert.fail('prompt preparation started too soon'),
+    });
+    assert.deepEqual(visibility, [false]);
+  }
 });
 await test('only the OS permission sheet holds the presenter, not slow push registration APIs', async () => {
   let finishPermission, finishRegistration, complete = false, registrations = 0;

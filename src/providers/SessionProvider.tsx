@@ -263,12 +263,13 @@ export const SessionProvider = ({ children }: Props) => {
     return () => { live = false; };
   }, [authToken, hydrated, openVoipCall]);
 
-  // Ask once after a completed sign-in, with an in-app explanation first.
+  // Ask once after sign-in, profile onboarding and the welcome role choice,
+  // with an in-app explanation first.
   // This keeps push registration discoverable for care-circle alerts while
   // avoiding a native permission prompt on the login or onboarding screens.
   useEffect(() => {
     setNotificationPromptVisible(false);
-    if (!hydrated || !authToken || !profile || (!profile.onboardingCompleted && !guidanceWelcomed)) return;
+    if (!hydrated || !authToken || profile?.onboardingCompleted !== true || !guidanceWelcomed) return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
