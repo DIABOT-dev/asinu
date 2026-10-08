@@ -57,18 +57,21 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
     val kind = data["kind"].orEmpty()
     val incomingCall = kind == "INCOMING_CALL" || kind == "URGENT_REPEAT"
     if (incomingCall && !CheckinCallStore.incoming(this, data)) return
-    val urgent = data["severity"].equals("URGENT", ignoreCase = true) || kind == "URGENT_REPEAT"
+    val hasUrgentSeverity = data["severity"].equals("URGENT", ignoreCase = true)
+    val urgent = hasUrgentSeverity || kind == "URGENT_REPEAT"
     val missed = kind == "FALLBACK" || kind == "MISSED_CALL"
     val channelId = when {
-      urgent && incomingCall -> URGENT_CHANNEL_ID
-      urgent -> ALERT_CHANNEL_ID
+      incomingCall && hasUrgentSeverity -> URGENT_CHANNEL_ID
       incomingCall -> CALL_CHANNEL_ID
+      urgent -> ALERT_CHANNEL_ID
       missed -> MISSED_CHANNEL_ID
       else -> NOTICE_CHANNEL_ID
     }
+    // CallKit selects the ringtone by severity, including repeat deliveries.
+    // Keep the Android channel and pre-O sound aligned with that same choice.
     val soundName = when {
+      incomingCall && !hasUrgentSeverity -> "asinu_incoming"
       urgent -> "asinu_emergency"
-      incomingCall -> "asinu_incoming"
       missed -> "asinu_missed"
       else -> "asinu_notification"
     }

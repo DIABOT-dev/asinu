@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.UserManager
 import android.os.Build
+import android.net.Uri
+import android.media.AudioAttributes
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -168,6 +170,49 @@ class CheckinCallAndroidTest {
     assertEquals(CheckinCallDeclineReceiver::class.java.name, declineIntent.component!!.className)
     service.onMessageReceived(RemoteMessage.Builder("test").setData(call() + ("kind" to "END_CALL")).build())
     assertTrue(shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).allNotifications.isEmpty())
+  }
+  @Test @Config(sdk = [24, 34]) fun incomingRingtonesMatchIosForNormalUrgentAndRepeatDeliveries() {
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val service = Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get()
+    for (kind in listOf("INCOMING_CALL", "URGENT_REPEAT")) {
+      for (severity in listOf("", "NONE", "MILD", "URGENT", "urgent")) {
+        reset()
+        val payload = call() + ("kind" to kind) + if (severity.isEmpty()) emptyMap() else mapOf("severity" to severity)
+        service.onMessageReceived(RemoteMessage.Builder("test").setData(payload).build())
+        val notification = shadowOf(manager).allNotifications.single()
+        // The existing iOS CallKit ringtone is selected by severity alone.
+        val resource = if (severity.equals("URGENT", ignoreCase = true)) "asinu_emergency" else "asinu_incoming"
+        val expected = Uri.parse("android.resource://${context.packageName}/raw/$resource")
+        assertEquals("$kind/$severity", expected, notification.sound)
+        assertTrue(notification.flags and android.app.Notification.FLAG_INSISTENT != 0)
+        if (Build.VERSION.SDK_INT >= 26) {
+          val channel = manager.getNotificationChannel(notification.channelId)
+          assertEquals("$kind/$severity channel", expected, channel.sound)
+          assertEquals(AudioAttributes.USAGE_NOTIFICATION_RINGTONE, channel.audioAttributes.usage)
+        }
+        service.onMessageReceived(RemoteMessage.Builder("test").setData(payload + ("kind" to "END_CALL")).build())
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
+      }
+    }
+  }
+  @Test fun checkinNoticesKeepTheMatchingIosNotificationSounds() {
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val service = Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get()
+    val scenarios = listOf(
+      Triple("FALLBACK", "NONE", "asinu_missed"),
+      Triple("MISSED_CALL", "NONE", "asinu_missed"),
+      Triple("FALLBACK", "URGENT", "asinu_emergency"),
+    )
+    for ((kind, severity, resource) in scenarios) {
+      reset()
+      service.onMessageReceived(RemoteMessage.Builder("test").setData(call() + mapOf("kind" to kind, "severity" to severity)).build())
+      val notification = shadowOf(manager).allNotifications.single()
+      val channel = manager.getNotificationChannel(notification.channelId)
+      val expected = Uri.parse("android.resource://${context.packageName}/raw/$resource")
+      assertEquals("$kind/$severity", expected, channel.sound)
+      assertEquals(AudioAttributes.USAGE_NOTIFICATION, channel.audioAttributes.usage)
+      assertEquals(0, notification.flags and android.app.Notification.FLAG_INSISTENT)
+    }
   }
   @Test fun noFullScreenPermissionStillKeepsAnswerDeclineNotification() {
     val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
