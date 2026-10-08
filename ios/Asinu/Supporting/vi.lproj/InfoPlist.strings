@@ -1,4 +1,5 @@
 "NSMicrophoneUsageDescription" = "Asinu chỉ dùng micrô khi bạn chọn nhập bằng giọng nói, ví dụ chuyển câu \"đường huyết 95 lúc đói\" thành bản ghi sức khỏe hoặc tin nhắn chat. Ứng dụng không ghi âm trong nền.";
 "NSLocationWhenInUseUsageDescription" = "Asinu dùng vị trí khi bạn chọn gửi SOS hoặc bật lời nhắc thời tiết theo khu vực. Không theo dõi vị trí trong nền.";
 "NSCameraUsageDescription" = "Asinu chỉ dùng camera khi bạn quét mã QR để kết nối người thân.";
+"NSMotionUsageDescription" = "Asinu có thể dùng cảm biến chuyển động để xác định hướng camera khi bạn quét mã QR kết nối người thân. Ứng dụng không theo dõi hoạt động thể chất.";
 "NSPhotoLibraryUsageDescription" = "Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện.";

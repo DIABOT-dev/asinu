@@ -15,6 +15,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,13 +25,14 @@ import { Screen } from "../../src/components/Screen";
 import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { SubscriptionFAQ } from "../../src/components/SubscriptionFAQ";
 import { localizedPlanName } from "../../src/features/subscription/planName";
+import { SubscriptionScenarioComparison } from "../../src/features/subscription/components/SubscriptionScenarioComparison";
 import type { PlanCode, SubscriptionStatus } from "../../src/features/subscription/subscription.types";
 import {
   careCircleApi,
   type CareCircleConnection,
 } from "../../src/features/care-circle/care-circle.api";
 import { useAuthStore } from "../../src/features/auth/auth.store";
-import { useScaledTypography } from "../../src/hooks/useScaledTypography";
+import { useScaledFontSize, useScaledTypography } from "../../src/hooks/useScaledTypography";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { apiClient, getApiErrorMessage } from "../../src/lib/apiClient";
 import { showToast } from "../../src/stores/toast.store";
@@ -102,6 +104,7 @@ const FREE_FEATURES = [
   "v2FreeFeature3",
   "v2FreeFeature4",
   "v2FreeFeature5",
+  "v2FreeFeature6",
 ];
 
 const AN_TAM_FEATURES = [
@@ -110,7 +113,11 @@ const AN_TAM_FEATURES = [
   "v2AnTamFeature3",
   "v2AnTamFeature4",
   "v2AnTamFeature5",
+  "v2AnTamFeature6",
 ];
+
+const FEATURE_TITLE_FONT_SIZE = 17;
+const FEATURE_CHECK_SIZE = 16;
 
 function formatDate(value: string | null, language: string) {
   if (!value) {
@@ -204,6 +211,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
 type FeatureItem = {
   icon?: React.ReactNode;
   text: string;
+  description: string;
 };
 
 type PlanComparisonProps = {
@@ -223,9 +231,21 @@ const PlanComparison = memo(function PlanComparison({
   t,
   styles,
 }: PlanComparisonProps) {
+  const { width, fontScale } = useWindowDimensions();
+  const { size, scaledSize } = useScaledTypography();
+  const textScale = (fontScale || 1) * scaledSize.sm / size.sm;
+  const stacked = width < 768 || textScale > 1.15;
+  const titleFontSize = useScaledFontSize(FEATURE_TITLE_FONT_SIZE);
+  const checkFontSize = useScaledFontSize(FEATURE_CHECK_SIZE);
+  // Match ScaledText's first line, not the height of the entire title/description.
+  const titleLineHeight = Math.round(titleFontSize * (Platform.OS === "android" ? 1.6 : 1.5)) * (fontScale || 1);
+  const checkSize = Math.round(checkFontSize * (fontScale || 1));
+  const featureIconStyle = { height: titleLineHeight, width: checkSize + 2 };
+  const checkStyle = { lineHeight: checkSize, includeFontPadding: false };
+
   return (
-    <View style={styles.comparisonRow}>
-      <View style={styles.freeCard}>
+    <View style={[styles.comparisonRow, stacked && styles.comparisonStack]}>
+      <View style={[styles.freeCard, stacked && styles.stackedPlanCard]}>
         <View style={styles.planCardHeader}>
           <View style={styles.freeAvatar}>
             <Image
@@ -235,32 +255,36 @@ const PlanComparison = memo(function PlanComparison({
               style={styles.planBadgeImg}
             />
           </View>
-          <Text style={styles.freePlanTitle}>{t("v2FreePlan")}</Text>
+          <Text allowFontScaling accessibilityRole="header" style={styles.freePlanTitle}>{t("v2FreePlan")}</Text>
           <View style={styles.planPriceWrap}>
-            <Text style={styles.freePrice}>{t("freePrice")}</Text>
-            <Text style={styles.perMonthText}>{t("freeForever")}</Text>
+            <Text allowFontScaling style={styles.freePrice}>{t("freePrice")}</Text>
+            <Text allowFontScaling style={styles.perMonthText}>{t("freeForever")}</Text>
           </View>
         </View>
+        <Text allowFontScaling style={styles.planIntroduction}>{t("comparison.freeIntroduction")}</Text>
         <View style={styles.featureList}>
           {freeFeatures.map((item) => (
             <View key={item.text} style={styles.comparisonFeatureRow}>
-              <View style={styles.featureIconWrap}>
-                <Ionicons name="checkmark-circle" size={16} color="#059669" />
+              <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.featureIconWrap, featureIconStyle]}>
+                <Ionicons allowFontScaling={false} name="checkmark-circle" size={checkSize} color="#059669" style={checkStyle} />
               </View>
-              <Text style={styles.featureText}>{item.text}</Text>
+              <View style={styles.featureCopy}>
+                <Text allowFontScaling style={styles.featureText}>{item.text}</Text>
+                <Text allowFontScaling style={styles.featureDescription}>{item.description}</Text>
+              </View>
             </View>
           ))}
         </View>
         <View style={styles.freeCTABox}>
-          <Text style={styles.freeCTAText}>
+          <Text allowFontScaling style={styles.freeCTAText}>
             {freeIsCurrent ? t("currentlyUsing") : t("v2FreeTitle")}
           </Text>
         </View>
       </View>
 
-      <View style={styles.premiumCard}>
+      <View style={[styles.premiumCard, stacked && styles.stackedPlanCard]}>
         <View style={styles.popularBadge}>
-          <Text style={styles.popularBadgeText}>{t("mostPopular")}</Text>
+          <Text allowFontScaling style={styles.popularBadgeText}>{t("comparison.anTamBadge")}</Text>
         </View>
         <View style={styles.planCardHeader}>
           <View style={styles.premiumAvatar}>
@@ -271,20 +295,24 @@ const PlanComparison = memo(function PlanComparison({
               style={styles.planBadgeImg}
             />
           </View>
-          <Text style={styles.premiumPlanTitle}>{t("v2AnTamPlanName")}</Text>
+          <Text allowFontScaling accessibilityRole="header" style={styles.premiumPlanTitle}>{t("v2AnTamPlanName")}</Text>
           <View style={styles.planPriceWrap}>
-            <Text style={styles.planPeriodOptions}>
+            <Text allowFontScaling style={styles.planPeriodOptions}>
               {t("iapMonthly")} · {t("iapYearly")}
             </Text>
           </View>
         </View>
+        <Text allowFontScaling style={styles.planIntroduction}>{t("comparison.anTamIntroduction")}</Text>
         <View style={styles.featureList}>
           {anTamFeatures.map((item) => (
             <View key={item.text} style={styles.comparisonFeatureRow}>
-              <View style={styles.featureIconWrap}>
-                <Ionicons name="checkmark-circle" size={16} color="#ea580c" />
+              <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.featureIconWrap, featureIconStyle]}>
+                <Ionicons allowFontScaling={false} name="checkmark-circle" size={checkSize} color="#ea580c" style={checkStyle} />
               </View>
-              <Text style={styles.premiumFeatureText}>{item.text}</Text>
+              <View style={styles.featureCopy}>
+                <Text allowFontScaling style={styles.premiumFeatureText}>{item.text}</Text>
+                <Text allowFontScaling style={styles.featureDescription}>{item.description}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -293,7 +321,7 @@ const PlanComparison = memo(function PlanComparison({
           onPress={onChoosePlan}
           style={({ pressed }) => [styles.premiumCTABtn, { opacity: pressed ? 0.85 : 1 }]}
         >
-          <Text style={styles.premiumCTAText}>{t("iapChooseTitle")}</Text>
+          <Text allowFontScaling style={styles.premiumCTAText}>{t("iapChooseTitle")}</Text>
         </Pressable>
       </View>
     </View>
@@ -462,12 +490,12 @@ export default function SubscriptionScreen() {
   );
 
   const freeFeatures = useMemo<FeatureItem[]>(
-    () => FREE_FEATURES.map((feature) => ({ text: t(feature) })),
+    () => FREE_FEATURES.map((feature) => ({ text: t(feature), description: t(`${feature}Description`) })),
     [t]
   );
 
   const anTamFeatures = useMemo<FeatureItem[]>(
-    () => AN_TAM_FEATURES.map((feature) => ({ text: t(feature) })),
+    () => AN_TAM_FEATURES.map((feature) => ({ text: t(feature), description: t(`${feature}Description`) })),
     [t]
   );
 
@@ -570,6 +598,8 @@ export default function SubscriptionScreen() {
           <View style={styles.faqWrapper}>
             <SubscriptionFAQ />
           </View>
+
+          <SubscriptionScenarioComparison />
 
           <PlanComparison
             anTamFeatures={anTamFeatures}
@@ -1050,6 +1080,8 @@ function createStyles(
       gap: 12,
       marginTop: 14,
     },
+    comparisonStack: { flexDirection: "column" },
+    stackedPlanCard: { flexGrow: 0, flexShrink: 0, flexBasis: "auto" },
     freeCard: {
       backgroundColor: isDark ? colors.surface : "#fffdfa",
       borderColor: isDark ? colors.border : "#e2e8f0",
@@ -1057,7 +1089,7 @@ function createStyles(
       borderWidth: 1,
       flex: 1,
       justifyContent: "space-between",
-      padding: 12,
+      padding: 20,
     },
     premiumCard: {
       backgroundColor: isDark ? "#1c1917" : "#fffbf5",
@@ -1066,20 +1098,21 @@ function createStyles(
       borderWidth: 1.5,
       flex: 1,
       justifyContent: "space-between",
-      padding: 12,
+      padding: 20,
       position: "relative",
     },
     popularBadge: {
-      backgroundColor: "#ea580c",
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primaryDark,
+      borderWidth: 1,
       borderRadius: 10,
       paddingHorizontal: 8,
       paddingVertical: 3,
-      position: "absolute",
-      right: 12,
-      top: -10,
-      zIndex: 2,
+      alignSelf: "flex-start",
+      maxWidth: "100%",
+      marginBottom: 8,
     },
-    popularBadgeText: { color: "#fffaf5", fontSize: 10, fontWeight: "700" },
+    popularBadgeText: { color: colors.primaryText, fontSize: 13, fontWeight: "700", flexShrink: 1 },
     planCardHeader: {
       alignItems: "center",
       justifyContent: "flex-start",
@@ -1107,13 +1140,13 @@ function createStyles(
     },
     freePlanTitle: {
       color: isDark ? "#f8fafc" : "#0f172a",
-      fontSize: 14.5,
+      fontSize: 22,
       fontWeight: "700",
       textAlign: "center",
     },
     premiumPlanTitle: {
       color: "#ea580c",
-      fontSize: 14.5,
+      fontSize: 22,
       fontWeight: "700",
       textAlign: "center",
     },
@@ -1129,14 +1162,17 @@ function createStyles(
       fontWeight: "800",
       letterSpacing: -0.5,
     },
-    perMonthText: { color: "#94a3b8", fontSize: 11, marginTop: -2 },
+    perMonthText: { color: colors.textSecondary, fontSize: 15 },
     planPeriodOptions: {
       color: "#ea580c",
-      fontSize: 11,
+      fontSize: 15,
       textAlign: "center",
       opacity: 0.9,
     },
-    featureList: { gap: 10, marginVertical: 10 },
+    planIntroduction: { color: colors.textPrimary, fontSize: 16, marginBottom: 8 },
+    featureList: { gap: 18, marginVertical: 14 },
+    featureCopy: { flex: 1, minWidth: 0, gap: 4 },
+    featureDescription: { color: colors.textPrimary, fontSize: 16 },
     comparisonFeatureRow: {
       alignItems: "flex-start",
       flexDirection: "row",
@@ -1145,22 +1181,18 @@ function createStyles(
     featureIconWrap: {
       alignItems: "center",
       justifyContent: "center",
-      marginRight: 6,
-      marginTop: 1,
-      width: 18,
+      flexShrink: 0,
+      marginRight: 8,
     },
     featureText: {
-      color: isDark ? "#cbd5e1" : "#475569",
-      flex: 1,
-      fontSize: 11,
-      lineHeight: 16,
+      color: colors.textPrimary,
+      fontSize: FEATURE_TITLE_FONT_SIZE,
+      fontWeight: "700",
     },
     premiumFeatureText: {
       color: isDark ? "#f8fafc" : "#1e293b",
-      flex: 1,
-      fontSize: 11,
-      fontWeight: "600",
-      lineHeight: 16,
+      fontSize: FEATURE_TITLE_FONT_SIZE,
+      fontWeight: "700",
     },
     freeCTABox: {
       alignItems: "center",
@@ -1186,13 +1218,13 @@ function createStyles(
       borderWidth: 1,
       justifyContent: "center",
       marginTop: 6,
-      minHeight: 42,
+      minHeight: 56,
       paddingHorizontal: 6,
       paddingVertical: 8,
     },
     premiumCTAText: {
       color: colors.primaryText,
-      fontSize: 12,
+      fontSize: 18,
       fontWeight: "700",
       textAlign: "center",
     },

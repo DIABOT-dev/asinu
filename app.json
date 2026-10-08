@@ -2,7 +2,7 @@
   "expo": {
     "name": "Asinu",
     "slug": "asinu-lite",
-    "version": "1.0.0",
+    "version": "2.0",
     "platforms": ["ios", "android"],
     "orientation": "portrait",
     "scheme": "asinu-lite",
@@ -36,6 +36,7 @@
         "AsinuAPNSEnvironment": "$(APS_ENVIRONMENT)",
         "NSMicrophoneUsageDescription": "Asinu chỉ dùng microphone khi bạn chọn nhập bằng giọng nói, ví dụ chuyển câu \"đường huyết 95 lúc đói\" thành bản ghi sức khỏe hoặc tin nhắn chat. Ứng dụng không ghi âm trong nền.",
         "NSLocationWhenInUseUsageDescription": "Asinu dùng vị trí khi bạn chọn gửi SOS hoặc bật lời nhắc thời tiết theo khu vực. Không theo dõi vị trí trong nền.",
+        "NSMotionUsageDescription": "Asinu có thể dùng cảm biến chuyển động để xác định hướng camera khi bạn quét mã QR kết nối người thân. Ứng dụng không theo dõi hoạt động thể chất.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": ["fetch", "remote-notification", "voip", "audio"]
       }

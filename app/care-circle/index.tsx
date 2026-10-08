@@ -43,6 +43,9 @@ import {
 } from '../../src/features/care-circle/family-relationships';
 import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
+import { CareCircleInviteBanner } from '../../src/features/care-circle/components/CareCircleInviteBanner';
+import { CareCircleHeroBanner } from '../../src/features/care-circle/components/CareCircleHeroBanner';
+import { CareCircleEmptyState } from '../../src/features/care-circle/components/CareCircleEmptyState';
 import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 import Svg, { Path } from 'react-native-svg';
 
@@ -344,39 +347,12 @@ export default function CareCircleScreen() {
             <CareCircleTabSkeleton />
           ) : (
             <>
-              {/* Hero Banner Card */}
-              <View style={styles.heroCardShadowWrap}>
-                <LinearGradient
-                  colors={['#F3FCFB', '#E2F6F2']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.heroCardContainer}
-                >
-                  {/* Right: 3D Family Illustration */}
-                  <Image
-                    source={require('../../assets/images/care-circle/family_3d_art.png')}
-                    style={styles.heroFamilyImage}
-                    resizeMode="contain"
-                  />
-
-                  {/* Left: Native Texts & Calligraphic Quote */}
-                  <View style={styles.heroTextContent}>
-                    <Text style={styles.heroCardTitle}>{t('title')}</Text>
-                    <Text style={styles.heroCardSubtitle}>{t('headerSubtitle')}</Text>
-                    <View style={styles.heroQuoteWrapper}>
-                      <Image
-                        source={
-                          language === 'en'
-                            ? require('../../assets/images/care-circle/hero_quote_en.png')
-                            : require('../../assets/images/care-circle/hero_quote_vi.png')
-                        }
-                        style={styles.heroQuoteImage}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  </View>
-                </LinearGradient>
-              </View>
+              {/* Hero Banner Card (Animated 3D Family) */}
+              <CareCircleHeroBanner
+                title={t('title')}
+                subtitle={t('headerSubtitle')}
+                language={language}
+              />
 
               {/* Stats Card: 3 Columns */}
               <View style={styles.statsCard}>
@@ -409,29 +385,9 @@ export default function CareCircleScreen() {
                 </View>
               </View>
 
-              {/* Quick Action Banner: Mời người mới */}
+              {/* Quick Action Banner: Mời người mới (Animated) */}
               <GuideTarget step="circle.add">
-              <TouchableOpacity
-                style={styles.inviteBanner}
-                activeOpacity={0.88}
-                onPress={() => router.push('/care-circle/invite')}
-              >
-                <Image
-                  source={require('../../assets/images/care-circle/invite_girl.png')}
-                  style={styles.inviteGirlImage}
-                  resizeMode="contain"
-                />
-                <View style={styles.inviteBannerCopy}>
-                  <Text style={styles.inviteBannerTitle}>{t('inviteNew')}</Text>
-                  <Text style={styles.inviteBannerSubtitle} numberOfLines={2}>
-                    {t('inviteNewSubtitle')}
-                  </Text>
-                </View>
-                <View style={styles.invitePillButton}>
-                  <Text style={styles.invitePillText}>{t('inviteNow')}</Text>
-                  <Ionicons name="chevron-forward" size={13} color="#FFFFFF" style={{ marginLeft: 2 }} />
-                </View>
-              </TouchableOpacity>
+                <CareCircleInviteBanner onPress={() => router.push('/care-circle/invite')} />
               </GuideTarget>
 
               <CareCircleQrActions
@@ -597,24 +553,8 @@ export default function CareCircleScreen() {
                 {(loading || refreshing) && connections.length === 0 ? (
                   <ActivityIndicator size="large" color="#0D9488" style={styles.loader} />
                 ) : connections.length === 0 ? (
-                  /* Empty State Card matching design */
-                  <View style={styles.emptyCard}>
-                    <Image
-                      source={require('../../assets/images/care-circle/empty_state_art.png')}
-                      style={styles.emptyStateImage}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.emptyTitle}>{t('noConnections')}</Text>
-                    <Text style={styles.emptySubtitle}>{t('noConnectionsHint')}</Text>
-                    <TouchableOpacity
-                      style={styles.emptyInviteButton}
-                      activeOpacity={0.8}
-                      onPress={() => router.push('/care-circle/invite')}
-                    >
-                      <Ionicons name="add" size={18} color="#0D9488" style={{ marginRight: 4 }} />
-                      <Text style={styles.emptyInviteButtonText}>{t('inviteMemberNew')}</Text>
-                    </TouchableOpacity>
-                  </View>
+                  /* Empty State Card matching design (Animated) */
+                  <CareCircleEmptyState onInvite={() => router.push('/care-circle/invite')} />
                 ) : (
                   /* Active Connection Cards */
                   <View style={styles.connectionsList}>

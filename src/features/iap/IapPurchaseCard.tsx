@@ -220,6 +220,10 @@ export function IapPurchaseCard({
         ? t("iapConsultationCount", { count: product.consultation_credits })
         : t("iapNoConsultation")] : [t("iapNoConsultation")]),
       t("iapAiCallcenterShort"),
+      t("iapFamilyCallsShort"),
+      t("iapHealthHistoryShort"),
+      t("iapFamilyCareShort"),
+      t("iapSummaryShort"),
       t("iapEarlySignalsShort"),
     ];
 
@@ -388,6 +392,10 @@ export function IapPurchaseCard({
         </View>
       )}
 
+      {period === "yearly" && choices.some(product => product.consultation_credits > 0) ? (
+        <Text allowFontScaling style={styles.benefitNote}>{t("iapAnnualGiftAvailability")}</Text>
+      ) : null}
+
       {/* The selected plan determines the single available action. */}
       <View style={styles.purchaseActions}>
         {selectedIsCurrent ? (
@@ -520,6 +528,10 @@ function createStyles(isDark: boolean) {
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.lg,
       textAlign: "center",
+    },
+    benefitNote: {
+      color: colors.textSecondary,
+      fontSize: 15,
     },
     planListWrap: {
       gap: 14,

@@ -237,6 +237,9 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/features/care-circle/family-relationships': familyRelationships,
     '../../src/features/care-circle/connection-edit': connectionEdit,
     '../../src/features/care-circle/components/CareCircleQrActions': { CareCircleQrActions: 'QrActions' },
+    '../../src/features/care-circle/components/CareCircleInviteBanner': { CareCircleInviteBanner: 'InviteBanner' },
+    '../../src/features/care-circle/components/CareCircleHeroBanner': { CareCircleHeroBanner: 'HeroBanner' },
+    '../../src/features/care-circle/components/CareCircleEmptyState': { CareCircleEmptyState: 'EmptyState' },
     '../../src/features/guidance/GuidanceProvider': { GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget' },
   });
   const render = () => h.render(Screen);

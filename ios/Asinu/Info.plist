@@ -23,7 +23,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>2.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -85,6 +85,8 @@
     <string>Asinu dùng vị trí khi bạn chọn gửi SOS hoặc bật lời nhắc thời tiết theo khu vực. Không theo dõi vị trí trong nền.</string>
     <key>NSCameraUsageDescription</key>
     <string>Asinu chỉ dùng camera khi bạn quét mã QR để kết nối người thân.</string>
+    <key>NSMotionUsageDescription</key>
+    <string>Asinu có thể dùng cảm biến chuyển động để xác định hướng camera khi bạn quét mã QR kết nối người thân. Ứng dụng không theo dõi hoạt động thể chất.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Asinu chỉ dùng microphone khi bạn chọn nhập bằng giọng nói, ví dụ chuyển câu "đường huyết 95 lúc đói" thành bản ghi sức khỏe hoặc tin nhắn chat. Ứng dụng không ghi âm trong nền.</string>
     <key>NSPhotoLibraryUsageDescription</key>

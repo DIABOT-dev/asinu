@@ -124,6 +124,7 @@ const nativeLocaleKeys = [
   "NSMicrophoneUsageDescription",
   "NSLocationWhenInUseUsageDescription",
   "NSCameraUsageDescription",
+  "NSMotionUsageDescription",
   "NSPhotoLibraryUsageDescription",
 ];
 for (const language of languages) {
