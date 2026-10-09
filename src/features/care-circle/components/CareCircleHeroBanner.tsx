@@ -29,7 +29,6 @@ export function CareCircleHeroBanner({ title, subtitle, language = 'vi' }: Props
 
   // 1. Family 3D illustration floating & breathing animation
   const floatAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // 2. Warm ambient aura pulse behind the family
@@ -63,12 +62,6 @@ export function CareCircleHeroBanner({ title, subtitle, language = 'vi' }: Props
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
-          Animated.timing(rotateAnim, {
-            toValue: 1,
-            duration: 1500,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
           Animated.timing(scaleAnim, {
             toValue: 1.025,
             duration: 1500,
@@ -93,12 +86,6 @@ export function CareCircleHeroBanner({ title, subtitle, language = 'vi' }: Props
             toValue: 0,
             duration: 1500,
             easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(rotateAnim, {
-            toValue: -1,
-            duration: 1500,
-            easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
           }),
           Animated.timing(scaleAnim, {
@@ -286,7 +273,6 @@ export function CareCircleHeroBanner({ title, subtitle, language = 'vi' }: Props
     };
   }, [
     floatAnim,
-    rotateAnim,
     scaleAnim,
     auraScale,
     auraOpacity,
@@ -300,11 +286,6 @@ export function CareCircleHeroBanner({ title, subtitle, language = 'vi' }: Props
     heart2Opacity,
     heart2Scale,
   ]);
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [-1, 1],
-    outputRange: ['-1.2deg', '1.2deg'],
-  });
 
   const sparkle1Rotate = sparkle1Anim.interpolate({
     inputRange: [0.2, 1],
@@ -398,7 +379,6 @@ export function CareCircleHeroBanner({ title, subtitle, language = 'vi' }: Props
             {
               transform: [
                 { translateY: floatAnim },
-                { rotate: spin },
                 { scale: scaleAnim },
               ],
             },
@@ -462,7 +442,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 168,
     position: 'relative',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   ambientAura: {
     backgroundColor: 'rgba(52, 211, 153, 0.22)',
@@ -470,40 +450,42 @@ const styles = StyleSheet.create({
     bottom: -10,
     height: 180,
     position: 'absolute',
-    right: 20,
+    right: 15,
     width: 180,
   },
   floatingHeart1: {
     position: 'absolute',
-    right: 56,
-    top: 20,
+    right: 48,
+    top: 18,
     zIndex: 5,
   },
   floatingHeart2: {
     position: 'absolute',
-    right: 120,
-    top: 32,
+    right: 95,
+    top: 26,
     zIndex: 5,
   },
   sparkle1: {
     position: 'absolute',
-    right: 80,
-    top: 14,
+    right: 70,
+    top: 12,
     zIndex: 4,
   },
   sparkle2: {
     position: 'absolute',
-    right: 18,
-    top: 36,
+    right: 15,
+    top: 32,
     zIndex: 4,
   },
   heroFamilyImageWrap: {
     bottom: 0,
     height: '100%',
     position: 'absolute',
-    right: -2,
+    right: 0,
     top: 0,
-    width: '60%',
+    width: '51%',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
     zIndex: 2,
   },
   heroFamilyImage: {
@@ -512,9 +494,9 @@ const styles = StyleSheet.create({
   },
   heroTextContent: {
     justifyContent: 'center',
-    paddingLeft: 18,
+    paddingLeft: 20,
     paddingVertical: 14,
-    width: '52%',
+    width: '49%',
     zIndex: 3,
   },
   heroCardTitle: {
