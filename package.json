@@ -5,7 +5,7 @@
   "packageManager": "npm@10.9.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "node ./node_modules/expo/bin/cli start --dev-client --clear",
+    "start": "node ./node_modules/expo/bin/cli start --dev-client --scheme asinu-lite --clear",
     "start:dev": "./scripts/start-dev.sh",
     "android": "node ./node_modules/expo/bin/cli run:android",
     "ios": "node ./node_modules/expo/bin/cli run:ios",

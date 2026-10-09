@@ -325,7 +325,7 @@ Khởi động backend theo hướng dẫn của [backend.asinu](https://github.
 npm start
 ```
 
-Lệnh này chạy Metro với `--dev-client --clear`. Mở development build đã cài để kết nối Metro. Nếu cần build trực tiếp bằng công cụ native trên máy:
+Lệnh này chạy Metro với `--dev-client --scheme asinu-lite --clear`, dùng URL scheme đã có trên cả iOS và Android. Mở development build đã cài để kết nối Metro. Nếu chưa cài development build hoặc cần build trực tiếp bằng công cụ native trên máy:
 
 ```bash
 npm run ios

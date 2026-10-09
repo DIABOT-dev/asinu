@@ -755,6 +755,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       minWidth: 0,
       lineHeight: 16,
       textAlign: 'center',
+      textAlignVertical: 'center',
+      includeFontPadding: false,
     },
     zaloIcon: {
       width: 22,
