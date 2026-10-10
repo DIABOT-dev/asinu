@@ -56,9 +56,6 @@ const styles = StyleSheet.create({
   fallbackCircle: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E5F1FF',
-    borderWidth: 1.5,
-    borderColor: '#C5DFFF'
   },
   bubble: {
     paddingVertical: 10,

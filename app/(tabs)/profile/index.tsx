@@ -1582,7 +1582,7 @@ export default function ProfileScreen() {
                       onPress={handlePickAvatar}
                       disabled={isUploadingAvatar}
                     >
-                      <Ionicons name="camera" size={12} color="#ffffff" />
+                      <Ionicons name="camera" size={12} color={colors.primaryText} />
                     </Pressable>
                   </View>
 
@@ -2370,7 +2370,6 @@ function createStyles(
       width: 64,
       height: 64,
       borderRadius: 32,
-      backgroundColor: isDark ? "#064e3b" : "#d1fae5",
       justifyContent: "center",
       alignItems: "center",
       position: "relative",
@@ -2811,7 +2810,6 @@ function createStyles(
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: isDark ? "#334155" : "#F1F5F9",
       alignItems: "center",
       justifyContent: "center",
     },
@@ -2873,11 +2871,8 @@ function createStyles(
       width: 58,
       height: 58,
       borderRadius: 29,
-      backgroundColor: colors.primaryLight,
       alignItems: "center",
       justifyContent: "center",
-      borderWidth: 2,
-      borderColor: "#FFFFFF",
     },
     editAvatarLoading: {
       ...StyleSheet.absoluteFill,
@@ -2893,11 +2888,8 @@ function createStyles(
       width: 20,
       height: 20,
       borderRadius: 10,
-      backgroundColor: colors.primaryDark,
       alignItems: "center",
       justifyContent: "center",
-      borderWidth: 1.5,
-      borderColor: "#FFFFFF",
     },
     uploadPhotoPill: {
       flexDirection: "row",
@@ -3335,7 +3327,6 @@ function createStyles(
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: isDark ? "#334155" : "#f1f5f9",
       alignItems: "center",
       justifyContent: "center",
       zIndex: 2,

@@ -1296,7 +1296,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: 38,
       height: 38,
       borderRadius: 19,
-      backgroundColor: isDark ? colors.surfaceMuted : '#F1F7F6',
       alignItems: 'center',
       justifyContent: 'center',
       marginLeft: 10,

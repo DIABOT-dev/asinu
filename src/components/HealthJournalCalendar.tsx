@@ -632,7 +632,6 @@ function createStyles(
       backgroundColor: 'transparent',
     },
     monthButtonDisabled: {
-      backgroundColor: isDark ? '#1e293b' : '#f8fafc',
       opacity: 0.6,
     },
     monthTitle: {

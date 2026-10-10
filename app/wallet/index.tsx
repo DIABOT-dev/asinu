@@ -1045,15 +1045,8 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: '#FFFFFF',
-      borderWidth: 1,
-      borderColor: '#E2F1EC',
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOpacity: 0.03,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 2 },
     },
 
     // ── Balance Card ────────────────────────────────────

@@ -108,7 +108,8 @@ const buttonStyle = (button, pressed = false) => flattenStyle(typeof button.prop
 const nativeButton = node => typeof node.type === 'function' ? nativeButton(node.type(node.props)) : node;
 function assertBrandButton(button) {
   const style = buttonStyle(button);
-  assert.equal(style.backgroundColor, theme.lightColors.primary);
+  const iconOnly = !nodes(button).some(node => node.type === 'Text');
+  assert.equal(style.backgroundColor, iconOnly ? undefined : theme.lightColors.primary);
   assert.ok(style.minHeight >= 56);
   for (const node of nodes(button)) {
     if (node.type === 'Text') {
@@ -116,7 +117,9 @@ function assertBrandButton(button) {
       assert.equal(label.color, model.guideColors.onAction); assert.ok(label.fontSize >= 22);
       assert.equal(node.props.allowFontScaling, true);
     }
-    if (node.type === 'Icon' || node.type === 'Spinner') assert.equal(node.props.color, model.guideColors.onAction);
+    if (node.type === 'Icon' || node.type === 'Spinner') {
+      assert.equal(node.props.color, iconOnly ? model.guideColors.primary : model.guideColors.onAction);
+    }
   }
 }
 function controlHarness(file, imports = {}) {
@@ -626,14 +629,15 @@ await test('the rendered Understood button uses the shared Asinu brand green wit
   const flatten = style => Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean).map(flatten)) : style;
   const style = flatten(button.props.style({ pressed: false }));
   const label = nodes(button).find(node => node.type === 'Text');
-  assert.equal(style.backgroundColor, theme.lightColors.primary);
+  const iconOnly = !nodes(button).some(node => node.type === 'Text');
+  assert.equal(style.backgroundColor, iconOnly ? undefined : theme.lightColors.primary);
   assert.ok(style.minHeight >= 56); assert.ok(flatten(label.props.style).fontSize >= 22);
   assert.equal(flatten(label.props.style).color, model.guideColors.onAction);
   button.props.onPress(); await h.settle();
   assert.ok(h.progress.progress.completed.includes('home.fine'));
   h.unmount();
 });
-await test('both welcome roles and Replay use the same brand button as every coach step', async () => {
+await test('welcome and coach actions retain brand colors while Replay stays background-free', async () => {
   const welcome = guidanceHarness(); const welcomeTree = await welcome.settle();
   const actions = nodes(welcomeTree).filter(node => ['GuideButton', 'GuideReplay'].includes(node.type?.name));
   assert.equal(actions.length, 3);

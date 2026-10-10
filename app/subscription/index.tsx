@@ -155,7 +155,6 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
       <View
         style={[
           styles.currentAvatarWrap,
-          isAnTam && styles.currentAvatarWrapAnTam,
         ]}
       >
         <Image
@@ -1023,18 +1022,11 @@ function createStyles(
     },
     currentAvatarWrap: {
       alignItems: "center",
-      backgroundColor: isDark ? "#064e3b" : "#ecfdf5",
-      borderColor: isDark ? "#047857" : "#a7f3d0",
       borderRadius: 22,
-      borderWidth: 1,
       height: 44,
       justifyContent: "center",
       overflow: "hidden",
       width: 44,
-    },
-    currentAvatarWrapAnTam: {
-      backgroundColor: isDark ? "#451a03" : "#fffbeb",
-      borderColor: isDark ? "#b45309" : "#fde68a",
     },
     currentPlanBadgeImg: {
       height: 36,
@@ -1358,7 +1350,6 @@ function createStyles(
     },
     sheetIconCircle: {
       alignItems: "center",
-      backgroundColor: isDark ? "rgba(59, 130, 246, 0.16)" : "#eff6ff",
       borderRadius: 22,
       height: 44,
       justifyContent: "center",

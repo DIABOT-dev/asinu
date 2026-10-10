@@ -2062,7 +2062,6 @@ const styles = StyleSheet.create({
   },
   doctorAvatarFallback: {
     alignItems: "center",
-    backgroundColor: "#DDF4F0",
     borderRadius: 24,
     height: 48,
     justifyContent: "center",

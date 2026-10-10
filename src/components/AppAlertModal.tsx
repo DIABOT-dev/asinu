@@ -353,10 +353,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     iconWrap: {
       alignItems: 'center',
       alignSelf: 'center',
-      backgroundColor: isDark ? 'rgba(45, 212, 191, 0.14)' : '#E6F7F3',
-      borderColor: isDark ? 'rgba(45, 212, 191, 0.25)' : '#CCFBF1',
       borderRadius: 32,
-      borderWidth: 4,
       height: 64,
       justifyContent: 'center',
       marginBottom: spacing.md,

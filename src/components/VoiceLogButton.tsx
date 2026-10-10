@@ -173,7 +173,7 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
   const renderIcon = () => {
     if (state === 'processing') return <ActivityIndicator size="small" color={colors.primary} />;
     if (state === 'done') return <Ionicons name="checkmark" size={22} color={colors.emerald} />;
-    if (state === 'recording') return <Ionicons name="stop" size={22} color="#fff" />;
+    if (state === 'recording') return <Ionicons name="stop" size={22} color={colors.danger} />;
     return <Ionicons name="mic" size={22} color={colors.primary} />;
   };
 

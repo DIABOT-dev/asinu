@@ -248,14 +248,14 @@ function NativeIncomingPreview({ platform }: { platform: 'ios' | 'android' }) {
         <Text style={[styles.incomingSubtitle, ios && styles.incomingTextMuted]}>{t('gallery.dailyCheck')}</Text>
         <View style={styles.callActions}>
           <View style={styles.callActionItem}>
-            <View style={[styles.callCircle, styles.decline]}>
-              <Ionicons name="call" size={28} color="#f7fffc" style={styles.hangupIcon} />
+            <View style={[styles.callCircle, ]}>
+              <Ionicons name="call" size={28} color="#c84049" style={styles.hangupIcon} />
             </View>
             <Text style={[styles.callActionLabel, ios && styles.incomingTextLight]}>{t('gallery.decline')}</Text>
           </View>
           <View style={styles.callActionItem}>
-            <View style={[styles.callCircle, styles.accept]}>
-              <Ionicons name="call" size={28} color="#f7fffc" />
+            <View style={[styles.callCircle, ]}>
+              <Ionicons name="call" size={28} color="#168a64" />
             </View>
             <Text style={[styles.callActionLabel, ios && styles.incomingTextLight]}>{t('gallery.accept')}</Text>
           </View>
@@ -296,14 +296,14 @@ function InAppIncomingPreview({ role }: { role: 'USER' | 'FAMILY' }) {
 
         <View style={styles.callButtonsRow}>
           <View style={styles.callButtonWrap}>
-            <View style={[styles.callCircle, styles.decline]}>
-              <Ionicons name="call" size={28} color="#ffffff" style={styles.hangupIcon} />
+            <View style={[styles.callCircle, ]}>
+              <Ionicons name="call" size={28} color="#c84049" style={styles.hangupIcon} />
             </View>
             <Text style={styles.callButtonLabel}>{t('gallery.decline')}</Text>
           </View>
           <View style={styles.callButtonWrap}>
-            <View style={[styles.callCircle, styles.accept]}>
-              <Ionicons name="call" size={28} color="#ffffff" />
+            <View style={[styles.callCircle, ]}>
+              <Ionicons name="call" size={28} color="#168a64" />
             </View>
             <Text style={styles.callButtonLabel}>{t('gallery.accept')}</Text>
           </View>
@@ -799,8 +799,6 @@ const styles = StyleSheet.create({
   callActions: { width: '100%', flexDirection: 'row', justifyContent: 'space-around', marginTop: 'auto' },
   callActionItem: { alignItems: 'center', gap: 10 },
   callCircle: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center' },
-  decline: { backgroundColor: '#c84049' },
-  accept: { backgroundColor: '#168a64' },
   hangupIcon: { transform: [{ rotate: '135deg' }] },
   callActionLabel: { color: COLORS.ink, fontSize: 13, fontWeight: '600' },
   callHeaderIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 14 },

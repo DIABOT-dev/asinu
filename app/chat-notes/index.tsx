@@ -386,7 +386,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     pageBtn: {
       width: 30, height: 30, borderRadius: radius.sm,
       alignItems: 'center', justifyContent: 'center',
-      backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
     },
     pageBtnActive: {
       backgroundColor: colors.primary, borderColor: colors.primary,

@@ -356,8 +356,8 @@ export default function InviteScreen() {
                 disabled={searchLoading}
               >
                 {searchLoading
-                  ? <ActivityIndicator size="small" color="#FFFFFF" />
-                  : <Ionicons name="search" size={18} color="#FFFFFF" />
+                  ? <ActivityIndicator size="small" color={colors.primaryText} />
+                  : <Ionicons name="search" size={18} color={colors.primaryText} />
                 }
               </Pressable>
             </View>
@@ -558,14 +558,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FFFFFF',
-      borderWidth: 1,
-      borderColor: '#E2E8F0',
-      shadowColor: '#000',
-      shadowOpacity: 0.04,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 1 },
-      elevation: 1,
       zIndex: 10,
     },
     screenHeaderTitle: {
@@ -678,7 +670,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     searchBtn: {
       width: 40,
       height: 40,
-      backgroundColor: '#0D9488',
       borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
@@ -700,7 +691,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: '#CCFBF1',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -748,7 +738,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: '#CCFBF1',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -776,7 +765,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: '#E2E8F0',
       alignItems: 'center',
       justifyContent: 'center',
     },

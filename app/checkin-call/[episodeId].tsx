@@ -868,8 +868,8 @@ function AuthenticatedCheckinCallScreen() {
               style={styles.callButtonWrap}
               onPress={() => void decline()}
             >
-              <View style={[styles.callCircle, styles.decline]}>
-                <Ionicons name="call" size={28} color="#ffffff" style={styles.hangupIcon} />
+              <View style={[styles.callCircle, ]}>
+                <Ionicons name="call" size={28} color="#dc2626" style={styles.hangupIcon} />
               </View>
               <Text style={styles.callButtonLabel}>{t('gallery.decline')}</Text>
             </Pressable>
@@ -879,8 +879,8 @@ function AuthenticatedCheckinCallScreen() {
               style={styles.callButtonWrap}
               onPress={join}
             >
-              <View style={[styles.callCircle, styles.accept]}>
-                <Ionicons name="call" size={28} color="#ffffff" />
+              <View style={[styles.callCircle, ]}>
+                <Ionicons name="call" size={28} color="#059669" />
               </View>
               <Text style={styles.callButtonLabel}>{t('gallery.accept')}</Text>
             </Pressable>
@@ -1446,14 +1446,7 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
   },
-  decline: { backgroundColor: '#dc2626' },
-  accept: { backgroundColor: '#059669' },
   hangupIcon: { transform: [{ rotate: '135deg' }] },
   callButtonLabel: {
     fontSize: 15,

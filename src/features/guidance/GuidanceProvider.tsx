@@ -300,7 +300,7 @@ function GuideReplay({ onPress, style }: { onPress: () => void; style?: React.Co
   const { t } = useTranslation('onboarding');
   return <Pressable accessibilityRole="button" accessibilityLabel={t('guidance.replayAudio')} onPress={onPress}
     style={({ pressed }) => [styles.replayButton, style, pressed && styles.pressed]}>
-    <Ionicons name="volume-high-outline" size={30} color={c.onAction} accessible={false} />
+    <Ionicons name="volume-high-outline" size={30} color={c.primary} accessible={false} />
   </Pressable>;
 }
 function GuideButton({ label, onPress, icon, style }: {
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   welcome: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.background },
   welcomeContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 18 },
   welcomeBack: { position: 'absolute', left: 24 },
-  welcomeBackButton: { width: 56, height: 56, backgroundColor: c.background, borderColor: c.border },
+  welcomeBackButton: { width: 56, height: 56 },
   mascot: { width: 156, height: 156, alignSelf: 'center' },
   welcomeTitle: { fontSize: 30, fontWeight: '800', color: c.ink, textAlign: 'center' },
   welcomeHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   coachActions: { flexDirection: 'row', alignItems: 'stretch', gap: 12, marginTop: 8 },
   understoodButton: { flex: 1, minWidth: 0, width: undefined },
   replayButton: { width: 60, height: 60, minHeight: 60, flexShrink: 0, borderRadius: 18,
-    backgroundColor: c.actionBackground, alignItems: 'center', justifyContent: 'center' },
+    alignItems: 'center', justifyContent: 'center' },
   coachReplayButton: { height: undefined, alignSelf: 'stretch' },
   pressed: { opacity: 0.8 },
   dim: { position: 'absolute', backgroundColor: c.dim },

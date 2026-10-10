@@ -94,7 +94,7 @@ function CareCircleScanScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.permissionHeader, { paddingTop: insets.top + spacing.xs }]}>
-          <ScreenBackButton onPress={() => router.back()} style={styles.headerIconButton} />
+          <ScreenBackButton onPress={() => router.back()} />
           <Text style={styles.permissionHeaderTitle}>{t('scanQrTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -441,11 +441,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       textAlign: 'center',
     },
     headerSpacer: { width: 44 },
-    headerIconButton: {
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.85)',
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0',
-      borderWidth: 1,
-    },
     headerNavButton: {
       alignItems: 'center',
       height: 44,
@@ -526,7 +521,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     cameraIconCircle: {
       alignItems: 'center',
       alignSelf: 'center',
-      backgroundColor: isDark ? 'rgba(45, 212, 191, 0.15)' : '#CCFBF1',
       borderRadius: 32,
       height: 64,
       justifyContent: 'center',
@@ -571,7 +565,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     featureIconWrap: {
       alignItems: 'center',
-      backgroundColor: isDark ? 'rgba(45, 212, 191, 0.12)' : '#E6F4EA',
       borderRadius: 12,
       height: 38,
       justifyContent: 'center',
@@ -626,7 +619,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     errorIconBadge: {
       alignItems: 'center',
-      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
       borderRadius: 36,
       height: 72,
       justifyContent: 'center',

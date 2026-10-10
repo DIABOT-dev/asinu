@@ -153,12 +153,12 @@ async function main() {
     const all = nodes(AppAlertModal({ visible: true, title: 'Existing consumer', icon: { name: 'shield-check-outline' },
       buttons: [{ text: 'Continue', variant: 'primary' }], onDismiss() {} }));
     const iconWrap = all.find(node => node.type === 'View' && nodes(node.props.children).some(child => child.type === 'Icon'));
-    assert.equal(style(iconWrap.props.style).borderWidth, 4);
-    assert.equal(style(iconWrap.props.style).backgroundColor, mode === 'dark' ? 'rgba(45, 212, 191, 0.14)' : '#E6F7F3');
+    assert.equal(style(iconWrap.props.style).borderWidth, undefined);
+    assert.equal(style(iconWrap.props.style).backgroundColor, undefined);
     const button = all.find(node => node.type === 'Pressable' && node.props.accessibilityRole === 'button');
     assert.equal(style(button.props.style({ pressed: false })).backgroundColor, '#209f97');
     assert.equal(style(nodes(button).find(node => node.type === 'Text').props.style).color, '#ffffff');
-    console.log(`PASS ${mode}: existing modal consumers retain their appearance`);
+    console.log(`PASS ${mode}: default modal icons have no background or border`);
     checks++;
   }
   console.log(`Privacy modal visuals: ${checks} checks passed.`);

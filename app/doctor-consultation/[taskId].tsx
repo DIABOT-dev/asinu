@@ -814,12 +814,7 @@ export default function DoctorConsultationThreadScreen() {
           </View>
         </View>
 
-        <View
-          style={[
-            styles.headerAvatar,
-            { backgroundColor: isDark ? colors.surfaceMuted : "#F0FDFA" },
-          ]}
-        >
+        <View style={styles.headerAvatar}>
           <Ionicons
             name="medical"
             size={18}
@@ -1284,16 +1279,7 @@ export default function DoctorConsultationThreadScreen() {
                   key={message.id || index}
                   style={[styles.bubbleWrapper, styles.doctorWrapper]}
                 >
-                  <View
-                    style={[
-                      styles.doctorMsgAvatar,
-                      {
-                        backgroundColor: isDark
-                          ? colors.surfaceMuted
-                          : "#E8F5F3",
-                      },
-                    ]}
-                  >
+                  <View style={styles.doctorMsgAvatar}>
                     <Ionicons
                       name="person-outline"
                       size={18}
@@ -1659,12 +1645,12 @@ export default function DoctorConsultationThreadScreen() {
               ]}
             >
               {sending ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.primaryText} size="small" />
               ) : (
                 <Ionicons
                   name="paper-plane"
                   size={20}
-                  color="#fff"
+                  color={colors.primaryText}
                   style={{ marginLeft: 2 }}
                 />
               )}
@@ -2061,7 +2047,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   recordingButton: {
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
     borderRadius: 18,
   },
   videoLink: {
@@ -2131,15 +2116,9 @@ const styles = StyleSheet.create({
   },
   sendCircleButton: {
     alignItems: "center",
-    backgroundColor: "#2DD4BF",
     borderRadius: 25,
-    elevation: 4,
     height: 50,
     justifyContent: "center",
-    shadowColor: "#00A88F",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
     width: 50,
   },
   ratingCard: {

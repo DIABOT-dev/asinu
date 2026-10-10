@@ -627,10 +627,7 @@ function CheckinScreen() {
           onPress={() => void reviewGuidance()}
           style={{
             alignItems: 'center',
-            backgroundColor: '#ffffff',
-            borderColor: '#e2e8f0',
             borderRadius: 20,
-            borderWidth: 1,
             height: 40,
             justifyContent: 'center',
             width: 40,
@@ -1097,7 +1094,7 @@ function TriageScreen({
             {/* AI question — no entering animation, already answered */}
             <View style={styles.aiMsgRow}>
               <View style={styles.aiAvatarSmall}>
-                <Ionicons name="heart" size={12} color="#fff" />
+                <Ionicons name="heart" size={12} color={colors.primaryText} />
               </View>
               <View style={styles.aiBubble}>
                 <Text style={styles.aiBubbleText}>{a.question}</Text>
@@ -1120,7 +1117,7 @@ function TriageScreen({
         {loading ? (
           <Animated.View entering={FadeInLeft.duration(300)} style={styles.aiMsgRow}>
             <View style={styles.aiAvatarSmall}>
-              <Ionicons name="heart" size={12} color="#fff" />
+              <Ionicons name="heart" size={12} color={colors.primaryText} />
             </View>
             <View style={styles.aiBubble}>
               <View style={styles.typingRow}>
@@ -1136,7 +1133,7 @@ function TriageScreen({
             {greeting && answers.length === 0 && (
               <Animated.View entering={FadeInLeft.duration(300)} style={styles.aiMsgRow}>
                 <View style={styles.aiAvatarSmall}>
-                  <Ionicons name="heart" size={12} color="#fff" />
+                  <Ionicons name="heart" size={12} color={colors.primaryText} />
                 </View>
                 <View style={[styles.aiBubble, { backgroundColor: '#e0f2f1' }]}>
                   <Text style={[styles.aiBubbleText, { color: '#00695c' }]}>{greeting.displayText}</Text>
@@ -1167,7 +1164,7 @@ function TriageScreen({
             {/* Current AI question */}
             <Animated.View entering={FadeInLeft.duration(400)} style={styles.aiMsgRow}>
               <View style={styles.aiAvatar}>
-                <Ionicons name="heart" size={16} color="#fff" />
+                <Ionicons name="heart" size={16} color={colors.primaryText} />
               </View>
               <View style={styles.currentQuestionBubble}>
                 <Text allowFontScaling style={[styles.currentQuestionText, practice && { fontSize: 22, lineHeight: 32 }]}>{question}</Text>
@@ -1265,7 +1262,7 @@ function TriageScreen({
                 onText={text => { setCustom(text); acknowledgeGuide('checkin.voice'); }} /> :
               <Pressable
                 onPress={handleMicPress}
-                style={[styles.micBtn, isRecording && styles.micBtnActive]}
+                style={[styles.micBtn, ]}
                 disabled={isTranscribing}
               >
                 {isTranscribing ? (
@@ -1274,7 +1271,7 @@ function TriageScreen({
                   <MaterialCommunityIcons
                     name={isRecording ? 'stop-circle' : 'microphone'}
                     size={22}
-                    color={isRecording ? '#fff' : colors.primary}
+                    color={isRecording ? colors.danger : colors.primary}
                   />
                 )}
               </Pressable>}</GuideTarget>
@@ -1628,7 +1625,7 @@ function DoneScreen({
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: 22,
-            backgroundColor: pressed ? '#BFE8E2' : '#D4F1EC',
+            opacity: pressed ? 0.7 : 1,
           })}
         >
           <Ionicons name="refresh" size={21} color="#007F6D" />
@@ -2061,7 +2058,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 24,
       height: 24,
       borderRadius: 12,
-      backgroundColor: colors.primary + '88',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -2069,7 +2065,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -2255,12 +2250,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: colors.surfaceMuted,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    micBtnActive: {
-      backgroundColor: colors.danger,
     },
     inputWrap: {
       flex: 1,

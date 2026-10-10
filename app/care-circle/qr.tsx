@@ -338,10 +338,7 @@ function createStyles(
     },
     backBtn: {
       alignItems: 'center',
-      backgroundColor: isDark ? '#1e293b' : '#ffffff',
-      borderColor: isDark ? '#334155' : '#e2e8f0',
       borderRadius: 20,
-      borderWidth: 1,
       height: 40,
       justifyContent: 'center',
       width: 40,

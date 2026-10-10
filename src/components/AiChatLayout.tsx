@@ -105,15 +105,6 @@ export const AiChatLayout = ({
       alignItems: 'center',
       justifyContent: 'center',
     },
-    actionBtnActive: {
-      backgroundColor: colors.primaryLight,
-    },
-    actionBtnActiveBad: {
-      backgroundColor: colors.danger + '18',
-    },
-    actionBtnNoted: {
-      backgroundColor: colors.premiumLight,
-    },
     composer: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -144,12 +135,8 @@ export const AiChatLayout = ({
       width: 48,
       height: 48,
       borderRadius: 24,
-      backgroundColor: colors.surfaceMuted,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    micButtonActive: {
-      backgroundColor: colors.danger,
     },
   }), [isDark]);
   const [draft, setDraft] = useState('');
@@ -355,7 +342,7 @@ export const AiChatLayout = ({
           <View style={styles.actionBar}>
             {/* Like */}
             <Pressable
-              style={[styles.actionBtn, { width: scaledTypography.scaledSize.xl, height: scaledTypography.scaledSize.xl, borderRadius: scaledTypography.scaledSize.xl / 2 }, fb === 'like' && styles.actionBtnActive]}
+              style={[styles.actionBtn, { width: scaledTypography.scaledSize.xl, height: scaledTypography.scaledSize.xl, borderRadius: scaledTypography.scaledSize.xl / 2 }, ]}
               onPress={() => handleFeedback(item, 'like')}
             >
               <Ionicons
@@ -367,7 +354,7 @@ export const AiChatLayout = ({
 
             {/* Dislike */}
             <Pressable
-              style={[styles.actionBtn, { width: scaledTypography.scaledSize.xl, height: scaledTypography.scaledSize.xl, borderRadius: scaledTypography.scaledSize.xl / 2 }, fb === 'dislike' && styles.actionBtnActiveBad]}
+              style={[styles.actionBtn, { width: scaledTypography.scaledSize.xl, height: scaledTypography.scaledSize.xl, borderRadius: scaledTypography.scaledSize.xl / 2 }, ]}
               onPress={() => handleFeedback(item, 'dislike')}
             >
               <Ionicons
@@ -388,7 +375,7 @@ export const AiChatLayout = ({
 
             {/* Note — once noted, show filled bookmark permanently */}
             <Pressable
-              style={[styles.actionBtn, { width: scaledTypography.scaledSize.xl, height: scaledTypography.scaledSize.xl, borderRadius: scaledTypography.scaledSize.xl / 2 }, notedIds.has(item.id) && styles.actionBtnNoted]}
+              style={[styles.actionBtn, { width: scaledTypography.scaledSize.xl, height: scaledTypography.scaledSize.xl, borderRadius: scaledTypography.scaledSize.xl / 2 }, ]}
               onPress={() => handleNote(item)}
               disabled={notedIds.has(item.id)}
             >
@@ -452,7 +439,7 @@ export const AiChatLayout = ({
       <View style={styles.composer}>
         <Pressable
           onPress={handleMicPress}
-          style={[styles.micButton, isRecording && styles.micButtonActive]}
+          style={[styles.micButton, ]}
           disabled={isTranscribing}
         >
           {isTranscribing ? (
@@ -461,7 +448,7 @@ export const AiChatLayout = ({
             <MaterialCommunityIcons
               name={isRecording ? 'stop-circle' : 'microphone'}
               size={scaledTypography.scaledSize.xl}
-              color={isRecording ? '#fff' : colors.primary}
+              color={isRecording ? colors.danger : colors.primary}
             />
           )}
         </Pressable>

@@ -743,7 +743,7 @@ export default function HomeScreen() {
                   style={styles.healthFeedDismissBtn}
                   onPress={() => handleHomeDismiss(item.id)}
                 >
-                  <Ionicons name="eye-off-outline" size={20} color="#fff" />
+                  <Ionicons name="eye-off-outline" size={20} color={colors.danger} />
                 </Pressable>
               );
 
@@ -1240,14 +1240,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
   },
   headerActionPressed: {
     opacity: 0.78,
@@ -1297,7 +1289,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     color: colors.textSecondary,
   },
   heroSettingsBtn: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
     padding: 8,
   },
@@ -1847,7 +1838,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     marginLeft: spacing.xs,
   },
   healthFeedDismissBtn: {
-    backgroundColor: '#ef4444',
     justifyContent: 'center',
     alignItems: 'center',
     width: 60,
