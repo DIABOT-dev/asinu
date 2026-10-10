@@ -50,11 +50,42 @@ export default function ArticleDetailScreen() {
           method: 'POST',
           body: { content_id: String(id), event_type: 'viewed' }
         }).catch(() => {});
+        return;
       }
     } catch (err) {
       console.error('[ArticleDetail] Failed to load:', err);
     } finally {
       setLoading(false);
+    }
+
+    if (String(id).startsWith('curated-')) {
+      const num = String(id).replace('curated-', '');
+      if (['1', '2', '3', '4', '5'].includes(num)) {
+        const checklist = num === '2' ? [
+          tc('feedCurated2Item1'),
+          tc('feedCurated2Item2'),
+          tc('feedCurated2Item3'),
+          tc('feedCurated2Item4'),
+          tc('feedCurated2Item5'),
+        ] : num === '5' ? [
+          tc('feedCurated5Item1'),
+          tc('feedCurated5Item2'),
+          tc('feedCurated5Item3'),
+          tc('feedCurated5Item4'),
+          tc('feedCurated5Item5'),
+        ] : undefined;
+
+        setContent({
+          id,
+          title: tc(`feedCurated${num}Title`),
+          summary: tc(`feedCurated${num}Summary`),
+          body: tc(`feedCurated${num}Body`),
+          checklist,
+          content_type: num === '2' ? 'checklist' : num === '5' ? 'warning' : 'family_note',
+          severity_level: num === '5' ? 'warning' : 'advice',
+          is_saved: false,
+        });
+      }
     }
   };
 

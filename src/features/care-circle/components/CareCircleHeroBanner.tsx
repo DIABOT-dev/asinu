@@ -21,9 +21,19 @@ type Props = {
   title?: string;
   subtitle?: string;
   language?: string;
+  connectionsCount?: number;
+  receivedCount?: number;
+  sentCount?: number;
 };
 
-export function CareCircleHeroBanner({ title, subtitle, language = 'vi' }: Props) {
+export function CareCircleHeroBanner({
+  title,
+  subtitle,
+  language = 'vi',
+  connectionsCount = 0,
+  receivedCount = 0,
+  sentCount = 0,
+}: Props) {
   const { t } = useTranslation('careCircle');
   const { isDark } = useThemeColors();
 
@@ -372,55 +382,110 @@ export function CareCircleHeroBanner({ title, subtitle, language = 'vi' }: Props
           <Ionicons name="sparkles" size={11} color="#F59E0B" />
         </Animated.View>
 
-        {/* Right: Animated 3D Family Illustration */}
-        <Animated.View
-          style={[
-            styles.heroFamilyImageWrap,
-            {
-              transform: [
-                { translateY: floatAnim },
-                { scale: scaleAnim },
-              ],
-            },
-          ]}
-        >
-          <Image
-            source={FAMILY_3D_ART}
-            style={styles.heroFamilyImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
+        {/* Upper Section: Row containing Left Text and Right 3D Family */}
+        <View style={styles.heroTopRow}>
+          {/* Left: Native Texts & Animated Calligraphic Quote */}
+          <View style={styles.heroTextContent}>
+            <Text
+              style={[
+                styles.heroCardTitle,
+                isDark && { color: '#6EE7B7' },
+              ]}
+            >
+              {title ?? t('title')}
+            </Text>
+            <Text
+              style={[
+                styles.heroCardSubtitle,
+                isDark && { color: '#94A3B8' },
+              ]}
+            >
+              {subtitle ?? t('headerSubtitle')}
+            </Text>
+            <Animated.View
+              style={[
+                styles.heroQuoteWrapper,
+                { transform: [{ scale: quoteScale }] },
+              ]}
+            >
+              <Image
+                source={quoteSource}
+                style={styles.heroQuoteImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
+          </View>
 
-        {/* Left: Native Texts & Animated Calligraphic Quote */}
-        <View style={styles.heroTextContent}>
-          <Text
-            style={[
-              styles.heroCardTitle,
-              isDark && { color: '#6EE7B7' },
-            ]}
-          >
-            {title ?? t('title')}
-          </Text>
-          <Text
-            style={[
-              styles.heroCardSubtitle,
-              isDark && { color: '#94A3B8' },
-            ]}
-          >
-            {subtitle ?? t('headerSubtitle')}
-          </Text>
+          {/* Right: Animated 3D Family Illustration */}
           <Animated.View
             style={[
-              styles.heroQuoteWrapper,
-              { transform: [{ scale: quoteScale }] },
+              styles.heroFamilyImageWrap,
+              {
+                transform: [
+                  { translateY: floatAnim },
+                  { scale: scaleAnim },
+                ],
+              },
             ]}
           >
             <Image
-              source={quoteSource}
-              style={styles.heroQuoteImage}
+              source={FAMILY_3D_ART}
+              style={styles.heroFamilyImage}
               resizeMode="contain"
             />
           </Animated.View>
+        </View>
+
+        {/* Lower Section: Inner Stats Card (3 Columns) */}
+        <View style={[styles.innerStatsCard, isDark && styles.innerStatsCardDark]}>
+          <View style={styles.statColumn}>
+            <View style={styles.statIconWrap}>
+              <Ionicons name="people" size={24} color="#0D9488" />
+            </View>
+            <Text style={[styles.statColValue, isDark && { color: '#F1F5F9' }]}>
+              {connectionsCount ?? 0}
+            </Text>
+            <Text style={[styles.statColLabel, isDark && { color: '#CBD5E1' }]}>
+              {t('connections')}
+            </Text>
+            <Text style={[styles.statColSubLabel, isDark && { color: '#94A3B8' }]}>
+              {t('statRelatives')}
+            </Text>
+          </View>
+
+          <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
+
+          <View style={styles.statColumn}>
+            <View style={styles.statIconWrap}>
+              <Ionicons name="mail" size={22} color="#F59E0B" />
+            </View>
+            <Text style={[styles.statColValue, isDark && { color: '#F1F5F9' }]}>
+              {receivedCount ?? 0}
+            </Text>
+            <Text style={[styles.statColLabel, isDark && { color: '#CBD5E1' }]}>
+              {t('received')}
+            </Text>
+            <Text style={[styles.statColSubLabel, isDark && { color: '#94A3B8' }]}>
+              {t('statInvitations')}
+            </Text>
+          </View>
+
+          <View style={[styles.statDivider, isDark && styles.statDividerDark]} />
+
+          <View style={styles.statColumn}>
+            <View style={styles.statIconWrap}>
+              <Ionicons name="send" size={20} color="#2563EB" />
+            </View>
+            <Text style={[styles.statColValue, isDark && { color: '#F1F5F9' }]}>
+              {sentCount ?? 0}
+            </Text>
+            <Text style={[styles.statColLabel, isDark && { color: '#CBD5E1' }]}>
+              {t('sent')}
+            </Text>
+            <Text style={[styles.statColSubLabel, isDark && { color: '#94A3B8' }]}>
+              {t('statInvitations')}
+            </Text>
+          </View>
         </View>
       </LinearGradient>
     </View>
@@ -437,55 +502,60 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: '#D8F1EB',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    position: 'relative',
+    paddingBottom: 4,
+  },
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    overflow: 'hidden',
-    minHeight: 168,
+    justifyContent: 'space-between',
+    paddingLeft: 18,
+    paddingRight: 6,
+    paddingTop: 16,
+    paddingBottom: 6,
+    minHeight: 160,
     position: 'relative',
-    justifyContent: 'flex-start',
   },
   ambientAura: {
     backgroundColor: 'rgba(52, 211, 153, 0.22)',
     borderRadius: 90,
-    bottom: -10,
-    height: 180,
+    top: 6,
+    right: 10,
+    height: 160,
     position: 'absolute',
-    right: 15,
-    width: 180,
+    width: 160,
   },
   floatingHeart1: {
     position: 'absolute',
     right: 48,
-    top: 18,
+    top: 14,
     zIndex: 5,
   },
   floatingHeart2: {
     position: 'absolute',
-    right: 95,
-    top: 26,
+    right: 125,
+    top: 24,
     zIndex: 5,
   },
   sparkle1: {
     position: 'absolute',
     right: 70,
-    top: 12,
+    top: 10,
     zIndex: 4,
   },
   sparkle2: {
     position: 'absolute',
-    right: 15,
-    top: 32,
+    right: 16,
+    top: 26,
     zIndex: 4,
   },
   heroFamilyImageWrap: {
-    bottom: 0,
-    height: '100%',
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: '51%',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    width: 175,
+    height: 155,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     zIndex: 2,
   },
   heroFamilyImage: {
@@ -493,23 +563,22 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   heroTextContent: {
+    flex: 1,
     justifyContent: 'center',
-    paddingLeft: 20,
-    paddingVertical: 14,
-    width: '49%',
+    paddingRight: 6,
     zIndex: 3,
   },
   heroCardTitle: {
-    color: '#0D7A68',
-    fontSize: 18,
+    color: '#0B192C',
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   heroCardSubtitle: {
     color: '#4B5563',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    lineHeight: 16,
+    lineHeight: 18,
     marginTop: 4,
   },
   heroQuoteWrapper: {
@@ -517,7 +586,67 @@ const styles = StyleSheet.create({
   },
   heroQuoteImage: {
     alignSelf: 'flex-start',
-    height: 50,
+    height: 48,
     width: 140,
+  },
+  // Inner Stats Card (embedded in hero card)
+  innerStatsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 12,
+    marginBottom: 10,
+    marginTop: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: '#EEF6F4',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    zIndex: 4,
+  },
+  innerStatsCardDark: {
+    backgroundColor: '#132F2A',
+    borderColor: 'rgba(20, 184, 166, 0.25)',
+  },
+  statColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statIconWrap: {
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statColValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 4,
+  },
+  statColLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 3,
+  },
+  statColSubLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '400',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 44,
+    backgroundColor: '#EEF2F4',
+  },
+  statDividerDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
 });

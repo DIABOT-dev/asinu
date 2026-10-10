@@ -6,6 +6,8 @@
   "connections": "Connections",
   "received": "Received",
   "sent": "Sent",
+  "statRelatives": "Relatives",
+  "statInvitations": "Invitations",
   "inviteNew": "Invite new",
   "inviteNow": "Invite now",
   "inviteNewSubtitle": "Connect family & relatives",

@@ -352,38 +352,10 @@ export default function CareCircleScreen() {
                 title={t('title')}
                 subtitle={t('headerSubtitle')}
                 language={language}
+                connectionsCount={connections.length}
+                receivedCount={receivedInvitations.length}
+                sentCount={sentInvitations.length}
               />
-
-              {/* Stats Card: 3 Columns */}
-              <View style={styles.statsCard}>
-                <View style={styles.statColumn}>
-                  <View style={styles.statIconWrap}>
-                    <Ionicons name="people" size={26} color="#0D9488" />
-                  </View>
-                  <Text style={styles.statColLabel}>{t('connections')}</Text>
-                  <Text style={styles.statColValue}>{connections.length}</Text>
-                </View>
-
-                <View style={styles.statDivider} />
-
-                <View style={styles.statColumn}>
-                  <View style={styles.statIconWrap}>
-                    <Ionicons name="mail" size={24} color="#D97706" />
-                  </View>
-                  <Text style={styles.statColLabel}>{t('received')}</Text>
-                  <Text style={styles.statColValue}>{receivedInvitations.length}</Text>
-                </View>
-
-                <View style={styles.statDivider} />
-
-                <View style={styles.statColumn}>
-                  <View style={styles.statIconWrap}>
-                    <Ionicons name="send" size={22} color="#2563EB" />
-                  </View>
-                  <Text style={styles.statColLabel}>{t('sent')}</Text>
-                  <Text style={styles.statColValue}>{sentInvitations.length}</Text>
-                </View>
-              </View>
 
               {/* Quick Action Banner: Mời người mới (Animated) */}
               <GuideTarget step="circle.add">
@@ -1065,50 +1037,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: 140,
       height: 50,
       alignSelf: 'flex-start',
-    },
-    // Stats Card: 3 Columns
-    statsCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginHorizontal: spacing.lg,
-      marginBottom: spacing.md,
-      borderRadius: 24,
-      paddingVertical: 18,
-      paddingHorizontal: 8,
-      borderWidth: 1,
-      borderColor: '#EEF2F4',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      ...androidCardSurface,
-    },
-    statColumn: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    statIconWrap: {
-      height: 36,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    statColLabel: {
-      fontSize: 13,
-      color: colors.textSecondary,
-      fontWeight: '500',
-      marginTop: 4,
-    },
-    statColValue: {
-      fontSize: 20,
-      color: colors.textPrimary,
-      fontWeight: '700',
-      marginTop: 2,
-    },
-    statDivider: {
-      width: 1,
-      height: 44,
-      backgroundColor: '#EEF2F4',
     },
     // Quick Action Banner
     inviteBanner: {
