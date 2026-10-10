@@ -124,7 +124,7 @@ android {
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
         }
@@ -162,6 +162,8 @@ android {
 }
 
 dependencies {
+    // Android 15+ edge-to-edge fixes for Material dialogs and system bars.
+    implementation("com.google.android.material:material:1.14.0")
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
     // Exposed directly because Asinu's incoming-call service subclasses the

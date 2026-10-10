@@ -12,3 +12,8 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
+
+# @generated begin expo-build-properties - expo prebuild (DO NOT MODIFY)
+# LiveKit's native library loads this relocated JNI bridge by class name.
+-keep class livekit.org.jni_zero.** { *; }
+# @generated end expo-build-properties

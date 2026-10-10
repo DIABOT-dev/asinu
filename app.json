@@ -125,7 +125,10 @@
           "android": {
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
-            "buildToolsVersion": "36.0.0"
+            "buildToolsVersion": "36.0.0",
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "# LiveKit's native library loads this relocated JNI bridge by class name.\n-keep class livekit.org.jni_zero.** { *; }"
           }
         }
       ],
@@ -133,7 +136,8 @@
       "expo-iap",
       "expo-localization",
       "expo-web-browser",
-      "expo-audio"
+      "expo-audio",
+      "./plugins/withAndroidReleaseQuality"
     ],
     "experiments": {
       "typedRoutes": true
