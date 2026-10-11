@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckinUiPreview } from '../checkin';
@@ -95,6 +96,31 @@ const COLORS = {
   redSoft: '#f9e3e6',
 };
 
+function HeaderCrossLeaves({ size = 54, color = '#dcf2eb' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 60 60" fill="none">
+      {/* Medical Cross */}
+      <Path
+        d="M25 4H35V20H51V30H35V46H25V30H9V20H25V4Z"
+        fill={color}
+        opacity={0.65}
+      />
+      {/* Left leaf */}
+      <Path
+        d="M18 42C12 42 8 48 8 53C13 53 20 51 20 44C20 42 19 42 18 42Z"
+        fill={color}
+        opacity={0.7}
+      />
+      {/* Right leaf */}
+      <Path
+        d="M42 42C48 42 52 48 52 53C47 53 40 51 40 44C40 42 41 42 42 42Z"
+        fill={color}
+        opacity={0.7}
+      />
+    </Svg>
+  );
+}
+
 function TopBar({ title, onBack }: { title: string; onBack: () => void }) {
   const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
@@ -106,7 +132,7 @@ function TopBar({ title, onBack }: { title: string; onBack: () => void }) {
       <Text style={styles.topBarTitle}>{title}</Text>
       <View style={{ width: 40 }} />
       <View style={styles.headerCrossArt} pointerEvents="none">
-        <MaterialCommunityIcons name="plus" size={54} color="#dcf2eb" />
+        <HeaderCrossLeaves size={54} color="#dcf2eb" />
       </View>
     </View>
   );

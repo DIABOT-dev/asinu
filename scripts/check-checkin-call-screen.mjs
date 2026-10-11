@@ -275,6 +275,7 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, 
     '../../src/features/checkin/checkin-ui-gallery': { CHECKIN_UI_PREVIEWS },
     '../../src/features/checkin-call/voice-preferences': evaluate(read('src/features/checkin-call/voice-preferences.ts')),
     '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech', CheckinCallSafetyNote: 'Safety' },
+    'react-native-svg': { __esModule: true, default: 'Svg', Svg: 'Svg', Path: 'Path' },
   });
   const expand = tree => !tree || typeof tree !== 'object' ? tree : Array.isArray(tree) ? tree.map(expand)
     : typeof tree.type === 'function' ? expand(tree.type(tree.props))

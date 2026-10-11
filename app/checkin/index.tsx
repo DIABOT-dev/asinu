@@ -619,7 +619,9 @@ function CheckinScreen() {
             ? t('checkinResultPreviewHeader')
             : isFollowUp
               ? t('checkinHeaderFollowUp')
-              : t('checkinHeaderTitle')}
+              : screen === 'status'
+                ? t('checkinSelectStatusTitle')
+                : t('checkinHeaderTitle')}
         </Text>}
         <Pressable
           accessibilityLabel={t('checkinGuide.badge')}
@@ -799,19 +801,86 @@ function StatusScreen({
   };
 
   return (
-    <View style={styles.section}>
-      {/* Asinu avatar */}
-      <Animated.View entering={FadeIn.duration(400)} style={styles.statusAvatarWrap}>
-        <View style={styles.statusAvatar}>
-          <MaterialCommunityIcons name="heart-pulse" size={36} color="#00897b" />
-        </View>
+    <View style={styles.statusSection}>
+      {/* Decorative Upper Hero Section */}
+      <View style={styles.heroDecorativeRow}>
+        <Svg width={110} height={120} viewBox="0 0 110 120" fill="none" style={styles.heroTopLeftBranch} pointerEvents="none">
+          <Path
+            d="M-10 120 C20 100 35 60 30 10"
+            stroke="#A7F3D0"
+            strokeWidth={2}
+            strokeLinecap="round"
+            opacity={0.5}
+          />
+          <Path
+            d="M30 10 C32 26 20 38 12 34 C6 30 16 16 30 10 Z"
+            fill="#A7F3D0"
+            opacity={0.4}
+          />
+          <Path
+            d="M26 45 C42 42 46 56 36 62 C28 66 22 52 26 45 Z"
+            fill="#6EE7B7"
+            opacity={0.35}
+          />
+          <Path
+            d="M16 80 C30 76 36 90 26 96 C18 100 12 88 16 80 Z"
+            fill="#A7F3D0"
+            opacity={0.35}
+          />
+        </Svg>
+
+        {/* Left cursive slogan */}
+        <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.heroSideWrapLeft}>
+          <Text style={styles.heroSideText}>{t('checkinHeroSloganLeft')}</Text>
+        </Animated.View>
+
+        {/* Center circular heart ECG badge */}
+        <Animated.View entering={FadeIn.duration(400)} style={styles.heroCenterBadgeWrap}>
+          <Svg width={112} height={104} viewBox="0 0 112 104" fill="none" style={styles.heroCenterBadgeDecor} pointerEvents="none">
+            {/* Floating mint cross on left */}
+            <Path d="M12 28H17V23H19V28H24V30H19V35H17V30H12V28Z" fill="#a7f3d0" opacity={0.75} />
+            {/* Floating mint cross on right */}
+            <Path d="M92 34H97V29H99V34H104V36H99V41H97V36H92V34Z" fill="#a7f3d0" opacity={0.75} />
+            {/* Soft glowing aura circle */}
+            <Path d="M56 10 A42 42 0 1 0 56 94 A42 42 0 1 0 56 10 Z" fill="#E1F7EF" opacity={0.9} />
+            {/* Delicate leaves on bottom-left and bottom-right of badge */}
+            <Path d="M26 64C22 58 24 50 30 48C32 54 30 62 26 64Z" fill="#a7f3d0" opacity={0.75} />
+            <Path d="M22 70C18 66 19 60 24 59C26 64 24 69 22 70Z" fill="#86efac" opacity={0.6} />
+            <Path d="M86 64C90 58 88 50 82 48C80 54 82 62 86 64Z" fill="#a7f3d0" opacity={0.75} />
+            <Path d="M90 70C94 66 93 60 88 59C86 64 88 69 90 70Z" fill="#86efac" opacity={0.6} />
+          </Svg>
+          {/* Center teal heart with white ECG line */}
+          <View style={styles.heroCenterHeartBadge}>
+            <Svg width={54} height={48} viewBox="0 0 54 48" fill="none">
+              <Path
+                d="M27 45C27 45 4 30 4 14C4 6.5 10 1 18 1C22.5 1 25.5 3.5 27 6C28.5 3.5 31.5 1 36 1C44 1 50 6.5 50 14C50 30 27 45 27 45Z"
+                fill="#0D9488"
+              />
+              <Path
+                d="M7 23H17L21 14L26 34L31 16L34 25L37 23H47"
+                stroke="#FFFFFF"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </View>
+        </Animated.View>
+
+        {/* Right cursive slogan */}
+        <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.heroSideWrapRight}>
+          <Text style={styles.heroSideText}>{t('checkinHeroSloganRight')}</Text>
+        </Animated.View>
+      </View>
+
+      {/* Greeting & Subheading */}
+      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.heroHeadingWrap}>
+        <Text style={styles.heroHeading}>{getGreeting()}</Text>
+        <Text style={styles.heroSubheading}>{t('checkinSubheading')}</Text>
+        <View style={styles.heroIndicatorPill} />
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-        <Text style={styles.heading}>{getGreeting()}</Text>
-        <Text style={styles.subheading}>{t('checkinSubheading')}</Text>
-      </Animated.View>
-
+      {/* 3 Status Cards */}
       <GuideTarget step="checkin.status" style={styles.optionList} enabled={practice}>
         {CHECKIN_STATUS_CHOICES.map((choice, idx) => (
           <Animated.View key={choice.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
@@ -819,6 +888,36 @@ function StatusScreen({
           </Animated.View>
         ))}
       </GuideTarget>
+
+      {/* Bottom Footer Section */}
+      <Animated.View entering={FadeInDown.delay(450).duration(400)} style={styles.footerBrandWrap}>
+        <View style={styles.footerBrandLeft}>
+          <Text style={styles.footerBrandWord}>{t('checkinFooterBrand1')}</Text>
+          <Text style={styles.footerBrandWord}>{t('checkinFooterBrand2')}</Text>
+          <Text style={styles.footerBrandWord}>{t('checkinFooterBrand3')}</Text>
+          <View style={styles.footerBrandUnderline} />
+        </View>
+
+        <View style={styles.footerBrandRight}>
+          <Svg width={110} height={36} viewBox="0 0 110 36" fill="none">
+            <Path
+              d="M26 30 C15 22 10 16 10 10 C10 4.5 14.5 1 20 1 C23.5 1 26.5 3 28 5.5 C29.5 3 32.5 1 36 1 C41.5 1 46 4.5 46 10 C46 16 41 22 30 30 Z"
+              stroke="#5eead4"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <Path
+              d="M45 20 H56 L61 9 L66 29 L71 13 L75 24 L78 20 H106"
+              stroke="#5eead4"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={styles.footerBrandTagline}>{t('checkinFooterTagline')}</Text>
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -2090,6 +2189,124 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     optionList: { gap: spacing.md, marginTop: spacing.sm },
 
     // ── Status screen ──
+    statusSection: { gap: spacing.lg, position: 'relative' },
+    heroDecorativeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 4,
+      minHeight: 110,
+      position: 'relative',
+    },
+    heroTopLeftBranch: {
+      position: 'absolute',
+      top: -24,
+      left: -18,
+    },
+    heroSideWrapLeft: {
+      flex: 1,
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      paddingRight: 6,
+    },
+    heroSideWrapRight: {
+      flex: 1,
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      paddingLeft: 6,
+    },
+    heroSideText: {
+      fontSize: 12.5,
+      lineHeight: 18,
+      fontStyle: 'italic',
+      color: '#4B7B6E',
+      fontWeight: '500',
+    },
+    heroCenterBadgeWrap: {
+      width: 112,
+      height: 104,
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+    },
+    heroCenterBadgeDecor: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+    heroCenterHeartBadge: {
+      width: 60,
+      height: 60,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroHeadingWrap: {
+      alignItems: 'center',
+      paddingHorizontal: 8,
+    },
+    heroHeading: {
+      fontSize: 21,
+      fontWeight: '800',
+      color: '#0F3E36',
+      textAlign: 'center',
+      lineHeight: 28,
+      letterSpacing: -0.3,
+    },
+    heroSubheading: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: '#4A6B62',
+      textAlign: 'center',
+      lineHeight: 20,
+      marginTop: 8,
+    },
+    heroIndicatorPill: {
+      width: 38,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: '#2DD4BF',
+      alignSelf: 'center',
+      marginTop: 12,
+      marginBottom: 2,
+    },
+    footerBrandWrap: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      marginTop: spacing.xl,
+      paddingHorizontal: 8,
+      paddingVertical: 12,
+    },
+    footerBrandLeft: {
+      alignItems: 'flex-start',
+    },
+    footerBrandWord: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      color: '#609384',
+      lineHeight: 15,
+    },
+    footerBrandUnderline: {
+      width: 32,
+      height: 2.5,
+      backgroundColor: '#2DD4BF',
+      borderRadius: 2,
+      marginTop: 4,
+    },
+    footerBrandRight: {
+      alignItems: 'flex-end',
+      gap: 2,
+    },
+    footerBrandTagline: {
+      fontSize: 12,
+      fontStyle: 'italic',
+      color: '#4B7B6E',
+      textAlign: 'right',
+      marginTop: 2,
+    },
     statusAvatarWrap: { alignItems: 'center', marginBottom: spacing.xs },
     statusAvatar: {
       alignItems: 'center',
