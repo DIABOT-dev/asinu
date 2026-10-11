@@ -38,6 +38,7 @@ export function useCheckinCallAudio(
   language: 'vi' | 'en',
   translate: (key: string) => string,
   accountId?: string | number,
+  enabled = true,
 ) {
   const [audio, setAudio] = useState<CallAudioState>({ phase: 'idle', prompt: null, fallback: false });
   const player = useRef<CheckinCallAudio | null>(null);
@@ -45,6 +46,7 @@ export function useCheckinCallAudio(
   context.current = { attempt, language, translate, accountId };
 
   useEffect(() => {
+    if (!enabled) return;
     // Coalesce repeated replay taps. They invalidate playback, not the same
     // pending synthesis/download (which would otherwise hit rate limits).
     const downloads = new Map<string, Promise<{ uri: string; audioVersion?: string; mimeType?: string }>>();
@@ -153,7 +155,7 @@ export function useCheckinCallAudio(
       player.current = null;
       owner.dispose();
     };
-  }, []);
+  }, [enabled]);
 
   const stopAudio = useCallback((clearPrompt = true) => player.current?.stop(clearPrompt) ?? Promise.resolve(), []);
   const buildPrompt = useCallback((key: string, text?: string): CallAudioPrompt => {

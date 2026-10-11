@@ -30,6 +30,7 @@ import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDat
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
+import type { CheckinUiPreviewId } from '../../src/features/checkin/checkin-ui-gallery';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
@@ -715,16 +716,76 @@ function CheckinScreen() {
 
 type Styles = ReturnType<typeof createStyles>;
 
+/** Renders the same UI as check-in without mounting its API/consent/guide controller. */
+export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
+  const { t } = useTranslation('home');
+  const typography = useScaledTypography();
+  const styles = useMemo(() => createStyles(typography), [typography]);
+  const ignore = () => {};
+  const denyAi = async () => false;
+
+  if (id === 'checkin-status' || id === 'checkin-followup') {
+    return <StatusScreen styles={styles} onSelect={ignore} isFollowUp={id === 'checkin-followup'} readOnly />;
+  }
+  if (id === 'checkin-location') {
+    return <LocationScreen styles={styles} onConfirm={ignore} onBack={ignore} loading={false} onBeforeAi={denyAi} readOnly />;
+  }
+  if (['checkin-multiple', 'checkin-grouped', 'checkin-single', 'checkin-text', 'checkin-loading'].includes(id)) {
+    const single = id === 'checkin-single';
+    const textOnly = id === 'checkin-text';
+    const question = t(single ? 'checkinFallbackInitial3Question' : 'checkinFallbackInitial2Question');
+    const options = t(single ? 'checkinFallbackInitial3Options' : 'checkinFallbackInitial2Options', { returnObjects: true }) as string[];
+    return <TriageScreen
+      styles={styles}
+      question={question}
+      options={textOnly ? [] : options}
+      optionsGrouped={id === 'checkin-grouped' ? [{ key: 'head', label: t('checkinLocationHead'), icon: '', items: options }] : null}
+      multiSelect={!single}
+      allowFreeText={textOnly}
+      answers={single ? [{ question: t('checkinResultPreviewQuestion'), answer: t('checkinResultPreviewSymptoms') }] : []}
+      loading={id === 'checkin-loading'}
+      onAnswer={ignore}
+      onBeforeAi={denyAi}
+      readOnly
+    />;
+  }
+
+  const fine = id === 'checkin-result-fine' || id === 'checkin-result-followup';
+  const noCaregiver = id === 'checkin-result-no-caregiver';
+  const severity = id === 'checkin-result-emergency' ? 'emergency'
+    : id === 'checkin-result-high' || noCaregiver ? 'high'
+    : id === 'checkin-result-medium' ? 'medium' : 'low';
+  const session = createResultPreviewSession(t('checkinResultPreviewQuestion'), t('checkinResultPreviewSymptoms'));
+  if (fine) { session.initial_status = 'fine'; session.current_status = 'fine'; }
+  return <DoneScreen
+    styles={styles}
+    session={session}
+    triageSummary={fine ? null : {
+      summary: t('checkinResultPreviewSymptoms'),
+      severity,
+      recommendation: t(severity === 'emergency' ? 'checkinEmergencyAdvice' : 'checkinMonitorAdvice'),
+      needsDoctor: severity === 'high' || severity === 'emergency',
+      familyAlertResult: severity === 'high' ? { attempted: true, caregiversNotified: noCaregiver ? 0 : 2 } : undefined,
+      show_urgent_caregiver_warning: noCaregiver,
+    }}
+    isFollowUp={id === 'checkin-result-followup'}
+    onClose={ignore}
+    readOnly
+  />;
+}
+
 function StatusScreen({
   styles,
   onSelect,
   isFollowUp,
   practice = false,
+  readOnly = false,
 }: {
   styles: Styles;
   onSelect: (s: CheckinStatus) => void;
   isFollowUp: boolean;
   practice?: boolean;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation('home');
 
@@ -754,7 +815,7 @@ function StatusScreen({
       <GuideTarget step="checkin.status" style={styles.optionList} enabled={practice}>
         {CHECKIN_STATUS_CHOICES.map((choice, idx) => (
           <Animated.View key={choice.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
-            <CheckinStatusChoice choice={choice} onSelect={onSelect} />
+            <CheckinStatusChoice choice={choice} onSelect={readOnly ? undefined : onSelect} />
           </Animated.View>
         ))}
       </GuideTarget>
@@ -771,6 +832,7 @@ function LocationScreen({
   loading,
   onBeforeAi,
   practice = false,
+  readOnly = false,
 }: {
   styles: Styles;
   onConfirm: (locs: BodyLocation[], other: string) => void;
@@ -778,6 +840,7 @@ function LocationScreen({
   loading: boolean;
   onBeforeAi: () => Promise<boolean>;
   practice?: boolean;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation('home');
   const { t: tg } = useTranslation('onboarding');
@@ -786,6 +849,7 @@ function LocationScreen({
   const [other, setOther] = useState('');
 
   const toggle = (key: BodyLocation) => {
+    if (readOnly) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -819,7 +883,7 @@ function LocationScreen({
             <Pressable
               key={opt.key}
               onPress={() => !loading && toggle(opt.key)}
-              disabled={loading}
+              disabled={loading || readOnly}
               style={({ pressed }) => [
                 {
                   flexDirection: 'row',
@@ -884,15 +948,15 @@ function LocationScreen({
         >
           <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
             <VoiceAnswerButton onText={text => { setOther(previous => `${previous} ${text}`.trim()); acknowledgeGuide('checkin.voice'); }}
-              onBeforeAi={onBeforeAi} disabled={loading} practice={practice} />
+              onBeforeAi={onBeforeAi} disabled={loading || readOnly} practice={practice} />
           </GuideTarget>
           <TextInput
             allowFontScaling
             value={other}
-            onChangeText={setOther}
+            onChangeText={readOnly ? undefined : setOther}
             placeholder={t('checkinLocationOtherPlaceholder')}
             placeholderTextColor="#94a3b8"
-            editable={!loading}
+            editable={!loading && !readOnly}
             maxLength={200}
             style={{
               flex: 1,
@@ -909,8 +973,8 @@ function LocationScreen({
 
       <GuideTarget step="checkin.location_confirm" enabled={practice && canConfirm}>
       <Pressable
-        onPress={() => onConfirm(Array.from(selected), other)}
-        disabled={!canConfirm}
+        onPress={() => { if (!readOnly) onConfirm(Array.from(selected), other); }}
+        disabled={!canConfirm || readOnly}
         style={({ pressed }) => [{
           marginTop: spacing.lg,
           backgroundColor: canConfirm ? guideColors.actionBackground : '#cbd5e1',
@@ -947,6 +1011,7 @@ function TriageScreen({
   continuity,
   greeting,
   practice = false,
+  readOnly = false,
 }: {
   styles: Styles;
   question: string;
@@ -962,6 +1027,7 @@ function TriageScreen({
   continuity?: { text: string; templateId: string } | null;
   greeting?: { displayText: string; templateId: string } | null;
   practice?: boolean;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation('home');
   const { t: tg } = useTranslation('onboarding');
@@ -988,6 +1054,7 @@ function TriageScreen({
   }, []);
 
   const handleMicPress = async () => {
+    if (readOnly) return;
     await guidanceAudio.stop();
     if (practice) {
       if (isRecording) {
@@ -1047,6 +1114,7 @@ function TriageScreen({
   const progress = (answers.length + 1) / MAX_TRIAGE_QUESTIONS;
 
   const handleOptionTap = (opt: string) => {
+    if (readOnly) return;
     if (multiSelect) {
       // Multi-select: toggle checkbox
       setSelected((prev) => {
@@ -1064,6 +1132,7 @@ function TriageScreen({
   };
 
   const handleConfirm = () => {
+    if (readOnly) return;
     const parts: string[] = [...selected];
     if (custom.trim()) parts.push(custom.trim());
     if (parts.length === 0) return;
@@ -1206,7 +1275,8 @@ function TriageScreen({
                         <Pressable
                           key={`${group.key}-${opt}`}
                           style={[styles.optionCard, isSelected && styles.optionCardSelected]}
-                          onPress={() => handleOptionTap(opt)}
+                          disabled={readOnly}
+                      onPress={() => handleOptionTap(opt)}
                         >
                           <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
                             {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
@@ -1232,6 +1302,7 @@ function TriageScreen({
                         styles.optionCard,
                         isSelected && styles.optionCardSelected,
                       ]}
+                      disabled={readOnly}
                       onPress={() => handleOptionTap(opt)}
                     >
                       {multiSelect ? (
@@ -1263,7 +1334,7 @@ function TriageScreen({
               <Pressable
                 onPress={handleMicPress}
                 style={[styles.micBtn, ]}
-                disabled={isTranscribing}
+                disabled={isTranscribing || readOnly}
               >
                 {isTranscribing ? (
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -1282,9 +1353,9 @@ function TriageScreen({
                   placeholder={isTranscribing ? '...' : t('checkinCustomPlaceholder')}
                   placeholderTextColor={colors.textSecondary + '77'}
                   value={custom}
-                  onChangeText={setCustom}
+                  onChangeText={readOnly ? undefined : setCustom}
                   returnKeyType="done"
-                  editable={!isTranscribing}
+                  editable={!isTranscribing && !readOnly}
                 />
               </View>
             </Animated.View></GuideTarget>}
@@ -1297,7 +1368,7 @@ function TriageScreen({
                   !hasSelection && styles.confirmBtnDisabled,
                   pressed && hasSelection && { opacity: 0.9, transform: [{ scale: 0.97 }] },
                 ]}
-                disabled={!hasSelection}
+                disabled={!hasSelection || readOnly}
                 onPress={handleConfirm}
               >
                 <View style={[styles.confirmBtnGradient, { backgroundColor: hasSelection ? (practice ? guideColors.actionBackground : colors.primaryLight) : colors.surfaceMuted, minHeight: practice ? 60 : undefined }]}>
@@ -1444,6 +1515,7 @@ function DoneScreen({
   answers,
   onClose,
   practice = false,
+  readOnly = false,
   onRepeatPractice,
 }: {
   styles: Styles;
@@ -1453,6 +1525,7 @@ function DoneScreen({
   answers?: TriageAnswer[];
   onClose: () => void;
   practice?: boolean;
+  readOnly?: boolean;
   onRepeatPractice?: (followup?: boolean) => void;
 }) {
   const { t, i18n } = useTranslation('home');
@@ -1463,7 +1536,7 @@ function DoneScreen({
   const [speechReplayKey, setSpeechReplayKey] = useState(0);
   const language = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi';
   const { audio: conclusionAudio, play: playConclusionAudio, stopAudio: stopConclusionAudio } =
-    useCheckinCallAudio(null, language, t);
+    useCheckinCallAudio(null, language, t, undefined, !readOnly);
   const isSpeakingConclusion = ['loading', 'playing'].includes(conclusionAudio.phase);
   const isFine = practice && practiceSeverity ? practiceSeverity === 'low'
     : session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
@@ -1508,6 +1581,7 @@ function DoneScreen({
     : 'checkmark-circle';
 
   const handleCall115 = () => {
+    if (readOnly) return;
     if (practice) { showToast(tg('guidance.practiceActionNotice'), 'info'); return; }
     Linking.openURL('tel:115').catch(() => {});
   };
@@ -1558,7 +1632,7 @@ function DoneScreen({
     .join('. ') + '.';
 
   useEffect(() => {
-    if (practice) return; // The bundled coach recordings explain example results offline.
+    if (practice || readOnly) return; // The bundled coach recordings explain example results offline.
     const timer = setTimeout(() => {
       if (conclusionSpeechPlayedRef.current || !conclusionSpeechText) {
         return;
@@ -1573,9 +1647,10 @@ function DoneScreen({
       clearTimeout(timer);
       void stopConclusionAudio();
     };
-  }, [practice, conclusionSpeechText, language, session?.id, speechReplayKey, playConclusionAudio, stopConclusionAudio]);
+  }, [practice, readOnly, conclusionSpeechText, language, session?.id, speechReplayKey, playConclusionAudio, stopConclusionAudio]);
 
   const replayConclusionSpeech = () => {
+    if (readOnly) return;
     if (practice) { void guidanceAudio.speak('practice_result', language, true); return; }
     conclusionSpeechPlayedRef.current = false;
     setSpeechReplayKey((value) => value + 1);
@@ -1618,6 +1693,7 @@ function DoneScreen({
           accessibilityLabel={t('checkinReplaySound')}
           accessibilityState={{ busy: isSpeakingConclusion }}
           hitSlop={8}
+          disabled={readOnly}
           onPress={replayConclusionSpeech}
           style={({ pressed }) => ({
             minWidth: 44,
@@ -1708,6 +1784,7 @@ function DoneScreen({
             <GuideTarget step="checkin.result_emergency" enabled={practice}>
             <View>
               <Pressable
+                disabled={readOnly}
                 onPress={handleCall115}
                 style={({ pressed }) => [
                   {
@@ -1826,7 +1903,8 @@ function DoneScreen({
           {(!isFine || triageSummary?.needsDoctor) && (
             <GuideTarget step="checkin.result_doctor" enabled={practice}>
             <Pressable
-              onPress={() => practice ? showToast(tg('guidance.practiceActionNotice'), 'info') : router.push('/doctor-consultation' as any)}
+              disabled={readOnly}
+              onPress={() => readOnly ? undefined : practice ? showToast(tg('guidance.practiceActionNotice'), 'info') : router.push('/doctor-consultation' as any)}
               style={({ pressed }) => [
                 {
                   flexDirection: 'row',
@@ -1892,7 +1970,8 @@ function DoneScreen({
           {/* Caregiver CTA if applicable */}
           {triageSummary?.show_urgent_caregiver_warning && (
             <Pressable
-              onPress={() => practice ? showToast(tg('guidance.practiceActionNotice'), 'info') : router.push('/care-circle/invite')}
+              disabled={readOnly}
+              onPress={() => readOnly ? undefined : practice ? showToast(tg('guidance.practiceActionNotice'), 'info') : router.push('/care-circle/invite')}
               style={({ pressed }) => [
                 {
                   flexDirection: 'row',
@@ -1963,7 +2042,8 @@ function DoneScreen({
               transform: [{ scale: pressed ? 0.99 : 1 }],
             },
           ]}
-          onPress={onClose}
+          disabled={readOnly}
+          onPress={readOnly ? undefined : onClose}
         >
           <Text allowFontScaling style={{ fontSize: practice ? 22 : 17, fontWeight: '700', color: practice ? guideColors.onAction : '#0F766E' }}>
             {practice ? tg('guidance.practiceFinish') : t('checkinClose')}

@@ -1,5 +1,6 @@
-import React, { useMemo, useState, type ReactNode } from 'react';
+import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
+  BackHandler,
   Image,
   Pressable,
   ScrollView,
@@ -8,13 +9,22 @@ import {
   View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CheckinUiPreview } from '../checkin';
+import { CHECKIN_UI_PREVIEWS, type CheckinUiPreviewId } from '../../src/features/checkin/checkin-ui-gallery';
+import { ADDRESS_OPTIONS, REGION_OPTIONS } from '../../src/features/checkin-call/voice-preferences';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { CheckinCallSafetyNote, CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
-import type { CallAudioState } from '../../src/features/checkin-call/checkin-call.audio';
 
-type PreviewId =
+type PreviewId = CheckinUiPreviewId
+  | 'voice-settings'
+  | 'result-user-unreachable'
+  | 'result-family-handled'
+  | 'result-checkin-recorded'
+  | 'result-cancelled'
   | 'settings'
   | 'incoming-ios'
   | 'incoming-android'
@@ -44,26 +54,31 @@ type PreviewDefinition = {
   badge: string;
 };
 
-const PREVIEW_META: Array<Omit<PreviewDefinition, 'title' | 'description' | 'badge'> & { titleKey: string; descriptionKey: string; badgeKey: string }> = [
-  { id: 'settings', index: '01', titleKey: 'gallery.settingsTitle', descriptionKey: 'gallery.settingsDescription', icon: 'options-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'incoming-ios', index: '02', titleKey: 'gallery.iosTitle', descriptionKey: 'gallery.iosDescription', icon: 'logo-apple', badgeKey: 'gallery.badgeNative' },
-  { id: 'incoming-android', index: '03', titleKey: 'gallery.androidTitle', descriptionKey: 'gallery.androidDescription', icon: 'logo-android', badgeKey: 'gallery.badgeNative' },
-  { id: 'incoming-user-app', index: '04', titleKey: 'gallery.inAppUserTitle', descriptionKey: 'gallery.inAppUserDescription', icon: 'person-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'incoming-family-app', index: '05', titleKey: 'gallery.inAppFamilyTitle', descriptionKey: 'gallery.inAppFamilyDescription', icon: 'people-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'user-call', index: '06', titleKey: 'gallery.userTitle', descriptionKey: 'gallery.userDescription', icon: 'keypad-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'triage-location', index: '07', titleKey: 'gallery.triageLocationTitle', descriptionKey: 'gallery.triageLocationDescription', icon: 'body-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'triage-symptom', index: '08', titleKey: 'gallery.triageSymptomTitle', descriptionKey: 'gallery.triageSymptomDescription', icon: 'pulse-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'triage-intensity', index: '09', titleKey: 'gallery.triageIntensityTitle', descriptionKey: 'gallery.triageIntensityDescription', icon: 'speedometer-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'family-unknown', index: '10', titleKey: 'gallery.unknownTitle', descriptionKey: 'gallery.unknownDescription', icon: 'help-circle-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'family-mild', index: '11', titleKey: 'gallery.mildTitle', descriptionKey: 'gallery.mildDescription', icon: 'heart-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'family-urgent', index: '12', titleKey: 'gallery.urgentTitle', descriptionKey: 'gallery.urgentDescription', icon: 'warning-outline', badgeKey: 'gallery.badgeApp' },
-  { id: 'result-user-ok', index: '13', titleKey: 'gallery.resultOkTitle', descriptionKey: 'gallery.resultOkDescription', icon: 'checkmark-circle-outline', badgeKey: 'gallery.badgeState' },
-  { id: 'result-user-mild', index: '14', titleKey: 'gallery.resultMildTitle', descriptionKey: 'gallery.resultMildDescription', icon: 'heart-circle-outline', badgeKey: 'gallery.badgeState' },
-  { id: 'result-user-urgent', index: '15', titleKey: 'gallery.resultUrgentTitle', descriptionKey: 'gallery.resultUrgentDescription', icon: 'alert-circle-outline', badgeKey: 'gallery.badgeState' },
-  { id: 'result-family-confirmed', index: '16', titleKey: 'gallery.resultFamilyConfirmedTitle', descriptionKey: 'gallery.resultFamilyConfirmedDescription', icon: 'shield-checkmark-outline', badgeKey: 'gallery.badgeState' },
-  { id: 'result-family-unavailable', index: '17', titleKey: 'gallery.resultFamilyUnavailableTitle', descriptionKey: 'gallery.resultFamilyUnavailableDescription', icon: 'people-circle-outline', badgeKey: 'gallery.badgeState' },
-  { id: 'call-expired', index: '18', titleKey: 'gallery.expiredPreviewTitle', descriptionKey: 'gallery.expiredPreviewDescription', icon: 'time-outline', badgeKey: 'gallery.badgeState' },
-  { id: 'connection-states', index: '19', titleKey: 'gallery.connectionStatesTitle', descriptionKey: 'gallery.connectionStatesDescription', icon: 'cloud-offline-outline', badgeKey: 'gallery.badgeState' },
+const PREVIEW_META: Array<Omit<PreviewDefinition, 'index' | 'title' | 'description' | 'badge'> & { titleKey: string; descriptionKey: string; badgeKey: string }> = [
+  { id: 'settings', titleKey: 'gallery.settingsTitle', descriptionKey: 'gallery.settingsDescription', icon: 'options-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'voice-settings', titleKey: 'gallery.voiceSettingsTitle', descriptionKey: 'gallery.voiceSettingsDescription', icon: 'volume-high-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'incoming-ios', titleKey: 'gallery.iosTitle', descriptionKey: 'gallery.iosDescription', icon: 'logo-apple', badgeKey: 'gallery.badgeNative' },
+  { id: 'incoming-android', titleKey: 'gallery.androidTitle', descriptionKey: 'gallery.androidDescription', icon: 'logo-android', badgeKey: 'gallery.badgeNative' },
+  { id: 'incoming-user-app', titleKey: 'gallery.inAppUserTitle', descriptionKey: 'gallery.inAppUserDescription', icon: 'person-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'incoming-family-app', titleKey: 'gallery.inAppFamilyTitle', descriptionKey: 'gallery.inAppFamilyDescription', icon: 'people-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'user-call', titleKey: 'gallery.userTitle', descriptionKey: 'gallery.userDescription', icon: 'keypad-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'triage-location', titleKey: 'gallery.triageLocationTitle', descriptionKey: 'gallery.triageLocationDescription', icon: 'body-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'triage-symptom', titleKey: 'gallery.triageSymptomTitle', descriptionKey: 'gallery.triageSymptomDescription', icon: 'pulse-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'triage-intensity', titleKey: 'gallery.triageIntensityTitle', descriptionKey: 'gallery.triageIntensityDescription', icon: 'speedometer-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'family-unknown', titleKey: 'gallery.unknownTitle', descriptionKey: 'gallery.unknownDescription', icon: 'help-circle-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'family-mild', titleKey: 'gallery.mildTitle', descriptionKey: 'gallery.mildDescription', icon: 'heart-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'family-urgent', titleKey: 'gallery.urgentTitle', descriptionKey: 'gallery.urgentDescription', icon: 'warning-outline', badgeKey: 'gallery.badgeApp' },
+  { id: 'result-user-ok', titleKey: 'gallery.resultOkTitle', descriptionKey: 'gallery.resultOkDescription', icon: 'checkmark-circle-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'result-user-mild', titleKey: 'gallery.resultMildTitle', descriptionKey: 'gallery.resultMildDescription', icon: 'heart-circle-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'result-user-urgent', titleKey: 'gallery.resultUrgentTitle', descriptionKey: 'gallery.resultUrgentDescription', icon: 'alert-circle-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'result-family-confirmed', titleKey: 'gallery.resultFamilyConfirmedTitle', descriptionKey: 'gallery.resultFamilyConfirmedDescription', icon: 'shield-checkmark-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'result-family-unavailable', titleKey: 'gallery.resultFamilyUnavailableTitle', descriptionKey: 'gallery.resultFamilyUnavailableDescription', icon: 'people-circle-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'result-user-unreachable', titleKey: 'gallery.userUnreachableTitle', descriptionKey: 'gallery.userUnreachableDescription', icon: 'person-remove-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'result-family-handled', titleKey: 'gallery.familyHandledTitle', descriptionKey: 'gallery.familyHandledDescription', icon: 'shield-checkmark-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'result-checkin-recorded', titleKey: 'gallery.checkinRecordedTitle', descriptionKey: 'gallery.checkinRecordedDescription', icon: 'checkmark-done-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'result-cancelled', titleKey: 'gallery.cancelledTitle', descriptionKey: 'gallery.cancelledDescription', icon: 'close-circle-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'call-expired', titleKey: 'gallery.expiredPreviewTitle', descriptionKey: 'gallery.expiredPreviewDescription', icon: 'time-outline', badgeKey: 'gallery.badgeState' },
+  { id: 'connection-states', titleKey: 'gallery.connectionStatesTitle', descriptionKey: 'gallery.connectionStatesDescription', icon: 'cloud-offline-outline', badgeKey: 'gallery.badgeState' },
 ];
 
 const COLORS = {
@@ -82,12 +97,13 @@ const COLORS = {
 
 function TopBar({ title, onBack }: { title: string; onBack: () => void }) {
   const { t: tc } = useTranslation('common');
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.topBar}>
+    <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={tc('back')} style={styles.iconButton} onPress={onBack}>
         <Ionicons name="chevron-back" size={24} color="#0f3e36" />
       </Pressable>
-      <Text style={styles.topBarTitle} numberOfLines={1}>{title}</Text>
+      <Text style={styles.topBarTitle}>{title}</Text>
       <View style={{ width: 40 }} />
       <View style={styles.headerCrossArt} pointerEvents="none">
         <MaterialCommunityIcons name="plus" size={54} color="#dcf2eb" />
@@ -104,7 +120,7 @@ function PreviewFrame({ children, note }: { children: ReactNode; note?: string }
         <Ionicons name="information-circle" size={19} color="#00897b" />
         <Text style={styles.previewNoticeText}>{note || t('gallery.previewNotice')}</Text>
       </View>
-      {children}
+      <View pointerEvents="none" style={styles.previewContent}>{children}</View>
     </View>
   );
 }
@@ -465,9 +481,13 @@ function FamilyPreview({ severity }: { severity: 'UNKNOWN' | 'MILD' | 'URGENT' }
   );
 }
 
-function ResultPreview({ kind }: { kind: 'USER_OK' | 'USER_MILD' | 'USER_URGENT' | 'FAMILY_CONFIRMED' | 'FAMILY_UNAVAILABLE' }) {
+function ResultPreview({ kind }: { kind: 'USER_OK' | 'USER_MILD' | 'USER_URGENT' | 'FAMILY_CONFIRMED' | 'FAMILY_UNAVAILABLE' | 'USER_UNREACHABLE' | 'FAMILY_HANDLED' | 'CHECKIN_RECORDED' | 'CANCELLED' }) {
   const { t } = useTranslation('checkinCall');
   const content = {
+    USER_UNREACHABLE: { title: t('result.statusUserUnreachableTitle'), message: t('result.statusUserUnreachableMessage'), state: t('statusUserUnreachable'), success: false },
+    FAMILY_HANDLED: { title: t('result.statusFamilyHandledTitle'), message: t('result.statusFamilyHandledMessage'), state: t('statusFamilyHandled'), success: true },
+    CHECKIN_RECORDED: { title: t('result.statusCheckinRecordedTitle'), message: t('result.statusCheckinRecordedMessage'), state: t('statusCheckinRecorded'), success: true },
+    CANCELLED: { title: t('result.statusCancelledTitle'), message: t('result.statusCancelledMessage'), state: t('statusCancelled'), success: false },
     USER_OK: {
       title: t('result.userOkTitle'),
       message: t('result.userOkMessage'),
@@ -611,35 +631,77 @@ function ConnectionStatesPreview() {
 
 function SpeechPreview({ promptKey = 'audio.userPrompt' }: { promptKey?: string }) {
   const { t, i18n } = useTranslation('checkinCall');
-  const [phase, setPhase] = useState<CallAudioState['phase']>('playing');
   return (
     <CheckinCallSpeech
-      audio={{ phase, fallback: false, prompt: { key: promptKey, text: t(promptKey), language: i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi' } }}
+      audio={{ phase: 'playing', fallback: false, prompt: { key: promptKey, text: t(promptKey), language: i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi' } }}
       disabled={false}
+      readOnly
       showTranscript={false}
-      onReplay={() => setPhase('playing')}
-      onStop={() => setPhase('idle')}
+      onReplay={() => {}}
+      onStop={() => {}}
     />
   );
+}
+
+function VoiceSettingsPreview() {
+  const { t } = useTranslation('checkinCall');
+  return <PreviewFrame>
+    <Text style={styles.screenTitle}>{t('personalization.title')}</Text>
+    <Text style={styles.screenLead}>{t('personalization.description')}</Text>
+    <Text style={styles.settingLabel}>{t('personalization.addressTitle')}</Text>
+    <Text style={styles.screenLead}>{t('personalization.addressHint')}</Text>
+    {ADDRESS_OPTIONS.map(address => <View key={address} style={styles.settingRow}>
+      <Ionicons name={address === 'auto' ? 'radio-button-on' : 'radio-button-off'} size={22} color={COLORS.teal} />
+      <Text style={styles.settingLabel}>{t(`personalization.address.${address}`)}</Text>
+    </View>)}
+    {(['use_name', 'use_health', 'weather_enabled'] as const).map(field => <View key={field} style={styles.settingRow}>
+      <View style={styles.settingCopy}>
+        <Text style={styles.settingLabel}>{t(`personalization.${field}`)}</Text>
+        <Text style={styles.screenLead}>{t(`personalization.${field}Hint`)}</Text>
+      </View>
+      <Switch disabled value={field === 'weather_enabled'} trackColor={{ false: COLORS.line, true: COLORS.teal }} />
+    </View>)}
+    <Text style={styles.settingLabel}>{t('personalization.regionTitle')}</Text>
+    <Text style={styles.screenLead}>{t('personalization.regionHint')}</Text>
+    {REGION_OPTIONS.map(region => <ActionButton key={region} tone="neutral">{t(`personalization.regions.${region}`)}</ActionButton>)}
+    <ActionButton tone="neutral" icon={<Ionicons name="location-outline" size={22} color={COLORS.teal} />}>{t('personalization.useLocation')}</ActionButton>
+    <View style={styles.saveBtn}><Text style={styles.saveBtnText}>{t('saveSettings')}</Text></View>
+  </PreviewFrame>;
 }
 
 export default function CheckinCallUiGalleryScreen() {
   const router = useRouter();
   const { t } = useTranslation('checkinCall');
   const [selected, setSelected] = useState<PreviewId | null>(null);
-  const previews = useMemo<PreviewDefinition[]>(() => PREVIEW_META.map((item) => ({
+  const insets = useSafeAreaInsets();
+  useFocusEffect(useCallback(() => {
+    if (!selected) return;
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => { setSelected(null); return true; });
+    return () => listener.remove();
+  }, [selected]));
+  const checkinPreviews = useMemo<PreviewDefinition[]>(() => CHECKIN_UI_PREVIEWS.map((item, index) => ({
+    id: item.id, index: String(index + 1).padStart(2, '0'), icon: item.icon,
+    title: t(`gallery.manual.${item.key}.title`),
+    description: t(`gallery.manual.${item.key}.description`),
+    badge: t('gallery.badgeApp'),
+  })), [t]);
+  const callPreviews = useMemo<PreviewDefinition[]>(() => PREVIEW_META.map((item, index) => ({
     id: item.id,
-    index: item.index,
+    index: String(index + 1).padStart(2, '0'),
     icon: item.icon,
     title: t(item.titleKey),
     description: t(item.descriptionKey),
     badge: t(item.badgeKey),
   })), [t]);
+  const previews = useMemo(() => [...checkinPreviews, ...callPreviews], [checkinPreviews, callPreviews]);
   const definition = useMemo(() => previews.find((item) => item.id === selected), [previews, selected]);
 
   const preview = useMemo(() => {
+    const checkin = CHECKIN_UI_PREVIEWS.find(item => item.id === selected);
+    if (checkin) return <PreviewFrame><CheckinUiPreview key={checkin.id} id={checkin.id} /></PreviewFrame>;
     switch (selected) {
       case 'settings': return <SettingsPreview />;
+      case 'voice-settings': return <VoiceSettingsPreview />;
       case 'incoming-ios': return <NativeIncomingPreview platform="ios" />;
       case 'incoming-android': return <NativeIncomingPreview platform="android" />;
       case 'incoming-user-app': return <InAppIncomingPreview role="USER" />;
@@ -656,6 +718,10 @@ export default function CheckinCallUiGalleryScreen() {
       case 'result-user-urgent': return <ResultPreview kind="USER_URGENT" />;
       case 'result-family-confirmed': return <ResultPreview kind="FAMILY_CONFIRMED" />;
       case 'result-family-unavailable': return <ResultPreview kind="FAMILY_UNAVAILABLE" />;
+      case 'result-user-unreachable': return <ResultPreview kind="USER_UNREACHABLE" />;
+      case 'result-family-handled': return <ResultPreview kind="FAMILY_HANDLED" />;
+      case 'result-checkin-recorded': return <ResultPreview kind="CHECKIN_RECORDED" />;
+      case 'result-cancelled': return <ResultPreview kind="CANCELLED" />;
       case 'call-expired': return <ExpiredPreview />;
       case 'connection-states': return <ConnectionStatesPreview />;
       default: return null;
@@ -666,7 +732,7 @@ export default function CheckinCallUiGalleryScreen() {
     return (
       <View style={styles.root}>
         <TopBar title={definition.title} onBack={() => setSelected(null)} />
-        <ScrollView contentContainerStyle={styles.previewScroll}>{preview}</ScrollView>
+        <ScrollView key={selected} contentContainerStyle={[styles.previewScroll, { paddingBottom: insets.bottom + 32 }]}>{preview}</ScrollView>
       </View>
     );
   }
@@ -674,12 +740,14 @@ export default function CheckinCallUiGalleryScreen() {
   return (
     <View style={styles.root}>
       <TopBar title={t('gallery.title')} onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.galleryContent}>
+      <ScrollView key="gallery" contentContainerStyle={[styles.galleryContent, { paddingBottom: insets.bottom + 32 }]}>
         <Text style={styles.galleryTitle}>{t('gallery.heading')}</Text>
         <Text style={styles.galleryLead}>{t('gallery.lead')}</Text>
-        <View style={styles.devBadge}><Ionicons name="construct-outline" size={16} color={COLORS.teal} /><Text style={styles.devBadgeText}>{t('gallery.developmentOnly')}</Text></View>
-        <View style={styles.list}>
-          {previews.map((item) => (
+        <View style={styles.devBadge}><Ionicons name="eye-outline" size={16} color={COLORS.teal} /><Text style={styles.devBadgeText}>{t('gallery.readOnly')}</Text></View>
+        {[{ title: t('gallery.checkinGroup'), items: checkinPreviews }, { title: t('gallery.callGroup'), items: callPreviews }].map(group => <View key={group.title}>
+          <Text accessibilityRole="header" style={styles.groupTitle}>{group.title} · {group.items.length}</Text>
+          <View style={styles.list}>
+          {group.items.map((item) => (
             <Pressable
               key={item.id}
               accessibilityRole="button"
@@ -696,7 +764,8 @@ export default function CheckinCallUiGalleryScreen() {
               <Ionicons name="chevron-forward" size={20} color="#8aa19d" />
             </Pressable>
           ))}
-        </View>
+          </View>
+        </View>)}
       </ScrollView>
     </View>
   );
@@ -704,7 +773,7 @@ export default function CheckinCallUiGalleryScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.canvas },
-  topBar: { minHeight: 96, paddingTop: 46, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.line, backgroundColor: COLORS.surface },
+  topBar: { paddingBottom: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.line, backgroundColor: COLORS.surface },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   topBarTitle: { flex: 1, textAlign: 'center', color: COLORS.ink, fontSize: 17, fontWeight: '700' },
   galleryContent: { padding: 20, paddingBottom: 48 },
@@ -712,7 +781,8 @@ const styles = StyleSheet.create({
   galleryLead: { color: COLORS.muted, fontSize: 15, lineHeight: 23, marginTop: 8, maxWidth: 560 },
   devBadge: { alignSelf: 'flex-start', marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: COLORS.tealSoft, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   devBadgeText: { color: COLORS.teal, fontWeight: '700', fontSize: 12 },
-  list: { marginTop: 24, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.line },
+  groupTitle: { color: COLORS.ink, fontSize: 20, lineHeight: 26, fontWeight: '700', marginTop: 30, marginBottom: 12 },
+  list: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.line },
   listRow: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.line, paddingVertical: 12 },
   listRowPressed: { backgroundColor: '#e9f3f0' },
   listIndex: { width: 24, color: '#78908c', fontSize: 12, fontWeight: '700' },
@@ -724,6 +794,7 @@ const styles = StyleSheet.create({
   listDescription: { color: COLORS.muted, fontSize: 13, lineHeight: 18 },
   previewScroll: { flexGrow: 1, padding: 18, paddingBottom: 48 },
   previewFrame: { flex: 1, maxWidth: 620, width: '100%', alignSelf: 'center', backgroundColor: 'transparent', borderWidth: 0, padding: 0, gap: 14 },
+  previewContent: { gap: 14 },
   previewNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e6f7f2', borderRadius: 14, borderWidth: 1, borderColor: '#cceee2', paddingHorizontal: 14, paddingVertical: 11 },
   previewNoticeText: { color: '#0f766e', fontSize: 13, lineHeight: 18, fontWeight: '600', flex: 1 },
   headerCrossArt: { position: 'absolute', right: 8, top: 40, opacity: 0.65 },

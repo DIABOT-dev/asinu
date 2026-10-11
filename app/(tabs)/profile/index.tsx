@@ -49,7 +49,6 @@ const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
-const SHOW_CHECKIN_CALL_UI_GALLERY = false;
 const SHOW_CARE_BANNER = false;
 
 const DeleteAccountModal = React.lazy(
@@ -1042,21 +1041,19 @@ export default function ProfileScreen() {
                   />
                 </TouchableOpacity>
 
-                {__DEV__ && SHOW_CHECKIN_CALL_UI_GALLERY && (
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/checkin-call/ui-gallery" as any)}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("checkinCallGalleryAccessibility")}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="color-palette-outline" size={22} color="#07846d" />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => router.push("/checkin-call/ui-gallery" as any)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("checkinCallGalleryAccessibility")}
+                >
+                  <View style={styles.rowIconWrap}>
+                    <Ionicons name="eye-outline" size={22} color="#07846d" />
+                  </View>
+                  <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                </TouchableOpacity>
               </View>
             </Animated.View>
 

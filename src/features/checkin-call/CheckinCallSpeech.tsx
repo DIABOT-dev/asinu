@@ -8,12 +8,13 @@ import { useFontSizeStore } from '../../stores/font-size.store';
 import { radius, spacing, type lightColors } from '../../styles/theme';
 import type { CallAudioState } from './checkin-call.audio';
 
-export function CheckinCallSpeech({ audio, disabled, onReplay, onStop, showTranscript = true }: {
+export function CheckinCallSpeech({ audio, disabled, onReplay, onStop, showTranscript = true, readOnly = false }: {
   audio: CallAudioState;
   disabled: boolean;
   onReplay: () => void;
   onStop: () => void;
   showTranscript?: boolean;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation('checkinCall');
   const { colors } = useThemeColors();
@@ -42,9 +43,9 @@ export function CheckinCallSpeech({ audio, disabled, onReplay, onStop, showTrans
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('replay')}
-          accessibilityState={{ disabled }}
-          disabled={disabled}
-          onPress={onReplay}
+          accessibilityState={{ disabled: disabled || readOnly }}
+          disabled={disabled || readOnly}
+          onPress={readOnly ? undefined : onReplay}
           style={({ pressed }) => [styles.control, { flexBasis: 140 * multiplier }, disabled && styles.disabled, pressed && styles.pressed]}
         >
           <Ionicons name="play-circle" size={32} color={colors.primary} />
@@ -53,9 +54,9 @@ export function CheckinCallSpeech({ audio, disabled, onReplay, onStop, showTrans
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('playback.stop')}
-          accessibilityState={{ disabled: !active }}
-          disabled={!active}
-          onPress={onStop}
+          accessibilityState={{ disabled: !active || readOnly }}
+          disabled={!active || readOnly}
+          onPress={readOnly ? undefined : onStop}
           style={({ pressed }) => [styles.control, { flexBasis: 140 * multiplier }, !active && styles.disabled, pressed && styles.pressed]}
         >
           <Ionicons name="stop-circle" size={32} color={colors.primary} />

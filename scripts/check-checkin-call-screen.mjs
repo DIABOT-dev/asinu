@@ -224,6 +224,14 @@ test(`${lang} ${mode} font ${multiplier}: playback actions, status and safety us
       assert.equal(label.props.ellipsizeMode, undefined);
     }
   }
+  for (const phase of ['idle', 'loading', 'playing', 'finished', 'error']) {
+    const previewNodes = speechNodes(CheckinCallSpeech({ audio: { phase, prompt }, disabled: false,
+      readOnly: true, onReplay, onStop }));
+    const controls = previewNodes.filter(node => node.type === 'Pressable');
+    assert.equal(controls.length, 2);
+    assert.ok(controls.every(node => node.props.disabled && node.props.accessibilityState.disabled));
+    assert.ok(controls.every(node => node.props.onPress === undefined), 'Preview controls have no touch, keyboard or accessibility action');
+  }
   const busyNodes = speechNodes(CheckinCallSpeech({ audio: { phase: 'playing', prompt }, disabled: true, onReplay, onStop }));
   const busyReplay = busyNodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('replay'));
   assert.ok(busyReplay.props.disabled && busyReplay.props.accessibilityState.disabled);
@@ -238,4 +246,85 @@ test(`${lang} ${mode} font ${multiplier}: playback actions, status and safety us
   assert.equal(notice.find(node => node.type === 'Icon').props.color, colors.primaryText);
 });
 }
+
+for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, scroll and return to the catalogue`, () => {
+  const catalogs = Object.fromEntries(['checkinCall', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${lang}/${ns}.json`))]));
+  const t = (key, options = {}) => {
+    const value = key.split('.').reduce((entry, part) => entry?.[part], catalogs[options.ns || 'checkinCall']);
+    assert.equal(typeof value, 'string', `Missing ${lang} gallery copy: ${key}`);
+    return value.replace(/\{\{(\w+)\}\}/g, (_, part) => String(options[part] ?? ''));
+  };
+  let selected = null, androidBack;
+  const navigation = [];
+  const hooks = { createElement: React.createElement, Fragment: React.Fragment,
+    useMemo: work => work(), useCallback: work => work,
+    useState: () => [selected, value => { selected = value; }] };
+  const { CHECKIN_UI_PREVIEWS } = evaluate(read('src/features/checkin/checkin-ui-gallery.ts'));
+  const { default: Gallery } = evaluate(read('app/checkin-call/ui-gallery.tsx'), {
+    react: { __esModule: true, default: hooks, ...hooks },
+    'react-native': { View: 'View', Pressable: 'Pressable', ScrollView: 'ScrollView', Image: 'Image', Switch: 'Switch',
+      BackHandler: { addEventListener: (_event, callback) => { androidBack = callback; return { remove() {} }; } },
+      StyleSheet: { create: value => value, hairlineWidth: 0.5, absoluteFill: {} } },
+    '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
+    'expo-router': { useFocusEffect: work => work() },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back: () => navigation.push('back') }) },
+    'react-i18next': { useTranslation: ns => ({ t: (key, options) => t(key, { ns, ...options }), i18n: { resolvedLanguage: lang } }) },
+    '../../src/components/ScaledText': { ScaledText: 'Text' },
+    '../checkin': { CheckinUiPreview: 'CheckinPreview' },
+    '../../src/features/checkin/checkin-ui-gallery': { CHECKIN_UI_PREVIEWS },
+    '../../src/features/checkin-call/voice-preferences': evaluate(read('src/features/checkin-call/voice-preferences.ts')),
+    '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech', CheckinCallSafetyNote: 'Safety' },
+  });
+  const expand = tree => !tree || typeof tree !== 'object' ? tree : Array.isArray(tree) ? tree.map(expand)
+    : typeof tree.type === 'function' ? expand(tree.type(tree.props))
+    : { ...tree, props: { ...tree.props, children: expand(tree.props?.children) } };
+  const menu = speechNodes(expand(Gallery()));
+  const rows = menu.filter(node => node.type === 'Pressable').slice(1);
+  assert.equal(rows.length, 39);
+  assert.equal(new Set(rows.map(row => row.props.accessibilityLabel)).size, 39);
+  for (const row of rows) {
+    row.props.onPress();
+    const tree = speechNodes(expand(Gallery()));
+    // The frame blocks its descendants, while its parent ScrollView remains interactive.
+    const frames = tree.filter(node => node.props.pointerEvents === 'none');
+    const frame = frames.find(node => speechNodes(node).some(child => ['Text', 'CheckinPreview'].includes(child.type)));
+    assert.ok(frame, `Missing read-only frame for ${selected}`);
+    const scroll = tree.find(node => node.type === 'ScrollView');
+    assert.ok(scroll && scroll.props.pointerEvents !== 'none');
+    assert.ok(speechNodes(scroll).includes(frame));
+    for (const child of speechNodes(frame)) {
+      assert.notEqual(child.type, 'Pressable', `${selected}: interactive preview button`);
+      if (child.type === 'Switch') assert.equal(child.props.disabled, true);
+      if (child.type === 'Speech') assert.equal(child.props.readOnly, true);
+      if (child.type === 'CheckinPreview') assert.ok(CHECKIN_UI_PREVIEWS.some(item => item.id === child.props.id));
+    }
+    const back = tree.find(node => node.type === 'Pressable');
+    assert.ok(back.props.style.width >= 44);
+    back.props.onPress();
+    assert.equal(selected, null);
+    assert.deepEqual(navigation, []);
+  }
+  rows[0].props.onPress(); expand(Gallery());
+  assert.equal(androidBack(), true);
+  assert.equal(selected, null);
+  speechNodes(expand(Gallery())).find(node => node.type === 'Pressable').props.onPress();
+  assert.deepEqual(navigation, ['back']);
+});
+test('Profile exposes the preview button in release builds regardless of the subscription', () => {
+  const file = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let entry;
+  const visit = node => {
+    if (ts.isJsxAttribute(node) && node.name.getText(file) === 'onPress' && node.getText(file).includes('/checkin-call/ui-gallery')) entry = node;
+    ts.forEachChild(node, visit);
+  };
+  visit(file); assert.ok(entry);
+  for (let node = entry.parent; node; node = node.parent) {
+    if (ts.isBinaryExpression(node) || ts.isConditionalExpression(node)) {
+      const condition = ts.isBinaryExpression(node) ? node.left : node.condition;
+      assert.doesNotMatch(condition.getText(file), /__DEV__|SHOW_CHECKIN_CALL_UI_GALLERY|hasCheckinCallAccess/);
+    }
+  }
+});
+
 console.log(`Check-in screen: ${checks} rendered JSX regressions passed.`);

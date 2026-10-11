@@ -994,7 +994,7 @@ for (const transition of ['background', 'blur']) {
 
 // The native adapter is exercised with filesystem/API stubs as well, so cache
 // coalescing, exact-attempt identity and no-autoplay are tested at the seam.
-function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwner = false, files = new Map(), receipts = new Map()) {
+function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwner = false, files = new Map(), receipts = new Map(), enabled = true) {
   const refs = [], states = [], effects = [], calls = [];
   const configCalls = [], audioLocales = [];
   let voiceVersion = 'voice-v1';
@@ -1044,7 +1044,7 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
     // This deterministic native-adapter harness supplies its own React hook
     // implementations; no React renderer is loaded in these Node regressions.
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useCheckinCallAudio(attempt, language, key => key, accountId);
+    return useCheckinCallAudio(attempt, language, key => key, accountId, enabled);
   };
   const controls = renderHook(initialAttempt);
   const cleanup = effects[0]();
@@ -1053,6 +1053,19 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
     set voiceVersion(value) { voiceVersion = value; },
     get audioModeChanges() { return audioModeChanges; } };
 }
+await test('a read-only preview never acquires audio, downloads a voice or stops another player', async () => {
+  const h = hookHarness(null, { exists: false }, false, new Map(), new Map(), false);
+  await h.controls.play('conclusion', 'Preview only');
+  await h.controls.showPrompt('user_prompt');
+  await h.controls.stopAudio();
+  assert.equal(h.cleanup, undefined);
+  assert.deepEqual(h.calls, []);
+  assert.deepEqual(h.configCalls, []);
+  assert.deepEqual(h.states, []);
+  assert.equal(h.audioModeChanges, 0);
+  assert.equal(h.files.size, 0);
+  assert.equal(h.receipts.size, 0);
+});
 const receiptAttempt = { id: 'receipt-attempt', episode_id: 'receipt-episode', target_role: 'USER' };
 for (const language of ['vi', 'en']) {
   await test(`${language}: automatic prompt plays once and reopening the same call stays silent until Replay`, async () => {

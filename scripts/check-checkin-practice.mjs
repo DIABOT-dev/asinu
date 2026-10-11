@@ -237,6 +237,51 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(calls.playback, Array(4).fill(['practice_result', language, true]));
   });
 }
+// Exercise the real shared screen components independently of the live route.
+const { CHECKIN_UI_PREVIEWS } = evaluate(read('src/features/checkin/checkin-ui-gallery.ts'));
+const extractVariable = name => routeFile.statements.find(item => ts.isVariableStatement(item)
+  && item.declarationList.declarations.some(declaration => declaration.name.getText(routeFile) === name)).getText(routeFile);
+for (const language of ['vi', 'en']) {
+  await test(`${language}: every gallery check-in is read-only, silent and cannot navigate or request consent`, async () => {
+    const deny = () => assert.fail('A UI preview attempted an action');
+    const runtime = { useMemo: work => work(), useRef: initial => ({ current: initial }),
+      useState: initial => [typeof initial === 'function' ? initial() : initial, deny],
+      useEffect: work => work() };
+    const source = [extractVariable('createResultPreviewSession'), extractVariable('BODY_LOCATION_OPTIONS'),
+      ...['CheckinUiPreview', 'StatusScreen', 'LocationScreen', 'TriageScreen', 'stripEmojis', 'extractRecordedSymptoms', 'DoneScreen'].map(extract),
+      'module.exports = CheckinUiPreview;'].join('\n');
+    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), MAX_TRIAGE_QUESTIONS: 4,
+      CHECKIN_STATUS_CHOICES: [{ status: 'fine' }, { status: 'tired' }, { status: 'very_tired' }],
+      CheckinStatusChoice: 'StatusChoice', VoiceAnswerButton: 'VoiceAnswerButton',
+      useScaledTypography: () => ({}), createStyles: () => ({}), spacing: { xs: 4, sm: 8, md: 16, lg: 24 },
+      useLanguageStore: () => ({ language }), useGuideAcknowledgement: () => deny,
+      useRouter: () => ({ push: deny, back: deny, replace: deny }),
+      useCheckinCallAudio: (_attempt, _language, _translate, _account, enabled) => {
+        assert.equal(enabled, false, 'Gallery results must never create a voice player');
+        return { audio: { phase: 'idle' }, play: deny, stopAudio: deny };
+      }, guidanceAudio: { stop: deny, speak: deny }, Linking: { openURL: deny },
+      Audio: { requestPermissionsAsync: deny }, chatApi: { transcribeAudio: deny }, showToast: deny, setTimeout: deny,
+    });
+    const expand = tree => !tree || typeof tree !== 'object' ? tree : Array.isArray(tree) ? tree.map(expand)
+      : typeof tree.type === 'function' ? expand(tree.type(tree.props))
+      : { ...tree, props: { ...tree.props, children: expand(tree.props?.children) } };
+    for (const { id } of CHECKIN_UI_PREVIEWS) {
+      const tree = expand(preview({ id }));
+      for (const node of nodes(tree)) {
+        if (node.type === 'Pressable' || node.type === 'VoiceAnswerButton') {
+          assert.equal(node.props.disabled, true, `${id}: enabled control`);
+          await node.props.onPress?.(); // Even a stale callback cannot perform an action.
+        }
+        if (node.type === 'Input') {
+          assert.equal(node.props.editable, false, `${id}: editable input`);
+          assert.equal(node.props.onChangeText, undefined);
+        }
+        if (node.type === 'StatusChoice') assert.equal(node.props.onSelect, undefined);
+        if (node.type === 'GuideTarget') assert.equal(node.props.enabled, false, `${id}: active coaching target`);
+      }
+    }
+  });
+}
 await test('route identity remounts practice and real sessions rather than sharing private answer state', () => {
   assert.match(extract('CheckinRoute'), /key=\{.*params\.mode.*params\.checkin_id.*params\.guide/);
   assert.match(extract('CheckinScreen'), /isPractice \? createCheckinPractice\(t\) : checkinApi/);

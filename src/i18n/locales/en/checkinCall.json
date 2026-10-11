@@ -16,7 +16,15 @@
     "description": "An Asinu introduction and a suitable form of address. These choices only change the script, not your schedule or plan permissions.",
     "addressTitle": "How should Asinu address you?",
     "addressHint": "Automatic suggestions use your declared age and gender. You can override them; missing information uses a neutral form. These forms apply to Vietnamese reminders.",
-    "address": { "auto": "Automatic from profile", "bac": "Bác", "co": "Cô", "chu": "Chú", "anh": "Anh", "chi": "Chị", "ban": "Bạn" },
+    "address": {
+      "auto": "Automatic from profile",
+      "bac": "Bác",
+      "co": "Cô",
+      "chu": "Chú",
+      "anh": "Anh",
+      "chi": "Chị",
+      "ban": "Bạn"
+    },
     "use_name": "Use my name in reminders",
     "use_nameHint": "Use your profile name after you open the response screen in the app.",
     "use_health": "Mention recent health measurements",
@@ -25,7 +33,14 @@
     "weather_enabledHint": "Read only after you confirm you are okay. Never interrupt an urgent response; skip if no forecast is available.",
     "regionTitle": "Choose a weather region",
     "regionHint": "Choose a listed region or get your current location once. Your current location may not be where you live. Only rounded coordinates are stored, with no continuous tracking.",
-    "regions": { "hanoi": "Hanoi", "hcm": "Ho Chi Minh City", "danang": "Da Nang", "haiphong": "Hai Phong", "cantho": "Can Tho", "hue": "Hue" },
+    "regions": {
+      "hanoi": "Hanoi",
+      "hcm": "Ho Chi Minh City",
+      "danang": "Da Nang",
+      "haiphong": "Hai Phong",
+      "cantho": "Can Tho",
+      "hue": "Hue"
+    },
     "useLocation": "Use my current approximate area",
     "locationSelected": "An approximate area has been selected from your current location. You can update it when you move.",
     "locationDenied": "Location was not permitted. Choose a region manually or turn off weather reminders; check-in still works.",
@@ -262,10 +277,10 @@
   },
   "gallery": {
     "title": "Interface gallery",
-    "heading": "Check-in calls",
-    "lead": "Choose a screen to view sample data and redesign the UI/UX. The gallery does not place real calls or change data.",
+    "heading": "Check-in and check-in calls",
+    "lead": "Choose a screen to view its UI with sample data. Buttons and inputs are for display only; no check-in, recording or call is created.",
     "developmentOnly": "Development only",
-    "previewNotice": "UI preview only. No real call will be placed.",
+    "previewNotice": "Sample data, UI only. Buttons and inputs cannot be used.",
     "nativePreviewNotice": "Design simulation. The real interface is displayed by the operating system.",
     "viewAccessibility": "View {{title}}",
     "badgeApp": "App",
@@ -351,6 +366,81 @@
     "resolved": "Resolved",
     "expiredTitle": "This call has expired",
     "expiredMessage": "This request ended or was handled on another device.",
-    "connectionError": "Connection lost. Check your network and try again."
+    "connectionError": "Connection lost. Check your network and try again.",
+    "readOnly": "Read-only previews",
+    "checkinGroup": "Check-in",
+    "callGroup": "Check-in calls",
+    "voiceSettingsTitle": "Voice and reminder preferences",
+    "voiceSettingsDescription": "Personalized reminders and weather region",
+    "userUnreachableTitle": "Result: no user response",
+    "userUnreachableDescription": "Contacting family after the response window",
+    "familyHandledTitle": "Result: a caregiver accepted",
+    "familyHandledDescription": "A family member has agreed to check on the user",
+    "checkinRecordedTitle": "Result: check-in recorded elsewhere",
+    "checkinRecordedDescription": "The call stops after a check-in is recorded",
+    "cancelledTitle": "Result: call cancelled",
+    "cancelledDescription": "The call is no longer active",
+    "manual": {
+      "status": {
+        "title": "Today’s health status",
+        "description": "The three choices at the start of a check-in"
+      },
+      "followup": {
+        "title": "Follow-up check-in",
+        "description": "Greeting and health choices when checking in again"
+      },
+      "location": {
+        "title": "Body location",
+        "description": "Body regions, other answer and continue button"
+      },
+      "multiple": {
+        "title": "Multiple-choice question",
+        "description": "Symptoms, free text and the confirmation button"
+      },
+      "grouped": {
+        "title": "Symptoms by region",
+        "description": "Answer choices grouped by body region"
+      },
+      "single": {
+        "title": "Single-choice question",
+        "description": "A follow-up question with previous answers"
+      },
+      "text": {
+        "title": "Text or voice answer",
+        "description": "Free-text input and microphone, without recording"
+      },
+      "loading": {
+        "title": "Preparing a question",
+        "description": "The waiting state before the next question"
+      },
+      "fine": {
+        "title": "Result: feeling well",
+        "description": "Completed check-in with no symptoms"
+      },
+      "low": {
+        "title": "Result: low concern",
+        "description": "Recorded symptoms and advice to monitor them"
+      },
+      "medium": {
+        "title": "Result: monitoring needed",
+        "description": "A medium-concern result and consultation information"
+      },
+      "high": {
+        "title": "Result: prompt attention",
+        "description": "Doctor consultation and the family notification status"
+      },
+      "emergency": {
+        "title": "Result: emergency",
+        "description": "Emergency guidance and a display-only call button"
+      },
+      "noCaregiver": {
+        "title": "Result: no caregiver",
+        "description": "Warning about missing caregivers and an invitation action"
+      },
+      "followupResult": {
+        "title": "Follow-up result",
+        "description": "A feeling-well result after a follow-up check-in"
+      }
+    }
   }
 }

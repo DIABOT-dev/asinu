@@ -16,7 +16,15 @@
     "description": "Lời giới thiệu Asinu và cách xưng hô phù hợp. Các lựa chọn dưới đây chỉ thay đổi lời thoại, không đổi lịch gọi hay quyền của gói.",
     "addressTitle": "Bạn muốn Asinu xưng hô thế nào?",
     "addressHint": "Tự động gợi ý theo tuổi và giới tính đã khai báo. Bạn có thể chọn lại; thiếu thông tin thì dùng cách gọi trung tính.",
-    "address": { "auto": "Tự động theo hồ sơ", "bac": "Bác", "co": "Cô", "chu": "Chú", "anh": "Anh", "chi": "Chị", "ban": "Bạn" },
+    "address": {
+      "auto": "Tự động theo hồ sơ",
+      "bac": "Bác",
+      "co": "Cô",
+      "chu": "Chú",
+      "anh": "Anh",
+      "chi": "Chị",
+      "ban": "Bạn"
+    },
     "use_name": "Gọi tên tôi trong lời nhắc",
     "use_nameHint": "Dùng tên trong hồ sơ sau khi bạn mở màn hình trả lời trong app.",
     "use_health": "Nhắc số liệu sức khỏe gần đây",
@@ -25,7 +33,14 @@
     "weather_enabledHint": "Chỉ đọc sau khi bạn xác nhận vẫn ổn. Không chèn vào luồng cần hỗ trợ; không có dự báo thì bỏ qua.",
     "regionTitle": "Chọn khu vực thời tiết",
     "regionHint": "Chọn khu vực có sẵn hoặc lấy vị trí hiện tại một lần. Vị trí hiện tại không nhất thiết là nơi bạn sinh sống. Chỉ lưu tọa độ đã làm tròn, không theo dõi liên tục.",
-    "regions": { "hanoi": "Hà Nội", "hcm": "TP. Hồ Chí Minh", "danang": "Đà Nẵng", "haiphong": "Hải Phòng", "cantho": "Cần Thơ", "hue": "Huế" },
+    "regions": {
+      "hanoi": "Hà Nội",
+      "hcm": "TP. Hồ Chí Minh",
+      "danang": "Đà Nẵng",
+      "haiphong": "Hải Phòng",
+      "cantho": "Cần Thơ",
+      "hue": "Huế"
+    },
     "useLocation": "Dùng khu vực vị trí hiện tại",
     "locationSelected": "Đã chọn khu vực gần đúng từ vị trí hiện tại. Bạn có thể lấy lại khi đổi khu vực.",
     "locationDenied": "Bạn chưa cho phép vị trí. Có thể chọn khu vực thủ công hoặc tắt lời nhắc thời tiết; check-in vẫn hoạt động.",
@@ -262,10 +277,10 @@
   },
   "gallery": {
     "title": "Thư viện giao diện",
-    "heading": "Tổng đài check-in",
-    "lead": "Chọn một màn hình để xem dữ liệu mẫu và thiết kế lại UI/UX. Gallery không gọi thật và không thay đổi dữ liệu.",
+    "heading": "Check-in và check-in call",
+    "lead": "Chọn màn hình để xem UI với dữ liệu mẫu. Các nút và ô nhập bên trong chỉ để xem, không gửi check-in, ghi âm hay tạo cuộc gọi.",
     "developmentOnly": "Chỉ dùng cho Development",
-    "previewNotice": "Bản xem trước UI, không tạo cuộc gọi thật.",
+    "previewNotice": "Dữ liệu mẫu, chỉ xem UI. Các nút và ô nhập không thao tác được.",
     "nativePreviewNotice": "Mô phỏng để thiết kế. Giao diện thật do hệ điều hành hiển thị.",
     "viewAccessibility": "Xem {{title}}",
     "badgeApp": "Ứng dụng",
@@ -351,6 +366,81 @@
     "resolved": "Đã giải quyết",
     "expiredTitle": "Cuộc gọi đã hết hiệu lực",
     "expiredMessage": "Yêu cầu này đã kết thúc hoặc được xử lý trên một thiết bị khác.",
-    "connectionError": "Mất kết nối. Kiểm tra mạng và thử lại."
+    "connectionError": "Mất kết nối. Kiểm tra mạng và thử lại.",
+    "readOnly": "Chỉ xem giao diện",
+    "checkinGroup": "Check-in",
+    "callGroup": "Check-in call",
+    "voiceSettingsTitle": "Cách xưng hô và lời nhắc",
+    "voiceSettingsDescription": "Cá nhân hóa lời nhắc và khu vực thời tiết",
+    "userUnreachableTitle": "Kết quả: chưa nhận phản hồi",
+    "userUnreachableDescription": "Chuyển sang liên hệ người thân sau thời gian chờ",
+    "familyHandledTitle": "Kết quả: đã có người kiểm tra",
+    "familyHandledDescription": "Người thân đã tiếp nhận việc kiểm tra",
+    "checkinRecordedTitle": "Kết quả: đã check-in nơi khác",
+    "checkinRecordedDescription": "Cuộc gọi dừng sau khi ghi nhận check-in",
+    "cancelledTitle": "Kết quả: cuộc gọi đã hủy",
+    "cancelledDescription": "Cuộc gọi không còn hiệu lực",
+    "manual": {
+      "status": {
+        "title": "Chọn tình trạng hôm nay",
+        "description": "Ba lựa chọn tình trạng trước khi check-in"
+      },
+      "followup": {
+        "title": "Check-in theo dõi lại",
+        "description": "Lời chào và lựa chọn khi kiểm tra lại tình trạng"
+      },
+      "location": {
+        "title": "Chọn vùng cơ thể",
+        "description": "Các vùng cơ thể, ô nhập khác và nút tiếp tục"
+      },
+      "multiple": {
+        "title": "Câu hỏi chọn nhiều",
+        "description": "Danh sách triệu chứng, nhập nội dung và nút xác nhận"
+      },
+      "grouped": {
+        "title": "Triệu chứng theo vùng",
+        "description": "Các lựa chọn được nhóm theo vùng cơ thể"
+      },
+      "single": {
+        "title": "Câu hỏi chọn một",
+        "description": "Một câu hỏi tiếp theo cùng lịch sử trả lời"
+      },
+      "text": {
+        "title": "Câu hỏi nhập hoặc nói",
+        "description": "Ô trả lời tự do và nút micro, không ghi âm"
+      },
+      "loading": {
+        "title": "Đang chuẩn bị câu hỏi",
+        "description": "Giao diện chờ câu hỏi tiếp theo"
+      },
+      "fine": {
+        "title": "Kết quả: vẫn ổn",
+        "description": "Hoàn tất check-in khi không có triệu chứng"
+      },
+      "low": {
+        "title": "Kết quả: mức nhẹ",
+        "description": "Thông tin đã ghi nhận và lời khuyên theo dõi"
+      },
+      "medium": {
+        "title": "Kết quả: cần theo dõi",
+        "description": "Kết quả mức trung bình và thông tin tư vấn"
+      },
+      "high": {
+        "title": "Kết quả: cần kiểm tra sớm",
+        "description": "Kết nối bác sĩ và trạng thái thông báo người thân"
+      },
+      "emergency": {
+        "title": "Kết quả: cấp cứu",
+        "description": "Cảnh báo và nút gọi 115 chỉ để xem"
+      },
+      "noCaregiver": {
+        "title": "Kết quả: chưa có người thân",
+        "description": "Cảnh báo chưa có người nhận và lời mời kết nối"
+      },
+      "followupResult": {
+        "title": "Kết quả kiểm tra lại",
+        "description": "Kết quả vẫn ổn sau lần check-in theo dõi"
+      }
+    }
   }
 }
