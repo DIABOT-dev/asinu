@@ -183,7 +183,8 @@ class CheckinCallAndroidTest {
         // The existing iOS CallKit ringtone is selected by severity alone.
         val resource = if (severity.equals("URGENT", ignoreCase = true)) "asinu_emergency" else "asinu_incoming"
         val expected = Uri.parse("android.resource://${context.packageName}/raw/$resource")
-        assertEquals("$kind/$severity", expected, notification.sound)
+        // Android O+ clears Notification.sound and uses the channel instead.
+        if (Build.VERSION.SDK_INT < 26) assertEquals("$kind/$severity", expected, notification.sound)
         assertTrue(notification.flags and android.app.Notification.FLAG_INSISTENT != 0)
         if (Build.VERSION.SDK_INT >= 26) {
           val channel = manager.getNotificationChannel(notification.channelId)
@@ -214,13 +215,16 @@ class CheckinCallAndroidTest {
       assertEquals(0, notification.flags and android.app.Notification.FLAG_INSISTENT)
     }
   }
-  @Test fun noFullScreenPermissionStillKeepsAnswerDeclineNotification() {
+  @Test fun deniedFullScreenAccessKeepsIntentForSystemFallbackAndBothCallActions() {
     val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     CheckinNotificationManagerShadow.fullScreen = false
     Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get()
       .onMessageReceived(RemoteMessage.Builder("test").setData(call()).build())
     val notification = shadowOf(manager).allNotifications.single()
-    assertNull(notification.fullScreenIntent)
+    // Android 14 rejects CallStyle with neither an FSI nor a foreground service.
+    // System permission checks decide presentation; dropping the intent crashes.
+    assertNotNull(notification.fullScreenIntent)
+    assertFalse(manager.canUseFullScreenIntent())
     assertEquals(2, notification.actions.size)
   }
   @Test fun declineActionCancelsImmediatelyAndEnqueuesOnlyOneScopedNetworkRequest() {

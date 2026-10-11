@@ -140,8 +140,11 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
         .setStyle(NotificationCompat.CallStyle.forIncomingCall(Person.Builder().setName(title).setImportant(true).build(), decline, answer))
         .setContentIntent(view)
         .setTimeoutAfter((call.optLong("expiresAt") - System.currentTimeMillis()).coerceAtLeast(1))
-      val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-      if (Build.VERSION.SDK_INT < 34 || manager.canUseFullScreenIntent()) builder.setFullScreenIntent(view, true)
+      // Keep the intent even when full-screen access is denied. Android decides
+      // whether to launch it or show the call's heads-up fallback. A CallStyle
+      // without this intent (and without a foreground service) is rejected by
+      // Android 14 with IllegalArgumentException before it can show any actions.
+      builder.setFullScreenIntent(view, true)
     }
 
     try {
