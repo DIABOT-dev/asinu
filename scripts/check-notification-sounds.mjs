@@ -195,7 +195,15 @@ await test('config plugin sync is idempotent and prevents Android resource colli
     syncAndroidSounds(temporary);
     syncAndroidSounds(temporary);
     const raw = path.join(temporary, 'android/app/src/main/res/raw');
-    assert.deepEqual(fs.readdirSync(raw).sort(), Object.values(manifest.sounds).map((sound) => sound.android).sort());
+    assert.deepEqual(fs.readdirSync(raw).sort(), [
+      ...Object.values(manifest.sounds).map((sound) => sound.android),
+      'keep_asinu_notification_sounds.xml',
+    ].sort());
+    const keepRules = fs.readFileSync(path.join(raw, 'keep_asinu_notification_sounds.xml'), 'utf8');
+    assert.match(keepRules, /tools:keep="@raw\/asinu_\*"/,
+      'Release shrinking must retain audio referenced by notification channel names');
+    assert.equal(keepRules, fs.readFileSync('android/app/src/main/res/raw/keep_asinu_notification_sounds.xml', 'utf8'),
+      'The checked-in native project must retain sounds when EAS skips prebuild');
     fs.copyFileSync(path.join(temporary, 'assets/sounds/ios/asinu_incoming.caf'), path.join(raw, 'asinu_incoming.caf'));
     assert.throws(() => syncAndroidSounds(temporary), /Duplicate notification resource/);
   } finally {

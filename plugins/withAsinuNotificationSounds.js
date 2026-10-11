@@ -24,6 +24,12 @@ function syncAndroidSounds(projectRoot) {
     }
     fs.copyFileSync(path.join(projectRoot, relative), path.join(destination, filename));
   }
+  // Channels and push payloads resolve sound names at runtime, outside R8's
+  // resource graph. Retain only Asinu audio while shrinking other resources.
+  fs.writeFileSync(path.join(destination, 'keep_asinu_notification_sounds.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/asinu_*" />
+`);
 }
 
 function syncIOSSounds(projectRoot, project, projectName) {
