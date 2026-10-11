@@ -32,9 +32,16 @@ await test('Expo prebuild manifest modifications are idempotent and native recei
   assert.deepEqual(plugin.configureManifest(first), snapshot);
   const application = first.manifest.application[0];
   assert.equal(application.$['android:allowBackup'], 'false');
+  assert.ok(first.manifest['uses-permission'].some(item => item.$['android:name'] === 'android.permission.MANAGE_OWN_CALLS'));
+  assert.ok(!first.manifest['uses-permission'].some(item => item.$['android:name'] === 'android.permission.READ_PHONE_NUMBERS'));
+  assert.equal(application['meta-data'].find(item => item.$['android:name'] === 'expo.modules.notifications.default_notification_icon').$['android:resource'], '@drawable/asinu_notification_small');
   assert.equal(application.activity[0].$['android:exported'], 'false');
   assert.equal(application.receiver[0].$['android:exported'], 'false');
   assert.equal(application.service.find(item => item.$['android:name'] === '.notifications.AsinuFirebaseMessagingService').$['android:exported'], 'false');
+  const telecom = application.service.find(item => item.$['android:name'] === '.notifications.CheckinConnectionService');
+  assert.equal(telecom.$['android:exported'], 'true');
+  assert.equal(telecom.$['android:permission'], 'android.permission.BIND_TELECOM_CONNECTION_SERVICE');
+  assert.equal(telecom['intent-filter'][0].action[0].$['android:name'], 'android.telecom.ConnectionService');
 });
 await test('clean prebuild registers the bridge once and compiles canonical sources/resources outside android/', () => {
   const application = plugin.configureApplication('package com.asinu.lite\n\nclass MainApplication { fun packages() = PackageList(this).packages.apply { } }');
@@ -125,6 +132,7 @@ function accessCard({ platform = 'android', language = 'vi', permissions = { not
     '../../lib/android-checkin-call': {
       getAndroidCallPermissions: async () => permissions,
       openAndroidCallSettings: async fullScreen => { calls.push(fullScreen); return open; },
+      openAndroidTelecomSettings: async () => { calls.push('telecom'); return open; },
     },
     '../../stores/toast.store': { showToast: (...args) => toasts.push(args) },
   }).AndroidCallAccessCard;
@@ -166,11 +174,42 @@ await test('iOS and older builds show no Android permission UI', async () => {
   const ios = accessCard({ platform: 'ios' }); assert.equal(ios.render().root, null);
   const old = accessCard({ permissions: null }); old.render(); await flush(); assert.equal(old.render().root, null);
 });
-await test('Android keeps a single app audio owner and both native locales have matching keys', () => {
-  const module = fs.readFileSync('native/checkin-call/android/com/asinu/lite/notifications/AsinuCheckinCallModule.kt', 'utf8');
-  const method = module.split('@ReactMethod fun setCallUIActive')[1].split('@ReactMethod fun endCall')[0];
-  assert.ok(method.includes('promise.resolve(false)'), 'Native Android owns no audio session: Expo must configure playback');
-  const keys = locale => [...fs.readFileSync(`native/checkin-call/res/${locale}/asinu_checkin_calls.xml`, 'utf8').matchAll(/name="([^"]+)"/g)].map(match => match[1]).sort();
+await test('branded Telecom calls still guide users to full-screen and channel permissions', async () => {
+  const h = accessCard({ permissions: { notifications: true, channels: true, fullScreen: false, telecomSupported: true, telecomEnabled: true } });
+  h.render(); await flush();
+  h.render().nodes.find(node => node.type === 'Pressable').props.onPress();
+  await h.render().nodes.find(node => node.type === 'AppModal').props.buttons[0].onPress();
+  assert.deepEqual(h.calls, [true]);
+  h.permissions.fullScreen = true; h.events.change('active'); await flush();
+  assert.equal(h.render({ onlyWhenNeeded: true }).root, null);
+});
+await test('native voice playback filters player identity, handles errors and releases its listener', async () => {
+  const calls = []; const listeners = new Map(); let playerId;
+  const api = evaluate('src/lib/android-call-audio.ts', {
+    'expo-crypto': { randomUUID: () => 'player-one' },
+    'react-native': { Platform: { OS: 'android' }, NativeModules: { AsinuCheckinCallModule: {
+      loadCallAudio: async (...args) => { calls.push(['load', ...args]); playerId = args[1]; },
+      playCallAudio: async id => { calls.push(['play', id]); },
+      pauseCallAudio: async id => { calls.push(['pause', id]); },
+      releaseCallAudio: async id => { calls.push(['release', id]); },
+    } }, NativeEventEmitter: class {
+      addListener(name, callback) { listeners.set(name, callback); return { remove: () => listeners.delete(name) }; }
+    } },
+  });
+  const sound = await api.createAndroidCallSound('call-one', 'file:///private/cache/prompt.mp3');
+  const statuses = []; sound.setOnPlaybackStatusUpdate(status => statuses.push(status));
+  const status = { isLoaded: true, didJustFinish: true };
+  listeners.get('onCheckinCallPlaybackStatus')({ ...status, playerId: 'other-player' });
+  assert.equal(statuses.length, 0);
+  sound.play(); await flush();
+  listeners.get('onCheckinCallPlaybackStatus')({ ...status, playerId });
+  assert.equal(statuses.length, 1);
+  await sound.pauseAsync(); await sound.unloadAsync();
+  assert.equal(listeners.size, 0);
+  assert.deepEqual(calls.map(call => call[0]), ['load', 'play', 'pause', 'release']);
+});
+await test('both native locales have matching keys', () => {
+  const keys = locale => [...fs.readFileSync(`native/checkin-call/res/${locale}/asinu_checkin_calls.xml`, 'utf8').matchAll(/<string name="([^"]+)"/g)].map(match => match[1]).sort();
   assert.deepEqual(keys('values'), keys('values-en'));
 });
 console.log(`Android check-in call: ${checks} runtime/plugin regressions passed.`);

@@ -994,7 +994,7 @@ for (const transition of ['background', 'blur']) {
 
 // The native adapter is exercised with filesystem/API stubs as well, so cache
 // coalescing, exact-attempt identity and no-autoplay are tested at the seam.
-function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwner = false, files = new Map(), receipts = new Map(), enabled = true) {
+function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwner = false, files = new Map(), receipts = new Map(), enabled = true, platform = 'ios') {
   const refs = [], states = [], effects = [], calls = [];
   const configCalls = [], audioLocales = [];
   let voiceVersion = 'voice-v1';
@@ -1011,6 +1011,13 @@ function hookHarness(initialAttempt, initialFile = { exists: false }, nativeOwne
     conclusionAudio: async (text, language) => { calls.push(`conclusion:${text}`); audioLocales.push(language); return { base64: 'audio', audioVersion: voiceVersion }; },
   };
   const { useCheckinCallAudio } = evaluate(fs.readFileSync('src/features/checkin-call/useCheckinCallAudio.ts', 'utf8'), id => {
+    if (id === 'react-native') return { Platform: { OS: platform } };
+    if (id === '../../lib/android-call-audio') return { createAndroidCallSound: async (attemptId, uri) => {
+      assert.equal(platform, 'android');
+      assert.equal(nativeOwner, true);
+      calls.push(`androidCallSound:${attemptId}`);
+      return h.dependencies.create(uri);
+    } };
     if (id === '@react-native-async-storage/async-storage') return { __esModule: true, default: storage };
     if (id === './checkin-call.autoplay') return { CheckinCallAutoplay };
     if (id === '../../lib/voip') return { setVoipCallUIActive: async () => nativeOwner };
@@ -1067,6 +1074,17 @@ await test('a read-only preview never acquires audio, downloads a voice or stops
   assert.equal(h.receipts.size, 0);
 });
 const receiptAttempt = { id: 'receipt-attempt', episode_id: 'receipt-episode', target_role: 'USER' };
+for (const nativeOwner of [false, true]) {
+  await test(`Android ${nativeOwner ? 'Telecom' : 'ordinary'} playback uses the correct audio adapter`, async () => {
+    const h = hookHarness(receiptAttempt, { exists: false }, nativeOwner, new Map(), new Map(), true, 'android');
+    await h.controls.play('user_prompt');
+    assert.equal(h.h.sounds.length, 1);
+    assert.deepEqual(h.calls.filter(call => call.startsWith('androidCallSound:')),
+      nativeOwner ? [`androidCallSound:${receiptAttempt.id}`] : []);
+    assert.equal(h.audioModeChanges, nativeOwner ? 0 : 1);
+    h.cleanup();
+  });
+}
 for (const language of ['vi', 'en']) {
   await test(`${language}: automatic prompt plays once and reopening the same call stays silent until Replay`, async () => {
     const receipts = new Map();

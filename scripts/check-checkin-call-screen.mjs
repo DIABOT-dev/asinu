@@ -4,14 +4,14 @@ import ts from 'typescript';
 import React from 'react';
 
 const read = file => fs.readFileSync(file, 'utf8');
-function evaluate(source, dependencies = {}) {
+function evaluate(source, dependencies = {}, isDevelopment = true) {
   const module = { exports: {} };
   const output = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.React,
   } }).outputText;
   // Execute actual screen JSX with deterministic hooks and native adapters.
   // eslint-disable-next-line no-new-func
-  new Function('module', 'exports', 'require', output)(module, module.exports, id => {
+  new Function('__DEV__', 'module', 'exports', 'require', output)(isDevelopment, module, module.exports, id => {
     if (id.endsWith('.png')) return id;
     assert.ok(id in dependencies, `Missing screen adapter ${id}`);
     return dependencies[id];
@@ -260,13 +260,13 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, 
     useMemo: work => work(), useCallback: work => work,
     useState: () => [selected, value => { selected = value; }] };
   const { CHECKIN_UI_PREVIEWS } = evaluate(read('src/features/checkin/checkin-ui-gallery.ts'));
-  const { default: Gallery } = evaluate(read('app/checkin-call/ui-gallery.tsx'), {
+  const adapters = {
     react: { __esModule: true, default: hooks, ...hooks },
     'react-native': { View: 'View', Pressable: 'Pressable', ScrollView: 'ScrollView', Image: 'Image', Switch: 'Switch',
       BackHandler: { addEventListener: (_event, callback) => { androidBack = callback; return { remove() {} }; } },
       StyleSheet: { create: value => value, hairlineWidth: 0.5, absoluteFill: {} } },
     '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
-    'expo-router': { useFocusEffect: work => work() },
+    'expo-router': { Redirect: 'Redirect', useFocusEffect: work => work() },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back: () => navigation.push('back') }) },
     'react-i18next': { useTranslation: ns => ({ t: (key, options) => t(key, { ns, ...options }), i18n: { resolvedLanguage: lang } }) },
@@ -275,8 +275,10 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, 
     '../../src/features/checkin/checkin-ui-gallery': { CHECKIN_UI_PREVIEWS },
     '../../src/features/checkin-call/voice-preferences': evaluate(read('src/features/checkin-call/voice-preferences.ts')),
     '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech', CheckinCallSafetyNote: 'Safety' },
+    '../../src/lib/appEnv': { isDevBuild: true },
     'react-native-svg': { __esModule: true, default: 'Svg', Svg: 'Svg', Path: 'Path' },
-  });
+  };
+  const { default: Gallery } = evaluate(read('app/checkin-call/ui-gallery.tsx'), adapters);
   const expand = tree => !tree || typeof tree !== 'object' ? tree : Array.isArray(tree) ? tree.map(expand)
     : typeof tree.type === 'function' ? expand(tree.type(tree.props))
     : { ...tree, props: { ...tree.props, children: expand(tree.props?.children) } };
@@ -311,8 +313,16 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, 
   assert.equal(selected, null);
   speechNodes(expand(Gallery())).find(node => node.type === 'Pressable').props.onPress();
   assert.deepEqual(navigation, ['back']);
+  for (const [isDevelopment, isDevBuild] of [[false, true], [false, false], [true, false]]) {
+    const { default: RestrictedGallery } = evaluate(read('app/checkin-call/ui-gallery.tsx'), {
+      ...adapters, '../../src/lib/appEnv': { isDevBuild },
+    }, isDevelopment);
+    const restricted = RestrictedGallery();
+    assert.equal(restricted.type, 'Redirect', 'Preview links must redirect outside development');
+    assert.equal(restricted.props.href, '/(tabs)/profile');
+  }
 });
-test('Profile exposes the preview button in release builds regardless of the subscription', () => {
+test('Profile exposes the preview button only in development, independently of the subscription', () => {
   const file = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let entry;
   const visit = node => {
@@ -320,11 +330,24 @@ test('Profile exposes the preview button in release builds regardless of the sub
     ts.forEachChild(node, visit);
   };
   visit(file); assert.ok(entry);
+  let gatedEntry;
   for (let node = entry.parent; node; node = node.parent) {
-    if (ts.isBinaryExpression(node) || ts.isConditionalExpression(node)) {
-      const condition = ts.isBinaryExpression(node) ? node.left : node.condition;
-      assert.doesNotMatch(condition.getText(file), /__DEV__|SHOW_CHECKIN_CALL_UI_GALLERY|hasCheckinCallAccess/);
-    }
+    if (ts.isJsxExpression(node) && node.expression && ts.isBinaryExpression(node.expression)) gatedEntry = node.expression;
+  }
+  assert.ok(gatedEntry, 'The profile preview entry must have a development gate');
+  const source = `import React from 'react';
+    import { isDevBuild } from '../../../src/lib/appEnv';
+    const TouchableOpacity = 'Button', View = 'View', Text = 'Text', Ionicons = 'Icon';
+    const styles = {}, t = key => key, router = { push() {} };
+    export default () => (${gatedEntry.getText(file)});`;
+  for (const isDevelopment of [false, true]) for (const environment of ['dev', 'staging', 'prod']) {
+    const { default: PreviewEntry } = evaluate(source, {
+      react: { __esModule: true, default: React },
+      '../../../src/lib/appEnv': { isDevBuild: environment === 'dev' },
+    }, isDevelopment);
+    const rendered = PreviewEntry();
+    assert.equal(React.isValidElement(rendered), isDevelopment && environment === 'dev',
+      `Unexpected preview visibility: __DEV__=${isDevelopment}, environment=${environment}`);
   }
 });
 

@@ -96,15 +96,38 @@ class CheckinCallAndroidTest {
     val content = activity.findViewById<ViewGroup>(android.R.id.content)
     val scroll = content.getChildAt(0) as ScrollView
     val layout = scroll.getChildAt(0) as ViewGroup
-    val buttons = (0 until layout.childCount).map { layout.getChildAt(it) }.filterIsInstance<Button>()
+    fun buttonsIn(view: View): List<Button> = when (view) {
+      is Button -> listOf(view)
+      is ViewGroup -> (0 until view.childCount).flatMap { buttonsIn(view.getChildAt(it)) }
+      else -> emptyList()
+    }
+    val buttons = buttonsIn(layout)
     assertEquals(2, buttons.size)
     buttons.forEach { button ->
       assertTrue(button.measuredHeight >= 48 * resources.displayMetrics.density)
       assertTrue(button.left >= 0 && button.right <= layout.measuredWidth)
-      assertTrue(button.text.isNotBlank())
+      assertTrue(button.contentDescription.isNotBlank())
     }
     assertTrue(layout.measuredHeight >= scroll.measuredHeight)
     controller.pause().stop().destroy()
+  }
+  @Test fun answerWhileLockedStopsRingingBeforeAnyPrivateAppScreenOpens() {
+    val service = Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get()
+    service.onMessageReceived(RemoteMessage.Builder("test").setData(call()).build())
+    shadowOf(context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).setKeyguardLocked(true)
+    val controller = Robolectric.buildActivity(CheckinIncomingCallActivity::class.java,
+      Intent(context, CheckinIncomingCallActivity::class.java).setAction(CheckinCallStore.ANSWER).putExtra("attemptId", id)).create()
+    assertEquals(id, CheckinCallStore.pending(context)!!.optString("attemptId"))
+    assertTrue(shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).allNotifications.isEmpty())
+    assertNull(shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity)
+    controller.destroy()
+  }
+  @Test fun incomingLockScreenNotificationNeverUsesPrivatePushText() {
+    val service = Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get()
+    service.onMessageReceived(RemoteMessage.Builder("test").setData(call() + mapOf("title" to "Private name", "body" to "Private symptoms")).build())
+    val notification = shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).allNotifications.single()
+    assertEquals("Cuộc gọi Asinu", notification.extras.getString("android.title"))
+    assertEquals("Asinu đang gọi, vui lòng mở ứng dụng.", notification.extras.getString("android.text"))
   }
   @Test fun answerCreatesOneNonDestructiveAuthenticatedHandoff() {
     CheckinCallStore.incoming(context, call())

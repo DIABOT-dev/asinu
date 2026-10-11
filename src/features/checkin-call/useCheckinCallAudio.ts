@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { Audio } from '../../lib/audio';
+import { createAndroidCallSound } from '../../lib/android-call-audio';
 import { setVoipCallUIActive } from '../../lib/voip';
 import { CheckinCallAudio, isFamilyNoticePrompt, type CallAudioPrompt, type CallAudioState } from './checkin-call.audio';
 import { checkinCallApi, type CheckinCallAttempt } from './checkin-call.api';
@@ -142,7 +144,9 @@ export function useCheckinCallAudio(
         // playback session or deactivate it when a short prompt finishes.
         if (!ownsNativeAudioSession) await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
       },
-      create: async uri => (await Audio.Sound.createAsync({ uri }, { shouldPlay: false, keepAudioSessionActive: ownsNativeAudioSession })).sound,
+      create: async uri => ownsNativeAudioSession && Platform.OS === 'android' && context.current.attempt
+        ? createAndroidCallSound(context.current.attempt.id, uri)
+        : (await Audio.Sound.createAsync({ uri }, { shouldPlay: false, keepAudioSessionActive: ownsNativeAudioSession })).sound,
       stopSpeech: () => Speech.stop(),
       // All locales keep the configured Asinu Tuấn Anh narrator. Text/buttons
       // remain usable on failure; never replace him with a device voice.

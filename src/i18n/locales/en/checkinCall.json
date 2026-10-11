@@ -6,7 +6,7 @@
     "body": "Your saved check-in schedule is unchanged. Enable notifications to receive reminders, and full-screen access to see calls on the lock screen. Without full-screen access, you can still open Asinu from a notification.",
     "configure": "Check call permissions",
     "openSettings": "Open Android settings",
-    "notificationGuide": "Allow Asinu notifications in Android settings. Enable sound and pop-up display for Asinu check-in calls and Asinu alerts. No permission to draw over other apps is needed. Return to Asinu to check full-screen access next.",
+    "notificationGuide": "Allow Asinu notifications in Android settings. Enable sound and pop-up display for Asinu check-in calls and Asinu alerts. No permission to draw over other apps is needed. Return to Asinu to check call permissions again.",
     "fullScreenGuide": "Allow full-screen notifications for Asinu to show calls when your phone is locked. Unlock to answer and choose how you feel in the app. Android controls how calls appear; Asinu cannot unlock your phone. You can set this up later and still save your check-in schedule.",
     "settingsFailed": "Could not open settings. Please go to Android Settings → Apps → Asinu."
   },

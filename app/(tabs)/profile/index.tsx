@@ -80,6 +80,7 @@ import {
 import { useScaledTypography } from "../../../src/hooks/useScaledTypography";
 import { useInitialLoadingGate } from "../../../src/hooks/useInitialLoadingGate";
 import { ApiError, apiClient, getApiErrorMessage } from "../../../src/lib/apiClient";
+import { isDevBuild } from "../../../src/lib/appEnv";
 import {
   brandColors,
   categoryColors,
@@ -1041,19 +1042,21 @@ export default function ProfileScreen() {
                   />
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/checkin-call/ui-gallery" as any)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("checkinCallGalleryAccessibility")}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="eye-outline" size={22} color="#07846d" />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
+                {__DEV__ && isDevBuild && (
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/checkin-call/ui-gallery" as any)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("checkinCallGalleryAccessibility")}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="eye-outline" size={22} color="#07846d" />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
               </View>
             </Animated.View>
 

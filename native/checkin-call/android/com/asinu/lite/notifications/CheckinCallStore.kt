@@ -92,10 +92,11 @@ object CheckinCallStore {
       .putString("pending", data.put("expiresAt", expires).toString()).commit()
     cancelNotification(context, id)
     changed(context)
+    CheckinTelecom.confirmed(context, id)
     return true
   }
 
-  @Synchronized fun end(context: Context, id: String) {
+  @Synchronized fun end(context: Context, id: String, userDisconnected: Boolean = false) {
     if (!validId(id)) return
     val prefs = preferences(context)
     val data = prefs.getString("ring:$id", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
@@ -103,8 +104,10 @@ object CheckinCallStore {
     val edit = prefs.edit().remove("ring:$id").putLong("done:$id", System.currentTimeMillis())
     if (prefs.getString("pending", null)?.let { runCatching { JSONObject(it).optString("attemptId") }.getOrNull() } == id) edit.remove("pending")
     edit.commit()
+    CheckinTelecom.end(id)
     cancelNotification(context, id)
     changed(context)
+    if (userDisconnected) data?.put("endReason", "user")
     if (data != null) emit("onVoipCallEnded", data)
     prune(context)
   }
@@ -119,7 +122,7 @@ object CheckinCallStore {
     val context = reactContext ?: return
     if (!context.hasActiveReactInstance()) return
     val value = Arguments.createMap()
-    listOf("episodeId", "attemptId", "kind", "severity", "lang").forEach { value.putString(it, data.optString(it)) }
+    listOf("episodeId", "attemptId", "kind", "severity", "lang", "endReason").forEach { value.putString(it, data.optString(it)) }
     // Never send the decline credential into React/analytics/logging.
     runCatching { context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit(name, value) }
   }

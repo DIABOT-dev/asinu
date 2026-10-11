@@ -15,13 +15,19 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.LifecycleEventListener
+import com.facebook.react.common.LifecycleState
 import com.facebook.react.uimanager.ViewManager
+import com.facebook.react.modules.core.DeviceEventManagerModule
 
 /** Android implementation of the shared call handoff; iOS keeps its CallKit bridge. */
-class AsinuCheckinCallModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
+class AsinuCheckinCallModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context), LifecycleEventListener {
   override fun getName() = "AsinuCheckinCallModule"
-  override fun initialize() { super.initialize(); CheckinCallStore.attach(context) }
-  override fun invalidate() { CheckinCallStore.detach(context); super.invalidate() }
+  override fun initialize() { super.initialize(); CheckinCallStore.attach(context); context.addLifecycleEventListener(this) }
+  override fun invalidate() { context.removeLifecycleEventListener(this); CheckinCallAudioPlayer.stopAll(); CheckinCallStore.detach(context); super.invalidate() }
+  override fun onHostResume() {} // Only an explicit replay may restart interrupted speech.
+  override fun onHostPause() { CheckinCallAudioPlayer.stopAll() }
+  override fun onHostDestroy() { CheckinCallAudioPlayer.stopAll() }
   @ReactMethod fun addListener(name: String) {}
   @ReactMethod fun removeListeners(count: Double) {}
   @ReactMethod fun isGuidanceSoundAllowed(promise: Promise) {
@@ -31,6 +37,7 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
   }
   @ReactMethod fun configure(apiBaseUrl: String, promise: Promise) {
     CheckinCallStore.preferences(context).edit().putString("apiBaseUrl", apiBaseUrl).commit()
+    CheckinTelecom.register(context)
     promise.resolve(true)
   }
   @ReactMethod fun getPendingCall(promise: Promise) {
@@ -41,6 +48,17 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
     promise.resolve(result)
   }
   @ReactMethod fun consumePendingCall(promise: Promise) = getPendingCall(promise)
+  @ReactMethod fun getActiveCalls(promise: Promise) {
+    val calls = Arguments.createArray()
+    for (id in CheckinTelecom.callIds()) {
+      val data = CheckinCallStore.ringing(context, id)
+        ?: CheckinCallStore.pending(context)?.takeIf { it.optString("attemptId") == id } ?: continue
+      calls.pushMap(Arguments.createMap().apply {
+        listOf("episodeId", "attemptId", "kind", "severity", "lang").forEach { putString(it, data.optString(it)) }
+      })
+    }
+    promise.resolve(calls)
+  }
   @ReactMethod fun completeAnswer(id: String, connected: Boolean, deadline: String, promise: Promise) {
     if (!connected) { CheckinCallStore.end(context, id); promise.resolve(false); return }
     promise.resolve(CheckinCallStore.confirm(context, id, deadline, promoteRinging = true))
@@ -50,8 +68,29 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
       CheckinCallStore.cancelNotification(context, id)
       CheckinCallStore.confirm(context, id, deadline)
     }
-    // No native TTS/media owns Android audio: the existing shared app player is the sole owner.
-    promise.resolve(false) // Expo must configure Android audio; native owns no audio session.
+    CheckinTelecom.onMain {
+      // Telecom routes voice prompts; ordinary non-Telecom check-ins keep Expo audio.
+      promise.resolve(active && CheckinTelecom.isActive(id))
+    }
+  }
+  @ReactMethod fun loadCallAudio(callId: String, playerId: String, uri: String, promise: Promise) {
+    CheckinCallAudioPlayer.load(context, callId, playerId, uri, promise) { finished, playing, error ->
+      if (context.hasActiveReactInstance()) {
+        val event = Arguments.createMap().apply {
+          putString("playerId", playerId); putBoolean("didJustFinish", finished)
+          putBoolean("playing", playing); putBoolean("isLoaded", error == null); putString("error", error)
+        }
+        context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit("onCheckinCallPlaybackStatus", event)
+      }
+    }
+  }
+  @ReactMethod fun playCallAudio(playerId: String, promise: Promise) {
+    if (context.lifecycleState != LifecycleState.RESUMED) { promise.reject("CALL_AUDIO", "Open Asinu to hear the reminder"); return }
+    CheckinCallAudioPlayer.play(playerId, promise)
+  }
+  @ReactMethod fun pauseCallAudio(playerId: String, promise: Promise) = CheckinCallAudioPlayer.pause(playerId, promise)
+  @ReactMethod fun releaseCallAudio(playerId: String, promise: Promise) = CheckinTelecom.onMain {
+    CheckinCallAudioPlayer.release(playerId); promise.resolve(true)
   }
   @ReactMethod fun endCall(id: String, promise: Promise) { CheckinCallStore.end(context, id); promise.resolve(true) }
   @ReactMethod fun getCallPermissions(promise: Promise) {
@@ -59,6 +98,8 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
     val result = Arguments.createMap()
     result.putBoolean("notifications", NotificationManagerCompat.from(context).areNotificationsEnabled())
     result.putBoolean("fullScreen", Build.VERSION.SDK_INT < 34 || manager.canUseFullScreenIntent())
+    result.putBoolean("telecomSupported", CheckinTelecom.register(context))
+    result.putBoolean("telecomEnabled", CheckinTelecom.enabled(context))
     val channels = listOf("asinu_checkin_call_warm_v2", "asinu_checkin_call_urgent_warm_v2")
     result.putBoolean("channels", Build.VERSION.SDK_INT < 26 || channels.all { id ->
       val channel = manager.getNotificationChannel(id)
@@ -66,6 +107,7 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
     })
     promise.resolve(result)
   }
+  @ReactMethod fun openTelecomSettings(promise: Promise) { promise.resolve(CheckinTelecom.openSettings(context)) }
   @ReactMethod fun openCallSettings(fullScreen: Boolean, promise: Promise) {
     val intent = if (fullScreen && Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}"))
       else Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)

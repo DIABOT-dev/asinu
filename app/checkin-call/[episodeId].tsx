@@ -24,7 +24,7 @@ import {
   getCheckinCallTime,
   isCheckinCallAttemptClosed,
 } from '../../src/features/checkin-call/checkin-call.state';
-import { addVoipCallAnsweredListener, endVoipCall, setVoipCallUIActive, simulateIncomingVoipCall } from '../../src/lib/voip';
+import { addVoipCallAnsweredListener, addVoipCallEndedListener, endVoipCall, setVoipCallUIActive, simulateIncomingVoipCall } from '../../src/lib/voip';
 import { acceptCheckinCallOnce } from '../../src/features/checkin-call/checkin-call.accept';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { useTranslation } from 'react-i18next';
@@ -742,6 +742,16 @@ function AuthenticatedCheckinCallScreen() {
       if (screenMounted.current) setBusy(false);
     }
   };
+
+  // SessionProvider sends the authenticated hang-up even if this screen is still
+  // mounting. Here stop the local interaction without sending a duplicate action.
+  useEffect(() => addVoipCallEndedListener(call => {
+    if (call.endReason !== 'user' || call.attemptId !== attempt?.id || callEnded.current) return;
+    callEnded.current = true;
+    void stopAudio();
+    void disconnectRoom();
+    router.replace('/(tabs)/home');
+  }), [attempt?.id, stopAudio, disconnectRoom, router]);
 
   const confirm = async () => {
     if (actionPending.current || callEnded.current || !attempt) return;

@@ -9,6 +9,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.drawable.IconCompat
+import java.util.Locale
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
@@ -23,27 +27,23 @@ import expo.modules.notifications.service.ExpoFirebaseMessagingService
 
 /** Native call actions stay available when React is not running. */
 class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
-  companion object {
-    private const val CALL_CHANNEL_ID = "asinu_checkin_call_warm_v2"
-    private const val URGENT_CHANNEL_ID = "asinu_checkin_call_urgent_warm_v2"
-    private const val ALERT_CHANNEL_ID = "asinu_checkin_alert_warm_v2"
-    private const val MISSED_CHANNEL_ID = "asinu_checkin_missed_warm_v2"
-    private const val NOTICE_CHANNEL_ID = "asinu_checkin_notice_warm_v2"
-  }
-
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
     val data = remoteMessage.data
-    if (data["type"] != "checkin_call") {
-      super.onMessageReceived(remoteMessage)
-      return
-    }
-    // Credential-protected handoff/work storage is unavailable before first unlock.
+    if (data["type"] != "checkin_call") { super.onMessageReceived(remoteMessage); return }
     if (Build.VERSION.SDK_INT >= 24 && !(getSystemService(Context.USER_SERVICE) as UserManager).isUserUnlocked) return
-    showCheckinCall(data)
+    CheckinCallNotifications.show(applicationContext, data)
   }
+}
+
+object CheckinCallNotifications {
+  private const val CALL_CHANNEL_ID = "asinu_checkin_call_warm_v2"
+  private const val URGENT_CHANNEL_ID = "asinu_checkin_call_urgent_warm_v2"
+  private const val ALERT_CHANNEL_ID = "asinu_checkin_alert_warm_v2"
+  private const val MISSED_CHANNEL_ID = "asinu_checkin_missed_warm_v2"
+  private const val NOTICE_CHANNEL_ID = "asinu_checkin_notice_warm_v2"
 
   @SuppressLint("MissingPermission")
-  private fun showCheckinCall(data: Map<String, String>) {
+  fun show(context: Context, data: Map<String, String>, fallback: Boolean = false): Unit = with(context) {
     val episodeId = data["episodeId"].orEmpty()
     if (episodeId.isBlank()) return
 
@@ -56,7 +56,8 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
     }
     val kind = data["kind"].orEmpty()
     val incomingCall = kind == "INCOMING_CALL" || kind == "URGENT_REPEAT"
-    if (incomingCall && !CheckinCallStore.incoming(this, data)) return
+    if (incomingCall && !fallback && !CheckinCallStore.incoming(this, data)) return
+    if (incomingCall && !fallback && CheckinTelecom.showIncoming(this, attemptId) { show(context, data, fallback = true) }) return
     val hasUrgentSeverity = data["severity"].equals("URGENT", ignoreCase = true)
     val urgent = hasUrgentSeverity || kind == "URGENT_REPEAT"
     val missed = kind == "FALLBACK" || kind == "MISSED_CALL"
@@ -77,12 +78,17 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
     }
     // Named resource URIs remain stable when raw resource IDs change on upgrade.
     val sound = Uri.parse("android.resource://$packageName/raw/$soundName")
-    val title = data["title"] ?: getString(
+    val configuration = android.content.res.Configuration(resources.configuration).apply {
+      setLocale(Locale(if (data["lang"] == "en") "en" else "vi"))
+    }
+    val localized = createConfigurationContext(configuration)
+    // Lock-screen content stays generic, even when the server includes health details.
+    val title = (if (incomingCall) null else data["title"]) ?: localized.getString(
       if (data["severity"] == "URGENT") R.string.checkin_call_urgent_title else R.string.checkin_call_title,
     )
-    val body = data["body"] ?: getString(R.string.checkin_call_body)
+    val body = (if (incomingCall) null else data["body"]) ?: localized.getString(R.string.checkin_call_body)
 
-    createCallChannel(channelId, sound, incomingCall)
+    createCallChannel(context, channelId, sound, incomingCall)
 
     val deepLink = Uri.Builder()
       .scheme("asinu-lite")
@@ -101,7 +107,8 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
     )
 
     val builder = NotificationCompat.Builder(this, channelId)
-      .setSmallIcon(R.mipmap.ic_launcher)
+      .setSmallIcon(R.drawable.asinu_notification_small)
+      .setLargeIcon(ContextCompat.getDrawable(context, R.mipmap.ic_launcher)?.toBitmap(192, 192))
       .setContentTitle(title)
       .setContentText(body)
       .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -136,8 +143,12 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
         this.data = Uri.parse("asinu-internal://checkin/$attemptId/decline")
         putExtra("attemptId", attemptId)
       }, flags)
+      // A notification-only fallback also expires without opening React or the Activity.
+      android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+        if (CheckinCallStore.ringing(context, attemptId) != null) CheckinCallStore.end(context, attemptId)
+      }, (call.optLong("expiresAt") - System.currentTimeMillis()).coerceAtLeast(1))
       builder
-        .setStyle(NotificationCompat.CallStyle.forIncomingCall(Person.Builder().setName(title).setImportant(true).build(), decline, answer))
+        .setStyle(NotificationCompat.CallStyle.forIncomingCall(Person.Builder().setName(title).setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher)).setImportant(true).build(), decline, answer))
         .setContentIntent(view)
         .setTimeoutAfter((call.optLong("expiresAt") - System.currentTimeMillis()).coerceAtLeast(1))
       // Keep the intent even when full-screen access is denied. Android decides
@@ -157,7 +168,17 @@ class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
     }
   }
 
-  private fun createCallChannel(channelId: String, sound: Uri, incomingCall: Boolean) {
+  @SuppressLint("MissingPermission")
+  fun silence(context: Context, id: String) {
+    if (Build.VERSION.SDK_INT < 23) return
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val current = manager.activeNotifications.firstOrNull { it.tag == "checkin:$id" && it.id == 1 }?.notification ?: return
+    val quiet = NotificationCompat.Builder(context, current).setOnlyAlertOnce(true).setSilent(true).build()
+    quiet.flags = quiet.flags and Notification.FLAG_INSISTENT.inv()
+    runCatching { manager.notify("checkin:$id", 1, quiet) }
+  }
+
+  private fun createCallChannel(context: Context, channelId: String, sound: Uri, incomingCall: Boolean) = with(context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     val audio = AudioAttributes.Builder()

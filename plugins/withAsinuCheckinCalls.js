@@ -14,13 +14,23 @@ function configureManifest(manifest) {
   upsert('service', '.notifications.AsinuFirebaseMessagingService', { 'android:exported': 'false', 'android:directBootAware': 'true' });
   const service = application.service.find(item => item.$['android:name'] === '.notifications.AsinuFirebaseMessagingService');
   service['intent-filter'] = [{ $: { 'android:priority': '100' }, action: [{ $: { 'android:name': 'com.google.firebase.MESSAGING_EVENT' } }] }];
+  upsert('service', '.notifications.CheckinConnectionService', {
+    'android:exported': 'true', 'android:permission': 'android.permission.BIND_TELECOM_CONNECTION_SERVICE',
+    'android:label': 'Asinu',
+  });
+  const telecom = application.service.find(item => item.$['android:name'] === '.notifications.CheckinConnectionService');
+  telecom['intent-filter'] = [{ action: [{ $: { 'android:name': 'android.telecom.ConnectionService' } }] }];
   upsert('activity', '.notifications.CheckinIncomingCallActivity', {
     'android:exported': 'false', 'android:excludeFromRecents': 'true',
-    'android:theme': '@android:style/Theme.Material.Light.NoActionBar',
+    'android:theme': '@style/AsinuIncomingCallTheme',
   });
   upsert('receiver', '.notifications.CheckinCallDeclineReceiver', { 'android:exported': 'false' });
+  for (const name of ['com.google.firebase.messaging.default_notification_icon', 'expo.modules.notifications.default_notification_icon']) {
+    upsert('meta-data', name, { 'android:resource': '@drawable/asinu_notification_small', 'tools:replace': 'android:resource' });
+  }
   manifest.manifest['uses-permission'] ||= [];
-  for (const name of ['android.permission.POST_NOTIFICATIONS', 'android.permission.USE_FULL_SCREEN_INTENT', 'android.permission.VIBRATE']) {
+  manifest.manifest['uses-permission'] = manifest.manifest['uses-permission'].filter(item => item.$['android:name'] !== 'android.permission.READ_PHONE_NUMBERS');
+  for (const name of ['android.permission.MANAGE_OWN_CALLS', 'android.permission.POST_NOTIFICATIONS', 'android.permission.USE_FULL_SCREEN_INTENT', 'android.permission.VIBRATE']) {
     if (!manifest.manifest['uses-permission'].some(item => item.$['android:name'] === name)) manifest.manifest['uses-permission'].push({ $: { 'android:name': name } });
   }
   return manifest;

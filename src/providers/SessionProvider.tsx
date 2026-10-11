@@ -260,6 +260,12 @@ export const SessionProvider = ({ children }: Props) => {
     const removeEnded = addVoipCallEndedListener(call => {
       callRecoveryRevision.current++;
       callHandoff.current.clear(call.attemptId);
+      // A Telecom hang-up can arrive before the check-in screen has mounted.
+      // Use the authenticated endpoint; the ring-only native capability cannot
+      // modify a connected call or confirm anyone's health status.
+      if (call.endReason === 'user' && useAuthStore.getState().token) {
+        void apiClient(`/api/mobile/checkin-call/attempts/${encodeURIComponent(call.attemptId)}/decline`, { method: 'POST' }).catch(() => {});
+      }
     });
     const foreground = AppState.addEventListener("change", state => {
       if (state !== "active") return;

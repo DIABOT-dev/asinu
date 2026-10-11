@@ -1,11 +1,12 @@
 import { NativeModules, Platform } from 'react-native';
 import { env } from './env';
 
-export type AndroidCallPermissions = { notifications: boolean; fullScreen: boolean; channels: boolean };
+export type AndroidCallPermissions = { notifications: boolean; fullScreen: boolean; channels: boolean; telecomSupported?: boolean; telecomEnabled?: boolean; telecomPermissionNeeded?: boolean };
 type AndroidCallModule = {
   configure(baseUrl: string): Promise<boolean>;
   getCallPermissions(): Promise<AndroidCallPermissions>;
   openCallSettings(fullScreen: boolean): Promise<boolean>;
+  openTelecomSettings?(): Promise<boolean>;
 };
 const native = Platform.OS === 'android'
   ? NativeModules.AsinuCheckinCallModule as AndroidCallModule | undefined : undefined;
@@ -23,4 +24,11 @@ export async function getAndroidCallPermissions(): Promise<AndroidCallPermission
 export async function openAndroidCallSettings(fullScreen: boolean): Promise<boolean> {
   if (!native) return false;
   try { return await native.openCallSettings(fullScreen); } catch { return false; }
+}
+
+export async function openAndroidTelecomSettings(): Promise<boolean> {
+  try {
+    if (!native?.openTelecomSettings) return false;
+    return await native.openTelecomSettings();
+  } catch { return false; }
 }

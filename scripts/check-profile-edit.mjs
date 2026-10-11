@@ -124,6 +124,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
     '../../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: () => false },
     '../../../src/lib/apiClient': { ApiError, apiClient: async () => ({}), getApiErrorMessage: (_error, t, key) => t(key) },
+    '../../../src/lib/appEnv': { isDevBuild: false },
     '../../../src/styles': theme,
     '../../../src/hooks/useThemeColors': { useThemeColors: () => ({ isDark }) },
     '../../../src/stores/health-feed-preference': { getHealthFeedPreference: async () => true, setHealthFeedPreference: async enabled => enabled },

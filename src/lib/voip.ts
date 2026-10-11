@@ -16,6 +16,7 @@ export type VoipCallPayload = {
   nativeEnded?: string;
   continuationUntil?: string;
   audioSessionReleased?: string;
+  endReason?: 'user';
 };
 
 type NativeVoipModule = {

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import { useFocusEffect } from 'expo-router';
+import { Redirect, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckinUiPreview } from '../checkin';
 import { CHECKIN_UI_PREVIEWS, type CheckinUiPreviewId } from '../../src/features/checkin/checkin-ui-gallery';
@@ -19,6 +19,7 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { CheckinCallSafetyNote, CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
+import { isDevBuild } from '../../src/lib/appEnv';
 
 type PreviewId = CheckinUiPreviewId
   | 'voice-settings'
@@ -696,6 +697,11 @@ function VoiceSettingsPreview() {
 }
 
 export default function CheckinCallUiGalleryScreen() {
+  if (!__DEV__ || !isDevBuild) return <Redirect href="/(tabs)/profile" />;
+  return <CheckinCallUiGallery />;
+}
+
+function CheckinCallUiGallery() {
   const router = useRouter();
   const { t } = useTranslation('checkinCall');
   const [selected, setSelected] = useState<PreviewId | null>(null);
