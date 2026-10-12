@@ -52,14 +52,28 @@ class CheckinTelecomTest {
   @After fun clean() { CheckinTelecom.end(id); shadowOf(Looper.getMainLooper()).idle() }
 
   @Test fun brandedAccountMigratesLegacyAndNeedsNoPhoneNumberPermissionOrManualEnable() {
-    val old = android.telecom.PhoneAccountHandle(android.content.ComponentName(context, CheckinConnectionService::class.java), "asinu-checkin")
-    telecom.registerPhoneAccount(android.telecom.PhoneAccount.builder(old, "Asinu").setCapabilities(android.telecom.PhoneAccount.CAPABILITY_CALL_PROVIDER).build())
+    val old = listOf("asinu-checkin", "asinu-checkin-system").map {
+      android.telecom.PhoneAccountHandle(android.content.ComponentName(context, CheckinConnectionService::class.java), it)
+    }
+    old.forEach { telecom.registerPhoneAccount(android.telecom.PhoneAccount.builder(it, "Asinu").setCapabilities(android.telecom.PhoneAccount.CAPABILITY_CALL_PROVIDER).build()) }
     assertTrue(CheckinTelecom.register(context))
     assertTrue(CheckinTelecom.enabled(context))
-    assertNull(telecom.getPhoneAccount(old))
+    old.forEach { assertNull(telecom.getPhoneAccount(it)) }
     val account = telecom.getPhoneAccount(CheckinTelecom.accountHandle(context))
     assertFalse(account.hasCapabilities(android.telecom.PhoneAccount.CAPABILITY_CALL_PROVIDER))
     assertTrue(account.hasCapabilities(android.telecom.PhoneAccount.CAPABILITY_SELF_MANAGED))
+  }
+  @Test @Config(sdk = [26, 30, 32, 33, 35]) fun brandedAccountWorksBeforeAndAfterPermissionFreeQueryWasIntroduced() {
+    telecom.unregisterPhoneAccount(CheckinTelecom.accountHandle(context))
+    assertTrue(CheckinTelecom.register(context))
+    assertTrue(CheckinTelecom.register(context))
+    assertTrue(CheckinTelecom.enabled(context))
+    assertEquals(1, shadowOf(telecom).allPhoneAccounts.count { it.accountHandle == CheckinTelecom.accountHandle(context) })
+    receive()
+    val call = connection()
+    call.onShowIncomingCallUi()
+    assertEquals(Connection.STATE_RINGING, call.state)
+    assertEquals(1, shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).allNotifications.size)
   }
   @Test fun telecomPublishesOneBrandedNotificationOnlyWhenItRequestsIncomingUi() {
     receive(); receive()
@@ -76,6 +90,9 @@ class CheckinTelecomTest {
     assertNotNull(notification.fullScreenIntent)
     assertNotNull(notification.getLargeIcon())
     assertEquals("android.resource://${context.packageName}/raw/asinu_incoming", manager.getNotificationChannel(notification.channelId).sound.toString())
+    shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(9))
+    assertEquals(Connection.STATE_RINGING, call.state)
+    assertEquals(1, shadowOf(manager).allNotifications.size)
     call.onSilence()
     val quiet = shadowOf(manager).allNotifications.single()
     assertTrue(quiet.flags and android.app.Notification.FLAG_ONLY_ALERT_ONCE != 0)
@@ -152,7 +169,7 @@ class CheckinTelecomTest {
 /** Robolectric has not implemented Telecom's permission-free self-managed account query. */
 @org.robolectric.annotation.Implements(TelecomManager::class)
 class CheckinTelecomManagerShadow : org.robolectric.shadows.ShadowTelecomManager() {
-  @org.robolectric.annotation.Implementation(minSdk = 26)
+  @org.robolectric.annotation.Implementation(minSdk = 33)
   protected fun getOwnSelfManagedPhoneAccounts(): List<android.telecom.PhoneAccountHandle> =
     allPhoneAccounts.filter { it.hasCapabilities(android.telecom.PhoneAccount.CAPABILITY_SELF_MANAGED) }.map { it.accountHandle }
 }

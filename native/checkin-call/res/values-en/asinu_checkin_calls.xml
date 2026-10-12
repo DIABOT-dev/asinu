@@ -3,6 +3,9 @@
     <string name="checkin_call_title">Asinu call</string>
     <string name="checkin_call_answer">Answer call</string>
     <string name="checkin_call_decline">Decline</string>
+    <string name="checkin_call_end">End call</string>
+    <string name="checkin_call_open">Open Asinu</string>
+    <string name="checkin_call_unlock_hint">Call answered. Unlock to hear your reminder and check in.</string>
     <string name="checkin_call_answer_hint">Hear your reminder and check in with Asinu.</string>
     <string name="checkin_call_internet">Internet call</string>
     <string name="checkin_call_privacy">Asinu does not record this call.</string>

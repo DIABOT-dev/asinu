@@ -2,6 +2,8 @@ package com.asinu.lite.notifications
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -12,6 +14,9 @@ import android.telecom.DisconnectCause
 import android.telecom.PhoneAccount
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
+import android.telecom.StatusHints
+import com.asinu.lite.R
+import java.util.Locale
 
 /** Exported solely to Android Telecom, protected by BIND_TELECOM_CONNECTION_SERVICE. */
 class CheckinConnectionService : ConnectionService() {
@@ -24,7 +29,10 @@ class CheckinConnectionService : ConnectionService() {
     connection.connectionProperties = Connection.PROPERTY_SELF_MANAGED
     connection.setAudioModeIsVoip(true)
     connection.setAddress(Uri.fromParts(PhoneAccount.SCHEME_SIP, "asinu", null), TelecomManager.PRESENTATION_ALLOWED)
-    connection.setCallerDisplayName("Asinu", TelecomManager.PRESENTATION_ALLOWED)
+    val locale = Configuration(resources.configuration).apply { setLocale(Locale(if (call.optString("lang") == "en") "en" else "vi")) }
+    connection.setCallerDisplayName(createConfigurationContext(locale).getString(R.string.checkin_call_title), TelecomManager.PRESENTATION_ALLOWED)
+    // Supply caller identity to system calling surfaces; Asinu draws the full UI.
+    connection.statusHints = StatusHints("Asinu", Icon.createWithResource(this, R.drawable.asinu_notification_small), null)
     connection.setInitializing()
     connection.setRinging()
     connection.expireAt(call.optLong("expiresAt"))

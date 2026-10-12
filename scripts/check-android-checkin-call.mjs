@@ -109,8 +109,36 @@ await test('native decline base URL is configured before FCM upload, with no log
   assert.ok(source.indexOf('configureAndroidCheckinCalls()') < source.indexOf('getDevicePushTokenAsync()'));
 });
 
-function accessCard({ platform = 'android', language = 'vi', permissions = { notifications: true, channels: true, fullScreen: false }, open = true } = {}) {
-  let cursor = 0; const state = []; const effects = []; const queued = []; const events = {}; const calls = []; const toasts = [];
+function permissionRequest({
+  permissions = { notifications: true, channels: true, fullScreen: false },
+  notificationPermission = { granted: false, canAskAgain: false },
+  decision = { granted: true }, open = true,
+} = {}) {
+  const calls = [];
+  const api = evaluate('src/lib/android-call-access.ts', {
+    'expo-notifications': {
+      getPermissionsAsync: async () => notificationPermission,
+      requestPermissionsAsync: async () => {
+        calls.push('notification-prompt');
+        if (decision instanceof Error) throw decision;
+        if (decision.granted) permissions.notifications = true;
+        return decision;
+      },
+    },
+    './android-checkin-call': {
+      getAndroidCallPermissions: async () => {
+        if (permissions instanceof Error) throw permissions;
+        return permissions;
+      },
+      openAndroidCallSettings: async fullScreen => { calls.push(['settings', fullScreen]); return open; },
+    },
+    './notifications': { refreshNotificationLocalization: async () => { calls.push('channels'); } },
+  });
+  return { request: api.requestAndroidCallAccess, calls, permissions };
+}
+function accessCard({ platform = 'android', language = 'vi', permissions = { notifications: true, channels: true, fullScreen: false }, open = true, request } = {}) {
+  let cursor = 0; const state = []; const effects = []; const queued = []; const events = {}; const toasts = [];
+  const flow = permissionRequest({ permissions, open });
   const strings = JSON.parse(fs.readFileSync(`src/i18n/locales/${language}/checkinCall.json`, 'utf8'));
   const colors = { surface: '#fff', border: '#ddd', primaryDark: '#087c68', textPrimary: '#123', textSecondary: '#567' };
   const t = key => {
@@ -120,22 +148,19 @@ function accessCard({ platform = 'android', language = 'vi', permissions = { not
   const Component = evaluate('src/features/checkin-call/AndroidCallAccessCard.tsx', {
     react: {
       useState(initial) { const id = cursor++; if (!(id in state)) state[id] = initial; return [state[id], value => { state[id] = value; }]; },
+      useRef(initial) { const id = cursor++; if (!(id in state)) state[id] = { current: initial }; return state[id]; },
       useEffect(effect) { const id = cursor++; if (!effects[id]) { effects[id] = true; queued.push(effect); } },
       useCallback(callback) { cursor++; return callback; },
     },
     'react-native': { Platform: { OS: platform }, View: 'View', Pressable: 'Pressable', StyleSheet: { create: value => value }, AppState: {
       addEventListener(name, callback) { events[name] = callback; return { remove: () => { delete events[name]; } }; },
     } },
-    'react-i18next': { useTranslation: namespace => ({ t: namespace === 'common' ? () => language === 'vi' ? 'Để sau' : 'Later' : t }) },
+    'react-i18next': { useTranslation: () => ({ t }) },
     '@expo/vector-icons': { Ionicons: 'Icon' },
-    '../../components/AppAlertModal': { AppAlertModal: 'AppModal' },
     '../../components/ScaledText': { ScaledText: 'Text' },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors }) },
-    '../../lib/android-checkin-call': {
-      getAndroidCallPermissions: async () => permissions,
-      openAndroidCallSettings: async fullScreen => { calls.push(fullScreen); return open; },
-      openAndroidTelecomSettings: async () => { calls.push('telecom'); return open; },
-    },
+    '../../lib/android-checkin-call': { getAndroidCallPermissions: async () => permissions },
+    '../../lib/android-call-access': { requestAndroidCallAccess: request ?? flow.request },
     '../../stores/toast.store': { showToast: (...args) => toasts.push(args) },
   }).AndroidCallAccessCard;
   const render = props => {
@@ -144,50 +169,77 @@ function accessCard({ platform = 'android', language = 'vi', permissions = { not
       React.Children.toArray(node.props?.children).forEach(visit); };
     visit(root); while (queued.length) queued.shift()(); return { root, nodes };
   };
-  return { render, calls, toasts, events, permissions };
+  return { render, calls: flow.calls, toasts, events, permissions };
 }
 for (const language of ['vi', 'en']) {
-  await test(`${language}: full-screen help uses app modal, not an unsolicited OS sheet`, async () => {
+  await test(`${language}: one tap opens full-screen permission directly, with no instruction modal`, async () => {
     const h = accessCard({ language }); h.render(); await flush();
-    let view = h.render(); assert.equal(h.calls.length, 0);
+    const view = h.render(); assert.equal(h.calls.length, 0);
     const strings = JSON.parse(fs.readFileSync(`src/i18n/locales/${language}/checkinCall.json`, 'utf8'));
-    assert.ok(view.nodes.some(node => node.type === 'Text' && node.props.children === strings.androidAccess.fullScreenBody));
-    view.nodes.find(node => node.type === 'Pressable').props.onPress();
-    view = h.render(); const modal = view.nodes.find(node => node.type === 'AppModal');
-    assert.equal(modal.props.visible, true); assert.equal(modal.props.stackButtons, true); assert.equal(modal.props.scrollable, true);
-    assert.ok(modal.props.message.length > 50);
-    await modal.props.buttons[0].onPress(); assert.deepEqual(h.calls, [true]);
+    assert.ok(view.nodes.some(node => node.type === 'Text' && node.props.children === strings.androidAccess.allowFullScreen));
+    assert.equal(view.nodes.filter(node => node.type === 'AppModal').length, 0);
+    await view.nodes.find(node => node.type === 'Pressable').props.onPress();
+    assert.deepEqual(h.calls, [['settings', true]]);
   });
 }
-await test('blocked notification channels route to notification settings first, not unrelated overlays', async () => {
-  const h = accessCard({ permissions: { notifications: false, channels: false, fullScreen: false } }); h.render(); await flush();
-  const strings = JSON.parse(fs.readFileSync('src/i18n/locales/vi/checkinCall.json', 'utf8'));
-  assert.ok(h.render().nodes.some(node => node.type === 'Text' && node.props.children === strings.androidAccess.body));
-  h.render().nodes.find(node => node.type === 'Pressable').props.onPress();
-  await h.render().nodes.find(node => node.type === 'AppModal').props.buttons[0].onPress();
-  assert.deepEqual(h.calls, [false]);
+await test('a fresh notification grant continues straight to full-screen access on the same tap', async () => {
+  const h = permissionRequest({ permissions: { notifications: false, channels: true, fullScreen: false },
+    notificationPermission: { granted: false, canAskAgain: true } });
+  assert.equal(await h.request(), true);
+  assert.deepEqual(h.calls, ['channels', 'notification-prompt', ['settings', true]]);
 });
-await test('failed Android settings opens use toast, and returning from OS settings refreshes permissions', async () => {
+await test('denying the notification prompt does not force the user into settings', async () => {
+  const h = permissionRequest({ permissions: { notifications: false, channels: true, fullScreen: false },
+    notificationPermission: { granted: false, canAskAgain: true }, decision: { granted: false } });
+  assert.equal(await h.request(), true);
+  assert.deepEqual(h.calls, ['channels', 'notification-prompt']);
+});
+await test('permanently denied notifications open app permissions directly without another prompt', async () => {
+  const h = permissionRequest({ permissions: { notifications: false, channels: true, fullScreen: false } });
+  assert.equal(await h.request(), true);
+  assert.deepEqual(h.calls, [['settings', false]]);
+});
+await test('muted call channels open notification settings before requesting full-screen access', async () => {
+  const h = accessCard({ permissions: { notifications: true, channels: false, fullScreen: false } }); h.render(); await flush();
+  const strings = JSON.parse(fs.readFileSync('src/i18n/locales/vi/checkinCall.json', 'utf8'));
+  assert.ok(h.render().nodes.some(node => node.type === 'Text' && node.props.children === strings.androidAccess.enableSound));
+  await h.render().nodes.find(node => node.type === 'Pressable').props.onPress();
+  assert.deepEqual(h.calls, [['settings', false]]);
+});
+await test('rapid repeated taps cannot open multiple permission flows', async () => {
+  let resolve; let requests = 0;
+  const h = accessCard({ request: () => { requests++; return new Promise(done => { resolve = done; }); } });
+  h.render(); await flush();
+  const tap = h.render().nodes.find(node => node.type === 'Pressable').props.onPress;
+  const first = tap(); await tap();
+  assert.equal(requests, 1);
+  assert.equal(h.render().nodes.find(node => node.type === 'Pressable').props.disabled, true);
+  resolve(true); await first;
+  assert.equal(h.render().nodes.find(node => node.type === 'Pressable').props.disabled, false);
+});
+await test('failed permission opens use toast, and returning from settings refreshes access and revocation', async () => {
   const h = accessCard({ open: false }); h.render(); await flush();
-  h.render().nodes.find(node => node.type === 'Pressable').props.onPress();
-  await h.render().nodes.find(node => node.type === 'AppModal').props.buttons[0].onPress();
+  await h.render().nodes.find(node => node.type === 'Pressable').props.onPress();
   assert.equal(h.toasts[0][1], 'error');
   h.permissions.fullScreen = true; h.events.change('active'); await flush();
   assert.equal(h.render().nodes.filter(node => node.type === 'Pressable').length, 0);
   assert.equal(h.render({ onlyWhenNeeded: true }).root, null);
+  h.permissions.fullScreen = false; h.events.change('active'); await flush();
+  assert.notEqual(h.render({ onlyWhenNeeded: true }).root, null);
+  assert.equal(h.calls.length, 1); // returning never automatically reopens settings
 });
-await test('iOS and older builds show no Android permission UI', async () => {
-  const ios = accessCard({ platform: 'ios' }); assert.equal(ios.render().root, null);
+await test('ready devices, iOS and older builds do not ask for unnecessary permissions', async () => {
+  const ready = permissionRequest({ permissions: { notifications: true, channels: true, fullScreen: true } });
+  assert.equal(await ready.request(), true); assert.deepEqual(ready.calls, []);
+  const ios = accessCard({ platform: 'ios' }); assert.equal(ios.render().root, null); assert.deepEqual(ios.calls, []);
   const old = accessCard({ permissions: null }); old.render(); await flush(); assert.equal(old.render().root, null);
+  const noBridge = permissionRequest({ permissions: null }); assert.equal(await noBridge.request(), false); assert.deepEqual(noBridge.calls, []);
 });
-await test('branded Telecom calls still guide users to full-screen and channel permissions', async () => {
-  const h = accessCard({ permissions: { notifications: true, channels: true, fullScreen: false, telecomSupported: true, telecomEnabled: true } });
-  h.render(); await flush();
-  h.render().nodes.find(node => node.type === 'Pressable').props.onPress();
-  await h.render().nodes.find(node => node.type === 'AppModal').props.buttons[0].onPress();
-  assert.deepEqual(h.calls, [true]);
-  h.permissions.fullScreen = true; h.events.change('active'); await flush();
-  assert.equal(h.render({ onlyWhenNeeded: true }).root, null);
+await test('permission API errors resolve without leaving the action stuck', async () => {
+  const h = permissionRequest({ permissions: { notifications: false, channels: true, fullScreen: false },
+    notificationPermission: { granted: false, canAskAgain: true }, decision: new Error('Permission API unavailable') });
+  assert.equal(await h.request(), false);
+  assert.deepEqual(h.calls, ['channels', 'notification-prompt']);
 });
 await test('native voice playback filters player identity, handles errors and releases its listener', async () => {
   const calls = []; const listeners = new Map(); let playerId;

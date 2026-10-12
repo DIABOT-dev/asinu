@@ -37,6 +37,7 @@ class CheckinIncomingCallActivity : Activity() {
   private var attemptId = ""
   private var answering = false
   private var telecomAnswered = false
+  private var showAnsweredUi: (() -> Unit)? = null
   private val handler = Handler(Looper.getMainLooper())
   private val timeout = Runnable { CheckinCallStore.end(this, attemptId); finish() }
   private val updates = object : BroadcastReceiver() {
@@ -92,10 +93,11 @@ class CheckinIncomingCallActivity : Activity() {
     content.addView(label("Asinu", 36f, true), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(20) })
     content.addView(label(localized.getString(R.string.checkin_call_title), 20f))
     content.addView(View(this), LinearLayout.LayoutParams(1, dp(48), 1f))
-    content.addView(label(localized.getString(R.string.checkin_call_answer_hint), 16f))
+    val hint = label(localized.getString(if (telecomAnswered) R.string.checkin_call_unlock_hint else R.string.checkin_call_answer_hint), 16f)
+    content.addView(hint)
     content.addView(View(this), LinearLayout.LayoutParams(1, dp(32)))
     val controls = LinearLayout(this).apply { gravity = Gravity.CENTER; orientation = LinearLayout.HORIZONTAL }
-    fun callButton(title: String, color: Int, icon: Int, action: () -> Unit) {
+    fun callButton(title: String, color: Int, icon: Int, action: () -> Unit): Pair<Button, TextView> {
       val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
       val view = Button(this).apply {
         contentDescription = title; minHeight = dp(80); minWidth = dp(80)
@@ -108,16 +110,26 @@ class CheckinIncomingCallActivity : Activity() {
         setOnClickListener { action() }
       }
       column.addView(view, LinearLayout.LayoutParams(dp(80), dp(80)))
-      column.addView(label(title, 18f, true).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
+      val caption = label(title, 18f, true).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+      column.addView(caption,
         LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
       controls.addView(column, LinearLayout.LayoutParams(0, -2, 1f))
+      return view to caption
     }
-    callButton(localized.getString(R.string.checkin_call_decline), Color.rgb(205, 47, 64), R.drawable.asinu_call_decline) {
+    val end = callButton(localized.getString(if (telecomAnswered) R.string.checkin_call_end else R.string.checkin_call_decline), Color.rgb(205, 47, 64), R.drawable.asinu_call_decline) {
       if (telecomAnswered) CheckinCallStore.end(this, attemptId, userDisconnected = true)
       else CheckinCallDeclineReceiver.decline(this, attemptId)
       finish()
     }
-    callButton(localized.getString(R.string.checkin_call_answer), Color.rgb(8, 132, 109), R.drawable.asinu_call_answer) { answer() }
+    val open = callButton(localized.getString(if (telecomAnswered) R.string.checkin_call_open else R.string.checkin_call_answer), Color.rgb(8, 132, 109), R.drawable.asinu_call_answer) { answer() }
+    showAnsweredUi = {
+      // Keep the answered state clear if the user cancels the PIN dialog.
+      hint.text = localized.getString(R.string.checkin_call_unlock_hint)
+      end.first.contentDescription = localized.getString(R.string.checkin_call_end)
+      end.second.text = end.first.contentDescription
+      open.first.contentDescription = localized.getString(R.string.checkin_call_open)
+      open.second.text = open.first.contentDescription
+    }
     content.addView(controls, LinearLayout.LayoutParams(-1, -2))
     content.addView(label(localized.getString(R.string.checkin_call_privacy), 13f), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(26) })
     scroll.addView(content); setContentView(scroll)
@@ -138,6 +150,7 @@ class CheckinIncomingCallActivity : Activity() {
     if (!telecomAnswered) {
       if (!CheckinTelecom.answerFromUi(this, attemptId)) { answering = false; finish(); return }
       telecomAnswered = true
+      showAnsweredUi?.invoke()
     }
     val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
     if (Build.VERSION.SDK_INT >= 26 && keyguard.isKeyguardLocked) {
@@ -169,6 +182,7 @@ class CheckinIncomingCallActivity : Activity() {
 
   override fun onDestroy() {
     handler.removeCallbacks(timeout)
+    showAnsweredUi = null
     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     runCatching { unregisterReceiver(updates) }
     super.onDestroy()

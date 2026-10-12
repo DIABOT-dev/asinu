@@ -17,7 +17,7 @@ import android.telecom.TelecomManager
 import com.asinu.lite.R
 import java.util.concurrent.ConcurrentHashMap
 
-/** Telecom coordinates audio/concurrency; Asinu owns its branded incoming UI and ringtone. */
+/** Telecom owns call state/audio routing; Asinu owns its branded UI and ringtone. */
 object CheckinTelecom {
   const val ACCOUNT_ID = "asinu-checkin-branded"
   const val ATTEMPT_ID = "com.asinu.lite.CHECKIN_ATTEMPT_ID"
@@ -33,9 +33,10 @@ object CheckinTelecom {
   fun register(context: Context): Boolean = runCatching {
     val telecom = manager(context) ?: return false
     if (!supported(context)) return false
-    // A separate handle migrates managed installs without retaining the Phone app UI.
-    // Self-managed accounts do not ask for a SIM number, contacts, or manual account enablement.
-    if (!telecom.ownSelfManagedPhoneAccounts.contains(accountHandle(context))) {
+    // The permission-free self-managed query was introduced in Android 13.
+    // On Android 8–12L, registering the same handle again is idempotent and
+    // avoids requesting phone-number/contacts access just to inspect our account.
+    if (Build.VERSION.SDK_INT < 33 || !telecom.ownSelfManagedPhoneAccounts.contains(accountHandle(context))) {
       telecom.registerPhoneAccount(PhoneAccount.builder(accountHandle(context), "Asinu")
         .setShortDescription(context.getString(R.string.checkin_call_channel_name))
         .setIcon(Icon.createWithResource(context, R.mipmap.ic_launcher))
@@ -43,14 +44,14 @@ object CheckinTelecom {
         .setSupportedUriSchemes(listOf(PhoneAccount.SCHEME_SIP))
         .build())
     }
-    telecom.unregisterPhoneAccount(PhoneAccountHandle(ComponentName(context, CheckinConnectionService::class.java), "asinu-checkin"))
+    for (legacy in listOf("asinu-checkin", "asinu-checkin-system")) {
+      telecom.unregisterPhoneAccount(PhoneAccountHandle(ComponentName(context, CheckinConnectionService::class.java), legacy))
+    }
     true
   }.getOrDefault(false)
 
-  fun needsAccountPermission(context: Context) = false
-  fun enabled(context: Context): Boolean = supported(context) && runCatching {
-    manager(context)?.ownSelfManagedPhoneAccounts?.contains(accountHandle(context)) == true
-  }.getOrDefault(false)
+  // Self-managed accounts are enabled by Android at registration.
+  fun enabled(context: Context): Boolean = register(context)
 
   fun openSettings(context: Context): Boolean = runCatching {
     context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -91,6 +92,8 @@ object CheckinTelecom {
 
   fun showIncomingUi(context: Context, id: String) {
     if (!connections.containsKey(id)) return
+    // Publish exactly once when Telecom permits presentation. Android displays
+    // our full-screen CallStyle notification with the Asinu logo and sound.
     val present = fallbacks.remove(id) ?: return
     if (CheckinCallStore.ringing(context, id) != null) present()
   }

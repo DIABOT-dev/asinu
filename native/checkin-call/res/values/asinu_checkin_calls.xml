@@ -2,6 +2,9 @@
     <string name="checkin_call_title">Cuộc gọi Asinu</string>
     <string name="checkin_call_answer">Nghe cuộc gọi</string>
     <string name="checkin_call_decline">Từ chối</string>
+    <string name="checkin_call_end">Kết thúc cuộc gọi</string>
+    <string name="checkin_call_open">Mở Asinu</string>
+    <string name="checkin_call_unlock_hint">Đã nhận cuộc gọi. Mở khóa để nghe lời nhắc và check-in.</string>
     <string name="checkin_call_answer_hint">Nghe lời nhắc và check-in cùng Asinu.</string>
     <string name="checkin_call_internet">Cuộc gọi qua Internet</string>
     <string name="checkin_call_privacy">Asinu không ghi âm cuộc gọi này.</string>

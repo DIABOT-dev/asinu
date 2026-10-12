@@ -3,13 +3,13 @@
     "title": "Hiển thị cuộc gọi trên Android",
     "ready": "Quyền hiển thị cuộc gọi đã bật",
     "readyBody": "Khi máy khóa, Android có thể hiển thị màn hình cuộc gọi. Nhấn Nghe và mở khóa để vào phần check-in trong Asinu.",
-    "fullScreenBody": "Quyền thông báo toàn màn hình chưa bật. Máy có thể reo và rung nhưng không hiện màn hình nhận cuộc gọi khi đang khóa. Bật quyền này trong cài đặt Android.",
-    "body": "Bật thông báo, âm thanh và hiển thị nổi cho Cuộc gọi check-in Asinu và Cảnh báo Asinu. Quyền toàn màn hình giúp hiện màn hình nhận cuộc gọi khi máy đang khóa.",
-    "configure": "Kiểm tra quyền cuộc gọi",
-    "openSettings": "Mở cài đặt Android",
-    "notificationGuide": "Trong cài đặt Android, cho phép thông báo của Asinu. Với nhóm Cuộc gọi check-in Asinu và Cảnh báo Asinu, chọn có âm thanh và hiển thị nổi. Không cần cấp quyền vẽ lên ứng dụng khác. Quay lại Asinu để kiểm tra lại quyền cuộc gọi.",
-    "fullScreenGuide": "Ở màn hình cài đặt sắp mở, bật Cho phép thông báo toàn màn hình cho Asinu, rồi quay lại ứng dụng để kiểm tra. Quyền này cho phép hiện màn hình nhận cuộc gọi khi máy đang khóa hoặc tắt màn hình. Bạn vẫn cần mở khóa để vào phần check-in.",
-    "settingsFailed": "Chưa mở được cài đặt. Vui lòng vào Cài đặt Android → Ứng dụng → Asinu."
+    "fullScreenBody": "Cho phép hiện cuộc gọi đến khi điện thoại đang khóa.",
+    "body": "Cho phép Asinu đổ chuông và báo cuộc gọi đến.",
+    "allowNotifications": "Cho phép thông báo",
+    "enableSound": "Bật chuông cuộc gọi",
+    "allowFullScreen": "Bật cuộc gọi toàn màn hình",
+    "requesting": "Đang mở quyền cuộc gọi…",
+    "settingsFailed": "Chưa mở được quyền cuộc gọi. Vui lòng thử lại."
   },
   "personalization": {
     "open": "Cá nhân hóa lời nhắc cuộc gọi",

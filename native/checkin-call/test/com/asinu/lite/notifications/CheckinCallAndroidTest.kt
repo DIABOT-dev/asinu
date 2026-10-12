@@ -147,6 +147,13 @@ class CheckinCallAndroidTest {
     assertEquals(id, CheckinCallStore.pending(context)!!.optString("attemptId"))
     assertTrue(shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).allNotifications.isEmpty())
     assertNull(shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity)
+    val descriptions = mutableListOf<String>()
+    fun visit(view: View) {
+      if (view is Button) descriptions.add(view.contentDescription.toString())
+      if (view is ViewGroup) (0 until view.childCount).forEach { visit(view.getChildAt(it)) }
+    }
+    visit(controller.get().findViewById(android.R.id.content))
+    assertEquals(listOf("Kết thúc cuộc gọi", "Mở Asinu"), descriptions)
     controller.destroy()
   }
   @Test fun incomingLockScreenNotificationNeverUsesPrivatePushText() {
@@ -155,6 +162,23 @@ class CheckinCallAndroidTest {
     val notification = shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).allNotifications.single()
     assertEquals("Cuộc gọi Asinu", notification.extras.getString("android.title"))
     assertEquals("Asinu đang gọi, vui lòng mở ứng dụng.", notification.extras.getString("android.text"))
+  }
+  @Test fun systemAnsweredCallUsesUnlockHandoffRatherThanAskingToAnswerAgain() {
+    CheckinCallStore.incoming(context, call()); CheckinCallStore.answer(context, id)
+    shadowOf(context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).setKeyguardLocked(true)
+    val controller = Robolectric.buildActivity(CheckinIncomingCallActivity::class.java,
+      Intent(context, CheckinIncomingCallActivity::class.java).setAction(CheckinTelecom.ANSWERED).putExtra("attemptId", id)).create()
+    val descriptions = mutableListOf<String>()
+    fun visit(view: View) {
+      if (view is Button) descriptions.add(view.contentDescription.toString())
+      if (view is ViewGroup) (0 until view.childCount).forEach { visit(view.getChildAt(it)) }
+    }
+    visit(controller.get().findViewById(android.R.id.content))
+    assertEquals(listOf("Kết thúc cuộc gọi", "Mở Asinu"), descriptions)
+    assertNull(shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity)
+    assertNotNull(CheckinCallStore.pending(context))
+    CheckinCallStore.end(context, id)
+    controller.destroy()
   }
   @Test fun answerCreatesOneNonDestructiveAuthenticatedHandoff() {
     CheckinCallStore.incoming(context, call())
@@ -206,9 +230,12 @@ class CheckinCallAndroidTest {
     for (index in 1..140) CheckinCallStore.end(context, "bca2c9da-26fe-44a3-ac05-${index.toString().padStart(12, '0')}")
     assertTrue(CheckinCallStore.preferences(context).all.keys.count { it.startsWith("done:") } <= 128)
   }
-  @Test @Config(sdk = [24, 31, 34, 35]) fun fcmNotificationHasTwoActionsAndNativeActivityNotWholeApp() {
+  @Test @Config(sdk = [24, 31, 34, 35]) fun fcmNotificationFallbackHasTwoActionsAndNativeActivityNotWholeApp() {
     val service = Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get()
     service.onMessageReceived(RemoteMessage.Builder("test").setData(call()).build())
+    // Robolectric does not bind Telecom's ConnectionService. Exercise the
+    // watchdog fallback on API levels where registration succeeds.
+    shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(9))
     val notification = shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).allNotifications.single()
     assertEquals(2, notification.actions.size)
     assertEquals("call", notification.category)

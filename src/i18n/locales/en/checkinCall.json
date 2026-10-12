@@ -3,13 +3,13 @@
     "title": "Show calls on Android",
     "ready": "Call display permissions enabled",
     "readyBody": "Android may show the call screen when your phone is locked. Tap Answer and unlock to check in inside Asinu.",
-    "fullScreenBody": "Full-screen notification access is off. Your phone may ring and vibrate without showing the incoming call screen while locked. Enable this access in Android settings.",
-    "body": "Enable notifications, sound and pop-up display for Asinu check-in calls and Asinu alerts. Full-screen access allows the incoming call screen to appear while your phone is locked.",
-    "configure": "Check call permissions",
-    "openSettings": "Open Android settings",
-    "notificationGuide": "Allow Asinu notifications in Android settings. Enable sound and pop-up display for Asinu check-in calls and Asinu alerts. No permission to draw over other apps is needed. Return to Asinu to check call permissions again.",
-    "fullScreenGuide": "On the settings screen that opens next, allow full-screen notifications for Asinu, then return to the app to check again. This allows the incoming call screen to appear when your phone is locked or its screen is off. Unlock to check in inside Asinu.",
-    "settingsFailed": "Could not open settings. Please go to Android Settings → Apps → Asinu."
+    "fullScreenBody": "Allow incoming calls to appear while your phone is locked.",
+    "body": "Allow Asinu to ring and notify you of incoming calls.",
+    "allowNotifications": "Allow notifications",
+    "enableSound": "Enable call sounds",
+    "allowFullScreen": "Enable full-screen calls",
+    "requesting": "Opening call permissions…",
+    "settingsFailed": "Could not open call permissions. Please try again."
   },
   "personalization": {
     "open": "Personalize call reminders",

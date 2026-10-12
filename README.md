@@ -110,6 +110,8 @@ SCHEDULED → OVERDUE → CONTACT_USER → CONTACT_FAMILY → RESOLVED
 
 Âm thanh lời nhắc được lấy từ backend. Ứng dụng quản lý phát, dừng, phát lại và chuyển tiếp giữa giao diện cuộc gọi native với màn hình trong app.
 
+Android dùng Telecom/ConnectionService với tài khoản `CAPABILITY_SELF_MANAGED`: Asinu hiển thị màn hình cuộc gọi có logo màu và phát `asinu_incoming.ogg` (cùng giai điệu với `asinu_incoming.caf` trên iOS); Telecom quản lý trạng thái cuộc gọi và định tuyến âm thanh. Android 14 trở lên cần cho phép thông báo và thông báo toàn màn hình để cuộc gọi đánh thức màn hình khóa. Không cần quyền đọc số điện thoại, danh bạ hay đặt Asinu làm ứng dụng điện thoại mặc định. Các tài khoản cuộc gọi Asinu cũ được chuyển đổi khi đăng ký; mã native nằm ở `native/checkin-call/` và được plugin `plugins/withAsinuCheckinCalls.js` đưa vào bản build.
+
 ### Nhắc nhở và thông báo
 
 - **Asinu nhắc bạn** cung cấp bản tin và nội dung nhắc nhở sức khỏe.
