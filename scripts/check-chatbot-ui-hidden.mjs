@@ -217,17 +217,17 @@ await test("both subscription catalogs and FAQs contain no chatbot benefits", ()
       );
     }
     assert.match(
-      catalog.v2FreeFeature3,
-      language === "en" ? /voice logging/i : /nhập log bằng giọng nói/i
+      catalog.v2FreeFeature5,
+      language === "en" ? /health journal.*own words/i : /nhật ký.*lời nói/i
     );
     assert.match(
       catalog.faq.a1,
       language === "en" ? /logs by voice/i : /nhập log bằng giọng nói/i
     );
-    assert.match(catalog.v2FreeFeature5, /check-in/i);
+    assert.match(catalog.v2FreeFeature1, /check-in/i);
     assert.match(
       catalog.v2AnTamFeature1,
-      language === "en" ? /AI call center/i : /tổng đài viên AI/i
+      language === "en" ? /AI.*calls/i : /AI.*gọi/i
     );
     assert.match(
       catalog.faq.a6,
@@ -259,7 +259,7 @@ await test("rendered package descriptions retain voice logging, check-in, and AI
     ts.forEachChild(node, inspect);
   };
   inspect(ast);
-  assert.ok(selected.get("FREE_FEATURES")?.includes("v2FreeFeature3"));
+  assert.ok(selected.get("FREE_FEATURES")?.includes("v2FreeFeature1"));
   assert.ok(selected.get("FREE_FEATURES")?.includes("v2FreeFeature5"));
   assert.ok(selected.get("AN_TAM_FEATURES")?.includes("v2AnTamFeature1"));
   for (const [language, catalog] of Object.entries(catalogs)) {

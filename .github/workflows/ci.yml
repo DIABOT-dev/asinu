@@ -44,6 +44,11 @@ jobs:
       - name: Guided onboarding and Expo Router compatibility
         run: npm run test:guidance
 
+      - name: Health status details and check-in presentation
+        run: |
+          npm run test:health-tree-status
+          npm run test:checkin-practice
+
       - name: Security regressions and dependency patches
         run: npm run test:security
 

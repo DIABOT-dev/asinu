@@ -296,7 +296,7 @@ export default function TreeScreen() {
         </View>
 
         {/* Tạm ẩn trạng thái trống "Chưa check-in hôm nay"; vẫn hiện kết quả sau khi check-in. */}
-        {healthScore?.checkinDone ? <HealthTreeStatusCard score={healthScore} /> : null}
+        {healthScore && (healthScore.checkinDone || healthScore.factors.length > 0) ? <HealthTreeStatusCard score={healthScore} /> : null}
 
         {/* Tạm ẩn hai thẻ "Chưa xong" và "0 dấu hiệu cần chú ý".
         <View style={styles.scoreRow}>
@@ -335,6 +335,7 @@ export default function TreeScreen() {
           <Ionicons name="pulse" size={20} color="#059669" />
           <Text style={styles.sectionTitle}>{t('healthMetrics')}</Text>
         </View>
+        <Text style={styles.metricsDescription}>{t('healthMetricsDescription')}</Text>
 
         {/* Metrics Grid 2x2 */}
         <View style={styles.metricGrid}>
@@ -544,6 +545,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: 17,
       fontWeight: '700',
       color: '#111827',
+    },
+    metricsDescription: {
+      fontSize: typography.size.sm,
+      lineHeight: Math.round(typography.size.sm * 1.5),
+      color: colors.textSecondary,
+      paddingHorizontal: spacing.xs,
     },
     metricGrid: {
       flexDirection: 'row',

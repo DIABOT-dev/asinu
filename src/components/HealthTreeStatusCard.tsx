@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -8,10 +8,12 @@ import { iconColors, radius, spacing } from '../styles';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { HEALTH_SCORE_FACTORS } from '../features/checkin/health-score-factors';
+import { useGuardedRouter } from '../hooks/useGuardedRouter';
 
 type HealthTreeStatusCardProps = {
   score: HealthScoreData | null;
   compact?: boolean;
+  showDetails?: boolean;
 };
 
 type StatusMeta = {
@@ -50,57 +52,35 @@ const STATUS_META: Record<HealthScoreData['level'], StatusMeta> = {
   },
 };
 
-export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatusCardProps) {
+export function HealthTreeStatusCard({ score, compact = false, showDetails = true }: HealthTreeStatusCardProps) {
   const { t } = useTranslation('home');
   const typography = useScaledTypography();
   const { colors, isDark } = useThemeColors();
-  // A refreshed score must not inherit the expanded state of different signals.
-  const [expandedFactors, setExpandedFactors] = useState<string | null>(null);
-  const meta = score?.checkinDone ? STATUS_META[score.level] : null;
+  const router = useGuardedRouter();
+  const factorCount = score?.factors.length ?? 0;
+  const hasFactors = factorCount > 0;
+  const meta = score && (score.checkinDone || hasFactors) ? STATUS_META[score.level] : null;
   const title = meta ? t(meta.titleKey) : score ? t('healthScoreNoCheckin') : t('healthScoreUnavailable');
-  const subtitle = meta ? t(meta.subtitleKey) : score ? t('healthScoreNoCheckinSub') : t('healthScoreUnavailableSub');
+  const subtitle = hasFactors
+    ? [...new Set(score?.factors.map(factor => t(HEALTH_SCORE_FACTORS[factor]?.labelKey || 'healthFactorUnknown')))].join('\n')
+    : meta ? t(meta.subtitleKey) : score ? t('healthScoreNoCheckinSub') : t('healthScoreUnavailableSub');
   const icon = meta?.icon || (score ? 'clipboard-outline' : 'help-circle-outline');
   const color = meta
     ? isDark ? (score?.level === 'danger' ? colors.danger : score?.level === 'monitor' ? colors.warning : colors.emerald) : meta.color
     : colors.textSecondary;
   const background = isDark ? colors.surface : meta?.background || '#f0fdf4';
   const chipBg = isDark ? `${color}18` : meta?.chipBg || `${color}14`;
-  const factorCount = score?.factors.length ?? 0;
-  const hasFactors = Boolean(score?.checkinDone && factorCount > 0);
-  const factorKey = JSON.stringify(score?.factors ?? []);
-  const expanded = hasFactors && expandedFactors === factorKey;
-  const toggleFactors = () => setExpandedFactors(expanded ? null : factorKey);
-  const expandLabel = t(expanded ? 'healthTreeHideSignals' : 'healthTreeShowSignals');
+  const canOpenDetails = showDetails && hasFactors;
+  const detailsLabel = t('healthTreeShowSignals');
   const interactionProps = {
-    disabled: !hasFactors,
-    onPress: hasFactors ? toggleFactors : undefined,
-    accessibilityRole: hasFactors ? 'button' as const : undefined,
-    accessibilityState: hasFactors ? { expanded } : undefined,
-    accessibilityHint: hasFactors ? expandLabel : undefined,
+    disabled: !canOpenDetails,
+    onPress: canOpenDetails ? () => router.push('/health-status') : undefined,
+    accessibilityRole: canOpenDetails ? 'button' as const : undefined,
+    accessibilityHint: canOpenDetails ? detailsLabel : undefined,
   };
 
   const styles = useMemo(() => createStyles(typography), [typography]);
-  const factorDetails = expanded ? (
-    <View style={[styles.factorDetails, { borderTopColor: `${color}30` }]}>
-      {score?.factors.map((factor, index) => {
-        const factorMeta = HEALTH_SCORE_FACTORS[factor];
-        return (
-          <View key={`${factor}-${index}`} style={styles.factorRow}>
-            <Ionicons name={factorMeta?.icon || 'information-circle-outline'} size={18} color={color} />
-            <Text style={[styles.factorLabel, { color: colors.textPrimary }]}>
-              {t(factorMeta?.labelKey || 'healthFactorUnknown')}
-            </Text>
-          </View>
-        );
-      })}
-    </View>
-  ) : null;
-  const expandHint = hasFactors ? (
-    <View style={styles.expandRow}>
-      <Text style={[styles.factorText, { color }]}>{expandLabel}</Text>
-      <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={color} />
-    </View>
-  ) : null;
+  const detailsArrow = canOpenDetails ? <Ionicons name="chevron-forward" size={22} color={color} /> : null;
 
   if (compact) {
     return (
@@ -115,6 +95,7 @@ export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatu
             </Text>
             <Text style={[styles.subtitle, { fontSize: typography.size.sm, color: colors.textSecondary }]}>{subtitle}</Text>
           </View>
+          {detailsArrow}
         </View>
 
         <View style={styles.metaRow}>
@@ -124,14 +105,12 @@ export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatu
               {score ? (score.checkinDone ? t('healthTreeCheckinDone') : t('healthTreeCheckinNeeded')) : t('healthScoreUnavailable')}
             </Text>
           </View>
-          {score?.checkinDone && factorCount > 0 ? (
+          {hasFactors ? (
             <Text style={[styles.factorText, { color: iconColors.warning }]}>
               {t('healthTreeSignalsCount', { count: factorCount })}
             </Text>
           ) : null}
         </View>
-        {expandHint}
-        {factorDetails}
       </Pressable>
     );
   }
@@ -162,7 +141,7 @@ export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatu
               </Text>
             </View>
 
-            {score?.checkinDone && factorCount > 0 ? (
+            {hasFactors ? (
               <View style={[styles.pillBadge, { backgroundColor: isDark ? colors.premiumLight : '#fef3c7' }]}>
                 <Ionicons name="alert-circle" size={14} color={iconColors.warning} />
                 <Text style={[styles.pillText, { color: iconColors.warning }]}>
@@ -172,9 +151,8 @@ export function HealthTreeStatusCard({ score, compact = false }: HealthTreeStatu
             ) : null}
           </View>
         </View>
+        {detailsArrow}
       </View>
-      {expandHint}
-      {factorDetails}
     </Pressable>
   );
 }
@@ -199,28 +177,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     pressed: {
       opacity: 0.75,
     },
-    expandRow: {
-      minHeight: 44,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.sm,
-    },
-    factorDetails: {
-      borderTopWidth: 1,
-      paddingTop: spacing.sm,
-      gap: spacing.sm,
-    },
-    factorRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.sm,
-    },
-    factorLabel: {
-      flex: 1,
-      fontSize: typography.size.sm,
-    },
     headerRow: {
+      minHeight: 44,
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
@@ -248,7 +206,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontWeight: '800',
     },
     subtitle: {
-      lineHeight: 18,
+      lineHeight: Math.round(typography.size.sm * 1.5),
     },
     badgeRow: {
       flexDirection: 'row',

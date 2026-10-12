@@ -214,6 +214,10 @@ await test('comparison is below the FAQ, and checkout stays on the separate scre
   assert.match(main, /router\.push\("\/subscription\/plans"\)/);
   const purchase = read('src/features/iap/IapPurchaseCard.tsx');
   for (const key of ['iapFamilyCallsShort', 'iapHealthHistoryShort', 'iapFamilyCareShort', 'iapSummaryShort']) assert.ok(purchase.includes(`t("${key}")`));
-  assert.match(purchase, /period === "yearly" && choices\.some/);
+  assert.doesNotMatch(purchase, /iapAnnualGiftAvailability|styles\.benefitNote/);
+  for (const language of ['vi', 'en']) {
+    const catalog = JSON.parse(read(`src/i18n/locales/${language}/subscription.json`));
+    assert.equal(Object.hasOwn(catalog, 'iapAnnualGiftAvailability'), false);
+  }
 });
 console.log(`Subscription benefits and scenario comparison: ${checks} regressions passed.`);

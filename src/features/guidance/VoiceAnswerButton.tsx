@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, Text } from 'react-native';
+import { ActivityIndicator, AppState, Pressable } from 'react-native';
 import { useIsFocused } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -75,10 +75,9 @@ export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false, practi
   const label = t(recording ? 'guidance.stopRecording' : 'guidance.speak');
   return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled}
     accessibilityState={{ disabled: busy || disabled, busy }}
-    onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, padding: 12, borderRadius: 14,
-      backgroundColor: c.actionBackground, alignItems: 'center', gap: 4, maxWidth: 110,
+    onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, minWidth: 56, padding: 12, borderRadius: 14,
+      alignItems: 'center', justifyContent: 'center',
       opacity: busy || disabled ? 0.5 : pressed ? 0.8 : 1 })}>
-    {busy ? <ActivityIndicator color={c.onAction} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={c.onAction} />}
-    <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: c.onAction }}>{label}</Text>
+    {busy ? <ActivityIndicator color={c.primary} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={c.primary} />}
   </Pressable>;
 }

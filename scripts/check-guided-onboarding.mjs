@@ -21,6 +21,7 @@ const test = async (name, run) => { await run(); checks++; console.log(`PASS ${n
 const tick = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 const deferred = () => { let resolve, reject; const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; }); return { promise, resolve, reject }; };
 const theme = evaluate('src/styles/theme.ts');
+const triageOptionDisplay = evaluate('src/features/checkin/triage-option-display.ts');
 const model = evaluate('src/features/guidance/guidance.model.ts', { '../../styles/theme': theme });
 const completedWelcome = () => ({ ...model.defaultProgress(), welcomeSeen: true, role: 'self' });
 
@@ -402,7 +403,7 @@ await test('real symptom guides cover single, multiple, grouped, empty-group and
   }, { View: 'View', Text: 'Text', Image: 'Image', Svg: 'Svg', Path: 'Path', asinuChatSticker: 'asinu_chat_sticker.png', Pressable: 'Pressable', TextInput: 'TextInput', ActivityIndicator: 'Spinner',
     Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
     FadeIn: animation, FadeInDown: animation, FadeInLeft: animation, GuideTarget: 'GuideTarget', VoiceAnswerButton: 'VoiceAnswerButton',
-    colors: theme.lightColors, spacing: theme.spacing, MAX_TRIAGE_QUESTIONS: 10,
+    ...triageOptionDisplay, colors: theme.lightColors, spacing: theme.spacing, MAX_TRIAGE_QUESTIONS: 10,
     useTranslation: () => ({ t: key => key }), useLanguageStore: () => ({ language: 'vi' }), useGuideAcknowledgement: () => () => {},
     useState: initial => [initial, () => {}], useRef: initial => ({ current: initial }), useEffect() {} });
   const defaults = { styles: {}, question: 'question', answers: [], options: ['first', 'second'], practice: true,

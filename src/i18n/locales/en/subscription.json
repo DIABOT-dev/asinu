@@ -264,7 +264,6 @@
   "iapHealthHistoryShort": "Track health changes",
   "iapFamilyCareShort": "Family can follow along",
   "iapSummaryShort": "Regular health summaries",
-  "iapAnnualGiftAvailability": "Yearly plans include dr.asinu specialist consultations, activated when the service officially launches.",
   "iapYearlyDiscountBadge": "Save {{min}}–{{max}}%",
   "iapYearlyValueBadge": "Better value"
 }

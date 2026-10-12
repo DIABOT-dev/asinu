@@ -22,6 +22,7 @@ function evaluate(source, globals = {}) {
   return module.exports;
 }
 const { createCheckinPractice } = evaluate(read('src/features/guidance/checkin.practice.ts'));
+const triageOptionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
   : [tree, ...nodes(tree.props?.children)];
 const tick = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
@@ -251,7 +252,7 @@ for (const language of ['vi', 'en']) {
     const source = [extractVariable('createResultPreviewSession'), extractVariable('BODY_LOCATION_OPTIONS'),
       ...['CheckinUiPreview', 'StatusScreen', 'LocationScreen', 'TriageScreen', 'ConclusionLoadingView', 'stripEmojis', 'extractRecordedSymptoms', 'DoneScreen'].map(extract),
       'module.exports = CheckinUiPreview;'].join('\n');
-    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), MAX_TRIAGE_QUESTIONS: 4,
+    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, MAX_TRIAGE_QUESTIONS: 4,
       CHECKIN_STATUS_CHOICES: [{ status: 'fine' }, { status: 'tired' }, { status: 'very_tired' }],
       CheckinStatusChoice: 'StatusChoice', VoiceAnswerButton: 'VoiceAnswerButton',
       useScaledTypography: () => ({}), createStyles: () => ({}), spacing: { xs: 4, sm: 8, md: 16, lg: 24 },

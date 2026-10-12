@@ -35,6 +35,7 @@ import type { CheckinUiPreviewId } from '../../src/features/checkin/checkin-ui-g
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
+import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -1375,6 +1376,9 @@ function TriageScreen({
                             ]}
                             disabled={readOnly}
                             onPress={() => handleOptionTap(opt)}
+                            accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
+                            accessibilityLabel={formatTriageOptionLabel(opt)}
+                            accessibilityState={{ checked: isSelected, disabled: readOnly }}
                           >
                             {multiSelect ? (
                               <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
@@ -1385,8 +1389,9 @@ function TriageScreen({
                                 {isSelected && <View style={styles.triageRadioDot} />}
                               </View>
                             )}
+                            <MaterialCommunityIcons name={getTriageOptionIcon(opt)} size={24} color={colors.primary} accessible={false} />
                             <Text allowFontScaling style={[styles.triageOptionTitle, isSelected && styles.triageOptionTitleSelected]}>
-                              {opt}
+                              {formatTriageOptionLabel(opt)}
                             </Text>
                           </Pressable>
                         </GuideTarget>
@@ -1412,6 +1417,9 @@ function TriageScreen({
                         ]}
                         disabled={readOnly}
                         onPress={() => handleOptionTap(opt)}
+                        accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
+                        accessibilityLabel={formatTriageOptionLabel(opt)}
+                        accessibilityState={{ checked: isSelected, disabled: readOnly }}
                       >
                         {multiSelect ? (
                           <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
@@ -1422,8 +1430,9 @@ function TriageScreen({
                             {isSelected && <View style={styles.triageRadioDot} />}
                           </View>
                         )}
+                        <MaterialCommunityIcons name={getTriageOptionIcon(opt)} size={24} color={colors.primary} accessible={false} />
                         <Text allowFontScaling style={[styles.triageOptionTitle, isSelected && styles.triageOptionTitleSelected]}>
-                          {opt}
+                          {formatTriageOptionLabel(opt)}
                         </Text>
                       </Pressable>
                     </GuideTarget>
