@@ -116,6 +116,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     } },
     '../../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args), setPendingToast() {} },
     '../../../src/features/auth/auth.store': { useAuthStore },
+    '../../../src/features/checkin-call/AndroidCallAccessCard': { AndroidCallAccessCard: 'AndroidAccessCard' },
     '../../../src/features/logs/logs.store': { useLogsStore: selector => selector({ fetchRecent: async () => {} }) },
     '../../../src/features/missions/missions.store': { useMissionsStore: selector => selector({ fetchMissions: async () => {} }) },
     '../../../src/features/subscription/planName': { localizedPlanName: () => 'Fixture plan' },
