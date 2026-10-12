@@ -23,7 +23,7 @@
     <meta-data android:name="com.zing.zalo.zalosdk.appID" android:value="@string/appID"/>
     <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/asinu_notification_small" tools:replace="android:resource"/>
     <meta-data android:name="expo.modules.notifications.default_notification_icon" android:resource="@drawable/asinu_notification_small" tools:replace="android:resource"/>
-    <activity android:name=".notifications.CheckinIncomingCallActivity" android:exported="false" android:excludeFromRecents="true" android:theme="@style/AsinuIncomingCallTheme"/>
+    <activity android:name=".notifications.CheckinIncomingCallActivity" android:exported="false" android:excludeFromRecents="true" android:showWhenLocked="true" android:turnScreenOn="true" android:theme="@style/AsinuIncomingCallTheme"/>
     <activity android:name="com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity" tools:remove="android:screenOrientation"/>
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true">
       <intent-filter>

@@ -55,6 +55,10 @@ class CheckinIncomingCallActivity : Activity() {
       else CheckinCallStore.ringing(this, attemptId)) ?: run { finish(); return }
     if (Build.VERSION.SDK_INT >= 27) { setShowWhenLocked(true); setTurnScreenOn(true) }
     else @Suppress("DEPRECATION") window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+    // Waking once is not enough: a short device screen timeout can otherwise
+    // leave an unanswered call ringing on a black screen. This window-scoped
+    // flag only keeps the visible incoming screen awake, never a background app.
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     ContextCompat.registerReceiver(this, updates, IntentFilter(CheckinCallStore.CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
     handler.postDelayed(timeout, (call.optLong("expiresAt") - System.currentTimeMillis()).coerceAtLeast(0))
     val configuration = resources.configuration.let { android.content.res.Configuration(it) }
@@ -165,6 +169,7 @@ class CheckinIncomingCallActivity : Activity() {
 
   override fun onDestroy() {
     handler.removeCallbacks(timeout)
+    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     runCatching { unregisterReceiver(updates) }
     super.onDestroy()
   }

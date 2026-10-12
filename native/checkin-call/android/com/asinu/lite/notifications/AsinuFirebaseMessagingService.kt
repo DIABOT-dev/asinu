@@ -42,6 +42,17 @@ object CheckinCallNotifications {
   private const val MISSED_CHANNEL_ID = "asinu_checkin_missed_warm_v2"
   private const val NOTICE_CHANNEL_ID = "asinu_checkin_notice_warm_v2"
 
+  fun channelsReady(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < 26) return true
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    return listOf(CALL_CHANNEL_ID, URGENT_CHANNEL_ID).all { id ->
+      val channel = manager.getNotificationChannel(id)
+      // Existing channel sound choices belong to the user. Detect a muted
+      // channel for settings guidance; never recreate it to bypass that choice.
+      channel == null || (channel.importance >= NotificationManager.IMPORTANCE_HIGH && channel.sound != null)
+    }
+  }
+
   @SuppressLint("MissingPermission")
   fun show(context: Context, data: Map<String, String>, fallback: Boolean = false): Unit = with(context) {
     val episodeId = data["episodeId"].orEmpty()

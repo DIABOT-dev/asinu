@@ -44,6 +44,7 @@ import {
 import { ScaledTextInput as TextInput } from "../../../src/components/ScaledTextInput";
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { LinearGradient } from "expo-linear-gradient";
+import { AndroidCallAccessCard } from "../../../src/features/checkin-call/AndroidCallAccessCard";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 
@@ -981,6 +982,8 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               </Animated.View>
             )}
+
+            <AndroidCallAccessCard onlyWhenNeeded />
 
             {/* ==================== 02 MIDDLE: THAO TÁC ==================== */}
             <Animated.View entering={FadeIn.delay(220).duration(350)}>

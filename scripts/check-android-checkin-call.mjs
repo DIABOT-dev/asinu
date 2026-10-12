@@ -36,6 +36,8 @@ await test('Expo prebuild manifest modifications are idempotent and native recei
   assert.ok(!first.manifest['uses-permission'].some(item => item.$['android:name'] === 'android.permission.READ_PHONE_NUMBERS'));
   assert.equal(application['meta-data'].find(item => item.$['android:name'] === 'expo.modules.notifications.default_notification_icon').$['android:resource'], '@drawable/asinu_notification_small');
   assert.equal(application.activity[0].$['android:exported'], 'false');
+  assert.equal(application.activity[0].$['android:showWhenLocked'], 'true');
+  assert.equal(application.activity[0].$['android:turnScreenOn'], 'true');
   assert.equal(application.receiver[0].$['android:exported'], 'false');
   assert.equal(application.service.find(item => item.$['android:name'] === '.notifications.AsinuFirebaseMessagingService').$['android:exported'], 'false');
   const telecom = application.service.find(item => item.$['android:name'] === '.notifications.CheckinConnectionService');
@@ -148,6 +150,8 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: full-screen help uses app modal, not an unsolicited OS sheet`, async () => {
     const h = accessCard({ language }); h.render(); await flush();
     let view = h.render(); assert.equal(h.calls.length, 0);
+    const strings = JSON.parse(fs.readFileSync(`src/i18n/locales/${language}/checkinCall.json`, 'utf8'));
+    assert.ok(view.nodes.some(node => node.type === 'Text' && node.props.children === strings.androidAccess.fullScreenBody));
     view.nodes.find(node => node.type === 'Pressable').props.onPress();
     view = h.render(); const modal = view.nodes.find(node => node.type === 'AppModal');
     assert.equal(modal.props.visible, true); assert.equal(modal.props.stackButtons, true); assert.equal(modal.props.scrollable, true);
@@ -157,6 +161,8 @@ for (const language of ['vi', 'en']) {
 }
 await test('blocked notification channels route to notification settings first, not unrelated overlays', async () => {
   const h = accessCard({ permissions: { notifications: false, channels: false, fullScreen: false } }); h.render(); await flush();
+  const strings = JSON.parse(fs.readFileSync('src/i18n/locales/vi/checkinCall.json', 'utf8'));
+  assert.ok(h.render().nodes.some(node => node.type === 'Text' && node.props.children === strings.androidAccess.body));
   h.render().nodes.find(node => node.type === 'Pressable').props.onPress();
   await h.render().nodes.find(node => node.type === 'AppModal').props.buttons[0].onPress();
   assert.deepEqual(h.calls, [false]);

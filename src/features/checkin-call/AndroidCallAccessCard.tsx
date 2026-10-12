@@ -37,7 +37,8 @@ export function AndroidCallAccessCard({ onlyWhenNeeded = false }: { onlyWhenNeed
         <Ionicons name={ready ? 'shield-checkmark-outline' : 'notifications-outline'} size={24} color={colors.primaryDark} />
         <Text style={[styles.title, { color: colors.textPrimary }]}>{t(ready ? 'androidAccess.ready' : 'androidAccess.title')}</Text>
       </View>
-      <Text style={[styles.body, { color: colors.textSecondary }]}>{t(ready ? 'androidAccess.readyBody' : 'androidAccess.body')}</Text>
+      <Text style={[styles.body, { color: colors.textSecondary }]}>{t(ready ? 'androidAccess.readyBody'
+        : access.notifications && access.channels ? 'androidAccess.fullScreenBody' : 'androidAccess.body')}</Text>
       {!ready && <Pressable accessibilityRole="button" onPress={() => setDialog(true)} style={styles.action}>
         <Text style={[styles.actionText, { color: colors.primaryDark }]}>{t('androidAccess.configure')}</Text>
         <Ionicons name="chevron-forward" size={20} color={colors.primaryDark} />

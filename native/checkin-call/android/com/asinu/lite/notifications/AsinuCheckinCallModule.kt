@@ -100,11 +100,7 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
     result.putBoolean("fullScreen", Build.VERSION.SDK_INT < 34 || manager.canUseFullScreenIntent())
     result.putBoolean("telecomSupported", CheckinTelecom.register(context))
     result.putBoolean("telecomEnabled", CheckinTelecom.enabled(context))
-    val channels = listOf("asinu_checkin_call_warm_v2", "asinu_checkin_call_urgent_warm_v2")
-    result.putBoolean("channels", Build.VERSION.SDK_INT < 26 || channels.all { id ->
-      val channel = manager.getNotificationChannel(id)
-      channel == null || channel.importance >= NotificationManager.IMPORTANCE_HIGH
-    })
+    result.putBoolean("channels", CheckinCallNotifications.channelsReady(context))
     promise.resolve(result)
   }
   @ReactMethod fun openTelecomSettings(promise: Promise) { promise.resolve(CheckinTelecom.openSettings(context)) }

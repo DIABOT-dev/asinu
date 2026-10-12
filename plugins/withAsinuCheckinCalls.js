@@ -22,6 +22,7 @@ function configureManifest(manifest) {
   telecom['intent-filter'] = [{ action: [{ $: { 'android:name': 'android.telecom.ConnectionService' } }] }];
   upsert('activity', '.notifications.CheckinIncomingCallActivity', {
     'android:exported': 'false', 'android:excludeFromRecents': 'true',
+    'android:showWhenLocked': 'true', 'android:turnScreenOn': 'true',
     'android:theme': '@style/AsinuIncomingCallTheme',
   });
   upsert('receiver', '.notifications.CheckinCallDeclineReceiver', { 'android:exported': 'false' });

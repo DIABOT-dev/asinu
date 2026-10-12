@@ -3,6 +3,7 @@ package com.asinu.lite.notifications
 import android.app.Application
 import android.app.KeyguardManager
 import android.app.NotificationManager
+import android.app.NotificationChannel
 import android.content.Context
 import android.content.Intent
 import android.os.UserManager
@@ -11,6 +12,7 @@ import android.net.Uri
 import android.media.AudioAttributes
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.ScrollView
 import androidx.work.Configuration
@@ -50,6 +52,7 @@ class CheckinCallAndroidTest {
 
   @Before fun reset() {
     CheckinNotificationManagerShadow.fullScreen = true
+    shadowOf(RuntimeEnvironment.getApplication()).grantPermissions("${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
     CheckinCallStore.preferences(context).edit().clear().commit()
     (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancelAll()
     shadowOf(context.getSystemService(Context.USER_SERVICE) as UserManager).setUserUnlocked(true)
@@ -79,6 +82,30 @@ class CheckinCallAndroidTest {
     assertNull(CheckinCallStore.pending(context))
     assertNotNull(CheckinCallStore.ringing(context, id))
     controller.pause().stop().destroy()
+  }
+  @Test @Config(sdk = [26, 34, 35]) fun lockedIncomingStaysAwakeUntilRemoteEndWithoutAnswering() {
+    shadowOf(context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).setKeyguardLocked(true)
+    CheckinCallStore.incoming(context, call())
+    val controller = Robolectric.buildActivity(CheckinIncomingCallActivity::class.java,
+      Intent(context, CheckinIncomingCallActivity::class.java).putExtra("attemptId", id)).create().start().resume()
+    val activity = controller.get()
+    assertTrue(activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON != 0)
+    assertNull(CheckinCallStore.pending(context))
+    assertTrue((context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked)
+    CheckinCallStore.end(context, id)
+    shadowOf(android.os.Looper.getMainLooper()).idle()
+    assertTrue(activity.isFinishing)
+    controller.pause().stop().destroy()
+    assertEquals(0, activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  }
+  @Test fun expiredCallDoesNotKeepTheDisplayAwake() {
+    CheckinCallStore.incoming(context, call())
+    CheckinCallStore.end(context, id)
+    val controller = Robolectric.buildActivity(CheckinIncomingCallActivity::class.java,
+      Intent(context, CheckinIncomingCallActivity::class.java).putExtra("attemptId", id)).create()
+    assertTrue(controller.get().isFinishing)
+    assertEquals(0, controller.get().window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    controller.destroy()
   }
   @Test @Config(qualifiers = "w320dp-h640dp") fun largeTextOnSmallScreenKeepsBothActionsInsideScrollableLayout() {
     val resources = context.resources
@@ -249,6 +276,23 @@ class CheckinCallAndroidTest {
     assertNotNull(notification.fullScreenIntent)
     assertFalse(manager.canUseFullScreenIntent())
     assertEquals(2, notification.actions.size)
+  }
+  @Test fun silentCallChannelIsNotReportedReadyEvenWhenPopupsAreEnabled() {
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    assertTrue(CheckinCallNotifications.channelsReady(context))
+    manager.createNotificationChannel(NotificationChannel("asinu_checkin_call_warm_v2", "Calls", NotificationManager.IMPORTANCE_HIGH).apply {
+      setSound(null, null)
+    })
+    assertFalse(CheckinCallNotifications.channelsReady(context))
+    assertNull(manager.getNotificationChannel("asinu_checkin_call_warm_v2").sound)
+  }
+  @Test fun quietUrgentChannelIsNotReportedReadyEvenWithARingtone() {
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    manager.createNotificationChannel(NotificationChannel("asinu_checkin_call_urgent_warm_v2", "Urgent calls", NotificationManager.IMPORTANCE_DEFAULT).apply {
+      setSound(Uri.parse("android.resource://${context.packageName}/raw/asinu_emergency"), null)
+    })
+    assertFalse(CheckinCallNotifications.channelsReady(context))
+    assertEquals(NotificationManager.IMPORTANCE_DEFAULT, manager.getNotificationChannel("asinu_checkin_call_urgent_warm_v2").importance)
   }
   @Test fun declineActionCancelsImmediatelyAndEnqueuesOnlyOneScopedNetworkRequest() {
     val server = MockWebServer()
