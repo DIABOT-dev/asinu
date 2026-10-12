@@ -855,8 +855,8 @@ function AuthenticatedCheckinCallScreen() {
 
           <View style={styles.incomingCard}>
             <Image
-              source={require('../../assets/images/checkin-call/doctor_avatar.png')}
-              style={styles.doctorAvatarImg}
+              source={require('../../assets/icon.png')}
+              style={styles.incomingAppIcon}
               resizeMode="contain"
             />
             <View style={styles.incomingPill}>
@@ -1394,9 +1394,10 @@ const styles = StyleSheet.create({
     elevation: 4,
     zIndex: 2,
   },
-  doctorAvatarImg: {
-    width: 110,
+  incomingAppIcon: {
+    width: 104,
     height: 104,
+    borderRadius: 22,
     marginBottom: 14,
   },
   incomingPill: {

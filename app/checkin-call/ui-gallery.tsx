@@ -321,8 +321,8 @@ function InAppIncomingPreview({ role }: { role: 'USER' | 'FAMILY' }) {
 
         <View style={styles.incomingCard}>
           <Image
-            source={require('../../assets/images/checkin-call/doctor_avatar.png')}
-            style={styles.doctorAvatarImg}
+            source={require('../../assets/icon.png')}
+            style={styles.incomingAppIcon}
             resizeMode="contain"
           />
           <View style={styles.incomingPill}>
@@ -958,9 +958,10 @@ const styles = StyleSheet.create({
     elevation: 3,
     zIndex: 2,
   },
-  doctorAvatarImg: {
-    width: 104,
+  incomingAppIcon: {
+    width: 98,
     height: 98,
+    borderRadius: 22,
     marginBottom: 12,
   },
   incomingPill: {
