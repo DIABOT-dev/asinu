@@ -23,6 +23,7 @@
     "test:checkin-settings": "node scripts/check-checkin-call-settings.mjs",
     "test:checkin-personalization": "node scripts/check-checkin-call-personalization.mjs",
     "test:home-checkin": "node scripts/check-home-checkin-cards.mjs",
+    "test:health-tree-status": "node scripts/check-health-tree-status.mjs",
     "test:home-checkin-call": "node scripts/check-home-checkin-call-control.mjs",
     "test:chatbot-hidden": "node scripts/check-chatbot-ui-hidden.mjs",
     "test:checkin-native": "node scripts/check-call-session-recovery.mjs && node scripts/check-checkin-native-readiness.mjs && node scripts/check-checkin-call-handoff.mjs && node scripts/check-pushkit-lifecycle.mjs && node scripts/check-checkin-native-continuation.mjs && node scripts/check-android-checkin-call.mjs",

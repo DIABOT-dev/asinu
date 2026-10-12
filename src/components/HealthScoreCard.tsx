@@ -8,6 +8,7 @@ import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, radius } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '../hooks/useGuardedRouter';
+import { HEALTH_SCORE_FACTORS as FACTOR_LABELS } from '../features/checkin/health-score-factors';
 
 type HealthLevel = 'ok' | 'monitor' | 'danger';
 
@@ -49,19 +50,6 @@ const LEVEL_CONFIG: Record<HealthLevel, {
     titleKey: 'healthScoreDanger',
     subKey: 'healthScoreDangerSub',
   },
-};
-
-const FACTOR_LABELS: Record<string, { labelKey: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  status_tired: { labelKey: 'healthFactorStatusTired', icon: 'bed-outline', color: '#d97706' },
-  triage_severity_medium: { labelKey: 'healthFactorSeverityMedium', icon: 'eye-outline', color: '#d97706' },
-  triage_severity_high: { labelKey: 'healthFactorSeverityHigh', icon: 'alert-circle-outline', color: '#dc2626' },
-  triage_severity_emergency: { labelKey: 'healthFactorSeverityEmergency', icon: 'warning', color: '#991b1b' },
-  glucose_high: { labelKey: 'healthFactorGlucoseHigh', icon: 'water-outline', color: '#d97706' },
-  glucose_very_high: { labelKey: 'healthFactorGlucoseVeryHigh', icon: 'water', color: '#dc2626' },
-  glucose_very_low: { labelKey: 'healthFactorGlucoseVeryLow', icon: 'water', color: '#dc2626' },
-  systolic_high: { labelKey: 'healthFactorSystolicHigh', icon: 'heart-outline', color: '#d97706' },
-  systolic_very_high: { labelKey: 'healthFactorSystolicVeryHigh', icon: 'heart', color: '#dc2626' },
-  emergency_triggered: { labelKey: 'healthFactorEmergencyTriggered', icon: 'warning-outline', color: '#dc2626' },
 };
 
 export const HealthScoreCard = React.memo(function HealthScoreCard({ level, factors, checkinDone }: HealthScoreCardProps) {

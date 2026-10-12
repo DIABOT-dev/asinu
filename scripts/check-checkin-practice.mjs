@@ -69,12 +69,12 @@ function translations(language) {
   return { t, tg, useTranslation: ns => ({ t: ns === 'onboarding' ? tg : t, i18n: { resolvedLanguage: language } }) };
 }
 const animation = { duration: () => animation, delay: () => animation };
-const native = { View: 'View', Text: 'Text', TextInput: 'Input', Pressable: 'Pressable', ScrollView: 'ScrollView',
+const native = { View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: 'asinu_chat_sticker.png', TextInput: 'Input', Pressable: 'Pressable', ScrollView: 'ScrollView',
   ActivityIndicator: 'Spinner', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Stack: { Screen: 'Stack' },
   GuidePracticeScope: 'PracticeScope', GuideScrollScope: 'ScrollScope', GuideTarget: 'GuideTarget',
   ScreenBackButton: 'Back', AppAlertModal: 'Alert', AiDataConsentModal: 'Consent',
   Animated: { View: 'Animated' }, FadeIn: animation, FadeInDown: animation, FadeInLeft: animation,
-  Svg: 'Svg', Path: 'Path', CheckinHeroBadge: 'Badge', guideColors: { background: '#f9fcfb', ink: '#123b35',
+  Svg: 'Svg', Path: 'Path', Circle: 'Circle', CheckinHeroBadge: 'Badge', guideColors: { background: '#f9fcfb', ink: '#123b35',
     actionBackground: '#08b8a2', onAction: '#061c19' }, colors: { primary: '#08b8a2' } };
 function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
   const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [] };
@@ -107,6 +107,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
     hasAiDataConsent: async () => { calls.consent++; return true; }, showToast() {},
     guidanceAudio: { stop: async () => calls.audio.push('stop') }, Platform: { OS: 'ios' },
     StatusScreen: 'Status', LocationScreen: 'Location', TriageScreen: 'Question', DoneScreen: 'Result',
+    ConclusionLoadingView: 'Loading',
     getLocalFallbackQuestion: () => assert.fail('Practice must not require an API fallback'), __DEV__: false });
   return { calls, guideState, settle: () => runtime.settle(() => CheckinScreen()) };
 }
@@ -248,7 +249,7 @@ for (const language of ['vi', 'en']) {
       useState: initial => [typeof initial === 'function' ? initial() : initial, deny],
       useEffect: work => work() };
     const source = [extractVariable('createResultPreviewSession'), extractVariable('BODY_LOCATION_OPTIONS'),
-      ...['CheckinUiPreview', 'StatusScreen', 'LocationScreen', 'TriageScreen', 'stripEmojis', 'extractRecordedSymptoms', 'DoneScreen'].map(extract),
+      ...['CheckinUiPreview', 'StatusScreen', 'LocationScreen', 'TriageScreen', 'ConclusionLoadingView', 'stripEmojis', 'extractRecordedSymptoms', 'DoneScreen'].map(extract),
       'module.exports = CheckinUiPreview;'].join('\n');
     const preview = evaluate(source, { ...native, ...runtime, ...translations(language), MAX_TRIAGE_QUESTIONS: 4,
       CHECKIN_STATUS_CHOICES: [{ status: 'fine' }, { status: 'tired' }, { status: 'very_tired' }],

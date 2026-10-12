@@ -925,7 +925,7 @@ function AuthenticatedCheckinCallScreen() {
           <View style={styles.resultCard}>
             <View style={styles.resultRow}>
               <View style={styles.resultRowLeft}>
-                <Ionicons name="person-circle-outline" size={26} color="#00897b" />
+                <Ionicons name="person-circle-outline" size={26} color="#08b8a2" />
                 <Text style={styles.resultRowLabel}>{t('gallery.statusLabel')}</Text>
               </View>
               <View style={[styles.resultPill, !resultCopy.success && styles.resultPillWarning]}>
@@ -942,7 +942,7 @@ function AuthenticatedCheckinCallScreen() {
 
             <View style={styles.resultRow}>
               <View style={styles.resultRowLeft}>
-                <Ionicons name="time-outline" size={24} color="#00897b" />
+                <Ionicons name="time-outline" size={24} color="#08b8a2" />
                 <Text style={styles.resultRowLabel}>{t('gallery.timeLabel')}</Text>
               </View>
               <View style={styles.resultPill}>
@@ -1065,12 +1065,12 @@ function AuthenticatedCheckinCallScreen() {
                   disabled={busy}
                 >
                   <View style={styles.userChoiceDirectIcon}>
-                    <Ionicons name="happy-outline" size={28} color="#059669" />
+                    <Ionicons name="happy-outline" size={28} color="#08b8a2" />
                   </View>
                   <Text style={[styles.userChoiceText, styles.userChoiceTextOk]}>
                     {t('choiceOk')}
                   </Text>
-                  <Ionicons name="chevron-forward" size={20} color="#059669" />
+                  <Ionicons name="chevron-forward" size={20} color="#08b8a2" />
                 </Pressable>
 
                 <Pressable
@@ -1124,7 +1124,7 @@ function AuthenticatedCheckinCallScreen() {
             <>
               <View style={styles.userCallCard}>
                 <View style={styles.userHeadsetIconWrap}>
-                  <Ionicons name="pulse-outline" size={32} color="#00897b" />
+                  <Ionicons name="pulse-outline" size={32} color="#08b8a2" />
                 </View>
                 <Text style={styles.userCardTitle}>
                   {t(`triage.${triageStep}Title`)}
@@ -1166,7 +1166,7 @@ function AuthenticatedCheckinCallScreen() {
                     onPress={() => void goBackInTriage()}
                     disabled={busy}
                   >
-                    <Ionicons name="arrow-back" size={18} color="#087f6d" />
+                    <Ionicons name="arrow-back" size={18} color="#08b8a2" />
                     <Text style={styles.triageBackButtonText}>
                       {t(
                         triageStep === 'intensity'
@@ -1179,7 +1179,7 @@ function AuthenticatedCheckinCallScreen() {
 
                 {triageStep === 'location' && triageContext?.has_recent_context && (
                   <View style={styles.triageContextNote}>
-                    <Ionicons name="time-outline" size={18} color="#087f6d" />
+                    <Ionicons name="time-outline" size={18} color="#08b8a2" />
                     <Text style={styles.triageContextNoteText}>{t('triage.recentContext')}</Text>
                   </View>
                 )}
@@ -1202,7 +1202,7 @@ function AuthenticatedCheckinCallScreen() {
                       <MaterialCommunityIcons
                         name={LOCATION_ICONS[location.key] || 'human'}
                         size={26}
-                        color="#087f6d"
+                        color="#08b8a2"
                       />
                       <View style={styles.triageOptionCopy}>
                         <View style={styles.triageOptionTitleRow}>
@@ -1243,7 +1243,7 @@ function AuthenticatedCheckinCallScreen() {
                       <Ionicons
                         name={symptom.urgent ? 'warning-outline' : 'pulse-outline'}
                         size={24}
-                        color={symptom.urgent ? '#dc2626' : '#087f6d'}
+                        color={symptom.urgent ? '#dc2626' : '#08b8a2'}
                       />
                       <View style={styles.triageOptionCopy}>
                         <View style={styles.triageOptionTitleRow}>
@@ -1328,7 +1328,7 @@ function AuthenticatedCheckinCallScreen() {
                   </>
                 )}
 
-                {busy && <ActivityIndicator color="#087f6d" />}
+                {busy && <ActivityIndicator color="#08b8a2" />}
                 <Text style={styles.triageGuarantee}>{t('triageGuarantee')}</Text>
               </View>
 
@@ -1353,14 +1353,14 @@ const styles = StyleSheet.create({
   description: { fontSize: 18, color: '#334155', lineHeight: 27, textAlign: 'center', marginVertical: 10 },
   button: { minHeight: 76, borderRadius: 18, alignItems: 'center', justifyContent: 'center', padding: 16 },
   buttonText: { color: '#fff', fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  ok: { backgroundColor: '#087f6d' },
+  ok: { backgroundColor: '#08b8a2' },
   mild: { backgroundColor: '#cc8a17' },
   urgent: { backgroundColor: '#bd2b39' },
   replay: { paddingVertical: 14, alignItems: 'center' },
-  replayText: { color: '#087f6d', fontSize: 17, fontWeight: '700' },
+  replayText: { color: '#08b8a2', fontSize: 17, fontWeight: '700' },
   error: { color: '#b91c1c', textAlign: 'center' },
   processingFeedback: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
-  processingText: { flex: 1, color: '#087f6d', fontSize: 15, lineHeight: 23 },
+  processingText: { flex: 1, color: '#08b8a2', fontSize: 15, lineHeight: 23 },
   foot: { color: '#64748b', textAlign: 'center', fontSize: 12, marginTop: 18 },
 
   // Incoming Screen 2
@@ -1550,21 +1550,24 @@ const styles = StyleSheet.create({
     color: '#0f3e36',
   },
   resultPill: {
-    backgroundColor: '#e6f7f2',
+    backgroundColor: '#f0fbf8',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#c8ece5',
     flexShrink: 1,
     maxWidth: '50%',
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
   resultPillTextResolved: {
-    color: '#00897b',
+    color: '#08b8a2',
     fontWeight: '700',
     fontSize: 13,
     textAlign: 'center',
   },
   resultPillWarning: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#fffdf7',
+    borderColor: '#fef3c7',
   },
   resultPillTextWarning: {
     color: '#92400e',
@@ -1582,7 +1585,7 @@ const styles = StyleSheet.create({
   resultCloseBtn: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#00897b',
+    backgroundColor: '#08b8a2',
     borderRadius: 18,
     minHeight: 52,
     alignItems: 'center',
@@ -1591,7 +1594,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 26,
     zIndex: 2,
-    shadowColor: '#00897b',
+    shadowColor: '#08b8a2',
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -1793,15 +1796,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   userChoiceCardOk: {
-    backgroundColor: '#eefaf5',
-    borderColor: '#cceee2',
+    backgroundColor: '#f8fdfb',
+    borderColor: '#b2e7df',
   },
   userChoiceCardMild: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#fffdfa',
     borderColor: '#fed7aa',
   },
   userChoiceCardUrgent: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#fffafa',
     borderColor: '#fecaca',
   },
   userChoiceDirectIcon: {
@@ -1816,7 +1819,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   userChoiceTextOk: {
-    color: '#064e3b',
+    color: '#0f766e',
   },
   userChoiceTextMild: {
     color: '#9a3412',
@@ -1851,7 +1854,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   userOptionOk: {
-    backgroundColor: '#00897b',
+    backgroundColor: '#08b8a2',
   },
   userOptionMild: {
     backgroundColor: '#d97706',
@@ -1884,7 +1887,7 @@ const styles = StyleSheet.create({
     borderColor: '#fecaca',
   },
   triageOptionNeutral: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     borderColor: '#e2e8f0',
   },
   triageOptionCopy: {
@@ -1910,7 +1913,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   triageProgress: {
-    color: '#087f6d',
+    color: '#08b8a2',
     fontSize: 13,
     fontWeight: '700',
     textAlign: 'center',
@@ -1921,13 +1924,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#e6f5f1',
+    borderRadius: 14,
+    backgroundColor: '#f0fbf8',
+    borderWidth: 1,
+    borderColor: '#e2f4f0',
   },
   triageBackButtonText: {
-    color: '#087f6d',
+    color: '#08b8a2',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1935,26 +1940,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: '#e6f5f1',
+    backgroundColor: '#f0fbf8',
+    borderWidth: 1,
+    borderColor: '#e2f4f0',
   },
   triageContextNoteText: {
     flex: 1,
-    color: '#0d6857',
+    color: '#0f766e',
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
   },
   recentBadge: {
     borderRadius: 10,
-    backgroundColor: '#e6f5f1',
+    backgroundColor: '#f0fbf8',
+    borderWidth: 1,
+    borderColor: '#c8ece5',
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   recentBadgeText: {
-    color: '#0d6857',
+    color: '#08b8a2',
     fontSize: 11,
     fontWeight: '700',
   },

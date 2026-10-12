@@ -46,7 +46,7 @@ export function CheckinGuidePreview({ step }: { step: number }) {
               <Ionicons
                 name={index === 0 ? "checkbox" : "square-outline"}
                 size={24}
-                color={index === 0 ? "#00897b" : "#cbd5e1"}
+                color={index === 0 ? "#08b8a2" : "#cbd5e1"}
               />
               <MaterialCommunityIcons
                 name={
@@ -57,7 +57,7 @@ export function CheckinGuidePreview({ step }: { step: number }) {
                     : "stomach"
                 }
                 size={28}
-                color={index === 0 ? "#00897b" : "#64748b"}
+                color={index === 0 ? "#08b8a2" : "#64748b"}
               />
               <View style={styles.copy}>
                 <Text style={[styles.label, styles.cardLabel]}>
@@ -70,7 +70,7 @@ export function CheckinGuidePreview({ step }: { step: number }) {
               <Ionicons
                 name="chevron-forward"
                 size={18}
-                color={index === 0 ? "#00897b" : "#cbd5e1"}
+                color={index === 0 ? "#08b8a2" : "#cbd5e1"}
               />
             </View>
           ))}
@@ -83,14 +83,14 @@ export function CheckinGuidePreview({ step }: { step: number }) {
           <MaterialCommunityIcons
             name="check-circle-outline"
             size={44}
-            color={isDark ? "#6ee7b7" : "#059669"}
+            color={isDark ? "#6ee7b7" : "#08b8a2"}
             style={styles.resultIcon}
           />
           <Text style={styles.heading}>{t("checkinDoneNoted")}</Text>
           <Text style={styles.label}>{t("checkinFine")}</Text>
           <Text style={styles.body}>{t("checkinFineAdvice")}</Text>
           <View style={styles.location}>
-            <Ionicons name="volume-high-outline" size={24} color={isDark ? "#5eead4" : "#00897b"} />
+            <Ionicons name="volume-high-outline" size={24} color={isDark ? "#5eead4" : "#08b8a2"} />
             <Text style={styles.label}>{t("checkinReplaySound")}</Text>
           </View>
         </>

@@ -9,7 +9,7 @@ import { useThemeColors } from "../../hooks/useThemeColors";
 import type { CheckinStatus } from "./checkin.api";
 
 // Subtle watermarks rendered on the right background of each card
-function WatermarkLeaves({ color = "#10B981" }: { color?: string }) {
+function WatermarkLeaves({ color = "#08b8a2" }: { color?: string }) {
   return (
     <Svg width={80} height={76} viewBox="0 0 80 76" fill="none" style={styles.watermark}>
       <Path
@@ -126,60 +126,60 @@ export const CHECKIN_STATUS_CHOICES: Array<{
     icon: "emoticon-happy-outline",
     labelKey: "checkinFine",
     sublabelKey: "checkinFineSub",
-    bg: "#F0FDF8",
-    border: "#A7F3D0",
-    borderDark: "rgba(45, 212, 191, 0.35)",
-    color: "#0F2F2B",
-    darkColor: "#6EE7B7",
-    iconColor: "#0D9488",
+    bg: "#f4fcfb",
+    border: "#a4e8df",
+    borderDark: "rgba(8, 184, 162, 0.35)",
+    color: "#0f766e",
+    darkColor: "#5eead4",
+    iconColor: "#08b8a2",
     subColor: "#475569",
-    darkSubColor: "#94A3B8",
-    gradient: ["#F0FDF8", "#E6F9F3"],
-    gradientDark: ["#0a2620", "#061a15"],
-    avatarBg: "#DCFCE7",
-    avatarBgDark: "rgba(16, 185, 129, 0.2)",
-    avatarBorder: "#86EFAC",
-    chevronColor: "#0D9488",
+    darkSubColor: "#94a3b8",
+    gradient: ["#ffffff", "#f8fdfb"],
+    gradientDark: ["#072421", "#041715"],
+    avatarBg: "transparent",
+    avatarBgDark: "transparent",
+    avatarBorder: "transparent",
+    chevronColor: "#08b8a2",
   },
   {
     status: "tired",
     icon: "emoticon-neutral-outline",
     labelKey: "checkinTired",
     sublabelKey: "checkinTiredSub",
-    bg: "#FFFBF5",
-    border: "#FED7AA",
+    bg: "#ffffff",
+    border: "#fed7aa",
     borderDark: "rgba(245, 158, 11, 0.35)",
-    color: "#B45309",
-    darkColor: "#FCD34D",
-    iconColor: "#D97706",
+    color: "#b45309",
+    darkColor: "#fcd34d",
+    iconColor: "#d97706",
     subColor: "#78350F",
-    darkSubColor: "#FDE68A",
-    gradient: ["#FFFBF5", "#FEF3E2"],
+    darkSubColor: "#fde68a",
+    gradient: ["#ffffff", "#fffdf7"],
     gradientDark: ["#291a07", "#1c1103"],
-    avatarBg: "#FEF3C7",
-    avatarBgDark: "rgba(245, 158, 11, 0.2)",
-    avatarBorder: "#FDE68A",
-    chevronColor: "#D97706",
+    avatarBg: "transparent",
+    avatarBgDark: "transparent",
+    avatarBorder: "transparent",
+    chevronColor: "#d97706",
   },
   {
     status: "very_tired",
     icon: "emoticon-sad-outline",
     labelKey: "checkinVeryTired",
     sublabelKey: "checkinVeryTiredSub",
-    bg: "#FFF5F5",
-    border: "#FECDD3",
+    bg: "#ffffff",
+    border: "#fecdd3",
     borderDark: "rgba(244, 63, 94, 0.35)",
-    color: "#BE123C",
-    darkColor: "#FDA4AF",
-    iconColor: "#E11D48",
+    color: "#be123c",
+    darkColor: "#fda4af",
+    iconColor: "#e11d48",
     subColor: "#881337",
-    darkSubColor: "#FECDD3",
-    gradient: ["#FFF5F5", "#FFEBEB"],
+    darkSubColor: "#fecdd3",
+    gradient: ["#ffffff", "#fffafa"],
     gradientDark: ["#29080e", "#1c0307"],
-    avatarBg: "#FFE4E6",
-    avatarBgDark: "rgba(244, 63, 94, 0.2)",
-    avatarBorder: "#FECDD3",
-    chevronColor: "#E11D48",
+    avatarBg: "transparent",
+    avatarBgDark: "transparent",
+    avatarBorder: "transparent",
+    chevronColor: "#e11d48",
   },
 ];
 
@@ -212,19 +212,11 @@ export function CheckinStatusChoice({
         <WatermarkHospitalBed color={choice.iconColor} />
       )}
 
-      {/* Avatar with status icon and check badge for 'fine' */}
-      <View
-        style={[
-          styles.avatarWrap,
-          {
-            backgroundColor: isDark ? choice.avatarBgDark : choice.avatarBg,
-            borderColor: isDark ? choice.borderDark : choice.avatarBorder,
-          },
-        ]}
-      >
+      {/* Status icon with check badge for 'fine' - clean direct icon without background */}
+      <View style={styles.avatarWrap}>
         <MaterialCommunityIcons
           name={choice.icon}
-          size={30}
+          size={34}
           color={choice.iconColor}
         />
         {choice.status === "fine" && (
@@ -282,8 +274,8 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1.5,
     minHeight: 80,
-    shadowColor: "#059669",
-    shadowOpacity: 0.04,
+    shadowColor: "#08b8a2",
+    shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
@@ -296,23 +288,21 @@ const styles = StyleSheet.create({
     bottom: -6,
   },
   avatarWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1.5,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   avatarCheckBadge: {
     position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#0D9488",
-    borderWidth: 2,
+    bottom: -1,
+    right: -1,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#08b8a2",
+    borderWidth: 1.5,
     borderColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",

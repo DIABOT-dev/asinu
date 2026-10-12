@@ -84,20 +84,20 @@ const PREVIEW_META: Array<Omit<PreviewDefinition, 'index' | 'title' | 'descripti
 ];
 
 const COLORS = {
-  canvas: '#f3f8f7',
+  canvas: '#f3fbf8',
   surface: '#fbfdfc',
   ink: '#123b36',
   muted: '#64748b',
-  line: '#dbe7e4',
-  teal: '#087f6d',
-  tealSoft: '#dff3ee',
-  amber: '#b9750f',
-  amberSoft: '#fbefd8',
-  red: '#b72f3c',
-  redSoft: '#f9e3e6',
+  line: '#e2e8f0',
+  teal: '#08b8a2',
+  tealSoft: '#e6faf8',
+  amber: '#d97706',
+  amberSoft: '#fef3c7',
+  red: '#dc2626',
+  redSoft: '#fee2e2',
 };
 
-function HeaderCrossLeaves({ size = 54, color = '#dcf2eb' }: { size?: number; color?: string }) {
+function HeaderCrossLeaves({ size = 54, color = '#e6faf8' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 60 60" fill="none">
       {/* Medical Cross */}
@@ -133,7 +133,7 @@ function TopBar({ title, onBack }: { title: string; onBack: () => void }) {
       <Text style={styles.topBarTitle}>{title}</Text>
       <View style={{ width: 40 }} />
       <View style={styles.headerCrossArt} pointerEvents="none">
-        <HeaderCrossLeaves size={54} color="#dcf2eb" />
+        <HeaderCrossLeaves size={54} color="#e6faf8" />
       </View>
     </View>
   );
@@ -144,7 +144,7 @@ function PreviewFrame({ children, note }: { children: ReactNode; note?: string }
   return (
     <View style={styles.previewFrame}>
       <View style={styles.previewNotice}>
-        <Ionicons name="information-circle" size={19} color="#00897b" />
+        <Ionicons name="information-circle" size={19} color="#08b8a2" />
         <Text style={styles.previewNoticeText}>{note || t('gallery.previewNotice')}</Text>
       </View>
       <View pointerEvents="none" style={styles.previewContent}>{children}</View>
@@ -165,31 +165,31 @@ function ActionButton({
 }) {
   const toneStyle = {
     ok: {
-      bg: '#eefaf5',
-      border: '#cceee2',
-      textColor: '#064e3b',
-      iconColor: '#059669',
-      defaultIcon: <Ionicons name="happy-outline" size={28} color="#059669" />,
+      bg: '#f8fdfb',
+      border: '#b2e7df',
+      textColor: '#0f766e',
+      iconColor: '#08b8a2',
+      defaultIcon: <Ionicons name="happy-outline" size={28} color="#08b8a2" />,
     },
     mild: {
-      bg: '#fff7ed',
+      bg: '#fffdfa',
       border: '#fed7aa',
       textColor: '#9a3412',
       iconColor: '#ea580c',
       defaultIcon: <MaterialCommunityIcons name="emoticon-neutral-outline" size={28} color="#ea580c" />,
     },
     urgent: {
-      bg: '#fef2f2',
+      bg: '#fffafa',
       border: '#fecaca',
       textColor: '#991b1b',
       iconColor: '#dc2626',
       defaultIcon: <MaterialCommunityIcons name="plus-circle-outline" size={28} color="#dc2626" />,
     },
     neutral: {
-      bg: '#f8fafc',
+      bg: '#ffffff',
       border: '#e2e8f0',
       textColor: '#0f172a',
-      iconColor: '#00897b',
+      iconColor: '#08b8a2',
       defaultIcon: null,
     },
   }[tone];
@@ -239,7 +239,7 @@ function SettingsPreview() {
       <View style={styles.settingsCard}>
         <View style={styles.settingsHeaderBlock}>
           <View style={styles.settingsTitleRow}>
-            <Ionicons name="headset-outline" size={24} color="#00897b" />
+            <Ionicons name="headset-outline" size={24} color="#08b8a2" />
             <Text style={styles.settingsMainTitle}>{t('title')}</Text>
           </View>
           <Text style={styles.settingsMainSubtitle}>{t('subtitle')}</Text>
@@ -250,7 +250,7 @@ function SettingsPreview() {
             <Text style={styles.toggleLabel}>{t('enable')}</Text>
             <Text style={styles.toggleStatus}>{t('active')}</Text>
           </View>
-          <Switch disabled value trackColor={{ false: '#cbd5e1', true: '#00897b' }} />
+          <Switch disabled value trackColor={{ false: '#cbd5e1', true: '#08b8a2' }} />
         </View>
 
         <View style={styles.divider} />
@@ -258,7 +258,7 @@ function SettingsPreview() {
         {rows.map((row) => (
           <View style={styles.settingItemRow} key={row.label}>
             <View style={styles.settingRowLeftGroup}>
-              <Ionicons name={row.icon} size={22} color="#00897b" style={styles.settingRowIcon} />
+              <Ionicons name={row.icon} size={22} color="#08b8a2" style={styles.settingRowIcon} />
               <Text style={styles.settingItemLabel}>{row.label}</Text>
             </View>
             <View style={styles.pillBadge}>
@@ -568,7 +568,7 @@ function ResultPreview({ kind }: { kind: 'USER_OK' | 'USER_MILD' | 'USER_URGENT'
         <View style={styles.resultCard}>
           <View style={styles.resultRow}>
             <View style={styles.resultRowLeft}>
-              <Ionicons name="person-circle-outline" size={26} color="#00897b" />
+              <Ionicons name="person-circle-outline" size={26} color="#08b8a2" />
               <Text style={styles.resultRowLabel}>{t('gallery.statusLabel')}</Text>
             </View>
             <View style={[styles.resultPill, !content.success && styles.resultPillWarning]}>
@@ -580,7 +580,7 @@ function ResultPreview({ kind }: { kind: 'USER_OK' | 'USER_MILD' | 'USER_URGENT'
 
           <View style={styles.resultRow}>
             <View style={styles.resultRowLeft}>
-              <Ionicons name="time-outline" size={24} color="#00897b" />
+              <Ionicons name="time-outline" size={24} color="#08b8a2" />
               <Text style={styles.resultRowLabel}>{t('gallery.timeLabel')}</Text>
             </View>
             <View style={styles.resultPill}>
@@ -1379,8 +1379,10 @@ const styles = StyleSheet.create({
     color: '#0f3e36',
   },
   resultPill: {
-    backgroundColor: '#e6f7f2',
+    backgroundColor: '#f0fbf8',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#c8ece5',
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
@@ -1388,7 +1390,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.amberSoft,
   },
   resultPillTextResolved: {
-    color: '#00897b',
+    color: '#08b8a2',
     fontWeight: '700',
     fontSize: 13,
   },
@@ -1407,7 +1409,7 @@ const styles = StyleSheet.create({
   },
   resultCloseBtn: {
     width: '100%',
-    backgroundColor: '#00897b',
+    backgroundColor: '#08b8a2',
     borderRadius: 18,
     minHeight: 50,
     alignItems: 'center',
@@ -1416,6 +1418,10 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     marginTop: 22,
     zIndex: 2,
+    shadowColor: '#08b8a2',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
   resultCloseBtnText: {
     color: '#ffffff',

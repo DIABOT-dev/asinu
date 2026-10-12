@@ -399,7 +399,7 @@ await test('real symptom guides cover single, multiple, grouped, empty-group and
   const animation = { duration: () => animation, delay: () => animation };
   const TriageScreen = evaluateSource(`${component.getText(file)}\nmodule.exports = TriageScreen;`, {
     'react/jsx-runtime': { jsx, jsxs: jsx },
-  }, { View: 'View', Text: 'Text', Pressable: 'Pressable', TextInput: 'TextInput', ActivityIndicator: 'Spinner',
+  }, { View: 'View', Text: 'Text', Image: 'Image', Svg: 'Svg', Path: 'Path', asinuChatSticker: 'asinu_chat_sticker.png', Pressable: 'Pressable', TextInput: 'TextInput', ActivityIndicator: 'Spinner',
     Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
     FadeIn: animation, FadeInDown: animation, FadeInLeft: animation, GuideTarget: 'GuideTarget', VoiceAnswerButton: 'VoiceAnswerButton',
     colors: theme.lightColors, spacing: theme.spacing, MAX_TRIAGE_QUESTIONS: 10,
@@ -441,7 +441,7 @@ await test('the real first check-in screen guides all three health choices witho
   const statuses = ['fine', 'tired', 'very_tired'].map(status => ({ status }));
   const StatusScreen = evaluateSource(`${statusScreen.getText(file)}\nmodule.exports = StatusScreen;`, {
     'react/jsx-runtime': { jsx, jsxs: jsx },
-  }, { View: 'View', Text: 'Text', MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
+  }, { View: 'View', Text: 'Text', Svg: 'Svg', Path: 'Path', MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
     FadeIn: animation, FadeInDown: animation, GuideTarget: 'GuideTarget', CheckinStatusChoice: 'StatusChoice',
     CHECKIN_STATUS_CHOICES: statuses, useTranslation: () => ({ t: key => key }) });
   const selected = [], onSelect = status => selected.push(status);

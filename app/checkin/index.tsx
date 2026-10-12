@@ -14,6 +14,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Modal,
   Platform,
@@ -23,7 +24,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
@@ -51,6 +52,7 @@ import { guidanceAudio } from '../../src/features/guidance/guidance.audio';
 import { guideColors as guideColors } from '../../src/features/guidance/guidance.model';
 
 const MAX_TRIAGE_QUESTIONS = 4;
+const asinuChatSticker = require('../../assets/asinu_chat_sticker.png');
 
 // ─── Local fallback questions (when network itself fails) ────────────────────
 
@@ -587,7 +589,7 @@ function CheckinScreen() {
           paddingTop: insets.top + 8,
           paddingBottom: 10,
           paddingHorizontal: 16,
-          backgroundColor: '#F0FAF7',
+          backgroundColor: '#f3fbf8',
         }}
       >
         <ScreenBackButton
@@ -733,6 +735,9 @@ export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
     return <LocationScreen styles={styles} onConfirm={ignore} onBack={ignore} loading={false} onBeforeAi={denyAi} readOnly />;
   }
   if (['checkin-multiple', 'checkin-grouped', 'checkin-single', 'checkin-text', 'checkin-loading'].includes(id)) {
+    if (id === 'checkin-loading') {
+      return <ConclusionLoadingView styles={styles} />;
+    }
     const single = id === 'checkin-single';
     const textOnly = id === 'checkin-text';
     const question = t(single ? 'checkinFallbackInitial3Question' : 'checkinFallbackInitial2Question');
@@ -745,7 +750,7 @@ export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
       multiSelect={!single}
       allowFreeText={textOnly}
       answers={single ? [{ question: t('checkinResultPreviewQuestion'), answer: t('checkinResultPreviewSymptoms') }] : []}
-      loading={id === 'checkin-loading'}
+      loading={false}
       onAnswer={ignore}
       onBeforeAi={denyAi}
       readOnly
@@ -807,25 +812,25 @@ function StatusScreen({
         <Svg width={110} height={120} viewBox="0 0 110 120" fill="none" style={styles.heroTopLeftBranch} pointerEvents="none">
           <Path
             d="M-10 120 C20 100 35 60 30 10"
-            stroke="#A7F3D0"
+            stroke="#a4e8df"
             strokeWidth={2}
             strokeLinecap="round"
-            opacity={0.5}
+            opacity={0.55}
           />
           <Path
             d="M30 10 C32 26 20 38 12 34 C6 30 16 16 30 10 Z"
-            fill="#A7F3D0"
-            opacity={0.4}
+            fill="#cdeee7"
+            opacity={0.5}
           />
           <Path
             d="M26 45 C42 42 46 56 36 62 C28 66 22 52 26 45 Z"
-            fill="#6EE7B7"
-            opacity={0.35}
+            fill="#6ddcd0"
+            opacity={0.4}
           />
           <Path
             d="M16 80 C30 76 36 90 26 96 C18 100 12 88 16 80 Z"
-            fill="#A7F3D0"
-            opacity={0.35}
+            fill="#b2ebe3"
+            opacity={0.45}
           />
         </Svg>
 
@@ -837,24 +842,23 @@ function StatusScreen({
         {/* Center circular heart ECG badge */}
         <Animated.View entering={FadeIn.duration(400)} style={styles.heroCenterBadgeWrap}>
           <Svg width={112} height={104} viewBox="0 0 112 104" fill="none" style={styles.heroCenterBadgeDecor} pointerEvents="none">
-            {/* Floating mint cross on left */}
-            <Path d="M12 28H17V23H19V28H24V30H19V35H17V30H12V28Z" fill="#a7f3d0" opacity={0.75} />
-            {/* Floating mint cross on right */}
-            <Path d="M92 34H97V29H99V34H104V36H99V41H97V36H92V34Z" fill="#a7f3d0" opacity={0.75} />
-            {/* Soft glowing aura circle */}
-            <Path d="M56 10 A42 42 0 1 0 56 94 A42 42 0 1 0 56 10 Z" fill="#E1F7EF" opacity={0.9} />
+            {/* Floating primary crosses */}
+            <Path d="M12 28H17V23H19V28H24V30H19V35H17V30H12V28Z" fill="#08b8a2" opacity={0.65} />
+            <Path d="M92 34H97V29H99V34H104V36H99V41H97V36H92V34Z" fill="#08b8a2" opacity={0.65} />
+            {/* Soft glowing primaryLight aura circle */}
+            <Path d="M56 10 A42 42 0 1 0 56 94 A42 42 0 1 0 56 10 Z" fill="#e6faf8" opacity={0.95} />
             {/* Delicate leaves on bottom-left and bottom-right of badge */}
-            <Path d="M26 64C22 58 24 50 30 48C32 54 30 62 26 64Z" fill="#a7f3d0" opacity={0.75} />
-            <Path d="M22 70C18 66 19 60 24 59C26 64 24 69 22 70Z" fill="#86efac" opacity={0.6} />
-            <Path d="M86 64C90 58 88 50 82 48C80 54 82 62 86 64Z" fill="#a7f3d0" opacity={0.75} />
-            <Path d="M90 70C94 66 93 60 88 59C86 64 88 69 90 70Z" fill="#86efac" opacity={0.6} />
+            <Path d="M26 64C22 58 24 50 30 48C32 54 30 62 26 64Z" fill="#6ddcd0" opacity={0.75} />
+            <Path d="M22 70C18 66 19 60 24 59C26 64 24 69 22 70Z" fill="#08b8a2" opacity={0.6} />
+            <Path d="M86 64C90 58 88 50 82 48C80 54 82 62 86 64Z" fill="#6ddcd0" opacity={0.75} />
+            <Path d="M90 70C94 66 93 60 88 59C86 64 88 69 90 70Z" fill="#08b8a2" opacity={0.6} />
           </Svg>
-          {/* Center teal heart with white ECG line */}
+          {/* Center app brand heart with white ECG line */}
           <View style={styles.heroCenterHeartBadge}>
             <Svg width={54} height={48} viewBox="0 0 54 48" fill="none">
               <Path
                 d="M27 45C27 45 4 30 4 14C4 6.5 10 1 18 1C22.5 1 25.5 3.5 27 6C28.5 3.5 31.5 1 36 1C44 1 50 6.5 50 14C50 30 27 45 27 45Z"
-                fill="#0D9488"
+                fill="#08b8a2"
               />
               <Path
                 d="M7 23H17L21 14L26 34L31 16L34 25L37 23H47"
@@ -902,14 +906,14 @@ function StatusScreen({
           <Svg width={110} height={36} viewBox="0 0 110 36" fill="none">
             <Path
               d="M26 30 C15 22 10 16 10 10 C10 4.5 14.5 1 20 1 C23.5 1 26.5 3 28 5.5 C29.5 3 32.5 1 36 1 C41.5 1 46 4.5 46 10 C46 16 41 22 30 30 Z"
-              stroke="#5eead4"
+              stroke="#08b8a2"
               strokeWidth={1.8}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
             <Path
               d="M45 20 H56 L61 9 L66 29 L71 13 L75 24 L78 20 H106"
-              stroke="#5eead4"
+              stroke="#08b8a2"
               strokeWidth={1.8}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -944,7 +948,9 @@ function LocationScreen({
   const { t } = useTranslation('home');
   const { t: tg } = useTranslation('onboarding');
   const acknowledgeGuide = useGuideAcknowledgement();
-  const [selected, setSelected] = useState<Set<BodyLocation>>(new Set());
+  const [selected, setSelected] = useState<Set<BodyLocation>>(
+    readOnly ? new Set([BODY_LOCATION_OPTIONS[0].key]) : new Set()
+  );
   const [other, setOther] = useState('');
 
   const toggle = (key: BodyLocation) => {
@@ -965,130 +971,145 @@ function LocationScreen({
 
   return (
     <View style={styles.section}>
-      <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
-        <Text style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, marginBottom: spacing.xs }}>
-          {t('checkinLocationTitle')}
-        </Text>
-        <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-          {t('checkinLocationDescription')}
-        </Text>
+      {/* Top progress bar & step counter */}
+      <View style={styles.triageProgressRow}>
+        <View style={styles.triageProgressTrack}>
+          <View style={[styles.triageProgressFill, { width: '20%' }]} />
+        </View>
+        <Text style={styles.triageProgressText}>1/5</Text>
       </View>
 
-      <View style={{ gap: spacing.sm }}>
+      {/* Companion Mascot sticker + Speech bubble */}
+      <Animated.View entering={FadeInLeft.duration(350)} style={styles.mascotRow}>
+        <Image
+          source={asinuChatSticker}
+          style={styles.mascotSticker}
+          resizeMode="contain"
+        />
+        <View style={styles.mascotBubble}>
+          <Text style={styles.mascotBubbleText}>
+            {t('checkinLocationMascotBubble')}
+          </Text>
+        </View>
+      </Animated.View>
+
+      {/* Question section: Pulse icon + Title + Subtitle */}
+      <Animated.View entering={FadeInLeft.duration(400)} style={styles.questionSection}>
+        <View style={styles.questionHeaderRow}>
+          <MaterialCommunityIcons name="pulse" size={26} color="#08b8a2" style={styles.questionPulseIcon} />
+          <Text allowFontScaling style={[styles.questionHeaderTitle, practice && { fontSize: 22, lineHeight: 30 }]}>
+            {t('checkinLocationTitle')}
+          </Text>
+        </View>
+        <Text style={styles.questionSubtitle}>
+          {t('checkinLocationDescription')}
+        </Text>
+      </Animated.View>
+
+      {/* Body location options */}
+      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.triageOptionsList}>
         {BODY_LOCATION_OPTIONS.map((opt, optionIndex) => {
           const isSelected = selected.has(opt.key);
           return (
             <GuideTarget key={opt.key} step="checkin.location" enabled={practice && optionIndex === 0 && !loading}>
-            <Pressable
-              key={opt.key}
-              onPress={() => !loading && toggle(opt.key)}
-              disabled={loading || readOnly}
-              style={({ pressed }) => [
-                {
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  padding: spacing.md,
-                  borderRadius: 18,
-                  backgroundColor: isSelected ? '#eefaf5' : '#ffffff',
-                  borderWidth: 1.5,
-                  borderColor: isSelected ? '#00897b' : '#e2e8f0',
-                  gap: spacing.md,
-                  opacity: pressed || loading ? 0.8 : 1,
-                },
-              ]}
-            >
-              <View style={{
-                width: 22, height: 22, borderRadius: 6,
-                borderWidth: 2,
-                borderColor: isSelected ? '#00897b' : '#cbd5e1',
-                backgroundColor: isSelected ? '#00897b' : 'transparent',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
-              </View>
-              {/* Vector icon từ MaterialCommunityIcons — outline, không background. */}
-              <MaterialCommunityIcons
-                name={opt.icon}
-                size={28}
-                color={isSelected ? '#00897b' : '#64748b'}
-              />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: isSelected ? '#064e3b' : colors.textPrimary, marginBottom: 2 }}>
-                  {t(opt.labelKey)}
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  {t(opt.descKey)}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={isSelected ? '#00897b' : '#cbd5e1'} />
-            </Pressable>
+              <Pressable
+                key={opt.key}
+                onPress={() => !loading && toggle(opt.key)}
+                disabled={loading || readOnly}
+                style={({ pressed }) => [
+                  styles.triageOptionCard,
+                  isSelected && styles.triageOptionCardSelected,
+                  (pressed || loading) && { opacity: 0.85 },
+                ]}
+              >
+                <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
+                  {isSelected && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+                </View>
+                <MaterialCommunityIcons
+                  name={opt.icon}
+                  size={24}
+                  color={isSelected ? '#08b8a2' : '#64748b'}
+                />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text allowFontScaling style={[styles.triageOptionTitle, isSelected && styles.triageOptionTitleSelected]}>
+                    {t(opt.labelKey)}
+                  </Text>
+                  <Text style={styles.triageOptionSubtitle}>
+                    {t(opt.descKey)}
+                  </Text>
+                </View>
+              </Pressable>
             </GuideTarget>
           );
         })}
-      </View>
+      </Animated.View>
 
-      {/* Free-text "Khác" — user gõ vùng tự do (đồng bộ kích thước với card body location ở trên) */}
+      {/* Free-text "Khác" / voice input */}
       <GuideTarget step="checkin.location_other" enabled={practice && !loading}>
-      <View style={{ marginTop: spacing.lg }}>
-        <Text allowFontScaling style={{ color: colors.textPrimary, marginBottom: spacing.sm, fontSize: 22, fontWeight: '700' }}>
-          {tg('guidance.otherAnswer')}
-        </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            padding: spacing.md,
-            borderRadius: 18,
-            backgroundColor: '#ffffff',
-            borderWidth: 1.5,
-            borderColor: other.trim() ? '#00897b' : '#e2e8f0',
-            gap: spacing.md,
-          }}
-        >
-          <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
-            <VoiceAnswerButton onText={text => { setOther(previous => `${previous} ${text}`.trim()); acknowledgeGuide('checkin.voice'); }}
-              onBeforeAi={onBeforeAi} disabled={loading || readOnly} practice={practice} />
-          </GuideTarget>
-          <TextInput
-            allowFontScaling
-            value={other}
-            onChangeText={readOnly ? undefined : setOther}
-            placeholder={t('checkinLocationOtherPlaceholder')}
-            placeholderTextColor="#94a3b8"
-            editable={!loading && !readOnly}
-            maxLength={200}
-            style={{
-              flex: 1,
-              fontSize: 22,
-              fontWeight: '600',
-              color: colors.textPrimary,
-              padding: 0,
-              minHeight: 24,
-            }}
-          />
-        </View>
-      </View>
+        <Animated.View entering={FadeInDown.delay(160).duration(400)}>
+          {practice ? (
+            <Text allowFontScaling style={{ color: colors.textPrimary, marginBottom: spacing.xs, fontSize: 18, fontWeight: '700' }}>
+              {tg('guidance.otherAnswer')}
+            </Text>
+          ) : null}
+          <View style={styles.triageInputCard}>
+            <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
+              <VoiceAnswerButton
+                onText={text => { setOther(previous => `${previous} ${text}`.trim()); acknowledgeGuide('checkin.voice'); }}
+                onBeforeAi={onBeforeAi}
+                disabled={loading || readOnly}
+                practice={practice}
+              />
+            </GuideTarget>
+            <TextInput
+              allowFontScaling
+              value={other}
+              onChangeText={readOnly ? undefined : setOther}
+              placeholder={t('checkinLocationOtherPlaceholder')}
+              placeholderTextColor="#94a3b8"
+              editable={!loading && !readOnly}
+              maxLength={200}
+              style={[styles.triageTextInput, practice && { fontSize: 20 }]}
+            />
+          </View>
+        </Animated.View>
       </GuideTarget>
 
+      {/* Action / Continue button */}
       <GuideTarget step="checkin.location_confirm" enabled={practice && canConfirm}>
-      <Pressable
-        onPress={() => { if (!readOnly) onConfirm(Array.from(selected), other); }}
-        disabled={!canConfirm || readOnly}
-        style={({ pressed }) => [{
-          marginTop: spacing.lg,
-          backgroundColor: canConfirm ? guideColors.actionBackground : '#cbd5e1',
-          minHeight: 60,
-          paddingVertical: 15,
-          borderRadius: 18,
-          alignItems: 'center',
-          opacity: pressed ? 0.88 : 1,
-        }]}
-      >
-        <Text allowFontScaling style={{ color: guideColors.onAction, fontWeight: '800', fontSize: 22 }}>
-          {confirmLabel}
-        </Text>
-      </Pressable>
+        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+          <Pressable
+            onPress={() => { if (!readOnly) onConfirm(Array.from(selected), other); }}
+            disabled={!canConfirm || readOnly}
+            style={({ pressed }) => [
+              styles.triagePillBtn,
+              !canConfirm && styles.triagePillBtnDisabled,
+              pressed && canConfirm && { opacity: 0.88, transform: [{ scale: 0.98 }] },
+            ]}
+          >
+            <Text allowFontScaling style={[styles.triagePillBtnText, !canConfirm && styles.triagePillBtnTextDisabled, practice && { fontSize: 20 }]}>
+              {confirmLabel}
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color={canConfirm ? '#ffffff' : '#94a3b8'}
+              style={{ marginLeft: 6 }}
+            />
+          </Pressable>
+        </Animated.View>
       </GuideTarget>
+
+      {/* Bottom watermark decoration */}
+      <View style={styles.bottomWatermarkWrap} pointerEvents="none">
+        <Svg width={200} height={160} viewBox="0 0 200 160" fill="none">
+          <Path d="M0 110 C60 75 120 95 200 55 L200 160 L0 160 Z" fill="#e6faf8" opacity={0.5} />
+          <Path d="M25 130 C85 100 145 115 200 95 L200 160 L25 160 Z" fill="#d8f6f1" opacity={0.4} />
+          <Path d="M165 95 H177 V83 C177 81 178.8 79.5 181 79.5 C183.2 79.5 185 81 185 83 V95 H197 C199 95 200.5 96.8 200.5 99 C200.5 101.2 199 103 197 103 H185 V115 C185 117 183.2 118.5 181 118.5 C178.8 118.5 177 117 177 115 V103 H165 C163 103 161.5 101.2 161.5 99 C161.5 96.8 163 95 165 95 Z" fill="#08b8a2" opacity={0.2} />
+          <Path d="M173 124 C160 129 157 142 163 152 C174 150 182 138 173 124 Z" fill="#08b8a2" opacity={0.2} />
+          <Path d="M185 120 C192 128 194 144 186 151 C177 146 177 133 185 120 Z" fill="#08b8a2" opacity={0.16} />
+        </Svg>
+      </View>
     </View>
   );
 }
@@ -1132,7 +1153,9 @@ function TriageScreen({
   const { t: tg } = useTranslation('onboarding');
   const acknowledgeGuide = useGuideAcknowledgement();
   const [custom, setCustom] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(
+    readOnly && !multiSelect && options.length > 0 ? new Set([options[0]]) : new Set()
+  );
   const scrollRef = useRef<ScrollView>(null);
 
   // Voice recording
@@ -1157,9 +1180,13 @@ function TriageScreen({
     await guidanceAudio.stop();
     if (practice) {
       if (isRecording) {
-        setIsRecording(false); setCustom(tg('guidance.practiceVoiceExample')); acknowledgeGuide('checkin.voice');
+        setIsRecording(false);
+        setCustom(tg('guidance.practiceVoiceExample'));
+        acknowledgeGuide('checkin.voice');
         showToast(tg('guidance.practiceVoiceNotice'), 'info');
-      } else setIsRecording(true);
+      } else {
+        setIsRecording(true);
+      }
       return;
     }
     if (isRecording) {
@@ -1215,7 +1242,7 @@ function TriageScreen({
   const handleOptionTap = (opt: string) => {
     if (readOnly) return;
     if (multiSelect) {
-      // Multi-select: toggle checkbox
+      // Multi-select: toggle selection
       setSelected((prev) => {
         const next = new Set(prev);
         if (next.has(opt)) next.delete(opt);
@@ -1245,248 +1272,317 @@ function TriageScreen({
   const firstOptionGroupIndex = optionsGrouped?.findIndex(group => group.items.length > 0) ?? -1;
   const hasAnswerChoices = firstOptionGroupIndex >= 0 || options.length > 0;
 
+  const bubbleMessage =
+    continuity?.text ||
+    (greeting && answers.length === 0 ? greeting.displayText : null) ||
+    (empathy && answers.length > 0 ? empathy.text : null) ||
+    t('checkinTriageMascotBubble');
+
+  const confirmLabel = selected.size > 0 && multiSelect
+    ? `${t('checkinLocationContinue')} (${selected.size})`
+    : t('checkinLocationContinue');
+
   return (
     <View style={styles.section}>
-      {/* Slim progress bar */}
-      <View style={styles.progressTrack}>
-        <Animated.View
-          entering={FadeIn.duration(300)}
-          style={[styles.progressFill, { width: `${Math.min(progress * 100, 100)}%` }]}
-        />
+      {/* Slim progress bar & step counter */}
+      <View style={styles.triageProgressRow}>
+        <View style={styles.triageProgressTrack}>
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            style={[styles.triageProgressFill, { width: `${Math.min(progress * 100, 100)}%` }]}
+          />
+        </View>
+        <Text style={styles.triageProgressText}>
+          {`${Math.min(answers.length + 1, MAX_TRIAGE_QUESTIONS)}/${MAX_TRIAGE_QUESTIONS}`}
+        </Text>
       </View>
 
-      {/* Conversation history */}
-      <View style={styles.chatArea}>
-        {answers.map((a, i) => (
-          <View key={i}>
-            {/* AI question — no entering animation, already answered */}
-            <View style={styles.aiMsgRow}>
-              <View style={styles.aiAvatarSmall}>
-                <Ionicons name="heart" size={12} color={colors.primaryText} />
+      {/* Answered history if any */}
+      {answers.length > 0 && (
+        <View style={{ marginBottom: 12 }}>
+          {answers.map((a, i) => (
+            <View key={i} style={styles.historyAnswerRow}>
+              <View style={styles.historyQuestionTag}>
+                <Text style={styles.historyQuestionText}>{a.question}</Text>
               </View>
-              <View style={styles.aiBubble}>
-                <Text style={styles.aiBubbleText}>{a.question}</Text>
+              <View style={styles.historyAnswerCard}>
+                <Ionicons name="checkmark-circle" size={14} color="#08b8a2" />
+                <Text style={styles.historyAnswerText}>{a.answer}</Text>
               </View>
             </View>
-            {/* User answer */}
-            <View style={styles.userMsgRow}>
-              <View style={styles.userAnswerCard}>
-                {a.answer.split(', ').map((item, j) => (
-                  <View key={j} style={styles.userAnswerTag}>
-                    <Ionicons name="checkmark-circle" size={14} color="#fff" />
-                    <Text style={styles.userAnswerTagText}>{item}</Text>
-                  </View>
-                ))}
-              </View>
+          ))}
+        </View>
+      )}
+
+      {loading ? (
+        <Animated.View entering={FadeInLeft.duration(300)} style={styles.mascotRow}>
+          <Image source={asinuChatSticker} style={styles.mascotSticker} resizeMode="contain" />
+          <View style={styles.mascotBubble}>
+            <View style={styles.typingRow}>
+              <View style={[styles.typingDot, { opacity: 0.8 }]} />
+              <View style={[styles.typingDot, { opacity: 0.5 }]} />
+              <View style={[styles.typingDot, { opacity: 0.3 }]} />
             </View>
           </View>
-        ))}
-
-        {loading ? (
-          <Animated.View entering={FadeInLeft.duration(300)} style={styles.aiMsgRow}>
-            <View style={styles.aiAvatarSmall}>
-              <Ionicons name="heart" size={12} color={colors.primaryText} />
-            </View>
-            <View style={styles.aiBubble}>
-              <View style={styles.typingRow}>
-                <View style={[styles.typingDot, { opacity: 0.8 }]} />
-                <View style={[styles.typingDot, { opacity: 0.5 }]} />
-                <View style={[styles.typingDot, { opacity: 0.3 }]} />
-              </View>
+        </Animated.View>
+      ) : (
+        <>
+          {/* Companion Mascot sticker + Speech bubble */}
+          <Animated.View entering={FadeInLeft.duration(350)} style={styles.mascotRow}>
+            <Image
+              source={asinuChatSticker}
+              style={styles.mascotSticker}
+              resizeMode="contain"
+            />
+            <View style={styles.mascotBubble}>
+              <Text style={styles.mascotBubbleText}>{bubbleMessage}</Text>
             </View>
           </Animated.View>
-        ) : (
-          <>
-            {/* Greeting (first question only) */}
-            {greeting && answers.length === 0 && (
-              <Animated.View entering={FadeInLeft.duration(300)} style={styles.aiMsgRow}>
-                <View style={styles.aiAvatarSmall}>
-                  <Ionicons name="heart" size={12} color={colors.primaryText} />
-                </View>
-                <View style={[styles.aiBubble, { backgroundColor: '#e0f2f1' }]}>
-                  <Text style={[styles.aiBubbleText, { color: '#00695c' }]}>{greeting.displayText}</Text>
-                </View>
-              </Animated.View>
-            )}
 
-            {/* Continuity prefix (first question only) */}
-            {continuity && answers.length === 0 && (
-              <Animated.View entering={FadeInLeft.delay(100).duration(300)} style={styles.aiMsgRow}>
-                <View style={{ width: 28 }} />
-                <View style={[styles.aiBubble, { backgroundColor: '#e3f2fd', paddingVertical: 8 }]}>
-                  <Text style={[styles.aiBubbleText, { color: '#1565c0', fontStyle: 'italic', fontSize: 13 }]}>{continuity.text}</Text>
-                </View>
-              </Animated.View>
-            )}
+          {/* Current Question section: Pulse icon + Title + Subtitle */}
+          <Animated.View entering={FadeInLeft.duration(400)} style={styles.questionSection}>
+            <View style={styles.questionHeaderRow}>
+              <MaterialCommunityIcons name="pulse" size={26} color="#08b8a2" style={styles.questionPulseIcon} />
+              <Text allowFontScaling style={[styles.questionHeaderTitle, practice && { fontSize: 22, lineHeight: 30 }]}>
+                {question}
+              </Text>
+            </View>
+            <Text style={styles.questionSubtitle}>
+              {multiSelect ? t('checkinSelectHint') : t('checkinSelectSingleHint')}
+            </Text>
+          </Animated.View>
 
-            {/* Empathy response (after first answer) */}
-            {empathy && answers.length > 0 && (
-              <Animated.View entering={FadeInLeft.delay(50).duration(300)} style={styles.aiMsgRow}>
-                <View style={{ width: 28 }} />
-                <View style={[styles.aiBubble, { backgroundColor: '#fce4ec', paddingVertical: 8 }]}>
-                  <Text style={[styles.aiBubbleText, { color: '#c62828', fontSize: 13 }]}>{empathy.text}</Text>
-                </View>
-              </Animated.View>
-            )}
-
-            {/* Current AI question */}
-            <Animated.View entering={FadeInLeft.duration(400)} style={styles.aiMsgRow}>
-              <View style={styles.aiAvatar}>
-                <Ionicons name="heart" size={16} color={colors.primaryText} />
-              </View>
-              <View style={styles.currentQuestionBubble}>
-                <Text allowFontScaling style={[styles.currentQuestionText, practice && { fontSize: 22, lineHeight: 32 }]}>{question}</Text>
-              </View>
-            </Animated.View>
-
-            {/* Hint — show for multi-select when has options */}
-            {multiSelect && options.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.selectHintWrap}>
-                <Ionicons name="hand-left-outline" size={13} color={colors.textSecondary} />
-                <Text style={styles.selectHintText}>{t('checkinSelectHint')}</Text>
-              </Animated.View>
-            )}
-
-            {/* Option cards — render grouped theo location nếu có optionsGrouped (T3
-                aware T2). Else render flat list như cũ. */}
-            {optionsGrouped && firstOptionGroupIndex >= 0 ? (
-              <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
-                {optionsGrouped.map((group, groupIndex) => (
-                  <View key={group.key} style={{ marginBottom: spacing.md }}>
-                    {/* Section header — vùng cơ thể */}
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: spacing.xs,
-                      paddingHorizontal: spacing.sm,
-                      marginBottom: spacing.xs,
-                    }}>
-                      <Text style={{ flexShrink: 1, fontSize: 14, fontWeight: '700', color: colors.primary }}>
-                        {group.label}
-                      </Text>
-                      <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-                    </View>
-                    {group.items.map((opt, optionIndex) => {
-                      const isSelected = selected.has(opt);
-                      return (
-                        <GuideTarget key={`${group.key}-${opt}`} step="checkin.choices" enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
-                        <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
-                        <Pressable
-                          key={`${group.key}-${opt}`}
-                          style={[styles.optionCard, isSelected && styles.optionCardSelected]}
-                          disabled={readOnly}
-                      onPress={() => handleOptionTap(opt)}
-                        >
-                          <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
-                            {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
-                          </View>
-                          <Text allowFontScaling style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
-                        </Pressable>
-                        </GuideTarget></GuideTarget>
-                      );
-                    })}
+          {/* Option cards */}
+          {optionsGrouped && firstOptionGroupIndex >= 0 ? (
+            <Animated.View entering={FadeInDown.delay(120).duration(400)} style={styles.triageOptionsList}>
+              {optionsGrouped.map((group, groupIndex) => (
+                <View key={group.key} style={{ marginBottom: spacing.sm }}>
+                  <View style={styles.groupHeaderRow}>
+                    <Text style={styles.groupHeaderText}>{group.label}</Text>
+                    <View style={styles.groupHeaderLine} />
                   </View>
-                ))}
-              </Animated.View>
-            ) : options.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.optionsWrap}>
-                {options.map((opt, optionIndex) => {
-                  const isSelected = selected.has(opt);
-                  return (
-                    <GuideTarget key={opt} step="checkin.choices" enabled={practice && optionIndex === 0 && !loading}>
+                  {group.items.map((opt, optionIndex) => {
+                    const isSelected = selected.has(opt);
+                    return (
+                      <GuideTarget key={`${group.key}-${opt}`} step="checkin.choices" enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
+                        <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
+                          <Pressable
+                            key={`${group.key}-${opt}`}
+                            style={({ pressed }) => [
+                              styles.triageOptionCard,
+                              isSelected && styles.triageOptionCardSelected,
+                              (pressed || loading) && { opacity: 0.85 },
+                            ]}
+                            disabled={readOnly}
+                            onPress={() => handleOptionTap(opt)}
+                          >
+                            {multiSelect ? (
+                              <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
+                                {isSelected && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+                              </View>
+                            ) : (
+                              <View style={[styles.triageRadio, isSelected && styles.triageRadioSelected]}>
+                                {isSelected && <View style={styles.triageRadioDot} />}
+                              </View>
+                            )}
+                            <Text allowFontScaling style={[styles.triageOptionTitle, isSelected && styles.triageOptionTitleSelected]}>
+                              {opt}
+                            </Text>
+                          </Pressable>
+                        </GuideTarget>
+                      </GuideTarget>
+                    );
+                  })}
+                </View>
+              ))}
+            </Animated.View>
+          ) : options.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(120).duration(400)} style={styles.triageOptionsList}>
+              {options.map((opt, optionIndex) => {
+                const isSelected = selected.has(opt);
+                return (
+                  <GuideTarget key={opt} step="checkin.choices" enabled={practice && optionIndex === 0 && !loading}>
                     <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && optionIndex === 0 && !loading}>
+                      <Pressable
+                        key={opt}
+                        style={({ pressed }) => [
+                          styles.triageOptionCard,
+                          isSelected && styles.triageOptionCardSelected,
+                          (pressed || loading) && { opacity: 0.85 },
+                        ]}
+                        disabled={readOnly}
+                        onPress={() => handleOptionTap(opt)}
+                      >
+                        {multiSelect ? (
+                          <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
+                            {isSelected && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+                          </View>
+                        ) : (
+                          <View style={[styles.triageRadio, isSelected && styles.triageRadioSelected]}>
+                            {isSelected && <View style={styles.triageRadioDot} />}
+                          </View>
+                        )}
+                        <Text allowFontScaling style={[styles.triageOptionTitle, isSelected && styles.triageOptionTitleSelected]}>
+                          {opt}
+                        </Text>
+                      </Pressable>
+                    </GuideTarget>
+                  </GuideTarget>
+                );
+              })}
+            </Animated.View>
+          )}
+
+          {/* Custom text input + mic */}
+          {(multiSelect || allowFreeText || options.length === 0) && (
+            <GuideTarget step="checkin.other" enabled={practice && !loading} withoutChoices={!hasAnswerChoices}>
+              <Animated.View entering={FadeInDown.delay(180).duration(400)} style={styles.triageInputCard}>
+                <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
+                  {practice ? (
+                    <VoiceAnswerButton
+                      practice
+                      onBeforeAi={onBeforeAi}
+                      onText={text => { setCustom(text); acknowledgeGuide('checkin.voice'); }}
+                    />
+                  ) : (
                     <Pressable
-                      key={opt}
-                      style={[
-                        styles.optionCard,
-                        isSelected && styles.optionCardSelected,
-                      ]}
-                      disabled={readOnly}
-                      onPress={() => handleOptionTap(opt)}
+                      onPress={handleMicPress}
+                      style={styles.triageMicBtn}
+                      disabled={isTranscribing || readOnly}
                     >
-                      {multiSelect ? (
-                        <View style={[styles.optionCheckbox, isSelected && styles.optionCheckboxSelected]}>
-                          {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
-                        </View>
+                      {isTranscribing ? (
+                        <ActivityIndicator size="small" color="#08b8a2" />
                       ) : (
-                        <View style={[styles.optionRadio, isSelected && styles.optionRadioSelected]}>
-                          {isSelected && <View style={styles.optionRadioDot} />}
-                        </View>
-                      )}
-                      <Text allowFontScaling style={[styles.optionCardText, isSelected && styles.optionCardTextSelected]}>{opt}</Text>
-                      {!multiSelect && (
-                        <Ionicons name="chevron-forward" size={16} color={colors.primary + '66'} />
+                        <MaterialCommunityIcons
+                          name={isRecording ? 'stop-circle' : 'microphone'}
+                          size={22}
+                          color={isRecording ? colors.danger : '#08b8a2'}
+                        />
                       )}
                     </Pressable>
-                    </GuideTarget></GuideTarget>
-                  );
-                })}
-              </Animated.View>
-            )}
-
-            {/* Custom text input + mic — show when multi-select, allowFreeText, or no options */}
-            {(multiSelect || allowFreeText || options.length === 0) && <GuideTarget step="checkin.other" enabled={practice && !loading} withoutChoices={!hasAnswerChoices}>
-            <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.inputRow}>
-              <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
-              {practice ? <VoiceAnswerButton practice onBeforeAi={onBeforeAi}
-                onText={text => { setCustom(text); acknowledgeGuide('checkin.voice'); }} /> :
-              <Pressable
-                onPress={handleMicPress}
-                style={[styles.micBtn, ]}
-                disabled={isTranscribing || readOnly}
-              >
-                {isTranscribing ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <MaterialCommunityIcons
-                    name={isRecording ? 'stop-circle' : 'microphone'}
-                    size={22}
-                    color={isRecording ? colors.danger : colors.primary}
-                  />
-                )}
-              </Pressable>}</GuideTarget>
-              <View style={styles.inputWrap}>
+                  )}
+                </GuideTarget>
                 <TextInput
                   allowFontScaling
-                  style={[styles.input, { fontSize: practice ? 22 : 15 }]}
+                  style={[styles.triageTextInput, { fontSize: practice ? 20 : 15 }]}
                   placeholder={isTranscribing ? '...' : t('checkinCustomPlaceholder')}
-                  placeholderTextColor={colors.textSecondary + '77'}
+                  placeholderTextColor="#94a3b8"
                   value={custom}
                   onChangeText={readOnly ? undefined : setCustom}
                   returnKeyType="done"
                   editable={!isTranscribing && !readOnly}
                 />
-              </View>
-            </Animated.View></GuideTarget>}
+              </Animated.View>
+            </GuideTarget>
+          )}
 
-            {/* Confirm button — show when multi-select OR no options (text-only input) */}
-            {(multiSelect || options.length === 0 || allowFreeText && custom.trim().length > 0) && <GuideTarget step="checkin.confirm" enabled={practice && hasSelection && !loading}><View style={styles.confirmWrap}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.confirmBtn,
-                  !hasSelection && styles.confirmBtnDisabled,
-                  pressed && hasSelection && { opacity: 0.9, transform: [{ scale: 0.97 }] },
-                ]}
-                disabled={!hasSelection || readOnly}
-                onPress={handleConfirm}
-              >
-                <View style={[styles.confirmBtnGradient, { backgroundColor: hasSelection ? (practice ? guideColors.actionBackground : colors.primaryLight) : colors.surfaceMuted, minHeight: practice ? 60 : undefined }]}>
-                  <Text allowFontScaling style={[styles.confirmBtnText, practice && { fontSize: 22 }, { color: hasSelection ? (practice ? guideColors.onAction : colors.primaryDark) : colors.textSecondary }]}>
-                    {t('checkinConfirmSelection')}
-                    {selected.size > 0 ? ` (${selected.size})` : ''}
+          {/* Confirm / Continue button */}
+          {(multiSelect || options.length === 0 || (allowFreeText && custom.trim().length > 0) || selected.size > 0 || (readOnly && !multiSelect)) && (
+            <GuideTarget step="checkin.confirm" enabled={practice && hasSelection && !loading}>
+              <Animated.View entering={FadeInDown.delay(220).duration(400)}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.triagePillBtn,
+                    !hasSelection && styles.triagePillBtnDisabled,
+                    pressed && hasSelection && { opacity: 0.88, transform: [{ scale: 0.98 }] },
+                  ]}
+                  disabled={!hasSelection || readOnly}
+                  onPress={handleConfirm}
+                >
+                  <Text allowFontScaling style={[styles.triagePillBtnText, !hasSelection && styles.triagePillBtnTextDisabled, practice && { fontSize: 20 }]}>
+                    {confirmLabel}
                   </Text>
                   <Ionicons
                     name="arrow-forward"
                     size={18}
-                    color={hasSelection ? colors.primaryDark : colors.textSecondary}
+                    color={hasSelection ? '#ffffff' : '#94a3b8'}
+                    style={{ marginLeft: 6 }}
                   />
-                </View>
-              </Pressable>
-            </View></GuideTarget>}
-          </>
-        )}
+                </Pressable>
+              </Animated.View>
+            </GuideTarget>
+          )}
+
+          {/* Bottom watermark decoration */}
+          <View style={styles.bottomWatermarkWrap} pointerEvents="none">
+            <Svg width={200} height={160} viewBox="0 0 200 160" fill="none">
+              <Path d="M0 110 C60 75 120 95 200 55 L200 160 L0 160 Z" fill="#e6faf8" opacity={0.5} />
+              <Path d="M25 130 C85 100 145 115 200 95 L200 160 L25 160 Z" fill="#d8f6f1" opacity={0.4} />
+              <Path d="M165 95 H177 V83 C177 81 178.8 79.5 181 79.5 C183.2 79.5 185 81 185 83 V95 H197 C199 95 200.5 96.8 200.5 99 C200.5 101.2 199 103 197 103 H185 V115 C185 117 183.2 118.5 181 118.5 C178.8 118.5 177 117 177 115 V103 H165 C163 103 161.5 101.2 161.5 99 C161.5 96.8 163 95 165 95 Z" fill="#08b8a2" opacity={0.2} />
+              <Path d="M173 124 C160 129 157 142 163 152 C174 150 182 138 173 124 Z" fill="#08b8a2" opacity={0.2} />
+              <Path d="M185 120 C192 128 194 144 186 151 C177 146 177 133 185 120 Z" fill="#08b8a2" opacity={0.16} />
+            </Svg>
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
+// ─── Conclusion loading screen ──────────────────────────────────────────────
+
+function ConclusionLoadingView({ styles }: { styles: Styles }) {
+  const { t } = useTranslation('home');
+
+  return (
+    <View style={styles.loadingContainer}>
+      {/* Center Aura & Mascot */}
+      <View style={styles.loadingMascotWrap}>
+        <View style={styles.loadingAuraCircle}>
+          <Svg width={250} height={250} viewBox="0 0 250 250" fill="none" style={styles.loadingArcSvg} pointerEvents="none">
+            {/* Guide circle track */}
+            <Path
+              d="M125 15 A110 110 0 1 1 124.9 15"
+              stroke="#bce7df"
+              strokeWidth={1.8}
+              strokeDasharray="4 6"
+              fill="none"
+              opacity={0.45}
+            />
+            {/* Active circular progress arc */}
+            <Path
+              d="M125 15 A110 110 0 0 1 220 70"
+              stroke="#08b8a2"
+              strokeWidth={3}
+              strokeLinecap="round"
+              fill="none"
+            />
+            {/* Glowing dot at the end of arc */}
+            <Circle cx={220} cy={70} r={5.5} fill="#08b8a2" />
+            <Circle cx={220} cy={70} r={2.5} fill="#ffffff" />
+          </Svg>
+          <Image
+            source={asinuChatSticker}
+            style={styles.loadingMascotImage}
+            resizeMode="contain"
+          />
+        </View>
       </View>
 
+      {/* Main Title & Subtitle */}
+      <Text style={styles.loadingTitle}>{t('checkinSynthesizingTitle')}</Text>
+      <Text style={styles.loadingSubtitle}>{t('checkinSynthesizingSubtitle')}</Text>
+
+      {/* 3 Pulsing dots */}
+      <View style={styles.loadingDotsRow}>
+        <View style={[styles.loadingDot, { opacity: 1 }]} />
+        <View style={[styles.loadingDot, { opacity: 0.65 }]} />
+        <View style={[styles.loadingDot, { opacity: 0.35 }]} />
+      </View>
+
+      {/* Footer Tagline */}
+      <View style={styles.loadingFooterRow}>
+        <Ionicons name="shield-checkmark-outline" size={16} color="#64748b" style={{ marginRight: 6 }} />
+        <Text style={styles.loadingFooterText}>{t('checkinCompanionFooter')}</Text>
+      </View>
+
+      {/* Subtle bottom decorative wave */}
+      <View style={styles.bottomWatermarkWrap} pointerEvents="none">
+        <Svg width={220} height={160} viewBox="0 0 220 160" fill="none">
+          <Path d="M0 120 C70 80 140 100 220 60 L220 160 L0 160 Z" fill="#e6faf8" opacity={0.5} />
+          <Path d="M25 140 C95 105 160 125 220 100 L220 160 L25 160 Z" fill="#d8f6f1" opacity={0.4} />
+        </Svg>
+      </View>
     </View>
   );
 }
@@ -1589,7 +1685,7 @@ function CheckinHeroBadge({
     ? '#DC2626'
     : isMedium
     ? '#D97706'
-    : '#00A88F';
+    : '#08b8a2';
 
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 10 }}>
@@ -1616,6 +1712,7 @@ function DoneScreen({
   practice = false,
   readOnly = false,
   onRepeatPractice,
+  forceLoading = false,
 }: {
   styles: Styles;
   session: CheckinSession | null;
@@ -1626,6 +1723,7 @@ function DoneScreen({
   practice?: boolean;
   readOnly?: boolean;
   onRepeatPractice?: (followup?: boolean) => void;
+  forceLoading?: boolean;
 }) {
   const { t, i18n } = useTranslation('home');
   const { t: tg } = useTranslation('onboarding');
@@ -1633,6 +1731,7 @@ function DoneScreen({
   const [practiceSeverity, setPracticeSeverity] = useState<'low' | 'medium' | 'high' | 'emergency' | null>(null);
   const conclusionSpeechPlayedRef = useRef(false);
   const [speechReplayKey, setSpeechReplayKey] = useState(0);
+  const [audioReady, setAudioReady] = useState(practice || readOnly);
   const language = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi';
   const { audio: conclusionAudio, play: playConclusionAudio, stopAudio: stopConclusionAudio } =
     useCheckinCallAudio(null, language, t, undefined, !readOnly);
@@ -1653,7 +1752,7 @@ function DoneScreen({
     ? '#FFEDD5'
     : isMedium
     ? '#FEF3C7'
-    : '#E6F7F5';
+    : '#F0FBF8';
 
   const pillColor = isEmergency
     ? '#DC2626'
@@ -1661,7 +1760,7 @@ function DoneScreen({
     ? '#EA580C'
     : isMedium
     ? '#D97706'
-    : '#00A88F';
+    : '#08b8a2';
 
   const pillText = isEmergency
     ? t('checkinStatusEmergency')
@@ -1732,21 +1831,28 @@ function DoneScreen({
 
   useEffect(() => {
     if (practice || readOnly) return; // The bundled coach recordings explain example results offline.
-    const timer = setTimeout(() => {
-      if (conclusionSpeechPlayedRef.current || !conclusionSpeechText) {
-        return;
-      }
-      conclusionSpeechPlayedRef.current = true;
-      // Share the call player's voice/version-aware WAV cache and cancellation
-      // policy. Neither English nor a download failure changes the narrator.
-      void playConclusionAudio('conclusion', conclusionSpeechText);
-    }, 220);
+    if (conclusionSpeechPlayedRef.current || !conclusionSpeechText) {
+      return;
+    }
+    conclusionSpeechPlayedRef.current = true;
+    void playConclusionAudio('conclusion', conclusionSpeechText);
 
     return () => {
-      clearTimeout(timer);
       void stopConclusionAudio();
     };
   }, [practice, readOnly, conclusionSpeechText, language, session?.id, speechReplayKey, playConclusionAudio, stopConclusionAudio]);
+
+  useEffect(() => {
+    if (practice || readOnly || audioReady) return;
+    if (conclusionAudio.phase === 'playing' || conclusionAudio.phase === 'finished' || conclusionAudio.phase === 'error' || conclusionAudio.fallback) {
+      setAudioReady(true);
+      return;
+    }
+    const safetyTimer = setTimeout(() => {
+      setAudioReady(true);
+    }, 4500);
+    return () => clearTimeout(safetyTimer);
+  }, [practice, readOnly, audioReady, conclusionAudio.phase]);
 
   const replayConclusionSpeech = () => {
     if (readOnly) return;
@@ -1754,6 +1860,10 @@ function DoneScreen({
     conclusionSpeechPlayedRef.current = false;
     setSpeechReplayKey((value) => value + 1);
   };
+
+  if (forceLoading || (!audioReady && !practice && !readOnly)) {
+    return <ConclusionLoadingView styles={styles} />;
+  }
 
   return (
     <View style={{ gap: 18 }}>
@@ -1765,20 +1875,20 @@ function DoneScreen({
           paddingVertical: 11,
           paddingHorizontal: 14,
           borderRadius: 16,
-          backgroundColor: '#E6F7F5',
-          borderWidth: 1,
-          borderColor: '#BFE8E2',
+          backgroundColor: '#FFFFFF',
+          borderWidth: 1.5,
+          borderColor: '#E2E8F0',
         }}
       >
         <Ionicons
           name={isSpeakingConclusion ? 'volume-high' : 'volume-high-outline'}
           size={21}
-          color="#007F6D"
+          color="#08b8a2"
         />
         <Text
           style={[{
             flex: 1,
-            color: '#0F5F54',
+            color: '#0F2942',
             fontSize: 13,
             lineHeight: 18,
             fontWeight: '600',
@@ -1803,7 +1913,7 @@ function DoneScreen({
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Ionicons name="refresh" size={21} color="#007F6D" />
+          <Ionicons name="refresh" size={21} color="#08b8a2" />
         </Pressable>
         </GuideTarget>
       </View>
@@ -1819,8 +1929,8 @@ function DoneScreen({
         <Svg width={76} height={76} viewBox="0 0 24 24">
           <Path
             d="M9 3 C9 2.45 9.45 2 10 2 L14 2 C14.55 2 15 2.45 15 3 L15 9 L21 9 C21.55 9 22 9.45 22 10 L22 14 C22 14.55 21.55 15 21 15 L15 15 L15 21 C15 21.55 14.55 22 14 22 L10 22 C9.45 22 9 21.55 9 21 L9 15 L3 15 C2.45 15 2 14.55 2 14 L2 10 C2 9.45 2.45 9 3 9 L9 9 Z"
-            fill="#00A88F"
-            opacity={0.12}
+            fill="#08b8a2"
+            opacity={0.08}
           />
         </Svg>
       </View>
@@ -1923,7 +2033,7 @@ function DoneScreen({
               <Ionicons
                 name="pulse"
                 size={18}
-                color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
+                color={isEmergency || isHigh ? '#DC2626' : '#08b8a2'}
               />
               <Text allowFontScaling style={[{ flex: 1, fontSize: 15, fontWeight: '700', color: '#0F172A' }, practiceText]}>
                 {t('checkinRecordedSymptoms')}
@@ -1942,24 +2052,24 @@ function DoneScreen({
               flexDirection: 'row',
               alignItems: 'flex-start',
               gap: 12,
-              backgroundColor: isFine ? '#F0FDF4' : '#FEF9E7',
+              backgroundColor: isFine ? '#F8FDFB' : '#FFFDF7',
               borderRadius: 16,
               padding: 14,
-              borderWidth: 1,
-              borderColor: isFine ? '#DCFCE7' : '#FEF3C7',
+              borderWidth: 1.5,
+              borderColor: isFine ? '#E2F4F0' : '#FEF3C7',
             }}
           >
             <Ionicons
               name="bulb-outline"
               size={22}
-              color={isFine ? '#16A34A' : '#D97706'}
+              color={isFine ? '#08b8a2' : '#D97706'}
               style={{ marginTop: 1 }}
             />
             <View style={{ flex: 1, gap: 3 }}>
-              <Text allowFontScaling style={[{ flexShrink: 1, fontSize: 14, fontWeight: '700', color: isFine ? '#166534' : '#92400E' }, practiceText]}>
+              <Text allowFontScaling style={[{ flexShrink: 1, fontSize: 14, fontWeight: '700', color: isFine ? '#0F766E' : '#92400E' }, practiceText]}>
                 {t('checkinAdvice')}
               </Text>
-              <Text allowFontScaling style={[{ fontSize: 13.5, color: isFine ? '#14532D' : '#78350F', lineHeight: 20 }, practiceText]}>
+              <Text allowFontScaling style={[{ fontSize: 13.5, color: isFine ? '#334155' : '#78350F', lineHeight: 20 }, practiceText]}>
                 {cleanAdvice}
               </Text>
             </View>
@@ -1972,18 +2082,18 @@ function DoneScreen({
               flexDirection: 'row',
               alignItems: 'center',
               gap: 10,
-              backgroundColor: isEmergency || isHigh ? '#FDF2F2' : isFine ? '#F0FAF7' : '#FFFBEB',
+              backgroundColor: isEmergency || isHigh ? '#FFF8F8' : isFine ? '#F8FDFB' : '#FFFDF7',
               borderRadius: 14,
               paddingVertical: 12,
               paddingHorizontal: 14,
-              borderWidth: 1,
-              borderColor: isEmergency || isHigh ? '#FEE2E2' : isFine ? '#CCFBF1' : '#FEF3C7',
+              borderWidth: 1.5,
+              borderColor: isEmergency || isHigh ? '#FEE2E2' : isFine ? '#E0F2EE' : '#FEF3C7',
             }}
           >
             <Ionicons
               name="person-outline"
               size={18}
-              color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
+              color={isEmergency || isHigh ? '#DC2626' : '#08b8a2'}
             />
             <Text
               style={{
@@ -2010,7 +2120,7 @@ function DoneScreen({
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1.5,
-                  borderColor: isEmergency || isHigh ? '#DC2626' : '#00A88F',
+                  borderColor: isEmergency || isHigh ? '#DC2626' : '#08b8a2',
                   backgroundColor: '#FFFFFF',
                   borderRadius: 16,
                   paddingVertical: 13,
@@ -2025,7 +2135,7 @@ function DoneScreen({
                   flex: 1,
                   fontSize: 15,
                   fontWeight: '700',
-                  color: isEmergency || isHigh ? '#DC2626' : '#00A88F',
+                  color: isEmergency || isHigh ? '#DC2626' : '#08b8a2',
                   lineHeight: 21,
                   paddingHorizontal: 8,
                   textAlign: 'center',
@@ -2036,7 +2146,7 @@ function DoneScreen({
               <Ionicons
                 name="chevron-forward"
                 size={18}
-                color={isEmergency || isHigh ? '#DC2626' : '#00A88F'}
+                color={isEmergency || isHigh ? '#DC2626' : '#08b8a2'}
                 style={{ position: 'absolute', right: 16 }}
               />
             </Pressable>
@@ -2050,14 +2160,14 @@ function DoneScreen({
           {/* Family Alert Result if present */}
           {triageSummary?.familyAlertResult?.attempted && (
             triageSummary.familyAlertResult.caregiversNotified > 0 ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#DCFCE7', borderRadius: 14, padding: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F0FDF4', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#DCFCE7' }}>
                 <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
                 <Text style={{ color: '#166534', fontSize: 13, fontWeight: '600', flex: 1 }}>
                   {stripEmojis(t('checkinFamilyNotified', { count: triageSummary.familyAlertResult.caregiversNotified }))}
                 </Text>
               </View>
             ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FEF3C7', borderRadius: 14, padding: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFFDF7', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#FEF3C7' }}>
                 <Ionicons name="warning" size={16} color="#D97706" />
                 <Text style={{ color: '#92400E', fontSize: 13, fontWeight: '600', flex: 1 }}>
                   {stripEmojis(t('checkinFamilyNoCaregiver'))}
@@ -2126,13 +2236,13 @@ function DoneScreen({
         <Pressable
           style={({ pressed }) => [
             {
-              backgroundColor: practice ? guideColors.actionBackground : '#5EEAD4',
+              backgroundColor: practice ? guideColors.actionBackground : '#08b8a2',
               borderRadius: 28,
               minHeight: practice ? 60 : 52,
               paddingVertical: 16,
               alignItems: 'center',
               justifyContent: 'center',
-              shadowColor: '#2DD4BF',
+              shadowColor: '#08b8a2',
               shadowOpacity: 0.25,
               shadowRadius: 8,
               shadowOffset: { width: 0, height: 4 },
@@ -2144,7 +2254,7 @@ function DoneScreen({
           disabled={readOnly}
           onPress={readOnly ? undefined : onClose}
         >
-          <Text allowFontScaling style={{ fontSize: practice ? 22 : 17, fontWeight: '700', color: practice ? guideColors.onAction : '#0F766E' }}>
+          <Text allowFontScaling style={{ fontSize: practice ? 22 : 17, fontWeight: '700', color: '#FFFFFF' }}>
             {practice ? tg('guidance.practiceFinish') : t('checkinClose')}
           </Text>
         </Pressable>
@@ -2219,7 +2329,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: 12.5,
       lineHeight: 18,
       fontStyle: 'italic',
-      color: '#4B7B6E',
+      color: '#08b8a2',
       fontWeight: '500',
     },
     heroCenterBadgeWrap: {
@@ -2249,7 +2359,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     heroHeading: {
       fontSize: 21,
       fontWeight: '800',
-      color: '#0F3E36',
+      color: '#123b36',
       textAlign: 'center',
       lineHeight: 28,
       letterSpacing: -0.3,
@@ -2257,7 +2367,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     heroSubheading: {
       fontSize: 14,
       fontWeight: '500',
-      color: '#4A6B62',
+      color: '#64748b',
       textAlign: 'center',
       lineHeight: 20,
       marginTop: 8,
@@ -2266,7 +2376,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 38,
       height: 4,
       borderRadius: 2,
-      backgroundColor: '#2DD4BF',
+      backgroundColor: '#08b8a2',
       alignSelf: 'center',
       marginTop: 12,
       marginBottom: 2,
@@ -2286,13 +2396,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: 11,
       fontWeight: '700',
       letterSpacing: 1.2,
-      color: '#609384',
+      color: '#64748b',
       lineHeight: 15,
     },
     footerBrandUnderline: {
       width: 32,
       height: 2.5,
-      backgroundColor: '#2DD4BF',
+      backgroundColor: '#08b8a2',
       borderRadius: 2,
       marginTop: 4,
     },
@@ -2303,7 +2413,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     footerBrandTagline: {
       fontSize: 12,
       fontStyle: 'italic',
-      color: '#4B7B6E',
+      color: '#08b8a2',
       textAlign: 'right',
       marginTop: 2,
     },
@@ -2591,6 +2701,331 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.primaryDark,
       fontSize: typography.size.sm,
       fontWeight: '700',
+    },
+
+    // ── Triage & Question Screens (Modern Companion Style) ──
+    triageProgressRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 16,
+    },
+    triageProgressTrack: {
+      flex: 1,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#e6faf8',
+      overflow: 'hidden',
+    },
+    triageProgressFill: {
+      height: '100%',
+      borderRadius: 3,
+      backgroundColor: '#08b8a2',
+    },
+    triageProgressText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#64748b',
+    },
+    mascotRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      marginBottom: 18,
+    },
+    mascotSticker: {
+      width: 68,
+      height: 76,
+    },
+    mascotBubble: {
+      flex: 1,
+      backgroundColor: '#e6f9f4',
+      borderRadius: 20,
+      borderBottomLeftRadius: 4,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderWidth: 1,
+      borderColor: 'rgba(8, 184, 162, 0.12)',
+    },
+    mascotBubbleText: {
+      fontSize: 13.5,
+      lineHeight: 20,
+      color: '#0f3e36',
+      fontWeight: '500',
+    },
+    questionSection: {
+      marginBottom: 16,
+    },
+    questionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+    },
+    questionPulseIcon: {
+      marginTop: 2,
+    },
+    questionHeaderTitle: {
+      flex: 1,
+      fontSize: 19,
+      fontWeight: '800',
+      color: '#0f2942',
+      lineHeight: 26,
+      letterSpacing: -0.2,
+    },
+    questionSubtitle: {
+      fontSize: 13.5,
+      color: '#64748b',
+      lineHeight: 19,
+      marginTop: 4,
+      paddingLeft: 36,
+    },
+    triageOptionsList: {
+      gap: 10,
+      marginBottom: 14,
+    },
+    triageOptionCard: {
+      minHeight: 60,
+      backgroundColor: '#ffffff',
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: '#e2e8f0',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    triageOptionCardSelected: {
+      backgroundColor: '#f0fbf8',
+      borderColor: '#08b8a2',
+    },
+    triageRadio: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 2,
+      borderColor: '#cbd5e1',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    triageRadioSelected: {
+      borderColor: '#08b8a2',
+    },
+    triageRadioDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: '#08b8a2',
+    },
+    triageCheckbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: '#cbd5e1',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    triageCheckboxSelected: {
+      borderColor: '#08b8a2',
+      backgroundColor: '#08b8a2',
+    },
+    triageOptionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#0f2942',
+      flex: 1,
+    },
+    triageOptionTitleSelected: {
+      color: '#0f3e36',
+      fontWeight: '700',
+    },
+    triageOptionSubtitle: {
+      fontSize: 12.5,
+      color: '#64748b',
+      marginTop: 2,
+    },
+    groupHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 4,
+      marginTop: 6,
+      marginBottom: 6,
+    },
+    groupHeaderText: {
+      fontSize: 13.5,
+      fontWeight: '700',
+      color: '#08b8a2',
+    },
+    groupHeaderLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: '#e2e8f0',
+    },
+    triageInputCard: {
+      minHeight: 56,
+      backgroundColor: '#ffffff',
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: '#e2e8f0',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+    },
+    triageMicBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#e6faf8',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    triageTextInput: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '500',
+      color: '#0f2942',
+      padding: 0,
+      minHeight: 24,
+    },
+    triagePillBtn: {
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: '#08b8a2',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      marginBottom: 16,
+    },
+    triagePillBtnDisabled: {
+      backgroundColor: '#cbd5e1',
+    },
+    triagePillBtnText: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#ffffff',
+    },
+    triagePillBtnTextDisabled: {
+      color: '#ffffff',
+    },
+    historyAnswerRow: {
+      marginBottom: 10,
+      gap: 4,
+    },
+    historyQuestionTag: {
+      backgroundColor: '#f1f5f9',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
+      alignSelf: 'flex-start',
+    },
+    historyQuestionText: {
+      fontSize: 12.5,
+      color: '#64748b',
+      fontWeight: '500',
+    },
+    historyAnswerCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: '#f0fbf8',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 14,
+      alignSelf: 'flex-end',
+      borderWidth: 1,
+      borderColor: 'rgba(8, 184, 162, 0.2)',
+    },
+    historyAnswerText: {
+      fontSize: 13.5,
+      color: '#0f3e36',
+      fontWeight: '600',
+    },
+    bottomWatermarkWrap: {
+      alignItems: 'flex-end',
+      marginTop: 20,
+      marginBottom: -16,
+      overflow: 'hidden',
+    },
+
+    // ── Conclusion Loading / Synthesizing Screen ──
+    loadingContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 36,
+      minHeight: 520,
+    },
+    loadingMascotWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    loadingAuraCircle: {
+      width: 250,
+      height: 250,
+      borderRadius: 125,
+      backgroundColor: '#e6faf8',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+    },
+    loadingArcSvg: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+    },
+    loadingMascotImage: {
+      width: 156,
+      height: 168,
+    },
+    loadingTitle: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: '#0f2942',
+      textAlign: 'center',
+      marginTop: 24,
+      lineHeight: 32,
+      letterSpacing: -0.3,
+    },
+    loadingSubtitle: {
+      fontSize: 14.5,
+      fontWeight: '500',
+      color: '#64748b',
+      textAlign: 'center',
+      marginTop: 10,
+      lineHeight: 22,
+    },
+    loadingDotsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 20,
+      marginBottom: 36,
+    },
+    loadingDot: {
+      width: 9,
+      height: 9,
+      borderRadius: 4.5,
+      backgroundColor: '#08b8a2',
+    },
+    loadingFooterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 28,
+      marginBottom: 8,
+    },
+    loadingFooterText: {
+      fontSize: 13,
+      color: '#64748b',
+      fontWeight: '500',
     },
 
     // ── Done screen ──
