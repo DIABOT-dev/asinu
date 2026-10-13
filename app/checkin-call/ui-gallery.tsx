@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
+import React, { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   BackHandler,
   Image,
@@ -705,6 +705,8 @@ function CheckinCallUiGallery() {
   const router = useRouter();
   const { t } = useTranslation('checkinCall');
   const [selected, setSelected] = useState<PreviewId | null>(null);
+  // The catalogue unmounts while a preview is open; keep its offset for the return.
+  const galleryOffset = useRef({ x: 0, y: 0 });
   const insets = useSafeAreaInsets();
   useFocusEffect(useCallback(() => {
     if (!selected) return;
@@ -772,7 +774,13 @@ function CheckinCallUiGallery() {
   return (
     <View style={styles.root}>
       <TopBar title={t('gallery.title')} onBack={() => router.back()} />
-      <ScrollView key="gallery" contentContainerStyle={[styles.galleryContent, { paddingBottom: insets.bottom + 32 }]}>
+      <ScrollView
+        key="gallery"
+        contentOffset={galleryOffset.current}
+        onScroll={({ nativeEvent }) => { galleryOffset.current = { x: 0, y: Math.max(0, nativeEvent.contentOffset.y) }; }}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.galleryContent, { paddingBottom: insets.bottom + 32 }]}
+      >
         <Text style={styles.galleryTitle}>{t('gallery.heading')}</Text>
         <Text style={styles.galleryLead}>{t('gallery.lead')}</Text>
         <View style={styles.devBadge}><Ionicons name="eye-outline" size={16} color={COLORS.teal} /><Text style={styles.devBadgeText}>{t('gallery.readOnly')}</Text></View>

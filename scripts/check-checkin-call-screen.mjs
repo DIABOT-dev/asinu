@@ -247,7 +247,7 @@ test(`${lang} ${mode} font ${multiplier}: playback actions, status and safety us
 });
 }
 
-for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, scroll and return to the catalogue`, () => {
+for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only and return to the same catalogue scroll position`, () => {
   const catalogs = Object.fromEntries(['checkinCall', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${lang}/${ns}.json`))]));
   const t = (key, options = {}) => {
     const value = key.split('.').reduce((entry, part) => entry?.[part], catalogs[options.ns || 'checkinCall']);
@@ -255,9 +255,11 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, 
     return value.replace(/\{\{(\w+)\}\}/g, (_, part) => String(options[part] ?? ''));
   };
   let selected = null, androidBack;
+  let refs = [], refCursor = 0;
   const navigation = [];
   const hooks = { createElement: React.createElement, Fragment: React.Fragment,
     useMemo: work => work(), useCallback: work => work,
+    useRef: initial => refs[refCursor++] ??= { current: initial },
     useState: () => [selected, value => { selected = value; }] };
   const { CHECKIN_UI_PREVIEWS } = evaluate(read('src/features/checkin/checkin-ui-gallery.ts'));
   const adapters = {
@@ -282,19 +284,25 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, 
   const expand = tree => !tree || typeof tree !== 'object' ? tree : Array.isArray(tree) ? tree.map(expand)
     : typeof tree.type === 'function' ? expand(tree.type(tree.props))
     : { ...tree, props: { ...tree.props, children: expand(tree.props?.children) } };
-  const menu = speechNodes(expand(Gallery()));
+  const renderGallery = () => { refCursor = 0; return speechNodes(expand(Gallery())); };
+  const menu = renderGallery();
+  assert.deepEqual(menu.find(node => node.type === 'ScrollView').props.contentOffset ?? { x: 0, y: 0 }, { x: 0, y: 0 });
   const rows = menu.filter(node => node.type === 'Pressable').slice(1);
   assert.equal(rows.length, 39);
   assert.equal(new Set(rows.map(row => row.props.accessibilityLabel)).size, 39);
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
+    const catalogueScroll = renderGallery().find(node => node.type === 'ScrollView');
+    const scrolledY = [0, 1250.5, 3500, -32][index % 4];
+    catalogueScroll.props.onScroll({ nativeEvent: { contentOffset: { x: 0, y: scrolledY } } });
     row.props.onPress();
-    const tree = speechNodes(expand(Gallery()));
+    const tree = renderGallery();
     // The frame blocks its descendants, while its parent ScrollView remains interactive.
     const frames = tree.filter(node => node.props.pointerEvents === 'none');
     const frame = frames.find(node => speechNodes(node).some(child => ['Text', 'CheckinPreview'].includes(child.type)));
     assert.ok(frame, `Missing read-only frame for ${selected}`);
     const scroll = tree.find(node => node.type === 'ScrollView');
     assert.ok(scroll && scroll.props.pointerEvents !== 'none');
+    assert.deepEqual(scroll.props.contentOffset ?? { x: 0, y: 0 }, { x: 0, y: 0 }, 'Each preview starts at the top, independently of the catalogue');
     assert.ok(speechNodes(scroll).includes(frame));
     for (const child of speechNodes(frame)) {
       assert.notEqual(child.type, 'Pressable', `${selected}: interactive preview button`);
@@ -307,12 +315,19 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only, 
     back.props.onPress();
     assert.equal(selected, null);
     assert.deepEqual(navigation, []);
+    assert.deepEqual(renderGallery().find(node => node.type === 'ScrollView').props.contentOffset,
+      { x: 0, y: Math.max(0, scrolledY) }, 'Header back restores the catalogue position, including near the bottom');
   }
-  rows[0].props.onPress(); expand(Gallery());
+  renderGallery().find(node => node.type === 'ScrollView').props.onScroll({ nativeEvent: { contentOffset: { x: 0, y: 4800 } } });
+  rows.at(-1).props.onPress(); renderGallery();
   assert.equal(androidBack(), true);
   assert.equal(selected, null);
-  speechNodes(expand(Gallery())).find(node => node.type === 'Pressable').props.onPress();
+  const returned = renderGallery();
+  assert.deepEqual(returned.find(node => node.type === 'ScrollView').props.contentOffset, { x: 0, y: 4800 }, 'Android Back also restores the catalogue position');
+  returned.find(node => node.type === 'Pressable').props.onPress();
   assert.deepEqual(navigation, ['back']);
+  refs = [];
+  assert.deepEqual(renderGallery().find(node => node.type === 'ScrollView').props.contentOffset, { x: 0, y: 0 }, 'A fresh gallery visit starts at the top');
   for (const [isDevelopment, isDevBuild] of [[false, true], [false, false], [true, false]]) {
     const { default: RestrictedGallery } = evaluate(read('app/checkin-call/ui-gallery.tsx'), {
       ...adapters, '../../src/lib/appEnv': { isDevBuild },
