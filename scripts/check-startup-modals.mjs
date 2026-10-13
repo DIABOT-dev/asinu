@@ -494,7 +494,26 @@ function visit(node) {
 }
 visit(ast);
 assert.ok(prepareEffect); assert.ok(markShown); assert.ok(enableAccess);
-const withDeps = (body, deps) => evaluate(`module.exports = deps => { const { ${Object.keys(deps).join(',')} } = deps; return (${body})(); };`)(deps);
+const permissionDeps = overrides => {
+  const profile = overrides.profile === undefined ? { id: 'account-a', onboardingCompleted: true } : overrides.profile;
+  const authToken = overrides.authToken === undefined ? 'session' : overrides.authToken;
+  return {
+    hydrated: true, profile, authToken, guidanceWelcomed: true, pathname: '/home', permissionAppActive: true,
+    Platform: { OS: 'ios' }, AppState: { currentState: 'active' },
+    permissionPromptsShown: { current: new Set() },
+    permissionPrompt: { accountId: String(profile?.id), token: authToken, kind: 'notifications' },
+    useAuthStore: { getState: () => ({ token: authToken, profile }) },
+    callContext: { current: { pathname: '/home' } },
+    setPermissionPrompt: value => overrides.setNotificationPromptVisible?.(Boolean(value)),
+    getAndroidCallPermissions: async () => null,
+    requestAndroidCallAccess: () => assert.fail('unexpected call permission request'),
+    ...overrides,
+  };
+};
+const withDeps = (body, deps) => {
+  const values = [prepareEffect, markShown, enableAccess].includes(body) ? permissionDeps(deps) : deps;
+  return evaluate(`module.exports = deps => { const { ${Object.keys(values).join(',')} } = deps; return (${body})(); };`)(values);
+};
 await test('notification prompt is persisted only on actual display, not during async preparation/queueing', async () => {
   const writes = []; const timers = []; const visibility = [];
   const deps = {
@@ -566,6 +585,163 @@ await test('a failed native permission request is handled in-app and does not re
     updateNotificationPreferences: () => assert.fail('must not update without permission'),
   });
   assert.deepEqual(feedback, [['scheduleSaveError', 'error']]);
+});
+
+function startupPermissionHarness({ platform = 'android', granted = true, reminders = true,
+  access = { notifications: true, fullScreen: false, channels: true }, seen = [], ...overrides } = {}) {
+  const prompts = [], timers = [], writes = [];
+  const stored = new Map(seen.map(key => [key, '1']));
+  const deps = permissionDeps({
+    Platform: { OS: platform }, setPermissionPrompt: value => prompts.push(value),
+    checkNotificationPermission: async () => granted,
+    getNotificationPreferences: async () => ({ reminders_enabled: reminders }),
+    getAndroidCallPermissions: async () => access, syncExistingPushToken: async () => {},
+    AsyncStorage: { getItem: async key => stored.get(key) ?? null,
+      setItem: async (key, value) => { writes.push([key, value]); stored.set(key, value); } },
+    setTimeout: callback => { timers.push(callback); return 1; }, clearTimeout() {}, ...overrides,
+  });
+  return { deps, prompts, timers, writes, stored, prepare: async () => {
+    const cleanup = withDeps(prepareEffect, deps);
+    await new Promise(resolve => setImmediate(resolve));
+    timers.splice(0).forEach(callback => callback());
+    return cleanup;
+  } };
+}
+const notificationKey = '@asinu/notification_permission_prompted:v2:account-a';
+const callKey = '@asinu/android_call_permission_prompted:v1:account-a';
+await test('first Android entry combines notification and lock-screen call access in one optional prompt', async () => {
+  const h = startupPermissionHarness({ granted: false, reminders: false, access: { notifications: false, fullScreen: false, channels: true } });
+  const cleanup = await h.prepare();
+  assert.deepEqual(h.prompts, [null, { accountId: 'account-a', token: 'session', kind: 'notifications-and-calls' }]);
+  assert.deepEqual(h.writes, [], 'Preparing or queueing does not consume either prompt');
+  withDeps(markShown, { ...h.deps, permissionPrompt: h.prompts.at(-1) });
+  assert.deepEqual(h.writes, [[notificationKey, '1'], [callKey, '1']]);
+  cleanup();
+});
+await test('existing Android notification grants only ask for the missing call access', async () => {
+  const h = startupPermissionHarness(); const cleanup = await h.prepare();
+  assert.equal(h.prompts.at(-1).kind, 'android-calls');
+  withDeps(markShown, { ...h.deps, permissionPrompt: h.prompts.at(-1) });
+  assert.deepEqual(h.writes, [[callKey, '1']]);
+  cleanup();
+});
+await test('ready Android devices, iOS and older runtimes do not ask for extra call permissions', async () => {
+  for (const options of [
+    { access: { notifications: true, fullScreen: true, channels: true } },
+    { access: null }, { platform: 'ios', getAndroidCallPermissions: () => assert.fail('iOS must not inspect Android access') },
+  ]) {
+    const h = startupPermissionHarness(options); const cleanup = await h.prepare();
+    assert.deepEqual(h.prompts, [null]); assert.deepEqual(h.writes, []); cleanup();
+  }
+});
+await test('Later is respected across visits and a notification refusal does not open or re-offer call settings', async () => {
+  for (const options of [
+    { seen: [notificationKey, callKey] }, { granted: false, seen: [notificationKey] },
+  ]) {
+    const h = startupPermissionHarness(options); const cleanup = await h.prepare();
+    assert.deepEqual(h.prompts, [null]); cleanup();
+  }
+  const h = startupPermissionHarness({ granted: false, seen: [callKey] }); const cleanup = await h.prepare();
+  assert.equal(h.prompts.at(-1).kind, 'notifications', 'A previous call-access decline is not bundled into a new reminder prompt'); cleanup();
+});
+await test('a failed persistence write cannot repeat the same permission prompt within this visit', async () => {
+  const h = startupPermissionHarness({ granted: false, AsyncStorage: { getItem: async () => null,
+    setItem: async () => { throw new Error('storage unavailable'); } } });
+  const cleanup = await h.prepare();
+  withDeps(markShown, { ...h.deps, permissionPrompt: h.prompts.at(-1) });
+  await Promise.resolve(); cleanup(); h.prompts.length = 0;
+  const secondCleanup = await h.prepare(); assert.deepEqual(h.prompts, [null]); secondCleanup();
+});
+await test('call permission preparation also waits for Home in the foreground, after account onboarding', async () => {
+  for (const overrides of [{ pathname: '/checkin-call/episode' }, { pathname: '/login' }, { permissionAppActive: false }]) {
+    const h = startupPermissionHarness({ ...overrides,
+      checkNotificationPermission: () => assert.fail('No startup permission work off Home or in the background') });
+    await h.prepare(); assert.deepEqual(h.prompts, [null]);
+  }
+});
+await test('combined approval requests notifications first and opens call settings without waiting for registration APIs', async () => {
+  const calls = []; let finishRegistration;
+  const registration = new Promise(resolve => { finishRegistration = resolve; });
+  await withDeps(enableAccess, {
+    permissionPrompt: { accountId: 'account-a', token: 'session', kind: 'notifications-and-calls' },
+    requestNotificationPermissions: async () => { calls.push('notifications'); return true; },
+    syncExistingPushToken: () => { calls.push('tokens'); return registration; },
+    updateNotificationPreferences: () => { calls.push('reminders'); return registration; },
+    requestAndroidCallAccess: async () => { calls.push('call-settings'); return true; },
+    showToast() {}, t: key => key,
+  });
+  assert.deepEqual(calls, ['notifications', 'tokens', 'reminders', 'call-settings']); finishRegistration();
+});
+await test('refusing notification permission never opens call settings or enables reminders', async () => {
+  const feedback = [];
+  await withDeps(enableAccess, {
+    permissionPrompt: { accountId: 'account-a', token: 'session', kind: 'notifications-and-calls' },
+    requestNotificationPermissions: async () => false,
+    syncExistingPushToken: () => assert.fail('No registration after refusal'),
+    updateNotificationPreferences: () => assert.fail('No reminder opt-in after refusal'),
+    showToast: (...args) => feedback.push(args), t: key => key,
+  });
+  assert.deepEqual(feedback, [['notificationPermDesc', 'info']]);
+});
+await test('call-only approval leaves saved reminder preferences unchanged and reports a settings failure', async () => {
+  for (const opened of [true, false]) {
+    const feedback = []; let requests = 0;
+    await withDeps(enableAccess, {
+      permissionPrompt: { accountId: 'account-a', token: 'session', kind: 'android-calls' },
+      requestNotificationPermissions: () => assert.fail('Call-only approval uses the existing access helper'),
+      requestAndroidCallAccess: async () => { requests++; return opened; },
+      updateNotificationPreferences: () => assert.fail('Call access must not opt into reminders'),
+      showToast: (...args) => feedback.push(args), t: key => key,
+    });
+    assert.equal(requests, 1);
+    assert.deepEqual(feedback, opened ? [] : [['androidCallPermissionError', 'error']]);
+  }
+});
+await test('stale permission actions cannot interrupt another account, a call screen or a background app', async () => {
+  for (const override of [
+    { useAuthStore: { getState: () => ({ token: 'other-session', profile: { id: 'account-b' } }) } },
+    { callContext: { current: { pathname: '/checkin-call/episode' } } },
+    { AppState: { currentState: 'background' } },
+  ]) {
+    await withDeps(enableAccess, { ...override,
+      permissionPrompt: { accountId: 'account-a', token: 'session', kind: 'notifications-and-calls' },
+      requestNotificationPermissions: () => assert.fail('Stale action requested OS access'),
+      showToast: () => assert.fail('Stale action showed feedback'), t: key => key,
+    });
+  }
+  const h = startupPermissionHarness(); const cleanup = await h.prepare();
+  withDeps(markShown, { ...h.deps, permissionPrompt: h.prompts.at(-1),
+    useAuthStore: { getState: () => ({ token: 'other-session', profile: { id: 'account-b' } }) } });
+  assert.deepEqual(h.writes, []); cleanup();
+});
+await test('logging out while the OS notification sheet is open prevents call settings and API changes afterwards', async () => {
+  let finish, current = { token: 'session', profile: { id: 'account-a' } };
+  const permission = new Promise(resolve => { finish = resolve; });
+  const action = withDeps(enableAccess, {
+    permissionPrompt: { accountId: 'account-a', token: 'session', kind: 'notifications-and-calls' },
+    useAuthStore: { getState: () => current }, requestNotificationPermissions: () => permission,
+    syncExistingPushToken: () => assert.fail('No registration for the departed account'),
+    updateNotificationPreferences: () => assert.fail('No reminder change for the departed account'),
+    showToast: () => assert.fail('No stale feedback'), t: key => key,
+  });
+  current = { token: null, profile: null }; finish(true); await action;
+});
+await test('a notification grant still registers during an inactive transition without opening call settings over another screen', async () => {
+  for (const target of ['background', 'call']) {
+    let finish; const app = { currentState: 'active' }, route = { current: { pathname: '/home' } };
+    const calls = [], permission = new Promise(resolve => { finish = resolve; });
+    const action = withDeps(enableAccess, {
+      permissionPrompt: { accountId: 'account-a', token: 'session', kind: 'notifications-and-calls' },
+      AppState: app, callContext: route, requestNotificationPermissions: () => permission,
+      syncExistingPushToken: async () => { calls.push('tokens'); },
+      updateNotificationPreferences: async () => { calls.push('reminders'); },
+      showToast: () => assert.fail('No feedback over another screen'), t: key => key,
+    });
+    if (target === 'background') app.currentState = 'inactive';
+    else route.current.pathname = '/checkin-call/episode';
+    finish(true); await action; await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls, ['tokens', 'reminders']);
+  }
 });
 await test('leaving a coach target cancels a delayed native measurement without displaying a stale bubble', async () => {
   const guide = read('src/features/guidance/GuidanceProvider.tsx');

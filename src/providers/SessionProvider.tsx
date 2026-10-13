@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { AppState, Linking } from "react-native";
+import { AppState, Linking, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGlobalSearchParams, usePathname, useRootNavigationState } from "expo-router";
 import { useGuardedRouter, useNavigationGuardObserver } from "../hooks/useGuardedRouter";
@@ -49,6 +49,8 @@ import {
 } from "../lib/voip";
 import { CheckinCallHandoff } from "../features/checkin-call/checkin-call.handoff";
 import { acceptCheckinCallOnce } from "../features/checkin-call/checkin-call.accept";
+import { getAndroidCallPermissions } from "../lib/android-checkin-call";
+import { requestAndroidCallAccess } from "../lib/android-call-access";
 
 // ─── Session Context ──────────────────────────────────────────────────────────
 
@@ -57,6 +59,11 @@ const SessionContext = createContext<{ ready: boolean }>({ ready: false });
 export const useSession = () => useContext(SessionContext);
 
 type Props = { children: ReactNode };
+type PermissionPrompt = {
+  accountId: string;
+  token: string;
+  kind: 'notifications' | 'notifications-and-calls' | 'android-calls';
+};
 
 const createClientMessageId = () => {
   const cryptoObject = (
@@ -92,8 +99,16 @@ export const SessionProvider = ({ children }: Props) => {
   const [nativeFcmToken, setNativeFcmToken] = useState<string | null>(null);
   const [voipRegistration, setVoipRegistration] =
     useState<VoipRegistration | null>(null);
-  const [notificationPromptVisible, setNotificationPromptVisible] =
-    useState(false);
+  const [permissionPrompt, setPermissionPrompt] = useState<PermissionPrompt | null>(null);
+  const [permissionAppActive, setPermissionAppActive] = useState(AppState.currentState === 'active');
+  const permissionPromptsShown = useRef(new Set<string>());
+  const notificationPromptVisible = Boolean(permissionPrompt && hydrated && !loading && permissionAppActive
+    && permissionPrompt.token === authToken && permissionPrompt.accountId === String(profile?.id) && guidanceWelcomed);
+
+  useEffect(() => {
+    const listener = AppState.addEventListener('change', state => setPermissionAppActive(state === 'active'));
+    return () => listener.remove();
+  }, []);
 
   const syncExistingPushToken = useCallback(async () => {
     const voip = await getVoipRegistration();
@@ -129,15 +144,27 @@ export const SessionProvider = ({ children }: Props) => {
   }, [authToken]);
 
   const enableNotifications = useCallback(async () => {
+    const prompt = permissionPrompt;
+    const stillCurrent = () => Boolean(prompt && useAuthStore.getState().token === prompt.token
+      && String(useAuthStore.getState().profile?.id) === prompt.accountId);
+    const canOpenSettings = () => stillCurrent() && AppState.currentState === 'active'
+      && callContext.current.pathname === '/home';
+    if (!canOpenSettings()) return;
+    if (prompt?.kind === 'android-calls') {
+      const opened = await requestAndroidCallAccess();
+      if (!opened && canOpenSettings()) showToast(t('androidCallPermissionError'), 'error');
+      return;
+    }
     let granted: boolean;
     try {
       granted = await requestNotificationPermissions();
     } catch {
-      showToast(t("scheduleSaveError"), "error");
+      if (canOpenSettings()) showToast(t("scheduleSaveError"), "error");
       return;
     }
+    if (!stillCurrent()) return;
     if (!granted) {
-      showToast(t("notificationPermDesc"), "info");
+      if (canOpenSettings()) showToast(t("notificationPermDesc"), "info");
       return;
     }
 
@@ -147,9 +174,13 @@ export const SessionProvider = ({ children }: Props) => {
       syncExistingPushToken(),
       updateNotificationPreferences({ reminders_enabled: true }),
     ])
-      .then(() => showToast(t("scheduleSaved"), "success"))
-      .catch(() => showToast(t("scheduleSaveError"), "error"));
-  }, [syncExistingPushToken, t]);
+      .then(() => { if (canOpenSettings()) showToast(t("scheduleSaved"), "success"); })
+      .catch(() => { if (canOpenSettings()) showToast(t("scheduleSaveError"), "error"); });
+    if (prompt?.kind === 'notifications-and-calls' && canOpenSettings()) {
+      const opened = await requestAndroidCallAccess();
+      if (!opened && canOpenSettings()) showToast(t('androidCallPermissionError'), 'error');
+    }
+  }, [permissionPrompt, syncExistingPushToken, t]);
 
   // Bootstrap belongs at the root so every entry route shares one session startup.
   useEffect(() => {
@@ -307,32 +338,42 @@ export const SessionProvider = ({ children }: Props) => {
   // This keeps push registration discoverable for care-circle alerts while
   // avoiding a native permission prompt on the login or onboarding screens.
   useEffect(() => {
-    setNotificationPromptVisible(false);
-    if (!hydrated || !authToken || profile?.onboardingCompleted !== true || !guidanceWelcomed) return;
+    setPermissionPrompt(null);
+    if (!hydrated || !authToken || profile?.onboardingCompleted !== true || !guidanceWelcomed
+      || !permissionAppActive || pathname !== '/home') return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // Version the prompt because older builds only requested the OS permission
     // and forgot to opt the user into backend reminder delivery.
     const promptKey = `@asinu/notification_permission_prompted:v2:${profile.id}`;
+    const callPromptKey = `@asinu/android_call_permission_prompted:v1:${profile.id}`;
 
     const prepareNotificationAccess = async () => {
-      const [permissionGranted, preferences] = await Promise.all([
+      const [permissionGranted, preferences, callAccess] = await Promise.all([
         checkNotificationPermission(),
         getNotificationPreferences().catch(() => null),
+        Platform.OS === 'android' ? getAndroidCallPermissions() : Promise.resolve(null),
       ]);
       if (cancelled) return;
 
       if (permissionGranted) {
         await syncExistingPushToken();
-        if (preferences?.reminders_enabled) return;
       }
-
-      if (await AsyncStorage.getItem(promptKey)) return;
+      const [notificationSeen, callSeen] = await Promise.all([
+        permissionPromptsShown.current.has(promptKey) || AsyncStorage.getItem(promptKey),
+        permissionPromptsShown.current.has(callPromptKey) || AsyncStorage.getItem(callPromptKey),
+      ]);
       if (cancelled) return;
+      const missingCallAccess = Boolean(callAccess && (!callAccess.fullScreen || !callAccess.channels));
+      const needsNotificationOptIn = !permissionGranted || !preferences?.reminders_enabled;
+      const kind: PermissionPrompt['kind'] | null = needsNotificationOptIn && !notificationSeen
+        ? missingCallAccess && !callSeen ? 'notifications-and-calls' : 'notifications'
+        : permissionGranted && missingCallAccess && !callSeen ? 'android-calls' : null;
+      if (!kind) return;
 
       timer = setTimeout(() => {
-        if (!cancelled) setNotificationPromptVisible(true);
+        if (!cancelled) setPermissionPrompt({ accountId: String(profile.id), token: authToken, kind });
       }, 1800);
     };
 
@@ -347,6 +388,8 @@ export const SessionProvider = ({ children }: Props) => {
     profile?.id,
     profile?.onboardingCompleted,
     guidanceWelcomed,
+    pathname,
+    permissionAppActive,
     syncExistingPushToken,
   ]);
 
@@ -540,21 +583,29 @@ export const SessionProvider = ({ children }: Props) => {
         visible={notificationPromptVisible && pathname === "/home"}
         onShow={() => {
           // Mark only a presented prompt, never one merely waiting in the queue.
-          void AsyncStorage.setItem(
-            `@asinu/notification_permission_prompted:v2:${profile?.id}`,
-            "1",
-          ).catch(() => {});
+          if (!permissionPrompt || useAuthStore.getState().token !== permissionPrompt.token
+            || String(useAuthStore.getState().profile?.id) !== permissionPrompt.accountId) return;
+          const keys: string[] = [];
+          if (permissionPrompt.kind !== 'android-calls') keys.push(`@asinu/notification_permission_prompted:v2:${permissionPrompt.accountId}`);
+          if (permissionPrompt.kind !== 'notifications') keys.push(`@asinu/android_call_permission_prompted:v1:${permissionPrompt.accountId}`);
+          for (const key of keys) {
+            permissionPromptsShown.current.add(key);
+            void AsyncStorage.setItem(key, '1').catch(() => {});
+          }
         }}
-        title={t("pushPermissionTitle")}
-        message={t("pushPermissionDesc")}
+        title={t(permissionPrompt?.kind === 'android-calls' ? 'androidCallPermissionTitle'
+          : permissionPrompt?.kind === 'notifications-and-calls' ? 'pushAndCallsPermissionTitle' : 'pushPermissionTitle')}
+        message={t(permissionPrompt?.kind === 'android-calls' ? 'androidCallPermissionDesc'
+          : permissionPrompt?.kind === 'notifications-and-calls' ? 'pushAndCallsPermissionDesc' : 'pushPermissionDesc')}
         buttons={[
           { text: t("later"), style: "cancel" },
           {
-            text: t("enableNotifications"),
+            text: t(permissionPrompt?.kind === 'android-calls' ? 'enableAndroidCalls'
+              : permissionPrompt?.kind === 'notifications-and-calls' ? 'enableNotificationsAndCalls' : 'enableNotifications'),
             onPress: enableNotifications,
           },
         ]}
-        onDismiss={() => setNotificationPromptVisible(false)}
+        onDismiss={() => setPermissionPrompt(null)}
       />
       {/* Hiện modal xác nhận alert cho người thân (chỉ khi đã đăng nhập) */}
       {profile && <CaregiverAlertModal />}
