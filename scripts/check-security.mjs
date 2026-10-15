@@ -111,3 +111,79 @@ const apiClient = fs.readFileSync(new URL('../src/lib/apiClient.ts', import.meta
 assert.match(apiClient, /token === tokenStore\.getToken\(\)/);
 assert.match(apiClient, /!tokenStore\.isRotatingToken\(\)/);
 console.log('PASS password-change token rotation persists securely without stale-request logout');
+
+const draftStorageSource = fs.readFileSync(new URL('../src/features/checkin-call/triage-draft.storage.ts', import.meta.url), 'utf8');
+const draftExports = {};
+const draftStored = new Map();
+let draftStorageFails = false;
+runInNewContext(ts.transpileModule(draftStorageSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, {
+  require: name => {
+    assert.equal(name, 'expo-secure-store');
+    return {
+      getItemAsync: async k => draftStored.get(k) ?? null,
+      setItemAsync: async (k, v) => { if (draftStorageFails) throw Error('locked'); await new Promise(r => setTimeout(r, 2)); draftStored.set(k, v); },
+      deleteItemAsync: async k => { draftStored.delete(k); },
+    };
+  }, exports: draftExports,
+});
+const { triageDraftKey: keyFor, triageDraftStorage: drafts } = draftExports;
+const first = keyFor(1, 'episode:123');
+const second = keyFor(2, 'episode:123');
+assert.match(first, /^[\w.-]+$/);
+assert.notEqual(first, second);
+assert.notEqual(keyFor('a.b', 'c'), keyFor('a', 'b.c'));
+assert.equal(keyFor(undefined, 'episode'), null);
+const freshDraft = JSON.stringify({ location: 'head', symptom: 'pain', expiresAt: Date.now() + 60000 });
+await drafts.setItem(first, freshDraft);
+assert.equal(await drafts.getItem(first), freshDraft);
+assert.equal(await drafts.getItem(second), null);
+await drafts.setItem(first, JSON.stringify({ expiresAt: Date.now() - 1 }));
+assert.equal(await drafts.getItem(first), null);
+assert.equal(draftStored.has(first), false);
+await drafts.setItem(first, 'invalid JSON');
+assert.equal(await drafts.getItem(first), null);
+const saving = drafts.setItem(first, freshDraft);
+const clearing = drafts.removeItem(first);
+await Promise.all([saving, clearing]);
+assert.equal(await drafts.getItem(first), null);
+draftStorageFails = true;
+await drafts.setItem(first, freshDraft);
+assert.equal(await drafts.getItem(first), null);
+const callScreen = fs.readFileSync(new URL('../app/checkin-call/[episodeId].tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(callScreen, /AsyncStorage/);
+console.log('PASS symptom drafts are account-scoped, expire, serialize clear after save, and never fall back to plaintext');
+
+const cacheExports = {};
+const legacy = new Map([
+  ['checkin-call-triage:v1:old', 'symptoms'], ['auth-storage', 'token'], ['theme', 'dark'],
+]);
+const cacheSecure = new Map();
+runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../src/lib/localCache.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+  require: name => {
+    if (name === './cacheKeys') return { CACHE_KEYS: { profile: 'profile' } };
+    if (name === '@react-native-async-storage/async-storage') return { getAllKeys: async () => [...legacy.keys()], multiRemove: async keys => keys.forEach(k => legacy.delete(k)) };
+    assert.equal(name, 'expo-secure-store');
+    return {
+      getItemAsync: async k => { assert.match(k, /^[\w.-]+$/); return cacheSecure.get(k) ?? null; },
+      setItemAsync: async (k, v) => { assert.match(k, /^[\w.-]+$/); cacheSecure.set(k, v); },
+      deleteItemAsync: async k => { assert.match(k, /^[\w.-]+$/); cacheSecure.delete(k); },
+    };
+  }, exports: cacheExports,
+});
+await cacheExports.localCache.clearLegacyPlaintextCache();
+assert.deepEqual([...legacy.keys()], ['theme']);
+cacheExports.localCache.setUserId('user:one');
+await cacheExports.localCache.setCached('profile', '1', { health: 'fixture' });
+assert.equal((await cacheExports.localCache.getCached('profile', '1')).health, 'fixture');
+cacheExports.localCache.setUserId('user:two');
+assert.equal(await cacheExports.localCache.getCached('profile', '1'), null);
+console.log('PASS legacy health drafts are purged and secure cache accepts scoped keys');
+cacheExports.localCache.setUserId(null);
+await cacheExports.localCache.setCached('profile', '1', { health: 'unowned' });
+assert.equal(await cacheExports.localCache.getCached('profile', '1'), null);
+cacheExports.localCache.setUserId('user:one');
+await cacheExports.localCache.setCached('profile', '1', { health: 'fixture' });
+const delayedRead = cacheExports.localCache.getCached('profile', '1');
+cacheExports.localCache.setUserId('user:two');
+assert.equal(await delayedRead, null);
+console.log('PASS health cache refuses unauthenticated writes and discards reads completed after account changes');

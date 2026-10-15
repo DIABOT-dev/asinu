@@ -6,7 +6,6 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { LiveKitRoom } from '@livekit/react-native';
 import { Room } from 'livekit-client';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   checkinCallApi,
   type CheckinCallAttempt,
@@ -34,6 +33,7 @@ import { CheckinCallSafetyNote, CheckinCallSpeech } from '../../src/features/che
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CheckinCallPhoneAction } from '../../src/features/checkin-call/CheckinCallPhoneAction';
 import { restoreTriageDraft } from '../../src/features/checkin-call/triage-draft';
+import { triageDraftKey, triageDraftStorage } from '../../src/features/checkin-call/triage-draft.storage';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 
 type TriageStep = 'location' | 'symptom' | 'intensity';
@@ -94,7 +94,7 @@ function AuthenticatedCheckinCallScreen() {
   const [draftReady, setDraftReady] = useState(false);
   const [reload, setReload] = useState(0);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
-  const draftKey = `checkin-call-triage:v1:${episodeId}`;
+  const draftKey = triageDraftKey(accountId, episodeId);
   const userContent = useRef<ScrollView | null>(null);
   useLayoutEffect(() => {
     // A long symptom/location list may leave the next question off-screen.
@@ -405,7 +405,7 @@ function AuthenticatedCheckinCallScreen() {
           const triageResult = await checkinCallApi.startTriage(episodeId);
           if (!live) return;
           setTriageContext(triageResult.triage);
-          const raw = await AsyncStorage.getItem(draftKey).catch(() => null);
+          const raw = await triageDraftStorage.getItem(draftKey).catch(() => null);
           if (!live) return;
           const draft = restoreTriageDraft(raw, triageResult.triage);
           inTriage.current = true;
@@ -444,7 +444,7 @@ function AuthenticatedCheckinCallScreen() {
 
   useEffect(() => {
     if (!triageOpen || !draftReady || ended) return;
-    void AsyncStorage.setItem(draftKey, JSON.stringify({
+    void triageDraftStorage.setItem(draftKey, JSON.stringify({
       location: selectedLocation?.key, symptom: selectedSymptom?.key,
       expiresAt: getCheckinCallTime(attempt?.next_action_at) || Date.now() + 180_000,
     })).catch(() => {});
@@ -633,7 +633,7 @@ function AuthenticatedCheckinCallScreen() {
       if (!screenMounted.current) return;
       callEnded.current = true;
       setCompletedAt(getCheckinCallTime(result.episode.triage_completed_at || result.episode.updated_at));
-      void AsyncStorage.removeItem(draftKey).catch(() => {});
+      void triageDraftStorage.removeItem(draftKey).catch(() => {});
       setEnded(true);
       setRoom(null);
       const outcome = getUserCheckinCallOutcome(result.episode);
@@ -704,7 +704,7 @@ function AuthenticatedCheckinCallScreen() {
       if (!screenMounted.current) return;
       callEnded.current = true;
       setCompletedAt(getCheckinCallTime(result.episode.resolved_at || result.episode.updated_at));
-      void AsyncStorage.removeItem(draftKey).catch(() => {});
+      void triageDraftStorage.removeItem(draftKey).catch(() => {});
       setEnded(true);
       setRoom(null);
       const outcome = getUserCheckinCallOutcome(result.episode);
