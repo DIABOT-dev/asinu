@@ -1,3 +1,4 @@
+import { runNativePermission } from '../lib/native-permissions';
 /**
  * VoiceLogButton — free in Asinu V2
  * Ghi am → Whisper transcribe → AI parse → dien form tu dong
@@ -99,7 +100,7 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
             t('micPermissionMsg'),
             [
               { text: t('later'), style: 'cancel' },
-              { text: t('openSettings'), onPress: () => Linking.openSettings() },
+              { text: t('openSettings'), onPress: () => runNativePermission(() => Linking.openSettings(), { key: 'app-settings', settings: true }) },
             ]
           );
         }
@@ -201,7 +202,7 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
 
   return (
     <>
-      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+      <AppAlertModal queued {...alertState} onDismiss={dismissAlert} />
       <Pressable
         onPress={handlePress}
         disabled={isDisabled}

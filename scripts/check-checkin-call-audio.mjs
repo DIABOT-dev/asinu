@@ -395,6 +395,7 @@ await test('the real expo-audio adapter forwards native playback and error statu
   let listener;
   const native = { play() {}, pause() {}, remove() {}, addListener: (event, callback) => { listener = callback; return { remove() {} }; } };
   const { Audio } = evaluate(fs.readFileSync('src/lib/audio.ts', 'utf8'), id => {
+    if (id === './native-permissions') return { runNativePermission: operation => operation() };
     if (id === 'expo-audio') return { AudioModule: {}, RecordingPresets: { HIGH_QUALITY: {} }, createAudioPlayer: () => native };
     if (id === 'react-native') return { Platform: { OS: 'ios' } };
     throw new Error(`Unexpected adapter dependency ${id}`);
@@ -432,7 +433,7 @@ function flowHarness({ role = 'USER', api = {}, audio = {}, actionPending = { cu
     ...refs, episodeId: 'episode', attempt: { id: 'attempt', target_role: role }, room: null,
     router: { back: () => events.push('back'), replace: route => events.push(`replace:${route}`) }, getUserCheckinCallOutcome,
     getClosedCheckinCallStatusKey, isCheckinCallAttemptClosed, getCheckinCallTime: value => value ? new Date(value).getTime() : null,
-    AsyncStorage: { removeItem: async () => {} }, draftKey: 'draft',
+    triageDraftStorage: { removeItem: async () => {} }, draftKey: 'draft',
     t: key => key, getApiErrorMessage: () => 'retry',
     stopAudio: async () => { events.push('stop'); }, disconnectRoom: async () => { events.push('disconnect'); },
     endVoipCall: async () => { events.push('endNative'); },

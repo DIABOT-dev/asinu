@@ -1,3 +1,4 @@
+import { runNativePermission } from '../src/lib/native-permissions';
 import { Stack } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
@@ -278,7 +279,7 @@ export default function DoctorConsultationScreen() {
   const pickPreConsultationImage = async () => {
     try {
       const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+        await runNativePermission(() => ImagePicker.requestMediaLibraryPermissionsAsync(), { key: 'photo-library' });
       if (!permission.granted) {
         showToast(t("doctorConsultationPhotoPermission"), "error");
         return;

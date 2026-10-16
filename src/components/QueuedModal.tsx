@@ -7,8 +7,9 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { Modal, type ModalProps, Platform } from 'react-native';
+import { AppState, Modal, type ModalProps, Platform } from 'react-native';
 import { ModalQueue } from '../lib/modalQueue';
+import { attachNativePermissionPresenter } from '../lib/native-permissions';
 
 type Content = Omit<ModalProps, 'visible' | 'onShow' | 'onDismiss'>;
 type Props = Omit<ModalProps, 'onShow' | 'onDismiss'> & {
@@ -19,7 +20,13 @@ type Props = Omit<ModalProps, 'onShow' | 'onDismiss'> & {
 const QueueContext = createContext<ModalQueue<Content> | null>(null);
 
 export function QueuedModalProvider({ children }: { children: ReactNode }) {
-  const [queue] = useState(() => new ModalQueue<Content>());
+  const [queue] = useState(() => new ModalQueue<Content>(AppState.currentState === 'active'));
+  useEffect(() => {
+    const detach = attachNativePermissionPresenter(queue);
+    queue.setForeground(AppState.currentState === 'active');
+    const subscription = AppState.addEventListener('change', state => queue.setForeground(state === 'active'));
+    return () => { subscription.remove(); detach(); };
+  }, [queue]);
   return <QueueContext.Provider value={queue}>{children}</QueueContext.Provider>;
 }
 
@@ -32,7 +39,8 @@ function useModalQueue() {
 /** Inline guidance yields to every native presenter, never occupying its slot. */
 export function useQueuedModalBusy() {
   const queue = useModalQueue();
-  return Boolean(useSyncExternalStore(queue.subscribe, queue.getSnapshot, queue.getSnapshot).active);
+  const snapshot = useSyncExternalStore(queue.subscribe, queue.getSnapshot, queue.getSnapshot);
+  return Boolean(snapshot.active || snapshot.nativeBusy);
 }
 
 /** Portal into the root presenter so route/unmount changes cannot orphan a modal. */
@@ -68,9 +76,12 @@ export function QueuedModalHost() {
   }, [closingPresentation, queue]);
 
   if (!active) return null;
+  // Android has no onDismiss event; avoid overlapping a fade-out window with
+  // the next OS sheet after the native dialog is removed.
   return (
     <Modal
       {...active.request.content}
+      animationType={Platform.OS === 'android' ? 'none' : active.request.content.animationType}
       key={active.presentation}
       visible={active.phase === 'opening' || active.phase === 'open'}
       onShow={() => queue.didShow(active.presentation)}

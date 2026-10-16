@@ -1,6 +1,7 @@
 package com.asinu.lite.notifications
 
 import android.app.NotificationManager
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
@@ -10,6 +11,7 @@ import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.BaseActivityEventListener
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -22,9 +24,19 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 
 /** Android implementation of the shared call handoff; iOS keeps its CallKit bridge. */
 class AsinuCheckinCallModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context), LifecycleEventListener {
+  private val callSettingsRequest = 34107
+  private var callSettingsPromise: Promise? = null
+  private val settingsListener = object : BaseActivityEventListener() {
+    override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
+      if (requestCode != callSettingsRequest) return
+      val pending = callSettingsPromise
+      callSettingsPromise = null
+      pending?.resolve(true)
+    }
+  }
   override fun getName() = "AsinuCheckinCallModule"
-  override fun initialize() { super.initialize(); CheckinCallStore.attach(context); context.addLifecycleEventListener(this) }
-  override fun invalidate() { context.removeLifecycleEventListener(this); CheckinCallAudioPlayer.stopAll(); CheckinCallStore.detach(context); super.invalidate() }
+  override fun initialize() { super.initialize(); CheckinCallStore.attach(context); context.addLifecycleEventListener(this); context.addActivityEventListener(settingsListener) }
+  override fun invalidate() { context.removeLifecycleEventListener(this); context.removeActivityEventListener(settingsListener); callSettingsPromise?.resolve(false); callSettingsPromise = null; CheckinCallAudioPlayer.stopAll(); CheckinCallStore.detach(context); super.invalidate() }
   override fun onHostResume() {} // Only an explicit replay may restart interrupted speech.
   override fun onHostPause() { CheckinCallAudioPlayer.stopAll() }
   override fun onHostDestroy() { CheckinCallAudioPlayer.stopAll() }
@@ -107,8 +119,13 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
   @ReactMethod fun openCallSettings(fullScreen: Boolean, promise: Promise) {
     val intent = if (fullScreen && Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}"))
       else Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-    try { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); promise.resolve(true) }
-    catch (_: Exception) { promise.resolve(false) }
+    CheckinTelecom.onMain {
+      val activity = context.currentActivity
+      if (activity == null || callSettingsPromise != null) { promise.resolve(false); return@onMain }
+      callSettingsPromise = promise
+      try { activity.startActivityForResult(intent, callSettingsRequest) }
+      catch (_: Exception) { callSettingsPromise = null; promise.resolve(false) }
+    }
   }
 }
 

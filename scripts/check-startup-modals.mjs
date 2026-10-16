@@ -156,6 +156,7 @@ function hostHarness(os = 'ios') {
     'react/jsx-runtime': jsxRuntime,
     'react-native': { Modal: 'NativeModal', Platform: { OS: os } },
     '../lib/modalQueue': { ModalQueue },
+    '../lib/native-permissions': { attachNativePermissionPresenter: () => () => {} },
   };
   const components = evaluate(read('src/components/QueuedModal.tsx'), imports);
   return { queue, effects, ...components };
@@ -190,7 +191,8 @@ await test('wrapper cleanup removes its request but does not unmount the closing
 });
 await test('Android closes without waiting for an iOS-only onDismiss callback', async () => {
   const h = hostHarness('android');
-  h.queue.request('guide', { content: { children: 'Guide' } }); show(h.queue);
+  h.queue.request('guide', { content: { children: 'Guide', animationType: 'fade' } }); show(h.queue);
+  assert.equal(h.QueuedModalHost().props.animationType, 'none');
   h.queue.request('permission', { content: { children: 'Permission' } }); h.queue.remove('guide');
   assert.equal(h.QueuedModalHost().props.visible, false);
   const cleanup = h.effects.pop()();
@@ -764,7 +766,7 @@ await test('leaving a coach target cancels a delayed native measurement without 
   assert.deepEqual(visibility, [null]);
 });
 await test('all automatically displayed first-launch dialogs use the shared presenter', () => {
-  for (const file of ['CheckinGuideCarousel', 'CareCircleInvitationModal', 'CaregiverAlertModal', 'AiDataConsentModal']) {
+  for (const file of ['CheckinGuideCarousel', 'CareCircleInvitationModal', 'CaregiverAlertModal', 'AiDataConsentModal', 'DataConsentModal', 'MedicalDisclaimerModal']) {
     const body = read(`src/components/${file}.tsx`);
     assert.match(body, /<QueuedModal\b/);
     assert.doesNotMatch(body, /<Modal\b/);
@@ -773,6 +775,9 @@ await test('all automatically displayed first-launch dialogs use the shared pres
   const layout = read('app/_layout.tsx');
   assert.match(layout, /<QueuedModalProvider>/); assert.match(layout, /<QueuedModalHost\s*\/>/);
   assert.ok(layout.indexOf('<QueuedModalProvider>') < layout.indexOf('<SessionProvider>'));
+  for (const file of ['app/(tabs)/profile/index.tsx', 'app/checkin-call/voice-settings.tsx', 'src/components/VoiceLogButton.tsx', 'src/components/EmergencySOSButton.tsx']) {
+    assert.match(read(file), /<AppAlertModal\s+queued\b/, `${file} permission explanations must also wait for the presenter`);
+  }
   const guide = read('src/components/CheckinGuideCarousel.tsx');
   assert.doesNotMatch(guide, /entering=|FadeInDown/);
 });

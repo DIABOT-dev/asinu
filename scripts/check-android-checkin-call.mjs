@@ -101,6 +101,7 @@ await test('iOS registration/handoff is preserved and old Android builds tolerat
 await test('native decline base URL is configured before FCM upload, with no login credential', async () => {
   const captured = [];
   const api = evaluate('src/lib/android-checkin-call.ts', {
+    './native-permissions': { runNativePermission: operation => operation() },
     'react-native': { Platform: { OS: 'android' }, NativeModules: { AsinuCheckinCallModule: { configure: async value => captured.push(value) } } },
     './env': { env: { apiBaseUrl: 'https://api.test' } },
   });
@@ -116,6 +117,7 @@ function permissionRequest({
 } = {}) {
   const calls = [];
   const api = evaluate('src/lib/android-call-access.ts', {
+    './native-permissions': { runNativePermission: operation => operation() },
     'expo-notifications': {
       getPermissionsAsync: async () => notificationPermission,
       requestPermissionsAsync: async () => {

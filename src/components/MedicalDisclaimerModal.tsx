@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { QueuedModal } from './QueuedModal';
 import { useGuardedRouter as useRouter } from '../hooks/useGuardedRouter';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
@@ -34,7 +35,7 @@ export function MedicalDisclaimerModal({ visible, onClose }: Props) {
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <QueuedModal visible={visible} priority={50} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.card}>
@@ -90,7 +91,7 @@ export function MedicalDisclaimerModal({ visible, onClose }: Props) {
           </View>
         </View>
       </View>
-    </Modal>
+    </QueuedModal>
   );
 }
 

@@ -1,3 +1,4 @@
+import { runNativePermission } from '../../../src/lib/native-permissions';
 import {
   FontAwesome5,
   Ionicons,
@@ -545,7 +546,7 @@ export default function ProfileScreen() {
 
     try {
       const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+        await runNativePermission(() => ImagePicker.requestMediaLibraryPermissionsAsync(), { key: 'photo-library' });
       if (!permission.granted) {
         showToast(t("avatarUploadPermission"), "error");
         return;
@@ -2212,7 +2213,7 @@ export default function ProfileScreen() {
         }}
       />
 
-      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+      <AppAlertModal queued {...alertState} onDismiss={dismissAlert} />
 
       {/* ==================== LOGOUT CONFIRM MODAL ==================== */}
       <Modal

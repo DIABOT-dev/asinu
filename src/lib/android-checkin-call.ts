@@ -1,5 +1,6 @@
 import { NativeModules, Platform } from 'react-native';
 import { env } from './env';
+import { runNativePermission } from './native-permissions';
 
 export type AndroidCallPermissions = { notifications: boolean; fullScreen: boolean; channels: boolean; telecomSupported?: boolean; telecomEnabled?: boolean; telecomPermissionNeeded?: boolean };
 type AndroidCallModule = {
@@ -23,12 +24,14 @@ export async function getAndroidCallPermissions(): Promise<AndroidCallPermission
 
 export async function openAndroidCallSettings(fullScreen: boolean): Promise<boolean> {
   if (!native) return false;
-  try { return await native.openCallSettings(fullScreen); } catch { return false; }
+  try { return await runNativePermission(() => native.openCallSettings(fullScreen), {
+    key: fullScreen ? 'android-call-fullscreen' : 'android-notification-settings', settings: true,
+  }); } catch { return false; }
 }
 
 export async function openAndroidTelecomSettings(): Promise<boolean> {
   try {
     if (!native?.openTelecomSettings) return false;
-    return await native.openTelecomSettings();
+    return await runNativePermission(() => native.openTelecomSettings!(), { key: 'android-telecom-settings', settings: true });
   } catch { return false; }
 }

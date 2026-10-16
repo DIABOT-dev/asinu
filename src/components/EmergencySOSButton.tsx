@@ -1,3 +1,4 @@
+import { runNativePermission } from '../lib/native-permissions';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 /**
  * Emergency SOS Button
@@ -58,7 +59,7 @@ export function EmergencySOSButton() {
 
       let { status } = await Location.getForegroundPermissionsAsync();
       if (status !== 'granted') {
-        const req = await Location.requestForegroundPermissionsAsync().catch(() => null);
+        const req = await runNativePermission(() => Location.requestForegroundPermissionsAsync(), { key: 'location' }).catch(() => null);
         if (req) status = req.status;
       }
       if (status === 'granted') {
@@ -88,7 +89,7 @@ export function EmergencySOSButton() {
 
   return (
     <View style={styles.wrapper}>
-      <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+      <AppAlertModal queued {...alertState} onDismiss={dismissAlert} />
       <Pressable
         onPressIn={startHold}
         onPressOut={cancelHold}

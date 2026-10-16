@@ -1,3 +1,4 @@
+import { runNativePermission } from './native-permissions';
 // Push notification service for care circle invitations
 // Note: This requires expo-notifications to be installed
 // Run: npx expo install expo-notifications
@@ -224,14 +225,14 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     let finalStatus = existingStatus;
 
     if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync({
+      const { status } = await runNativePermission(() => Notifications.requestPermissionsAsync({
         ios: {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
         },
         android: {},
-      });
+      }), { key: 'notifications' });
       finalStatus = status;
     }
 

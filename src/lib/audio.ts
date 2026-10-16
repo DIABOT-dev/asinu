@@ -1,3 +1,4 @@
+import { runNativePermission } from './native-permissions';
 import {
   AudioModule,
   RecordingPresets,
@@ -146,7 +147,7 @@ export const Audio = {
       return { sound, status: { isLoaded: true } };
     },
   },
-  requestPermissionsAsync: requestRecordingPermissionsAsync,
+  requestPermissionsAsync: () => runNativePermission(requestRecordingPermissionsAsync, { key: 'microphone' }),
   getPermissionsAsync: getRecordingPermissionsAsync,
   setAudioModeAsync: async (mode: LegacyAudioMode) => {
     const mapped: Record<string, boolean> = {};

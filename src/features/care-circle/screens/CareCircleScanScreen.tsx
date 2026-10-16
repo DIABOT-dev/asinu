@@ -1,3 +1,4 @@
+import { runNativePermission } from '../../../lib/native-permissions';
 import { Ionicons } from '@expo/vector-icons';
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -285,9 +286,9 @@ function CareCircleScanScreen() {
               accessibilityLabel={canAskAgain ? t('allowCamera') : t('openSettings')}
               onPress={() => {
                 if (canAskAgain) {
-                  requestPermission().catch(() => {});
+                  runNativePermission(() => requestPermission(), { key: 'camera' }).catch(() => {});
                 } else {
-                  Linking.openSettings().catch(() => {});
+                  runNativePermission(() => Linking.openSettings(), { key: 'app-settings', settings: true }).catch(() => {});
                 }
               }}
               style={({ pressed }) => [styles.actionButtonWrap, pressed && styles.pressed]}

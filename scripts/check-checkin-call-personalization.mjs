@@ -198,6 +198,7 @@ function harness({
       },
     },
     '../../src/lib/apiClient': { getApiErrorMessage: (error) => error.message },
+    '../../src/lib/native-permissions': { runNativePermission: operation => operation() },
     '../../src/styles': { colors: {} },
     '../../src/hooks/useThemeColors': { useThemeColors: () => ({}) },
   };

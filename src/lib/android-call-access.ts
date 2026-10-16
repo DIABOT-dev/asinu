@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { getAndroidCallPermissions, openAndroidCallSettings } from './android-checkin-call';
 import { refreshNotificationLocalization } from './notifications';
+import { runNativePermission } from './native-permissions';
 
 /** One user tap opens the next missing OS permission, without an app dialog. */
 export async function requestAndroidCallAccess(): Promise<boolean> {
@@ -14,7 +15,7 @@ export async function requestAndroidCallAccess(): Promise<boolean> {
         if (!permission.canAskAgain) return await openAndroidCallSettings(false);
         // Android needs a notification channel before its permission prompt.
         await refreshNotificationLocalization();
-        const decision = await Notifications.requestPermissionsAsync({ android: {} });
+        const decision = await runNativePermission(() => Notifications.requestPermissionsAsync({ android: {} }), { key: 'notifications' });
         // Respect a refusal. Do not immediately send the user to settings.
         if (!decision.granted) return true;
       }

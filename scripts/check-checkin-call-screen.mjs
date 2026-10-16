@@ -71,6 +71,10 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false, ende
       stopAudio: clearPrompt => { audioStops.push(clearPrompt); return stopAudio(clearPrompt); }, showPrompt: noop }) },
     '../../src/features/checkin-call/CheckinCallPhoneAction': { CheckinCallPhoneAction: 'Phone' },
     '../../src/features/checkin-call/triage-draft': { restoreTriageDraft: noop },
+    '../../src/features/checkin-call/triage-draft.storage': {
+      triageDraftKey: (account, episode) => account == null ? null : `draft-${account}-${episode}`,
+      triageDraftStorage: { getItem: async () => null, setItem: async () => {}, removeItem: async () => {} },
+    },
     '../../src/features/auth/auth.store': { useAuthStore: selector => selector(auth) },
   };
   const { default: Screen } = evaluate(read('app/checkin-call/[episodeId].tsx'), imports);

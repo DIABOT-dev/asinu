@@ -1,3 +1,4 @@
+import { runNativePermission } from '../../src/lib/native-permissions';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -118,7 +119,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
     setBusy(true);
     setError('');
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
+      const permission = await runNativePermission(() => Location.requestForegroundPermissionsAsync(), { key: 'location', canRun: current });
       if (!current()) return;
       if (permission.status !== 'granted') {
         setError(t('personalization.locationDenied'));
@@ -395,6 +396,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
         )}
       </ScrollView>
       <AppAlertModal
+        queued
         visible={consent !== null}
         title={t('personalization.consentTitle')}
         stackButtons

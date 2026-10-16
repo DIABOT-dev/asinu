@@ -1,3 +1,4 @@
+import { runNativePermission } from '../../src/lib/native-permissions';
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams } from "expo-router";
@@ -622,7 +623,7 @@ export default function DoctorConsultationThreadScreen() {
     if (!taskId || sending || !conversationOpen) return;
     try {
       const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+        await runNativePermission(() => ImagePicker.requestMediaLibraryPermissionsAsync(), { key: 'photo-library' });
       if (!permission.granted) {
         showToast(t("doctorConsultationPhotoPermission"), "error");
         return;
