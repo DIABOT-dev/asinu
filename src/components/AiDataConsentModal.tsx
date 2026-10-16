@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveAiDataConsent } from '../lib/aiDataConsent';
+export { AI_DATA_CONSENT_KEY, hasAiDataConsent, saveAiDataConsent, revokeAiDataConsent } from '../lib/aiDataConsent';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -9,20 +10,6 @@ import { useScaledTypography } from '../hooks/useScaledTypography';
 import { useFontSizeStore } from '../stores/font-size.store';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { radius, spacing } from '../styles';
-
-export const AI_DATA_CONSENT_KEY = '@asinu/ai_data_consent_v1';
-
-export async function hasAiDataConsent(): Promise<boolean> {
-  return (await AsyncStorage.getItem(AI_DATA_CONSENT_KEY)) === 'true';
-}
-
-export async function saveAiDataConsent(): Promise<void> {
-  await AsyncStorage.setItem(AI_DATA_CONSENT_KEY, 'true');
-}
-
-export async function revokeAiDataConsent(): Promise<void> {
-  await AsyncStorage.removeItem(AI_DATA_CONSENT_KEY);
-}
 
 type Props = {
   visible: boolean;
@@ -55,8 +42,7 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
   const shouldStackActions = fontScale === 'large' || fontScale === 'xlarge';
 
   const handleAgree = async () => {
-    await saveAiDataConsent();
-    onAgree();
+    if (await saveAiDataConsent()) onAgree();
   };
 
   return (

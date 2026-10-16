@@ -187,3 +187,45 @@ const delayedRead = cacheExports.localCache.getCached('profile', '1');
 cacheExports.localCache.setUserId('user:two');
 assert.equal(await delayedRead, null);
 console.log('PASS health cache refuses unauthenticated writes and discards reads completed after account changes');
+
+// Provider consent is account-scoped; a stale storage operation cannot authorize
+// a different signed-in account or reuse the legacy OpenAI-only disclosure.
+const consentExports = {};
+const consentValues = new Map([['@asinu/ai_data_consent_v1', 'true']]);
+let consentSession = { profile: { id: 'owner-one' }, token: 'session-one' };
+let pauseConsentRead = null;
+let pauseConsentWrite = null;
+runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../src/lib/aiDataConsent.ts', import.meta.url), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText, {
+  exports: consentExports,
+  require: name => {
+    if (name === '../features/auth/auth.store') return { useAuthStore: { getState: () => consentSession } };
+    assert.equal(name, '@react-native-async-storage/async-storage');
+    return { __esModule: true, default: {
+      getItem: async key => { const value = consentValues.get(key) ?? null; if (pauseConsentRead) await new Promise(resolve => { pauseConsentRead = resolve; }); return value; },
+      setItem: async (key, value) => { if (pauseConsentWrite) await new Promise(resolve => { pauseConsentWrite = resolve; }); consentValues.set(key, value); },
+      removeItem: async key => { consentValues.delete(key); },
+    } };
+  },
+});
+assert.equal(await consentExports.hasAiDataConsent(), false);
+assert.equal(await consentExports.saveAiDataConsent(), true);
+assert.equal(await consentExports.hasAiDataConsent(), true);
+consentSession = { profile: { id: 'owner-two' }, token: 'session-two' };
+assert.equal(await consentExports.hasAiDataConsent(), false);
+consentSession = { profile: { id: 'owner-one' }, token: 'session-one' };
+pauseConsentRead = true;
+const consentRead = consentExports.hasAiDataConsent();
+consentSession = { profile: { id: 'owner-two' }, token: 'session-two' };
+pauseConsentRead();pauseConsentRead = null;
+assert.equal(await consentRead, false);
+pauseConsentWrite = true;
+const consentWrite = consentExports.saveAiDataConsent();
+consentSession = { profile: { id: 'owner-one' }, token: 'session-one' };
+pauseConsentWrite();pauseConsentWrite = null;
+assert.equal(await consentWrite, false);
+await consentExports.revokeAiDataConsent();
+assert.equal(await consentExports.hasAiDataConsent(), false);
+assert.equal(consentValues.has('@asinu/ai_data_consent_v1'), false);
+console.log('PASS updated provider consent requires a fresh account grant and rejects account-switch races');
