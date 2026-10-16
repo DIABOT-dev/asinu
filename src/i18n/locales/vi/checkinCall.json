@@ -382,6 +382,10 @@
     "cancelledTitle": "Kết quả: cuộc gọi đã hủy",
     "cancelledDescription": "Cuộc gọi không còn hiệu lực",
     "manual": {
+      "gift": {
+        "title": "Hộp quà sau check-in",
+        "description": "Chọn một trong sáu hộp quà, giới hạn một lượt mỗi ngày"
+      },
       "status": {
         "title": "Chọn tình trạng hôm nay",
         "description": "Ba lựa chọn tình trạng trước khi check-in"

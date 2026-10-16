@@ -251,8 +251,8 @@ test(`${lang} ${mode} font ${multiplier}: playback actions, status and safety us
 });
 }
 
-for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only and return to the same catalogue scroll position`, () => {
-  const catalogs = Object.fromEntries(['checkinCall', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${lang}/${ns}.json`))]));
+for (const lang of ['vi', 'en']) test(`${lang}: all 40 previews stay read-only and the separate gift demo is interactive`, () => {
+  const catalogs = Object.fromEntries(['checkinCall', 'common', 'home'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${lang}/${ns}.json`))]));
   const t = (key, options = {}) => {
     const value = key.split('.').reduce((entry, part) => entry?.[part], catalogs[options.ns || 'checkinCall']);
     assert.equal(typeof value, 'string', `Missing ${lang} gallery copy: ${key}`);
@@ -261,6 +261,7 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only a
   let selected = null, androidBack;
   let refs = [], refCursor = 0;
   const navigation = [];
+  const demoNavigation = [];
   const hooks = { createElement: React.createElement, Fragment: React.Fragment,
     useMemo: work => work(), useCallback: work => work,
     useRef: initial => refs[refCursor++] ??= { current: initial },
@@ -274,7 +275,7 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only a
     '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
     'expo-router': { Redirect: 'Redirect', useFocusEffect: work => work() },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
-    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back: () => navigation.push('back') }) },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back: () => navigation.push('back'), push: route => demoNavigation.push(route) }) },
     'react-i18next': { useTranslation: ns => ({ t: (key, options) => t(key, { ns, ...options }), i18n: { resolvedLanguage: lang } }) },
     '../../src/components/ScaledText': { ScaledText: 'Text' },
     '../checkin': { CheckinUiPreview: 'CheckinPreview' },
@@ -291,9 +292,15 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 39 previews open read-only a
   const renderGallery = () => { refCursor = 0; return speechNodes(expand(Gallery())); };
   const menu = renderGallery();
   assert.deepEqual(menu.find(node => node.type === 'ScrollView').props.contentOffset ?? { x: 0, y: 0 }, { x: 0, y: 0 });
-  const rows = menu.filter(node => node.type === 'Pressable').slice(1);
-  assert.equal(rows.length, 39);
-  assert.equal(new Set(rows.map(row => row.props.accessibilityLabel)).size, 39);
+  const demoButton = menu.find(node => node.type === 'Pressable' && speechNodes(node).some(child =>
+    child.type === 'Text' && child.props.children === t('checkinGift.demoTry', { ns: 'home' })));
+  assert.ok(demoButton, 'Missing separate interactive gift demo entry');
+  demoButton.props.onPress();
+  assert.deepEqual(demoNavigation, ['/checkin-rewards/demo']);
+  const rows = menu.filter(node => node.type === 'Pressable' && node.props.accessibilityLabel &&
+    node.props.accessibilityLabel !== t('back', { ns: 'common' }));
+  assert.equal(rows.length, 40);
+  assert.equal(new Set(rows.map(row => row.props.accessibilityLabel)).size, 40);
   for (const [index, row] of rows.entries()) {
     const catalogueScroll = renderGallery().find(node => node.type === 'ScrollView');
     const scrolledY = [0, 1250.5, 3500, -32][index % 4];

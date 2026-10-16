@@ -36,6 +36,7 @@
     "test:interactions": "node scripts/check-interactions.mjs && node scripts/check-navigation-stack.mjs",
     "test:guidance": "node scripts/check-guided-onboarding.mjs",
     "test:checkin-practice": "node scripts/check-checkin-practice.mjs",
+    "test:checkin-gifts": "node scripts/check-checkin-gifts.mjs",
     "test:security": "node scripts/check-security.mjs && node scripts/check-health-store-session.mjs",
     "test:android-release-quality": "node scripts/check-android-release-quality.cjs",
     "build:android": "cd android && ./gradlew bundleRelease",

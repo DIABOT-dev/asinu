@@ -15,6 +15,7 @@ export const CHECKIN_UI_PREVIEWS = [
   { id: 'checkin-result-emergency', key: 'emergency', icon: 'warning-outline' },
   { id: 'checkin-result-no-caregiver', key: 'noCaregiver', icon: 'people-outline' },
   { id: 'checkin-result-followup', key: 'followupResult', icon: 'sunny-outline' },
+  { id: 'checkin-gift', key: 'gift', icon: 'gift-outline' },
 ] as const;
 
 export type CheckinUiPreviewId = (typeof CHECKIN_UI_PREVIEWS)[number]['id'];

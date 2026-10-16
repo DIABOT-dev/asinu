@@ -704,6 +704,7 @@ export default function CheckinCallUiGalleryScreen() {
 function CheckinCallUiGallery() {
   const router = useRouter();
   const { t } = useTranslation('checkinCall');
+  const { t: th } = useTranslation('home');
   const [selected, setSelected] = useState<PreviewId | null>(null);
   // The catalogue unmounts while a preview is open; keep its offset for the return.
   const galleryOffset = useRef({ x: 0, y: 0 });
@@ -783,6 +784,18 @@ function CheckinCallUiGallery() {
       >
         <Text style={styles.galleryTitle}>{t('gallery.heading')}</Text>
         <Text style={styles.galleryLead}>{t('gallery.lead')}</Text>
+        <Pressable
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.demoGiftButton, pressed && styles.listRowPressed]}
+          onPress={() => router.push('/checkin-rewards/demo')}
+        >
+          <Ionicons name="gift-outline" size={24} color={COLORS.teal} />
+          <View style={styles.listCopy}>
+            <Text style={styles.listTitle}>{th('checkinGift.demoTry')}</Text>
+            <Text style={styles.listDescription}>{th('checkinGift.demoEntryDescription')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.teal} />
+        </Pressable>
         <View style={styles.devBadge}><Ionicons name="eye-outline" size={16} color={COLORS.teal} /><Text style={styles.devBadgeText}>{t('gallery.readOnly')}</Text></View>
         {[{ title: t('gallery.checkinGroup'), items: checkinPreviews }, { title: t('gallery.callGroup'), items: callPreviews }].map(group => <View key={group.title}>
           <Text accessibilityRole="header" style={styles.groupTitle}>{group.title} · {group.items.length}</Text>
@@ -819,6 +832,7 @@ const styles = StyleSheet.create({
   galleryContent: { padding: 20, paddingBottom: 48 },
   galleryTitle: { color: COLORS.ink, fontSize: 30, lineHeight: 36, fontWeight: '800', marginTop: 8 },
   galleryLead: { color: COLORS.muted, fontSize: 15, lineHeight: 23, marginTop: 8, maxWidth: 560 },
+  demoGiftButton: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, marginTop: 20, borderRadius: 18, backgroundColor: COLORS.tealSoft },
   devBadge: { alignSelf: 'flex-start', marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: COLORS.tealSoft, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   devBadgeText: { color: COLORS.teal, fontWeight: '700', fontSize: 12 },
   groupTitle: { color: COLORS.ink, fontSize: 20, lineHeight: 26, fontWeight: '700', marginTop: 30, marginBottom: 12 },

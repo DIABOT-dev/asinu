@@ -382,6 +382,10 @@
     "cancelledTitle": "Result: call cancelled",
     "cancelledDescription": "The call is no longer active",
     "manual": {
+      "gift": {
+        "title": "Post-check-in gift boxes",
+        "description": "Choose one of six gift boxes, with one opening per day"
+      },
       "status": {
         "title": "Today’s health status",
         "description": "The three choices at the start of a check-in"

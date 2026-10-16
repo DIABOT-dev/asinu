@@ -67,6 +67,7 @@ jobs:
           npm run test:guidance
           npm run test:health-tree-status
           npm run test:checkin-practice
+          npm run test:checkin-gifts
           npm run test:security
           npm run test:api-contract
           npm run test:checkin-contract

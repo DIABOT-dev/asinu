@@ -74,6 +74,10 @@ const native = { View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: '
   ActivityIndicator: 'Spinner', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Stack: { Screen: 'Stack' },
   GuidePracticeScope: 'PracticeScope', GuideScrollScope: 'ScrollScope', GuideTarget: 'GuideTarget',
   ScreenBackButton: 'Back', AppAlertModal: 'Alert', AiDataConsentModal: 'Consent',
+  CheckinGiftCloseButton: ({ disabled, eligible, children }) => {
+    assert.equal(eligible, false, 'Tutorials and read-only UI previews cannot consume daily gifts');
+    return jsx('Pressable', { disabled, children });
+  },
   Animated: { View: 'Animated' }, FadeIn: animation, FadeInDown: animation, FadeInLeft: animation,
   Svg: 'Svg', Path: 'Path', Circle: 'Circle', CheckinHeroBadge: 'Badge', guideColors: { background: '#f9fcfb', ink: '#123b35',
     actionBackground: '#08b8a2', onAction: '#061c19' }, colors: { primary: '#08b8a2' } };
@@ -255,6 +259,7 @@ for (const language of ['vi', 'en']) {
     const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, MAX_TRIAGE_QUESTIONS: 4,
       CHECKIN_STATUS_CHOICES: [{ status: 'fine' }, { status: 'tired' }, { status: 'very_tired' }],
       CheckinStatusChoice: 'StatusChoice', VoiceAnswerButton: 'VoiceAnswerButton',
+      CheckinGiftModal: (props) => ({ type: 'Pressable', props: { disabled: true, children: null } }),
       useScaledTypography: () => ({}), createStyles: () => ({}), spacing: { xs: 4, sm: 8, md: 16, lg: 24 },
       useLanguageStore: () => ({ language }), useGuideAcknowledgement: () => deny,
       useRouter: () => ({ push: deny, back: deny, replace: deny }),

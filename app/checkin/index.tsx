@@ -32,6 +32,8 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
 import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
 import type { CheckinUiPreviewId } from '../../src/features/checkin/checkin-ui-gallery';
+import { CheckinGiftModal } from '../../src/features/checkin-rewards/CheckinGiftModal';
+import { CheckinGiftCloseButton } from '../../src/features/checkin-rewards/CheckinGiftCloseButton';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
@@ -728,6 +730,10 @@ export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
   const styles = useMemo(() => createStyles(typography), [typography]);
   const ignore = () => {};
   const denyAi = async () => false;
+
+  if (id === 'checkin-gift') {
+    return <CheckinGiftModal visible readOnly onClose={ignore} onSkip={async () => {}} onOpen={async () => { throw new Error('Read-only preview'); }} />;
+  }
 
   if (id === 'checkin-status' || id === 'checkin-followup') {
     return <StatusScreen styles={styles} onSelect={ignore} isFollowUp={id === 'checkin-followup'} readOnly />;
@@ -2242,7 +2248,14 @@ function DoneScreen({
       </GuideTarget>}
       <GuideTarget step="checkin.result_close" enabled={practice}>
       <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-        <Pressable
+        <CheckinGiftCloseButton
+          accessibilityRole="button"
+          eligible={!practice && !readOnly && !forceLoading && !!session && session.id > 0 &&
+            (isFine || !!triageSummary) && !isHigh && !isEmergency}
+          onBeforeClose={async () => {
+            await Promise.allSettled([stopConclusionAudio(), guidanceAudio.stop()]);
+          }}
+          onClose={onClose}
           style={({ pressed }) => [
             {
               backgroundColor: practice ? guideColors.actionBackground : '#08b8a2',
@@ -2261,12 +2274,11 @@ function DoneScreen({
             },
           ]}
           disabled={readOnly}
-          onPress={readOnly ? undefined : onClose}
         >
           <Text allowFontScaling style={{ fontSize: practice ? 22 : 17, fontWeight: '700', color: '#FFFFFF' }}>
             {practice ? tg('guidance.practiceFinish') : t('checkinClose')}
           </Text>
-        </Pressable>
+        </CheckinGiftCloseButton>
       </Animated.View>
       </GuideTarget>
 
