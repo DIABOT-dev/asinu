@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { CACHE_KEYS } from './cacheKeys';
+import { healthStoreSession } from './healthStoreSession';
 
 type CacheEnvelope<T> = {
   version: string;
@@ -46,6 +47,7 @@ export const localCache = {
       Promise.all(keysToRemove.map((key) => SecureStore.deleteItemAsync(secureKey(key)))).catch(() => {});
     }
     _userId = userId;
+    healthStoreSession.setOwner(userId);
   },
   async getCached<T>(key: string, version: string): Promise<T | null> {
     const owner = _userId;

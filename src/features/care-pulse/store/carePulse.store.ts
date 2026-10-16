@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { secureStorage } from '../../../lib/secureStorage';
-import { tokenStore } from '../../../lib/tokenStore';
+import { healthStoreSession, createHealthStoreStorage } from '../../../lib/healthStoreSession';
 import { fetchCarePulseState, sendCarePulseEvent } from '../api/carePulse.api';
 import { EngineState, PulseStatus, TriggerSource, initialEngineState } from '../types';
 
@@ -36,23 +36,27 @@ const resolveSource = (triggerSource: TriggerSource) => {
   return 'manual';
 };
 
+let storeGeneration = 0;
+
 export const useCarePulseStore = create<CarePulseStore>()(
   persist(
     (set, get) => ({
       engineState: initialEngineState,
-      hydrated: false,
+      hydrated: true,
       popupSessionId: null,
       setEngineState: (engineState) => set({ engineState }),
       setHydrated: (value) => set({ hydrated: value }),
       syncState: async () => {
-        const token = tokenStore.getToken();
-        if (!token) {
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) {
 
           return;
         }
         
         try {
           const response = await fetchCarePulseState();
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.state) {
             set({ engineState: response.state });
           }
@@ -61,8 +65,9 @@ export const useCarePulseStore = create<CarePulseStore>()(
         }
       },
       sendAppOpened: async () => {
-        const token = tokenStore.getToken();
-        if (!token) {
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) {
 
           return;
         }
@@ -73,6 +78,7 @@ export const useCarePulseStore = create<CarePulseStore>()(
             source: 'system',
             uiSessionId: createSessionId()
           });
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.state) {
             set({ engineState: response.state });
           }
@@ -81,8 +87,9 @@ export const useCarePulseStore = create<CarePulseStore>()(
         }
       },
       recordPopupShown: async () => {
-        const token = tokenStore.getToken();
-        if (!token) {
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) {
 
           return;
         }
@@ -95,6 +102,7 @@ export const useCarePulseStore = create<CarePulseStore>()(
             source: 'scheduler',
             uiSessionId: sessionId
           });
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.state) {
             set({ engineState: response.state });
           }
@@ -103,8 +111,9 @@ export const useCarePulseStore = create<CarePulseStore>()(
         }
       },
       recordPopupDismiss: async () => {
-        const token = tokenStore.getToken();
-        if (!token) {
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) {
 
           set({ popupSessionId: null });
           return;
@@ -117,21 +126,24 @@ export const useCarePulseStore = create<CarePulseStore>()(
             source: 'scheduler',
             uiSessionId: sessionId
           });
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           set({ popupSessionId: null });
           if (response?.state) {
             set({ engineState: response.state });
           }
         } catch (error) {
-          set({ popupSessionId: null });
+          if (healthStoreSession.isCurrent(session) && requestGeneration === storeGeneration) set({ popupSessionId: null });
 
         }
       },
       reset: () => {
+        storeGeneration++;
         set({ engineState: initialEngineState, popupSessionId: null });
       },
       checkIn: async (status, _subStatus, triggerSource) => {
-        const token = tokenStore.getToken();
-        if (!token) {
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) {
 
           set({ popupSessionId: null });
           return;
@@ -145,19 +157,21 @@ export const useCarePulseStore = create<CarePulseStore>()(
             uiSessionId: sessionId,
             selfReport: status
           });
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           set({ popupSessionId: null });
           if (response?.state) {
             set({ engineState: response.state });
           }
         } catch (error) {
-          set({ popupSessionId: null });
+          if (healthStoreSession.isCurrent(session) && requestGeneration === storeGeneration) set({ popupSessionId: null });
 
         }
       }
     }),
     {
-      name: 'care_pulse_v1',
-      storage: createJSONStorage(() => secureStorage),
+      name: 'care_pulse_v2',
+      skipHydration: true,
+      storage: createJSONStorage(() => createHealthStoreStorage('care_pulse_v2')),
       partialize: (state) => ({ engineState: state.engineState }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
@@ -165,3 +179,12 @@ export const useCarePulseStore = create<CarePulseStore>()(
     }
   )
 );
+
+// Never rehydrate legacy state without an account owner.
+void secureStorage.removeItem('care_pulse_v1').catch(() => {});
+healthStoreSession.subscribe(() => {
+  useCarePulseStore.getState().reset();
+  if (healthStoreSession.isCurrent(healthStoreSession.capture())) {
+    void useCarePulseStore.persist.rehydrate();
+  }
+});

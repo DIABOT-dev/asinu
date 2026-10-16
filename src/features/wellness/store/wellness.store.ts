@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import i18n from '../../../i18n';
 import { secureStorage } from '../../../lib/secureStorage';
-import { tokenStore } from '../../../lib/tokenStore';
+import { healthStoreSession, createHealthStoreStorage } from '../../../lib/healthStoreSession';
 import {
     acknowledgeAlert,
     checkShouldPrompt,
@@ -87,6 +87,8 @@ const createSessionId = (): string => {
   });
 };
 
+let storeGeneration = 0;
+
 // Session ID for this app session
 let currentSessionId: string | null = null;
 
@@ -115,14 +117,15 @@ export const useWellnessStore = create<WellnessStore>()(
       promptReason: null,
       isLoading: false,
       lastSyncAt: null,
-      hydrated: false,
+      hydrated: true,
 
       setHydrated: (value) => set({ hydrated: value }),
 
       // Sync wellness state from server
       syncState: async () => {
-        const token = tokenStore.getToken();
-        if (!token) {
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) {
 
           return;
         }
@@ -130,6 +133,7 @@ export const useWellnessStore = create<WellnessStore>()(
         try {
           set({ isLoading: true });
           const response = await getWellnessState();
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok && response.state) {
             set({ 
               state: response.state, 
@@ -139,17 +143,19 @@ export const useWellnessStore = create<WellnessStore>()(
         } catch (error) {
 
         } finally {
-          set({ isLoading: false });
+          if (healthStoreSession.isCurrent(session) && requestGeneration === storeGeneration) set({ isLoading: false });
         }
       },
 
       // Fetch history
       fetchHistory: async (days = 7) => {
-        const token = tokenStore.getToken();
-        if (!token) return;
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) return;
 
         try {
           const response = await getWellnessHistory(days);
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok && response.history) {
             set({ history: response.history });
           }
@@ -160,11 +166,13 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Fetch summaries
       fetchSummaries: async (days = 7) => {
-        const token = tokenStore.getToken();
-        if (!token) return;
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) return;
 
         try {
           const response = await getDailySummaries(days);
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok && response.summaries) {
             set({ summaries: response.summaries });
           }
@@ -175,11 +183,13 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Fetch user's alerts
       fetchAlerts: async () => {
-        const token = tokenStore.getToken();
-        if (!token) return;
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) return;
 
         try {
           const response = await getMyAlerts();
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok && response.alerts) {
             set({ alerts: response.alerts });
           }
@@ -190,11 +200,13 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Fetch caregiver alerts (for caregivers)
       fetchCaregiverAlerts: async () => {
-        const token = tokenStore.getToken();
-        if (!token) return;
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) return;
 
         try {
           const response = await getCaregiverAlerts(true);
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok && response.alerts) {
             set({ caregiverAlerts: response.alerts });
           }
@@ -205,11 +217,13 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Check if should prompt user
       checkPrompt: async () => {
-        const token = tokenStore.getToken();
-        if (!token) return;
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) return;
 
         try {
           const response = await checkShouldPrompt();
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok) {
             set({
               shouldPrompt: response.shouldPrompt,
@@ -224,14 +238,16 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Record app open
       recordAppOpen: async () => {
-        const token = tokenStore.getToken();
-        if (!token) {
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) {
 
           return;
         }
 
         try {
           const response = await logAppOpen(getSessionId());
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok && response.evaluation) {
             // Update state with new evaluation
             const currentState = get().state;
@@ -253,11 +269,13 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Record mood check
       recordMoodCheck: async (mood) => {
-        const token = tokenStore.getToken();
-        if (!token) return;
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) return;
 
         try {
           const response = await logMoodCheck(mood, getSessionId());
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok && response.evaluation) {
             const currentState = get().state;
             if (currentState) {
@@ -280,11 +298,13 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Generic activity recording
       recordActivity: async (type, data = {}) => {
-        const token = tokenStore.getToken();
-        if (!token) return;
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) return;
 
         try {
           const response = await logActivity(type, data, getSessionId());
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok && response.evaluation) {
             const currentState = get().state;
             if (currentState) {
@@ -304,13 +324,15 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Request help
       requestHelp: async (message) => {
-        const token = tokenStore.getToken();
-        if (!token) {
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) {
           return { success: false, alertsSent: 0, message: i18n.t('notLoggedIn') };
         }
 
         try {
           const response = await sendHelpRequest(message);
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return { success: false, alertsSent: 0, message: i18n.t('notLoggedIn') };
           if (response?.ok) {
             // Refresh alerts
             get().fetchAlerts();
@@ -329,11 +351,13 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Acknowledge alert
       ackAlert: async (alertId) => {
-        const token = tokenStore.getToken();
-        if (!token) return;
+        const session = healthStoreSession.capture();
+        const requestGeneration = storeGeneration;
+        if (!healthStoreSession.isCurrent(session)) return;
 
         try {
           const response = await acknowledgeAlert(alertId);
+          if (!healthStoreSession.isCurrent(session) || requestGeneration !== storeGeneration) return;
           if (response?.ok) {
             // Update local state
             set({
@@ -351,6 +375,7 @@ export const useWellnessStore = create<WellnessStore>()(
 
       // Reset store
       reset: () => {
+        storeGeneration++;
         currentSessionId = null;
         set({
           state: null,
@@ -367,8 +392,9 @@ export const useWellnessStore = create<WellnessStore>()(
       }
     }),
     {
-      name: 'wellness-store',
-      storage: createJSONStorage(() => secureStorage),
+      name: 'wellness_v2',
+      skipHydration: true,
+      storage: createJSONStorage(() => createHealthStoreStorage('wellness_v2')),
       partialize: (state) => ({
         state: state.state,
         lastSyncAt: state.lastSyncAt
@@ -415,3 +441,12 @@ export const useCaregiverAlertsCount = () => {
   const alerts = useWellnessStore((s) => s.caregiverAlerts);
   return alerts.filter(a => a.status === 'sent' || a.status === 'pending').length;
 };
+
+// Never rehydrate legacy state without an account owner.
+void secureStorage.removeItem('wellness-store').catch(() => {});
+healthStoreSession.subscribe(() => {
+  useWellnessStore.getState().reset();
+  if (healthStoreSession.isCurrent(healthStoreSession.capture())) {
+    void useWellnessStore.persist.rehydrate();
+  }
+});

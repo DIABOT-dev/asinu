@@ -80,7 +80,7 @@ export const authService = {
       const email = oauthResult.profile?.email || payload.rawProfile?.email as string;
       const fullName = oauthResult.profile?.name?.trim() || undefined;
       const requestBody = {
-        token: oauthResult.token || oauthResult.idToken || 'oauth-token',
+        token: (payload.provider === 'google' ? oauthResult.idToken || oauthResult.token : oauthResult.token || oauthResult.idToken) || 'oauth-token',
         provider_id: providerId,
         email: email,
         // Apple returns the name during the first authorization only.

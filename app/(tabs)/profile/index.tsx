@@ -286,9 +286,9 @@ export default function ProfileScreen() {
       void revokeAiDataConsent().then(() => {
         setAiConsentEnabled(false);
         showToast(ts("aiDataConsentRevoked"), "success");
-      });
+      }).catch(() => showToast(tc("saveError"), "error"));
     },
-    [ts],
+    [ts, tc],
   );
 
   // Edit form state
@@ -2208,7 +2208,7 @@ export default function ProfileScreen() {
             setAiConsentEnabled(false);
             setShowAiConsentModal(false);
             showToast(ts("aiDataConsentRevoked"), "success");
-          });
+          }).catch(() => showToast(tc("saveError"), "error"));
         }}
       />
 

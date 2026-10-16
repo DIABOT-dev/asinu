@@ -3,8 +3,18 @@
 const TOKEN_KEY = 'ASINU_AUTH_TOKEN';
 let memoryToken: string | null = null;
 let tokenRotations = 0;
+const sessionListeners = new Set<() => void>();
+function replaceMemoryToken(token: string | null) {
+  if (memoryToken === token) return;
+  memoryToken = token;
+  sessionListeners.forEach(listener => listener());
+}
 
 export const tokenStore = {
+  subscribeSession(listener: () => void) {
+    sessionListeners.add(listener);
+    return () => { sessionListeners.delete(listener); };
+  },
   beginTokenRotation() {
     tokenRotations++;
     let finished = false;
@@ -25,15 +35,15 @@ export const tokenStore = {
     // A locked iPhone can temporarily reject Keychain reads. Only a
     // successful null result means logged out; let startup retry read errors.
     const stored = await SecureStore.getItemAsync(TOKEN_KEY);
-    memoryToken = stored;
+    replaceMemoryToken(stored);
     return memoryToken;
   },
   async setToken(token: string) {
-    memoryToken = token;
+    replaceMemoryToken(token);
     await SecureStore.setItemAsync(TOKEN_KEY, token);
   },
   async clearToken() {
-    memoryToken = null;
+    replaceMemoryToken(null);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
   }
 };

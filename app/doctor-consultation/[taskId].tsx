@@ -577,6 +577,25 @@ export default function DoctorConsultationThreadScreen() {
     }
   };
 
+  const resolveMediaUrl = async (messageId: string, url: string, kind: 'voice' | 'attachment') => {
+    const expiry = Number(/[?&]expires_at=(\d+)(?:&|$)/.exec(url)?.[1]);
+    if (!expiry || expiry > Date.now() / 1000 + 30) return url;
+    const token = tokenStore.getToken();
+    const response = await apiClient<ThreadResponse>(
+      `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`
+    );
+    if (tokenStore.getToken() !== token) throw new Error('Session changed');
+    const message = response.data?.messages?.find(message => message.id === messageId);
+    const media = kind === 'voice' ? parseVoice(message?.content || '') : parseAttachment(message?.content || '');
+    if (!media?.url) throw new Error('File is unavailable');
+    return media.url;
+  };
+
+  const openAttachment = async (messageId: string, url: string) => {
+    try { await Linking.openURL(await resolveMediaUrl(messageId, url, 'attachment')); }
+    catch { showToast(t('doctorConsultationAttachmentError'), 'error'); }
+  };
+
   const playVoice = async (messageId: string, url: string) => {
     try {
       if (playingMessageId === messageId) {
@@ -586,7 +605,7 @@ export default function DoctorConsultationThreadScreen() {
       }
       await soundRef.current?.unloadAsync?.();
       const result = await Audio.Sound.createAsync(
-        { uri: url },
+        { uri: await resolveMediaUrl(messageId, url, 'voice') },
         { shouldPlay: true }
       );
       soundRef.current = result.sound;
@@ -1104,7 +1123,7 @@ export default function DoctorConsultationThreadScreen() {
                           <Pressable
                             accessibilityRole="imagebutton"
                             accessibilityLabel={attachment.name}
-                            onPress={() => void Linking.openURL(attachment.url)}
+                            onPress={() => void openAttachment(message.id, attachment.url)}
                           >
                             <Image
                               source={{ uri: attachment.url }}
@@ -1362,7 +1381,7 @@ export default function DoctorConsultationThreadScreen() {
                         <Pressable
                           accessibilityRole="imagebutton"
                           accessibilityLabel={attachment.name}
-                          onPress={() => void Linking.openURL(attachment.url)}
+                          onPress={() => void openAttachment(message.id, attachment.url)}
                         >
                           <Image
                             source={{ uri: attachment.url }}

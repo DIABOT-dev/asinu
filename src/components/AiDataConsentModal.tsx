@@ -1,7 +1,8 @@
 import { saveAiDataConsent } from '../lib/aiDataConsent';
 export { AI_DATA_CONSENT_KEY, hasAiDataConsent, saveAiDataConsent, revokeAiDataConsent } from '../lib/aiDataConsent';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { showToast } from '../stores/toast.store';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { QueuedModal } from './QueuedModal';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +20,7 @@ type Props = {
 
 export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
   const { t } = useTranslation('common');
+  const [saving, setSaving] = useState(false);
   const typography = useScaledTypography();
   const fontScale = useFontSizeStore((state) => state.scale);
   const { isDark } = useThemeColors();
@@ -42,7 +44,11 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
   const shouldStackActions = fontScale === 'large' || fontScale === 'xlarge';
 
   const handleAgree = async () => {
-    if (await saveAiDataConsent()) onAgree();
+    if (saving) return;
+    setSaving(true);
+    try { if (await saveAiDataConsent()) onAgree(); }
+    catch { showToast(t('saveError'), 'error'); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -172,6 +178,8 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('aiDataConsentAgree')}
+                accessibilityState={{ disabled: saving, busy: saving }}
+                disabled={saving}
                 style={[
                   styles.button,
                   styles.agreeButton,
