@@ -12,6 +12,7 @@ export type TriageAnswer = {
 };
 
 export interface CheckinSession {
+  gift?: import('../checkin-rewards/checkin-gifts.api').CheckinGift | null;
   id: number;
   user_id: number;
   session_date: string;
@@ -155,7 +156,7 @@ export const checkinApi = {
     bodyLocationOther?: string | null,
     restart = false,
   ) =>
-    withManualCheckinCallCompletion(() => apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/start', {
+    withManualCheckinCallCompletion(() => apiClient<{ ok: boolean; session: CheckinSession; gift?: CheckinSession['gift'] }>('/api/mobile/checkin/start', {
       method: 'POST',
       body: {
         status,
@@ -164,7 +165,10 @@ export const checkinApi = {
         restart,
         source: restart ? 'instant' : 'scheduled',
       },
-    })),
+    })).then(result => {
+      if (result.gift !== undefined && result.session) result.session.gift = result.gift;
+      return result;
+    }),
 
   followUp: (checkin_id: number, status: CheckinStatus) =>
     withManualCheckinCallCompletion(() => apiClient<{ ok: boolean; session: CheckinSession }>('/api/mobile/checkin/followup', {

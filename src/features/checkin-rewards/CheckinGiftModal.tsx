@@ -16,12 +16,25 @@ import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
+const boxImages = [
+  require('../../../assets/images/rewards/box_1.png'),
+  require('../../../assets/images/rewards/box_2.png'),
+  require('../../../assets/images/rewards/box_3.png'),
+  require('../../../assets/images/rewards/box_4.png'),
+  require('../../../assets/images/rewards/box_5.png'),
+  require('../../../assets/images/rewards/box_6.png'),
+] as const;
+
 const boxes = [0, 1, 2, 3, 4, 5] as const;
 
 export type CheckinGiftReceipt = {
   id: string;
   title: string;
   description?: string | null;
+  serif?: boolean;
+  rulesPeriod?: string;
+  drawPrize?: string;
+  prizeImage?: number;
 };
 
 type Props = {
@@ -33,9 +46,13 @@ type Props = {
   readOnly?: boolean;
   demo?: boolean;
   initialReceipt?: CheckinGiftReceipt | null;
+  identicalBoxes?: boolean;
+  thanks?: string;
+  notice?: string;
+  onRules?: (period: string) => void;
 };
 
-/** The caller owns eligibility and the prize; the boxes choose a visual slot. */
+/** The server owns eligibility and the prize. The six boxes only choose a visual slot. */
 export function CheckinGiftModal({
   visible,
   onClose,
@@ -45,6 +62,10 @@ export function CheckinGiftModal({
   readOnly = false,
   demo = false,
   initialReceipt = null,
+  identicalBoxes = false,
+  thanks,
+  notice,
+  onRules,
 }: Props) {
   const { t } = useTranslation('home');
   const { colors, isDark } = useThemeColors();
@@ -52,17 +73,20 @@ export function CheckinGiftModal({
   const { height, width } = useWindowDimensions();
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [receipt, setReceipt] = useState<CheckinGiftReceipt | null>(null);
+  const [receipt, setReceipt] = useState<CheckinGiftReceipt | null>(initialReceipt);
   const [error, setError] = useState(false);
   const requestActive = useRef(false);
+  const generation = useRef(0);
 
   useEffect(() => {
+    generation.current++;
     if (!visible) {return;}
     setSelected(null);
     setBusy(false);
-    setReceipt(initialReceipt);
+    setReceipt(initialReceipt ?? null);
     setError(false);
     requestActive.current = false;
+    return () => { generation.current++; };
   }, [visible, initialReceipt]);
 
   const openBox = async (box: number) => {
@@ -71,15 +95,16 @@ export function CheckinGiftModal({
     setBusy(true);
     setError(false);
     setSelected(box);
+    const requestGeneration = generation.current;
     try {
       const received = await onOpen(box);
+      if (generation.current !== requestGeneration) return;
       setReceipt(received);
       onReceived?.(received);
     } catch {
-      setError(true);
+      if (generation.current === requestGeneration) setError(true);
     } finally {
-      setBusy(false);
-      requestActive.current = false;
+      if (generation.current === requestGeneration) { setBusy(false); requestActive.current = false; }
     }
   };
 
@@ -88,14 +113,15 @@ export function CheckinGiftModal({
     requestActive.current = true;
     setBusy(true);
     setError(false);
+    const requestGeneration = generation.current;
     try {
       await onSkip();
+      if (generation.current !== requestGeneration) return;
       onClose();
     } catch {
-      setError(true);
+      if (generation.current === requestGeneration) setError(true);
     } finally {
-      setBusy(false);
-      requestActive.current = false;
+      if (generation.current === requestGeneration) { setBusy(false); requestActive.current = false; }
     }
   };
 
@@ -106,14 +132,16 @@ export function CheckinGiftModal({
   const ink = isDark ? colors.textPrimary : '#0f3a42';
   const subInk = isDark ? colors.textSecondary : '#5b7a82';
   const boxColor = isDark ? colors.primaryLight : '#f1fbf7';
-  const boxBorder = isDark ? colors.primaryDark : '#bfeee1';
-  const sparkleColor = isDark ? colors.primary : '#1eb596';
   const handleColor = isDark ? colors.border : '#c4e8de';
   const closeColor = isDark ? colors.primaryText : '#1eb596';
   const platformColor = isDark ? '#143630' : '#daf5ed';
   const heartFloatColor = isDark ? '#2e6b60' : '#a2e4d5';
   const overlayColor = isDark ? 'rgba(5, 25, 21, 0.92)' : 'rgba(12, 78, 68, 0.88)';
   const primaryBrand = isDark ? colors.primary : '#1eb596';
+
+  const heroSource = !identicalBoxes && receipt && selected !== null && boxImages[selected]
+    ? boxImages[selected]
+    : giftImage;
 
   const content = (
     <View
@@ -152,19 +180,19 @@ export function CheckinGiftModal({
               <View style={styles.floatHeartLeft}>
                 <Ionicons name="heart" size={17} color={heartFloatColor} />
               </View>
-              <View style={[styles.floatDash, styles.floatDashLeft1, { backgroundColor: sparkleColor }]} />
-              <View style={[styles.floatDash, styles.floatDashLeft2, { backgroundColor: sparkleColor }]} />
+              <View style={[styles.floatDash, styles.floatDashLeft1, { backgroundColor: primaryBrand }]} />
+              <View style={[styles.floatDash, styles.floatDashLeft2, { backgroundColor: primaryBrand }]} />
 
               {/* Right floating heart and dot */}
               <View style={styles.floatHeartRight}>
                 <Ionicons name="heart" size={15} color={heartFloatColor} />
               </View>
-              <View style={[styles.floatDot, styles.floatDotRight, { backgroundColor: sparkleColor }]} />
+              <View style={[styles.floatDot, styles.floatDotRight, { backgroundColor: primaryBrand }]} />
             </View>
           )}
 
           <Image
-            source={giftImage}
+            source={heroSource}
             style={[styles.hero, receipt && styles.resultHero]}
             contentFit="contain"
             accessible={false}
@@ -177,13 +205,12 @@ export function CheckinGiftModal({
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
           {t(receipt ? 'checkinGift.received' : 'checkinGift.title')}
         </Text>
-        {demo && <Text style={[styles.demoLabel, { color: colors.primaryText }]}>
-          {t('checkinGift.demoLabel')}
-        </Text>}
+        {!!thanks && !receipt && <Text style={[styles.subtitle, { color: subInk }]}>{thanks}</Text>}
+        {!!notice && <Text accessibilityRole="alert" style={[styles.notice, { color: colors.textPrimary, backgroundColor: colors.surfaceMuted }]}>{notice}</Text>}
 
         {receipt ? (
           <View style={styles.result} accessibilityLiveRegion="polite">
-            <Text style={[styles.prizeTitle, { color: colors.primaryText }]}>
+            <Text style={[styles.prizeTitle, { color: colors.primaryText, fontStyle: receipt.serif ? 'italic' : 'normal' }]}>
               {receipt.title}
             </Text>
             {!!receipt.description && (
@@ -196,6 +223,19 @@ export function CheckinGiftModal({
                 {receipt.description}
               </Text>
             )}
+            {!!receipt.prizeImage && !!receipt.rulesPeriod && (
+              <View style={{ alignItems: 'center', gap: 12 }}>
+                <Image source={receipt.prizeImage} contentFit="contain"
+                  style={{ width: 160, height: 160 }} accessible={false} />
+                <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
+                  {t('checkinGift.drawPrize', { prize: receipt.drawPrize })}
+                </Text>
+              </View>
+            )}
+            {!!receipt.rulesPeriod && <Pressable accessibilityRole="button" disabled={readOnly || busy}
+              onPress={() => onRules?.(receipt.rulesPeriod!)} style={{ minHeight: 56, justifyContent: 'center' }}>
+              <Text style={{ fontSize: 20, color: colors.primaryText }}>{t('checkinGift.rules')}</Text>
+            </Pressable>}
             <Text style={[styles.saved, { color: colors.textSecondary }]}>
               {t(demo ? 'checkinGift.demoSaved' : 'checkinGift.saved')}
             </Text>
@@ -222,24 +262,16 @@ export function CheckinGiftModal({
                   style={({ pressed }) => [
                     styles.box,
                     {
-                      backgroundColor: boxColor,
-                      borderColor:
-                        selected === box ? primaryBrand : boxBorder,
+                      borderColor: selected === box ? primaryBrand : 'transparent',
                     },
                     pressed && styles.pressed,
                     busy && selected !== box && styles.muted,
                   ]}
                 >
-                  {/* Decorative corner dashes matching reference */}
-                  <View style={[styles.boxSparkle, styles.boxSparkleTL, { backgroundColor: sparkleColor }]} />
-                  <View style={[styles.boxSparkle, styles.boxSparkleBL, { backgroundColor: sparkleColor }]} />
-                  <View style={[styles.boxSparkle, styles.boxSparkleTR, { backgroundColor: sparkleColor }]} />
-                  <View style={[styles.boxSparkle, styles.boxSparkleBR, { backgroundColor: sparkleColor }]} />
-
                   <Image
-                    source={giftImage}
+                    source={identicalBoxes ? giftImage : boxImages[box]}
                     style={styles.boxImage}
-                    contentFit="contain"
+                    contentFit="cover"
                     accessible={false}
                   />
                   {busy && selected === box && (
@@ -259,21 +291,6 @@ export function CheckinGiftModal({
                   )}
                 </Pressable>
               ))}
-            </View>
-
-            {/* Note row with circle icon and vertical divider */}
-            <View style={styles.note}>
-              <View style={[styles.noteIconBadge, { backgroundColor: primaryBrand }]}>
-                <Ionicons
-                  name="information"
-                  size={15}
-                  color="#ffffff"
-                />
-              </View>
-              <View style={[styles.noteDivider, { backgroundColor: isDark ? colors.border : '#d2ede4' }]} />
-              <Text style={[styles.noteText, { color: subInk }]}>
-                {t(demo ? 'checkinGift.demoDailyLimit' : 'checkinGift.dailyLimit')}
-              </Text>
             </View>
           </>
         )}
@@ -307,7 +324,7 @@ export function CheckinGiftModal({
           ]}
         >
           <Text style={styles.buttonText}>
-            {t(receipt ? 'checkinGift.done' : 'checkinGift.skip')}
+            {t(receipt ? 'checkinGift.done' : demo ? 'checkinGift.skip' : 'checkinGift.later')}
           </Text>
         </Pressable>
       </ScrollView>
@@ -323,6 +340,7 @@ export function CheckinGiftModal({
       animationType="fade"
       statusBarTranslucent
       priority={10}
+      interruptible
       onRequestClose={dismiss}
     >
       <View
@@ -365,14 +383,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 14,
     top: 14,
-    width: 44,
-    height: 44,
+    width: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 24,
   },
@@ -449,64 +467,35 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 18,
     lineHeight: 24,
     fontWeight: '500',
     textAlign: 'center',
     marginBottom: 20,
   },
-  demoLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 10,
+    rowGap: 10,
+    marginBottom: 20,
   },
   box: {
-    width: '31%',
-    aspectRatio: 1,
+    minHeight: 56,
+    width: '31.5%',
+    aspectRatio: 324 / 294,
     borderRadius: 18,
-    borderWidth: 1.5,
-    padding: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     position: 'relative',
-  },
-  boxSparkle: {
-    position: 'absolute',
-    width: 5.5,
-    height: 2,
-    borderRadius: 1,
-  },
-  boxSparkleTL: {
-    left: 7,
-    top: '32%',
-    transform: [{ rotate: '-30deg' }],
-  },
-  boxSparkleBL: {
-    left: 7,
-    bottom: '32%',
-    transform: [{ rotate: '30deg' }],
-  },
-  boxSparkleTR: {
-    right: 7,
-    top: '32%',
-    transform: [{ rotate: '30deg' }],
-  },
-  boxSparkleBR: {
-    right: 7,
-    bottom: '32%',
-    transform: [{ rotate: '-30deg' }],
+    backgroundColor: '#effcf7',
   },
   boxImage: {
-    width: '68%',
-    height: '68%',
+    width: '100%',
+    height: '100%',
   },
   opening: {
     position: 'absolute',
@@ -521,30 +510,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 18,
-    paddingHorizontal: 4,
-  },
-  noteIconBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noteDivider: {
-    width: 1.5,
-    height: 28,
-    marginHorizontal: 12,
-  },
-  noteText: {
-    fontSize: 13.5,
-    lineHeight: 19,
-    flex: 1,
-    fontWeight: '400',
-  },
   result: {
     alignItems: 'center',
     paddingVertical: 16,
@@ -557,13 +522,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   prizeDescription: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 27,
     textAlign: 'center',
   },
   saved: {
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 18,
+    lineHeight: 27,
     textAlign: 'center',
     marginTop: 8,
   },
@@ -575,7 +540,7 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: 999,
-    minHeight: 52,
+    minHeight: 56,
     paddingHorizontal: 20,
     paddingVertical: 14,
     alignItems: 'center',
@@ -584,10 +549,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
   },
   pressed: { opacity: 0.82 },
   muted: { opacity: 0.55 },
+  notice: { fontSize: 18, lineHeight: 27, padding: 16, borderRadius: 12, marginVertical: 12 },
 });

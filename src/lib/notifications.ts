@@ -416,6 +416,16 @@ export function routeFromNotificationData(
   }
   const type = data?.type as string | undefined;
   if (!type) return null;
+  if (type === 'gift_opened') {
+    const giftId = data?.giftId;
+    return typeof giftId === 'string' && /^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(giftId)
+      ? { pathname: '/checkin-rewards/receipt', params: { gift: giftId } } : '/checkin-rewards/history';
+  }
+  if (type === 'gift_draw_result') {
+    const period = String(data?.drawPeriodId || '');
+    return /^\d{1,18}$/.test(period)
+      ? { pathname: '/checkin-rewards/results', params: { period } } : '/checkin-rewards/history';
+  }
 
   if (type === "early_signal") {
     const userId = data?.userId as string;

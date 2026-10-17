@@ -886,7 +886,7 @@ function StatusScreen({
 
       {/* Greeting & Subheading */}
       <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.heroHeadingWrap}>
-        <Text style={styles.heroHeading}>{getGreeting()}</Text>
+        <Text style={styles.heroHeading}>{!practice && !isFollowUp ? t('checkinGift.question') : getGreeting()}</Text>
         <Text style={styles.heroSubheading}>{t('checkinSubheading')}</Text>
         <View style={styles.heroIndicatorPill} />
       </Animated.View>
@@ -895,12 +895,13 @@ function StatusScreen({
       <GuideTarget step="checkin.status" style={styles.optionList} enabled={practice}>
         {CHECKIN_STATUS_CHOICES.map((choice, idx) => (
           <Animated.View key={choice.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
-            <CheckinStatusChoice choice={choice} onSelect={readOnly ? undefined : onSelect} />
+            <CheckinStatusChoice choice={practice ? choice : { ...choice, labelKey: `checkinGift.status_${choice.status}` }} onSelect={readOnly ? undefined : onSelect} />
           </Animated.View>
         ))}
       </GuideTarget>
 
       {/* Bottom Footer Section */}
+      {!practice && <Text style={{ fontSize: 18, lineHeight: 27, textAlign: 'center', color: colors.textSecondary }}>{t('checkinGift.afterCheckin')}</Text>}
       <Animated.View entering={FadeInDown.delay(450).duration(400)} style={styles.footerBrandWrap}>
         <View style={styles.footerBrandLeft}>
           <Text style={styles.footerBrandWord}>{t('checkinFooterBrand1')}</Text>
@@ -2251,7 +2252,10 @@ function DoneScreen({
         <CheckinGiftCloseButton
           accessibilityRole="button"
           eligible={!practice && !readOnly && !forceLoading && !!session && session.id > 0 &&
-            (isFine || !!triageSummary) && !isHigh && !isEmergency}
+            (isFine || !!triageSummary)}
+          autoOffer={!practice && !readOnly && !isHigh && !isEmergency && !!session?.gift && !session.gift.openedAt}
+          status={session?.current_status}
+          familyAlerted={session?.family_alerted}
           onBeforeClose={async () => {
             await Promise.allSettled([stopConclusionAudio(), guidanceAudio.stop()]);
           }}

@@ -313,15 +313,15 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   label: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "800",
-    lineHeight: 23,
+    lineHeight: 28,
     letterSpacing: -0.2,
   },
   sub: {
-    fontSize: 13,
+    fontSize: 18,
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 25,
     fontWeight: "500",
   },
 });

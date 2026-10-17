@@ -781,4 +781,20 @@ await test('all automatically displayed first-launch dialogs use the shared pres
   const guide = read('src/components/CheckinGuideCarousel.tsx');
   assert.doesNotMatch(guide, /entering=|FadeInDown/);
 });
+await test('an urgent caregiver alert interrupts an optional gift and restores it only after dismissal', () => {
+  const queue = new ModalQueue();
+  queue.request('gift', { content: 'gift', priority: 10, interruptible: true }); show(queue);
+  queue.request('urgent', { content: 'urgent', priority: 100 });
+  assert.equal(active(queue).id, 'gift'); assert.equal(active(queue).phase, 'closing');
+  dismiss(queue); assert.equal(active(queue).id, 'urgent'); show(queue);
+  queue.remove('urgent'); dismiss(queue); assert.equal(active(queue).id, 'gift');
+});
+await test('an urgent alert arriving during gift presentation waits for onShow before interrupting', () => {
+  const queue = new ModalQueue();
+  queue.request('gift', { content: 'gift', interruptible: true });
+  queue.request('urgent', { content: 'urgent', priority: 100 });
+  assert.equal(active(queue).phase, 'opening'); show(queue);
+  assert.equal(active(queue).phase, 'closing'); dismiss(queue);
+  assert.equal(active(queue).id, 'urgent');
+});
 console.log(`Startup modal lifecycle: ${checks} regressions passed.`);

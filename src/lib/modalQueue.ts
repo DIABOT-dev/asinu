@@ -1,6 +1,7 @@
 export type ModalRequest<T> = {
   content: T;
   priority?: number;
+  interruptible?: boolean;
   onShow?: () => void;
   onDismiss?: () => void | Promise<void>;
 };
@@ -64,6 +65,8 @@ export class ModalQueue<T> {
     } else if (!active) {
       this.advance();
     }
+    const current = this.snapshot.active;
+    if (current?.phase === 'open' && this.shouldYield(current)) this.publish({ ...current, phase: 'closing' });
   }
 
   remove(id: string) {
@@ -79,7 +82,7 @@ export class ModalQueue<T> {
   didShow(presentation: number) {
     const active = this.snapshot.active;
     if (!active || active.presentation !== presentation || active.phase !== 'opening') return;
-    const stillRequested = this.requests.has(active.id);
+    const stillRequested = this.requests.has(active.id) && !this.shouldYield(active);
     this.publish({ ...active, phase: stillRequested ? 'open' : 'closing' });
     if (stillRequested) active.request.onShow?.();
   }
@@ -122,6 +125,10 @@ export class ModalQueue<T> {
     if (!next) return;
     const [id, request] = next;
     this.publish({ id, request, presentation: ++this.presentation, phase: 'opening' });
+  }
+
+  private shouldYield(active: ActiveModal<T>) {
+    return active.request.interruptible === true && [...this.requests.entries()].some(([id, request]) => id !== active.id && (request.priority ?? 0) >= 100 && (request.priority ?? 0) > (active.request.priority ?? 0));
   }
 
   private publish(active: ActiveModal<T> | null) {

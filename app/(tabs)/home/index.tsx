@@ -16,6 +16,7 @@ import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
 import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
+import { HomeGiftCard } from '../../../src/features/checkin-rewards/HomeGiftCard';
 import { apiClient } from '../../../src/lib/apiClient';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -938,6 +939,7 @@ export default function HomeScreen() {
           <View style={styles.checkinStack}>
             <DailyCheckinCard />
             <InstantCheckinCard />
+            <HomeGiftCard />
             {profile?.id && <HomeCheckinCallControl key={profile.id} userId={String(profile.id)} />}
           </View>
         </Animated.View>

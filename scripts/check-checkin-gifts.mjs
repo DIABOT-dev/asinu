@@ -18,6 +18,9 @@ function evaluate(file, dependencies = {}) {
   return module.exports;
 }
 const { createCheckinGiftDemo, vietnamGiftDay, DEMO_GIFT_POINTS } = evaluate('src/features/checkin-rewards/checkin-gift-demo.ts');
+const { giftPrizeImage } = evaluate('src/features/checkin-rewards/gift-prize-assets.ts', {
+  '../../../assets/iphone-18-pro-01_5-1.webp': 180018,
+});
 const date = value => Date.parse(value);
 function memory() {
   const values = new Map(), writes = [];
@@ -204,7 +207,7 @@ function buttonHarness({ eligible = true, disabled = false, prod = false, before
   const runtime = hooks(), calls = [];
   const { CheckinGiftCloseButton } = evaluate('src/features/checkin-rewards/CheckinGiftCloseButton.tsx', {
     react: runtime, 'react-native': { Pressable: 'Button' },
-    '../../lib/appEnv': { isProdBuild: prod }, './CheckinGiftDemoFlow': { CheckinGiftDemoFlow: 'GiftFlow' },
+    './CheckinGiftFlow': { CheckinGiftFlow: 'GiftFlow' },
   });
   const render = () => CheckinGiftCloseButton({ eligible, disabled,
     onBeforeClose: async () => { calls.push('stop audio'); await before(); }, onClose: () => calls.push('leave') });
@@ -221,8 +224,8 @@ await test('closing stops audio first, repeated taps cannot reopen, and dismissi
   const flow = nodes(h.render()).find(node => node.type === 'GiftFlow'); assert.ok(flow);
   flow.props.onClose(); assert.deepEqual(h.calls, ['stop audio', 'leave']);
 });
-await test('preview/urgent/practice eligibility and production gates keep the original close action', async () => {
-  for (const options of [{ eligible: false }, { prod: true }, { eligible: false, before: async () => { throw new Error('audio failed'); } }]) {
+await test('preview/practice eligibility keeps the original close action while production uses server gifts', async () => {
+  for (const options of [{ eligible: false }, { eligible: false, before: async () => { throw new Error('audio failed'); } }]) {
     const h = buttonHarness(options);
     await nodes(h.render()).find(node => node.type === 'Button').props.onPress();
     assert.deepEqual(h.calls, ['stop audio', 'leave']);
@@ -231,6 +234,9 @@ await test('preview/urgent/practice eligibility and production gates keep the or
   const readOnly = buttonHarness({ disabled: true });
   await nodes(readOnly.render()).find(node => node.type === 'Button').props.onPress();
   assert.deepEqual(readOnly.calls, []);
+  const production = buttonHarness({ prod: true });
+  await nodes(production.render()).find(node => node.type === 'Button').props.onPress();
+  assert.ok(nodes(production.render()).some(node => node.type === 'GiftFlow'));
 });
 
 function modalHarness(options = {}) {
@@ -239,13 +245,14 @@ function modalHarness(options = {}) {
   const { CheckinGiftModal } = evaluate('src/features/checkin-rewards/CheckinGiftModal.tsx', {
     react: runtime, '@expo/vector-icons': { Ionicons: 'Icon' }, 'expo-image': { Image: 'Image' },
     'react-i18next': { useTranslation: () => ({ t: (key, values = {}) => key.split('.').reduce((entry, part) => entry[part], catalog)
-      .replace('{{number}}', String(values.number)) }) },
+      .replace(/\{\{(\w+)\}\}/g, (_, name) => String(values[name] ?? '')) }) },
     'react-native': { View: 'View', Pressable: 'Button', ScrollView: 'Scroll', ActivityIndicator: 'Spinner',
       StyleSheet: { create: value => value, absoluteFill: {} }, useWindowDimensions: () => ({ width: 390, height: 844 }) },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 47, bottom: 34 }) },
     '../../components/QueuedModal': { QueuedModal: 'Modal' }, '../../components/ScaledText': { ScaledText: 'Text' },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
     '../../../assets/images/rewards/checkin-gift.png': 'gift.png',
+    ...Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`../../../assets/images/rewards/box_${i + 1}.png`, `box_${i + 1}.png`])),
   });
   const props = { visible: true, demo: true, onClose: () => calls.closes++, onSkip: async () => {},
     onOpen: async box => { calls.opens.push(box); return options.open ? options.open(box) : { id: 'sample', title: '20 điểm thử' }; },
@@ -274,5 +281,137 @@ await test('gift UI gallery remains read-only even if its old callbacks are invo
     await node.props.onPress?.();
   }
   assert.deepEqual(h.calls.opens, []); assert.equal(h.calls.closes, 0);
+});
+function productionFlowHarness({ today, open, reviewExisting = false, language = 'vi', status = 'fine' } = {}) {
+  const runtime = hooks(), calls = { today: 0, open: [], close: 0, unavailable: 0 };
+  const account = { profile: { id: 'parent-account' } };
+  const useAuthStore = select => select(account); useAuthStore.getState = () => account;
+  const catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`));
+  const t = (key, values = {}) => {
+    const value = key.split('.').reduce((entry, part) => entry?.[part], catalog);
+    assert.equal(typeof value, 'string', `Missing production gift copy ${key}`);
+    return value.replace(/\{\{(\w+)\}\}/g, (_, name) => String(values[name] ?? ''));
+  };
+  const gift = { id: '385c91ce-191f-4d8d-b4cb-af8ccbc2ed59', day: '2026-10-17', openedAt: null, box: null, loc: null, extra: null, ticket: null };
+  const receipt = { ...gift, openedAt: '2026-10-17T01:00:00Z', box: 2, loc: { type: 'wish', text: 'Chúc bạn một ngày bình yên.', serif: false }, extra: 'none' };
+  const { CheckinGiftFlow } = evaluate('src/features/checkin-rewards/CheckinGiftFlow.tsx', {
+    react: runtime,
+    'expo-router': { useFocusEffect: callback => runtime.useEffect(callback, [callback]) },
+    'react-native': { View: 'View', Pressable: 'Button' },
+    'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push() {} }) },
+    '../../components/QueuedModal': { QueuedModal: 'Modal' }, '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../auth/auth.store': { useAuthStore }, './CheckinGiftModal': { CheckinGiftModal: 'Gift' },
+    './gift-prize-assets': { giftPrizeImage },
+    './checkin-gifts.api': { checkinGiftsApi: {
+      today: async () => { calls.today++; return today ? today({ gift, receipt }) : { enabled: true, gift }; },
+      open: async (id, box) => { calls.open.push([id, box]); return open ? open({ gift, receipt }) : { gift: receipt }; },
+    } },
+  });
+  const render = () => {
+    let tree = CheckinGiftFlow({ reviewExisting, status, onClose: () => calls.close++, onUnavailable: () => calls.unavailable++ });
+    while (typeof tree?.type === 'function') tree = tree.type(tree.props);
+    return tree;
+  };
+  return { calls, account, runtime, settle: () => runtime.settle(render), t };
+}
+for (const language of ['vi', 'en']) await test(`${language}: production opens the immutable server receipt and never generates local points`, async () => {
+  const h = productionFlowHarness({ language }); const tree = await h.settle();
+  assert.equal(tree.type, 'Gift'); assert.equal(tree.props.identicalBoxes, true);
+  const receipt = await tree.props.onOpen(5);
+  assert.deepEqual(h.calls.open, [['385c91ce-191f-4d8d-b4cb-af8ccbc2ed59', 5]]);
+  assert.equal(receipt.title, 'Chúc bạn một ngày bình yên.');
+  assert.doesNotMatch(JSON.stringify(receipt), /points|value_vnd|store_code|1199000/);
+});
+await test('viewing an opened fortune keeps the receipt without another claim', async () => {
+  const h = productionFlowHarness({ reviewExisting: true, today: ({ receipt }) => ({ enabled: true, gift: receipt }) });
+  const tree = await h.settle(); assert.equal(tree.props.initialReceipt.title, 'Chúc bạn một ngày bình yên.'); assert.deepEqual(h.calls.open, []);
+});
+await test('automatic offerings that are already opened return control to the health result', async () => {
+  const h = productionFlowHarness({ today: ({ receipt }) => ({ enabled: true, gift: receipt }) });
+  assert.equal(await h.settle(), null); assert.equal(h.calls.unavailable, 1); assert.equal(h.calls.close, 0);
+});
+await test('a gift network error offers Retry and Later without reporting a failed health save', async () => {
+  let failed = true;
+  const h = productionFlowHarness({ today: ({ gift }) => { if (failed) throw new Error('offline'); return { enabled: true, gift }; } });
+  const tree = await h.settle(); assert.equal(tree.type, 'Modal'); assert.equal(tree.props.interruptible, true);
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === h.t('checkinGift.savedHealthError')));
+  const retry = nodes(tree).find(node => node.type === 'Button' && nodes(node).some(child => child.type === 'Text' && child.props.children === h.t('checkinGift.retry')));
+  failed = false; retry.props.onPress(); assert.equal((await h.settle()).type, 'Gift');
+});
+await test('an account change while opening cannot publish the former account’s receipt', async () => {
+  let resolve;
+  const h = productionFlowHarness({ open: () => new Promise(done => { resolve = done; }) });
+  const tree = await h.settle(), pending = tree.props.onOpen(0);
+  h.account.profile.id = 'other-account'; resolve({ gift: { id: 'old', loc: { text: 'private fortune' } } });
+  await assert.rejects(pending, /account changed/);
+});
+await test('the three health responses keep their gifts while unwell results also retain a notice', async () => {
+  for (const status of ['fine', 'tired', 'very_tired']) {
+    const h = productionFlowHarness({ status }); const tree = await h.settle();
+    assert.equal(tree.type, 'Gift'); assert.equal(Boolean(tree.props.notice), status !== 'fine');
+  }
+});
+await test('all six production boxes look the same and have 56px or larger touch targets', async () => {
+  const h = modalHarness({ props: { identicalBoxes: true } });
+  const tree = await h.settle();
+  const boxes = nodes(tree).filter(node => node.type === 'Button' && node.props.accessibilityLabel?.startsWith('Mở hộp'));
+  assert.equal(boxes.length, 6);
+  assert.equal(new Set(boxes.map(box => nodes(box).find(node => node.type === 'Image').props.source)).size, 1);
+  for (const box of boxes) assert.ok(box.props.style({ pressed: false })[0].minHeight >= 56);
+});
+await test('production gift modules never import the demo quota, payment, wallet or a random client draw', () => {
+  for (const file of ['CheckinGiftFlow.tsx', 'checkin-gifts.api.ts', 'GiftDetailScreen.tsx']) assert.doesNotMatch(read(`src/features/checkin-rewards/${file}`), /AsyncStorage|Math\.random|DEMO_GIFT_POINTS|createCheckinGiftDemo|from.*iap|from.*wallet/);
+});
+await test('gift notification taps use validated identifiers and never follow arbitrary server links', () => {
+  const source = ts.createSourceFile('notifications.ts', read('src/lib/notifications.ts'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const declaration = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'routeFromNotificationData');
+  assert.ok(declaration);
+  const module = { exports: {} };
+  const code = ts.transpileModule(declaration.getText(source), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  // eslint-disable-next-line no-new-func
+  new Function('module', 'exports', code)(module, module.exports);
+  const route = module.exports.routeFromNotificationData;
+  const gift = '591ad9fe-1cb3-4f39-b120-a894d22a1150';
+  assert.deepEqual(route({ type: 'gift_opened', giftId: gift, screen: 'https://untrusted.invalid' }), { pathname: '/checkin-rewards/receipt', params: { gift } });
+  assert.equal(route({ type: 'gift_opened', giftId: '../private' }), '/checkin-rewards/history');
+  assert.deepEqual(route({ type: 'gift_draw_result', drawPeriodId: '12' }), { pathname: '/checkin-rewards/results', params: { period: '12' } });
+  assert.equal(route({ type: 'gift_draw_result', drawPeriodId: 'https://untrusted.invalid' }), '/checkin-rewards/history');
+  assert.equal(route({ type: 'morning_checkin' }), '/checkin');
+});
+await test('returning from a call offers its gift once and keeps routine Home visits free of automatic gifts', async () => {
+  for (const call of [true, false]) {
+    const runtime=hooks(), account={profile:{id:'parent'}}, callbacks=[];
+    const useAuthStore=select=>select(account);useAuthStore.getState=()=>account;
+    const {HomeGiftCard}=evaluate('src/features/checkin-rewards/HomeGiftCard.tsx',{
+      react:runtime,'react-native':{View:'View',Pressable:'Button',AppState:{addEventListener:(_type,cb)=>{callbacks.push(cb);return {remove(){}};}}},
+      'expo-router':{useFocusEffect:cb=>runtime.useEffect(cb,[cb])},'@expo/vector-icons':{Ionicons:'Icon'},
+      'react-i18next':{useTranslation:()=>({t:key=>key})},'../../components/ScaledText':{ScaledText:'Text'},
+      '../../hooks/useThemeColors':{useThemeColors:()=>({colors:{}})},'../../hooks/useGuardedRouter':{useGuardedRouter:()=>({push(){}})},
+      '../auth/auth.store':{useAuthStore},'./CheckinGiftFlow':{CheckinGiftFlow:'Gift'},
+      './checkin-gifts.api':{checkinGiftsApi:{today:async()=>({enabled:true,gift:{id:'daily-gift',openedAt:null},streak:1,week:[],offerOnAppOpen:call,checkinStatus:'tired'})}},
+    });
+    const render=()=>{const root=HomeGiftCard();return root.type(root.props);};
+    const tree=await runtime.settle(render);
+    const modal=nodes(tree).find(node=>node.type==='Gift');
+    assert.equal(Boolean(modal),call);
+    if(modal){modal.props.onClose();await runtime.settle(render);callbacks.at(-1)('active');await tick();assert.equal(nodes(await runtime.settle(render)).some(node=>node.type==='Gift'),false);}
+  }
+});
+await test('the supplied iPhone image is reserved for an actual server ticket and never means the phone has been awarded', async () => {
+  assert.equal(giftPrizeImage('iPhone 18'), 180018);
+  assert.equal(giftPrizeImage('iPhone 17'), undefined);
+  assert.equal(giftPrizeImage(null), undefined);
+  const ordinary = await productionFlowHarness().settle();
+  assert.equal((await ordinary.props.onOpen(0)).prizeImage, undefined);
+  const ticket = productionFlowHarness({open:({receipt})=>({gift:{...receipt,extra:'ticket',ticket:{number:'A1049',periodId:'7',prize:'iPhone 18',drawAt:'2026-10-31T10:00:00Z'}}})});
+  const receipt = await (await ticket.settle()).props.onOpen(0);
+  assert.equal(receipt.prizeImage,180018);
+  assert.match(receipt.description,/cơ hội trúng iPhone 18/);
+  const normal=modalHarness({props:{demo:false,initialReceipt:{id:'fortune',title:'Lời chúc'}}});
+  assert.ok(!nodes(await normal.settle()).some(node=>node.type==='Image'&&node.props.source===180018));
+  const shown=modalHarness({props:{demo:false,initialReceipt:receipt}});
+  assert.ok(nodes(await shown.settle()).some(node=>node.type==='Image'&&node.props.source===180018));
 });
 console.log(`Check-in gifts: ${count} runtime regressions passed.`);

@@ -14,6 +14,7 @@ import { attachNativePermissionPresenter } from '../lib/native-permissions';
 type Content = Omit<ModalProps, 'visible' | 'onShow' | 'onDismiss'>;
 type Props = Omit<ModalProps, 'onShow' | 'onDismiss'> & {
   priority?: number;
+  interruptible?: boolean;
   onShow?: () => void;
   onDismiss?: () => void | Promise<void>;
 };
@@ -49,9 +50,9 @@ export function QueuedModal(props: Props) {
   const id = useId();
 
   useEffect(() => {
-    const { visible = true, priority, onShow, onDismiss, ...content } = props;
+    const { visible = true, priority, interruptible, onShow, onDismiss, ...content } = props;
     if (visible) {
-      queue.request(id, { content, priority, onShow, onDismiss });
+      queue.request(id, { content, priority, interruptible, onShow, onDismiss });
     } else {
       queue.remove(id);
     }

@@ -1,30 +1,34 @@
-# Check-in gift demo
+# Daily check-in gifts (V2)
 
-This is a functional prototype with sample points, enabled in development and
-preview builds. Production builds close the health result without showing it.
-It never calls payment, wallet, subscription or reward-granting APIs.
+Production entry points use `checkin-gifts.api.ts` and `CheckinGiftFlow`.
+After a saved check-in, the user chooses one of six identical boxes, then reads
+the received fortune. Urgent health results stay visible until the user closes
+them; urgent dialogs can interrupt the gift without overlapping native modals.
+A call check-in offers its unopened gift on the next visit to Home. Home also
+provides the current receipt, seven weekly dots, a streak and the fortune collection.
 
-After a saved, non-urgent check-in result, tapping Close stops result audio and
-offers six gift boxes. Opening one saves a random prize of 10, 20, 30, 50, 75 or
-100 demo points before showing success. High-risk and emergency results keep
-their direct close action. Practice sessions and read-only result previews
-cannot consume gift turns.
+The authenticated backend decides and persists the fortune and optional ticket
+at check-in time. Box selection never rerolls the result. One household/Vietnam
+calendar day is enforced by the database, including concurrent requests and
+multiple devices. Client storage and the device clock do not determine eligibility.
+Opened receipts can be reviewed; dismissing an unopened gift leaves it available
+until the end of that Vietnam day. Practice and read-only previews never claim.
 
-The development UI gallery has a separate **Try opening a gift box** entry at
-the top. This opens an interactive demo without creating any health records.
-The gift entry among the gallery's screen previews remains read-only.
+The catalog is managed through protected backend operations endpoints. Health
+tips need a recorded medical review before activation. Seed content consists of
+60 original bilingual wishes. Recent fortunes are excluded for 30 calendar days.
 
-One opening or explicit skip is allowed per account per Vietnam calendar day
-(UTC+7). The X button dismisses the chooser without using the turn. Reopening
-the interactive demo after a claim shows the same receipt. All entry points
-share a serialized local storage service, preventing duplicate claims from
-rapid taps or retries within the running app. The last receipt survives app
-restarts and signing out; accounts have separate storage keys.
+Lucky draws are paused by default (zero ticket weight). The planned prize is
+iPhone 18; its supplied artwork appears only for a server-issued ticket or an
+enabled draw period. Opening a box never directly awards a phone. Activating a draw requires configured prize,
+dates, bilingual rules and a registration reference. Rules and results are hidden
+when the feature is off. Coupons and the 15-day trial remain deferred; gift code
+neither changes entitlements nor invokes payments, wallets or store purchases.
 
-The quota is local to the device. Clearing app data or using another device can
-reset it. Before granting real rewards, replace this service with an
-authenticated backend claim, a unique account/day constraint and a real prize
-catalog. No real financial balance or entitlement should be granted from this
-demo service.
+`CheckinGiftDemoFlow` and `checkin-gift-demo.ts` remain separate development/preview
+tools with local sample points. Their storage/quota is not used by production.
+The development UI gallery remains available without creating health records.
 
-Validation: `node scripts/check-checkin-gifts.mjs`.
+Validation: `npm run test:checkin-gifts`, `npm run test:startup-modals`,
+`npm run type-check`, `npm run test:api-contract` and the PostgreSQL integration
+suite in backend.asinu. These are automated checks, not device visual approval.
