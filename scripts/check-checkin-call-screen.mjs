@@ -282,7 +282,7 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 40 previews stay read-only a
     '../../src/features/checkin/checkin-ui-gallery': { CHECKIN_UI_PREVIEWS },
     '../../src/features/checkin-call/voice-preferences': evaluate(read('src/features/checkin-call/voice-preferences.ts')),
     '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech', CheckinCallSafetyNote: 'Safety' },
-    '../../src/lib/appEnv': { isDevBuild: true },
+    '../../src/lib/appEnv': { isDevBuild: true, isCheckinUiGalleryEnabled: true },
     'react-native-svg': { __esModule: true, default: 'Svg', Svg: 'Svg', Path: 'Path' },
   };
   const { default: Gallery } = evaluate(read('app/checkin-call/ui-gallery.tsx'), adapters);
@@ -339,16 +339,17 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 40 previews stay read-only a
   assert.deepEqual(navigation, ['back']);
   refs = [];
   assert.deepEqual(renderGallery().find(node => node.type === 'ScrollView').props.contentOffset, { x: 0, y: 0 }, 'A fresh gallery visit starts at the top');
-  for (const [isDevelopment, isDevBuild] of [[false, true], [false, false], [true, false]]) {
+  for (const [isDevelopment, isDevBuild, isCheckinUiGalleryEnabled] of [[false, true, true], [false, false, true], [true, false, true], [true, true, false]]) {
     const { default: RestrictedGallery } = evaluate(read('app/checkin-call/ui-gallery.tsx'), {
-      ...adapters, '../../src/lib/appEnv': { isDevBuild },
+      ...adapters, '../../src/lib/appEnv': { isDevBuild, isCheckinUiGalleryEnabled },
     }, isDevelopment);
     const restricted = RestrictedGallery();
-    assert.equal(restricted.type, 'Redirect', 'Preview links must redirect outside development');
+    assert.equal(restricted.type, 'Redirect', 'Preview links must redirect when disabled or outside development');
     assert.equal(restricted.props.href, '/(tabs)/profile');
   }
 });
-test('Profile exposes the preview button only in development, independently of the subscription', () => {
+test('Profile hides the paused preview library and retains its development gate when restored', () => {
+  assert.equal(evaluate(read('src/lib/appEnv.ts')).isCheckinUiGalleryEnabled, false);
   const file = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let entry;
   const visit = node => {
@@ -362,17 +363,17 @@ test('Profile exposes the preview button only in development, independently of t
   }
   assert.ok(gatedEntry, 'The profile preview entry must have a development gate');
   const source = `import React from 'react';
-    import { isDevBuild } from '../../../src/lib/appEnv';
+    import { isDevBuild, isCheckinUiGalleryEnabled } from '../../../src/lib/appEnv';
     const TouchableOpacity = 'Button', View = 'View', Text = 'Text', Ionicons = 'Icon';
     const styles = {}, t = key => key, router = { push() {} };
     export default () => (${gatedEntry.getText(file)});`;
-  for (const isDevelopment of [false, true]) for (const environment of ['dev', 'staging', 'prod']) {
+  for (const isDevelopment of [false, true]) for (const environment of ['dev', 'staging', 'prod']) for (const isCheckinUiGalleryEnabled of [false, true]) {
     const { default: PreviewEntry } = evaluate(source, {
       react: { __esModule: true, default: React },
-      '../../../src/lib/appEnv': { isDevBuild: environment === 'dev' },
+      '../../../src/lib/appEnv': { isDevBuild: environment === 'dev', isCheckinUiGalleryEnabled },
     }, isDevelopment);
     const rendered = PreviewEntry();
-    assert.equal(React.isValidElement(rendered), isDevelopment && environment === 'dev',
+    assert.equal(React.isValidElement(rendered), isDevelopment && environment === 'dev' && isCheckinUiGalleryEnabled,
       `Unexpected preview visibility: __DEV__=${isDevelopment}, environment=${environment}`);
   }
 });

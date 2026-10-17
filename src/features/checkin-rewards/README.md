@@ -27,7 +27,9 @@ neither changes entitlements nor invokes payments, wallets or store purchases.
 
 `CheckinGiftDemoFlow` and `checkin-gift-demo.ts` remain separate development/preview
 tools with local sample points. Their storage/quota is not used by production.
-The development UI gallery remains available without creating health records.
+The development UI gallery and its demo route are temporarily hidden with
+`isCheckinUiGalleryEnabled = false`; their preview code remains available to
+restore later without changing production gifts.
 
 Validation: `npm run test:checkin-gifts`, `npm run test:startup-modals`,
 `npm run type-check`, `npm run test:api-contract` and the PostgreSQL integration

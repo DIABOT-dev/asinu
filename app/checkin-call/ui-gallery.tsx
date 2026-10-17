@@ -19,7 +19,7 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { CheckinCallSafetyNote, CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
-import { isDevBuild } from '../../src/lib/appEnv';
+import { isDevBuild, isCheckinUiGalleryEnabled } from '../../src/lib/appEnv';
 
 type PreviewId = CheckinUiPreviewId
   | 'voice-settings'
@@ -697,7 +697,7 @@ function VoiceSettingsPreview() {
 }
 
 export default function CheckinCallUiGalleryScreen() {
-  if (!__DEV__ || !isDevBuild) return <Redirect href="/(tabs)/profile" />;
+  if (!__DEV__ || !isDevBuild || !isCheckinUiGalleryEnabled) return <Redirect href="/(tabs)/profile" />;
   return <CheckinCallUiGallery />;
 }
 

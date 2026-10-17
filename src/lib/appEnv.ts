@@ -6,4 +6,6 @@ const appEnv: AppEnv = rawEnv === 'staging' || rawEnv === 'prod' ? (rawEnv as Ap
 export const isDevBuild = appEnv === 'dev';
 export const isStagingBuild = appEnv === 'staging';
 export const isProdBuild = appEnv === 'prod';
+// Temporarily hide the design preview library, including development builds.
+export const isCheckinUiGalleryEnabled = false;
 export { appEnv };

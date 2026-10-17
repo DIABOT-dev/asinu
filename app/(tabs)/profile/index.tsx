@@ -82,7 +82,7 @@ import {
 import { useScaledTypography } from "../../../src/hooks/useScaledTypography";
 import { useInitialLoadingGate } from "../../../src/hooks/useInitialLoadingGate";
 import { ApiError, apiClient, getApiErrorMessage } from "../../../src/lib/apiClient";
-import { isDevBuild } from "../../../src/lib/appEnv";
+import { isDevBuild, isCheckinUiGalleryEnabled } from "../../../src/lib/appEnv";
 import {
   brandColors,
   categoryColors,
@@ -1046,7 +1046,7 @@ export default function ProfileScreen() {
                   />
                 </TouchableOpacity>
 
-                {__DEV__ && isDevBuild && (
+                {__DEV__ && isDevBuild && isCheckinUiGalleryEnabled && (
                   <TouchableOpacity
                     style={styles.actionCard}
                     onPress={() => router.push("/checkin-call/ui-gallery" as any)}

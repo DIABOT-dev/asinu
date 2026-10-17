@@ -9,10 +9,10 @@ import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { CheckinGiftDemoFlow } from '../../src/features/checkin-rewards/CheckinGiftDemoFlow';
-import { isProdBuild } from '../../src/lib/appEnv';
+import { isProdBuild, isCheckinUiGalleryEnabled } from '../../src/lib/appEnv';
 
 export default function CheckinGiftDemoRoute() {
-  if (isProdBuild) { return <Redirect href="/(tabs)/profile" />; }
+  if (isProdBuild || !isCheckinUiGalleryEnabled) { return <Redirect href="/(tabs)/profile" />; }
   return <GiftDemoScreen />;
 }
 
