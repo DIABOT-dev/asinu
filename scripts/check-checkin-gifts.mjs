@@ -274,6 +274,7 @@ function animationHarness(automatic = true) {
       Value, View: 'AnimatedView',
       timing(value, config) { timings.push(config); return motion(() => value.setValue(config.toValue)); },
       sequence: items => motion(() => items.forEach(item => item.run())),
+      parallel: items => motion(() => items.forEach(item => item.run())),
     },
   };
 }
@@ -293,6 +294,7 @@ function modalHarness(options = {}) {
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 47, bottom: 34 }) },
     '../../components/QueuedModal': { QueuedModal: 'Modal' }, '../../components/ScaledText': { ScaledText: 'Text' },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
+    '../../hooks/useScaledTypography': { useScaledFontSize: size => size * (options.fontScale ?? 1) },
     '../../../assets/images/rewards/checkin-gift.png': 'gift.png',
     '../../../assets/images/rewards/box_opening_stage.png': 'box_opening_stage.png',
     '../../../assets/iphone-18-pro-01_5-1.webp': 180018,
@@ -341,23 +343,25 @@ await test('an available gift requires a choice: no skip, close button or Androi
   assert.ok(nodes(tree).some(node => node.props.accessibilityLabel === 'Đóng hộp quà'));
   assert.equal(nodes(tree).find(node => node.type === 'Modal').props.interruptible, true, 'Urgent health dialogs can still interrupt gifts');
 });
-await test('six revealed slots contain exactly one saved gift and five clearly labelled examples, including one illustrative phone', async () => {
+await test('six opened slots show one highlighted saved gift and five quieter gifts without example badges', async () => {
   for (let box = 0; box < 6; box++) {
     const h = modalHarness({ props: { demo: false, initialReceipt: { id: 'saved', box, title: 'Chúc bạn bình yên.' } } });
     const tree = await h.settle();
     const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
     assert.ok(grid);
     const received = nodes(grid).filter(node => /^gift-received-/.test(node.props.testID || ''));
-    const examples = nodes(grid).filter(node => /^gift-preview-/.test(node.props.testID || ''));
+    const examples = nodes(grid).filter(node => /^gift-other-/.test(node.props.testID || ''));
     assert.equal(received.length, 1); assert.equal(received[0].props.testID, `gift-received-${box}`);
     assert.equal(examples.length, 5);
     assert.ok(received[0].props.accessibilityLabel.startsWith('Đã nhận: Chúc bạn bình yên.'));
-    assert.ok(examples.every(node => node.props.accessibilityLabel.startsWith('Minh họa:')));
+    assert.ok(examples.every(node => node.props.accessibilityLabel.startsWith('Quà ở hộp số')));
     assert.equal(new Set(examples.map(node => node.props.accessibilityLabel)).size, 5);
     assert.equal(nodes(examples).filter(node => node.type === 'Image' && node.props.source === 180018).length, 1);
     assert.equal(nodes(received).filter(node => node.type === 'Image' && node.props.source === 180018).length, 0);
-    assert.ok(nodes(tree).some(node => node.type === 'Text' && /không phải kết quả bốc quà/.test(node.props.children)));
-    assert.deepEqual(h.calls.opens, [], 'Reviewing illustrative boxes never makes another claim');
+    assert.ok(!nodes(tree).some(node => node.type === 'Text' && /Minh họa|không phải kết quả bốc quà/.test(node.props.children)));
+    assert.equal(nodes(grid).filter(node => node.type === 'Text' && node.props.children === 'Đã nhận').length, 1);
+    assert.ok(examples.every(node => node.props.style.at(-1).opacity.outputRange.at(-1) < 1));
+    assert.deepEqual(h.calls.opens, [], 'Reviewing the other slots never makes another claim');
     assert.equal(nodes(grid).some(node => node.type === 'Button'), false, 'Revealed boxes cannot be selected again');
   }
 });
@@ -382,6 +386,7 @@ await test('the tapped box opens in its own slot and reveals only after the serv
   assert.ok(opening.every(box => box.props.disabled));
   const lid = nodes(opening[4]).find(node => node.props.testID === 'gift-box-lid-4');
   assert.equal(typeof lid.props.style.transform[0].translateY, 'object', 'The selected lid is animated');
+  assert.equal(nodes(lid).filter(node => node.type === 'Image').length, 1, 'The moving lid contains the real box artwork');
   assert.equal(nodes(opening[3]).find(node => node.props.testID === 'gift-box-lid-3').props.style.transform[0].translateY, 0);
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Đang mở hộp quà số 5…'));
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Một ngày bình yên'));
@@ -406,6 +411,33 @@ await test('a delayed gift response waits for success, and reduced motion skips 
   resolve({ id: 'saved', box: 1, title: 'Lộc đã lưu' });
   assert.ok(nodes(await h.settle()).some(node => node.type === 'Text' && node.props.children === 'Lộc đã lưu'));
   assert.equal(h.animations.timings.length, 0);
+});
+for (const fontScale of [1, 1.5]) await test(`font scale ${fontScale}: the chosen prize appears in place, then five other lids open without moving the grid or hiding the title`, async () => {
+  const h = modalHarness({ fontScale, automaticAnimation: false, open: async box => ({ id: 'saved', box, title: 'Lộc của bạn' }) });
+  let tree = await h.settle();
+  const grid = nodes(tree).find(node => node.props.testID === 'gift-chooser-grid');
+  const cells = nodes(grid).filter(node => node.type === 'Button');
+  const heights = cells.map(node => node.props.style({ pressed: false })[1].height);
+  const scroll = nodes(tree).find(node => node.type === 'Scroll');
+  assert.ok(!nodes(scroll).some(node => node.type === 'Text' && node.props.children === 'Hộp quà bí ẩn'), 'The title stays above the scrolling body');
+  assert.ok(!nodes(scroll).some(node => node.type === 'Button' && nodes(node).some(child => child.props.children === 'Hãy chọn 1 hộp quà')), 'The action stays below the scrolling body');
+  cells[2].props.onPress(); tree = await h.settle();
+  assert.equal(nodes(tree).filter(node => node.props.testID === 'gift-received-2').length, 0);
+  h.animations.finishNext(); tree = await h.settle();
+  assert.equal(nodes(tree).filter(node => node.props.testID === 'gift-received-2').length, 1, 'The chosen prize is now visible in its own slot');
+  const otherBoxes = nodes(tree).filter(node => node.type === 'Button' && node.props.accessibilityLabel?.startsWith('Mở hộp'));
+  assert.equal(otherBoxes.length, 5);
+  for (const node of otherBoxes) {
+    assert.equal(node.props.disabled, true);
+    const lid = nodes(node).find(child => /^gift-box-lid-/.test(child.props.testID || ''));
+    assert.ok(lid.props.style.transform[0].translateY.outputRange[1] < -30, 'The actual lid crop lifts clearly above the box');
+  }
+  h.animations.finishNext(); tree = await h.settle();
+  h.animations.finishNext(); tree = await h.settle();
+  const results = nodes(tree).find(node => node.props.testID === 'gift-result-grid').props.children;
+  assert.deepEqual(results.map(node => node.props.style[1].height), heights, 'All six positions retain exactly the same height');
+  assert.equal(results.filter(node => /^gift-other-/.test(node.props.testID)).length, 5);
+  assert.deepEqual(h.calls.opens, [2], 'Automatic opening of the other lids never grants more gifts');
 });
 await test('an opening error can be retried and the server’s first saved box is used on recovery', async () => {
   let failed = true;
@@ -634,8 +666,12 @@ await test('ticket prize details still require a server ticket and never mean th
   assert.equal(receipt.prizeImage,180018);
   assert.match(receipt.description,/cơ hội trúng iPhone 18/);
   const normal=modalHarness({props:{demo:false,initialReceipt:{id:'fortune',title:'Lời chúc'}}});
-  assert.ok(!nodes(await normal.settle()).some(node=>node.type==='Image'&&node.props.source===180018));
+  const normalTree = await normal.settle();
+  assert.ok(!nodes(normalTree).some(node=>node.props.testID==='gift-prize-details'));
+  const selected = nodes(normalTree).find(node => node.props.testID === 'gift-received-0');
+  assert.ok(!nodes(selected).some(node => node.type === 'Image' && node.props.source === 180018));
   const shown=modalHarness({props:{demo:false,initialReceipt:receipt}});
-  assert.ok(nodes(await shown.settle()).some(node=>node.type==='Image'&&node.props.source===180018));
+  const details = nodes(await shown.settle()).find(node => node.props.testID === 'gift-prize-details');
+  assert.ok(nodes(details).some(node=>node.type==='Image'&&node.props.source===180018));
 });
 console.log(`Check-in gifts: ${count} runtime regressions passed.`);

@@ -17,13 +17,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QueuedModal } from '../../components/QueuedModal';
 import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useScaledFontSize } from '../../hooks/useScaledTypography';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
-const openingStageImage = require('../../../assets/images/rewards/box_opening_stage.png');
 const previewPhoneImage = require('../../../assets/iphone-18-pro-01_5-1.webp');
 
-// Display examples only, never other outcomes of the server's draw.
-const previewRewards = [
+// The other slots show the gift collection; only the chosen receipt is awarded.
+const otherRewards = [
   { labelKey: 'checkinGift.previewWish', icon: 'heart-outline' },
   { labelKey: 'checkinGift.previewProverb', icon: 'book-outline' },
   { labelKey: 'checkinGift.previewTip', icon: 'bulb-outline' },
@@ -83,9 +83,11 @@ export function CheckinGiftModal({
   const { colors, isDark } = useThemeColors();
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
+  const cardFontSize = useScaledFontSize(14);
   const [selected, setSelected] = useState<number | null>(initialReceipt?.box ?? null);
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<CheckinGiftReceipt | null>(initialReceipt);
+  const [othersOpened, setOthersOpened] = useState(Boolean(initialReceipt));
   const [error, setError] = useState(false);
   const requestActive = useRef(false);
   const generation = useRef(0);
@@ -94,16 +96,21 @@ export function CheckinGiftModal({
   const lid = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
   const shake = useRef(new Animated.Value(0)).current;
   const reveal = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
+  const otherLid = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
+  const othersReveal = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
 
   useEffect(() => {
     // Hiding an interruptible modal must not discard a completed opening.
     if (requestActive.current) {return;}
     setSelected(initialReceipt?.box ?? null);
     setReceipt(initialReceipt ?? null);
+    setOthersOpened(Boolean(initialReceipt));
     setError(false);
     lid.setValue(initialReceipt ? 1 : 0);
     reveal.setValue(initialReceipt ? 1 : 0);
-  }, [initialReceipt, lid, reveal]);
+    otherLid.setValue(initialReceipt ? 1 : 0);
+    othersReveal.setValue(initialReceipt ? 1 : 0);
+  }, [initialReceipt, lid, otherLid, othersReveal, reveal]);
 
   useEffect(() => {
     let live = true;
@@ -125,10 +132,11 @@ export function CheckinGiftModal({
     }
     return new Promise<void>((resolve) => {
       const motion = Animated.sequence([
-        Animated.timing(shake, { toValue: 1, duration: 90, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: 0, duration: 90, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: 1, duration: 60, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: -1, duration: 60, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: 0, duration: 60, useNativeDriver: true }),
         Animated.timing(lid, {
-          toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+          toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true,
         }),
       ]);
       animation.current = motion;
@@ -145,6 +153,9 @@ export function CheckinGiftModal({
     setSelected(box);
     lid.setValue(0);
     reveal.setValue(0);
+    otherLid.setValue(0);
+    othersReveal.setValue(0);
+    setOthersOpened(false);
     const opened = animateOpening();
     try {
       const received = await onOpen(box);
@@ -158,12 +169,25 @@ export function CheckinGiftModal({
       lid.setValue(1);
       if (reduceMotion.current) {
         reveal.setValue(1);
+        otherLid.setValue(1);
+        othersReveal.setValue(1);
+        setOthersOpened(true);
       } else {
-        const motion = Animated.timing(reveal, {
-          toValue: 1, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+        // The chosen prize appears first. The five remaining lids then open
+        // together in the same slots, before their quieter contents appear.
+        await new Promise<void>(resolve => {
+          const motion = Animated.parallel([
+            Animated.timing(reveal, { toValue: 1, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(otherLid, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+          ]);
+          animation.current = motion;
+          motion.start(() => resolve());
         });
-        animation.current = motion;
-        motion.start();
+        if (request !== generation.current) { return; }
+        setOthersOpened(true);
+        const fade = Animated.timing(othersReveal, { toValue: 1, duration: 180, useNativeDriver: true });
+        animation.current = fade;
+        fade.start();
       }
     } catch {
       if (request === generation.current) {
@@ -188,18 +212,19 @@ export function CheckinGiftModal({
   const subInk = isDark ? colors.textSecondary : '#587a82';
   const handleColor = isDark ? colors.border : '#d2ede5';
   const closeColor = isDark ? colors.primaryText : '#20b697';
-  const heartFloatColor = isDark ? '#2e6b60' : '#8ee5d3';
   const overlayColor = isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(15, 35, 30, 0.45)';
   const primaryBrand = isDark ? colors.primary : '#21c4a2';
   const sheetWidth = Math.min(width - 32, 500);
-  const boxWidth = (sheetWidth - 36) * 0.315 - 4;
-  const isOpening = busy && selected !== null;
+  const boxWidth = (sheetWidth - 36) * 0.315 - 8;
+  const cellHeight = Math.max(164, Math.ceil(84 + cardFontSize * 1.6 * 4));
+  const isOpening = busy && !receipt && selected !== null;
 
-  // Render the full mascot illustration with gentle aura and animated lid overlay
-  const boxArtwork = (box: number, size: number, opened: boolean) => {
+  // Split the existing illustration into real lid/body crops while opening.
+  // Both crops use the same local image, so the box stays in its original slot.
+  const boxArtwork = (box: number, size: number, opened: boolean, progress = lid, wobble = true) => {
     const source = identicalBoxes ? giftImage : boxImages[box];
     const artHeight = (size * 294) / 324;
-    const progress = opened ? lid : null;
+    const lidHeight = artHeight * 0.46;
     return (
       <Animated.View
         testID={`gift-box-art-${box}`}
@@ -211,12 +236,12 @@ export function CheckinGiftModal({
           justifyContent: 'center',
           transform: [
             {
-              scale: opened
+              rotate: opened && wobble
                 ? shake.interpolate({
                     inputRange: [-1, 0, 1],
-                    outputRange: [0.98, 1, 1.04],
+                    outputRange: ['-6deg', '0deg', '6deg'],
                   })
-                : 1,
+                : '0deg',
             },
           ],
         }}
@@ -226,7 +251,7 @@ export function CheckinGiftModal({
             style={[
               styles.boxGlow,
               {
-                opacity: lid,
+                opacity: progress,
                 backgroundColor: isDark
                   ? 'rgba(46, 107, 96, 0.4)'
                   : 'rgba(255, 248, 200, 0.75)',
@@ -234,12 +259,9 @@ export function CheckinGiftModal({
             ]}
           />
         )}
-        <Image
-          source={source}
-          style={{ width: size, height: artHeight }}
-          contentFit="contain"
-          accessible={false}
-        />
+        {opened ? <View style={{ position: 'absolute', top: lidHeight, width: size, height: artHeight - lidHeight, overflow: 'hidden' }}>
+          <Image source={source} style={{ position: 'absolute', top: -lidHeight, width: size, height: artHeight }} contentFit="contain" accessible={false} />
+        </View> : <Image source={source} style={{ width: size, height: artHeight }} contentFit="contain" accessible={false} />}
         <Animated.View
           testID={`gift-box-lid-${box}`}
           style={{
@@ -247,26 +269,29 @@ export function CheckinGiftModal({
             top: 0,
             left: 0,
             right: 0,
-            height: '40%',
-            alignItems: 'center',
-            justifyContent: 'center',
+            height: lidHeight,
+            opacity: opened ? progress.interpolate({ inputRange: [0, 0.65, 1], outputRange: [1, 1, 0] }) : 0,
             transform: [
               {
-                translateY: progress
+                translateY: opened
                   ? progress.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [0, -8],
+                      outputRange: [0, -size * 0.55],
                     })
                   : 0,
               },
+              { rotate: opened ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-16deg'] }) : '0deg' },
             ],
           }}
         >
+          {opened && <View style={{ width: size, height: lidHeight, overflow: 'hidden' }}>
+            <Image source={source} style={{ width: size, height: artHeight }} contentFit="contain" accessible={false} />
+          </View>}
           {opened && (
-            <Animated.View style={[styles.boxSparkle, { opacity: lid }]}>
+            <Animated.View style={[styles.boxSparkle, { opacity: progress }]}>
               <Ionicons
                 name="sparkles"
-                size={Math.max(16, size * 0.16)}
+                size={Math.max(22, size * 0.24)}
                 color={isDark ? '#ffe29a' : '#f5c842'}
               />
             </Animated.View>
@@ -277,17 +302,11 @@ export function CheckinGiftModal({
   };
 
   const content = (
-    <View
-      accessibilityViewIsModal
-      style={[
-        styles.sheet,
-        {
-          backgroundColor: isDark ? colors.surface : '#ffffff',
-          width: sheetWidth,
-          maxHeight: height - insets.top - insets.bottom - 32,
-        },
-      ]}
-    >
+    <View accessibilityViewIsModal style={[styles.sheet, {
+      backgroundColor: colors.surface,
+      width: sheetWidth,
+      maxHeight: height - insets.top - insets.bottom - 32,
+    }]}>
       <View style={[styles.handle, { backgroundColor: handleColor }]} />
       {!!receipt && <Pressable
         style={styles.close}
@@ -300,245 +319,109 @@ export function CheckinGiftModal({
       >
         <Ionicons name="close" size={26} color={closeColor} />
       </Pressable>}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-        bounces={false}
-      >
-        {/* Hero Section */}
-        {!receipt && <View style={styles.heroWrapper}>
-          <View style={styles.heroDecorations} pointerEvents="none">
-            {/* Left floating heart and dashes */}
-            <View style={styles.floatHeartLeft}>
-              <Ionicons name="heart" size={17} color={heartFloatColor} />
-            </View>
-            <View style={[styles.floatDash, styles.floatDashLeft1, { backgroundColor: primaryBrand }]} />
-            <View style={[styles.floatDash, styles.floatDashLeft2, { backgroundColor: primaryBrand }]} />
-
-            {/* Right floating heart and dot */}
-            <View style={styles.floatHeartRight}>
-              <Ionicons name="heart" size={15} color={heartFloatColor} />
-            </View>
-            <View style={[styles.floatDot, styles.floatDotRight, { backgroundColor: primaryBrand }]} />
-          </View>
-
-          <Image
-            source={giftImage}
-            style={styles.hero}
-            contentFit="contain"
-            accessible={false}
-          />
-        </View>}
-
+      <View style={styles.header}>
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
-          {t(receipt ? 'checkinGift.received' : 'checkinGift.title')}
+          {t('checkinGift.title')}
         </Text>
-
         <Text style={[styles.subtitle, { color: subInk }]}>
           {t(receipt ? 'checkinGift.openedToday' : isOpening ? 'checkinGift.openingBox' : 'checkinGift.choose', { number: (selected ?? 0) + 1 })}
         </Text>
-
-        {notice && (
-          <Text style={[styles.notice, { color: colors.warning, backgroundColor: colors.surfaceMuted }]}>
-            {notice}
-          </Text>
-        )}
-
-        {/* Dynamic Center Stage: Result, Opening Animation, or 6 Boxes */}
-        {receipt ? (
-          <Animated.View style={[styles.result, {
-            opacity: reveal,
-            transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-          }]} accessibilityLiveRegion="polite">
-            {selected !== null ? <>
-              <View style={styles.resultGrid} testID="gift-result-grid">
-                {boxes.map((box) => {
-                  const chosen = box === selected;
-                  const preview = chosen ? null : previewRewards[(box - selected + 6) % 6 - 1];
-                  const label = chosen ? receipt.title : t(preview!.labelKey);
-                  return (
-                    <Animated.View
-                      key={box}
-                      testID={chosen ? `gift-received-${box}` : `gift-preview-${box}`}
-                      accessible
-                      accessibilityLabel={`${t(chosen ? 'checkinGift.selectedReward' : 'checkinGift.previewReward')}: ${label}`}
-                      style={[
-                        styles.resultBox,
-                        {
-                          backgroundColor: chosen ? colors.primaryLight : colors.surfaceMuted,
-                          borderColor: chosen ? primaryBrand : colors.border,
-                          transform: [
-                            { perspective: 600 },
-                            { rotateY: reveal.interpolate({ inputRange: [0, 1], outputRange: ['90deg', '0deg'] }) },
-                          ],
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.resultBoxBadge, { color: chosen ? colors.primaryText : colors.textSecondary }]}>
-                        {t(chosen ? 'checkinGift.selectedReward' : 'checkinGift.previewReward')}
-                      </Text>
-                      <View style={styles.resultBoxArt} testID={chosen ? `gift-box-art-${box}` : undefined}>
-                        {preview?.labelKey === 'checkinGift.previewPhone'
-                          ? <Image source={previewPhoneImage} contentFit="contain" style={styles.previewPhone} accessible={false} />
-                          : <Ionicons
-                              name={chosen ? (receipt.rulesPeriod ? 'ticket' : 'gift') : preview!.icon}
-                              size={34}
-                              color={chosen ? primaryBrand : colors.textSecondary}
-                            />}
-                      </View>
-                      <Text numberOfLines={chosen ? 3 : undefined} style={[styles.resultBoxTitle, { color: chosen ? colors.primaryText : colors.textPrimary }]}>
-                        {label}
-                      </Text>
-                    </Animated.View>
-                  );
-                })}
-              </View>
-              <Text style={[styles.previewExplanation, { color: colors.textSecondary }]}>
-                {t('checkinGift.previewExplanation')}
-              </Text>
-            </> : <View
-              style={styles.resultStageContainer}
-              accessible
-              accessibilityLabel={
-                selected === null
-                  ? t('checkinGift.received')
-                  : t('checkinGift.openedBox', { number: selected + 1 })
-              }
-            >
-              <Animated.View
-                testID={selected !== null ? `gift-box-art-${selected}` : undefined}
-                style={styles.stageArtWrapper}
-              >
-                <Image
-                  source={openingStageImage}
-                  style={styles.openingStageImage}
-                  contentFit="contain"
-                  accessible={false}
-                />
-              </Animated.View>
-            </View>}
-
-            <Text
-              style={[
-                styles.prizeTitle,
-                {
-                  color: colors.primaryText,
-                  fontStyle: receipt.serif ? 'italic' : 'normal',
-                },
-              ]}
-            >
-              {receipt.title}
-            </Text>
-            {!!receipt.description && (
-              <Text
-                style={[
-                  styles.prizeDescription,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {receipt.description}
-              </Text>
-            )}
-            {!!receipt.prizeImage && !!receipt.rulesPeriod && (
-              <View style={styles.prizeDetails}>
-                <Image
-                  source={receipt.prizeImage}
-                  contentFit="contain"
-                  style={styles.prizeBadgeImage}
-                  accessible={false}
-                />
-                <Text
-                  style={[
-                    styles.prizeDescription,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {t('checkinGift.drawPrize', { prize: receipt.drawPrize })}
-                </Text>
-              </View>
-            )}
-            {!!receipt.rulesPeriod && (
-              <Pressable
-                accessibilityRole="button"
-                disabled={readOnly || busy}
-                onPress={() => onRules?.(receipt.rulesPeriod!)}
-                style={styles.rulesButton}
-              >
-                <Text style={[styles.rulesText, { color: primaryBrand }]}>
-                  {t('checkinGift.rules')}
-                </Text>
-              </Pressable>
-            )}
-            <Text style={[styles.saved, { color: colors.textSecondary }]}>
-              {t(demo ? 'checkinGift.demoSaved' : 'checkinGift.saved')}
-            </Text>
-          </Animated.View>
-        ) : (
-          <View style={styles.grid}>
-            {boxes.map((box) => (
-              <Pressable
-                key={box}
-                onPress={() => {
-                  openBox(box);
-                }}
-                disabled={readOnly || busy}
+      </View>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content} bounces={false}>
+        {notice && <Text style={[styles.notice, { color: colors.warning, backgroundColor: colors.surfaceMuted }]}>
+          {notice}
+        </Text>}
+        <View style={styles.grid} testID={receipt ? 'gift-result-grid' : 'gift-chooser-grid'}>
+          {boxes.map(box => {
+            const chosen = box === (receipt ? selected ?? 0 : selected);
+            if (!receipt || (!chosen && !othersOpened)) {
+              return <Pressable key={box}
+                onPress={() => { openBox(box); }}
+                disabled={readOnly || busy || !!receipt}
                 accessibilityRole="button"
                 accessibilityLabel={t('checkinGift.box', { number: box + 1 })}
-                accessibilityState={{
-                  disabled: readOnly || busy,
-                  selected: selected === box,
-                  busy: busy && selected === box,
-                }}
-                style={({ pressed }) => [
-                  styles.box,
-                  {
-                    borderColor:
-                      selected === box ? primaryBrand : 'transparent',
-                  },
-                  pressed && styles.pressed,
-                  busy && selected !== box && styles.muted,
-                ]}
-              >
-                {boxArtwork(box, boxWidth, isOpening && selected === box)}
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {isOpening && (
-          <View style={styles.openingStatus} accessibilityLiveRegion="polite">
-            <ActivityIndicator color={primaryBrand} />
-            <Text style={{ color: subInk, fontSize: 16 }}>{t('checkinGift.openingBox', { number: selected + 1 })}</Text>
-          </View>
-        )}
-
-        {error && (
-          <Text
-            accessibilityRole="alert"
-            accessibilityLiveRegion="polite"
-            style={[styles.error, { color: colors.danger }]}
-          >
-            {t('checkinGift.error')}
+                accessibilityState={{ disabled: readOnly || busy || !!receipt, selected: chosen, busy: busy && (chosen || !!receipt) }}
+                style={({ pressed }) => [styles.box, {
+                  height: cellHeight,
+                  borderColor: chosen ? primaryBrand : 'transparent',
+                  zIndex: isOpening && chosen ? 2 : 0,
+                }, pressed && styles.pressed, busy && !chosen && styles.muted]}>
+                {boxArtwork(box, boxWidth, receipt ? !othersOpened : isOpening && chosen, receipt ? otherLid : lid, !receipt)}
+              </Pressable>;
+            }
+            const other = chosen ? null : otherRewards[(box - (selected ?? 0) + 6) % 6 - 1];
+            const label = chosen ? receipt.title : t(other!.labelKey);
+            return <Animated.View key={box}
+              testID={chosen ? `gift-received-${box}` : `gift-other-${box}`}
+              accessible
+              accessibilityLabel={`${chosen ? t('checkinGift.selectedReward') : t('checkinGift.otherReward', { number: box + 1 })}: ${label}`}
+              style={[styles.resultBox, {
+                height: cellHeight,
+                backgroundColor: chosen ? colors.primaryLight : colors.surfaceMuted,
+                borderColor: chosen ? primaryBrand : 'transparent',
+                opacity: chosen ? reveal : othersReveal.interpolate({ inputRange: [0, 1], outputRange: [0, 0.62] }),
+                transform: [
+                  { perspective: 600 },
+                  { scale: (chosen ? reveal : othersReveal).interpolate({ inputRange: [0, 1], outputRange: [chosen ? 0.8 : 0.96, 1] }) },
+                ],
+              }]}>
+              <View style={styles.badgeSlot}>
+                {chosen && <Text style={[styles.resultBoxBadge, { color: colors.primaryText }]}>
+                  {t('checkinGift.selectedReward')}
+                </Text>}
+              </View>
+              <View style={styles.resultBoxArt} testID={chosen ? `gift-box-art-${box}` : undefined}>
+                {other?.labelKey === 'checkinGift.previewPhone'
+                  ? <Image source={previewPhoneImage} contentFit="contain" style={styles.previewPhone} accessible={false} />
+                  : <Ionicons name={chosen ? (receipt.rulesPeriod ? 'ticket' : 'gift') : other!.icon}
+                      size={34} color={chosen ? primaryBrand : colors.primaryText} />}
+              </View>
+              <Text numberOfLines={3} style={[styles.resultBoxTitle, { color: chosen ? colors.primaryText : colors.textPrimary }]}>
+                {label}
+              </Text>
+            </Animated.View>;
+          })}
+        </View>
+        {isOpening && <View style={styles.openingStatus} accessibilityLiveRegion="polite">
+          <ActivityIndicator color={primaryBrand} />
+          <Text style={{ color: subInk, fontSize: 16 }}>{t('checkinGift.openingBox', { number: selected + 1 })}</Text>
+        </View>}
+        {receipt && <Animated.View style={[styles.result, { opacity: reveal }]} accessibilityLiveRegion="polite">
+          <Text style={[styles.prizeTitle, { color: colors.primaryText, fontStyle: receipt.serif ? 'italic' : 'normal' }]}>
+            {receipt.title}
           </Text>
-        )}
-
-        <Pressable
-          onPress={dismiss}
-          disabled={readOnly || busy || !receipt}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: readOnly || busy || !receipt }}
-          style={({ pressed }) => [
-            styles.button,
-            { backgroundColor: primaryBrand },
-            pressed && !!receipt && styles.pressed,
-            (busy || !receipt) && styles.muted,
-          ]}
-        >
+          {!!receipt.description && <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
+            {receipt.description}
+          </Text>}
+          {!!receipt.prizeImage && !!receipt.rulesPeriod && <View style={styles.prizeDetails} testID="gift-prize-details">
+            <Image source={receipt.prizeImage} contentFit="contain" style={styles.prizeBadgeImage} accessible={false} />
+            <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
+              {t('checkinGift.drawPrize', { prize: receipt.drawPrize })}
+            </Text>
+          </View>}
+          {!!receipt.rulesPeriod && <Pressable accessibilityRole="button" disabled={readOnly || busy}
+            onPress={() => onRules?.(receipt.rulesPeriod!)} style={styles.rulesButton}>
+            <Text style={[styles.rulesText, { color: primaryBrand }]}>{t('checkinGift.rules')}</Text>
+          </Pressable>}
+          <Text style={[styles.saved, { color: colors.textSecondary }]}>
+            {t(demo ? 'checkinGift.demoSaved' : 'checkinGift.saved')}
+          </Text>
+        </Animated.View>}
+        {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.error, { color: colors.danger }]}>
+          {t('checkinGift.error')}
+        </Text>}
+      </ScrollView>
+      <View style={styles.footer}>
+        <Pressable onPress={dismiss} disabled={readOnly || busy || !receipt}
+          accessibilityRole="button" accessibilityState={{ disabled: readOnly || busy || !receipt }}
+          style={({ pressed }) => [styles.button, { backgroundColor: primaryBrand },
+            pressed && !!receipt && styles.pressed, (busy || !receipt) && styles.muted]}>
           <Text style={styles.buttonText}>
             {t(receipt ? 'checkinGift.done' : busy ? 'checkinGift.opening' : 'checkinGift.pickBox')}
           </Text>
         </Pressable>
-      </ScrollView>
+      </View>
     </View>
   );
 
@@ -602,63 +485,13 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 24,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
-  heroWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    marginBottom: 8,
-    paddingTop: 6,
-  },
-  heroDecorations: {
-    ...StyleSheet.absoluteFill,
-  },
-  floatHeartLeft: {
-    position: 'absolute',
-    left: '18%',
-    top: 8,
-    transform: [{ rotate: '-12deg' }],
-  },
-  floatDash: {
-    position: 'absolute',
-    width: 6,
-    height: 2.2,
-    borderRadius: 1.5,
-  },
-  floatDashLeft1: {
-    left: '13%',
-    top: 36,
-    transform: [{ rotate: '-35deg' }],
-  },
-  floatDashLeft2: {
-    left: '11%',
-    top: 52,
-    transform: [{ rotate: '15deg' }],
-  },
-  floatHeartRight: {
-    position: 'absolute',
-    right: '18%',
-    top: 10,
-    transform: [{ rotate: '15deg' }],
-  },
-  floatDot: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  floatDotRight: {
-    right: '13%',
-    top: 48,
-  },
-  hero: {
-    width: 108,
-    height: 104,
-    alignSelf: 'center',
-    zIndex: 1,
-  },
+  header: { paddingHorizontal: 44, paddingTop: 12, flexShrink: 0 },
+  scroll: { flexShrink: 1 },
+  footer: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 18, flexShrink: 0 },
+  badgeSlot: { minHeight: 24, justifyContent: 'center' },
   title: {
     fontSize: 27,
     fontWeight: '800',
@@ -690,7 +523,6 @@ const styles = StyleSheet.create({
   box: {
     minHeight: 56,
     width: '31.5%',
-    aspectRatio: 324 / 294,
     borderRadius: 18,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -707,15 +539,6 @@ const styles = StyleSheet.create({
     top: '20%',
     height: '40%',
     borderRadius: 999,
-  },
-  boxLidOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '40%',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   boxSparkle: {
     position: 'absolute',
@@ -736,22 +559,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
   },
-  resultGrid: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-  },
   resultBox: {
     width: '31.5%',
-    minHeight: 150,
+    minHeight: 164,
     paddingHorizontal: 6,
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 2,
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
   resultBoxBadge: {
     fontSize: 14,
@@ -759,46 +575,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   resultBoxArt: {
-    minHeight: 56,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   previewPhone: { width: 56, height: 56 },
   resultBoxTitle: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600',
     textAlign: 'center',
   },
-  previewExplanation: {
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-    marginVertical: 6,
-  },
-  resultStageContainer: {
-    width: '100%',
-    aspectRatio: 986 / 765,
-    maxHeight: 240,
-    borderRadius: 20,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  stageArtWrapper: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  openingStageImage: {
-    width: '100%',
-    height: '100%',
-  },
   prizeTitle: {
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 19,
+    lineHeight: 28,
     fontWeight: '700',
     textAlign: 'center',
   },

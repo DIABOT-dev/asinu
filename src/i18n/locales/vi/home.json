@@ -10,13 +10,11 @@
     "dailyLimit": "Hoàn tất check-in để nhận 1 lượt mở quà mỗi ngày.",
     "pickBox": "Hãy chọn 1 hộp quà",
     "selectedReward": "Đã nhận",
-    "previewReward": "Minh họa",
     "previewWish": "Lời chúc",
     "previewProverb": "Ca dao",
     "previewTip": "Mẹo nhỏ",
     "previewTicket": "Phiếu bốc thăm",
     "previewPhone": "iPhone 18",
-    "previewExplanation": "Chỉ ô bạn chọn là lộc đã nhận. Các ô còn lại là hình minh họa, không phải kết quả bốc quà.",
     "close": "Đóng hộp quà",
     "received": "Quà dành cho bạn",
     "saved": "Quà đã được lưu. Hẹn bạn check-in vào ngày mai!",
@@ -67,7 +65,8 @@
     "winningTicket": "Phiếu trúng thưởng: {{number}}",
     "resultsPending": "Kết quả chưa được công bố.",
     "publicResults": "Xem trang kết quả công khai",
-    "receiptUnavailable": "Lộc này chưa tải được hoặc bạn không còn quyền xem."
+    "receiptUnavailable": "Lộc này chưa tải được hoặc bạn không còn quyền xem.",
+    "otherReward": "Quà ở hộp số {{number}}"
   },
   "greeting": "Xin chào,",
   "defaultName": "Người chăm sóc",

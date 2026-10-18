@@ -10,13 +10,11 @@
     "dailyLimit": "Complete a check-in to receive one gift-opening turn each day.",
     "pickBox": "Please choose 1 gift box",
     "selectedReward": "Received",
-    "previewReward": "Example",
     "previewWish": "A warm wish",
     "previewProverb": "A proverb",
     "previewTip": "A small tip",
     "previewTicket": "Draw ticket",
     "previewPhone": "iPhone 18",
-    "previewExplanation": "Only your chosen box contains your received fortune. The other boxes are illustrations, not results of the draw.",
     "close": "Close gift boxes",
     "received": "A gift for you",
     "saved": "Your gift has been saved. See you at tomorrow's check-in!",
@@ -67,7 +65,8 @@
     "winningTicket": "Winning ticket: {{number}}",
     "resultsPending": "Results have not been published yet.",
     "publicResults": "Open the public results page",
-    "receiptUnavailable": "This fortune could not load, or you no longer have access."
+    "receiptUnavailable": "This fortune could not load, or you no longer have access.",
+    "otherReward": "Gift in box {{number}}"
   },
   "greeting": "Hello,",
   "defaultName": "Caregiver",

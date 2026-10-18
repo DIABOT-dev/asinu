@@ -22,10 +22,14 @@ tips need a recorded medical review before activation. Seed content consists of
 60 original bilingual wishes. Recent fortunes are excluded for 30 calendar days.
 
 Lucky draws are paused by default (zero ticket weight). The planned prize is
-iPhone 18. After opening, the six-slot result marks exactly one received fortune.
-The other five slots show labelled examples, including a phone image, with an
-explicit explanation that they are illustrations rather than other outcomes of
-the draw. They cannot be claimed and do not imply a missed winning box. Actual
+iPhone 18. The same six-slot grid stays on screen during the whole opening.
+The chosen illustration shakes and its actual lid crop lifts away; the saved
+fortune appears in that slot, then the other five lids open automatically.
+Exactly one slot is marked Received and stays bright. The remaining slots show
+the gift collection at lower emphasis without Example badges. They do not make
+another claim. The fixed header/footer remain outside the scrolling content,
+and card heights remain stable before and after opening at larger text sizes.
+Reduced Motion skips the sequence and shows the saved result immediately. Actual
 ticket prize details still require a server-issued ticket or enabled draw period.
 Opening a box never directly awards a phone. Activating a draw requires configured prize,
 dates, bilingual rules and a registration reference. Rules and results are hidden
