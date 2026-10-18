@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ComponentProps } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,8 @@ export type NoInternetModalProps = {
   notice?: string;
   retryText?: string;
   laterText?: string;
+  retryIcon?: ComponentProps<typeof Ionicons>['name'];
+  laterIcon?: ComponentProps<typeof Ionicons>['name'];
   priority?: number;
   interruptible?: boolean;
 };
@@ -30,6 +32,8 @@ export function NoInternetModal({
   notice,
   retryText,
   laterText,
+  retryIcon = 'reload',
+  laterIcon = 'time-outline',
   priority = 10,
   interruptible = true,
 }: NoInternetModalProps) {
@@ -108,14 +112,17 @@ export function NoInternetModal({
           width: '100%',
           gap: 12,
         },
-        retryButton: {
+        actionButton: {
+          width: '100%',
           height: 56,
           borderRadius: 28,
-          backgroundColor: '#09BAA6',
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
+        },
+        retryButton: {
+          backgroundColor: '#09BAA6',
         },
         retryText: {
           color: '#FFFFFF',
@@ -123,11 +130,7 @@ export function NoInternetModal({
           fontWeight: '700',
         },
         laterButton: {
-          height: 56,
-          borderRadius: 28,
           backgroundColor: isDark ? 'rgba(14, 190, 170, 0.15)' : '#E3F5F5',
-          alignItems: 'center',
-          justifyContent: 'center',
         },
         laterText: {
           color: isDark ? '#2DD4BF' : '#089E8A',
@@ -179,9 +182,9 @@ export function NoInternetModal({
                   accessibilityRole="button"
                   accessibilityLabel={retryText ?? t('noInternetRetry')}
                   onPress={onRetry}
-                  style={styles.retryButton}
+                  style={[styles.actionButton, styles.retryButton]}
                 >
-                  <Ionicons name="reload" size={21} color="#FFFFFF" />
+                  <Ionicons name={retryIcon} size={20} color="#FFFFFF" />
                   <Text style={styles.retryText}>
                     {retryText ?? t('noInternetRetry')}
                   </Text>
@@ -192,8 +195,13 @@ export function NoInternetModal({
                 accessibilityRole="button"
                 accessibilityLabel={laterText ?? t('noInternetLater')}
                 onPress={onClose}
-                style={styles.laterButton}
+                style={[styles.actionButton, styles.laterButton]}
               >
+                <Ionicons
+                  name={laterIcon}
+                  size={20}
+                  color={isDark ? '#2DD4BF' : '#089E8A'}
+                />
                 <Text style={styles.laterText}>
                   {laterText ?? t('noInternetLater')}
                 </Text>
