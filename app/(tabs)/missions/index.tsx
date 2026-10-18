@@ -172,7 +172,7 @@ export default function MissionsScreen() {
   return (
     <Screen>
       <View style={styles.root}>
-        {errorState === 'remote-failed' ? <OfflineBanner /> : null}
+        {errorState === 'remote-failed' ? <OfflineBanner onRetry={() => fetchMissions()} /> : null}
         {errorState === 'no-data' && missions.length === 0 && !showInitialSkeleton ? (
           <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
         ) : null}

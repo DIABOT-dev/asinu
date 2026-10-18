@@ -449,6 +449,21 @@ function productionFlowHarness({ today, open, reviewExisting = false, language =
     'react-native': { View: 'View', Pressable: 'Button' },
     'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) },
     '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push() {} }) },
+    '../../components/NoInternetModal': {
+      NoInternetModal: ({ visible, notice, onClose, onRetry, retryText, laterText }) => ({
+        type: 'Modal',
+        props: {
+          interruptible: true,
+          visible,
+          onRequestClose: onClose,
+          children: [
+            notice ? { type: 'Text', props: { children: notice } } : null,
+            { type: 'Button', props: { onPress: onRetry, children: [{ type: 'Text', props: { children: retryText } }] } },
+            { type: 'Button', props: { onPress: onClose, children: [{ type: 'Text', props: { children: laterText } }] } },
+          ].filter(Boolean),
+        },
+      }),
+    },
     '../../components/QueuedModal': { QueuedModal: 'Modal' }, '../../components/ScaledText': { ScaledText: 'Text' },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
     '../auth/auth.store': { useAuthStore }, './CheckinGiftModal': { CheckinGiftModal: 'Gift' },

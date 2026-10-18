@@ -22,6 +22,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { NotificationBell } from '../../../src/components/NotificationBell';
+import { NoInternetModal } from '../../../src/components/NoInternetModal';
 import { OfflineBanner } from '../../../src/components/OfflineBanner';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
 import { Screen } from '../../../src/components/Screen';
@@ -532,6 +533,12 @@ export default function HomeScreen() {
 
   // Navigate to checkin — check session trước, hiện modal nếu đã done
   const [showAlreadyDoneModal, setShowAlreadyDoneModal] = useState(false);
+  const [offlineModalDismissed, setOfflineModalDismissed] = useState(false);
+  useEffect(() => {
+    if (!isOffline) {
+      setOfflineModalDismissed(false);
+    }
+  }, [isOffline]);
   const goToCheckin = useCallback(async () => {
     try {
       const res = await checkinApi.getToday();
@@ -830,7 +837,15 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {isOffline ? <OfflineBanner /> : null}
+      {isOffline ? <OfflineBanner onRetry={() => { refreshAll(); }} /> : null}
+      <NoInternetModal
+        visible={Boolean(isOffline && !offlineModalDismissed)}
+        onClose={() => setOfflineModalDismissed(true)}
+        onRetry={() => {
+          refreshAll();
+          setOfflineModalDismissed(true);
+        }}
+      />
       
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (

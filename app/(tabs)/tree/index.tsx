@@ -214,7 +214,7 @@ export default function TreeScreen() {
 
   return (
     <Screen>
-      {errorState === 'remote-failed' ? <OfflineBanner /> : null}
+      {errorState === 'remote-failed' ? <OfflineBanner onRetry={handleRefresh} /> : null}
       {errorState === 'no-data' && !summary && !healthScore && !showInitialSkeleton ? <StateError onRetry={() => fetchTree()} message={tc('cannotLoadData')} /> : null}
       
       <RippleRefreshScrollView

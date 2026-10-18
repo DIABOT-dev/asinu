@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
-import { QueuedModal } from '../../components/QueuedModal';
-import { ScaledText as Text } from '../../components/ScaledText';
-import { useThemeColors } from '../../hooks/useThemeColors';
+import { NoInternetModal } from '../../components/NoInternetModal';
 import { useAuthStore } from '../auth/auth.store';
 import { CheckinGiftModal, type CheckinGiftReceipt } from './CheckinGiftModal';
 import { checkinGiftsApi, type CheckinGift } from './checkin-gifts.api';
@@ -38,7 +35,6 @@ function AccountGiftFlow({
 }: Props & { account: string }) {
   const { t, i18n } = useTranslation('home');
   const router = useGuardedRouter();
-  const { colors } = useThemeColors();
   const [gift, setGift] = useState<CheckinGift | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [retry, setRetry] = useState(0);
@@ -119,55 +115,16 @@ function AccountGiftFlow({
   if (state === 'loading') return null;
   if (state === 'error')
     return (
-      <QueuedModal
-        interruptible
-        priority={10}
+      <NoInternetModal
         visible={focused}
-        transparent
-        onRequestClose={onClose}
-      >
-        <View
-          style={{
-            flex: 1,
-            justifyContent: 'center',
-            padding: 24,
-            backgroundColor: 'rgba(12, 40, 34, 0.6)',
-          }}
-        >
-          <View
-            style={{
-              padding: 24,
-              borderRadius: 24,
-              backgroundColor: colors.surface,
-              gap: 16,
-            }}
-          >
-            <Text style={{ fontSize: 22, color: colors.textPrimary }}>
-              {t('checkinGift.savedHealthError')}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                if (current()) setRetry((x) => x + 1);
-              }}
-              style={{ minHeight: 56, justifyContent: 'center' }}
-            >
-              <Text style={{ fontSize: 20, color: colors.primaryText }}>
-                {t('checkinGift.retry')}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onClose}
-              style={{ minHeight: 56, justifyContent: 'center' }}
-            >
-              <Text style={{ fontSize: 20, color: colors.textSecondary }}>
-                {t('checkinGift.later')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </QueuedModal>
+        notice={t('checkinGift.savedHealthError')}
+        onClose={onClose}
+        onRetry={() => {
+          if (current()) setRetry((x) => x + 1);
+        }}
+        retryText={t('checkinGift.retry')}
+        laterText={t('checkinGift.later')}
+      />
     );
   if (!gift) return null;
   // Stable initialReceipt prevents state resets during a normal parent re-render.
