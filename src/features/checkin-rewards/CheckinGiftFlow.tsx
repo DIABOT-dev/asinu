@@ -17,6 +17,7 @@ type Props = {
   reviewExisting?: boolean;
   status?: string;
   familyAlerted?: boolean;
+  onOpened?: (gift: CheckinGift) => void;
 };
 
 export function CheckinGiftFlow(props: Props) {
@@ -33,6 +34,7 @@ function AccountGiftFlow({
   reviewExisting = false,
   status,
   familyAlerted,
+  onOpened,
 }: Props & { account: string }) {
   const { t, i18n } = useTranslation('home');
   const router = useGuardedRouter();
@@ -91,6 +93,7 @@ function AccountGiftFlow({
   }, [current, reviewExisting, retry, i18n.language]);
   const display = (value: CheckinGift): CheckinGiftReceipt => ({
     id: value.id,
+    box: value.box,
     title: value.loc?.text || '',
     serif: value.loc?.serif || value.loc?.type === 'proverb',
     description:
@@ -176,6 +179,7 @@ function AccountGiftFlow({
       visible={focused}
       onClose={onClose}
       current={current}
+      onOpened={onOpened}
       thanks={t(
         familyAlerted ? 'checkinGift.familyThanks' : 'checkinGift.thanks'
       )}
@@ -199,11 +203,13 @@ function ReadyGift({
   gift,
   display,
   current,
+  onOpened,
   ...props
 }: {
   gift: CheckinGift;
   display: (value: CheckinGift) => CheckinGiftReceipt;
   current: () => boolean;
+  onOpened?: (gift: CheckinGift) => void;
   visible: boolean;
   onClose: () => void;
   thanks: string;
@@ -216,15 +222,12 @@ function ReadyGift({
   return (
     <CheckinGiftModal
       {...props}
-      identicalBoxes
       initialReceipt={initialReceipt}
-      onSkip={async () => {
-        /* Leaving a gift never consumes the server's daily receipt. */
-      }}
       onOpen={async (box) => {
         if (!current()) throw new Error('Gift account changed');
         const result = await checkinGiftsApi.open(gift.id, box);
         if (!current()) throw new Error('Gift account changed');
+        onOpened?.(result.gift);
         return display(result.gift);
       }}
     />

@@ -25,6 +25,13 @@ function AccountCard({ account }: { account: string }) {
   const loadGeneration = useRef(0);
   const [day, setDay] = useState<GiftToday | null>(null),
     [open, setOpen] = useState(false);
+  const acceptDay = useCallback((result: GiftToday) => {
+    setDay((current) =>
+      current?.gift?.openedAt && current.gift.id === result.gift?.id && !result.gift.openedAt
+        ? { ...result, gift: current.gift, offerOnAppOpen: false }
+        : result
+    );
+  }, []);
   useFocusEffect(
     useCallback(() => {
       let live = true;
@@ -39,7 +46,7 @@ function AccountCard({ account }: { account: string }) {
               request === loadGeneration.current &&
               String(useAuthStore.getState().profile?.id) === account
             ) {
-              setDay(result);
+              acceptDay(result);
               if (
                 result.offerOnAppOpen &&
                 result.gift &&
@@ -63,7 +70,7 @@ function AccountCard({ account }: { account: string }) {
         subscription.remove();
         setOpen(false);
       };
-    }, [account])
+    }, [account, acceptDay])
   );
   if (!day?.enabled) return null;
   return (
@@ -159,6 +166,20 @@ function AccountCard({ account }: { account: string }) {
           reviewExisting
           status={day.checkinStatus || undefined}
           familyAlerted={day.familyAlerted}
+          onOpened={(gift) => {
+            if (
+              !focused.current ||
+              String(useAuthStore.getState().profile?.id) !== account
+            ) return;
+            // A completed open is newer than any pending Home refresh.
+            loadGeneration.current++;
+            automaticallyOffered.current = gift.id;
+            setDay((current) =>
+              current?.gift?.id === gift.id
+                ? { ...current, gift, offerOnAppOpen: false }
+                : current
+            );
+          }}
           onClose={() => {
             setOpen(false);
             const request = ++loadGeneration.current;
@@ -170,7 +191,7 @@ function AccountCard({ account }: { account: string }) {
                   request === loadGeneration.current &&
                   String(useAuthStore.getState().profile?.id) === account
                 )
-                  setDay(result);
+                  acceptDay(result);
               })
               .catch(() => {});
           }}

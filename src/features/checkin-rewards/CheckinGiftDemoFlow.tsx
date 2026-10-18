@@ -65,6 +65,7 @@ function AccountGiftFlow({ account, onClose, reviewExisting = false }: Props & {
 
   const display = useCallback((receipt: DemoGiftReceipt): CheckinGiftReceipt => ({
     id: receipt.id,
+    box: receipt.box,
     title: t('checkinGift.demoPrize', { count: receipt.points }),
     description: t('checkinGift.demoPrizeDescription'),
   }), [t]);
@@ -86,7 +87,6 @@ function AccountGiftFlow({ account, onClose, reviewExisting = false }: Props & {
     demo
     initialReceipt={displayedReceipt}
     onClose={finish}
-    onSkip={() => gifts.skip(account)}
     onOpen={async box => display(await gifts.open(account, box))}
   />;
 }

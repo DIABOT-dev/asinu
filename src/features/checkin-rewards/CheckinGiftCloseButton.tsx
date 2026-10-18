@@ -11,7 +11,7 @@ type Props = Omit<PressableProps, 'onPress'> & {
   familyAlerted?: boolean;
 };
 
-/** Keep the health result visible first; offer the optional gift when closing. */
+/** Keep the health result visible first; show its available daily gift when closing. */
 export function CheckinGiftCloseButton({ eligible, onBeforeClose, onClose, disabled, autoOffer = false, status, familyAlerted, ...props }: Props) {
   const [showGift, setShowGift] = useState(false);
   const [busy, setBusy] = useState(false);

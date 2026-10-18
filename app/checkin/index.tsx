@@ -732,7 +732,7 @@ export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
   const denyAi = async () => false;
 
   if (id === 'checkin-gift') {
-    return <CheckinGiftModal visible readOnly onClose={ignore} onSkip={async () => {}} onOpen={async () => { throw new Error('Read-only preview'); }} />;
+    return <CheckinGiftModal visible readOnly onClose={ignore} onOpen={async () => { throw new Error('Read-only preview'); }} />;
   }
 
   if (id === 'checkin-status' || id === 'checkin-followup') {
