@@ -483,7 +483,6 @@ export default function HomeScreen() {
   const profile = useAuthStore((state) => state.profile);
   const guideScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
-  const { t: tg } = useTranslation('onboarding');
   const unreadCount = useNotificationStore(s => s.unreadCount);
   const fetchFromBackend = useNotificationStore(s => s.fetchFromBackend);
   const insets = useSafeAreaInsets();
@@ -693,9 +692,11 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>{t('healthFeedSectionTitle')}</Text>
           <View style={{ flex: 1 }} />
           {healthFeedEnabled && (
-            <Pressable onPress={() => router.push('/feed' as any)} hitSlop={12}>
-              <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: healthFeedItems.length })}</Text>
-            </Pressable>
+            <GuideTarget step="home.suggestions">
+              <Pressable accessibilityRole="button" onPress={() => router.push('/feed' as any)} hitSlop={12}>
+                <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: healthFeedItems.length })}</Text>
+              </Pressable>
+            </GuideTarget>
           )}
         </View>
 
@@ -964,17 +965,6 @@ export default function HomeScreen() {
           <EarlySignalCard healthScore={healthScore} />
         </Animated.View>
 
-        {healthFeedVisible && <GuideTarget step="home.suggestions">
-          <Pressable accessibilityRole="button" accessibilityLabel={tg('guidance.healthSuggestions')}
-            onPress={() => router.push('/feed')} style={{ minHeight: 60, padding: 16,
-              backgroundColor: colors.surface, borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Ionicons name="sparkles-outline" size={28} color={colors.primaryDark} />
-            <Text allowFontScaling style={{ fontSize: 22, fontWeight: '800', color: colors.textPrimary, flex: 1 }}>
-              {tg('guidance.healthSuggestions')}
-            </Text>
-            <Ionicons name="chevron-forward" size={24} color={colors.primaryDark} />
-          </Pressable>
-        </GuideTarget>}
         {renderHealthFeedBlock()}
 
         {/* Missions section is temporarily hidden on the home screen. */}

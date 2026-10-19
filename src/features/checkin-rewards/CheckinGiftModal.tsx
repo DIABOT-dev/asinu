@@ -20,18 +20,16 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useScaledFontSize } from '../../hooks/useScaledTypography';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
-const openGiftImage = require('../../../assets/images/rewards/gift-open-box.png');
-const mascotImage = require('../../../assets/asinu_chat_sticker.png');
-const previewPhoneImage = require('../../../assets/iphone-18-pro-01_5-1.webp');
 
-// The other slots show the gift collection; only the chosen receipt is awarded.
-const otherRewards = [
-  { labelKey: 'checkinGift.previewWish', icon: 'heart-outline' },
-  { labelKey: 'checkinGift.previewProverb', icon: 'book-outline' },
-  { labelKey: 'checkinGift.previewTip', icon: 'bulb-outline' },
-  { labelKey: 'checkinGift.previewTicket', icon: 'ticket-outline' },
-  { labelKey: 'checkinGift.previewPhone', icon: 'phone-portrait-outline' },
-] as const;
+const openedMascotHero = require('../../../assets/images/rewards/opened_gift_mascot_hero.png');
+const fortuneHeartHeader = require('../../../assets/images/rewards/fortune_heart_header.png');
+const fortuneBranchLeft = require('../../../assets/images/rewards/fortune_branch_left.png');
+const rewardBoxTicket = require('../../../assets/images/rewards/daily_reward_box_ticket.png');
+const rewardBoxPhone = require('../../../assets/images/rewards/daily_reward_box_phone.png');
+const rewardBoxBook = require('../../../assets/images/rewards/daily_reward_box_book.png');
+const rewardBoxBulb = require('../../../assets/images/rewards/daily_reward_box_bulb.png');
+const rewardBoxCoupon = require('../../../assets/images/rewards/daily_reward_box_coupon.png');
+const rewardBoxWish = require('../../../assets/images/rewards/daily_reward_box_wish.png');
 
 const boxImages = [
   require('../../../assets/images/rewards/box_1.png'),
@@ -69,6 +67,15 @@ type Props = {
   notice?: string;
   onRules?: (period: string) => void;
 };
+
+const otherRewardCatalog = [
+  { key: 'ticket', labelKey: 'checkinGift.previewTicket', image: rewardBoxTicket },
+  { key: 'phone', labelKey: 'checkinGift.previewPhone', image: rewardBoxPhone },
+  { key: 'proverb', labelKey: 'checkinGift.previewProverb', image: rewardBoxBook },
+  { key: 'tip', labelKey: 'checkinGift.previewTip', image: rewardBoxBulb },
+  { key: 'coupon', labelKey: 'checkinGift.couponLabel', image: rewardBoxCoupon },
+  { key: 'wish', labelKey: 'checkinGift.previewWish', image: rewardBoxWish },
+] as const;
 
 /** The server owns eligibility and the prize. The six boxes only choose a visual slot. */
 export function CheckinGiftModal({
@@ -131,7 +138,6 @@ export function CheckinGiftModal({
   }, []);
 
   useEffect(() => {
-    // A box chosen in the lower row must still reveal the centered fortune.
     if (receipt) {scrollRef.current?.scrollTo({ y: 0, animated: false });}
   }, [receipt]);
 
@@ -173,7 +179,6 @@ export function CheckinGiftModal({
       onReceived?.(received);
       await opened;
       if (request !== generation.current) {return;}
-      // Retries use the first box saved by the server, never a new draw.
       setSelected(received.box ?? box);
       setReceipt(received);
       lid.setValue(1);
@@ -183,11 +188,9 @@ export function CheckinGiftModal({
         othersReveal.setValue(1);
         setOthersOpened(true);
       } else {
-        // The chosen prize appears first. The five remaining lids then open
-        // together in the same slots, before their quieter contents appear.
         await new Promise<void>(resolve => {
           const motion = Animated.parallel([
-            Animated.timing(reveal, { toValue: 1, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(reveal, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
             Animated.timing(otherLid, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
           ]);
           animation.current = motion;
@@ -195,7 +198,7 @@ export function CheckinGiftModal({
         });
         if (request !== generation.current) { return; }
         setOthersOpened(true);
-        const fade = Animated.timing(othersReveal, { toValue: 1, duration: 180, useNativeDriver: true });
+        const fade = Animated.timing(othersReveal, { toValue: 1, duration: 200, useNativeDriver: true });
         animation.current = fade;
         fade.start();
       }
@@ -218,19 +221,18 @@ export function CheckinGiftModal({
     if (!readOnly && receipt && !requestActive.current) {onClose();}
   };
 
-  const ink = isDark ? colors.textPrimary : '#0f3840';
+  const ink = isDark ? colors.textPrimary : '#084844';
   const subInk = isDark ? colors.textSecondary : '#587a82';
-  const handleColor = isDark ? colors.border : '#d2ede5';
-  const closeColor = isDark ? colors.primaryText : '#20b697';
+  const handleColor = isDark ? colors.border : '#d1eae6';
+  const closeColor = isDark ? colors.primaryText : '#00bba4';
   const overlayColor = isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(15, 35, 30, 0.45)';
-  const primaryBrand = isDark ? colors.primary : '#21c4a2';
+  const primaryBrand = isDark ? colors.primary : '#00bba4';
   const sheetWidth = Math.min(width - 32, 500);
   const boxWidth = (sheetWidth - 36) * 0.315 - 8;
   const cellHeight = Math.max(192, Math.ceil(boxWidth + 44 + cardFontSize * 6));
   const isOpening = busy && !receipt && selected !== null;
 
-  // Split the existing illustration into real lid/body crops while opening.
-  // Both crops use the same local image, so the box stays in its original slot.
+  // Split illustration into real lid/body crops while opening.
   const boxArtwork = (box: number, size: number, opened: boolean, progress = lid, wobble = true) => {
     const source = identicalBoxes ? giftImage : boxImages[box];
     const artHeight = (size * 294) / 324;
@@ -269,9 +271,13 @@ export function CheckinGiftModal({
             ]}
           />
         )}
-        {opened ? <View style={{ position: 'absolute', top: lidHeight, width: size, height: artHeight - lidHeight, overflow: 'hidden' }}>
-          <Image source={source} style={{ position: 'absolute', top: -lidHeight, width: size, height: artHeight }} contentFit="contain" accessible={false} />
-        </View> : <Image source={source} style={{ width: size, height: artHeight }} contentFit="contain" accessible={false} />}
+        {opened ? (
+          <View style={{ position: 'absolute', top: lidHeight, width: size, height: artHeight - lidHeight, overflow: 'hidden' }}>
+            <Image source={source} style={{ position: 'absolute', top: -lidHeight, width: size, height: artHeight }} contentFit="contain" accessible={false} />
+          </View>
+        ) : (
+          <Image source={source} style={{ width: size, height: artHeight }} contentFit="contain" accessible={false} />
+        )}
         <Animated.View
           testID={`gift-box-lid-${box}`}
           style={{
@@ -294,9 +300,11 @@ export function CheckinGiftModal({
             ],
           }}
         >
-          {opened && <View style={{ width: size, height: lidHeight, overflow: 'hidden' }}>
-            <Image source={source} style={{ width: size, height: artHeight }} contentFit="contain" accessible={false} />
-          </View>}
+          {opened && (
+            <View style={{ width: size, height: lidHeight, overflow: 'hidden' }}>
+              <Image source={source} style={{ width: size, height: artHeight }} contentFit="contain" accessible={false} />
+            </View>
+          )}
           {opened && (
             <Animated.View style={[styles.boxSparkle, { opacity: progress }]}>
               <Ionicons
@@ -311,143 +319,372 @@ export function CheckinGiftModal({
     );
   };
 
-  // Preserve the saved box identity, while placing its reveal in the middle.
-  const displayBoxes: number[] = [...boxes];
-  if (receipt) {
-    const receivedBox = selected ?? 0;
-    [displayBoxes[1], displayBoxes[receivedBox]] = [displayBoxes[receivedBox], displayBoxes[1]];
-  }
-  const renderBox = (box: number) => {
-    const chosen = box === (receipt ? selected ?? 0 : selected);
-    if (!receipt || (!chosen && !othersOpened)) {
-      return <Pressable key={box}
-        onPress={() => { openBox(box); }}
-        disabled={readOnly || busy || !!receipt}
-        accessibilityRole="button"
-        accessibilityLabel={t('checkinGift.box', { number: box + 1 })}
-        accessibilityState={{ disabled: readOnly || busy || !!receipt, selected: chosen, busy: busy && (chosen || !!receipt) }}
-        style={({ pressed }) => [styles.box, {
-          height: cellHeight,
-          borderColor: chosen ? primaryBrand : 'transparent',
-          zIndex: isOpening && chosen ? 2 : 0,
-        }, pressed && styles.pressed, busy && !chosen && styles.muted]}>
-        {boxArtwork(box, boxWidth, receipt ? !othersOpened : isOpening && chosen, receipt ? otherLid : lid, !receipt)}
-      </Pressable>;
-    }
-    const other = chosen ? null : otherRewards[(box - (selected ?? 0) + 6) % 6 - 1];
-    const label = chosen
-        ? receipt.shortTitle || (demo ? receipt.title : t(receipt.kind === 'ticket' ? 'checkinGift.previewTicket'
-          : receipt.kind === 'coupon' ? 'checkinGift.couponLabel' : receipt.kind === 'proverb' ? 'checkinGift.previewProverb'
-          : receipt.kind === 'health_tip' ? 'checkinGift.previewTip' : 'checkinGift.previewWish'))
-        : t(other!.labelKey);
-    return <Animated.View key={box}
-      testID={chosen ? `gift-received-${box}` : `gift-other-${box}`}
-      accessible={!chosen}
-      accessibilityLabel={`${chosen ? t('checkinGift.selectedReward') : t('checkinGift.otherReward', { number: box + 1 })}: ${chosen ? receipt.title : label}`}
-      style={[styles.resultBox, {
-        height: cellHeight,
-        zIndex: chosen ? 1 : 0,
-        opacity: chosen ? reveal : othersReveal.interpolate({ inputRange: [0, 1], outputRange: [0, 0.62] }),
-        transform: [
-          { perspective: 600 },
-          { scale: (chosen ? reveal : othersReveal).interpolate({ inputRange: [0, 1], outputRange: [chosen ? 0.8 : 0.96, chosen ? 1.06 : 1] }) },
-        ],
-      }]}>
-      <View style={[styles.resultBoxArt, { width: boxWidth + 12, height: boxWidth + 24 }]} testID={chosen ? `gift-box-art-${box}` : undefined}>
-        {chosen && <View style={[styles.selectedAura, { backgroundColor: isDark ? colors.primaryLight : '#fff3c7' }]} />}
-        <Image source={openGiftImage} contentFit="contain" style={styles.openBoxImage} accessible={false} />
-        <View style={styles.rewardInside}>
-        {other?.labelKey === 'checkinGift.previewPhone'
-          ? <Image source={previewPhoneImage} contentFit="contain" style={styles.previewPhone} accessible={false} />
-          : chosen && !receipt.rulesPeriod
-            ? <Image source={mascotImage} contentFit="contain" style={styles.receivedMascot} accessible={false} />
-            : <Ionicons name={chosen ? 'ticket' : other!.icon}
-                size={30} color={primaryBrand} />}
-        </View>
-      </View>
-      <View style={[styles.rewardLabel, { backgroundColor: isDark ? colors.surface : '#f4fbfa' }]}>
-      <Text numberOfLines={2} style={[styles.resultBoxTitle, { color: chosen ? colors.primaryText : colors.textPrimary }]}>
-        {label}
-      </Text>
-      </View>
-      <View style={styles.badgeSlot}>
-        {chosen && <View style={[styles.receivedBadge, { backgroundColor: colors.primaryLight }]}>
-          <Ionicons name="checkmark-circle" size={14} color={primaryBrand} />
-          <Text style={[styles.resultBoxBadge, { color: colors.primaryText }]}>{t('checkinGift.receivedBadge')}</Text>
-        </View>}
-      </View>
-    </Animated.View>;
-  };
+  const awardedBoxIndex = selected ?? receipt?.box ?? 0;
+
+  // Determine label for the awarded prize
+  const categoryLabel = receipt
+    ? receipt.shortTitle || (demo ? receipt.title : t(
+        receipt.kind === 'ticket'
+          ? 'checkinGift.previewTicket'
+          : receipt.kind === 'coupon'
+          ? 'checkinGift.couponLabel'
+          : receipt.kind === 'proverb'
+          ? 'checkinGift.previewProverb'
+          : receipt.kind === 'health_tip'
+          ? 'checkinGift.previewTip'
+          : 'checkinGift.previewWish'
+      ))
+    : '';
+
+  // Other 5 rewards displayed in the bottom row, accounting for all 6 boxes (1 hero + 5 other = 6)
+  const otherRewardsToShow = receipt
+    ? otherRewardCatalog.filter(item => {
+        if (receipt.kind === 'ticket' && item.key === 'ticket') return false;
+        if (receipt.kind === 'coupon' && item.key === 'coupon') return false;
+        if (receipt.kind === 'proverb' && item.key === 'proverb') return false;
+        if (receipt.kind === 'health_tip' && item.key === 'tip') return false;
+        if ((!receipt.kind || receipt.kind === 'wish') && item.key === 'wish') return false;
+        return true;
+      }).slice(0, 5)
+    : [];
+
+  const heroWidth = Math.min(sheetWidth - 24, 380);
+  const heroHeight = Math.round(heroWidth * (423 / 852));
 
   const content = (
-    <View accessibilityViewIsModal style={[styles.sheet, {
-      backgroundColor: colors.surface,
-      width: sheetWidth,
-      maxHeight: height - insets.top - insets.bottom - 32,
-    }]}>
+    <View
+      accessibilityViewIsModal
+      style={[
+        styles.sheet,
+        {
+          backgroundColor: isDark ? colors.surface : '#ffffff',
+          width: sheetWidth,
+          maxHeight: height - insets.top - insets.bottom - 24,
+        },
+      ]}
+    >
       <View style={[styles.handle, { backgroundColor: handleColor }]} />
-      {!!receipt && <Pressable
-        style={styles.close}
-        onPress={dismiss}
-        disabled={readOnly || busy}
-        accessibilityRole="button"
-        accessibilityLabel={t('checkinGift.close')}
-        accessibilityState={{ disabled: readOnly || busy }}
-        hitSlop={8}
-      >
-        <Ionicons name="close" size={26} color={closeColor} />
-      </Pressable>}
+      {!!receipt && (
+        <Pressable
+          style={styles.close}
+          onPress={dismiss}
+          disabled={readOnly || busy}
+          accessibilityRole="button"
+          accessibilityLabel={t('checkinGift.close')}
+          accessibilityState={{ disabled: readOnly || busy }}
+          hitSlop={8}
+        >
+          <Ionicons name="close" size={26} color={closeColor} />
+        </Pressable>
+      )}
       <View style={styles.header}>
         <Image source={giftImage} style={styles.headerGift} contentFit="contain" accessible={false} />
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
           {t('checkinGift.title')}
         </Text>
-        {!receipt && <Text style={[styles.subtitle, { color: subInk }]}>
-          {t(isOpening ? 'checkinGift.openingBox' : 'checkinGift.choose', { number: (selected ?? 0) + 1 })}
-        </Text>}
+        {!receipt && (
+          <Text style={[styles.subtitle, { color: subInk }]}>
+            {t(isOpening ? 'checkinGift.openingBox' : 'checkinGift.choose', { number: (selected ?? 0) + 1 })}
+          </Text>
+        )}
       </View>
-      <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content} bounces={false}>
-        {notice && <Text style={[styles.notice, { color: colors.warning, backgroundColor: colors.surfaceMuted }]}>
-          {notice}
-        </Text>}
-        <View style={styles.grid} testID={receipt ? 'gift-result-grid' : 'gift-chooser-grid'}>
-          {displayBoxes.slice(0, 3).map(renderBox)}
-          {receipt && <Animated.View style={[styles.result, { opacity: reveal }]} accessibilityLiveRegion="polite" testID="gift-fortune">
-            <Text style={[styles.prizeTitle, { color: colors.primaryText, fontStyle: receipt.serif ? 'italic' : 'normal' }]}>
-              {receipt.title}
-            </Text>
-            {!!receipt.description && (demo || !!receipt.rulesPeriod || receipt.kind === 'coupon') && <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
-              {receipt.description}
-            </Text>}
-            {!!receipt.prizeImage && !!receipt.rulesPeriod && <View style={styles.prizeDetails} testID="gift-prize-details">
-              <Image source={receipt.prizeImage} contentFit="contain" style={styles.prizeBadgeImage} accessible={false} />
-              <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
-                {t('checkinGift.drawPrize', { prize: receipt.drawPrize })}
-              </Text>
-            </View>}
-            {!!receipt.rulesPeriod && <Pressable accessibilityRole="button" disabled={readOnly || busy}
-              onPress={() => onRules?.(receipt.rulesPeriod!)} style={styles.rulesButton}>
-              <Text style={[styles.rulesText, { color: primaryBrand }]}>{t('checkinGift.rules')}</Text>
-            </Pressable>}
-            {demo && <Text style={[styles.saved, { color: colors.textSecondary }]}>{t('checkinGift.demoSaved')}</Text>}
-          </Animated.View>}
-          {displayBoxes.slice(3).map(renderBox)}
-        </View>
-        {isOpening && <View style={styles.openingStatus} accessibilityLiveRegion="polite">
-          <ActivityIndicator color={primaryBrand} />
-          <Text style={{ color: subInk, fontSize: 16 }}>{t('checkinGift.openingBox', { number: selected + 1 })}</Text>
-        </View>}
 
-        {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.error, { color: colors.danger }]}>
-          {t('checkinGift.error')}
-        </Text>}
+      <ScrollView
+        ref={scrollRef}
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+        bounces={false}
+      >
+        {notice && (
+          <Text style={[styles.notice, { color: colors.warning, backgroundColor: colors.surfaceMuted }]}>
+            {notice}
+          </Text>
+        )}
+
+        {!othersOpened ? (
+          <View style={styles.grid} testID="gift-chooser-grid">
+            {boxes.map(box => {
+              const chosen = selected !== null && box === selected;
+              if (receipt && chosen) {
+                return (
+                  <Animated.View
+                    key={box}
+                    testID={`gift-received-${box}`}
+                    accessibilityLabel={`${t('checkinGift.selectedReward')}: ${receipt.title}`}
+                    style={[styles.box, { height: cellHeight }]}
+                  >
+                    <View testID={`gift-box-art-${box}`} style={{ width: boxWidth, height: boxWidth, alignItems: 'center', justifyContent: 'center' }}>
+                      <Image source={openedMascotHero} style={{ width: '100%', height: '100%' }} contentFit="contain" accessible={false} />
+                    </View>
+                    <Text numberOfLines={2} style={{ fontSize: 13, fontWeight: '600', textAlign: 'center', color: ink, marginVertical: 2 }}>
+                      {receipt.title}
+                    </Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: primaryBrand }}>
+                      {t('checkinGift.receivedBadge')}
+                    </Text>
+                  </Animated.View>
+                );
+              }
+              return (
+                <Pressable
+                  key={box}
+                  onPress={() => { openBox(box); }}
+                  disabled={readOnly || busy || !!receipt}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('checkinGift.box', { number: box + 1 })}
+                  accessibilityState={{ disabled: readOnly || busy || !!receipt, selected: chosen, busy: busy && chosen }}
+                  style={({ pressed }) => [
+                    styles.box,
+                    {
+                      height: cellHeight,
+                      borderColor: chosen ? primaryBrand : 'transparent',
+                      zIndex: isOpening && chosen ? 2 : 0,
+                    },
+                    pressed && styles.pressed,
+                    busy && !chosen && styles.muted,
+                  ]}
+                >
+                  {boxArtwork(box, boxWidth, receipt ? true : isOpening && chosen, receipt ? otherLid : lid, !receipt)}
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.openedContainer}>
+            {/* Hero Mascot in Open Gift Box */}
+            <Animated.View
+              testID={`gift-received-${awardedBoxIndex}`}
+              accessibilityLabel={`${t('checkinGift.selectedReward')}: ${receipt?.title ?? ''}`}
+              style={[
+                styles.heroContainer,
+                {
+                  opacity: reveal,
+                  transform: [
+                    {
+                      scale: reveal.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.88, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View
+                testID={`gift-box-art-${awardedBoxIndex}`}
+                style={[styles.heroArtWrapper, { width: heroWidth, height: heroHeight }]}
+              >
+                <Image
+                  source={openedMascotHero}
+                  style={styles.heroImage}
+                  contentFit="contain"
+                  accessible={false}
+                />
+              </View>
+            </Animated.View>
+
+            {/* Badges: Category pill & Status pill with sunburst rays */}
+            <Animated.View style={[styles.badgesWrapper, { opacity: reveal }]}>
+              {/* Category pill */}
+              <View
+                style={[
+                  styles.categoryPill,
+                  {
+                    backgroundColor: isDark ? colors.surfaceMuted : '#f3fbf9',
+                    borderColor: isDark ? colors.border : '#a7f3d0',
+                  },
+                ]}
+              >
+                <Text style={[styles.categoryPillText, { color: isDark ? colors.textPrimary : '#084844' }]}>
+                  {categoryLabel}
+                </Text>
+              </View>
+
+              {/* Status pill with radiating sunburst ticks */}
+              <View style={styles.statusPillRow}>
+                {/* Left sunburst ticks */}
+                <View style={styles.sunburstTicksLeft}>
+                  <View style={[styles.sunburstTick, styles.tickTopLeft]} />
+                  <View style={[styles.sunburstTick, styles.tickMidLeft]} />
+                  <View style={[styles.sunburstTick, styles.tickBotLeft]} />
+                </View>
+
+                {/* Status pill container */}
+                <View
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: isDark ? colors.surfaceMuted : '#e3f8f2' },
+                  ]}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color="#059669" style={styles.statusIcon} />
+                  <Text style={[styles.statusPillText, { color: isDark ? colors.textPrimary : '#084844' }]}>
+                    {t('checkinGift.receivedBadge')}
+                  </Text>
+                </View>
+
+                {/* Right sunburst ticks */}
+                <View style={styles.sunburstTicksRight}>
+                  <View style={[styles.sunburstTick, styles.tickTopRight]} />
+                  <View style={[styles.sunburstTick, styles.tickMidRight]} />
+                  <View style={[styles.sunburstTick, styles.tickBotRight]} />
+                </View>
+              </View>
+            </Animated.View>
+
+            {/* Fortune Card */}
+            {receipt && (
+              <Animated.View
+                testID="gift-fortune"
+                accessibilityLiveRegion="polite"
+                style={[
+                  styles.fortuneCard,
+                  {
+                    opacity: reveal,
+                    backgroundColor: isDark ? colors.surface : '#fbfefe',
+                    borderColor: isDark ? colors.border : '#b2edd9',
+                  },
+                ]}
+              >
+                {/* Pink heart with golden sparkles */}
+                <Image
+                  source={fortuneHeartHeader}
+                  style={styles.fortuneHeartHeader}
+                  contentFit="contain"
+                  accessible={false}
+                />
+
+                {/* Left floral vine */}
+                <Image
+                  source={fortuneBranchLeft}
+                  style={styles.fortuneBranchLeft}
+                  contentFit="contain"
+                  accessible={false}
+                />
+
+                {/* Right floral vine */}
+                <Image
+                  source={fortuneBranchLeft}
+                  style={styles.fortuneBranchRight}
+                  contentFit="contain"
+                  accessible={false}
+                />
+
+                {/* Fortune Text */}
+                <Text
+                  style={[
+                    styles.fortuneText,
+                    {
+                      color: isDark ? colors.textPrimary : '#094d45',
+                      fontStyle: receipt.serif ? 'italic' : 'normal',
+                    },
+                  ]}
+                >
+                  {receipt.title}
+                </Text>
+
+                {!!receipt.description && (demo || !!receipt.rulesPeriod || receipt.kind === 'coupon') && (
+                  <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
+                    {receipt.description}
+                  </Text>
+                )}
+
+                {!!receipt.prizeImage && !!receipt.rulesPeriod && (
+                  <View style={styles.prizeDetails} testID="gift-prize-details">
+                    <Image source={receipt.prizeImage} contentFit="contain" style={styles.prizeBadgeImage} accessible={false} />
+                    <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
+                      {t('checkinGift.drawPrize', { prize: receipt.drawPrize })}
+                    </Text>
+                  </View>
+                )}
+
+                {!!receipt.rulesPeriod && (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={readOnly || busy}
+                    onPress={() => onRules?.(receipt.rulesPeriod!)}
+                    style={styles.rulesButton}
+                  >
+                    <Text style={[styles.rulesText, { color: primaryBrand }]}>{t('checkinGift.rules')}</Text>
+                  </Pressable>
+                )}
+
+                {demo && <Text style={[styles.saved, { color: colors.textSecondary }]}>{t('checkinGift.demoSaved')}</Text>}
+              </Animated.View>
+            )}
+
+            {/* Other Prizes Row */}
+            <Animated.View
+              testID="gift-result-grid"
+              style={[
+                styles.otherRewardsRow,
+                {
+                  opacity: othersReveal.interpolate({ inputRange: [0, 1], outputRange: [0, 0.9] }),
+                },
+              ]}
+            >
+              {otherRewardsToShow.map((item, index) => (
+                <View
+                  key={item.key}
+                  testID={`gift-other-${index}`}
+                  accessibilityLabel={`${t('checkinGift.otherReward', { number: index + 1 })}: ${t(item.labelKey)}`}
+                  style={styles.otherRewardItem}
+                >
+                  <Image
+                    source={item.image}
+                    style={styles.otherRewardBoxImage}
+                    contentFit="contain"
+                    accessible={false}
+                  />
+                  <View
+                    style={[
+                      styles.otherRewardLabelContainer,
+                      { backgroundColor: isDark ? colors.surfaceMuted : '#f1f5f5' },
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.otherRewardLabelText,
+                        { color: isDark ? colors.textSecondary : '#556565' },
+                      ]}
+                    >
+                      {t(item.labelKey)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </Animated.View>
+          </View>
+        )}
+
+        {isOpening && (
+          <View style={styles.openingStatus} accessibilityLiveRegion="polite">
+            <ActivityIndicator color={primaryBrand} />
+            <Text style={{ color: subInk, fontSize: 16 }}>{t('checkinGift.openingBox', { number: selected + 1 })}</Text>
+          </View>
+        )}
+
+        {error && (
+          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.error, { color: colors.danger }]}>
+            {t('checkinGift.error')}
+          </Text>
+        )}
       </ScrollView>
+
       <View style={styles.footer}>
-        <Pressable onPress={dismiss} disabled={readOnly || busy || !receipt}
-          accessibilityRole="button" accessibilityState={{ disabled: readOnly || busy || !receipt }}
-          style={({ pressed }) => [styles.button, { backgroundColor: primaryBrand },
-            pressed && !!receipt && styles.pressed, (busy || !receipt) && styles.muted]}>
+        <Pressable
+          onPress={dismiss}
+          disabled={readOnly || busy || !receipt}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: readOnly || busy || !receipt }}
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: primaryBrand },
+            pressed && !!receipt && styles.pressed,
+            (busy || !receipt) && styles.muted,
+          ]}
+        >
           <Text style={styles.buttonText}>
             {t(receipt ? 'checkinGift.done' : busy ? 'checkinGift.opening' : 'checkinGift.pickBox')}
           </Text>
@@ -493,42 +730,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   sheet: {
-    borderRadius: 28,
+    borderRadius: 32,
     overflow: 'hidden',
     flexShrink: 1,
   },
   handle: {
     height: 4.5,
-    width: 48,
+    width: 44,
     borderRadius: 2.5,
     alignSelf: 'center',
     marginTop: 12,
   },
   close: {
     position: 'absolute',
-    right: 14,
-    top: 14,
-    width: 44,
-    height: 44,
+    right: 16,
+    top: 16,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
   },
   content: {
     paddingHorizontal: 18,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 16,
   },
-  header: { paddingHorizontal: 44, paddingTop: 12, flexShrink: 0 },
-  headerGift: { width: 40, height: 40, alignSelf: 'center', marginBottom: 2 },
+  header: { paddingHorizontal: 44, paddingTop: 8, paddingBottom: 4, alignItems: 'center', flexShrink: 0 },
+  headerGift: { width: 38, height: 38, marginBottom: 2 },
   scroll: { flexShrink: 1 },
-  footer: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 18, flexShrink: 0 },
-  badgeSlot: { minHeight: 44, width: '100%', justifyContent: 'center' },
+  footer: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 18, flexShrink: 0 },
   title: {
-    fontSize: 27,
+    fontSize: 25,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 6,
+    letterSpacing: -0.4,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
@@ -586,56 +823,187 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  result: {
+  openedContainer: {
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 10,
   },
-  resultBox: {
-    width: '31.5%',
-    minHeight: 164,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    justifyContent: 'center',
+  heroContainer: {
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    marginTop: 2,
+    marginBottom: 6,
   },
-  resultBoxBadge: {
-    fontSize: 12,
+  heroArtWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  badgesWrapper: {
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 12,
+  },
+  categoryPill: {
+    paddingHorizontal: 28,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    marginBottom: 8,
+    shadowColor: '#1ca492',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  categoryPillText: {
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  statusPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sunburstTicksLeft: {
+    width: 22,
+    height: 24,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingRight: 5,
+  },
+  sunburstTicksRight: {
+    width: 22,
+    height: 24,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingLeft: 5,
+  },
+  sunburstTick: {
+    width: 7,
+    height: 2.5,
+    borderRadius: 1.5,
+    backgroundColor: '#f59e0b',
+  },
+  tickTopLeft: {
+    transform: [{ rotate: '-35deg' }],
+  },
+  tickMidLeft: {
+    transform: [{ rotate: '0deg' }],
+  },
+  tickBotLeft: {
+    transform: [{ rotate: '35deg' }],
+  },
+  tickTopRight: {
+    transform: [{ rotate: '35deg' }],
+  },
+  tickMidRight: {
+    transform: [{ rotate: '0deg' }],
+  },
+  tickBotRight: {
+    transform: [{ rotate: '-35deg' }],
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 999,
+    gap: 5,
+  },
+  statusIcon: {
+    marginRight: 1,
+  },
+  statusPillText: {
+    fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
-    flexShrink: 1,
   },
-  resultBoxArt: {
-    minHeight: 48,
+  fortuneCard: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    paddingHorizontal: 28,
+    paddingTop: 16,
+    paddingBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#1ca492',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+    marginBottom: 14,
+  },
+  fortuneHeartHeader: {
+    width: 78,
+    height: 28,
+    marginBottom: 10,
+  },
+  fortuneBranchLeft: {
+    position: 'absolute',
+    left: 4,
+    bottom: 2,
+    width: 58,
+    height: 76,
+  },
+  fortuneBranchRight: {
+    position: 'absolute',
+    right: 4,
+    bottom: 2,
+    width: 58,
+    height: 76,
+    transform: [{ scaleX: -1 }],
+  },
+  fortuneText: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  otherRewardsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  otherRewardItem: {
+    width: '18.8%',
+    alignItems: 'center',
+  },
+  otherRewardBoxImage: {
+    width: '100%',
+    height: 52,
+    marginBottom: 3,
+  },
+  otherRewardLabelContainer: {
+    width: '100%',
+    minHeight: 32,
+    borderRadius: 11,
+    paddingHorizontal: 1.5,
+    paddingVertical: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  openBoxImage: { width: '100%', height: '100%', position: 'absolute' },
-  rewardInside: { position: 'absolute', left: '40%', right: '7%', top: '31%', bottom: '29%', alignItems: 'center', justifyContent: 'center' },
-  receivedMascot: { width: 58, height: 64 },
-  selectedAura: { position: 'absolute', width: '112%', height: '76%', top: '20%', borderRadius: 999, opacity: 0.45 },
-  receivedBadge: { minHeight: 44, borderRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 4, gap: 2 },
-  rewardLabel: { width: '100%', minHeight: 28, borderRadius: 10, paddingHorizontal: 3, paddingVertical: 3, alignItems: 'center', justifyContent: 'center' },
-  previewPhone: { width: 36, height: 44 },
-  resultBoxTitle: {
-    fontSize: 14,
-    lineHeight: 20,
+  otherRewardLabelText: {
+    fontSize: 10,
+    lineHeight: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
-  prizeTitle: {
-    fontSize: 20,
-    lineHeight: 30,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
   prizeDescription: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
+    marginTop: 6,
   },
   prizeDetails: {
     alignItems: 'center',
@@ -643,16 +1011,17 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   prizeBadgeImage: {
-    width: 140,
-    height: 140,
+    width: 130,
+    height: 130,
   },
   rulesButton: {
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: 12,
+    marginTop: 4,
   },
   rulesText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
   },
   saved: {
@@ -669,7 +1038,7 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: 999,
-    minHeight: 56,
+    minHeight: 54,
     paddingHorizontal: 20,
     paddingVertical: 14,
     alignItems: 'center',
@@ -682,6 +1051,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  pressed: { opacity: 0.82 },
+  pressed: { opacity: 0.85 },
   muted: { opacity: 0.55 },
 });

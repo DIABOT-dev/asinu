@@ -24,15 +24,15 @@ tips need a recorded medical review before activation. Seed content consists of
 Lucky draws are paused by default (zero ticket weight). The planned prize is
 iPhone 18 Pro Max. The six boxes stay in the same modal throughout opening.
 The chosen illustration shakes and its actual lid crop lifts away. After a
-successful open, its saved reward appears in the top-middle position, brighter
-than the other five boxes, whose lids also open automatically. The original
+successful open, its saved reward appears as a centered hero above the five
+other opened boxes, with the received badge and complete fortune. The original
 server box selection is preserved; moving the illustration never makes another
 claim. The complete fortune is shown immediately, centered beneath the received
-box and above the second row. It is never hidden behind a details action or
+box and above the row of other rewards. It is never hidden behind a details action or
 truncated. Other boxes retain short gift names without Example badges.
 Opened boxes use the bundled transparent 3D artwork. The fixed header and Close
-button remain outside the scrolling content, and box heights stay stable at
-larger text sizes. Opening returns the scroll position to the centered reward.
+button remain outside the scrolling content, and the full fortune remains
+readable at larger text sizes. Opening returns the scroll position to the centered reward.
 Reduced Motion skips the sequence and shows the saved result immediately. Actual
 ticket prize details still require a server-issued ticket or enabled draw period.
 Opening a box never directly awards a phone. Activating a draw requires configured prize,

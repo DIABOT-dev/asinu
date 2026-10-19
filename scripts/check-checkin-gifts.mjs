@@ -300,6 +300,15 @@ function modalHarness(options = {}) {
     '../../../assets/asinu_chat_sticker.png': 'mascot.png',
     '../../../assets/images/rewards/box_opening_stage.png': 'box_opening_stage.png',
     '../../../assets/iphone-18-pro-01_5-1.webp': 180018,
+    '../../../assets/images/rewards/opened_gift_mascot_hero.png': 'opened_gift_mascot_hero.png',
+    '../../../assets/images/rewards/fortune_heart_header.png': 'fortune_heart_header.png',
+    '../../../assets/images/rewards/fortune_branch_left.png': 'fortune_branch_left.png',
+    '../../../assets/images/rewards/daily_reward_box_ticket.png': 'daily_reward_box_ticket.png',
+    '../../../assets/images/rewards/daily_reward_box_phone.png': 'daily_reward_box_phone.png',
+    '../../../assets/images/rewards/daily_reward_box_book.png': 'daily_reward_box_book.png',
+    '../../../assets/images/rewards/daily_reward_box_bulb.png': 'daily_reward_box_bulb.png',
+    '../../../assets/images/rewards/daily_reward_box_coupon.png': 'daily_reward_box_coupon.png',
+    '../../../assets/images/rewards/daily_reward_box_wish.png': 'daily_reward_box_wish.png',
     ...Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`../../../assets/images/rewards/box_${i + 1}.png`, `box_${i + 1}.png`])),
   });
   const props = { visible: true, demo: true, onClose: () => calls.closes++,
@@ -335,6 +344,8 @@ await test('an available gift requires a choice: no skip, close button or Androi
   assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === 'Đóng hộp quà'));
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && /Bỏ lượt/.test(node.props.children)));
   const choose = value => nodes(value).find(node => node.props.accessibilityLabel === 'Mở hộp quà số 3');
+  assert.equal(choose(tree).props.disabled, false);
+  assert.equal(choose(tree).props.accessibilityState.disabled, false, 'Available boxes must also be selectable with a screen reader');
   choose(tree).props.onPress(); tree = await h.settle();
   nodes(tree).find(node => node.type === 'Modal').props.onRequestClose();
   assert.equal(h.calls.closes, 0, 'An unsuccessful save does not consume or bypass the choice');
@@ -345,31 +356,25 @@ await test('an available gift requires a choice: no skip, close button or Androi
   assert.ok(nodes(tree).some(node => node.props.accessibilityLabel === 'Đóng hộp quà'));
   assert.equal(nodes(tree).find(node => node.type === 'Modal').props.interruptible, true, 'Urgent health dialogs can still interrupt gifts');
 });
-await test('every selected box reveals its saved gift in the middle, surrounded by five quieter gifts', async () => {
+await test('every selected box reveals the hero mascot gift and full blessing above the other prize options', async () => {
   for (let box = 0; box < 6; box++) {
     const h = modalHarness({ props: { demo: false, initialReceipt: { id: 'saved', box, title: 'Chúc bạn bình yên.' } } });
     const tree = await h.settle();
+    const hero = nodes(tree).find(node => node.props.testID === `gift-received-${box}`);
+    assert.ok(hero, `The awarded gift occupies the hero slot for selection ${box}`);
+    const fortune = nodes(tree).find(node => node.props.testID === 'gift-fortune');
+    assert.ok(fortune, 'Fortune card is displayed');
     const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
-    assert.ok(grid);
-    const slots = grid.props.children.flat().filter(node => /^gift-(received|other)-/.test(node?.props?.testID || ''));
-    assert.equal(slots[1].props.testID, `gift-received-${box}`, 'The awarded gift occupies the top-middle position for every selection');
-    assert.equal(new Set(slots.map(node => node.props.testID.split('-').at(-1))).size, 6, 'Moving a gift never duplicates or removes a box');
-    const received = nodes(grid).filter(node => /^gift-received-/.test(node.props.testID || ''));
+    assert.ok(grid, 'Other rewards grid is displayed');
     const examples = nodes(grid).filter(node => /^gift-other-/.test(node.props.testID || ''));
-    assert.equal(received.length, 1); assert.equal(received[0].props.testID, `gift-received-${box}`);
-    assert.equal(examples.length, 5);
-    assert.ok(received[0].props.accessibilityLabel.startsWith('Đã nhận: Chúc bạn bình yên.'));
+    assert.equal(examples.length, 5, 'Shows the 5 other prize options for a total of 6 boxes');
+    assert.ok(hero.props.accessibilityLabel.startsWith('Đã nhận: Chúc bạn bình yên.'));
     assert.ok(examples.every(node => node.props.accessibilityLabel.startsWith('Quà ở hộp số')));
     assert.equal(new Set(examples.map(node => node.props.accessibilityLabel)).size, 5);
-    assert.equal(nodes(examples).filter(node => node.type === 'Image' && node.props.source === 180018).length, 1);
-    assert.equal(nodes(received).filter(node => node.type === 'Image' && node.props.source === 180018).length, 0);
     assert.ok(!nodes(tree).some(node => node.type === 'Text' && /Minh họa|không phải kết quả bốc quà/.test(node.props.children)));
-    assert.equal(nodes(grid).filter(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận').length, 1);
-    assert.ok(examples.every(node => node.props.style.at(-1).opacity.outputRange.at(-1) < 1));
+    assert.equal(nodes(tree).filter(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận').length, 1);
     assert.deepEqual(h.calls.opens, [], 'Reviewing the other slots never makes another claim');
-    const details = nodes(grid).filter(node => node.type === 'Button');
-    assert.equal(details.length, 0, 'Reading the fortune needs no extra tap');
-    assert.equal(nodes(grid).filter(node => node.type === 'Text' && node.props.children === 'Chúc bạn bình yên.').length, 1);
+    assert.equal(nodes(fortune).filter(node => node.type === 'Text' && node.props.children === 'Chúc bạn bình yên.').length, 1);
   }
 });
 await test('gift UI gallery remains read-only even if its old callbacks are invoked', async () => {
@@ -388,17 +393,16 @@ await test('the centered reward shows its full fortune immediately, before the l
   const h = modalHarness({ props: { demo: false, initialReceipt: { id: 'saved', box: 2,
     title, description, shortTitle: 'Lời chúc', kind: 'wish' } } });
   const tree = await h.settle();
-  const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
-  assert.equal(nodes(grid).filter(node => node.type === 'Image' && node.props.source === 'gift-open-box.png').length, 6);
-  assert.equal(nodes(grid).filter(node => node.type === 'Image' && node.props.source === 'mascot.png').length, 1);
+  const hero = nodes(tree).find(node => node.props.testID === 'gift-received-2');
+  assert.ok(hero);
   const fortune = nodes(tree).find(node => node.props.testID === 'gift-fortune');
   assert.ok(fortune, 'The complete blessing is already displayed');
   const fullTitle = nodes(fortune).find(node => node.type === 'Text' && node.props.children === title);
   assert.ok(fullTitle); assert.equal(fullTitle.props.numberOfLines, undefined, 'Long blessings are never ellipsized');
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === description));
-  assert.equal(grid.props.children[1], fortune, 'The blessing is directly under the top row and above the other three boxes');
-  assert.equal(nodes(grid.props.children[0])[0].props.testID, 'gift-other-0');
-  assert.equal(grid.props.children[0][1].props.testID, 'gift-received-2');
+  const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
+  assert.ok(grid);
+  assert.equal(nodes(grid).filter(node => /^gift-other-/.test(node.props.testID || '')).length, 5);
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Đóng'));
   assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === 'Xem chi tiết lộc đã nhận'));
   assert.deepEqual(h.calls.opens, [], 'Displaying the existing fortune never claims or opens a new page');
@@ -445,7 +449,6 @@ for (const fontScale of [1, 1.5]) await test(`font scale ${fontScale}: opening c
   let tree = await h.settle();
   const grid = nodes(tree).find(node => node.props.testID === 'gift-chooser-grid');
   const cells = nodes(grid).filter(node => node.type === 'Button');
-  const heights = cells.map(node => node.props.style({ pressed: false })[1].height);
   const scroll = nodes(tree).find(node => node.type === 'Scroll');
   assert.ok(!nodes(scroll).some(node => node.type === 'Text' && node.props.children === 'Hộp quà bí ẩn'), 'The title stays above the scrolling body');
   assert.ok(!nodes(scroll).some(node => node.type === 'Button' && nodes(node).some(child => child.props.children === 'Hãy chọn 1 hộp quà')), 'The action stays below the scrolling body');
@@ -462,13 +465,13 @@ for (const fontScale of [1, 1.5]) await test(`font scale ${fontScale}: opening c
   }
   h.animations.finishNext(); tree = await h.settle();
   h.animations.finishNext(); tree = await h.settle();
-  const results = nodes(tree).find(node => node.props.testID === 'gift-result-grid').props.children.flat().filter(node => /^gift-(received|other)-/.test(node?.props?.testID || ''));
-  assert.deepEqual(results.map(node => node.props.style[1].height), heights, 'All six positions retain exactly the same height');
-  assert.equal(results[1].props.testID, 'gift-received-2');
+  const otherGrid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
+  assert.ok(otherGrid);
+  const otherResults = nodes(otherGrid).filter(node => /^gift-other-/.test(node.props.testID || ''));
+  assert.equal(otherResults.length, 5);
   assert.equal(nodes(tree).filter(node => node.type === 'Text' && node.props.children === 'Lộc của bạn').length, 2, 'Demo gift names and the complete fortune both remain readable');
   const openedScroll = nodes(tree).find(node => node.type === 'Scroll');
   assert.ok(!nodes(openedScroll).some(node => node.type === 'Button' && nodes(node).some(child => child.props.children === 'Đóng')), 'Close remains fixed beneath the scroll area');
-  assert.equal(results.filter(node => /^gift-other-/.test(node.props.testID)).length, 5);
   assert.deepEqual(h.calls.opens, [2], 'Automatic opening of the other lids never grants more gifts');
 });
 await test('an opening error can be retried and the server’s first saved box is used on recovery', async () => {
