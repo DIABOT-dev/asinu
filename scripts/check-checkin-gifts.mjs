@@ -345,12 +345,15 @@ await test('an available gift requires a choice: no skip, close button or Androi
   assert.ok(nodes(tree).some(node => node.props.accessibilityLabel === 'Đóng hộp quà'));
   assert.equal(nodes(tree).find(node => node.type === 'Modal').props.interruptible, true, 'Urgent health dialogs can still interrupt gifts');
 });
-await test('six opened slots show one highlighted saved gift and five quieter gifts without example badges', async () => {
+await test('every selected box reveals its saved gift in the middle, surrounded by five quieter gifts', async () => {
   for (let box = 0; box < 6; box++) {
     const h = modalHarness({ props: { demo: false, initialReceipt: { id: 'saved', box, title: 'Chúc bạn bình yên.' } } });
     const tree = await h.settle();
     const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
     assert.ok(grid);
+    const slots = grid.props.children.flat().filter(node => /^gift-(received|other)-/.test(node?.props?.testID || ''));
+    assert.equal(slots[1].props.testID, `gift-received-${box}`, 'The awarded gift occupies the top-middle position for every selection');
+    assert.equal(new Set(slots.map(node => node.props.testID.split('-').at(-1))).size, 6, 'Moving a gift never duplicates or removes a box');
     const received = nodes(grid).filter(node => /^gift-received-/.test(node.props.testID || ''));
     const examples = nodes(grid).filter(node => /^gift-other-/.test(node.props.testID || ''));
     assert.equal(received.length, 1); assert.equal(received[0].props.testID, `gift-received-${box}`);
@@ -365,9 +368,8 @@ await test('six opened slots show one highlighted saved gift and five quieter gi
     assert.ok(examples.every(node => node.props.style.at(-1).opacity.outputRange.at(-1) < 1));
     assert.deepEqual(h.calls.opens, [], 'Reviewing the other slots never makes another claim');
     const details = nodes(grid).filter(node => node.type === 'Button');
-    assert.equal(details.length, 1, 'Only the received gift has an inline details action');
-    details[0].props.onPress();
-    assert.deepEqual(h.calls.opens, [], 'Opening details never rerolls a prize');
+    assert.equal(details.length, 0, 'Reading the fortune needs no extra tap');
+    assert.equal(nodes(grid).filter(node => node.type === 'Text' && node.props.children === 'Chúc bạn bình yên.').length, 1);
   }
 });
 await test('gift UI gallery remains read-only even if its old callbacks are invoked', async () => {
@@ -380,26 +382,26 @@ await test('gift UI gallery remains read-only even if its old callbacks are invo
   }
   assert.deepEqual(h.calls.opens, []); assert.equal(h.calls.closes, 0);
 });
-await test('the compact dialog shows six opened illustrations and short names, while full text expands only on request', async () => {
+await test('the centered reward shows its full fortune immediately, before the lower row and without verbose filler', async () => {
   const title = 'Chúc bạn luôn bình yên và có một ngày tràn đầy niềm vui bên người thân.';
   const description = 'Một đoạn giải thích dài chỉ cần xem khi người dùng chọn đọc chi tiết.';
   const h = modalHarness({ props: { demo: false, initialReceipt: { id: 'saved', box: 2,
     title, description, shortTitle: 'Lời chúc', kind: 'wish' } } });
-  let tree = await h.settle();
+  const tree = await h.settle();
   const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
   assert.equal(nodes(grid).filter(node => node.type === 'Image' && node.props.source === 'gift-open-box.png').length, 6);
   assert.equal(nodes(grid).filter(node => node.type === 'Image' && node.props.source === 'mascot.png').length, 1);
-  assert.ok(!nodes(tree).some(node => node.type === 'Text' && [title, description].includes(node.props.children)));
-  assert.ok(!nodes(tree).some(node => node.props.testID === 'gift-expanded-details'));
+  const fortune = nodes(tree).find(node => node.props.testID === 'gift-fortune');
+  assert.ok(fortune, 'The complete blessing is already displayed');
+  const fullTitle = nodes(fortune).find(node => node.type === 'Text' && node.props.children === title);
+  assert.ok(fullTitle); assert.equal(fullTitle.props.numberOfLines, undefined, 'Long blessings are never ellipsized');
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === description));
+  assert.equal(grid.props.children[1], fortune, 'The blessing is directly under the top row and above the other three boxes');
+  assert.equal(nodes(grid.props.children[0])[0].props.testID, 'gift-other-0');
+  assert.equal(grid.props.children[0][1].props.testID, 'gift-received-2');
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Đóng'));
-  const read = () => nodes(tree).find(node => node.props.accessibilityLabel === 'Xem chi tiết lộc đã nhận');
-  assert.equal(read().props.accessibilityHint, title);
-  read().props.onPress(); tree = await h.settle();
-  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-expanded-details'));
-  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === title));
-  read().props.onPress(); tree = await h.settle();
-  assert.ok(!nodes(tree).some(node => node.props.testID === 'gift-expanded-details'));
-  assert.deepEqual(h.calls.opens, [], 'Reading the existing receipt never claims or opens a new page');
+  assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === 'Xem chi tiết lộc đã nhận'));
+  assert.deepEqual(h.calls.opens, [], 'Displaying the existing fortune never claims or opens a new page');
 });
 await test('the tapped box opens in its own slot and reveals only after the server and opening animation finish', async () => {
   const h = modalHarness({ automaticAnimation: false, open: async box => ({ id: 'fortune', box, title: 'Một ngày bình yên' }) });
@@ -438,7 +440,7 @@ await test('a delayed gift response waits for success, and reduced motion skips 
   assert.ok(nodes(await h.settle()).some(node => node.type === 'Text' && node.props.children === 'Lộc đã lưu'));
   assert.equal(h.animations.timings.length, 0);
 });
-for (const fontScale of [1, 1.5]) await test(`font scale ${fontScale}: the chosen prize appears in place, then five other lids open without moving the grid or hiding the title`, async () => {
+for (const fontScale of [1, 1.5]) await test(`font scale ${fontScale}: opening centers the reward and full blessing while preserving box sizes, header and close button`, async () => {
   const h = modalHarness({ fontScale, automaticAnimation: false, open: async box => ({ id: 'saved', box, title: 'Lộc của bạn' }) });
   let tree = await h.settle();
   const grid = nodes(tree).find(node => node.props.testID === 'gift-chooser-grid');
@@ -450,7 +452,7 @@ for (const fontScale of [1, 1.5]) await test(`font scale ${fontScale}: the chose
   cells[2].props.onPress(); tree = await h.settle();
   assert.equal(nodes(tree).filter(node => node.props.testID === 'gift-received-2').length, 0);
   h.animations.finishNext(); tree = await h.settle();
-  assert.equal(nodes(tree).filter(node => node.props.testID === 'gift-received-2').length, 1, 'The chosen prize is now visible in its own slot');
+  assert.equal(nodes(tree).filter(node => node.props.testID === 'gift-received-2').length, 1, 'The saved gift appears after the selected lid has opened');
   const otherBoxes = nodes(tree).filter(node => node.type === 'Button' && node.props.accessibilityLabel?.startsWith('Mở hộp'));
   assert.equal(otherBoxes.length, 5);
   for (const node of otherBoxes) {
@@ -460,8 +462,12 @@ for (const fontScale of [1, 1.5]) await test(`font scale ${fontScale}: the chose
   }
   h.animations.finishNext(); tree = await h.settle();
   h.animations.finishNext(); tree = await h.settle();
-  const results = nodes(tree).find(node => node.props.testID === 'gift-result-grid').props.children;
+  const results = nodes(tree).find(node => node.props.testID === 'gift-result-grid').props.children.flat().filter(node => /^gift-(received|other)-/.test(node?.props?.testID || ''));
   assert.deepEqual(results.map(node => node.props.style[1].height), heights, 'All six positions retain exactly the same height');
+  assert.equal(results[1].props.testID, 'gift-received-2');
+  assert.equal(nodes(tree).filter(node => node.type === 'Text' && node.props.children === 'Lộc của bạn').length, 2, 'Demo gift names and the complete fortune both remain readable');
+  const openedScroll = nodes(tree).find(node => node.type === 'Scroll');
+  assert.ok(!nodes(openedScroll).some(node => node.type === 'Button' && nodes(node).some(child => child.props.children === 'Đóng')), 'Close remains fixed beneath the scroll area');
   assert.equal(results.filter(node => /^gift-other-/.test(node.props.testID)).length, 5);
   assert.deepEqual(h.calls.opens, [2], 'Automatic opening of the other lids never grants more gifts');
 });
@@ -616,12 +622,16 @@ function homeHarness(today) {
     const runtime=hooks(), account={profile:{id:'parent'}}, callbacks=[];
     const useAuthStore=select=>select(account);useAuthStore.getState=()=>account;
     const {HomeGiftCard}=evaluate('src/features/checkin-rewards/HomeGiftCard.tsx',{
-      react:runtime,'react-native':{View:'View',Pressable:'Button',AppState:{addEventListener:(_type,cb)=>{callbacks.push(cb);return {remove(){}};}}},
+      react:runtime,'react-native':{View:'View',Pressable:'Button',StyleSheet:{create:s=>s},AppState:{addEventListener:(_type,cb)=>{callbacks.push(cb);return {remove(){}};}}},
       'expo-router':{useFocusEffect:cb=>runtime.useEffect(cb,[cb])},'@expo/vector-icons':{Ionicons:'Icon'},
+      'expo-linear-gradient':{LinearGradient:'View'},'expo-image':{Image:'Image'},
       'react-i18next':{useTranslation:()=>({t:key=>key})},'../../components/ScaledText':{ScaledText:'Text'},
-      '../../hooks/useThemeColors':{useThemeColors:()=>({colors:{}})},'../../hooks/useGuardedRouter':{useGuardedRouter:()=>({push(){}})},
+      '../../hooks/useThemeColors':{useThemeColors:()=>({colors:{},isDark:false})},'../../hooks/useGuardedRouter':{useGuardedRouter:()=>({push(){}})},
       '../auth/auth.store':{useAuthStore},'./CheckinGiftFlow':{CheckinGiftFlow:'Gift'},
       './checkin-gifts.api':{checkinGiftsApi:{today}},
+      '../../../assets/images/rewards/daily_clover.png':1001,
+      '../../../assets/images/rewards/daily_gift_hero.png':1002,
+      '../../../assets/images/rewards/daily_chest.png':1003,
     });
     const render=()=>{const root=HomeGiftCard();return root.type(root.props);};
     return { account, callbacks, settle: () => runtime.settle(render) };
@@ -697,9 +707,7 @@ await test('ticket prize details still require a server ticket and never mean th
   const selected = nodes(normalTree).find(node => node.props.testID === 'gift-received-0');
   assert.ok(!nodes(selected).some(node => node.type === 'Image' && node.props.source === 180018));
   const shown=modalHarness({props:{demo:false,initialReceipt:receipt}});
-  let shownTree = await shown.settle();
-  nodes(shownTree).find(node => node.props.accessibilityLabel === 'Xem chi tiết lộc đã nhận').props.onPress();
-  shownTree = await shown.settle();
+  const shownTree = await shown.settle();
   const details = nodes(shownTree).find(node => node.props.testID === 'gift-prize-details');
   assert.ok(nodes(details).some(node=>node.type==='Image'&&node.props.source===180018));
 });

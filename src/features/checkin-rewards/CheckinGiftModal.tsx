@@ -92,8 +92,8 @@ export function CheckinGiftModal({
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<CheckinGiftReceipt | null>(initialReceipt);
   const [othersOpened, setOthersOpened] = useState(Boolean(initialReceipt));
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [error, setError] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
   const requestActive = useRef(false);
   const generation = useRef(0);
   const reduceMotion = useRef(true);
@@ -110,7 +110,6 @@ export function CheckinGiftModal({
     setSelected(initialReceipt?.box ?? null);
     setReceipt(initialReceipt ?? null);
     setOthersOpened(Boolean(initialReceipt));
-    setDetailsExpanded(false);
     setError(false);
     lid.setValue(initialReceipt ? 1 : 0);
     reveal.setValue(initialReceipt ? 1 : 0);
@@ -130,6 +129,11 @@ export function CheckinGiftModal({
       subscription.remove();
     };
   }, []);
+
+  useEffect(() => {
+    // A box chosen in the lower row must still reveal the centered fortune.
+    if (receipt) {scrollRef.current?.scrollTo({ y: 0, animated: false });}
+  }, [receipt]);
 
   const animateOpening = () => {
     if (reduceMotion.current) {
@@ -307,6 +311,74 @@ export function CheckinGiftModal({
     );
   };
 
+  // Preserve the saved box identity, while placing its reveal in the middle.
+  const displayBoxes: number[] = [...boxes];
+  if (receipt) {
+    const receivedBox = selected ?? 0;
+    [displayBoxes[1], displayBoxes[receivedBox]] = [displayBoxes[receivedBox], displayBoxes[1]];
+  }
+  const renderBox = (box: number) => {
+    const chosen = box === (receipt ? selected ?? 0 : selected);
+    if (!receipt || (!chosen && !othersOpened)) {
+      return <Pressable key={box}
+        onPress={() => { openBox(box); }}
+        disabled={readOnly || busy || !!receipt}
+        accessibilityRole="button"
+        accessibilityLabel={t('checkinGift.box', { number: box + 1 })}
+        accessibilityState={{ disabled: readOnly || busy || !!receipt, selected: chosen, busy: busy && (chosen || !!receipt) }}
+        style={({ pressed }) => [styles.box, {
+          height: cellHeight,
+          borderColor: chosen ? primaryBrand : 'transparent',
+          zIndex: isOpening && chosen ? 2 : 0,
+        }, pressed && styles.pressed, busy && !chosen && styles.muted]}>
+        {boxArtwork(box, boxWidth, receipt ? !othersOpened : isOpening && chosen, receipt ? otherLid : lid, !receipt)}
+      </Pressable>;
+    }
+    const other = chosen ? null : otherRewards[(box - (selected ?? 0) + 6) % 6 - 1];
+    const label = chosen
+        ? receipt.shortTitle || (demo ? receipt.title : t(receipt.kind === 'ticket' ? 'checkinGift.previewTicket'
+          : receipt.kind === 'coupon' ? 'checkinGift.couponLabel' : receipt.kind === 'proverb' ? 'checkinGift.previewProverb'
+          : receipt.kind === 'health_tip' ? 'checkinGift.previewTip' : 'checkinGift.previewWish'))
+        : t(other!.labelKey);
+    return <Animated.View key={box}
+      testID={chosen ? `gift-received-${box}` : `gift-other-${box}`}
+      accessible={!chosen}
+      accessibilityLabel={`${chosen ? t('checkinGift.selectedReward') : t('checkinGift.otherReward', { number: box + 1 })}: ${chosen ? receipt.title : label}`}
+      style={[styles.resultBox, {
+        height: cellHeight,
+        zIndex: chosen ? 1 : 0,
+        opacity: chosen ? reveal : othersReveal.interpolate({ inputRange: [0, 1], outputRange: [0, 0.62] }),
+        transform: [
+          { perspective: 600 },
+          { scale: (chosen ? reveal : othersReveal).interpolate({ inputRange: [0, 1], outputRange: [chosen ? 0.8 : 0.96, chosen ? 1.06 : 1] }) },
+        ],
+      }]}>
+      <View style={[styles.resultBoxArt, { width: boxWidth + 12, height: boxWidth + 24 }]} testID={chosen ? `gift-box-art-${box}` : undefined}>
+        {chosen && <View style={[styles.selectedAura, { backgroundColor: isDark ? colors.primaryLight : '#fff3c7' }]} />}
+        <Image source={openGiftImage} contentFit="contain" style={styles.openBoxImage} accessible={false} />
+        <View style={styles.rewardInside}>
+        {other?.labelKey === 'checkinGift.previewPhone'
+          ? <Image source={previewPhoneImage} contentFit="contain" style={styles.previewPhone} accessible={false} />
+          : chosen && !receipt.rulesPeriod
+            ? <Image source={mascotImage} contentFit="contain" style={styles.receivedMascot} accessible={false} />
+            : <Ionicons name={chosen ? 'ticket' : other!.icon}
+                size={30} color={primaryBrand} />}
+        </View>
+      </View>
+      <View style={[styles.rewardLabel, { backgroundColor: isDark ? colors.surface : '#f4fbfa' }]}>
+      <Text numberOfLines={2} style={[styles.resultBoxTitle, { color: chosen ? colors.primaryText : colors.textPrimary }]}>
+        {label}
+      </Text>
+      </View>
+      <View style={styles.badgeSlot}>
+        {chosen && <View style={[styles.receivedBadge, { backgroundColor: colors.primaryLight }]}>
+          <Ionicons name="checkmark-circle" size={14} color={primaryBrand} />
+          <Text style={[styles.resultBoxBadge, { color: colors.primaryText }]}>{t('checkinGift.receivedBadge')}</Text>
+        </View>}
+      </View>
+    </Animated.View>;
+  };
+
   const content = (
     <View accessibilityViewIsModal style={[styles.sheet, {
       backgroundColor: colors.surface,
@@ -330,102 +402,43 @@ export function CheckinGiftModal({
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
           {t('checkinGift.title')}
         </Text>
-        <Text style={[styles.subtitle, { color: subInk }]}>
-          {receipt ? '' : t(isOpening ? 'checkinGift.openingBox' : 'checkinGift.choose', { number: (selected ?? 0) + 1 })}
-        </Text>
+        {!receipt && <Text style={[styles.subtitle, { color: subInk }]}>
+          {t(isOpening ? 'checkinGift.openingBox' : 'checkinGift.choose', { number: (selected ?? 0) + 1 })}
+        </Text>}
       </View>
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}
+      <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content} bounces={false}>
         {notice && <Text style={[styles.notice, { color: colors.warning, backgroundColor: colors.surfaceMuted }]}>
           {notice}
         </Text>}
         <View style={styles.grid} testID={receipt ? 'gift-result-grid' : 'gift-chooser-grid'}>
-          {boxes.map(box => {
-            const chosen = box === (receipt ? selected ?? 0 : selected);
-            if (!receipt || (!chosen && !othersOpened)) {
-              return <Pressable key={box}
-                onPress={() => { openBox(box); }}
-                disabled={readOnly || busy || !!receipt}
-                accessibilityRole="button"
-                accessibilityLabel={t('checkinGift.box', { number: box + 1 })}
-                accessibilityState={{ disabled: readOnly || busy || !!receipt, selected: chosen, busy: busy && (chosen || !!receipt) }}
-                style={({ pressed }) => [styles.box, {
-                  height: cellHeight,
-                  borderColor: chosen ? primaryBrand : 'transparent',
-                  zIndex: isOpening && chosen ? 2 : 0,
-                }, pressed && styles.pressed, busy && !chosen && styles.muted]}>
-                {boxArtwork(box, boxWidth, receipt ? !othersOpened : isOpening && chosen, receipt ? otherLid : lid, !receipt)}
-              </Pressable>;
-            }
-            const other = chosen ? null : otherRewards[(box - (selected ?? 0) + 6) % 6 - 1];
-            const label = chosen ? receipt.shortTitle || receipt.title : t(other!.labelKey);
-            return <Animated.View key={box}
-              testID={chosen ? `gift-received-${box}` : `gift-other-${box}`}
-              accessible={!chosen}
-              accessibilityLabel={`${chosen ? t('checkinGift.selectedReward') : t('checkinGift.otherReward', { number: box + 1 })}: ${chosen ? receipt.title : label}`}
-              style={[styles.resultBox, {
-                height: cellHeight,
-                zIndex: chosen ? 1 : 0,
-                opacity: chosen ? reveal : othersReveal.interpolate({ inputRange: [0, 1], outputRange: [0, 0.62] }),
-                transform: [
-                  { perspective: 600 },
-                  { scale: (chosen ? reveal : othersReveal).interpolate({ inputRange: [0, 1], outputRange: [chosen ? 0.8 : 0.96, chosen ? 1.06 : 1] }) },
-                ],
-              }]}>
-              <View style={[styles.resultBoxArt, { width: boxWidth + 12, height: boxWidth + 24 }]} testID={chosen ? `gift-box-art-${box}` : undefined}>
-                {chosen && <View style={[styles.selectedAura, { backgroundColor: isDark ? colors.primaryLight : '#fff3c7' }]} />}
-                <Image source={openGiftImage} contentFit="contain" style={styles.openBoxImage} accessible={false} />
-                <View style={styles.rewardInside}>
-                {other?.labelKey === 'checkinGift.previewPhone'
-                  ? <Image source={previewPhoneImage} contentFit="contain" style={styles.previewPhone} accessible={false} />
-                  : chosen && !receipt.rulesPeriod
-                    ? <Image source={mascotImage} contentFit="contain" style={styles.receivedMascot} accessible={false} />
-                    : <Ionicons name={chosen ? 'ticket' : other!.icon}
-                        size={30} color={primaryBrand} />}
-                </View>
-              </View>
-              <View style={[styles.rewardLabel, { backgroundColor: isDark ? colors.surface : '#f4fbfa' }]}>
-              <Text numberOfLines={2} style={[styles.resultBoxTitle, { color: chosen ? colors.primaryText : colors.textPrimary }]}>
-                {label}
+          {displayBoxes.slice(0, 3).map(renderBox)}
+          {receipt && <Animated.View style={[styles.result, { opacity: reveal }]} accessibilityLiveRegion="polite" testID="gift-fortune">
+            <Text style={[styles.prizeTitle, { color: colors.primaryText, fontStyle: receipt.serif ? 'italic' : 'normal' }]}>
+              {receipt.title}
+            </Text>
+            {!!receipt.description && (demo || !!receipt.rulesPeriod || receipt.kind === 'coupon') && <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
+              {receipt.description}
+            </Text>}
+            {!!receipt.prizeImage && !!receipt.rulesPeriod && <View style={styles.prizeDetails} testID="gift-prize-details">
+              <Image source={receipt.prizeImage} contentFit="contain" style={styles.prizeBadgeImage} accessible={false} />
+              <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
+                {t('checkinGift.drawPrize', { prize: receipt.drawPrize })}
               </Text>
-              </View>
-              <View style={styles.badgeSlot}>
-                {chosen && <Pressable accessibilityRole="button" accessibilityLabel={t('checkinGift.readGift')}
-                  accessibilityHint={receipt.title}
-                  accessibilityState={{ expanded: detailsExpanded, disabled: readOnly || busy }} disabled={readOnly || busy}
-                  onPress={() => { if (!readOnly && !busy) { setDetailsExpanded(value => !value); } }}
-                  style={[styles.receivedBadge, { backgroundColor: colors.primaryLight }]}>
-                  <Ionicons name="checkmark-circle" size={14} color={primaryBrand} />
-                  <Text style={[styles.resultBoxBadge, { color: colors.primaryText }]}>{t('checkinGift.receivedBadge')}</Text>
-                  <Ionicons name={detailsExpanded ? 'chevron-up' : 'chevron-down'} size={12} color={primaryBrand} />
-                </Pressable>}
-              </View>
-            </Animated.View>;
-          })}
+            </View>}
+            {!!receipt.rulesPeriod && <Pressable accessibilityRole="button" disabled={readOnly || busy}
+              onPress={() => onRules?.(receipt.rulesPeriod!)} style={styles.rulesButton}>
+              <Text style={[styles.rulesText, { color: primaryBrand }]}>{t('checkinGift.rules')}</Text>
+            </Pressable>}
+            {demo && <Text style={[styles.saved, { color: colors.textSecondary }]}>{t('checkinGift.demoSaved')}</Text>}
+          </Animated.View>}
+          {displayBoxes.slice(3).map(renderBox)}
         </View>
         {isOpening && <View style={styles.openingStatus} accessibilityLiveRegion="polite">
           <ActivityIndicator color={primaryBrand} />
           <Text style={{ color: subInk, fontSize: 16 }}>{t('checkinGift.openingBox', { number: selected + 1 })}</Text>
         </View>}
-        {receipt && detailsExpanded && <Animated.View style={[styles.result, { opacity: reveal }]} accessibilityLiveRegion="polite" testID="gift-expanded-details">
-          <Text style={[styles.prizeTitle, { color: colors.primaryText, fontStyle: receipt.serif ? 'italic' : 'normal' }]}>
-            {receipt.title}
-          </Text>
-          {!!receipt.description && <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
-            {receipt.description}
-          </Text>}
-          {!!receipt.prizeImage && !!receipt.rulesPeriod && <View style={styles.prizeDetails} testID="gift-prize-details">
-            <Image source={receipt.prizeImage} contentFit="contain" style={styles.prizeBadgeImage} accessible={false} />
-            <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
-              {t('checkinGift.drawPrize', { prize: receipt.drawPrize })}
-            </Text>
-          </View>}
-          {!!receipt.rulesPeriod && <Pressable accessibilityRole="button" disabled={readOnly || busy}
-            onPress={() => onRules?.(receipt.rulesPeriod!)} style={styles.rulesButton}>
-            <Text style={[styles.rulesText, { color: primaryBrand }]}>{t('checkinGift.rules')}</Text>
-          </Pressable>}
-          {demo && <Text style={[styles.saved, { color: colors.textSecondary }]}>{t('checkinGift.demoSaved')}</Text>}
-        </Animated.View>}
+
         {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.error, { color: colors.danger }]}>
           {t('checkinGift.error')}
         </Text>}
@@ -576,7 +589,8 @@ const styles = StyleSheet.create({
   result: {
     width: '100%',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     gap: 10,
   },
   resultBox: {
@@ -613,8 +627,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   prizeTitle: {
-    fontSize: 19,
-    lineHeight: 28,
+    fontSize: 20,
+    lineHeight: 30,
     fontWeight: '700',
     textAlign: 'center',
   },
