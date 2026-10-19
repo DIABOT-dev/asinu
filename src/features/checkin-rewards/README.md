@@ -27,7 +27,10 @@ The chosen illustration shakes and its actual lid crop lifts away; the saved
 fortune appears in that slot, then the other five lids open automatically.
 Exactly one slot is marked Received and stays bright. The remaining slots show
 the gift collection at lower emphasis without Example badges. They do not make
-another claim. The fixed header/footer remain outside the scrolling content,
+another claim. Opened boxes use the bundled transparent 3D artwork. The default
+view has only short prize names, the Received badge and Close; long fortune and
+ticket details expand inline when the received badge is tapped. They never open
+another page or issue a new claim. The fixed header/footer remain outside the scrolling content,
 and card heights remain stable before and after opening at larger text sizes.
 Reduced Motion skips the sequence and shows the saved result immediately. Actual
 ticket prize details still require a server-issued ticket or enabled draw period.

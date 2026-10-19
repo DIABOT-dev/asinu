@@ -18,7 +18,7 @@
     "close": "Close gift boxes",
     "received": "A gift for you",
     "saved": "Your gift has been saved. See you at tomorrow's check-in!",
-    "done": "Wonderful",
+    "done": "Close",
     "error": "We couldn't process your gift. Please try again.",
     "demoLabel": "Demo gift",
     "demoTitle": "Try a gift",
@@ -66,7 +66,10 @@
     "resultsPending": "Results have not been published yet.",
     "publicResults": "Open the public results page",
     "receiptUnavailable": "This fortune could not load, or you no longer have access.",
-    "otherReward": "Gift in box {{number}}"
+    "otherReward": "Gift in box {{number}}",
+    "receivedBadge": "Received",
+    "readGift": "Read your fortune",
+    "couponLabel": "Coupon"
   },
   "greeting": "Hello,",
   "defaultName": "Caregiver",

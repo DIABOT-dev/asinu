@@ -18,7 +18,7 @@
     "close": "Đóng hộp quà",
     "received": "Quà dành cho bạn",
     "saved": "Quà đã được lưu. Hẹn bạn check-in vào ngày mai!",
-    "done": "Tuyệt quá",
+    "done": "Đóng",
     "error": "Chưa thể xử lý lượt nhận quà. Bạn thử lại nhé.",
     "demoLabel": "Quà thử nghiệm",
     "demoTitle": "Mở quà thử",
@@ -66,7 +66,10 @@
     "resultsPending": "Kết quả chưa được công bố.",
     "publicResults": "Xem trang kết quả công khai",
     "receiptUnavailable": "Lộc này chưa tải được hoặc bạn không còn quyền xem.",
-    "otherReward": "Quà ở hộp số {{number}}"
+    "otherReward": "Quà ở hộp số {{number}}",
+    "receivedBadge": "Bạn đã nhận",
+    "readGift": "Xem chi tiết lộc đã nhận",
+    "couponLabel": "Phiếu ưu đãi"
   },
   "greeting": "Xin chào,",
   "defaultName": "Người chăm sóc",

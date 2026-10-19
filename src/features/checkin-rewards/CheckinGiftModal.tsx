@@ -20,6 +20,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useScaledFontSize } from '../../hooks/useScaledTypography';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
+const openGiftImage = require('../../../assets/images/rewards/gift-open-box.png');
+const mascotImage = require('../../../assets/asinu_chat_sticker.png');
 const previewPhoneImage = require('../../../assets/iphone-18-pro-01_5-1.webp');
 
 // The other slots show the gift collection; only the chosen receipt is awarded.
@@ -46,6 +48,8 @@ export type CheckinGiftReceipt = {
   id: string;
   box?: number | null;
   title: string;
+  shortTitle?: string;
+  kind?: 'wish' | 'proverb' | 'health_tip' | 'ticket' | 'coupon';
   description?: string | null;
   serif?: boolean;
   prizeImage?: any;
@@ -88,6 +92,7 @@ export function CheckinGiftModal({
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<CheckinGiftReceipt | null>(initialReceipt);
   const [othersOpened, setOthersOpened] = useState(Boolean(initialReceipt));
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [error, setError] = useState(false);
   const requestActive = useRef(false);
   const generation = useRef(0);
@@ -105,6 +110,7 @@ export function CheckinGiftModal({
     setSelected(initialReceipt?.box ?? null);
     setReceipt(initialReceipt ?? null);
     setOthersOpened(Boolean(initialReceipt));
+    setDetailsExpanded(false);
     setError(false);
     lid.setValue(initialReceipt ? 1 : 0);
     reveal.setValue(initialReceipt ? 1 : 0);
@@ -216,7 +222,7 @@ export function CheckinGiftModal({
   const primaryBrand = isDark ? colors.primary : '#21c4a2';
   const sheetWidth = Math.min(width - 32, 500);
   const boxWidth = (sheetWidth - 36) * 0.315 - 8;
-  const cellHeight = Math.max(164, Math.ceil(84 + cardFontSize * 1.6 * 4));
+  const cellHeight = Math.max(192, Math.ceil(boxWidth + 44 + cardFontSize * 6));
   const isOpening = busy && !receipt && selected !== null;
 
   // Split the existing illustration into real lid/body crops while opening.
@@ -320,11 +326,12 @@ export function CheckinGiftModal({
         <Ionicons name="close" size={26} color={closeColor} />
       </Pressable>}
       <View style={styles.header}>
+        <Image source={giftImage} style={styles.headerGift} contentFit="contain" accessible={false} />
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
           {t('checkinGift.title')}
         </Text>
         <Text style={[styles.subtitle, { color: subInk }]}>
-          {t(receipt ? 'checkinGift.openedToday' : isOpening ? 'checkinGift.openingBox' : 'checkinGift.choose', { number: (selected ?? 0) + 1 })}
+          {receipt ? '' : t(isOpening ? 'checkinGift.openingBox' : 'checkinGift.choose', { number: (selected ?? 0) + 1 })}
         </Text>
       </View>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}
@@ -351,35 +358,48 @@ export function CheckinGiftModal({
               </Pressable>;
             }
             const other = chosen ? null : otherRewards[(box - (selected ?? 0) + 6) % 6 - 1];
-            const label = chosen ? receipt.title : t(other!.labelKey);
+            const label = chosen ? receipt.shortTitle || receipt.title : t(other!.labelKey);
             return <Animated.View key={box}
               testID={chosen ? `gift-received-${box}` : `gift-other-${box}`}
-              accessible
-              accessibilityLabel={`${chosen ? t('checkinGift.selectedReward') : t('checkinGift.otherReward', { number: box + 1 })}: ${label}`}
+              accessible={!chosen}
+              accessibilityLabel={`${chosen ? t('checkinGift.selectedReward') : t('checkinGift.otherReward', { number: box + 1 })}: ${chosen ? receipt.title : label}`}
               style={[styles.resultBox, {
                 height: cellHeight,
-                backgroundColor: chosen ? colors.primaryLight : colors.surfaceMuted,
-                borderColor: chosen ? primaryBrand : 'transparent',
+                zIndex: chosen ? 1 : 0,
                 opacity: chosen ? reveal : othersReveal.interpolate({ inputRange: [0, 1], outputRange: [0, 0.62] }),
                 transform: [
                   { perspective: 600 },
-                  { scale: (chosen ? reveal : othersReveal).interpolate({ inputRange: [0, 1], outputRange: [chosen ? 0.8 : 0.96, 1] }) },
+                  { scale: (chosen ? reveal : othersReveal).interpolate({ inputRange: [0, 1], outputRange: [chosen ? 0.8 : 0.96, chosen ? 1.06 : 1] }) },
                 ],
               }]}>
-              <View style={styles.badgeSlot}>
-                {chosen && <Text style={[styles.resultBoxBadge, { color: colors.primaryText }]}>
-                  {t('checkinGift.selectedReward')}
-                </Text>}
-              </View>
-              <View style={styles.resultBoxArt} testID={chosen ? `gift-box-art-${box}` : undefined}>
+              <View style={[styles.resultBoxArt, { width: boxWidth + 12, height: boxWidth + 24 }]} testID={chosen ? `gift-box-art-${box}` : undefined}>
+                {chosen && <View style={[styles.selectedAura, { backgroundColor: isDark ? colors.primaryLight : '#fff3c7' }]} />}
+                <Image source={openGiftImage} contentFit="contain" style={styles.openBoxImage} accessible={false} />
+                <View style={styles.rewardInside}>
                 {other?.labelKey === 'checkinGift.previewPhone'
                   ? <Image source={previewPhoneImage} contentFit="contain" style={styles.previewPhone} accessible={false} />
-                  : <Ionicons name={chosen ? (receipt.rulesPeriod ? 'ticket' : 'gift') : other!.icon}
-                      size={34} color={chosen ? primaryBrand : colors.primaryText} />}
+                  : chosen && !receipt.rulesPeriod
+                    ? <Image source={mascotImage} contentFit="contain" style={styles.receivedMascot} accessible={false} />
+                    : <Ionicons name={chosen ? 'ticket' : other!.icon}
+                        size={30} color={primaryBrand} />}
+                </View>
               </View>
-              <Text numberOfLines={3} style={[styles.resultBoxTitle, { color: chosen ? colors.primaryText : colors.textPrimary }]}>
+              <View style={[styles.rewardLabel, { backgroundColor: isDark ? colors.surface : '#f4fbfa' }]}>
+              <Text numberOfLines={2} style={[styles.resultBoxTitle, { color: chosen ? colors.primaryText : colors.textPrimary }]}>
                 {label}
               </Text>
+              </View>
+              <View style={styles.badgeSlot}>
+                {chosen && <Pressable accessibilityRole="button" accessibilityLabel={t('checkinGift.readGift')}
+                  accessibilityHint={receipt.title}
+                  accessibilityState={{ expanded: detailsExpanded, disabled: readOnly || busy }} disabled={readOnly || busy}
+                  onPress={() => { if (!readOnly && !busy) { setDetailsExpanded(value => !value); } }}
+                  style={[styles.receivedBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="checkmark-circle" size={14} color={primaryBrand} />
+                  <Text style={[styles.resultBoxBadge, { color: colors.primaryText }]}>{t('checkinGift.receivedBadge')}</Text>
+                  <Ionicons name={detailsExpanded ? 'chevron-up' : 'chevron-down'} size={12} color={primaryBrand} />
+                </Pressable>}
+              </View>
             </Animated.View>;
           })}
         </View>
@@ -387,7 +407,7 @@ export function CheckinGiftModal({
           <ActivityIndicator color={primaryBrand} />
           <Text style={{ color: subInk, fontSize: 16 }}>{t('checkinGift.openingBox', { number: selected + 1 })}</Text>
         </View>}
-        {receipt && <Animated.View style={[styles.result, { opacity: reveal }]} accessibilityLiveRegion="polite">
+        {receipt && detailsExpanded && <Animated.View style={[styles.result, { opacity: reveal }]} accessibilityLiveRegion="polite" testID="gift-expanded-details">
           <Text style={[styles.prizeTitle, { color: colors.primaryText, fontStyle: receipt.serif ? 'italic' : 'normal' }]}>
             {receipt.title}
           </Text>
@@ -404,9 +424,7 @@ export function CheckinGiftModal({
             onPress={() => onRules?.(receipt.rulesPeriod!)} style={styles.rulesButton}>
             <Text style={[styles.rulesText, { color: primaryBrand }]}>{t('checkinGift.rules')}</Text>
           </Pressable>}
-          <Text style={[styles.saved, { color: colors.textSecondary }]}>
-            {t(demo ? 'checkinGift.demoSaved' : 'checkinGift.saved')}
-          </Text>
+          {demo && <Text style={[styles.saved, { color: colors.textSecondary }]}>{t('checkinGift.demoSaved')}</Text>}
         </Animated.View>}
         {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.error, { color: colors.danger }]}>
           {t('checkinGift.error')}
@@ -489,9 +507,10 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   header: { paddingHorizontal: 44, paddingTop: 12, flexShrink: 0 },
+  headerGift: { width: 40, height: 40, alignSelf: 'center', marginBottom: 2 },
   scroll: { flexShrink: 1 },
   footer: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 18, flexShrink: 0 },
-  badgeSlot: { minHeight: 24, justifyContent: 'center' },
+  badgeSlot: { minHeight: 44, width: '100%', justifyContent: 'center' },
   title: {
     fontSize: 27,
     fontWeight: '800',
@@ -503,7 +522,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '500',
     textAlign: 'center',
-    marginBottom: 20,
+    minHeight: 24,
+    marginBottom: 8,
   },
   notice: {
     fontSize: 16,
@@ -562,24 +582,30 @@ const styles = StyleSheet.create({
   resultBox: {
     width: '31.5%',
     minHeight: 164,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 2,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
   },
   resultBoxBadge: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
+    flexShrink: 1,
   },
   resultBoxArt: {
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  previewPhone: { width: 56, height: 56 },
+  openBoxImage: { width: '100%', height: '100%', position: 'absolute' },
+  rewardInside: { position: 'absolute', left: '40%', right: '7%', top: '31%', bottom: '29%', alignItems: 'center', justifyContent: 'center' },
+  receivedMascot: { width: 58, height: 64 },
+  selectedAura: { position: 'absolute', width: '112%', height: '76%', top: '20%', borderRadius: 999, opacity: 0.45 },
+  receivedBadge: { minHeight: 44, borderRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 4, gap: 2 },
+  rewardLabel: { width: '100%', minHeight: 28, borderRadius: 10, paddingHorizontal: 3, paddingVertical: 3, alignItems: 'center', justifyContent: 'center' },
+  previewPhone: { width: 36, height: 44 },
   resultBoxTitle: {
     fontSize: 14,
     lineHeight: 20,

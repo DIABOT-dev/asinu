@@ -91,6 +91,9 @@ function AccountGiftFlow({
     id: value.id,
     box: value.box,
     title: value.loc?.text || '',
+    kind: value.extra === 'ticket' ? 'ticket' : value.extra === 'coupon' ? 'coupon' : value.loc?.type,
+    shortTitle: t(value.extra === 'ticket' ? 'checkinGift.previewTicket' : value.extra === 'coupon' ? 'checkinGift.couponLabel'
+      : value.loc?.type === 'proverb' ? 'checkinGift.previewProverb' : value.loc?.type === 'health_tip' ? 'checkinGift.previewTip' : 'checkinGift.previewWish'),
     serif: value.loc?.serif || value.loc?.type === 'proverb',
     description:
       value.extra === 'ticket' && value.ticket

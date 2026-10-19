@@ -296,6 +296,8 @@ function modalHarness(options = {}) {
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
     '../../hooks/useScaledTypography': { useScaledFontSize: size => size * (options.fontScale ?? 1) },
     '../../../assets/images/rewards/checkin-gift.png': 'gift.png',
+    '../../../assets/images/rewards/gift-open-box.png': 'gift-open-box.png',
+    '../../../assets/asinu_chat_sticker.png': 'mascot.png',
     '../../../assets/images/rewards/box_opening_stage.png': 'box_opening_stage.png',
     '../../../assets/iphone-18-pro-01_5-1.webp': 180018,
     ...Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`../../../assets/images/rewards/box_${i + 1}.png`, `box_${i + 1}.png`])),
@@ -338,7 +340,7 @@ await test('an available gift requires a choice: no skip, close button or Androi
   assert.equal(h.calls.closes, 0, 'An unsuccessful save does not consume or bypass the choice');
   assert.ok(choose(tree)); failed = false;
   choose(tree).props.onPress(); tree = await h.settle();
-  const done = nodes(tree).find(node => node.type === 'Button' && nodes(node).some(child => child.type === 'Text' && child.props.children === 'Tuyệt quá'));
+  const done = nodes(tree).find(node => node.type === 'Button' && nodes(node).some(child => child.type === 'Text' && child.props.children === 'Đóng'));
   assert.equal(done.props.disabled, false); done.props.onPress(); assert.equal(h.calls.closes, 1);
   assert.ok(nodes(tree).some(node => node.props.accessibilityLabel === 'Đóng hộp quà'));
   assert.equal(nodes(tree).find(node => node.type === 'Modal').props.interruptible, true, 'Urgent health dialogs can still interrupt gifts');
@@ -359,10 +361,13 @@ await test('six opened slots show one highlighted saved gift and five quieter gi
     assert.equal(nodes(examples).filter(node => node.type === 'Image' && node.props.source === 180018).length, 1);
     assert.equal(nodes(received).filter(node => node.type === 'Image' && node.props.source === 180018).length, 0);
     assert.ok(!nodes(tree).some(node => node.type === 'Text' && /Minh họa|không phải kết quả bốc quà/.test(node.props.children)));
-    assert.equal(nodes(grid).filter(node => node.type === 'Text' && node.props.children === 'Đã nhận').length, 1);
+    assert.equal(nodes(grid).filter(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận').length, 1);
     assert.ok(examples.every(node => node.props.style.at(-1).opacity.outputRange.at(-1) < 1));
     assert.deepEqual(h.calls.opens, [], 'Reviewing the other slots never makes another claim');
-    assert.equal(nodes(grid).some(node => node.type === 'Button'), false, 'Revealed boxes cannot be selected again');
+    const details = nodes(grid).filter(node => node.type === 'Button');
+    assert.equal(details.length, 1, 'Only the received gift has an inline details action');
+    details[0].props.onPress();
+    assert.deepEqual(h.calls.opens, [], 'Opening details never rerolls a prize');
   }
 });
 await test('gift UI gallery remains read-only even if its old callbacks are invoked', async () => {
@@ -374,6 +379,27 @@ await test('gift UI gallery remains read-only even if its old callbacks are invo
     await node.props.onPress?.();
   }
   assert.deepEqual(h.calls.opens, []); assert.equal(h.calls.closes, 0);
+});
+await test('the compact dialog shows six opened illustrations and short names, while full text expands only on request', async () => {
+  const title = 'Chúc bạn luôn bình yên và có một ngày tràn đầy niềm vui bên người thân.';
+  const description = 'Một đoạn giải thích dài chỉ cần xem khi người dùng chọn đọc chi tiết.';
+  const h = modalHarness({ props: { demo: false, initialReceipt: { id: 'saved', box: 2,
+    title, description, shortTitle: 'Lời chúc', kind: 'wish' } } });
+  let tree = await h.settle();
+  const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
+  assert.equal(nodes(grid).filter(node => node.type === 'Image' && node.props.source === 'gift-open-box.png').length, 6);
+  assert.equal(nodes(grid).filter(node => node.type === 'Image' && node.props.source === 'mascot.png').length, 1);
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && [title, description].includes(node.props.children)));
+  assert.ok(!nodes(tree).some(node => node.props.testID === 'gift-expanded-details'));
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Đóng'));
+  const read = () => nodes(tree).find(node => node.props.accessibilityLabel === 'Xem chi tiết lộc đã nhận');
+  assert.equal(read().props.accessibilityHint, title);
+  read().props.onPress(); tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-expanded-details'));
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === title));
+  read().props.onPress(); tree = await h.settle();
+  assert.ok(!nodes(tree).some(node => node.props.testID === 'gift-expanded-details'));
+  assert.deepEqual(h.calls.opens, [], 'Reading the existing receipt never claims or opens a new page');
 });
 await test('the tapped box opens in its own slot and reveals only after the server and opening animation finish', async () => {
   const h = modalHarness({ automaticAnimation: false, open: async box => ({ id: 'fortune', box, title: 'Một ngày bình yên' }) });
@@ -395,7 +421,7 @@ await test('the tapped box opens in its own slot and reveals only after the serv
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Một ngày bình yên'));
   assert.ok(nodes(tree).some(node => node.props.testID === 'gift-box-art-4'));
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Chọn 1 hộp quà để mở'));
-  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận lộc hôm nay'));
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận'));
   assert.ok(h.animations.timings.every(config => config.useNativeDriver));
   h.props.visible = false; await h.settle(); h.props.visible = true; tree = await h.settle();
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Một ngày bình yên'));
@@ -671,7 +697,10 @@ await test('ticket prize details still require a server ticket and never mean th
   const selected = nodes(normalTree).find(node => node.props.testID === 'gift-received-0');
   assert.ok(!nodes(selected).some(node => node.type === 'Image' && node.props.source === 180018));
   const shown=modalHarness({props:{demo:false,initialReceipt:receipt}});
-  const details = nodes(await shown.settle()).find(node => node.props.testID === 'gift-prize-details');
+  let shownTree = await shown.settle();
+  nodes(shownTree).find(node => node.props.accessibilityLabel === 'Xem chi tiết lộc đã nhận').props.onPress();
+  shownTree = await shown.settle();
+  const details = nodes(shownTree).find(node => node.props.testID === 'gift-prize-details');
   assert.ok(nodes(details).some(node=>node.type==='Image'&&node.props.source===180018));
 });
 console.log(`Check-in gifts: ${count} runtime regressions passed.`);
