@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QueuedModal } from '../../components/QueuedModal';
 import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { useScaledFontSize } from '../../hooks/useScaledTypography';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
 const giftMascot = require('../../../assets/asinu_chat_sticker.png');
@@ -95,13 +94,16 @@ export function CheckinGiftModal({
   const { colors, isDark } = useThemeColors();
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
-  const cardFontSize = useScaledFontSize(14);
   const [selected, setSelected] = useState<number | null>(initialReceipt?.box ?? null);
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<CheckinGiftReceipt | null>(initialReceipt);
   const [othersOpened, setOthersOpened] = useState(Boolean(initialReceipt));
   const [error, setError] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollOffset = useRef(0);
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [gridTop, setGridTop] = useState(0);
   const requestActive = useRef(false);
   const generation = useRef(0);
   const reduceMotion = useRef(true);
@@ -244,16 +246,18 @@ export function CheckinGiftModal({
   const primaryBrand = isDark ? colors.primary : '#00bba4';
   const sheetWidth = Math.min(width - 32, 500);
   const boxWidth = (sheetWidth - 36) * 0.315 - 8;
-  const cellHeight = Math.max(192, Math.ceil(boxWidth + 44 + cardFontSize * 6));
+  const cellHeight = Math.max(88, Math.ceil(boxWidth * (294 / 324)) + 12);
   const isOpening = busy && !receipt && selected !== null;
   const gridWidth = sheetWidth - 36;
-  const gridHeight = cellHeight * 2 + 10;
+  const rowGap = 12;
+  const gridHeight = cellHeight * 2 + rowGap;
   const stageSize = Math.min(gridWidth - 12, 244);
   const selectedColumn = (selected ?? 0) % 3;
   const selectedRow = Math.floor((selected ?? 0) / 3);
   const tileWidth = gridWidth * 0.315;
   const sourceCenterX = tileWidth / 2 + selectedColumn * (gridWidth - tileWidth) / 2;
-  const sourceCenterY = cellHeight / 2 + selectedRow * (cellHeight + 10);
+  const sourceCenterY = scrollTop + gridTop - scrollOffset.current + cellHeight / 2 + selectedRow * (cellHeight + rowGap);
+  const sceneTop = ((sheetHeight || gridHeight + 208) - stageSize) / 2;
 
   // Animate the transparent present itself. Cropping the illustrated choice card
   // would lift its background and mascot together with the lid.
@@ -440,6 +444,7 @@ export function CheckinGiftModal({
   const content = (
     <View
       accessibilityViewIsModal
+      onLayout={(event) => setSheetHeight(event.nativeEvent.layout.height)}
       style={[
         styles.sheet,
         {
@@ -463,7 +468,7 @@ export function CheckinGiftModal({
           <Ionicons name="close" size={26} color={closeColor} />
         </Pressable>
       )}
-      <View style={styles.header}>
+      <Animated.View style={[styles.header, { opacity: busy && !othersOpened ? focus.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 0, 0] }) : 1 }]}>
         <Image source={giftImage} style={styles.headerGift} contentFit="contain" accessible={false} />
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
           {t('checkinGift.title')}
@@ -473,10 +478,13 @@ export function CheckinGiftModal({
             <Text style={[styles.subtitle, { color: subInk }]}>{t('checkinGift.choose')}</Text>
           )}
         </View>
-      </View>
+      </Animated.View>
 
       <ScrollView
         ref={scrollRef}
+        onLayout={(event) => setScrollTop(event.nativeEvent.layout.y)}
+        onScroll={(event) => { scrollOffset.current = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
@@ -489,7 +497,7 @@ export function CheckinGiftModal({
         )}
 
         {!othersOpened ? (
-          <View style={styles.grid} testID="gift-chooser-grid">
+          <View style={styles.grid} testID="gift-chooser-grid" onLayout={(event) => setGridTop(event.nativeEvent.layout.y)}>
             {boxes.map(box => {
               const chosen = selected !== null && box === selected;
               if (receipt && chosen) {
@@ -524,41 +532,6 @@ export function CheckinGiftModal({
                 </Pressable>
               );
             })}
-            {busy && selected !== null && (
-              <Animated.View
-                testID="gift-opening-scene"
-                pointerEvents="none"
-                accessibilityState={{ busy: true }}
-                style={[
-                  styles.openingScene,
-                  {
-                    width: stageSize,
-                    height: stageSize,
-                    left: (gridWidth - stageSize) / 2,
-                    top: (gridHeight - stageSize) / 2,
-                    opacity: focus.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 1] }),
-                    transform: [
-                      { translateX: focus.interpolate({ inputRange: [0, 1], outputRange: [sourceCenterX - gridWidth / 2, 0] }) },
-                      { translateY: focus.interpolate({ inputRange: [0, 1], outputRange: [sourceCenterY - gridHeight / 2, 0] }) },
-                      { scale: focus.interpolate({ inputRange: [0, 1], outputRange: [boxWidth / stageSize, 1] }) },
-                    ],
-                  },
-                ]}
-              >
-                <View
-                  testID={receipt ? `gift-received-${selected}` : undefined}
-                  accessibilityLabel={receipt ? `${t('checkinGift.selectedReward')}: ${receipt.title}` : undefined}
-                >
-                  {boxArtwork(selected, stageSize, true, lid, true, true)}
-                </View>
-                {receipt && (
-                  <Animated.View style={[styles.openingBadge, { opacity: reveal }]}>
-                    <Ionicons name="checkmark-circle" size={18} color={primaryBrand} />
-                    <Text style={{ color: ink, fontSize: 15, fontWeight: '700' }}>{t('checkinGift.receivedBadge')}</Text>
-                  </Animated.View>
-                )}
-              </Animated.View>
-            )}
           </View>
         ) : (
           <View style={styles.openedContainer}>
@@ -781,6 +754,42 @@ export function CheckinGiftModal({
         )}
       </ScrollView>
 
+      {busy && !othersOpened && selected !== null && (
+        <Animated.View
+          testID="gift-opening-scene"
+          pointerEvents="none"
+          accessibilityState={{ busy: true }}
+          style={[
+            styles.openingScene,
+            {
+              width: stageSize,
+              height: stageSize,
+              left: (sheetWidth - stageSize) / 2,
+              top: sceneTop,
+              opacity: focus.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 1] }),
+              transform: [
+                { translateX: focus.interpolate({ inputRange: [0, 1], outputRange: [sourceCenterX - gridWidth / 2, 0] }) },
+                { translateY: focus.interpolate({ inputRange: [0, 1], outputRange: [sourceCenterY - sceneTop - stageSize / 2, 0] }) },
+                { scale: focus.interpolate({ inputRange: [0, 1], outputRange: [boxWidth / stageSize, 1] }) },
+              ],
+            },
+          ]}
+        >
+          <View
+            testID={receipt ? `gift-received-${selected}` : undefined}
+            accessibilityLabel={receipt ? `${t('checkinGift.selectedReward')}: ${receipt.title}` : undefined}
+          >
+            {boxArtwork(selected, stageSize, true, lid, true, true)}
+          </View>
+          {receipt && (
+            <Animated.View style={[styles.openingBadge, { opacity: reveal }]}>
+              <Ionicons name="checkmark-circle" size={18} color={primaryBrand} />
+              <Text style={{ color: ink, fontSize: 15, fontWeight: '700' }}>{t('checkinGift.receivedBadge')}</Text>
+            </Animated.View>
+          )}
+        </Animated.View>
+      )}
+
       <View style={styles.footer}>
         <Pressable
           onPress={dismiss}
@@ -899,8 +908,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: 20,
+    rowGap: 12,
+    marginBottom: 12,
   },
   box: {
     minHeight: 56,
