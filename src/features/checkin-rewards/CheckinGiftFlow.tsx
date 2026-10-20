@@ -7,6 +7,7 @@ import { useAuthStore } from '../auth/auth.store';
 import { CheckinGiftModal, type CheckinGiftReceipt } from './CheckinGiftModal';
 import { checkinGiftsApi, type CheckinGift } from './checkin-gifts.api';
 import { giftPrizeImage } from './gift-prize-assets';
+import { canReplayCheckinGift, loadCheckinGiftDay } from './checkin-gift-replay';
 
 type Props = {
   onClose: () => void;
@@ -35,6 +36,7 @@ function AccountGiftFlow({
 }: Props & { account: string }) {
   const { t, i18n } = useTranslation('home');
   const router = useGuardedRouter();
+  const replayOpening = reviewExisting && canReplayCheckinGift(account);
   const [gift, setGift] = useState<CheckinGift | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [retry, setRetry] = useState(0);
@@ -65,8 +67,7 @@ function AccountGiftFlow({
   useEffect(() => {
     let live = true;
     setState('loading');
-    checkinGiftsApi
-      .today()
+    loadCheckinGiftDay(account, reviewExisting)
       .then((result) => {
         if (!live || !current()) return;
         if (
@@ -86,7 +87,7 @@ function AccountGiftFlow({
     return () => {
       live = false;
     };
-  }, [current, reviewExisting, retry, i18n.language]);
+  }, [account, current, reviewExisting, retry, i18n.language]);
   const display = (value: CheckinGift): CheckinGiftReceipt => ({
     id: value.id,
     box: value.box,
@@ -135,6 +136,7 @@ function AccountGiftFlow({
     <ReadyGift
       key={`${gift.id}:${i18n.language}`}
       gift={gift}
+      replayOpening={replayOpening}
       display={display}
       visible={focused}
       onClose={onClose}
@@ -161,12 +163,14 @@ function AccountGiftFlow({
 
 function ReadyGift({
   gift,
+  replayOpening,
   display,
   current,
   onOpened,
   ...props
 }: {
   gift: CheckinGift;
+  replayOpening: boolean;
   display: (value: CheckinGift) => CheckinGiftReceipt;
   current: () => boolean;
   onOpened?: (gift: CheckinGift) => void;
@@ -177,7 +181,7 @@ function ReadyGift({
   onRules: (period: string) => void;
 }) {
   const [initialReceipt] = useState(() =>
-    gift.openedAt ? display(gift) : null
+    gift.openedAt && !replayOpening ? display(gift) : null
   );
   return (
     <CheckinGiftModal
@@ -185,6 +189,9 @@ function ReadyGift({
       initialReceipt={initialReceipt}
       onOpen={async (box) => {
         if (!current()) throw new Error('Gift account changed');
+        if (replayOpening && gift.openedAt) {
+          return { ...display(gift), box };
+        }
         const result = await checkinGiftsApi.open(gift.id, box);
         if (!current()) throw new Error('Gift account changed');
         onOpened?.(result.gift);

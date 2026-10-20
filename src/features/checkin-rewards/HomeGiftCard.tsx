@@ -9,8 +9,9 @@ import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useAuthStore } from '../auth/auth.store';
-import { checkinGiftsApi, type GiftToday } from './checkin-gifts.api';
+import { type GiftToday } from './checkin-gifts.api';
 import { CheckinGiftFlow } from './CheckinGiftFlow';
+import { canReplayCheckinGift, loadCheckinGiftDay } from './checkin-gift-replay';
 
 const cloverArt = require('../../../assets/images/rewards/daily_clover.png');
 const heroArt = require('../../../assets/images/rewards/daily_gift_hero.png');
@@ -32,6 +33,7 @@ function AccountCard({ account }: { account: string }) {
   const loadGeneration = useRef(0);
   const [day, setDay] = useState<GiftToday | null>(null);
   const [open, setOpen] = useState(false);
+  const replayOpening = canReplayCheckinGift(account);
 
   const acceptDay = useCallback((result: GiftToday) => {
     setDay((current) =>
@@ -47,8 +49,7 @@ function AccountCard({ account }: { account: string }) {
       focused.current = true;
       const load = () => {
         const request = ++loadGeneration.current;
-        return checkinGiftsApi
-          .today()
+        return loadCheckinGiftDay(account, true)
           .then((result) => {
             if (
               live &&
@@ -244,7 +245,7 @@ function AccountCard({ account }: { account: string }) {
                 />
               </View>
               <Text style={styles.actionButtonText}>
-                {t(day.gift.openedAt ? 'checkinGift.review' : 'checkinGift.choose')}
+                {t(replayOpening ? 'checkinGift.replay' : day.gift.openedAt ? 'checkinGift.review' : 'checkinGift.choose')}
               </Text>
               <View style={styles.chevronCircle}>
                 <Ionicons name="chevron-forward" size={18} color="#ffffff" />
@@ -319,8 +320,7 @@ function AccountCard({ account }: { account: string }) {
           onClose={() => {
             setOpen(false);
             const request = ++loadGeneration.current;
-            checkinGiftsApi
-              .today()
+            loadCheckinGiftDay(account, true)
               .then((result) => {
                 if (
                   focused.current &&

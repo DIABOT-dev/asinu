@@ -7,6 +7,8 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
  * - Session resolved → hide
  */
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -23,13 +25,65 @@ import { useCheckinPracticeEntry } from '../features/guidance/useCheckinPractice
 // Cache session across hot reloads to prevent flash
 let _cachedSession: CheckinSession | null | undefined;
 
+const checkinCardImages = {
+  fine: require('../../assets/images/home/checkin-fine-background-v1.png'),
+  unwell: require('../../assets/images/home/checkin-unwell-background-v1.png'),
+};
+
+const checkinCardLightTones = {
+  fine: {
+    background: '#f1faf7',
+    border: '#50b7aa',
+    overlay: ['rgba(235, 250, 246, 0.90)', 'rgba(245, 252, 249, 0.72)', 'rgba(245, 252, 249, 0.06)'],
+  },
+  unwell: {
+    background: '#fff9ed',
+    border: '#df8a30',
+    overlay: ['rgba(255, 247, 226, 0.90)', 'rgba(255, 250, 239, 0.72)', 'rgba(255, 250, 239, 0.06)'],
+  },
+} as const;
+
+function CheckinCardBackground({ tone, isDark }: { tone: keyof typeof checkinCardImages; isDark: boolean }) {
+  const lightTone = checkinCardLightTones[tone];
+  const tint = isDark
+    ? (tone === 'fine' ? colors.primaryLight : colors.premiumLight)
+    : lightTone.background;
+  const overlayColors: readonly [string, string, string] = isDark
+    ? [`${tint}fa`, `${tint}f0`, `${tint}de`]
+    : lightTone.overlay;
+
+  return (
+    <View
+      pointerEvents="none"
+      accessible={false}
+      importantForAccessibility="no-hide-descendants"
+      style={[artworkStyles.frame, { backgroundColor: tint }]}
+    >
+      <Image
+        source={checkinCardImages[tone]}
+        style={artworkStyles.fill}
+        contentFit="cover"
+        contentPosition="center"
+        accessible={false}
+      />
+      <LinearGradient
+        colors={overlayColors}
+        locations={[0, 0.46, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={artworkStyles.fill}
+      />
+    </View>
+  );
+}
+
 export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   const router = useRouter();
   const practice = useCheckinPracticeEntry();
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
   const [session, setSession] = useState<CheckinSession | null | undefined>(_cachedSession);
 
   useFocusEffect(
@@ -60,6 +114,7 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
         accessibilityRole="button"
         accessibilityLabel={t('checkinFine')}
       >
+        <CheckinCardBackground tone="fine" isDark={isDark} />
         <View style={styles.row}>
           <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
           <View style={styles.textColumn}>
@@ -117,7 +172,7 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
 
   return (
     <GuideTarget step="home.unwell">
@@ -127,6 +182,7 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
       accessibilityRole="button"
       accessibilityLabel={t('checkinInstantTitle')}
     >
+      <CheckinCardBackground tone="unwell" isDark={isDark} />
       <View style={styles.row}>
         <Ionicons name="pulse" size={48} color={colors.premiumDark} />
         <View style={styles.textColumn}>
@@ -140,7 +196,26 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
   );
 });
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+const artworkStyles = StyleSheet.create({
+  frame: {
+    position: 'absolute',
+    top: 1.5,
+    right: 1.5,
+    bottom: 1.5,
+    left: 1.5,
+    borderRadius: radius.xl - 1.5,
+    overflow: 'hidden',
+  },
+  fill: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+});
+
+function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
   return StyleSheet.create({
     card: {
       backgroundColor: colors.surface,
@@ -157,16 +232,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       minHeight: 184,
       justifyContent: 'center',
       borderRadius: radius.xl,
-      borderColor: colors.primary,
-      backgroundColor: colors.primaryLight,
+      borderColor: isDark ? colors.primary : checkinCardLightTones.fine.border,
+      backgroundColor: isDark ? colors.primaryLight : checkinCardLightTones.fine.background,
       paddingVertical: spacing.xxl,
     },
     cardInstant: {
       minHeight: 184,
       justifyContent: 'center',
       borderRadius: radius.xl,
-      borderColor: colors.premiumDark,
-      backgroundColor: colors.premiumLight,
+      borderColor: isDark ? colors.premiumDark : checkinCardLightTones.unwell.border,
+      backgroundColor: isDark ? colors.premiumLight : checkinCardLightTones.unwell.background,
       paddingVertical: spacing.xxl,
     },
     row: {

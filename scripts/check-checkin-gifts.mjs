@@ -4,17 +4,17 @@ import ts from 'typescript';
 
 const read = file => fs.readFileSync(file, 'utf8');
 const jsx = (type, props) => ({ type, props });
-function evaluate(file, dependencies = {}) {
+function evaluate(file, dependencies = {}, globals = {}) {
   const module = { exports: {} };
   const code = ts.transpileModule(read(file), { fileName: file, compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
   } }).outputText;
   // eslint-disable-next-line no-new-func
-  new Function('module', 'exports', 'require', code)(module, module.exports, id => {
+  new Function('module', 'exports', 'require', ...Object.keys(globals), code)(module, module.exports, id => {
     if (id === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
     assert.ok(Object.hasOwn(dependencies, id), `Unexpected dependency (no network/wallet allowed): ${id}`);
     return dependencies[id];
-  });
+  }, ...Object.values(globals));
   return module.exports;
 }
 const { createCheckinGiftDemo, vietnamGiftDay, DEMO_GIFT_POINTS } = evaluate('src/features/checkin-rewards/checkin-gift-demo.ts');
@@ -63,6 +63,42 @@ function hooks() {
 }
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
   : [tree, ...nodes(tree.props?.children)];
+
+function replayTools(api, { dev = false, appDev = dev, account = 'parent-account', apiUrl = 'http://localhost:3300', replayUrl = apiUrl } = {}) {
+  return evaluate('src/features/checkin-rewards/checkin-gift-replay.ts', {
+    '../../lib/appEnv': { isDevBuild: appDev },
+    '../../lib/env': { env: { apiBaseUrl: apiUrl } },
+    './checkin-gifts.api': { checkinGiftsApi: api },
+  }, { __DEV__: dev, process: { env: {
+    EXPO_PUBLIC_CHECKIN_GIFT_REPLAY_ACCOUNT_ID: account,
+    EXPO_PUBLIC_CHECKIN_GIFT_REPLAY_API_BASE_URL: replayUrl,
+  } } });
+}
+
+await test('gift replay requires a development build, the opted-in account and the configured API', () => {
+  for (const options of [
+    {}, { dev: true, appDev: false }, { dev: true, replayUrl: 'https://another-api.invalid' },
+    { dev: true, account: '' }, { dev: true, replayUrl: '' },
+  ]) assert.equal(replayTools({}, options).canReplayCheckinGift('parent-account'), false);
+  const tools = replayTools({}, { dev: true });
+  assert.equal(tools.canReplayCheckinGift('parent-account'), true);
+  assert.equal(tools.canReplayCheckinGift('other-account'), false);
+});
+
+await test('local replay can use the latest receipt without inventing a check-in or touching the daily quota', async () => {
+  const day = { enabled: true, gift: null, streak: 0, week: [] };
+  const receipt = { id: 'old-receipt', openedAt: '2026-10-19T01:00:00Z' };
+  let historyCalls = 0;
+  const api = { today: async () => day, history: async () => { historyCalls++; return { items: [receipt] }; } };
+  const tools = replayTools(api, { dev: true });
+  assert.equal((await tools.loadCheckinGiftDay('parent-account', true)).gift, receipt);
+  assert.equal(day.gift, null, 'The server day is not mutated');
+  assert.equal(historyCalls, 1);
+  assert.equal(await tools.loadCheckinGiftDay('parent-account'), day);
+  assert.equal(await tools.loadCheckinGiftDay('other-account', true), day);
+  assert.equal(await replayTools(api).loadCheckinGiftDay('parent-account', true), day);
+  assert.equal(historyCalls, 1, 'Production, other accounts and automatic check-in offers never load a replay receipt');
+});
 
 await test('daily reset follows midnight Vietnam, including month/year boundaries', () => {
   assert.equal(vietnamGiftDay(date('2026-10-16T16:59:59Z')), '2026-10-16');
@@ -284,6 +320,7 @@ function modalHarness(options = {}) {
   const catalog = JSON.parse(read('src/i18n/locales/vi/home.json'));
   const { CheckinGiftModal } = evaluate('src/features/checkin-rewards/CheckinGiftModal.tsx', {
     react: runtime, '@expo/vector-icons': { Ionicons: 'Icon' }, 'expo-image': { Image: 'Image' },
+    'react-native-svg': { __esModule: true, default: 'Svg', Defs: 'Defs', RadialGradient: 'RadialGradient', Rect: 'Rect', Stop: 'Stop' },
     'react-i18next': { useTranslation: () => ({ t: (key, values = {}) => key.split('.').reduce((entry, part) => entry[part], catalog)
       .replace(/\{\{(\w+)\}\}/g, (_, name) => String(values[name] ?? '')) }) },
     'react-native': { View: 'View', Pressable: 'Button', ScrollView: 'Scroll', ActivityIndicator: 'Spinner',
@@ -407,31 +444,59 @@ await test('the centered reward shows its full fortune immediately, before the l
   assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === 'Xem chi tiết lộc đã nhận'));
   assert.deepEqual(h.calls.opens, [], 'Displaying the existing fortune never claims or opens a new page');
 });
-await test('the tapped box opens in its own slot and reveals only after the server and opening animation finish', async () => {
+await test('the tapped box moves into focus and its actual transparent lid opens without loading copy or a spinner', async () => {
   const h = modalHarness({ automaticAnimation: false, open: async box => ({ id: 'fortune', box, title: 'Một ngày bình yên' }) });
   let tree = await h.settle();
   const choose = nodes(tree).filter(node => node.type === 'Button' && node.props.accessibilityLabel?.startsWith('Mở hộp'));
   choose[4].props.onPress(); tree = await h.settle();
   const opening = nodes(tree).filter(node => node.type === 'Button' && node.props.accessibilityLabel?.startsWith('Mở hộp'));
-  assert.equal(opening.length, 6, 'Keep the chosen box in its original position');
+  assert.equal(opening.length, 6, 'Keep the chooser layout stable while the selected present moves into focus');
   assert.deepEqual(opening.map(box => box.props.accessibilityState.selected), [false, false, false, false, true, false]);
   assert.ok(opening.every(box => box.props.disabled));
-  const lid = nodes(opening[4]).find(node => node.props.testID === 'gift-box-lid-4');
+  const scene = nodes(tree).find(node => node.props.testID === 'gift-opening-scene');
+  assert.ok(scene.props.style[1].width >= 220, 'The opening is large enough to see on a phone');
+  assert.equal(scene.props.style[1].transform[0].translateX.outputRange[1], 0);
+  assert.equal(scene.props.style[1].transform[1].translateY.outputRange[1], 0);
+  assert.equal(scene.props.style[1].transform[2].scale.outputRange[1], 1);
+  const lid = nodes(scene).find(node => node.props.testID === 'gift-opening-lid');
   assert.equal(typeof lid.props.style.transform[0].translateY, 'object', 'The selected lid is animated');
   assert.equal(nodes(lid).filter(node => node.type === 'Image').length, 1, 'The moving lid contains the real box artwork');
+  assert.equal(nodes(lid).find(node => node.type === 'Image').props.source, 'gift.png', 'Never lift the choice card background or cut its mascot in half');
   assert.equal(nodes(opening[3]).find(node => node.props.testID === 'gift-box-lid-3').props.style.transform[0].translateY, 0);
-  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Đang mở hộp quà số 5…'));
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && /Đang mở/.test(String(node.props.children))));
+  assert.ok(!nodes(tree).some(node => node.type === 'Spinner'));
+  assert.equal(nodes(scene).filter(node => /^gift-opening-spark-/.test(node.props.testID || '')).length, 6);
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Một ngày bình yên'));
   assert.equal(h.calls.received.length, 1, 'Publish a saved receipt without waiting for the cosmetic animation');
   h.animations.finishNext(); tree = await h.settle();
-  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Một ngày bình yên'));
-  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-box-art-4'));
+  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-emerging-reward'));
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Chọn 1 hộp quà để mở'));
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận'));
+  h.animations.finishNext(); tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-fortune'));
+  h.animations.finishNext(); tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Một ngày bình yên'));
   assert.ok(h.animations.timings.every(config => config.useNativeDriver));
   h.props.visible = false; await h.settle(); h.props.visible = true; tree = await h.settle();
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Một ngày bình yên'));
   assert.deepEqual(h.calls.opens, [4], 'Hiding and showing the modal keeps the receipt');
+});
+await test('a slow response holds the visibly open present and never reveals a prize or allows a second tap early', async () => {
+  let resolve;
+  const h = modalHarness({ automaticAnimation: false, open: () => new Promise(done => { resolve = done; }) });
+  let tree = await h.settle();
+  nodes(tree).find(node => node.props.accessibilityLabel === 'Mở hộp quà số 1').props.onPress();
+  await h.settle(); h.animations.finishNext(); tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-opening-scene'));
+  assert.ok(!nodes(tree).some(node => node.props.testID === 'gift-emerging-reward' || node.props.testID === 'gift-fortune'));
+  assert.ok(!nodes(tree).some(node => node.type === 'Spinner' || (node.type === 'Text' && /Đang mở/.test(String(node.props.children)))));
+  const boxes = nodes(tree).filter(node => node.props.accessibilityLabel?.startsWith('Mở hộp quà số'));
+  assert.ok(boxes.every(box => box.props.disabled)); boxes[1].props.onPress();
+  assert.deepEqual(h.calls.opens, [0]);
+  resolve({ id: 'saved', box: 0, title: 'Lộc đã lưu' }); tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-emerging-reward'));
+  h.animations.finishNext(); await h.settle(); h.animations.finishNext(); tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Lộc đã lưu'));
 });
 await test('a delayed gift response waits for success, and reduced motion skips opening animation', async () => {
   let resolve;
@@ -498,7 +563,7 @@ await test('an unmounted gift modal never reveals or publishes a late receipt', 
   resolve({ id: 'private', box: 0, title: 'Late receipt' }); await tick();
   assert.equal(h.calls.received.length, 0); assert.equal(h.animations.pending.length, 0);
 });
-function productionFlowHarness({ today, open, reviewExisting = false, language = 'vi', status = 'fine' } = {}) {
+function productionFlowHarness({ today, open, reviewExisting = false, language = 'vi', status = 'fine', replay = false } = {}) {
   const runtime = hooks(), calls = { today: 0, open: [], close: 0, unavailable: 0, opened: [] };
   const account = { profile: { id: 'parent-account' } };
   const useAuthStore = select => select(account); useAuthStore.getState = () => account;
@@ -510,6 +575,10 @@ function productionFlowHarness({ today, open, reviewExisting = false, language =
   };
   const gift = { id: '385c91ce-191f-4d8d-b4cb-af8ccbc2ed59', day: '2026-10-17', openedAt: null, box: null, loc: null, extra: null, ticket: null };
   const receipt = { ...gift, openedAt: '2026-10-17T01:00:00Z', box: 2, loc: { type: 'wish', text: 'Chúc bạn một ngày bình yên.', serif: false }, extra: 'none' };
+  const api = {
+    today: async () => { calls.today++; return today ? today({ gift, receipt }) : { enabled: true, gift }; },
+    open: async (id, box) => { calls.open.push([id, box]); return open ? open({ gift, receipt }) : { gift: receipt }; },
+  };
   const { CheckinGiftFlow } = evaluate('src/features/checkin-rewards/CheckinGiftFlow.tsx', {
     react: runtime,
     'expo-router': { useFocusEffect: callback => runtime.useEffect(callback, [callback]) },
@@ -535,10 +604,8 @@ function productionFlowHarness({ today, open, reviewExisting = false, language =
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
     '../auth/auth.store': { useAuthStore }, './CheckinGiftModal': { CheckinGiftModal: 'Gift' },
     './gift-prize-assets': { giftPrizeImage },
-    './checkin-gifts.api': { checkinGiftsApi: {
-      today: async () => { calls.today++; return today ? today({ gift, receipt }) : { enabled: true, gift }; },
-      open: async (id, box) => { calls.open.push([id, box]); return open ? open({ gift, receipt }) : { gift: receipt }; },
-    } },
+    './checkin-gifts.api': { checkinGiftsApi: api },
+    './checkin-gift-replay': replayTools(api, { dev: replay }),
   });
   const render = () => {
     let tree = CheckinGiftFlow({ reviewExisting, status, onOpened: gift => calls.opened.push(gift), onClose: () => calls.close++, onUnavailable: () => calls.unavailable++ });
@@ -560,6 +627,20 @@ for (const language of ['vi', 'en']) await test(`${language}: production opens t
 await test('viewing an opened fortune keeps the receipt without another claim', async () => {
   const h = productionFlowHarness({ reviewExisting: true, today: ({ receipt }) => ({ enabled: true, gift: receipt }) });
   const tree = await h.settle(); assert.equal(tree.props.initialReceipt.title, 'Chúc bạn một ngày bình yên.'); assert.deepEqual(h.calls.open, []);
+});
+await test('the opted-in local account can reopen every visual box without another gift claim', async () => {
+  for (let box = 0; box < 6; box++) {
+    const h = productionFlowHarness({ replay: true, reviewExisting: true, today: ({ receipt }) => ({ enabled: true, gift: receipt }) });
+    const tree = await h.settle();
+    assert.equal(tree.props.initialReceipt, null, 'Each new visit starts with closed boxes');
+    const receipt = await tree.props.onOpen(box);
+    assert.equal(receipt.box, box);
+    assert.equal(receipt.title, 'Chúc bạn một ngày bình yên.');
+    assert.deepEqual(h.calls.open, []);
+    assert.deepEqual(h.calls.opened, [], 'Replays never publish another real opening');
+    h.account.profile.id = 'other-account';
+    await assert.rejects(tree.props.onOpen(box), /account changed/);
+  }
 });
 await test('automatic offerings that are already opened return control to the health result', async () => {
   const h = productionFlowHarness({ today: ({ receipt }) => ({ enabled: true, gift: receipt }) });
@@ -621,7 +702,7 @@ await test('gift notification taps use validated identifiers and never follow ar
   assert.equal(route({ type: 'gift_draw_result', drawPeriodId: 'https://untrusted.invalid' }), '/checkin-rewards/history');
   assert.equal(route({ type: 'morning_checkin' }), '/checkin');
 });
-function homeHarness(today) {
+function homeHarness(today, { replay = false, history = async () => ({ items: [] }) } = {}) {
     const runtime=hooks(), account={profile:{id:'parent'}}, callbacks=[];
     const useAuthStore=select=>select(account);useAuthStore.getState=()=>account;
     const {HomeGiftCard}=evaluate('src/features/checkin-rewards/HomeGiftCard.tsx',{
@@ -631,7 +712,7 @@ function homeHarness(today) {
       'react-i18next':{useTranslation:()=>({t:key=>key})},'../../components/ScaledText':{ScaledText:'Text'},
       '../../hooks/useThemeColors':{useThemeColors:()=>({colors:{},isDark:false})},'../../hooks/useGuardedRouter':{useGuardedRouter:()=>({push(){}})},
       '../auth/auth.store':{useAuthStore},'./CheckinGiftFlow':{CheckinGiftFlow:'Gift'},
-      './checkin-gifts.api':{checkinGiftsApi:{today}},
+      './checkin-gift-replay':replayTools({today,history},{dev:replay,account:'parent'}),
       '../../../assets/images/rewards/daily_clover.png':1001,
       '../../../assets/images/rewards/daily_gift_hero.png':1002,
       '../../../assets/images/rewards/daily_chest.png':1003,
@@ -639,6 +720,23 @@ function homeHarness(today) {
     const render=()=>{const root=HomeGiftCard();return root.type(root.props);};
     return { account, callbacks, settle: () => runtime.settle(render) };
 }
+await test('local Home keeps the test opening action available after closing, even with no check-in today', async () => {
+  const day = { enabled: true, gift: null, streak: 0, week: [] };
+  const gift = { id: 'saved', openedAt: '2026-10-19T01:00:00Z' };
+  const h = homeHarness(async () => day, { replay: true, history: async () => ({ items: [gift] }) });
+  const button = tree => nodes(tree).find(node => node.type === 'Button' && nodes(node).some(child => child.type === 'Text' && child.props.children === 'checkinGift.replay'));
+  for (let i = 0; i < 3; i++) {
+    let tree = await h.settle();
+    assert.ok(button(tree));
+    button(tree).props.onPress();
+    tree = await h.settle();
+    const flow = nodes(tree).find(node => node.type === 'Gift');
+    assert.ok(flow);
+    flow.props.onClose();
+    tree = await h.settle();
+    assert.ok(!nodes(tree).some(node => node.type === 'Gift'));
+  }
+});
 await test('returning from a call offers its gift once and keeps routine Home visits free of automatic gifts', async () => {
   for (const call of [true, false]) {
     const h=homeHarness(async()=>({enabled:true,gift:{id:'daily-gift',openedAt:null},streak:1,week:[],offerOnAppOpen:call,checkinStatus:'tired'}));

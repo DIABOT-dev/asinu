@@ -47,6 +47,7 @@
     "emptyCollection": "Your first warm wish is waiting. Check in today and open a gift box.",
     "afterCheckin": "After checking in, choose one gift box.",
     "review": "Read today's fortune",
+    "replay": "Try opening again",
     "streak": "{{count}}-day streak",
     "streak_one": "{{count}}-day streak",
     "streak_other": "{{count}}-day streak",

@@ -17,14 +17,26 @@ Android Back cannot dismiss an unopened gift. Urgent dialogs still interrupt
 the sheet. Unavailable/offline loading can return to the saved health result.
 Opened receipts can be reviewed. Practice and read-only previews never claim.
 
+Local animation testing can be enabled for one account through `.env.local`:
+`EXPO_PUBLIC_CHECKIN_GIFT_REPLAY_ACCOUNT_ID` and
+`EXPO_PUBLIC_CHECKIN_GIFT_REPLAY_API_BASE_URL` (must match the configured API URL).
+This requires both `__DEV__` and the `dev` app environment. The Home action then
+replays the saved receipt whenever reopened, using the most recent receipt if
+there is no gift today. It does not create check-ins, reroll prizes, send another
+claim or change the daily quota. Other accounts and release builds keep normal behavior.
+
 The catalog is managed through protected backend operations endpoints. Health
 tips need a recorded medical review before activation. Seed content consists of
 60 original bilingual wishes. Recent fortunes are excluded for 30 calendar days.
 
 Lucky draws are paused by default (zero ticket weight). The planned prize is
 iPhone 18 Pro Max. The six boxes stay in the same modal throughout opening.
-The chosen illustration shakes and its actual lid crop lifts away. After a
-successful open, its saved reward appears as a centered hero above the five
+The chosen present moves from its selected slot into a larger central opening
+scene. Its transparent lid lifts and tilts away from the body, light and a small
+burst emerge, and the mascot rises from inside after the server confirms the gift.
+The illustration animates directly; no loading spinner or "Opening" copy replaces
+it. The other lids open before the saved result and remaining rewards fade in.
+After a successful open, its saved reward appears as a centered hero above the five
 other opened boxes, with the received badge and complete fortune. The original
 server box selection is preserved; moving the illustration never makes another
 claim. The complete fortune is shown immediately, centered beneath the received

@@ -1,0 +1,16 @@
+{
+  "mode": "built-in image_gen",
+  "purpose": "preview images for review",
+  "assets": [
+    {
+      "file": "healthy-preview-b9b6fdda.png",
+      "label": "Tôi ổn",
+      "prompt": "Use case: photorealistic-natural. Asset type: a single wide background image for a Vietnamese health check-in app card, landscape aspect ratio about 2.2:1. Create only the photographic background, not an app screenshot or UI mockup. Composition: a Vietnamese adult woman with natural dark shoulder-length hair and an ivory knitted sweater occupies the rightmost 40 percent, medium chest-up portrait with her entire head comfortably inside frame. The left 60 percent is very pale and visually quiet, with generous negative space for text and icons that will be rendered separately in the app. Soft natural skin texture, realistic hands, elegant subtle botanical bokeh and very faint blurred leaves near the edges. High-key, airy, calm, premium lifestyle photography blended smoothly into the pale empty left side. No text, letters, typography, watermark, logos, app controls, borders, rounded corners, pictograms, charts, medical equipment, or split panels. Full-bleed rectangular background, opaque. Scene: bright restful home beside a garden window, pale mint and ivory, hints of fresh green foliage. The woman feels well, her eyes gently closed and a small relaxed smile, breathing comfortably, shoulders relaxed, face tipped slightly toward soft morning daylight. Natural warm skin, a reassuring peaceful mood. Keep the left side almost white with an extremely subtle mint tint."
+    },
+    {
+      "file": "unwell-preview-29de8a59.png",
+      "label": "Không ổn",
+      "prompt": "Use case: photorealistic-natural. Asset type: a single wide background image for a Vietnamese health check-in app card, landscape aspect ratio about 2.2:1. Create only the photographic background, not an app screenshot or UI mockup. Composition: a Vietnamese adult woman with natural dark shoulder-length hair and an ivory knitted sweater occupies the rightmost 40 percent, medium chest-up portrait with her entire head comfortably inside frame. The left 60 percent is very pale and visually quiet, with generous negative space for text and icons that will be rendered separately in the app. Soft natural skin texture, realistic hands, elegant subtle botanical bokeh and very faint blurred leaves near the edges. High-key, airy, calm, premium lifestyle photography blended smoothly into the pale empty left side. No text, letters, typography, watermark, logos, app controls, borders, rounded corners, pictograms, charts, medical equipment, or split panels. Full-bleed rectangular background, opaque. Scene: a quiet comfortable home by a window, a pale warm cream and soft buttery yellow palette. The woman feels mildly tired and unwell, seated with her eyes lowered or softly closed, one anatomically realistic hand gently resting against her temple and a mildly tired expression. Calm and relatable, no extreme distress. Soft diffused warm daylight and faint blurred botanical forms in the background. Keep the left side nearly ivory and visually empty. No visual symbols of pain, no scribbles."
+    }
+  ]
+}

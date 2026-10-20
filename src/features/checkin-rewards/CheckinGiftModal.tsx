@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
   AccessibilityInfo,
   Animated,
   Easing,
@@ -20,6 +20,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useScaledFontSize } from '../../hooks/useScaledTypography';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
+const giftMascot = require('../../../assets/asinu_chat_sticker.png');
 
 const openedMascotHero = require('../../../assets/images/rewards/opened_gift_mascot_hero.png');
 const fortuneHeartHeader = require('../../../assets/images/rewards/fortune_heart_header.png');
@@ -105,6 +106,7 @@ export function CheckinGiftModal({
   const generation = useRef(0);
   const reduceMotion = useRef(true);
   const animation = useRef<Animated.CompositeAnimation | null>(null);
+  const focus = useRef(new Animated.Value(0)).current;
   const lid = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
   const shake = useRef(new Animated.Value(0)).current;
   const reveal = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
@@ -118,11 +120,12 @@ export function CheckinGiftModal({
     setReceipt(initialReceipt ?? null);
     setOthersOpened(Boolean(initialReceipt));
     setError(false);
+    focus.setValue(0);
     lid.setValue(initialReceipt ? 1 : 0);
     reveal.setValue(initialReceipt ? 1 : 0);
     otherLid.setValue(initialReceipt ? 1 : 0);
     othersReveal.setValue(initialReceipt ? 1 : 0);
-  }, [initialReceipt, lid, otherLid, othersReveal, reveal]);
+  }, [initialReceipt, focus, lid, otherLid, othersReveal, reveal]);
 
   useEffect(() => {
     let live = true;
@@ -143,16 +146,20 @@ export function CheckinGiftModal({
 
   const animateOpening = () => {
     if (reduceMotion.current) {
+      focus.setValue(1);
       lid.setValue(1);
       return Promise.resolve();
     }
     return new Promise<void>((resolve) => {
       const motion = Animated.sequence([
-        Animated.timing(shake, { toValue: 1, duration: 60, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: -1, duration: 60, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: 0, duration: 60, useNativeDriver: true }),
+        Animated.timing(focus, {
+          toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+        }),
+        Animated.timing(shake, { toValue: 1, duration: 55, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: -0.65, duration: 55, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: 0, duration: 70, useNativeDriver: true }),
         Animated.timing(lid, {
-          toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+          toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true,
         }),
       ]);
       animation.current = motion;
@@ -167,6 +174,7 @@ export function CheckinGiftModal({
     setBusy(true);
     setError(false);
     setSelected(box);
+    focus.setValue(0);
     lid.setValue(0);
     reveal.setValue(0);
     otherLid.setValue(0);
@@ -190,22 +198,29 @@ export function CheckinGiftModal({
       } else {
         await new Promise<void>(resolve => {
           const motion = Animated.parallel([
-            Animated.timing(reveal, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-            Animated.timing(otherLid, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(reveal, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(otherLid, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
           ]);
           animation.current = motion;
           motion.start(() => resolve());
         });
         if (request !== generation.current) { return; }
+        reveal.setValue(0);
         setOthersOpened(true);
-        const fade = Animated.timing(othersReveal, { toValue: 1, duration: 200, useNativeDriver: true });
-        animation.current = fade;
-        fade.start();
+        await new Promise<void>(resolve => {
+          const entrance = Animated.parallel([
+            Animated.timing(reveal, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(othersReveal, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+          ]);
+          animation.current = entrance;
+          entrance.start(() => resolve());
+        });
       }
     } catch {
       if (request === generation.current) {
         animation.current?.stop();
         lid.setValue(0);
+        focus.setValue(0);
         shake.setValue(0);
         setError(true);
       }
@@ -231,15 +246,28 @@ export function CheckinGiftModal({
   const boxWidth = (sheetWidth - 36) * 0.315 - 8;
   const cellHeight = Math.max(192, Math.ceil(boxWidth + 44 + cardFontSize * 6));
   const isOpening = busy && !receipt && selected !== null;
+  const gridWidth = sheetWidth - 36;
+  const gridHeight = cellHeight * 2 + 10;
+  const stageSize = Math.min(gridWidth - 12, 244);
+  const selectedColumn = (selected ?? 0) % 3;
+  const selectedRow = Math.floor((selected ?? 0) / 3);
+  const tileWidth = gridWidth * 0.315;
+  const sourceCenterX = tileWidth / 2 + selectedColumn * (gridWidth - tileWidth) / 2;
+  const sourceCenterY = cellHeight / 2 + selectedRow * (cellHeight + 10);
 
-  // Split illustration into real lid/body crops while opening.
-  const boxArtwork = (box: number, size: number, opened: boolean, progress = lid, wobble = true) => {
-    const source = identicalBoxes ? giftImage : boxImages[box];
-    const artHeight = (size * 294) / 324;
-    const lidHeight = artHeight * 0.46;
+  // Animate the transparent present itself. Cropping the illustrated choice card
+  // would lift its background and mascot together with the lid.
+  const boxArtwork = (box: number, size: number, opened: boolean, progress = lid, wobble = true, showcase = false) => {
+    const source = opened || identicalBoxes ? giftImage : boxImages[box];
+    const artHeight = opened ? size : (size * 294) / 324;
+    const imageWidth = opened ? size * 1.45 : size;
+    const imageHeight = opened ? imageWidth * (1144 / 1375) : artHeight;
+    const imageTop = opened ? -size * 0.14 : 0;
+    const imageLeft = (size - imageWidth) / 2;
+    const lidHeight = size * 0.47;
     return (
       <Animated.View
-        testID={`gift-box-art-${box}`}
+        testID={showcase ? 'gift-opening-art' : `gift-box-art-${box}`}
         pointerEvents="none"
         style={{
           width: size,
@@ -251,7 +279,7 @@ export function CheckinGiftModal({
               rotate: opened && wobble
                 ? shake.interpolate({
                     inputRange: [-1, 0, 1],
-                    outputRange: ['-6deg', '0deg', '6deg'],
+                    outputRange: ['-3deg', '0deg', '3deg'],
                   })
                 : '0deg',
             },
@@ -263,46 +291,83 @@ export function CheckinGiftModal({
             style={[
               styles.boxGlow,
               {
-                opacity: progress,
-                backgroundColor: isDark
-                  ? 'rgba(46, 107, 96, 0.4)'
-                  : 'rgba(255, 248, 200, 0.75)',
+                opacity: progress.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 0, 0.9] }),
+                transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.5] }) }],
               },
+            ]}
+          >
+            <Svg width="100%" height="100%" viewBox="0 0 200 200" accessible={false}>
+              <Defs>
+                <RadialGradient id={`gift-light-${showcase ? 'main' : box}`} cx="50%" cy="50%" r="50%">
+                  <Stop offset="0%" stopColor={isDark ? '#5fc7aa' : '#ffeaa0'} stopOpacity={0.9} />
+                  <Stop offset="45%" stopColor={isDark ? '#2c8a73' : '#fff0b4'} stopOpacity={0.5} />
+                  <Stop offset="100%" stopColor={isDark ? '#2c8a73' : '#fff8dc'} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Rect width="200" height="200" fill={`url(#gift-light-${showcase ? 'main' : box})`} />
+            </Svg>
+          </Animated.View>
+        )}
+        {opened && (
+          <Animated.View
+            style={[
+              styles.boxMouth,
+              { top: lidHeight - size * 0.025, height: size * 0.09, opacity: progress },
             ]}
           />
         )}
+        {showcase && receipt && (
+          <Animated.View
+            testID="gift-emerging-reward"
+            style={{
+              position: 'absolute',
+              top: size * 0.22,
+              left: size * 0.25,
+              width: size * 0.5,
+              height: size * 0.5,
+              opacity: reveal,
+              transform: [
+                { translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [size * 0.2, -size * 0.25] }) },
+                { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [0.65, 1] }) },
+              ],
+            }}
+          >
+            <Image source={giftMascot} style={styles.heroImage} contentFit="contain" accessible={false} />
+          </Animated.View>
+        )}
         {opened ? (
           <View style={{ position: 'absolute', top: lidHeight, width: size, height: artHeight - lidHeight, overflow: 'hidden' }}>
-            <Image source={source} style={{ position: 'absolute', top: -lidHeight, width: size, height: artHeight }} contentFit="contain" accessible={false} />
+            <Image source={source} style={{ position: 'absolute', top: imageTop - lidHeight, left: imageLeft, width: imageWidth, height: imageHeight }} contentFit="contain" accessible={false} />
           </View>
         ) : (
           <Image source={source} style={{ width: size, height: artHeight }} contentFit="contain" accessible={false} />
         )}
         <Animated.View
-          testID={`gift-box-lid-${box}`}
+          testID={showcase ? 'gift-opening-lid' : `gift-box-lid-${box}`}
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
             height: lidHeight,
-            opacity: opened ? progress.interpolate({ inputRange: [0, 0.65, 1], outputRange: [1, 1, 0] }) : 0,
+            opacity: opened ? progress.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 1, 0.2] }) : 0,
             transform: [
               {
                 translateY: opened
                   ? progress.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [0, -size * 0.55],
+                      outputRange: [0, -size * 0.5],
                     })
                   : 0,
               },
+              { translateX: opened ? progress.interpolate({ inputRange: [0, 1], outputRange: [0, -size * 0.08] }) : 0 },
               { rotate: opened ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-16deg'] }) : '0deg' },
             ],
           }}
         >
           {opened && (
             <View style={{ width: size, height: lidHeight, overflow: 'hidden' }}>
-              <Image source={source} style={{ width: size, height: artHeight }} contentFit="contain" accessible={false} />
+              <Image source={source} style={{ position: 'absolute', top: imageTop, left: imageLeft, width: imageWidth, height: imageHeight }} contentFit="contain" accessible={false} />
             </View>
           )}
           {opened && (
@@ -315,6 +380,27 @@ export function CheckinGiftModal({
             </Animated.View>
           )}
         </Animated.View>
+        {showcase && [-1, 1, -0.65, 0.65, -0.3, 0.3].map((direction, index) => (
+          <Animated.View
+            key={index}
+            testID={`gift-opening-spark-${index}`}
+            style={[
+              styles.openingSpark,
+              {
+                top: size * 0.36,
+                left: size * 0.48,
+                backgroundColor: index % 2 ? '#34cbb2' : '#f5c842',
+                opacity: progress.interpolate({ inputRange: [0, 0.3, 0.75, 1], outputRange: [0, 0, 1, 0.4] }),
+                transform: [
+                  { translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, direction * size * 0.52] }) },
+                  { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, -size * (0.12 + index * 0.075)] }) },
+                  { rotate: `${index * 35 + 20}deg` },
+                  { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+                ],
+              },
+            ]}
+          />
+        ))}
       </Animated.View>
     );
   };
@@ -382,11 +468,11 @@ export function CheckinGiftModal({
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
           {t('checkinGift.title')}
         </Text>
-        {!receipt && (
-          <Text style={[styles.subtitle, { color: subInk }]}>
-            {t(isOpening ? 'checkinGift.openingBox' : 'checkinGift.choose', { number: (selected ?? 0) + 1 })}
-          </Text>
-        )}
+        <View style={styles.subtitleSpace}>
+          {!receipt && !busy && (
+            <Text style={[styles.subtitle, { color: subInk }]}>{t('checkinGift.choose')}</Text>
+          )}
+        </View>
       </View>
 
       <ScrollView
@@ -408,22 +494,7 @@ export function CheckinGiftModal({
               const chosen = selected !== null && box === selected;
               if (receipt && chosen) {
                 return (
-                  <Animated.View
-                    key={box}
-                    testID={`gift-received-${box}`}
-                    accessibilityLabel={`${t('checkinGift.selectedReward')}: ${receipt.title}`}
-                    style={[styles.box, { height: cellHeight }]}
-                  >
-                    <View testID={`gift-box-art-${box}`} style={{ width: boxWidth, height: boxWidth, alignItems: 'center', justifyContent: 'center' }}>
-                      <Image source={openedMascotHero} style={{ width: '100%', height: '100%' }} contentFit="contain" accessible={false} />
-                    </View>
-                    <Text numberOfLines={2} style={{ fontSize: 13, fontWeight: '600', textAlign: 'center', color: ink, marginVertical: 2 }}>
-                      {receipt.title}
-                    </Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: primaryBrand }}>
-                      {t('checkinGift.receivedBadge')}
-                    </Text>
-                  </Animated.View>
+                  <View key={box} style={[styles.box, { height: cellHeight }]} />
                 );
               }
               return (
@@ -438,17 +509,56 @@ export function CheckinGiftModal({
                     styles.box,
                     {
                       height: cellHeight,
-                      borderColor: chosen ? primaryBrand : 'transparent',
+                      borderColor: chosen && !busy ? primaryBrand : 'transparent',
                       zIndex: isOpening && chosen ? 2 : 0,
                     },
                     pressed && styles.pressed,
                     busy && !chosen && styles.muted,
                   ]}
                 >
-                  {boxArtwork(box, boxWidth, receipt ? true : isOpening && chosen, receipt ? otherLid : lid, !receipt)}
+                  <Animated.View
+                    style={{ opacity: chosen && busy ? focus.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] }) : 1 }}
+                  >
+                    {boxArtwork(box, boxWidth, !!receipt, otherLid, false)}
+                  </Animated.View>
                 </Pressable>
               );
             })}
+            {busy && selected !== null && (
+              <Animated.View
+                testID="gift-opening-scene"
+                pointerEvents="none"
+                accessibilityState={{ busy: true }}
+                style={[
+                  styles.openingScene,
+                  {
+                    width: stageSize,
+                    height: stageSize,
+                    left: (gridWidth - stageSize) / 2,
+                    top: (gridHeight - stageSize) / 2,
+                    opacity: focus.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 1] }),
+                    transform: [
+                      { translateX: focus.interpolate({ inputRange: [0, 1], outputRange: [sourceCenterX - gridWidth / 2, 0] }) },
+                      { translateY: focus.interpolate({ inputRange: [0, 1], outputRange: [sourceCenterY - gridHeight / 2, 0] }) },
+                      { scale: focus.interpolate({ inputRange: [0, 1], outputRange: [boxWidth / stageSize, 1] }) },
+                    ],
+                  },
+                ]}
+              >
+                <View
+                  testID={receipt ? `gift-received-${selected}` : undefined}
+                  accessibilityLabel={receipt ? `${t('checkinGift.selectedReward')}: ${receipt.title}` : undefined}
+                >
+                  {boxArtwork(selected, stageSize, true, lid, true, true)}
+                </View>
+                {receipt && (
+                  <Animated.View style={[styles.openingBadge, { opacity: reveal }]}>
+                    <Ionicons name="checkmark-circle" size={18} color={primaryBrand} />
+                    <Text style={{ color: ink, fontSize: 15, fontWeight: '700' }}>{t('checkinGift.receivedBadge')}</Text>
+                  </Animated.View>
+                )}
+              </Animated.View>
+            )}
           </View>
         ) : (
           <View style={styles.openedContainer}>
@@ -624,11 +734,17 @@ export function CheckinGiftModal({
               ]}
             >
               {otherRewardsToShow.map((item, index) => (
-                <View
+                <Animated.View
                   key={item.key}
                   testID={`gift-other-${index}`}
                   accessibilityLabel={`${t('checkinGift.otherReward', { number: index + 1 })}: ${t(item.labelKey)}`}
-                  style={styles.otherRewardItem}
+                  style={[
+                    styles.otherRewardItem,
+                    {
+                      opacity: othersReveal.interpolate({ inputRange: [0, (index + 1) * 0.05, 0.72 + index * 0.06, 1], outputRange: [0, 0, 1, 1] }),
+                      transform: [{ translateY: othersReveal.interpolate({ inputRange: [0, 1], outputRange: [12 + index * 2, 0] }) }],
+                    },
+                  ]}
                 >
                   <Image
                     source={item.image}
@@ -652,16 +768,9 @@ export function CheckinGiftModal({
                       {t(item.labelKey)}
                     </Text>
                   </View>
-                </View>
+                </Animated.View>
               ))}
             </Animated.View>
-          </View>
-        )}
-
-        {isOpening && (
-          <View style={styles.openingStatus} accessibilityLiveRegion="polite">
-            <ActivityIndicator color={primaryBrand} />
-            <Text style={{ color: subInk, fontSize: 16 }}>{t('checkinGift.openingBox', { number: selected + 1 })}</Text>
           </View>
         )}
 
@@ -677,16 +786,18 @@ export function CheckinGiftModal({
           onPress={dismiss}
           disabled={readOnly || busy || !receipt}
           accessibilityRole="button"
+          accessible={!busy}
           accessibilityState={{ disabled: readOnly || busy || !receipt }}
           style={({ pressed }) => [
             styles.button,
             { backgroundColor: primaryBrand },
             pressed && !!receipt && styles.pressed,
             (busy || !receipt) && styles.muted,
+            busy && styles.invisible,
           ]}
         >
           <Text style={styles.buttonText}>
-            {t(receipt ? 'checkinGift.done' : busy ? 'checkinGift.opening' : 'checkinGift.pickBox')}
+            {!busy && t(receipt ? 'checkinGift.done' : 'checkinGift.pickBox')}
           </Text>
         </Pressable>
       </View>
@@ -775,6 +886,7 @@ const styles = StyleSheet.create({
     minHeight: 24,
     marginBottom: 8,
   },
+  subtitleSpace: { minHeight: 32 },
   notice: {
     fontSize: 16,
     lineHeight: 24,
@@ -804,11 +916,10 @@ const styles = StyleSheet.create({
   },
   boxGlow: {
     position: 'absolute',
-    left: '8%',
-    right: '8%',
-    top: '20%',
-    height: '40%',
-    borderRadius: 999,
+    left: '-10%',
+    width: '120%',
+    top: '-10%',
+    height: '120%',
   },
   boxSparkle: {
     position: 'absolute',
@@ -816,13 +927,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  openingStatus: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
+  boxMouth: {
+    position: 'absolute',
+    left: '7%',
+    right: '7%',
+    borderRadius: 999,
+    borderWidth: 3,
+    borderColor: '#9be2d5',
+    backgroundColor: '#237f71',
   },
+  openingScene: {
+    position: 'absolute',
+    zIndex: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  openingSpark: {
+    position: 'absolute',
+    width: 7,
+    height: 11,
+    borderRadius: 2,
+  },
+  openingBadge: {
+    position: 'absolute',
+    bottom: -30,
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#e3f8f2',
+  },
+  invisible: { opacity: 0 },
   openedContainer: {
     width: '100%',
     alignItems: 'center',
