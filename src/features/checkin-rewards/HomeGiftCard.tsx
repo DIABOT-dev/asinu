@@ -87,6 +87,8 @@ function AccountCard({ account }: { account: string }) {
   const isDarkMode = Boolean(isDark);
   const containerBg = isDarkMode ? 'rgba(20, 184, 166, 0.12)' : '#e8f7f4';
   const streakBg = isDarkMode ? 'rgba(20, 184, 166, 0.25)' : '#cbf0e8';
+  const streakBorderColor = isDarkMode ? 'rgba(20, 184, 166, 0.4)' : 'rgba(255, 255, 255, 0.7)';
+  const accentColor = isDarkMode ? '#2dd4bf' : '#0d9488';
   const arrowBg = isDarkMode ? 'rgba(20, 184, 166, 0.18)' : '#e8f7f4';
 
   // Subtle gradient: gentle luminance step without heavy saturation or waves
@@ -164,32 +166,53 @@ function AccountCard({ account }: { account: string }) {
                     ]}
                   >
                     {dot.checked ? (
-                      <Ionicons name="checkmark" size={15} color="#ffffff" />
+                      <Ionicons name="checkmark" size={13} color="#ffffff" />
                     ) : (
-                      <Ionicons name="lock-closed" size={11} color="#94a3b8" />
+                      <Ionicons name="lock-closed" size={10} color="#94a3b8" />
                     )}
                   </View>
                   <Text
+                    numberOfLines={1}
                     style={[
                       styles.dayNumber,
-                      { color: dot.checked ? '#0d9488' : '#94a3b8' },
+                      { color: dot.checked ? accentColor : '#94a3b8' },
                     ]}
                   >
                     {index + 1}
                   </Text>
                 </View>
                 {index < day.week.length - 1 && (
-                  <View style={styles.dotConnector} />
+                  <View style={styles.dotConnector}>
+                    <View style={styles.connectorDot} />
+                    <View style={styles.connectorDot} />
+                  </View>
                 )}
               </React.Fragment>
             ))}
           </View>
 
-          <View style={[styles.streakBadge, { backgroundColor: streakBg }]}>
-            <Ionicons name="flame" size={15} color="#0d9488" />
-            <Text style={styles.streakText}>
-              {t('checkinGift.streak', { count: day.streak })}
-            </Text>
+          <View style={styles.streakBadgeWrapper}>
+            <View
+              style={[
+                styles.streakBadge,
+                {
+                  backgroundColor: streakBg,
+                  borderColor: streakBorderColor,
+                },
+              ]}
+            >
+              <Ionicons name="flame" size={13} color={accentColor} />
+              <Text
+                numberOfLines={1}
+                style={[styles.streakText, { color: accentColor }]}
+              >
+                {t('checkinGift.streak', { count: day.streak })}
+              </Text>
+            </View>
+            <View style={styles.streakSunburst} pointerEvents="none">
+              <View style={[styles.sunburstRayLeft, { backgroundColor: accentColor }]} />
+              <View style={[styles.sunburstRayRight, { backgroundColor: accentColor }]} />
+            </View>
           </View>
         </View>
 
@@ -320,7 +343,9 @@ const styles = StyleSheet.create({
   },
   mainCard: {
     borderRadius: 24,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 18,
     borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
@@ -363,10 +388,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   timelineContainer: {
-    marginTop: 18,
+    marginTop: 16,
     borderRadius: 22,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -375,49 +400,90 @@ const styles = StyleSheet.create({
   weekDotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    flexShrink: 1,
+    marginRight: 6,
   },
   dayColumn: {
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
+    flexShrink: 0,
   },
   dayDot: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 23,
+    height: 23,
+    borderRadius: 11.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayDotChecked: {
     backgroundColor: '#14b8a6',
+    shadowColor: '#0d9488',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
   },
   dayDotUnchecked: {
     backgroundColor: '#ffffff',
-    borderWidth: 1.5,
+    borderWidth: 1.2,
     borderColor: '#cbd5e1',
   },
   dayNumber: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   dotConnector: {
-    width: 5,
-    height: 1.5,
+    flex: 1,
+    minWidth: 2,
+    maxWidth: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    marginBottom: 14,
+  },
+  connectorDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
     backgroundColor: '#cbd5e1',
-    marginBottom: 16,
+  },
+  streakBadgeWrapper: {
+    position: 'relative',
+    flexShrink: 0,
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4.5,
     borderRadius: 16,
+    borderWidth: 1,
   },
   streakText: {
-    color: '#0d9488',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  streakSunburst: {
+    position: 'absolute',
+    top: -6,
+    right: 2,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  sunburstRayLeft: {
+    width: 2,
+    height: 5,
+    borderRadius: 1,
+    transform: [{ rotate: '-25deg' }],
+  },
+  sunburstRayRight: {
+    width: 2,
+    height: 7,
+    borderRadius: 1,
+    transform: [{ rotate: '25deg' }],
   },
   actionPressable: {
     marginTop: 16,

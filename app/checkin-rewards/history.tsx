@@ -144,6 +144,9 @@ function AccountHistory({ account }: { account: string }) {
             timeZone: 'Asia/Ho_Chi_Minh',
             dateStyle: 'long',
           }).format(dateObj);
+          const displayDate =
+            formattedDate.charAt(0).toLocaleUpperCase(i18n.language) +
+            formattedDate.slice(1);
           const badgeImage =
             index % 2 === 0 ? fortuneCloverBadgeArt : fortuneHeartBadgeArt;
 
@@ -178,7 +181,7 @@ function AccountHistory({ account }: { account: string }) {
               >
                 <Ionicons name="calendar-outline" size={15} color="#14b8a6" />
                 <Text style={styles.dateText}>
-                  {t('checkinGift.historyDay', { date: formattedDate })}
+                  {t('checkinGift.historyDay', { date: displayDate })}
                 </Text>
               </View>
 
