@@ -1,5 +1,20 @@
 # Daily check-in gift illustration
 
+The current reward contents use five photographic cutouts in
+[`product-photos-v2/`](./product-photos-v2/), generated with the built-in
+`image_gen` tool on 2026-10-21. Each PNG is 1254 × 1254 with an alpha channel.
+The exact prompt set and generation mode are saved in
+[`product-photos-v2/prompts.json`](./product-photos-v2/prompts.json).
+
+- Raffle tickets: `reward-ticket-photo-v2.png`
+- Greeting envelope: `reward-wish-photo-v2.png`
+- Proverb book: `reward-proverb-photo-v2.png`
+- Health tip bulb: `reward-tip-photo-v2.png`
+- Offer voucher: `reward-coupon-photo-v2.png`
+
+The existing iPhone product photo remains unchanged. Labels are rendered by the
+app, and opening animations display these same category photos.
+
 `gift-open-box.png` is the transparent opened box used in every revealed slot.
 Created with the built-in `image_gen` tool from the user's second gift-dialog
 reference. Prize icons, the existing Asinu mascot, names and received state are

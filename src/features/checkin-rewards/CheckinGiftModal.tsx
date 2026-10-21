@@ -19,17 +19,15 @@ import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
-const giftMascot = require('../../../assets/asinu_chat_sticker.png');
-
-const openedMascotHero = require('../../../assets/images/rewards/opened_gift_mascot_hero.png');
-const fortuneHeartHeader = require('../../../assets/images/rewards/fortune_heart_header.png');
-const fortuneBranchLeft = require('../../../assets/images/rewards/fortune_branch_left.png');
-const rewardBoxTicket = require('../../../assets/images/rewards/daily_reward_box_ticket.png');
-const rewardBoxPhone = require('../../../assets/images/rewards/daily_reward_box_phone.png');
-const rewardBoxBook = require('../../../assets/images/rewards/daily_reward_box_book.png');
-const rewardBoxBulb = require('../../../assets/images/rewards/daily_reward_box_bulb.png');
-const rewardBoxCoupon = require('../../../assets/images/rewards/daily_reward_box_coupon.png');
-const rewardBoxWish = require('../../../assets/images/rewards/daily_reward_box_wish.png');
+const phonePrizeImage = require('../../../assets/iphone-18-pro-01_5-1.webp');
+const rewardPhotos = {
+  ticket: require('../../../assets/images/rewards/product-photos-v2/reward-ticket-photo-v2.png'),
+  phone: phonePrizeImage,
+  proverb: require('../../../assets/images/rewards/product-photos-v2/reward-proverb-photo-v2.png'),
+  tip: require('../../../assets/images/rewards/product-photos-v2/reward-tip-photo-v2.png'),
+  coupon: require('../../../assets/images/rewards/product-photos-v2/reward-coupon-photo-v2.png'),
+  wish: require('../../../assets/images/rewards/product-photos-v2/reward-wish-photo-v2.png'),
+};
 
 const boxImages = [
   require('../../../assets/images/rewards/box_1.png'),
@@ -69,12 +67,12 @@ type Props = {
 };
 
 const otherRewardCatalog = [
-  { key: 'ticket', labelKey: 'checkinGift.previewTicket', image: rewardBoxTicket },
-  { key: 'phone', labelKey: 'checkinGift.previewPhone', image: rewardBoxPhone },
-  { key: 'proverb', labelKey: 'checkinGift.previewProverb', image: rewardBoxBook },
-  { key: 'tip', labelKey: 'checkinGift.previewTip', image: rewardBoxBulb },
-  { key: 'coupon', labelKey: 'checkinGift.couponLabel', image: rewardBoxCoupon },
-  { key: 'wish', labelKey: 'checkinGift.previewWish', image: rewardBoxWish },
+  { key: 'ticket', labelKey: 'checkinGift.previewTicket' },
+  { key: 'phone', labelKey: 'checkinGift.previewPhone' },
+  { key: 'proverb', labelKey: 'checkinGift.previewProverb' },
+  { key: 'tip', labelKey: 'checkinGift.previewTip' },
+  { key: 'coupon', labelKey: 'checkinGift.couponLabel' },
+  { key: 'wish', labelKey: 'checkinGift.previewWish' },
 ] as const;
 
 /** The server owns eligibility and the prize. The six boxes only choose a visual slot. */
@@ -258,6 +256,11 @@ export function CheckinGiftModal({
   const sourceCenterX = tileWidth / 2 + selectedColumn * (gridWidth - tileWidth) / 2;
   const sourceCenterY = scrollTop + gridTop - scrollOffset.current + cellHeight / 2 + selectedRow * (cellHeight + rowGap);
   const sceneTop = ((sheetHeight || gridHeight + 208) - stageSize) / 2;
+  const rewardArtwork = (kind: CheckinGiftReceipt['kind'], size: number) => {
+    const key = kind === 'health_tip' ? 'tip' : kind || 'wish';
+    const reward = otherRewardCatalog.find((item) => item.key === key) || otherRewardCatalog[5];
+    return <Image source={rewardPhotos[reward.key]} style={{ width: size, height: size }} contentFit="contain" accessible={false} />;
+  };
 
   // Animate the transparent present itself. Cropping the illustrated choice card
   // would lift its background and mascot together with the lid.
@@ -329,6 +332,8 @@ export function CheckinGiftModal({
               left: size * 0.25,
               width: size * 0.5,
               height: size * 0.5,
+              alignItems: 'center',
+              justifyContent: 'center',
               opacity: reveal,
               transform: [
                 { translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [size * 0.2, -size * 0.25] }) },
@@ -336,7 +341,7 @@ export function CheckinGiftModal({
               ],
             }}
           >
-            <Image source={giftMascot} style={styles.heroImage} contentFit="contain" accessible={false} />
+            {rewardArtwork(receipt.kind, size * 0.5)}
           </Animated.View>
         )}
         {opened ? (
@@ -438,9 +443,6 @@ export function CheckinGiftModal({
       }).slice(0, 5)
     : [];
 
-  const heroWidth = Math.min(sheetWidth - 24, 380);
-  const heroHeight = Math.round(heroWidth * (423 / 852));
-
   const content = (
     <View
       accessibilityViewIsModal
@@ -535,7 +537,7 @@ export function CheckinGiftModal({
           </View>
         ) : (
           <View style={styles.openedContainer}>
-            {/* Hero Mascot in Open Gift Box */}
+            {/* Each category has its own high-resolution product cutout. */}
             <Animated.View
               testID={`gift-received-${awardedBoxIndex}`}
               accessibilityLabel={`${t('checkinGift.selectedReward')}: ${receipt?.title ?? ''}`}
@@ -556,18 +558,13 @@ export function CheckinGiftModal({
             >
               <View
                 testID={`gift-box-art-${awardedBoxIndex}`}
-                style={[styles.heroArtWrapper, { width: heroWidth, height: heroHeight }]}
+                style={styles.heroArtWrapper}
               >
-                <Image
-                  source={openedMascotHero}
-                  style={styles.heroImage}
-                  contentFit="contain"
-                  accessible={false}
-                />
+                {rewardArtwork(receipt?.kind, 128)}
               </View>
             </Animated.View>
 
-            {/* Badges: Category pill & Status pill with sunburst rays */}
+            {/* Category label */}
             <Animated.View style={[styles.badgesWrapper, { opacity: reveal }]}>
               {/* Category pill */}
               <View
@@ -582,36 +579,6 @@ export function CheckinGiftModal({
                 <Text style={[styles.categoryPillText, { color: isDark ? colors.textPrimary : '#084844' }]}>
                   {categoryLabel}
                 </Text>
-              </View>
-
-              {/* Status pill with radiating sunburst ticks */}
-              <View style={styles.statusPillRow}>
-                {/* Left sunburst ticks */}
-                <View style={styles.sunburstTicksLeft}>
-                  <View style={[styles.sunburstTick, styles.tickTopLeft]} />
-                  <View style={[styles.sunburstTick, styles.tickMidLeft]} />
-                  <View style={[styles.sunburstTick, styles.tickBotLeft]} />
-                </View>
-
-                {/* Status pill container */}
-                <View
-                  style={[
-                    styles.statusPill,
-                    { backgroundColor: isDark ? colors.surfaceMuted : '#e3f8f2' },
-                  ]}
-                >
-                  <Ionicons name="checkmark-circle" size={18} color="#059669" style={styles.statusIcon} />
-                  <Text style={[styles.statusPillText, { color: isDark ? colors.textPrimary : '#084844' }]}>
-                    {t('checkinGift.receivedBadge')}
-                  </Text>
-                </View>
-
-                {/* Right sunburst ticks */}
-                <View style={styles.sunburstTicksRight}>
-                  <View style={[styles.sunburstTick, styles.tickTopRight]} />
-                  <View style={[styles.sunburstTick, styles.tickMidRight]} />
-                  <View style={[styles.sunburstTick, styles.tickBotRight]} />
-                </View>
               </View>
             </Animated.View>
 
@@ -629,30 +596,6 @@ export function CheckinGiftModal({
                   },
                 ]}
               >
-                {/* Pink heart with golden sparkles */}
-                <Image
-                  source={fortuneHeartHeader}
-                  style={styles.fortuneHeartHeader}
-                  contentFit="contain"
-                  accessible={false}
-                />
-
-                {/* Left floral vine */}
-                <Image
-                  source={fortuneBranchLeft}
-                  style={styles.fortuneBranchLeft}
-                  contentFit="contain"
-                  accessible={false}
-                />
-
-                {/* Right floral vine */}
-                <Image
-                  source={fortuneBranchLeft}
-                  style={styles.fortuneBranchRight}
-                  contentFit="contain"
-                  accessible={false}
-                />
-
                 {/* Fortune Text */}
                 <Text
                   style={[
@@ -702,7 +645,7 @@ export function CheckinGiftModal({
               style={[
                 styles.otherRewardsRow,
                 {
-                  opacity: othersReveal.interpolate({ inputRange: [0, 1], outputRange: [0, 0.9] }),
+                  opacity: othersReveal,
                 },
               ]}
             >
@@ -719,12 +662,9 @@ export function CheckinGiftModal({
                     },
                   ]}
                 >
-                  <Image
-                    source={item.image}
-                    style={styles.otherRewardBoxImage}
-                    contentFit="contain"
-                    accessible={false}
-                  />
+                  <View style={styles.otherRewardGraphic}>
+                    <Image source={rewardPhotos[item.key]} style={styles.otherRewardImage} contentFit="contain" accessible={false} />
+                  </View>
                   <View
                     style={[
                       styles.otherRewardLabelContainer,
@@ -781,12 +721,6 @@ export function CheckinGiftModal({
           >
             {boxArtwork(selected, stageSize, true, lid, true, true)}
           </View>
-          {receipt && (
-            <Animated.View style={[styles.openingBadge, { opacity: reveal }]}>
-              <Ionicons name="checkmark-circle" size={18} color={primaryBrand} />
-              <Text style={{ color: ink, fontSize: 15, fontWeight: '700' }}>{t('checkinGift.receivedBadge')}</Text>
-            </Animated.View>
-          )}
         </Animated.View>
       )}
 
@@ -957,17 +891,6 @@ const styles = StyleSheet.create({
     height: 11,
     borderRadius: 2,
   },
-  openingBadge: {
-    position: 'absolute',
-    bottom: -30,
-    flexDirection: 'row',
-    gap: 6,
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#e3f8f2',
-  },
   invisible: { opacity: 0 },
   openedContainer: {
     width: '100%',
@@ -980,12 +903,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   heroArtWrapper: {
+    width: 144,
+    height: 132,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
   },
   badgesWrapper: {
     alignItems: 'center',
@@ -1010,65 +931,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: -0.2,
   },
-  statusPillRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sunburstTicksLeft: {
-    width: 22,
-    height: 24,
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingRight: 5,
-  },
-  sunburstTicksRight: {
-    width: 22,
-    height: 24,
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingLeft: 5,
-  },
-  sunburstTick: {
-    width: 7,
-    height: 2.5,
-    borderRadius: 1.5,
-    backgroundColor: '#f59e0b',
-  },
-  tickTopLeft: {
-    transform: [{ rotate: '-35deg' }],
-  },
-  tickMidLeft: {
-    transform: [{ rotate: '0deg' }],
-  },
-  tickBotLeft: {
-    transform: [{ rotate: '35deg' }],
-  },
-  tickTopRight: {
-    transform: [{ rotate: '35deg' }],
-  },
-  tickMidRight: {
-    transform: [{ rotate: '0deg' }],
-  },
-  tickBotRight: {
-    transform: [{ rotate: '-35deg' }],
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 999,
-    gap: 5,
-  },
-  statusIcon: {
-    marginRight: 1,
-  },
-  statusPillText: {
-    fontSize: 15,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
   fortuneCard: {
     width: '100%',
     borderRadius: 24,
@@ -1086,26 +948,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
     marginBottom: 14,
-  },
-  fortuneHeartHeader: {
-    width: 78,
-    height: 28,
-    marginBottom: 10,
-  },
-  fortuneBranchLeft: {
-    position: 'absolute',
-    left: 4,
-    bottom: 2,
-    width: 58,
-    height: 76,
-  },
-  fortuneBranchRight: {
-    position: 'absolute',
-    right: 4,
-    bottom: 2,
-    width: 58,
-    height: 76,
-    transform: [{ scaleX: -1 }],
   },
   fortuneText: {
     fontSize: 16,
@@ -1125,10 +967,16 @@ const styles = StyleSheet.create({
     width: '18.8%',
     alignItems: 'center',
   },
-  otherRewardBoxImage: {
+  otherRewardGraphic: {
     width: '100%',
-    height: 52,
-    marginBottom: 3,
+    height: 56,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otherRewardImage: {
+    width: '100%',
+    height: '100%',
   },
   otherRewardLabelContainer: {
     width: '100%',

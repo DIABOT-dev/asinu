@@ -33,16 +33,20 @@ Lucky draws are paused by default (zero ticket weight). The planned prize is
 iPhone 18 Pro Max. The six boxes stay in the same modal throughout opening.
 The chosen present moves from its selected slot into a larger central opening
 scene. Its transparent lid lifts and tilts away from the body, light and a small
-burst emerge, and the mascot rises from inside after the server confirms the gift.
+burst emerge, and the reward photo rises from inside after the server confirms the gift.
 The illustration animates directly; no loading spinner or "Opening" copy replaces
 it. The other lids open before the saved result and remaining rewards fade in.
 After a successful open, its saved reward appears as a centered hero above the five
-other opened boxes, with the received badge and complete fortune. The original
+other rewards and the complete fortune. No received-status badge is shown. The original
 server box selection is preserved; moving the illustration never makes another
 claim. The complete fortune is shown immediately, centered beneath the received
 box and above the row of other rewards. It is never hidden behind a details action or
 truncated. Other boxes retain short gift names without Example badges.
-Opened boxes use the bundled transparent 3D artwork. The fixed header and Close
+The opening uses the bundled transparent 3D box artwork. Reward contents use new
+high-resolution photographic cutouts for wishes, proverbs, tips, tickets and
+coupons; the iPhone preview keeps its existing product photo. Generated assets
+and their exact prompts live in `assets/images/rewards/product-photos-v2/`.
+The fixed header and Close
 button remain outside the scrolling content, and the full fortune remains
 readable at larger text sizes. Opening returns the scroll position to the centered reward.
 Reduced Motion skips the sequence and shows the saved result immediately. Actual

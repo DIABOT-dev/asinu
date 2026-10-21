@@ -346,6 +346,10 @@ function modalHarness(options = {}) {
     '../../../assets/images/rewards/daily_reward_box_bulb.png': 'daily_reward_box_bulb.png',
     '../../../assets/images/rewards/daily_reward_box_coupon.png': 'daily_reward_box_coupon.png',
     '../../../assets/images/rewards/daily_reward_box_wish.png': 'daily_reward_box_wish.png',
+    ...Object.fromEntries(['ticket', 'wish', 'proverb', 'tip', 'coupon'].map(key => [
+      `../../../assets/images/rewards/product-photos-v2/reward-${key}-photo-v2.png`,
+      `reward-${key}-photo-v2.png`,
+    ])),
     ...Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`../../../assets/images/rewards/box_${i + 1}.png`, `box_${i + 1}.png`])),
   });
   const props = { visible: true, demo: true, onClose: () => calls.closes++,
@@ -393,7 +397,7 @@ await test('an available gift requires a choice: no skip, close button or Androi
   assert.ok(nodes(tree).some(node => node.props.accessibilityLabel === 'Đóng hộp quà'));
   assert.equal(nodes(tree).find(node => node.type === 'Modal').props.interruptible, true, 'Urgent health dialogs can still interrupt gifts');
 });
-await test('every selected box reveals the hero mascot gift and full blessing above the other prize options', async () => {
+await test('every selected box reveals its product photo and full blessing above the other prize options', async () => {
   for (let box = 0; box < 6; box++) {
     const h = modalHarness({ props: { demo: false, initialReceipt: { id: 'saved', box, title: 'Chúc bạn bình yên.' } } });
     const tree = await h.settle();
@@ -409,7 +413,11 @@ await test('every selected box reveals the hero mascot gift and full blessing ab
     assert.ok(examples.every(node => node.props.accessibilityLabel.startsWith('Quà ở hộp số')));
     assert.equal(new Set(examples.map(node => node.props.accessibilityLabel)).size, 5);
     assert.ok(!nodes(tree).some(node => node.type === 'Text' && /Minh họa|không phải kết quả bốc quà/.test(node.props.children)));
-    assert.equal(nodes(tree).filter(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận').length, 1);
+    assert.equal(nodes(tree).filter(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận').length, 0);
+    assert.ok(nodes(hero).some(node => node.type === 'Image' && node.props.source === 'reward-wish-photo-v2.png'), 'The received wish uses the new high-resolution photo');
+    assert.equal(nodes(grid).filter(node => node.type === 'Image' && node.props.source === 180018).length, 1, 'Keep the real iPhone photo');
+    assert.equal(nodes(grid).filter(node => node.type === 'Icon').length, 0, 'Gift contents use photos instead of vector substitutes');
+    assert.equal(nodes(grid).filter(node => node.type === 'Image').length, 5, 'Every remaining reward has its own photo');
     assert.deepEqual(h.calls.opens, [], 'Reviewing the other slots never makes another claim');
     assert.equal(nodes(fortune).filter(node => node.type === 'Text' && node.props.children === 'Chúc bạn bình yên.').length, 1);
   }
@@ -471,7 +479,7 @@ await test('the tapped box moves into focus and its actual transparent lid opens
   h.animations.finishNext(); tree = await h.settle();
   assert.ok(nodes(tree).some(node => node.props.testID === 'gift-emerging-reward'));
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Chọn 1 hộp quà để mở'));
-  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận'));
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Bạn đã nhận'));
   h.animations.finishNext(); tree = await h.settle();
   assert.ok(nodes(tree).some(node => node.props.testID === 'gift-fortune'));
   h.animations.finishNext(); tree = await h.settle();
