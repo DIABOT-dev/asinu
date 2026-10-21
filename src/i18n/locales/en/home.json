@@ -15,6 +15,16 @@
     "previewTip": "A small tip",
     "previewTicket": "Draw ticket",
     "previewPhone": "iPhone 18 Pro Max",
+    "previewMode": "Try opening a gift",
+    "previewCouponDescription": "This is a preview. No offer code has been issued.",
+    "previewTicketDescription": "This is a preview. No draw entry has been issued.",
+    "previewContent": {
+      "wish": "Wishing you a peaceful day. May small moments bring you a little joy.",
+      "proverb": "Though the gourds may differ,\nThey share one trellis and care for one another.",
+      "health_tip": "Keep a notebook and pen somewhere easy to see, ready to write down questions for your doctor.",
+      "coupon": "An offer voucher for your family.",
+      "ticket": "A little extra joy for your day."
+    },
     "close": "Close gift boxes",
     "received": "A gift for you",
     "saved": "Your gift has been saved. See you at tomorrow's check-in!",

@@ -15,6 +15,16 @@
     "previewTip": "Mẹo nhỏ",
     "previewTicket": "Phiếu bốc thăm",
     "previewPhone": "iPhone 18 Pro Max",
+    "previewMode": "Mở quà thử",
+    "previewCouponDescription": "Đây là giao diện xem thử, chưa cấp mã ưu đãi.",
+    "previewTicketDescription": "Phiếu mở thử, chưa cấp số dự thưởng.",
+    "previewContent": {
+      "wish": "Chúc bạn một ngày bình yên. Mong niềm vui ghé thăm bạn từ những điều nhỏ bé.",
+      "proverb": "Bầu ơi thương lấy bí cùng,\nTuy rằng khác giống nhưng chung một giàn.",
+      "health_tip": "Để sẵn cuốn sổ và cây bút ở nơi dễ thấy, bạn sẽ tiện ghi lại điều muốn hỏi bác sĩ.",
+      "coupon": "Một phiếu ưu đãi dành cho cả nhà.",
+      "ticket": "Thêm một niềm vui nho nhỏ cho hôm nay."
+    },
     "close": "Đóng hộp quà",
     "received": "Quà dành cho bạn",
     "saved": "Quà đã được lưu. Hẹn bạn check-in vào ngày mai!",

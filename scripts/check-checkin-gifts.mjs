@@ -64,11 +64,12 @@ function hooks() {
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
   : [tree, ...nodes(tree.props?.children)];
 
-function replayTools(api, { dev = false, appDev = dev, account = 'parent-account', apiUrl = 'http://localhost:3300', replayUrl = apiUrl } = {}) {
+function replayTools(api, { dev = false, appDev = dev, account = 'parent-account', apiUrl = 'http://localhost:3300', replayUrl = apiUrl, randomByte = () => 0 } = {}) {
   return evaluate('src/features/checkin-rewards/checkin-gift-replay.ts', {
     '../../lib/appEnv': { isDevBuild: appDev },
     '../../lib/env': { env: { apiBaseUrl: apiUrl } },
     './checkin-gifts.api': { checkinGiftsApi: api },
+    'expo-crypto': { getRandomBytes: size => { assert.equal(size, 1); return Uint8Array.of(randomByte()); } },
   }, { __DEV__: dev, process: { env: {
     EXPO_PUBLIC_CHECKIN_GIFT_REPLAY_ACCOUNT_ID: account,
     EXPO_PUBLIC_CHECKIN_GIFT_REPLAY_API_BASE_URL: replayUrl,
@@ -407,7 +408,7 @@ await test('every selected box reveals its product photo and full blessing above
     assert.ok(fortune, 'Fortune card is displayed');
     const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
     assert.ok(grid, 'Other rewards grid is displayed');
-    const examples = nodes(grid).filter(node => /^gift-other-/.test(node.props.testID || ''));
+    const examples = nodes(grid).filter(node => /^gift-other-\d+$/.test(node.props.testID || ''));
     assert.equal(examples.length, 5, 'Shows the 5 other prize options for a total of 6 boxes');
     assert.ok(hero.props.accessibilityLabel.startsWith('Đã nhận: Chúc bạn bình yên.'));
     assert.ok(examples.every(node => node.props.accessibilityLabel.startsWith('Quà ở hộp số')));
@@ -417,7 +418,8 @@ await test('every selected box reveals its product photo and full blessing above
     assert.ok(nodes(hero).some(node => node.type === 'Image' && node.props.source === 'reward-wish-photo-v2.png'), 'The received wish uses the new high-resolution photo');
     assert.equal(nodes(grid).filter(node => node.type === 'Image' && node.props.source === 180018).length, 1, 'Keep the real iPhone photo');
     assert.equal(nodes(grid).filter(node => node.type === 'Icon').length, 0, 'Gift contents use photos instead of vector substitutes');
-    assert.equal(nodes(grid).filter(node => node.type === 'Image').length, 5, 'Every remaining reward has its own photo');
+    assert.equal(nodes(grid).filter(node => node.type === 'Image' && /^gift-other-photo-/.test(node.props.testID || '')).length, 5, 'Every remaining reward has its own photo');
+    assert.ok(examples.every(item => nodes(item).some(node => node.props.source === 'gift-open-box.png')), 'Every other reward stays in an opened mint box');
     assert.deepEqual(h.calls.opens, [], 'Reviewing the other slots never makes another claim');
     assert.equal(nodes(fortune).filter(node => node.type === 'Text' && node.props.children === 'Chúc bạn bình yên.').length, 1);
   }
@@ -447,7 +449,7 @@ await test('the centered reward shows its full fortune immediately, before the l
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === description));
   const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
   assert.ok(grid);
-  assert.equal(nodes(grid).filter(node => /^gift-other-/.test(node.props.testID || '')).length, 5);
+  assert.equal(nodes(grid).filter(node => /^gift-other-\d+$/.test(node.props.testID || '')).length, 5);
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'Đóng'));
   assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === 'Xem chi tiết lộc đã nhận'));
   assert.deepEqual(h.calls.opens, [], 'Displaying the existing fortune never claims or opens a new page');
@@ -540,7 +542,7 @@ for (const fontScale of [1, 1.5]) await test(`font scale ${fontScale}: opening c
   h.animations.finishNext(); tree = await h.settle();
   const otherGrid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
   assert.ok(otherGrid);
-  const otherResults = nodes(otherGrid).filter(node => /^gift-other-/.test(node.props.testID || ''));
+  const otherResults = nodes(otherGrid).filter(node => /^gift-other-\d+$/.test(node.props.testID || ''));
   assert.equal(otherResults.length, 5);
   assert.equal(nodes(tree).filter(node => node.type === 'Text' && node.props.children === 'Lộc của bạn').length, 2, 'Demo gift names and the complete fortune both remain readable');
   const openedScroll = nodes(tree).find(node => node.type === 'Scroll');
@@ -571,7 +573,7 @@ await test('an unmounted gift modal never reveals or publishes a late receipt', 
   resolve({ id: 'private', box: 0, title: 'Late receipt' }); await tick();
   assert.equal(h.calls.received.length, 0); assert.equal(h.animations.pending.length, 0);
 });
-function productionFlowHarness({ today, open, reviewExisting = false, language = 'vi', status = 'fine', replay = false } = {}) {
+function productionFlowHarness({ today, open, reviewExisting = false, language = 'vi', status = 'fine', replay = false, randomByte } = {}) {
   const runtime = hooks(), calls = { today: 0, open: [], close: 0, unavailable: 0, opened: [] };
   const account = { profile: { id: 'parent-account' } };
   const useAuthStore = select => select(account); useAuthStore.getState = () => account;
@@ -613,7 +615,7 @@ function productionFlowHarness({ today, open, reviewExisting = false, language =
     '../auth/auth.store': { useAuthStore }, './CheckinGiftModal': { CheckinGiftModal: 'Gift' },
     './gift-prize-assets': { giftPrizeImage },
     './checkin-gifts.api': { checkinGiftsApi: api },
-    './checkin-gift-replay': replayTools(api, { dev: replay }),
+    './checkin-gift-replay': replayTools(api, { dev: replay, randomByte }),
   });
   const render = () => {
     let tree = CheckinGiftFlow({ reviewExisting, status, onOpened: gift => calls.opened.push(gift), onClose: () => calls.close++, onUnavailable: () => calls.unavailable++ });
@@ -636,6 +638,29 @@ await test('viewing an opened fortune keeps the receipt without another claim', 
   const h = productionFlowHarness({ reviewExisting: true, today: ({ receipt }) => ({ enabled: true, gift: receipt }) });
   const tree = await h.settle(); assert.equal(tree.props.initialReceipt.title, 'Chúc bạn một ngày bình yên.'); assert.deepEqual(h.calls.open, []);
 });
+for (const [kind, photo, label] of [
+  ['wish', 'wish', 'previewWish'], ['proverb', 'proverb', 'previewProverb'],
+  ['health_tip', 'tip', 'previewTip'], ['coupon', 'coupon', 'couponLabel'],
+]) await test(`server ${kind} receipts retain their category, full content and matching reward artwork`, async () => {
+  const h = productionFlowHarness({ open: ({ receipt }) => ({ gift: {
+    ...receipt, loc: { type: kind === 'coupon' ? 'wish' : kind, text: `Saved ${kind} content`, serif: kind === 'proverb' },
+    extra: kind === 'coupon' ? 'coupon' : 'none',
+  } }) });
+  const entry = await h.settle();
+  assert.equal(entry.props.preview, false, 'Normal receipt flow does not show preview mode');
+  const receipt = await entry.props.onOpen(3);
+  assert.equal(receipt.kind, kind);
+  assert.equal(receipt.title, `Saved ${kind} content`);
+  assert.equal(receipt.shortTitle, h.t(`checkinGift.${label}`));
+  const modal = modalHarness({ props: { demo: false, initialReceipt: receipt } });
+  const tree = await modal.settle();
+  assert.equal(nodes(tree).find(node => node.props.testID === 'gift-received-photo').props.source, `reward-${photo}-photo-v2.png`);
+  const fortune = nodes(tree).find(node => node.props.testID === 'gift-fortune');
+  const text = nodes(fortune).find(node => node.type === 'Text' && node.props.children === receipt.title);
+  assert.ok(text);
+  assert.equal(text.props.numberOfLines, undefined);
+  assert.equal(Object.assign({}, ...text.props.style).fontStyle, kind === 'proverb' ? 'italic' : 'normal');
+});
 await test('the opted-in local account can reopen every visual box without another gift claim', async () => {
   for (let box = 0; box < 6; box++) {
     const h = productionFlowHarness({ replay: true, reviewExisting: true, today: ({ receipt }) => ({ enabled: true, gift: receipt }) });
@@ -643,12 +668,60 @@ await test('the opted-in local account can reopen every visual box without anoth
     assert.equal(tree.props.initialReceipt, null, 'Each new visit starts with closed boxes');
     const receipt = await tree.props.onOpen(box);
     assert.equal(receipt.box, box);
-    assert.equal(receipt.title, 'Chúc bạn một ngày bình yên.');
+    assert.equal(receipt.title, h.t('checkinGift.previewContent.wish'));
+    assert.equal(receipt.id, 'local-preview:wish');
     assert.deepEqual(h.calls.open, []);
     assert.deepEqual(h.calls.opened, [], 'Replays never publish another real opening');
     h.account.profile.id = 'other-account';
     await assert.rejects(tree.props.onOpen(box), /account changed/);
   }
+});
+for (const [draw, kind] of ['wish', 'proverb', 'health_tip', 'ticket', 'coupon'].entries()) await test(`local random opening can reveal ${kind} without altering the real saved reward`, async () => {
+  const h = productionFlowHarness({ replay: true, randomByte: () => draw, reviewExisting: true, today: ({ receipt }) => ({ enabled: true, gift: receipt }) });
+  const tree = await h.settle();
+  assert.equal(tree.props.preview, true);
+  const receipt = await tree.props.onOpen(1);
+  assert.equal(receipt.kind, kind);
+  assert.equal(receipt.title, h.t(`checkinGift.previewContent.${kind}`));
+  assert.equal(receipt.serif, kind === 'proverb');
+  assert.equal(receipt.rulesPeriod, undefined);
+  assert.deepEqual(h.calls.open, []);
+  assert.deepEqual(h.calls.opened, []);
+  if (kind === 'coupon') assert.equal(receipt.description, h.t('checkinGift.previewCouponDescription'));
+  if (kind === 'ticket') assert.equal(receipt.description, h.t('checkinGift.previewTicketDescription'));
+});
+await test('local opening has only six mystery boxes and no gift-type controls', async () => {
+  const h = modalHarness({ props: { demo: false, preview: true } });
+  const tree = await h.settle();
+  const buttons = nodes(tree).filter(node => node.type === 'Button');
+  assert.equal(buttons.length, 7, 'Six boxes plus the disabled instruction in the footer');
+  assert.equal(buttons.filter(node => node.props.accessibilityLabel?.startsWith('Mở hộp quà số')).length, 6);
+  assert.equal(buttons.filter(node => !node.props.disabled).length, 6);
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && ['Lời chúc', 'Ca dao', 'Mẹo nhỏ', 'Phiếu ưu đãi'].includes(node.props.children)));
+});
+await test('all six local slots can draw every eligible kind, with exactly zero phone outcomes', () => {
+  let random = 0;
+  const tools = replayTools({}, { dev: true, randomByte: () => random });
+  for (let box = 0; box < 6; box++) {
+    const counts = { wish: 0, proverb: 0, health_tip: 0, ticket: 0, coupon: 0 };
+    for (random = 0; random < 255; random++) {
+      const receipt = tools.previewCheckinGift('parent-account', box, key => key);
+      assert.equal(receipt.box, box);
+      assert.ok(Object.hasOwn(counts, receipt.kind), 'The phone is not in the prize pool');
+      counts[receipt.kind]++;
+    }
+    assert.deepEqual(Object.values(counts), [51, 51, 51, 51, 51]);
+  }
+  const values = [255, 2];
+  const rejection = replayTools({}, { dev: true, randomByte: () => values.shift() });
+  assert.equal(rejection.previewCheckinGift('parent-account', 0, key => key).kind, 'health_tip');
+  assert.equal(values.length, 0, 'Out-of-range bytes are redrawn instead of biasing the result');
+});
+await test('preview receipts require the opted-in local environment and cannot be issued for another account', () => {
+  const enabled = replayTools({}, { dev: true });
+  assert.throws(() => enabled.previewCheckinGift('other-account', 0, key => key), /unavailable/);
+  assert.throws(() => replayTools({}).previewCheckinGift('parent-account', 0, key => key), /unavailable/);
+  for (const box of [-1, 6, 1.5]) assert.throws(() => enabled.previewCheckinGift('parent-account', box, key => key), /unavailable/);
 });
 await test('automatic offerings that are already opened return control to the health result', async () => {
   const h = productionFlowHarness({ today: ({ receipt }) => ({ enabled: true, gift: receipt }) });

@@ -19,6 +19,7 @@ import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
+const openedGiftImage = require('../../../assets/images/rewards/gift-open-box.png');
 const phonePrizeImage = require('../../../assets/iphone-18-pro-01_5-1.webp');
 const rewardPhotos = {
   ticket: require('../../../assets/images/rewards/product-photos-v2/reward-ticket-photo-v2.png'),
@@ -64,6 +65,7 @@ type Props = {
   initialReceipt?: CheckinGiftReceipt | null;
   notice?: string;
   onRules?: (period: string) => void;
+  preview?: boolean;
 };
 
 const otherRewardCatalog = [
@@ -87,6 +89,7 @@ export function CheckinGiftModal({
   initialReceipt = null,
   notice,
   onRules,
+  preview,
 }: Props) {
   const { t } = useTranslation('home');
   const { colors, isDark } = useThemeColors();
@@ -256,11 +259,23 @@ export function CheckinGiftModal({
   const sourceCenterX = tileWidth / 2 + selectedColumn * (gridWidth - tileWidth) / 2;
   const sourceCenterY = scrollTop + gridTop - scrollOffset.current + cellHeight / 2 + selectedRow * (cellHeight + rowGap);
   const sceneTop = ((sheetHeight || gridHeight + 208) - stageSize) / 2;
-  const rewardArtwork = (kind: CheckinGiftReceipt['kind'], size: number) => {
+  const rewardPhoto = (kind: CheckinGiftReceipt['kind']) => {
     const key = kind === 'health_tip' ? 'tip' : kind || 'wish';
     const reward = otherRewardCatalog.find((item) => item.key === key) || otherRewardCatalog[5];
-    return <Image source={rewardPhotos[reward.key]} style={{ width: size, height: size }} contentFit="contain" accessible={false} />;
+    return rewardPhotos[reward.key];
   };
+  const rewardArtwork = (kind: CheckinGiftReceipt['kind'], size: number) => (
+    <Image source={rewardPhoto(kind)} style={{ width: size, height: size }} contentFit="contain" accessible={false} />
+  );
+  const openedReward = (source: number, size: number, testID?: string) => (
+    <View style={{ width: size, height: size * 0.88 }} pointerEvents="none">
+      <Image source={openedGiftImage} style={{ position: 'absolute', width: size * 0.9, height: size * 0.9, left: 0, bottom: -size * 0.04 }} contentFit="contain" accessible={false} />
+      <Image testID={testID} source={source} style={{ position: 'absolute', width: size * 0.52, height: size * 0.52, left: size * 0.24, top: 0 }} contentFit="contain" accessible={false} />
+      <View style={{ position: 'absolute', overflow: 'hidden', width: size * 0.9, height: size * 0.25, left: 0, bottom: -size * 0.04 }}>
+        <Image source={openedGiftImage} style={{ position: 'absolute', width: size * 0.9, height: size * 0.9, left: 0, bottom: 0 }} contentFit="contain" accessible={false} />
+      </View>
+    </View>
+  );
 
   // Animate the transparent present itself. Cropping the illustrated choice card
   // would lift its background and mascot together with the lid.
@@ -450,12 +465,23 @@ export function CheckinGiftModal({
       style={[
         styles.sheet,
         {
-          backgroundColor: isDark ? colors.surface : '#ffffff',
+          backgroundColor: isDark ? colors.surface : '#e6faf2',
           width: sheetWidth,
           maxHeight: height - insets.top - insets.bottom - 24,
         },
       ]}
     >
+      <View pointerEvents="none" style={styles.sheetLight}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            <RadialGradient id="giftSheetLight" cx="50%" cy="30%" rx="65%" ry="70%">
+              <Stop offset="0" stopColor={isDark ? '#286b56' : '#faffec'} stopOpacity={0.95} />
+              <Stop offset="1" stopColor={isDark ? '#123e32' : '#5cddbb'} stopOpacity={0.14} />
+            </RadialGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#giftSheetLight)" />
+        </Svg>
+      </View>
       <View style={[styles.handle, { backgroundColor: handleColor }]} />
       {!!receipt && (
         <Pressable
@@ -471,11 +497,12 @@ export function CheckinGiftModal({
         </Pressable>
       )}
       <Animated.View style={[styles.header, { opacity: busy && !othersOpened ? focus.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 0, 0] }) : 1 }]}>
-        <Image source={giftImage} style={styles.headerGift} contentFit="contain" accessible={false} />
+        {!receipt && <Image source={giftImage} style={styles.headerGift} contentFit="contain" accessible={false} />}
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
           {t('checkinGift.title')}
         </Text>
-        <View style={styles.subtitleSpace}>
+        <View style={[styles.subtitleSpace, receipt && styles.openedSubtitle]}>
+          {preview && <Text style={[styles.previewLabel, { color: subInk }]}>{t('checkinGift.previewMode')}</Text>}
           {!receipt && !busy && (
             <Text style={[styles.subtitle, { color: subInk }]}>{t('checkinGift.choose')}</Text>
           )}
@@ -537,7 +564,7 @@ export function CheckinGiftModal({
           </View>
         ) : (
           <View style={styles.openedContainer}>
-            {/* Each category has its own high-resolution product cutout. */}
+            {/* The selected reward emerges from the same mint gift box. */}
             <Animated.View
               testID={`gift-received-${awardedBoxIndex}`}
               accessibilityLabel={`${t('checkinGift.selectedReward')}: ${receipt?.title ?? ''}`}
@@ -560,7 +587,21 @@ export function CheckinGiftModal({
                 testID={`gift-box-art-${awardedBoxIndex}`}
                 style={styles.heroArtWrapper}
               >
-                {rewardArtwork(receipt?.kind, 128)}
+                <View style={styles.heroHalo} pointerEvents="none">
+                  <Svg width="100%" height="100%">
+                    <Defs>
+                      <RadialGradient id="giftRewardLight" cx="50%" cy="50%" r="50%">
+                        <Stop offset="0" stopColor="#fff5ad" stopOpacity={0.95} />
+                        <Stop offset="0.6" stopColor="#a8edbd" stopOpacity={0.55} />
+                        <Stop offset="1" stopColor="#a8edbd" stopOpacity={0} />
+                      </RadialGradient>
+                    </Defs>
+                    <Rect width="100%" height="100%" fill="url(#giftRewardLight)" />
+                  </Svg>
+                </View>
+                {openedReward(rewardPhoto(receipt?.kind), 196, 'gift-received-photo')}
+                <Ionicons name="sparkles" size={26} color="#eab642" style={styles.heroSparkLeft} />
+                <Ionicons name="sparkles" size={18} color="#eab642" style={styles.heroSparkRight} />
               </View>
             </Animated.View>
 
@@ -571,8 +612,8 @@ export function CheckinGiftModal({
                 style={[
                   styles.categoryPill,
                   {
-                    backgroundColor: isDark ? colors.surfaceMuted : '#f3fbf9',
-                    borderColor: isDark ? colors.border : '#a7f3d0',
+                    backgroundColor: isDark ? colors.surfaceMuted : '#b8f0d9',
+                    borderColor: isDark ? colors.border : '#79d8b3',
                   },
                 ]}
               >
@@ -591,8 +632,8 @@ export function CheckinGiftModal({
                   styles.fortuneCard,
                   {
                     opacity: reveal,
-                    backgroundColor: isDark ? colors.surface : '#fbfefe',
-                    borderColor: isDark ? colors.border : '#b2edd9',
+                    backgroundColor: isDark ? colors.surface : '#f1fff6',
+                    borderColor: isDark ? colors.border : '#a2e6c7',
                   },
                 ]}
               >
@@ -609,7 +650,7 @@ export function CheckinGiftModal({
                   {receipt.title}
                 </Text>
 
-                {!!receipt.description && (demo || !!receipt.rulesPeriod || receipt.kind === 'coupon') && (
+                {!!receipt.description && (demo || preview || !!receipt.rulesPeriod || receipt.kind === 'coupon') && (
                   <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
                     {receipt.description}
                   </Text>
@@ -663,19 +704,19 @@ export function CheckinGiftModal({
                   ]}
                 >
                   <View style={styles.otherRewardGraphic}>
-                    <Image source={rewardPhotos[item.key]} style={styles.otherRewardImage} contentFit="contain" accessible={false} />
+                    {openedReward(rewardPhotos[item.key], 88, `gift-other-photo-${item.key}`)}
                   </View>
                   <View
                     style={[
                       styles.otherRewardLabelContainer,
-                      { backgroundColor: isDark ? colors.surfaceMuted : '#f1f5f5' },
+                      { backgroundColor: isDark ? colors.surfaceMuted : '#d1f2e4' },
                     ]}
                   >
                     <Text
                       numberOfLines={2}
                       style={[
                         styles.otherRewardLabelText,
-                        { color: isDark ? colors.textSecondary : '#556565' },
+                        { color: isDark ? colors.textSecondary : '#276752' },
                       ]}
                     >
                       {t(item.labelKey)}
@@ -788,6 +829,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     flexShrink: 1,
   },
+  sheetLight: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 },
   handle: {
     height: 4.5,
     width: 44,
@@ -830,6 +872,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitleSpace: { minHeight: 32 },
+  openedSubtitle: { minHeight: 0 },
+  previewLabel: { fontSize: 12, lineHeight: 18, textAlign: 'center', marginBottom: 6 },
   notice: {
     fontSize: 16,
     lineHeight: 24,
@@ -903,22 +947,25 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   heroArtWrapper: {
-    width: 144,
-    height: 132,
+    width: 244,
+    height: 174,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  heroHalo: { position: 'absolute', width: 280, height: 230, top: -35, left: -18 },
+  heroSparkLeft: { position: 'absolute', left: 4, top: 70 },
+  heroSparkRight: { position: 'absolute', right: 4, top: 26 },
   badgesWrapper: {
     alignItems: 'center',
     width: '100%',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   categoryPill: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 22,
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1.5,
-    marginBottom: 8,
+    marginBottom: 4,
     shadowColor: '#1ca492',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -935,7 +982,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 24,
     borderWidth: 1.5,
-    paddingHorizontal: 28,
+    paddingHorizontal: 18,
     paddingTop: 16,
     paddingBottom: 20,
     alignItems: 'center',
@@ -954,29 +1001,27 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '600',
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
   },
   otherRewardsRow: {
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
     alignItems: 'flex-start',
     marginBottom: 4,
   },
   otherRewardItem: {
-    width: '18.8%',
+    width: '30.5%',
     alignItems: 'center',
   },
   otherRewardGraphic: {
     width: '100%',
-    height: 56,
+    height: 78,
     marginBottom: 4,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  otherRewardImage: {
-    width: '100%',
-    height: '100%',
   },
   otherRewardLabelContainer: {
     width: '100%',
@@ -988,8 +1033,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   otherRewardLabelText: {
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '600',
     textAlign: 'center',
   },

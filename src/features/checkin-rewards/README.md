@@ -20,14 +20,22 @@ Opened receipts can be reviewed. Practice and read-only previews never claim.
 Local animation testing can be enabled for one account through `.env.local`:
 `EXPO_PUBLIC_CHECKIN_GIFT_REPLAY_ACCOUNT_ID` and
 `EXPO_PUBLIC_CHECKIN_GIFT_REPLAY_API_BASE_URL` (must match the configured API URL).
-This requires both `__DEV__` and the `dev` app environment. The Home action then
-replays the saved receipt whenever reopened, using the most recent receipt if
-there is no gift today. It does not create check-ins, reroll prizes, send another
-claim or change the daily quota. Other accounts and release builds keep normal behavior.
+This requires both `__DEV__` and the `dev` app environment. The Home action uses
+the most recent opened receipt to make local animation testing available, even
+if there is no gift today. The tester chooses one of the same six boxes; the app
+randomly draws a wish, proverb, tip, ticket or coupon sample, independently of the
+box position. The phone is excluded from the draw (zero probability). There is no
+gift-type selector. The sheet says it is a preview; ticket/coupon samples issue no
+real draw entry or offer code. Samples never replace saved receipts, create check-ins, send
+claims/notifications or change the daily quota. Other accounts and release builds
+keep normal behavior.
 
 The catalog is managed through protected backend operations endpoints. Health
 tips need a recorded medical review before activation. Seed content consists of
-60 original bilingual wishes. Recent fortunes are excluded for 30 calendar days.
+60 original bilingual wishes and 20 traditional sayings. Twelve tip drafts stay
+inactive until reviewed. Selection gives each eligible kind equal weight so the
+larger wish catalog does not crowd out other kinds. Recent fortunes are excluded
+for 30 calendar days. Store coupons remain disabled in production.
 
 Lucky draws are paused by default (zero ticket weight). The planned prize is
 iPhone 18 Pro Max. The six boxes stay in the same modal throughout opening.
@@ -46,6 +54,8 @@ The opening uses the bundled transparent 3D box artwork. Reward contents use new
 high-resolution photographic cutouts for wishes, proverbs, tips, tickets and
 coupons; the iPhone preview keeps its existing product photo. Generated assets
 and their exact prompts live in `assets/images/rewards/product-photos-v2/`.
+The result keeps the mint opened-box artwork behind each product photo, with a
+larger lit central reward, a green surface and the other five boxes in two rows.
 The fixed header and Close
 button remain outside the scrolling content, and the full fortune remains
 readable at larger text sizes. Opening returns the scroll position to the centered reward.
