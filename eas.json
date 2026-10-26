@@ -61,9 +61,16 @@
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.18.1",
+      "node": "22.22.3",
+      "distribution": "store",
+      "environment": "production",
+      "developmentClient": false,
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "image": "sdk-57"
+      },
+      "ios": {
+        "image": "sdk-57"
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "prod",

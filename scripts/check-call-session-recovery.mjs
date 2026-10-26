@@ -79,6 +79,7 @@ function authHarness(tokenStore, fetchProfile = async () => ({ id: '7', name: 'T
   let resets = 0;
   const resetStore = { getState: () => ({ reset() {} }) };
   const imports = {
+    '../doctor-ivr/ivr-voice-queue': { clearIvrVoiceQueue: async () => {} },
     zustand: { create },
     '../../lib/localCache': { localCache: { clearLegacyPlaintextCache: async () => {}, setUserId() {} } },
     '../../lib/tokenStore': { tokenStore },

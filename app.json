@@ -2,7 +2,7 @@
   "expo": {
     "name": "Asinu",
     "slug": "asinu-lite",
-    "version": "2.0",
+    "version": "2.0.1",
     "platforms": ["ios", "android"],
     "orientation": "portrait",
     "scheme": "asinu-lite",
