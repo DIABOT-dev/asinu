@@ -86,6 +86,11 @@
   },
   "submit": {
     "production": {
+      "android": {
+        "applicationId": "com.asinu.lite",
+        "track": "production",
+        "releaseStatus": "completed"
+      },
       "ios": {
         "ascAppId": "6758967197",
         "ascApiKeyPath": "/Users/ducytcg123456/Downloads/AuthKey_NJDBBZF74R.p8",
