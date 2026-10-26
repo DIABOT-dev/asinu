@@ -8,6 +8,7 @@ import { useGuardedRouter } from "../../hooks/useGuardedRouter";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { ivrApi, type IvrSession } from "./ivr.api";
 import { radius, spacing } from "../../styles/theme";
+import { isDoctorFeaturesEnabled } from "../../lib/appEnv";
 export function DoctorIvrEntry({
   tenantId,
   taskId,
@@ -23,6 +24,7 @@ export function DoctorIvrEntry({
     useCallback(() => {
       let active = true;
       setSession(null);
+      if (!isDoctorFeaturesEnabled) return;
       const load = async () => {
         try {
           if (!(await ivrApi.enabled())) return;
@@ -46,7 +48,7 @@ export function DoctorIvrEntry({
       };
     }, [tenantId, taskId])
   );
-  if (!session) return null;
+  if (!isDoctorFeaturesEnabled || !session) return null;
   return (
     <Pressable
       accessibilityRole="button"

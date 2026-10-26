@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { colors, spacing } from '../styles';
+import { isDoctorFeaturesEnabled } from '../lib/appEnv';
 
 /**
  * Animated CTA button for the specialist consultation feature.
@@ -24,7 +25,12 @@ type Props = {
   compact?: boolean;
 };
 
-export function DoctorConnectButton({
+export function DoctorConnectButton(props: Props) {
+  if (!isDoctorFeaturesEnabled) return null;
+  return <DoctorConnectButtonContent {...props} />;
+}
+
+function DoctorConnectButtonContent({
   text,
   onPress,
   variant = 'default',

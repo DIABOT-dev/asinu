@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DoctorConnectButton } from '../../../src/components/DoctorConnectButton';
+import { isDoctorFeaturesEnabled } from '../../../src/lib/appEnv';
 import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -499,7 +500,7 @@ export default function MemberLogsScreen() {
                   {/* Connect doctor CTA — animated pulse + glow giống AsinuChatSticker.
                       Compact size cho session card. Context header đã hiển thị tên
                       patient → button không cần personalize. */}
-                  {(session.emergency_triggered
+                  {isDoctorFeaturesEnabled && (session.emergency_triggered
                     || session.triage_severity === 'high'
                     || session.triage_severity === 'medium') && (() => {
                     const isUrgent = session.emergency_triggered || session.triage_severity === 'high';

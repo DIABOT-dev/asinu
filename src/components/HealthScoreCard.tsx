@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { DoctorConnectButton } from './DoctorConnectButton';
+import { isDoctorFeaturesEnabled } from '../lib/appEnv';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { colors, spacing, radius } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
@@ -152,7 +153,7 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({ level, fact
 
       {/* Connect specialist CTA — chỉ hiển thị khi level=danger (Cần chú ý).
           DoctorConnectButton có pulse + glow animation để hút mắt user. */}
-      {level === 'danger' && checkinDone && (
+      {isDoctorFeaturesEnabled && level === 'danger' && checkinDone && (
         <View style={{ marginTop: spacing.sm }}>
           <DoctorConnectButton
             variant="urgent"

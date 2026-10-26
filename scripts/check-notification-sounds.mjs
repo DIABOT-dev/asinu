@@ -125,17 +125,20 @@ await test('all 5 Android OGG files are Vorbis with correct durations; raw names
   }
 });
 
-const calls = { channels: [], scheduled: [], handler: null };
+const calls = { channels: [], scheduled: [], categories: [], removedCategories: [], handler: null };
 const platform = { OS: 'android' };
 const native = {
   AndroidImportance: { DEFAULT: 3, HIGH: 4, MAX: 5 },
   AndroidNotificationPriority: { HIGH: 1, MAX: 2 },
   setNotificationChannelAsync: async (id, config) => { calls.channels.push({ id, ...config }); },
-  setNotificationCategoryAsync: async () => {},
+  setNotificationCategoryAsync: async (id) => { calls.categories.push(id); },
+  deleteNotificationCategoryAsync: async (id) => { calls.removedCategories.push(id); },
   scheduleNotificationAsync: async (value) => { calls.scheduled.push(value); },
   setNotificationHandler: (value) => { calls.handler = value; },
 };
 const notifications = evaluate('src/lib/notifications.ts', {
+  './appEnv': evaluate('src/lib/appEnv.ts', {}),
+  './native-permissions': { runNativePermission: async (request) => request() },
   'expo-constants': {},
   'expo-notifications': native,
   'react-native': { Platform: platform },
@@ -155,6 +158,12 @@ await test('Android creates every new channel without deleting user preferences'
   // No deleteNotificationChannelAsync adapter: any accidental deletion fails.
   assert.equal(calls.channels.length, 15, '9 warm + 6 legacy channels');
   assert.ok(!fs.readFileSync('src/lib/notifications.ts', 'utf8').includes('deleteNotificationChannelAsync'));
+});
+await test('hiding Dr.Asinu removes its quick reply while health alert actions remain available', () => {
+  assert.equal(evaluate('src/lib/appEnv.ts', {}).isDoctorFeaturesEnabled, false);
+  assert.ok(calls.categories.includes('health_alert'));
+  assert.ok(!calls.categories.includes('doctor_message'));
+  assert.ok(calls.removedCategories.includes('doctor_message'));
 });
 await test('local notification scheduling selects the matching platform sound/channel', async () => {
   for (const osName of ['ios', 'android']) {

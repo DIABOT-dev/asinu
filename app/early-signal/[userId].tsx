@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { Screen } from "../../src/components/Screen";
+import { isDoctorFeaturesEnabled } from "../../src/lib/appEnv";
 import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import {
   earlySignalApi,
@@ -242,7 +243,7 @@ export default function FamilyEarlySignalScreen() {
                 {t("earlyCallPerson", { name: assessment.user_name })}
               </Text>
             </Pressable>
-            <Pressable
+            {isDoctorFeaturesEnabled && <Pressable
               style={styles.secondaryAction}
               onPress={() => router.push("/doctor-consultation" as never)}
             >
@@ -256,7 +257,7 @@ export default function FamilyEarlySignalScreen() {
               >
                 {t("earlyConsult")}
               </Text>
-            </Pressable>
+            </Pressable>}
           </View>
 
           <Text style={[styles.disclaimer, { color: colors.textSecondary }]}>

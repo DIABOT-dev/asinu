@@ -30,7 +30,7 @@ import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
-import { DoctorConnectButton } from '../../src/components/DoctorConnectButton';
+import { isDoctorFeaturesEnabled } from '../../src/lib/appEnv';
 import type { CheckinUiPreviewId } from '../../src/features/checkin/checkin-ui-gallery';
 import { CheckinGiftModal } from '../../src/features/checkin-rewards/CheckinGiftModal';
 import { CheckinGiftCloseButton } from '../../src/features/checkin-rewards/CheckinGiftCloseButton';
@@ -2125,7 +2125,7 @@ function DoneScreen({
           </View>
 
           {/* Nút kết nối với chuyên gia */}
-          {(!isFine || triageSummary?.needsDoctor) && (
+          {isDoctorFeaturesEnabled && (!isFine || triageSummary?.needsDoctor) && (
             <GuideTarget step="checkin.result_doctor" enabled={practice}>
             <Pressable
               disabled={readOnly}

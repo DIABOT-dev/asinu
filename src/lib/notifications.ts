@@ -1,4 +1,5 @@
 import { runNativePermission } from './native-permissions';
+import { isDoctorFeaturesEnabled } from './appEnv';
 // Push notification service for care circle invitations
 // Note: This requires expo-notifications to be installed
 // Run: npx expo install expo-notifications
@@ -79,6 +80,10 @@ export async function registerNotificationCategories(): Promise<void> {
       },
     ]);
 
+    if (!isDoctorFeaturesEnabled) {
+      await Notifications.deleteNotificationCategoryAsync("doctor_message");
+      return;
+    }
     await Notifications.setNotificationCategoryAsync("doctor_message", [
       {
         identifier: "REPLY_DOCTOR_MESSAGE",
@@ -455,7 +460,7 @@ export function routeFromNotificationData(
   if (type === "health_alert") {
     const needsDoctor =
       data?.needsDoctor === true || data?.needsDoctor === "true";
-    if (needsDoctor) return "/doctor-consultation";
+    if (needsDoctor && isDoctorFeaturesEnabled) return "/doctor-consultation";
 
     const alertType = (data?.alertType as string) || "";
     if (alertType.includes("glucose")) return "/logs/glucose";
@@ -535,12 +540,14 @@ export function routeFromNotificationData(
     return "/feed";
   }
   if (type === "doctor_ivr_session" || type === "doctor_ivr_reply") {
+    if (!isDoctorFeaturesEnabled) return "/(tabs)/home";
     const sessionId = String(data?.sessionId || "");
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(sessionId))
       return { pathname: "/doctor-interview/[sessionId]", params: { sessionId } };
     return "/doctor-consultation";
   }
   if (type === "doctor_message") {
+    if (!isDoctorFeaturesEnabled) return "/(tabs)/home";
     const taskId = data?.task_id as string;
     const tenantId = data?.tenant_id as string;
     if (taskId)

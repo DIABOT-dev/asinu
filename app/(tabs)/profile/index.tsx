@@ -82,7 +82,7 @@ import {
 import { useScaledTypography } from "../../../src/hooks/useScaledTypography";
 import { useInitialLoadingGate } from "../../../src/hooks/useInitialLoadingGate";
 import { ApiError, apiClient, getApiErrorMessage } from "../../../src/lib/apiClient";
-import { isDevBuild, isCheckinUiGalleryEnabled } from "../../../src/lib/appEnv";
+import { isDevBuild, isCheckinUiGalleryEnabled, isDoctorFeaturesEnabled } from "../../../src/lib/appEnv";
 import {
   brandColors,
   categoryColors,
@@ -1159,7 +1159,7 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionHeading}>{ts("title")}</Text>
               </View>
               <View style={styles.cardsStack}>
-                <TouchableOpacity
+                {isDoctorFeaturesEnabled && <TouchableOpacity
                   style={styles.actionCard}
                   onPress={() =>
                     router.push("/doctor-consultation-history" as any)
@@ -1177,7 +1177,7 @@ export default function ProfileScreen() {
                     {ts("doctorConsultationHistory")}
                   </Text>
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
+                </TouchableOpacity>}
 
                 <TouchableOpacity
                   style={styles.actionCard}
@@ -1319,7 +1319,7 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
 
                 {/* Trung tâm quyền dữ liệu chuyên gia */}
-                <TouchableOpacity
+                {isDoctorFeaturesEnabled && <TouchableOpacity
                   style={styles.actionCard}
                   onPress={() => router.push("/privacy-center" as any)}
                   activeOpacity={0.7}
@@ -1335,7 +1335,7 @@ export default function ProfileScreen() {
                     {ts("privacyCenterTitle")}
                   </Text>
                   <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
+                </TouchableOpacity>}
 
                 {/* Nguồn tham khảo sức khỏe */}
                 <TouchableOpacity

@@ -19,7 +19,7 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { CheckinCallSafetyNote, CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
-import { isDevBuild, isCheckinUiGalleryEnabled } from '../../src/lib/appEnv';
+import { isDevBuild, isCheckinUiGalleryEnabled, isDoctorFeaturesEnabled } from '../../src/lib/appEnv';
 
 type PreviewId = CheckinUiPreviewId
   | 'voice-settings'
@@ -784,7 +784,7 @@ function CheckinCallUiGallery() {
       >
         <Text style={styles.galleryTitle}>{t('gallery.heading')}</Text>
         <Text style={styles.galleryLead}>{t('gallery.lead')}</Text>
-        <Pressable accessibilityRole="button"
+        {isDoctorFeaturesEnabled && <Pressable accessibilityRole="button"
           style={({ pressed }) => [styles.demoGiftButton, pressed && styles.listRowPressed]}
           onPress={() => router.push('/doctor-interview/preview')}
         >
@@ -794,7 +794,7 @@ function CheckinCallUiGallery() {
             <Text style={styles.listDescription}>{th('ivr.preview.entryDescription')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={COLORS.teal} />
-        </Pressable>
+        </Pressable>}
         <Pressable
           accessibilityRole="button"
           style={({ pressed }) => [styles.demoGiftButton, pressed && styles.listRowPressed]}
