@@ -1,11 +1,83 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 import React from 'react';
 import * as jsxRuntime from 'react/jsx-runtime';
 import ts from 'typescript';
 
 const read = file => fs.readFileSync(file, 'utf8');
-const parse = file => ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const parse = file => ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true,
+  /\.[jt]sx$/u.test(file) ? ts.ScriptKind.TSX : /\.ts$/u.test(file) ? ts.ScriptKind.TS : ts.ScriptKind.JS);
+const sourceRoots = ['app', 'src', 'asinu-brain-extension'];
+function sourceFiles(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    if (entry.name.startsWith('.')) {return [];}
+    const file = `${directory}/${entry.name}`;
+    return entry.isDirectory() ? sourceFiles(file) : [file];
+  });
+}
+const allFiles = sourceRoots.flatMap(sourceFiles).sort();
+const codeFiles = allFiles.filter(file => /\.[cm]?[jt]sx?$/u.test(file));
+const sourceTrees = new Map(codeFiles.map(file => [file, parse(file)]));
+const isDoctorRouteFile = file => /^app\/(?:doctor(?:[-/]|\.)|privacy-center(?:[/.]))/u.test(file);
+const isDoctorInternalFile = file => isDoctorRouteFile(file) || file.startsWith('src/features/doctor-ivr/');
+function doctorTarget(value) {
+  return /(?:^|\/)(?:doctor(?:[-/]|$)|privacy-center(?:[/?#]|$))/u.test(value) ||
+    /^https?:\/\/(?:dr|doctor)\.asinu\.(?:vn|top)(?:[/:?#]|$)/iu.test(value);
+}
+function hasVisibilityGuard(node, tree) {
+  const positive = expression => {
+    if (ts.isParenthesizedExpression(expression)) {return positive(expression.expression);}
+    if (ts.isIdentifier(expression)) {return expression.text === 'isDoctorFeaturesEnabled';}
+    return ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken &&
+      (positive(expression.left) || positive(expression.right));
+  };
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken &&
+        positive(parent.left) && node.pos >= parent.right.pos && node.end <= parent.right.end) {return true;}
+    if (ts.isIfStatement(parent) && positive(parent.expression) &&
+        node.pos >= parent.thenStatement.pos && node.end <= parent.thenStatement.end) {return true;}
+    if (ts.isBlock(parent)) {
+      for (const statement of parent.statements) {
+        if (statement.end > node.pos) {break;}
+        if (!ts.isIfStatement(statement) || statement.expression.getText(tree) !== '!isDoctorFeaturesEnabled') {continue;}
+        const body = statement.thenStatement;
+        if (ts.isReturnStatement(body) || (ts.isBlock(body) && body.statements.some(ts.isReturnStatement))) {return true;}
+      }
+    }
+  }
+  return false;
+}
+// Resolve file-local aliases as well as inline string/object destinations. This
+// detects hrefs and callbacks declared outside JSX without importing app code.
+function targetResolver(tree) {
+  const bindings = new Map();
+  function bind(node) {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const values = bindings.get(node.name.text) || [];
+      bindings.set(node.name.text, [...values, node.initializer]);
+    }
+    ts.forEachChild(node, bind);
+  }
+  bind(tree);
+  function resolve(node, seen = new Set()) {
+    if (!node || seen.has(node)) {return [];}
+    const next = new Set([...seen, node]);
+    if (ts.isStringLiteralLike(node)) {return [node.text];}
+    if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node) || ts.isJsxExpression(node)) {return resolve(node.expression, next);}
+    if (ts.isIdentifier(node)) {return (bindings.get(node.text) || []).flatMap(value => resolve(value, next));}
+    if (ts.isConditionalExpression(node)) {return [...resolve(node.whenTrue, next), ...resolve(node.whenFalse, next)];}
+    if (ts.isObjectLiteralExpression(node)) {return node.properties.flatMap(property =>
+      ts.isPropertyAssignment(property) && ['pathname', 'href', 'url', 'to'].includes(property.name.getText(tree).replace(/['"]/gu, ''))
+        ? resolve(property.initializer, next) : []);}
+    if (ts.isTemplateExpression(node)) {return [node.head.text + node.templateSpans.map(span =>
+      `${resolve(span.expression, next)[0] || '{dynamic}'}${span.literal.text}`).join('')];}
+    if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {return resolve(node.body, next);}
+    if (ts.isBlock(node)) {return node.statements.filter(ts.isReturnStatement).flatMap(statement => resolve(statement.expression, next));}
+    return [];
+  }
+  return resolve;
+}
 let checks = 0;
 const test = async (name, run) => { await run(); checks++; console.log(`PASS ${name}`); };
 function evaluate(source, imports = {}, scope = {}) {
@@ -18,7 +90,7 @@ function evaluate(source, imports = {}, scope = {}) {
   // eslint-disable-next-line no-new-func
   new Function('module', 'exports', 'require', ...Object.keys(scope), output)(
     module, module.exports, name => {
-      if (name === 'react/jsx-runtime') return jsxRuntime;
+      if (name === 'react/jsx-runtime') {return jsxRuntime;}
       assert.ok(Object.hasOwn(imports, name), `Missing adapter: ${name}`);
       return imports[name];
     }, ...Object.values(scope),
@@ -27,19 +99,28 @@ function evaluate(source, imports = {}, scope = {}) {
 }
 function find(source, predicate) {
   let result;
-  const walk = node => { if (!result && predicate(node)) result = node; ts.forEachChild(node, walk); };
+  const walk = node => { if (!result && predicate(node)) {result = node;} ts.forEachChild(node, walk); };
   walk(source);
   assert.ok(result, 'Expected source node');
   return result;
 }
 
+await test('all scanned code/configuration files parse, so syntax cannot silently hide an entry point', () => {
+  for (const [file, tree] of sourceTrees) {
+    assert.equal(tree.parseDiagnostics.length, 0, `Cannot fully scan ${file}`);
+  }
+  for (const file of allFiles.filter(name => name.endsWith('.json'))) {
+    assert.doesNotThrow(() => JSON.parse(read(file)), `Invalid configuration: ${file}`);
+  }
+});
+
 await test('Dr.Asinu remains hidden in dev, staging and production, including native development', () => {
-  for (const env of ['dev', 'staging', 'prod']) for (const dev of [true, false]) {
+  for (const env of ['dev', 'staging', 'prod']) {for (const dev of [true, false]) {
     const flags = evaluate(read('src/lib/appEnv.ts'), {}, {
       process: { env: { EXPO_PUBLIC_APP_ENV: env } }, __DEV__: dev,
     });
     assert.equal(flags.isDoctorFeaturesEnabled, false);
-  }
+  }}
 });
 
 const Screen = () => null;
@@ -58,12 +139,11 @@ const { mapProtectedScreen } = evaluate(read('node_modules/expo-router/build/lay
   '../../utils/children': { isChildOfType: (child, type) => React.isValidElement(child) && child.type === type },
   '../../views/Protected': protectedModule, '../../views/Screen': { Screen },
 });
-const root = parse('app/_layout.tsx');
+const root = sourceTrees.get('app/_layout.tsx');
 const stack = find(root, node => ts.isJsxElement(node) && node.openingElement.tagName.getText(root) === 'Stack');
-const doctorRoutes = [
-  'doctor-consultation', 'doctor-consultation/[taskId]', 'doctor-consultation-history',
-  'doctor-interview/[sessionId]', 'doctor-interview/preview', 'privacy-center',
-];
+const doctorRoutes = codeFiles.filter(file => isDoctorRouteFile(file) && !/\/_layout\.[jt]sx?$/u.test(file))
+  .map(file => file.replace(/^app\//u, '').replace(/\.[jt]sx?$/u, '').replace(/\/index$/u, ''));
+assert.ok(doctorRoutes.length >= 6, 'Dedicated Dr.Asinu routes were not discovered');
 function filteredRoutes(enabled) {
   const { layout } = evaluate(`export const layout = (${stack.getText(root)});`, {}, {
     Stack: Object.assign(() => null, { Screen, Protected: Group }),
@@ -84,41 +164,97 @@ await test('the actual Expo navigator excludes all six screens, preventing deep 
 await test('one flag restores the original screens while login and legal routes stay available', () => {
   const hidden = filteredRoutes(false), enabled = filteredRoutes(true);
   assert.equal(enabled.protectedScreens.size, 0);
-  for (const route of doctorRoutes) assert.ok(enabled.screens.some(screen => screen.name === route));
+  for (const route of doctorRoutes) {assert.ok(enabled.screens.some(screen => screen.name === route));}
   for (const route of ['login/index', 'register/index', 'legal/content', 'legal/sources']) {
     assert.ok(hidden.screens.some(screen => screen.name === route));
     assert.ok(enabled.screens.some(screen => screen.name === route));
   }
 });
 
-const externalEntries = [
-  'app/checkin/index.tsx', 'app/(tabs)/profile/index.tsx', 'app/care-circle/member/[id].tsx',
-  'app/early-signal/[userId].tsx', 'app/checkin-call/ui-gallery.tsx', 'src/components/HealthScoreCard.tsx',
-];
-await test('all seven external consultation/privacy/preview buttons have a visibility guard', () => {
-  let buttons = 0;
-  for (const file of externalEntries) {
-    const tree = parse(file);
+const audit = { files: allFiles.length, codeFiles: codeFiles.length, protectedRoutes: doctorRoutes.length, navigationCandidates: 0, doctorActions: [] };
+await test('the source audit detects unguarded inline, aliased, href and external Dr.Asinu destinations', () => {
+  const examples = [
+    "router.push('/doctor-consultation')",
+    "const destination = '/doctor-consultation-history'; router.push(destination)",
+    "const destination = { pathname: '/doctor-interview/[sessionId]' }; router.navigate(destination)",
+    "Linking.openURL('https://dr.asinu.vn/vi')",
+    "const destination = '/privacy-center'; <Link href={destination} />",
+    "apiClient('/api/doctor/tasks/fixture/messages')",
+    "(router.push('/doctor-consultation') && isDoctorFeaturesEnabled) && <View />",
+  ];
+  for (const source of examples) {
+    const tree = ts.createSourceFile('audit-fixture.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const resolve = targetResolver(tree);
+    const action = find(tree, node => ts.isCallExpression(node) || (ts.isJsxAttribute(node) && node.name.getText(tree) === 'href'));
+    const values = resolve(ts.isCallExpression(action) ? action.arguments[0] : action.initializer);
+    assert.ok(values.some(doctorTarget), source);
+    assert.equal(hasVisibilityGuard(action, tree), false, source);
+  }
+});
+await test('a guard must run before the action; real gated callbacks and early returns remain valid', () => {
+  for (const source of [
+    "isDoctorFeaturesEnabled && router.push('/doctor-consultation')",
+    "function open() { if (!isDoctorFeaturesEnabled) return; router.push('/doctor-consultation'); }",
+    "isDoctorFeaturesEnabled && <Button onPress={() => router.push('/doctor-consultation')} />",
+  ]) {
+    const tree = ts.createSourceFile('guard-fixture.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const action = find(tree, ts.isCallExpression);
+    assert.equal(hasVisibilityGuard(action, tree), true, source);
+  }
+});
+await test('every navigation call, href and Dr.Asinu API action across the entire app source respects visibility', () => {
+  for (const [file, tree] of sourceTrees) {
+    if (isDoctorInternalFile(file)) {continue;}
+    const resolve = targetResolver(tree);
     const visit = node => {
-      if (ts.isJsxAttribute(node) && node.name.getText(tree) === 'onPress' &&
-          /\/(doctor-consultation|doctor-interview|privacy-center)/u.test(node.getText(tree))) {
-        buttons++;
-        let guarded = false;
-        for (let parent = node.parent; parent; parent = parent.parent) {
-          if (!ts.isJsxExpression(parent) || !parent.expression) continue;
-          let expression = parent.expression;
-          while (ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
-            if (expression.left.getText(tree) === 'isDoctorFeaturesEnabled') guarded = true;
-            expression = expression.left;
-          }
-        }
-        assert.ok(guarded, `Visible Dr.Asinu button in ${file}`);
+      let values = [];
+      if (ts.isCallExpression(node) && /\.(?:push|navigate|replace|openURL|openBrowserAsync|openAuthSessionAsync)$|^(?:openExternal|linkTo)$/u.test(node.expression.getText(tree))) {
+        audit.navigationCandidates++;
+        values = resolve(node.arguments[0]);
+      }
+      if (ts.isJsxAttribute(node) && ['href', 'to', 'url'].includes(node.name.getText(tree))) {values = resolve(node.initializer);}
+      const doctorApi = ts.isCallExpression(node) && resolve(node.arguments[0]).some(value => /^\/api\/doctor(?:\/|[?#]|$)/u.test(value));
+      if (doctorApi || values.some(doctorTarget)) {
+        const line = tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1;
+        assert.ok(hasVisibilityGuard(node, tree), `Dr.Asinu action is not hidden: ${file}:${line}`);
+        audit.doctorActions.push({ file, line, kind: doctorApi ? 'api' : 'navigation' });
       }
       ts.forEachChild(node, visit);
     };
     visit(tree);
   }
-  assert.equal(buttons, 7);
+  assert.ok(audit.doctorActions.length >= 8, 'Expected entry buttons and the legacy quick reply action');
+});
+await test('Dr.Asinu UI components are never mounted from an unguarded screen elsewhere in src', () => {
+  const doctorComponents = new Set();
+  for (const [file, tree] of sourceTrees) {
+    if (isDoctorInternalFile(file)) {continue;}
+    const imports = new Map();
+    for (const statement of tree.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) {continue;}
+      const specifier = statement.moduleSpecifier.text;
+      const resolved = specifier.startsWith('.') ? path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier)) : specifier;
+      if (!/doctor-ivr\/|DoctorConnectButton|^app\/doctor/iu.test(resolved)) {continue;}
+      const clause = statement.importClause;
+      if (clause?.name) {imports.set(clause.name.text, resolved);}
+      if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+        for (const imported of clause.namedBindings.elements) {imports.set(imported.name.text, resolved);}
+      }
+      if (clause?.namedBindings && ts.isNamespaceImport(clause.namedBindings)) {imports.set(clause.namedBindings.name.text, resolved);}
+    }
+    const visit = node => {
+      const reference = ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node) ? node.tagName :
+        ts.isCallExpression(node) && /(?:^|\.)createElement$/u.test(node.expression.getText(tree)) ? node.arguments[0] : null;
+      const componentName = reference?.getText(tree).split('.')[0];
+      if (imports.has(componentName)) {
+        assert.ok(hasVisibilityGuard(node, tree), `Unguarded Dr.Asinu component in ${file}: ${componentName}`);
+        doctorComponents.add(componentName);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(tree);
+  }
+  assert.ok(doctorComponents.has('DoctorConnectButton'));
 });
 
 const flags = { isDoctorFeaturesEnabled: false };
@@ -190,3 +326,4 @@ await test('restoring the flag preserves doctor thread routing and native quick 
 });
 
 console.log(`Dr.Asinu UI visibility: ${checks} checks passed.`);
+console.log(`Whole-source audit: ${audit.files} files, ${audit.codeFiles} code files, ${audit.navigationCandidates} navigation/link candidates, ${audit.doctorActions.length} guarded Dr.Asinu actions, ${audit.protectedRoutes} protected routes.`);

@@ -10,10 +10,10 @@ const methods = new Set(['get', 'post', 'put', 'patch', 'delete']);
 const walk = (directory, extensions, ignored = new Set()) => {
   const files = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (ignored.has(entry.name)) continue;
+    if (ignored.has(entry.name)) {continue;}
     const target = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...walk(target, extensions, ignored));
-    else if (extensions.has(path.extname(entry.name))) files.push(target);
+    if (entry.isDirectory()) {files.push(...walk(target, extensions, ignored));}
+    else if (extensions.has(path.extname(entry.name))) {files.push(target);}
   }
   return files;
 };
@@ -33,9 +33,9 @@ const literal = (node) =>
     : null;
 
 const renderPath = (node, bindings = new Map(), resolving = new Set()) => {
-  if (!node) return null;
+  if (!node) {return null;}
   const direct = literal(node);
-  if (direct !== null) return direct;
+  if (direct !== null) {return direct;}
   if (
     ts.isAsExpression(node) ||
     ts.isTypeAssertionExpression(node) ||
@@ -54,7 +54,7 @@ const renderPath = (node, bindings = new Map(), resolving = new Set()) => {
   if (ts.isConditionalExpression(node)) {
     const whenTrue = renderPath(node.whenTrue, bindings, resolving);
     const whenFalse = renderPath(node.whenFalse, bindings, resolving);
-    if (whenTrue === null || whenFalse === null) return null;
+    if (whenTrue === null || whenFalse === null) {return null;}
     return whenTrue.split(/[?#]/, 1)[0] === whenFalse.split(/[?#]/, 1)[0]
       ? whenTrue
       : null;
@@ -83,10 +83,10 @@ const renderPath = (node, bindings = new Map(), resolving = new Set()) => {
 };
 
 const requestMethod = (options) => {
-  if (!options || !ts.isObjectLiteralExpression(options)) return options ? '*' : 'GET';
+  if (!options || !ts.isObjectLiteralExpression(options)) {return options ? '*' : 'GET';}
   for (const property of options.properties) {
-    if (!ts.isPropertyAssignment(property)) continue;
-    if (property.name.getText().replaceAll(/["']/g, '') !== 'method') continue;
+    if (!ts.isPropertyAssignment(property)) {continue;}
+    if (property.name.getText().replaceAll(/["']/g, '') !== 'method') {continue;}
     return (literal(property.initializer) || '*').toUpperCase();
   }
   return 'GET';
@@ -110,6 +110,7 @@ const appFiles = walk(
 );
 for (const file of appFiles) {
   const source = parse(file);
+  const isDoctorIvrModule = path.relative(appRoot, file).replaceAll('\\', '/') === 'src/features/doctor-ivr/ivr.api.ts';
   const bindings = new Map();
   const collectBindings = (node) => {
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
@@ -124,7 +125,8 @@ for (const file of appFiles) {
       const isApiClient = callee === 'apiClient';
       const isFetch = callee === 'fetch';
       const isHealthFeedClient = callee === 'healthFeedApi';
-      if (isApiClient || isFetch || isHealthFeedClient) {
+      const isDoctorIvrRequest = isDoctorIvrModule && callee === 'request';
+      if (isApiClient || isFetch || isHealthFeedClient || isDoctorIvrRequest) {
         let rendered = renderPath(node.arguments[0], bindings);
         const sourceText = node.arguments[0]?.getText(source) || '';
         const isInternalFetch =
@@ -132,14 +134,16 @@ for (const file of appFiles) {
           (sourceText.includes('apiBase') || rendered?.startsWith('/api/') || false);
         const delegatedHealthFeedCall =
           isApiClient && rendered?.startsWith('/api/health-feed:param');
-        if (isHealthFeedClient && rendered) rendered = '/api/health-feed' + rendered;
-        if ((isApiClient && !delegatedHealthFeedCall) || isInternalFetch || isHealthFeedClient) {
+        const delegatedDoctorIvrCall = isDoctorIvrModule && isApiClient && rendered === '/api/doctor/ivr/:param';
+        if (isHealthFeedClient && rendered) {rendered = '/api/health-feed' + rendered;}
+        if (isDoctorIvrRequest && rendered) {rendered = '/api/doctor/ivr/' + rendered;}
+        if ((isApiClient && !delegatedHealthFeedCall && !delegatedDoctorIvrCall) || isInternalFetch || isHealthFeedClient || isDoctorIvrRequest) {
           const location = `${path.relative(appRoot, file)}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}`;
           if (!rendered || !rendered.includes('/api/')) {
             unresolvedFrontendCalls.push(location);
           } else {
             frontendRequests.push({
-              method: requestMethod(node.arguments[1]),
+              method: isDoctorIvrRequest ? (node.arguments[1] ? 'POST' : 'GET') : requestMethod(node.arguments[1]),
               path: normalizePath(rendered),
               source: location,
             });
@@ -153,7 +157,7 @@ for (const file of appFiles) {
 }
 
 const serverFile = path.join(backendRoot, 'server.js');
-if (!fs.existsSync(serverFile)) throw new Error(`Backend not found at ${backendRoot}`);
+if (!fs.existsSync(serverFile)) {throw new Error(`Backend not found at ${backendRoot}`);}
 const serverSource = parse(serverFile);
 const routeModules = new Map();
 const backendRoutes = [];
@@ -175,6 +179,18 @@ const collectRouterRoutes = (file, prefix) => {
     ts.forEachChild(node, visit);
   };
   visit(source);
+};
+
+// Express accepts both an imported factory and require('./routes')(pool).
+// Resolve the mount from source only; never execute a backend module here.
+const mountedRouteFile = (node) => {
+  if (ts.isIdentifier(node)) {return routeModules.get(node.text);}
+  if (!ts.isCallExpression(node)) {return null;}
+  if (node.expression.getText(serverSource) === 'require') {
+    const required = literal(node.arguments[0]);
+    return required ? path.resolve(backendRoot, required + (required.endsWith('.js') ? '' : '.js')) : null;
+  }
+  return mountedRouteFile(node.expression);
 };
 
 const visitServer = (node) => {
@@ -201,11 +217,8 @@ const visitServer = (node) => {
     }
     if (owner === 'app' && action === 'use' && routePath !== null) {
       for (const argument of node.arguments.slice(1)) {
-        const routeName = ts.isCallExpression(argument)
-          ? argument.expression.getText(serverSource)
-          : argument.getText(serverSource);
-        const routeFile = routeModules.get(routeName);
-        if (routeFile && fs.existsSync(routeFile)) collectRouterRoutes(routeFile, routePath);
+        const routeFile = mountedRouteFile(argument);
+        if (routeFile && fs.existsSync(routeFile)) {collectRouterRoutes(routeFile, routePath);}
       }
     }
   }
@@ -217,7 +230,7 @@ const segments = (value) => value.split('/').filter(Boolean);
 const routeMatches = (requestPath, routePath) => {
   const requestSegments = segments(requestPath);
   const routeSegments = segments(routePath);
-  if (requestSegments.length !== routeSegments.length) return false;
+  if (requestSegments.length !== routeSegments.length) {return false;}
   return routeSegments.every(
     (segment, index) =>
       segment.startsWith(':') || requestSegments[index] === ':param' || segment === requestSegments[index],
@@ -245,5 +258,5 @@ if (missing.length) {
   console.error('Frontend requests without a matching backend route:');
   missing.forEach((item) => console.error(`- ${item.method} ${item.path} (${item.source})`));
 }
-if (unresolvedFrontendCalls.length || missing.length) process.exit(1);
+if (unresolvedFrontendCalls.length || missing.length) {process.exit(1);}
 console.log('All statically discoverable Asinu app API calls match backend method/path contracts.');
