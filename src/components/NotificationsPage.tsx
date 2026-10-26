@@ -45,6 +45,7 @@ function getNotificationType(notification: Notification): string {
 }
 
 function getNotificationCategory(type: string): Exclude<FilterKey, 'all'> {
+  if (type === 'checkin_inactivity_notice') return 'system';
   if (
     type.startsWith('reminder') ||
     type === 'morning_checkin' ||
@@ -72,6 +73,7 @@ function getNotificationCategory(type: string): Exclude<FilterKey, 'all'> {
 }
 
 function getNotificationIcon(type: string, read: boolean): IconName {
+  if (type === 'checkin_inactivity_notice') return 'people-outline';
   if (type === 'emergency') return 'warning-outline';
   if (type.includes('glucose') || type.includes('blood_pressure')) return 'pulse-outline';
   if (type === 'health_alert' || type === 'caregiver_alert') return 'heart-circle-outline';

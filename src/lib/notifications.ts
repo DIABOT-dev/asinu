@@ -418,6 +418,7 @@ export function routeFromNotificationData(
   }
   const type = data?.type as string | undefined;
   if (!type) return null;
+  if (type === 'checkin_inactivity_notice') return '/(tabs)/care-circle';
   if (type === 'gift_opened') {
     const giftId = data?.giftId;
     return typeof giftId === 'string' && /^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(giftId)

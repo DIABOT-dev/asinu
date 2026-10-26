@@ -77,6 +77,7 @@ const REFRESH_BY_TYPE: Record<string, RealtimeRefreshTarget[]> = {
   // wellness state mới ngay khi nhận push (không chỉ list alerts).
   caregiver_alert:     ['notifications', 'wellness'],
   caregiver_confirmed: ['notifications', 'wellness'], // patient nhận confirm → wellness state có thể đổi
+  checkin_inactivity_notice: ['notifications', 'wellness'],
   emergency:           ['notifications', 'wellness'],
 
   // ── Check-in reminders ──
