@@ -103,6 +103,7 @@ await test('auth logout uses local reset and never invokes delete-all', async ()
   let resets = 0, deletes = 0;
   const resetStore = { getState: () => ({ reset: () => {} }) };
   const imports = {
+    '../doctor-ivr/ivr-voice-queue': { clearIvrVoiceQueue: async () => {} },
     zustand: { create }, '../../lib/localCache': { localCache: { setUserId() {}, clearLegacyPlaintextCache: async () => {} } },
     '../../lib/tokenStore': { tokenStore: { clearToken: async () => {} } },
     '../../stores/notification.store': { useNotificationStore: { getState: () => ({ reset: () => { resets++; }, clearAll: () => { deletes++; } }) } },
