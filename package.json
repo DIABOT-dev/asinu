@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "i18n:check": "node scripts/check-i18n.mjs && node scripts/check-ui-copy.mjs",
+    "test:doctor-ivr": "node scripts/check-doctor-ivr.mjs",
     "test:api-contract": "node scripts/check-api-contract.mjs",
     "test:checkin-contract": "node scripts/check-checkin-api-contract.mjs",
     "test:care-circle-health": "node scripts/check-care-circle-health.mjs",

@@ -123,6 +123,10 @@ class LegacySound {
   play() {
     this.player.play();
   }
+
+  async setRateAsync(rate: number) {
+    this.player.setPlaybackRate(rate);
+  }
 }
 
 export const Audio = {

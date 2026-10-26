@@ -297,6 +297,11 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 40 previews stay read-only a
   assert.ok(demoButton, 'Missing separate interactive gift demo entry');
   demoButton.props.onPress();
   assert.deepEqual(demoNavigation, ['/checkin-rewards/demo']);
+  const doctorButton = menu.find(node => node.type === 'Pressable' && speechNodes(node).some(child =>
+    child.type === 'Text' && child.props.children === t('ivr.preview.entryTitle', { ns: 'home' })));
+  assert.ok(doctorButton, 'Missing interactive native Doctor IVR preview entry');
+  doctorButton.props.onPress();
+  assert.deepEqual(demoNavigation, ['/checkin-rewards/demo', '/doctor-interview/preview']);
   const rows = menu.filter(node => node.type === 'Pressable' && node.props.accessibilityLabel &&
     node.props.accessibilityLabel !== t('back', { ns: 'common' }));
   assert.equal(rows.length, 40);
@@ -348,8 +353,18 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 40 previews stay read-only a
     assert.equal(restricted.props.href, '/(tabs)/profile');
   }
 });
-test('Profile hides the paused preview library and retains its development gate when restored', () => {
-  assert.equal(evaluate(read('src/lib/appEnv.ts')).isCheckinUiGalleryEnabled, false);
+test('Native preview library and profile entry are available only in development', () => {
+  const previousEnvironment = process.env.EXPO_PUBLIC_APP_ENV;
+  try {
+    for (const runtime of [false, true]) for (const environment of ['dev', 'staging', 'prod']) {
+      process.env.EXPO_PUBLIC_APP_ENV = environment;
+      assert.equal(evaluate(read('src/lib/appEnv.ts'), {}, runtime).isCheckinUiGalleryEnabled,
+        runtime && environment === 'dev');
+    }
+  } finally {
+    if (previousEnvironment === undefined) delete process.env.EXPO_PUBLIC_APP_ENV;
+    else process.env.EXPO_PUBLIC_APP_ENV = previousEnvironment;
+  }
   const file = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let entry;
   const visit = node => {

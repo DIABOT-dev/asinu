@@ -24,7 +24,9 @@ Opened-box generation prompt:
 
 > Use case: stylized-concept. Asset type: one reusable transparent PNG illustration for an existing ASINU mobile app gift-opening interface. The attached user screenshot is a STYLE REFERENCE ONLY. Create ONLY ONE empty OPEN gift box, isolated, centered, no interface. Match the reference's charming glossy soft 3D mint-teal and off-white present, graceful teal ribbon, subtle dimensional shading and warm golden light inside. Three-quarter front view slightly from above: the square box body occupies the lower half, with a wide vertical teal ribbon on the white front. Its open cavity is clearly visible. The matching white-and-teal lid with a bow is lifted and tilted back toward the upper-left, visibly separated from the body. Leave generous clean NEGATIVE SPACE directly above the cavity at the upper-center/right so the app can overlay its own prize icon there. No contents inside the box: NO mascot, character, phone, coins, voucher, medical icons, heart, lettering, labels, numbers, watermark or logo. A compact soft mint elliptical contact shadow below the box and two tiny golden sparkles at the outer edges are allowed. Keep all objects compact within one square canvas, with generous transparent margins. Truly transparent background, no opaque panel, no backdrop, no grid, no other gifts. Render just this one empty opened gift box as a production UI asset.
 
-`checkin-gift.png` is the transparent gift-box asset used by the daily check-in reward chooser. It is bundled locally and reused by the header and six choices.
+`box_1.png` through `box_6.png` are the Asinu mascot illustrations used by the six
+choices. `checkin-gift.png` is retained for the split-lid animation and the explicit
+`identicalBoxes` fallback; it is not the default chooser illustration.
 
 Created with the built-in `image_gen` tool, using the gift chooser screenshot supplied by the user as a style reference. No CLI or external image URL is used at runtime.
 

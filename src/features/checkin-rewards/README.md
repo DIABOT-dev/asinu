@@ -11,8 +11,8 @@ The authenticated backend decides and persists the fortune and optional ticket
 at check-in time. Box selection never rerolls the result. One household/Vietnam
 calendar day is enforced by the database, including concurrent requests and
 multiple devices. Client storage and the device clock do not determine eligibility.
-Once an available gift is displayed, choosing a box is required. The bottom
-prompt is disabled until a successful open; there is no skip/close action and
+Once an available gift is displayed, choosing a box is required.
+There is no skip/close action before a successful open and
 Android Back cannot dismiss an unopened gift. Urgent dialogs still interrupt
 the sheet. Unavailable/offline loading can return to the saved health result.
 Opened receipts can be reviewed. Practice and read-only previews never claim.
@@ -38,27 +38,31 @@ larger wish catalog does not crowd out other kinds. Recent fortunes are excluded
 for 30 calendar days. Store coupons remain disabled in production.
 
 Lucky draws are paused by default (zero ticket weight). The planned prize is
-iPhone 18 Pro Max. The six boxes stay in the same modal throughout opening.
-The chosen present moves from its selected slot into a larger central opening
-scene. Its transparent lid lifts and tilts away from the body, light and a small
-burst emerge, and the reward photo rises from inside after the server confirms the gift.
-The illustration animates directly; no loading spinner or "Opening" copy replaces
-it. The other lids open before the saved result and remaining rewards fade in.
-After a successful open, its saved reward appears as a centered hero above the five
-other rewards and the complete fortune. No received-status badge is shown. The original
-server box selection is preserved; moving the illustration never makes another
-claim. The complete fortune is shown immediately, centered beneath the received
-box and above the row of other rewards. It is never hidden behind a details action or
-truncated. Other boxes retain short gift names without Example badges.
-The opening uses the bundled transparent 3D box artwork. Reward contents use new
-high-resolution photographic cutouts for wishes, proverbs, tips, tickets and
-coupons; the iPhone preview keeps its existing product photo. Generated assets
-and their exact prompts live in `assets/images/rewards/product-photos-v2/`.
-The result keeps the mint opened-box artwork behind each product photo, with a
-larger lit central reward, a green surface and the other five boxes in two rows.
-The fixed header and Close
-button remain outside the scrolling content, and the full fortune remains
-readable at larger text sizes. Opening returns the scroll position to the centered reward.
+iPhone 18 Pro Max. The gift sheet starts with six bundled Asinu mascot gift illustrations
+in a 3-by-2 grid. There is no skip button, QR-code instruction or disabled footer
+before a successful open.
+
+The selected present moves into focus and opens. The result has the full fortune
+in the upper section and the original six-slot grid directly below it. All five
+remaining boxes open their lids and reveal their rewards together on one shared
+1.1-second native animation, with no per-slot delay. The selected slot keeps
+its received badge. There is no sequential reveal or separate row of rewards.
+The existing preview catalogue never creates another award, ticket, coupon or claim.
+
+The five-second countdown collapses only the upper fortune section. The complete
+grid remains open until the user closes it, without a second automatic-close timer.
+Queued or interrupted presentations do not count down behind another dialog.
+
+Wishes, proverbs and tips are read in the upper result section only; their full
+text is not repeated underneath the completed grid. Ticket and coupon details
+remain available when the received gift needs rules or redemption information.
+
+The fixed header and footer stay outside the scrolling body. Queued, interrupted,
+unopened and read-only gifts do not count down. Local “Mở quà thử” remains enabled
+for the already opted-in development account. Reduced Motion skips animation,
+while keeping the upper fortune section and the five-second reading time.
+Interrupting the shared opening completes its visual state so no box stays half-open.
+
 Reduced Motion skips the sequence and shows the saved result immediately. Actual
 ticket prize details still require a server-issued ticket or enabled draw period.
 Opening a box never directly awards a phone. Activating a draw requires configured prize,

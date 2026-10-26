@@ -1,3 +1,4 @@
+import { DoctorIvrEntry } from "../../src/features/doctor-ivr/DoctorIvrEntry";
 import { runNativePermission } from '../../src/lib/native-permissions';
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -843,6 +844,7 @@ export default function DoctorConsultationThreadScreen() {
         </View>
       </View>
 
+      <DoctorIvrEntry tenantId={activeTenantId} taskId={taskId} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}

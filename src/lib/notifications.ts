@@ -113,7 +113,9 @@ export interface NotificationData {
     | "health_feed"
     | "early_signal"
     | "checkin_call"
-    | "doctor_message";
+    | "doctor_message"
+    | "doctor_ivr_session"
+    | "doctor_ivr_reply";
   invitationId?: string;
   senderId?: string;
   senderName?: string;
@@ -530,6 +532,12 @@ export function routeFromNotificationData(
       (data?.contentId as string) || (data?.content_id as string);
     if (contentId) return `/feed/${contentId}`;
     return "/feed";
+  }
+  if (type === "doctor_ivr_session" || type === "doctor_ivr_reply") {
+    const sessionId = String(data?.sessionId || "");
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(sessionId))
+      return { pathname: "/doctor-interview/[sessionId]", params: { sessionId } };
+    return "/doctor-consultation";
   }
   if (type === "doctor_message") {
     const taskId = data?.task_id as string;

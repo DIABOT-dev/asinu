@@ -19,7 +19,6 @@ import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 const giftImage = require('../../../assets/images/rewards/checkin-gift.png');
-const openedGiftImage = require('../../../assets/images/rewards/gift-open-box.png');
 const phonePrizeImage = require('../../../assets/iphone-18-pro-01_5-1.webp');
 const rewardPhotos = {
   ticket: require('../../../assets/images/rewards/product-photos-v2/reward-ticket-photo-v2.png'),
@@ -40,6 +39,7 @@ const boxImages = [
 ] as const;
 
 const boxes = [0, 1, 2, 3, 4, 5] as const;
+const AUTO_CLOSE_SECONDS = 5;
 
 export type CheckinGiftReceipt = {
   id: string;
@@ -96,10 +96,17 @@ export function CheckinGiftModal({
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const [selected, setSelected] = useState<number | null>(initialReceipt?.box ?? null);
-  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<'choosing' | 'opening' | 'reward' | 'complete'>(initialReceipt ? 'complete' : 'choosing');
+  const busy = phase === 'opening';
+  const othersOpened = phase === 'reward' || phase === 'complete';
   const [receipt, setReceipt] = useState<CheckinGiftReceipt | null>(initialReceipt);
-  const [othersOpened, setOthersOpened] = useState(Boolean(initialReceipt));
   const [error, setError] = useState(false);
+  const [presented, setPresented] = useState(false);
+  const [closeSeconds, setCloseSeconds] = useState(AUTO_CLOSE_SECONDS);
+  const closeRequested = useRef(false);
+  const returnToGridCallback = useRef<() => void>(() => {});
+  const closeCallback = useRef(onClose);
+  closeCallback.current = onClose;
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffset = useRef(0);
   const [sheetHeight, setSheetHeight] = useState(0);
@@ -113,22 +120,22 @@ export function CheckinGiftModal({
   const lid = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
   const shake = useRef(new Animated.Value(0)).current;
   const reveal = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
-  const otherLid = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
-  const othersReveal = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
+  const otherOpening = useRef(new Animated.Value(initialReceipt ? 1 : 0)).current;
+  const otherOpeningStarted = useRef(Boolean(initialReceipt));
 
   useEffect(() => {
     // Hiding an interruptible modal must not discard a completed opening.
     if (requestActive.current) {return;}
     setSelected(initialReceipt?.box ?? null);
     setReceipt(initialReceipt ?? null);
-    setOthersOpened(Boolean(initialReceipt));
+    setPhase(initialReceipt ? 'complete' : 'choosing');
     setError(false);
     focus.setValue(0);
     lid.setValue(initialReceipt ? 1 : 0);
     reveal.setValue(initialReceipt ? 1 : 0);
-    otherLid.setValue(initialReceipt ? 1 : 0);
-    othersReveal.setValue(initialReceipt ? 1 : 0);
-  }, [initialReceipt, focus, lid, otherLid, othersReveal, reveal]);
+    otherOpening.setValue(initialReceipt ? 1 : 0);
+    otherOpeningStarted.current = Boolean(initialReceipt);
+  }, [initialReceipt, focus, lid, reveal, otherOpening]);
 
   useEffect(() => {
     let live = true;
@@ -146,6 +153,50 @@ export function CheckinGiftModal({
   useEffect(() => {
     if (receipt) {scrollRef.current?.scrollTo({ y: 0, animated: false });}
   }, [receipt]);
+
+  useEffect(() => {
+    if (!visible) {setPresented(false);}
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !presented || phase !== 'reward' || !receipt?.id || otherOpeningStarted.current) {return;}
+    otherOpeningStarted.current = true;
+    if (reduceMotion.current) {
+      otherOpening.setValue(1);
+      return;
+    }
+    // Every remaining lid and reward uses one native animation, with no slot delay.
+    const motion = Animated.timing(otherOpening, {
+      toValue: 1, duration: 1100, easing: Easing.linear, useNativeDriver: true,
+    });
+    motion.start();
+    return () => {
+      motion.stop();
+      // An urgent dialog or closing the upper section must not strand half-open boxes.
+      otherOpening.setValue(1);
+    };
+  }, [visible, presented, phase, receipt?.id, otherOpening]);
+
+  useEffect(() => {
+    setCloseSeconds(AUTO_CLOSE_SECONDS);
+    closeRequested.current = false;
+    // Keep the full fortune above the already revealed grid for five visible
+    // seconds, then collapse only that upper section. The grid stays open.
+    if (!visible || !presented || readOnly || phase !== 'reward' || !receipt?.id) {return;}
+    let remaining = AUTO_CLOSE_SECONDS;
+    const advance = () => {
+      if (closeRequested.current) {return;}
+      remaining -= 1;
+      setCloseSeconds(remaining);
+      if (remaining === 0) {
+        returnToGridCallback.current();
+      } else {
+        timer = setTimeout(advance, 1000);
+      }
+    };
+    let timer = setTimeout(advance, 1000);
+    return () => clearTimeout(timer);
+  }, [visible, presented, readOnly, phase, receipt?.id]);
 
   const animateOpening = () => {
     if (reduceMotion.current) {
@@ -174,19 +225,20 @@ export function CheckinGiftModal({
     if (readOnly || requestActive.current || receipt) {return;}
     const request = ++generation.current;
     requestActive.current = true;
-    setBusy(true);
+    setPhase('opening');
     setError(false);
     setSelected(box);
     focus.setValue(0);
     lid.setValue(0);
     reveal.setValue(0);
-    otherLid.setValue(0);
-    othersReveal.setValue(0);
-    setOthersOpened(false);
+    otherOpening.setValue(0);
+    otherOpeningStarted.current = false;
     const opened = animateOpening();
+    let savedReceipt: CheckinGiftReceipt | null = null;
     try {
       const received = await onOpen(box);
       if (request !== generation.current) {return;}
+      savedReceipt = received;
       onReceived?.(received);
       await opened;
       if (request !== generation.current) {return;}
@@ -195,60 +247,66 @@ export function CheckinGiftModal({
       lid.setValue(1);
       if (reduceMotion.current) {
         reveal.setValue(1);
-        otherLid.setValue(1);
-        othersReveal.setValue(1);
-        setOthersOpened(true);
       } else {
         await new Promise<void>(resolve => {
-          const motion = Animated.parallel([
-            Animated.timing(reveal, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-            Animated.timing(otherLid, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-          ]);
+          const motion = Animated.timing(reveal, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true });
           animation.current = motion;
           motion.start(() => resolve());
         });
         if (request !== generation.current) { return; }
-        reveal.setValue(0);
-        setOthersOpened(true);
-        await new Promise<void>(resolve => {
-          const entrance = Animated.parallel([
-            Animated.timing(reveal, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-            Animated.timing(othersReveal, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-          ]);
-          animation.current = entrance;
-          entrance.start(() => resolve());
-        });
       }
+      setPhase('reward');
     } catch {
       if (request === generation.current) {
         animation.current?.stop();
         lid.setValue(0);
         focus.setValue(0);
         shake.setValue(0);
-        setError(true);
+        if (savedReceipt) {
+          setSelected(savedReceipt.box ?? box);
+          setReceipt(savedReceipt);
+          reveal.setValue(1);
+          setPhase('reward');
+        } else {
+          setError(true);
+          setPhase('choosing');
+        }
       }
     } finally {
       if (request === generation.current) {
-        setBusy(false);
         requestActive.current = false;
       }
     }
   };
 
+  const returnToGrid = () => {
+    if (readOnly || !receipt || phase !== 'reward' || requestActive.current) {return;}
+    focus.setValue(0);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    setPhase('complete');
+  };
+  returnToGridCallback.current = returnToGrid;
+
   const dismiss = () => {
-    if (!readOnly && receipt && !requestActive.current) {onClose();}
+    if (readOnly || !receipt || requestActive.current) {return;}
+    if (phase === 'reward') {
+      returnToGrid();
+    } else if (phase === 'complete' && !closeRequested.current) {
+      closeRequested.current = true;
+      closeCallback.current();
+    }
   };
 
   const ink = isDark ? colors.textPrimary : '#084844';
   const subInk = isDark ? colors.textSecondary : '#587a82';
   const handleColor = isDark ? colors.border : '#d1eae6';
-  const closeColor = isDark ? colors.primaryText : '#00bba4';
+  const closeColor = isDark ? colors.primaryText : '#087f70';
   const overlayColor = isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(15, 35, 30, 0.45)';
-  const primaryBrand = isDark ? colors.primary : '#00bba4';
-  const sheetWidth = Math.min(width - 32, 500);
+  const primaryBrand = isDark ? colors.primary : '#087f70';
+  const primaryInk = isDark ? '#073b33' : '#f4fffb';
+  const sheetWidth = Math.min(width, 500);
   const boxWidth = (sheetWidth - 36) * 0.315 - 8;
-  const cellHeight = Math.max(88, Math.ceil(boxWidth * (294 / 324)) + 12);
-  const isOpening = busy && !receipt && selected !== null;
+  const cellHeight = phase === 'reward' ? Math.max(124, Math.ceil(boxWidth + 20)) : Math.max(148, Math.ceil(boxWidth + 48));
   const gridWidth = sheetWidth - 36;
   const rowGap = 12;
   const gridHeight = cellHeight * 2 + rowGap;
@@ -267,16 +325,6 @@ export function CheckinGiftModal({
   const rewardArtwork = (kind: CheckinGiftReceipt['kind'], size: number) => (
     <Image source={rewardPhoto(kind)} style={{ width: size, height: size }} contentFit="contain" accessible={false} />
   );
-  const openedReward = (source: number, size: number, testID?: string) => (
-    <View style={{ width: size, height: size * 0.88 }} pointerEvents="none">
-      <Image source={openedGiftImage} style={{ position: 'absolute', width: size * 0.9, height: size * 0.9, left: 0, bottom: -size * 0.04 }} contentFit="contain" accessible={false} />
-      <Image testID={testID} source={source} style={{ position: 'absolute', width: size * 0.52, height: size * 0.52, left: size * 0.24, top: 0 }} contentFit="contain" accessible={false} />
-      <View style={{ position: 'absolute', overflow: 'hidden', width: size * 0.9, height: size * 0.25, left: 0, bottom: -size * 0.04 }}>
-        <Image source={openedGiftImage} style={{ position: 'absolute', width: size * 0.9, height: size * 0.9, left: 0, bottom: 0 }} contentFit="contain" accessible={false} />
-      </View>
-    </View>
-  );
-
   // Animate the transparent present itself. Cropping the illustrated choice card
   // would lift its background and mascot together with the lid.
   const boxArtwork = (box: number, size: number, opened: boolean, progress = lid, wobble = true, showcase = false) => {
@@ -446,7 +494,7 @@ export function CheckinGiftModal({
       ))
     : '';
 
-  // Other 5 rewards displayed in the bottom row, accounting for all 6 boxes (1 hero + 5 other = 6)
+  // The other slots reveal the existing preview catalogue, never another award.
   const otherRewardsToShow = receipt
     ? otherRewardCatalog.filter(item => {
         if (receipt.kind === 'ticket' && item.key === 'ticket') return false;
@@ -458,6 +506,27 @@ export function CheckinGiftModal({
       }).slice(0, 5)
     : [];
 
+  const fortuneContent = receipt && (
+    <View testID="gift-fortune" accessibilityLiveRegion="polite" style={styles.fortuneCard}>
+      <Text style={[styles.fortuneText, { color: ink, fontStyle: receipt.serif ? 'italic' : 'normal' }]}>{receipt.title}</Text>
+      {!!receipt.description && (demo || preview || !!receipt.rulesPeriod || receipt.kind === 'coupon') && (
+        <Text style={[styles.prizeDescription, { color: subInk }]}>{receipt.description}</Text>
+      )}
+      {!!receipt.prizeImage && !!receipt.rulesPeriod && (
+        <View style={styles.prizeDetails} testID="gift-prize-details">
+          <Image source={receipt.prizeImage} contentFit="contain" style={styles.prizeBadgeImage} accessible={false} />
+          <Text style={[styles.prizeDescription, { color: subInk }]}>{t('checkinGift.drawPrize', { prize: receipt.drawPrize })}</Text>
+        </View>
+      )}
+      {!!receipt.rulesPeriod && (
+        <Pressable accessibilityRole="button" disabled={readOnly || busy}
+          onPress={() => onRules?.(receipt.rulesPeriod!)} style={styles.rulesButton}>
+          <Text style={[styles.rulesText, { color: primaryBrand }]}>{t('checkinGift.rules')}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+
   const content = (
     <View
       accessibilityViewIsModal
@@ -465,23 +534,13 @@ export function CheckinGiftModal({
       style={[
         styles.sheet,
         {
-          backgroundColor: isDark ? colors.surface : '#e6faf2',
+          backgroundColor: isDark ? colors.surface : '#fbfefc',
           width: sheetWidth,
+          paddingBottom: Math.max(insets.bottom, 12),
           maxHeight: height - insets.top - insets.bottom - 24,
         },
       ]}
     >
-      <View pointerEvents="none" style={styles.sheetLight}>
-        <Svg width="100%" height="100%">
-          <Defs>
-            <RadialGradient id="giftSheetLight" cx="50%" cy="30%" rx="65%" ry="70%">
-              <Stop offset="0" stopColor={isDark ? '#286b56' : '#faffec'} stopOpacity={0.95} />
-              <Stop offset="1" stopColor={isDark ? '#123e32' : '#5cddbb'} stopOpacity={0.14} />
-            </RadialGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#giftSheetLight)" />
-        </Svg>
-      </View>
       <View style={[styles.handle, { backgroundColor: handleColor }]} />
       {!!receipt && (
         <Pressable
@@ -489,7 +548,7 @@ export function CheckinGiftModal({
           onPress={dismiss}
           disabled={readOnly || busy}
           accessibilityRole="button"
-          accessibilityLabel={t('checkinGift.close')}
+          accessibilityLabel={t(phase === 'reward' ? 'checkinGift.backToBoxes' : 'checkinGift.close')}
           accessibilityState={{ disabled: readOnly || busy }}
           hitSlop={8}
         >
@@ -497,9 +556,8 @@ export function CheckinGiftModal({
         </Pressable>
       )}
       <Animated.View style={[styles.header, { opacity: busy && !othersOpened ? focus.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 0, 0] }) : 1 }]}>
-        {!receipt && <Image source={giftImage} style={styles.headerGift} contentFit="contain" accessible={false} />}
         <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>
-          {t('checkinGift.title')}
+          {t(phase === 'reward' ? 'checkinGift.received' : 'checkinGift.title')}
         </Text>
         <View style={[styles.subtitleSpace, receipt && styles.openedSubtitle]}>
           {preview && <Text style={[styles.previewLabel, { color: subInk }]}>{t('checkinGift.previewMode')}</Text>}
@@ -525,208 +583,117 @@ export function CheckinGiftModal({
           </Text>
         )}
 
-        {!othersOpened ? (
-          <View style={styles.grid} testID="gift-chooser-grid" onLayout={(event) => setGridTop(event.nativeEvent.layout.y)}>
-            {boxes.map(box => {
-              const chosen = selected !== null && box === selected;
-              if (receipt && chosen) {
-                return (
-                  <View key={box} style={[styles.box, { height: cellHeight }]} />
-                );
-              }
-              return (
-                <Pressable
-                  key={box}
-                  onPress={() => { openBox(box); }}
-                  disabled={readOnly || busy || !!receipt}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('checkinGift.box', { number: box + 1 })}
-                  accessibilityState={{ disabled: readOnly || busy || !!receipt, selected: chosen, busy: busy && chosen }}
-                  style={({ pressed }) => [
-                    styles.box,
-                    {
-                      height: cellHeight,
-                      borderColor: chosen && !busy ? primaryBrand : 'transparent',
-                      zIndex: isOpening && chosen ? 2 : 0,
-                    },
-                    pressed && styles.pressed,
-                    busy && !chosen && styles.muted,
-                  ]}
-                >
-                  <Animated.View
-                    style={{ opacity: chosen && busy ? focus.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] }) : 1 }}
-                  >
-                    {boxArtwork(box, boxWidth, !!receipt, otherLid, false)}
-                  </Animated.View>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={styles.openedContainer}>
-            {/* The selected reward emerges from the same mint gift box. */}
-            <Animated.View
-              testID={`gift-received-${awardedBoxIndex}`}
-              accessibilityLabel={`${t('checkinGift.selectedReward')}: ${receipt?.title ?? ''}`}
-              style={[
-                styles.heroContainer,
-                {
-                  opacity: reveal,
-                  transform: [
-                    {
-                      scale: reveal.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.88, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <View
-                testID={`gift-box-art-${awardedBoxIndex}`}
-                style={styles.heroArtWrapper}
-              >
-                <View style={styles.heroHalo} pointerEvents="none">
-                  <Svg width="100%" height="100%">
-                    <Defs>
-                      <RadialGradient id="giftRewardLight" cx="50%" cy="50%" r="50%">
-                        <Stop offset="0" stopColor="#fff5ad" stopOpacity={0.95} />
-                        <Stop offset="0.6" stopColor="#a8edbd" stopOpacity={0.55} />
-                        <Stop offset="1" stopColor="#a8edbd" stopOpacity={0} />
-                      </RadialGradient>
-                    </Defs>
-                    <Rect width="100%" height="100%" fill="url(#giftRewardLight)" />
-                  </Svg>
-                </View>
-                {openedReward(rewardPhoto(receipt?.kind), 196, 'gift-received-photo')}
-                <Ionicons name="sparkles" size={26} color="#eab642" style={styles.heroSparkLeft} />
-                <Ionicons name="sparkles" size={18} color="#eab642" style={styles.heroSparkRight} />
-              </View>
-            </Animated.View>
-
-            {/* Category label */}
-            <Animated.View style={[styles.badgesWrapper, { opacity: reveal }]}>
-              {/* Category pill */}
-              <View
-                style={[
-                  styles.categoryPill,
-                  {
-                    backgroundColor: isDark ? colors.surfaceMuted : '#b8f0d9',
-                    borderColor: isDark ? colors.border : '#79d8b3',
-                  },
-                ]}
-              >
-                <Text style={[styles.categoryPillText, { color: isDark ? colors.textPrimary : '#084844' }]}>
-                  {categoryLabel}
-                </Text>
-              </View>
-            </Animated.View>
-
-            {/* Fortune Card */}
-            {receipt && (
-              <Animated.View
-                testID="gift-fortune"
-                accessibilityLiveRegion="polite"
-                style={[
-                  styles.fortuneCard,
-                  {
-                    opacity: reveal,
-                    backgroundColor: isDark ? colors.surface : '#f1fff6',
-                    borderColor: isDark ? colors.border : '#a2e6c7',
-                  },
-                ]}
-              >
-                {/* Fortune Text */}
-                <Text
-                  style={[
-                    styles.fortuneText,
-                    {
-                      color: isDark ? colors.textPrimary : '#094d45',
-                      fontStyle: receipt.serif ? 'italic' : 'normal',
-                    },
-                  ]}
-                >
-                  {receipt.title}
-                </Text>
-
-                {!!receipt.description && (demo || preview || !!receipt.rulesPeriod || receipt.kind === 'coupon') && (
-                  <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
-                    {receipt.description}
-                  </Text>
-                )}
-
-                {!!receipt.prizeImage && !!receipt.rulesPeriod && (
-                  <View style={styles.prizeDetails} testID="gift-prize-details">
-                    <Image source={receipt.prizeImage} contentFit="contain" style={styles.prizeBadgeImage} accessible={false} />
-                    <Text style={[styles.prizeDescription, { color: colors.textSecondary }]}>
-                      {t('checkinGift.drawPrize', { prize: receipt.drawPrize })}
-                    </Text>
-                  </View>
-                )}
-
-                {!!receipt.rulesPeriod && (
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={readOnly || busy}
-                    onPress={() => onRules?.(receipt.rulesPeriod!)}
-                    style={styles.rulesButton}
-                  >
-                    <Text style={[styles.rulesText, { color: primaryBrand }]}>{t('checkinGift.rules')}</Text>
-                  </Pressable>
-                )}
-
-                {demo && <Text style={[styles.saved, { color: colors.textSecondary }]}>{t('checkinGift.demoSaved')}</Text>}
-              </Animated.View>
-            )}
-
-            {/* Other Prizes Row */}
-            <Animated.View
-              testID="gift-result-grid"
-              style={[
-                styles.otherRewardsRow,
-                {
-                  opacity: othersReveal,
-                },
-              ]}
-            >
-              {otherRewardsToShow.map((item, index) => (
-                <Animated.View
-                  key={item.key}
-                  testID={`gift-other-${index}`}
-                  accessibilityLabel={`${t('checkinGift.otherReward', { number: index + 1 })}: ${t(item.labelKey)}`}
-                  style={[
-                    styles.otherRewardItem,
-                    {
-                      opacity: othersReveal.interpolate({ inputRange: [0, (index + 1) * 0.05, 0.72 + index * 0.06, 1], outputRange: [0, 0, 1, 1] }),
-                      transform: [{ translateY: othersReveal.interpolate({ inputRange: [0, 1], outputRange: [12 + index * 2, 0] }) }],
-                    },
-                  ]}
-                >
-                  <View style={styles.otherRewardGraphic}>
-                    {openedReward(rewardPhotos[item.key], 88, `gift-other-photo-${item.key}`)}
-                  </View>
-                  <View
-                    style={[
-                      styles.otherRewardLabelContainer,
-                      { backgroundColor: isDark ? colors.surfaceMuted : '#d1f2e4' },
-                    ]}
-                  >
-                    <Text
-                      numberOfLines={2}
-                      style={[
-                        styles.otherRewardLabelText,
-                        { color: isDark ? colors.textSecondary : '#276752' },
-                      ]}
-                    >
-                      {t(item.labelKey)}
-                    </Text>
-                  </View>
-                </Animated.View>
-              ))}
-            </Animated.View>
+        {phase === 'reward' && receipt && (
+          <View testID="gift-reward-page" style={styles.rewardPage}>
+            <Image testID="gift-detail-photo" source={rewardPhoto(receipt.kind)}
+              style={{ width: Math.min(sheetWidth - 80, 104), height: Math.min(sheetWidth - 80, 104) }}
+              contentFit="contain" accessible={false} />
+            <Text style={[styles.rewardCategory, { color: primaryBrand }]}>{categoryLabel}</Text>
+            {fortuneContent}
           </View>
         )}
+
+        <View
+          style={styles.grid}
+          testID={othersOpened ? 'gift-result-grid' : 'gift-chooser-grid'}
+          onLayout={(event) => setGridTop(event.nativeEvent.layout.y)}
+        >
+          {boxes.map(box => {
+            const chosen = selected !== null ? box === selected : !!receipt && box === awardedBoxIndex;
+            const otherIndex = boxes.filter(slot => slot !== awardedBoxIndex).indexOf(box);
+            const otherReward = otherRewardsToShow[otherIndex];
+            const showOther = othersOpened && !chosen && !!otherReward;
+            if (othersOpened && chosen && receipt) {
+              return (
+                <View
+                  key={box}
+                  testID={`gift-received-${box}`}
+                  accessibilityLabel={`${t('checkinGift.selectedReward')}: ${receipt.title}`}
+                  style={[
+                    styles.box, styles.receivedBox,
+                    { minHeight: cellHeight, borderColor: primaryBrand, backgroundColor: isDark ? colors.surfaceMuted : '#eaf9f3' },
+                  ]}
+                >
+                  <View style={[styles.receivedBadge, { backgroundColor: primaryBrand }]}>
+                    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+                      style={[styles.receivedBadgeText, { color: primaryInk }]}>{t('checkinGift.selectedReward')}</Text>
+                  </View>
+                  <View testID={`gift-box-art-${box}`}>
+                    <Image testID="gift-received-photo" source={rewardPhoto(receipt.kind)}
+                      style={{ width: phase === 'reward' ? Math.min(boxWidth * 0.78, 64) : boxWidth * 0.78, height: phase === 'reward' ? Math.min(boxWidth * 0.78, 64) : boxWidth * 0.78 }} contentFit="contain" accessible={false} />
+                  </View>
+                  <Text style={[styles.slotLabel, { color: ink }]}>{categoryLabel}</Text>
+                </View>
+              );
+            }
+            if (showOther) {
+              return (
+                <View
+                  key={box}
+                  testID={`gift-other-${otherIndex}`}
+                  accessibilityLabel={`${t('checkinGift.otherReward', { number: box + 1 })}: ${t(otherReward.labelKey)}`}
+                  style={[styles.box, { minHeight: cellHeight, backgroundColor: isDark ? colors.surfaceMuted : '#f7faf8' }]}
+                >
+                  <Animated.View
+                    testID={`gift-other-reveal-${box}`}
+                    style={{
+                      alignItems: 'center',
+                      opacity: otherOpening.interpolate({ inputRange: [0, 0.55, 0.9, 1], outputRange: [0, 0, 1, 1] }),
+                      transform: [
+                        { translateY: otherOpening.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+                        { scale: otherOpening.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) },
+                      ],
+                    }}
+                  >
+                    <Image testID={`gift-other-photo-${otherReward.key}`} source={rewardPhotos[otherReward.key]}
+                      style={{ width: phase === 'reward' ? Math.min(boxWidth * 0.76, 64) : boxWidth * 0.76, height: phase === 'reward' ? Math.min(boxWidth * 0.76, 64) : boxWidth * 0.76 }} contentFit="contain" accessible={false} />
+                    <Text style={[styles.slotLabel, { color: subInk }]}>{t(otherReward.labelKey)}</Text>
+                  </Animated.View>
+                  <Animated.View
+                    testID={`gift-other-opening-${box}`}
+                    pointerEvents="none"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={[styles.otherOpening, {
+                      opacity: otherOpening.interpolate({ inputRange: [0, 0.6, 0.9, 1], outputRange: [1, 1, 0, 0] }),
+                    }]}
+                  >
+                    <Animated.View style={{ opacity: otherOpening.interpolate({ inputRange: [0, 0.1, 0.3, 1], outputRange: [0, 0, 1, 1] }) }}>
+                      {boxArtwork(box, boxWidth, true, otherOpening, false)}
+                    </Animated.View>
+                    <Animated.View style={[styles.otherOpening, {
+                      opacity: otherOpening.interpolate({ inputRange: [0, 0.1, 0.3, 1], outputRange: [1, 1, 0, 0] }),
+                    }]}>
+                      <Image source={identicalBoxes ? giftImage : boxImages[box]}
+                        style={{ width: boxWidth, height: boxWidth * 294 / 324 }} contentFit="contain" accessible={false} />
+                    </Animated.View>
+                  </Animated.View>
+                </View>
+              );
+            }
+            return (
+              <Pressable
+                key={box}
+                onPress={() => { openBox(box); }}
+                disabled={readOnly || busy || !!receipt}
+                accessibilityRole="button"
+                accessibilityLabel={t('checkinGift.box', { number: box + 1 })}
+                accessibilityState={{ disabled: readOnly || busy || !!receipt, selected: chosen, busy: busy && chosen }}
+                style={({ pressed }) => [
+                  styles.box,
+                  { minHeight: cellHeight, backgroundColor: isDark ? colors.surfaceMuted : '#f7faf8' },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Animated.View style={{ opacity: chosen && busy ? focus.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] }) : 1 }}>
+                  {boxArtwork(box, boxWidth, false, lid, false)}
+                </Animated.View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {phase === 'complete' && (receipt?.kind === 'ticket' || receipt?.kind === 'coupon') && fortuneContent}
 
         {error && (
           <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.error, { color: colors.danger }]}>
@@ -765,26 +732,25 @@ export function CheckinGiftModal({
         </Animated.View>
       )}
 
-      <View style={styles.footer}>
-        <Pressable
-          onPress={dismiss}
-          disabled={readOnly || busy || !receipt}
-          accessibilityRole="button"
-          accessible={!busy}
-          accessibilityState={{ disabled: readOnly || busy || !receipt }}
-          style={({ pressed }) => [
-            styles.button,
-            { backgroundColor: primaryBrand },
-            pressed && !!receipt && styles.pressed,
-            (busy || !receipt) && styles.muted,
-            busy && styles.invisible,
-          ]}
-        >
-          <Text style={styles.buttonText}>
-            {!busy && t(receipt ? 'checkinGift.done' : 'checkinGift.pickBox')}
-          </Text>
-        </Pressable>
-      </View>
+      {!!receipt && !busy && (
+        <View style={styles.footer}>
+          <Pressable
+            onPress={dismiss}
+            disabled={readOnly}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: readOnly }}
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: primaryBrand },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={[styles.buttonText, { color: primaryInk }]}>
+              {t(phase === 'reward' && !readOnly ? 'checkinGift.closingIn' : 'checkinGift.done', { seconds: closeSeconds })}
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 
@@ -798,6 +764,8 @@ export function CheckinGiftModal({
       statusBarTranslucent
       priority={10}
       interruptible
+      onShow={() => setPresented(true)}
+      onDismiss={() => setPresented(false)}
       onRequestClose={dismiss}
     >
       <View
@@ -806,7 +774,7 @@ export function CheckinGiftModal({
           {
             backgroundColor: overlayColor,
             paddingTop: insets.top + 16,
-            paddingBottom: insets.bottom + 16,
+            paddingBottom: 0,
           },
         ]}
       >
@@ -821,15 +789,15 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 0,
   },
   sheet: {
-    borderRadius: 32,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     overflow: 'hidden',
     flexShrink: 1,
   },
-  sheetLight: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 },
   handle: {
     height: 4.5,
     width: 44,
@@ -852,12 +820,11 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 16,
   },
-  header: { paddingHorizontal: 44, paddingTop: 8, paddingBottom: 4, alignItems: 'center', flexShrink: 0 },
-  headerGift: { width: 38, height: 38, marginBottom: 2 },
+  header: { paddingHorizontal: 44, paddingTop: 16, paddingBottom: 8, alignItems: 'center', flexShrink: 0 },
   scroll: { flexShrink: 1 },
   footer: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 18, flexShrink: 0 },
   title: {
-    fontSize: 25,
+    fontSize: 21,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: -0.4,
@@ -892,8 +859,8 @@ const styles = StyleSheet.create({
   box: {
     minHeight: 56,
     width: '31.5%',
-    borderRadius: 18,
-    borderWidth: 2,
+    borderRadius: 12,
+    borderWidth: 1.5,
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
@@ -901,6 +868,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: 'transparent',
   },
+  receivedBox: { paddingTop: 38, paddingHorizontal: 5, paddingBottom: 10 },
+  receivedBadge: { position: 'absolute', top: -1, left: 4, right: 4, paddingHorizontal: 2, paddingVertical: 3, borderBottomLeftRadius: 6, borderBottomRightRadius: 6 },
+  receivedBadgeText: { color: '#f4fffb', fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  slotLabel: { fontSize: 14, lineHeight: 19, fontWeight: '600', textAlign: 'center', marginTop: 6, paddingHorizontal: 4 },
+  otherOpening: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
   boxGlow: {
     position: 'absolute',
     left: '-10%',
@@ -935,108 +907,15 @@ const styles = StyleSheet.create({
     height: 11,
     borderRadius: 2,
   },
-  invisible: { opacity: 0 },
-  openedContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  heroContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  heroArtWrapper: {
-    width: 244,
-    height: 174,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroHalo: { position: 'absolute', width: 280, height: 230, top: -35, left: -18 },
-  heroSparkLeft: { position: 'absolute', left: 4, top: 70 },
-  heroSparkRight: { position: 'absolute', right: 4, top: 26 },
-  badgesWrapper: {
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 6,
-  },
-  categoryPill: {
-    paddingHorizontal: 22,
-    paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    marginBottom: 4,
-    shadowColor: '#1ca492',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  categoryPillText: {
-    fontSize: 17,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: -0.2,
-  },
-  fortuneCard: {
-    width: '100%',
-    borderRadius: 24,
-    borderWidth: 1.5,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: '#1ca492',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-    marginBottom: 14,
-  },
+  rewardPage: { alignItems: 'center', paddingTop: 12, paddingBottom: 8 },
+  rewardCategory: { fontSize: 20, lineHeight: 28, fontWeight: '700', textAlign: 'center', marginTop: 10 },
+  fortuneCard: { width: '100%', paddingHorizontal: 8, paddingTop: 12, paddingBottom: 8, alignItems: 'center' },
   fortuneText: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: '600',
     textAlign: 'center',
     paddingHorizontal: 0,
-  },
-  otherRewardsRow: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  otherRewardItem: {
-    width: '30.5%',
-    alignItems: 'center',
-  },
-  otherRewardGraphic: {
-    width: '100%',
-    height: 78,
-    marginBottom: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  otherRewardLabelContainer: {
-    width: '100%',
-    minHeight: 32,
-    borderRadius: 11,
-    paddingHorizontal: 1.5,
-    paddingVertical: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  otherRewardLabelText: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   prizeDescription: {
     fontSize: 15,
@@ -1077,7 +956,7 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: 999,
-    minHeight: 54,
+    minHeight: 56,
     paddingHorizontal: 20,
     paddingVertical: 14,
     alignItems: 'center',
@@ -1091,5 +970,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   pressed: { opacity: 0.85 },
-  muted: { opacity: 0.55 },
 });

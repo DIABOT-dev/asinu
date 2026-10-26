@@ -1,3 +1,4 @@
+import { clearIvrVoiceQueue } from '../doctor-ivr/ivr-voice-queue';
 import { create } from 'zustand';
 import { localCache } from '../../lib/localCache';
 import { tokenStore } from '../../lib/tokenStore';
@@ -249,6 +250,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         try {
           await authApi.deleteAccount();
           useNotificationStore.getState().reset();
+          await clearIvrVoiceQueue().catch(() => {});
           await tokenStore.clearToken();
           useNotificationStore.getState().reset();
           localCache.setUserId(null);
@@ -260,6 +262,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           useCarePulseStore.getState().reset();
           await localCache.clearLegacyPlaintextCache();
           set({ profile: null, token: null, loading: false });
+          await clearIvrVoiceQueue().catch(() => {});
         } catch (error) {
           set({ loading: false, error: (error as Error).message });
           throw error;
@@ -291,7 +294,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             await apiClient('/api/mobile/profile/push-token', { method: 'DELETE' });
           } catch {}
         }
-        await tokenStore.clearToken();
+        await clearIvrVoiceQueue().catch(() => {});
+          await tokenStore.clearToken();
         localCache.setUserId(null);
 
         // Reset all user-scoped stores
@@ -307,5 +311,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         await localCache.clearLegacyPlaintextCache();
 
         set({ profile: null, token: null });
+        await clearIvrVoiceQueue().catch(() => {});
       }
     }));

@@ -784,6 +784,17 @@ function CheckinCallUiGallery() {
       >
         <Text style={styles.galleryTitle}>{t('gallery.heading')}</Text>
         <Text style={styles.galleryLead}>{t('gallery.lead')}</Text>
+        <Pressable accessibilityRole="button"
+          style={({ pressed }) => [styles.demoGiftButton, pressed && styles.listRowPressed]}
+          onPress={() => router.push('/doctor-interview/preview')}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={24} color={COLORS.teal} />
+          <View style={styles.listCopy}>
+            <Text style={styles.listTitle}>{th('ivr.preview.entryTitle')}</Text>
+            <Text style={styles.listDescription}>{th('ivr.preview.entryDescription')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.teal} />
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           style={({ pressed }) => [styles.demoGiftButton, pressed && styles.listRowPressed]}
