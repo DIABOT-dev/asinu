@@ -46,6 +46,7 @@ import { ScaledTextInput as TextInput } from "../../../src/components/ScaledText
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { LinearGradient } from "expo-linear-gradient";
 import { AndroidCallAccessCard } from "../../../src/features/checkin-call/AndroidCallAccessCard";
+import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 
@@ -184,6 +185,13 @@ export default function ProfileScreen() {
   const { t: tc } = useTranslation("common");
   const { t: ts } = useTranslation("settings");
   const { t: tSubscription } = useTranslation("subscription");
+  const checkingUpdate = useAppUpdateStore((state) => state.checking);
+  const checkForUpdate = async () => {
+    const result = await useAppUpdateStore.getState().check(true);
+    if (result.status !== 'available') {
+      showToast(tc(result.status === 'current' ? 'appUpdate.current' : 'appUpdate.unavailable'), 'info');
+    }
+  };
   const profile = useAuthStore((state) => state.profile);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -1219,6 +1227,20 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionHeading}>{t("sectionSystem")}</Text>
               </View>
               <View style={styles.cardsStack}>
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => { void checkForUpdate(); }}
+                  disabled={checkingUpdate}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: checkingUpdate, busy: checkingUpdate }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowIconWrap}>
+                    <Ionicons name="cloud-download-outline" size={22} color={colors.primary} />
+                  </View>
+                  <Text style={styles.rowLabel}>{tc(checkingUpdate ? 'appUpdate.checking' : 'appUpdate.check')}</Text>
+                  {checkingUpdate ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />}
+                </TouchableOpacity>
                 {/* Trợ giúp qua Zalo */}
                 <TouchableOpacity
                   style={styles.actionCard}

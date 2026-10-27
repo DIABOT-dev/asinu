@@ -378,5 +378,52 @@
   "notifEngagement": "Re-engagement",
   "notifEngagementDesc": "AI reminder when inactive",
   "info": "Information",
-  "tagline": "Your health, every day"
+  "tagline": "Your health, every day",
+  "appUpdate": {
+    "title": "A new Asinu version is available",
+    "message": "Update Asinu to get the latest improvements.",
+    "versionMessage": "Version {{version}} is ready. Update to get the latest improvements.",
+    "readyTitle": "Your update is ready",
+    "readyMessage": "Restart Asinu to finish updating. The app will reopen after installation.",
+    "updateNow": "Update now",
+    "restart": "Install and reopen",
+    "later": "Later",
+    "check": "Check for updates",
+    "checking": "Checking…",
+    "current": "You are using the latest version available for this device.",
+    "unavailable": "Unable to check for updates. Please try again later.",
+    "openFailed": "Unable to open the update. Please try again.",
+    "experienceTitle": "A new version of Asinu is here!",
+    "experienceMessage": "Update for a smoother experience and keep caring for your health every day.",
+    "versionLabel": "Version {{version}}",
+    "errorTitle": "Unable to update yet",
+    "errorMessage": "You can keep using Asinu. Check your connection and try again when convenient.",
+    "downloadingTitle": "Downloading the new version…",
+    "installingTitle": "Finishing your update…",
+    "installingMessage": "Google Play is completing installation. Asinu will reopen after the update.",
+    "preparingTitle": "Preparing your update…",
+    "downloadingMessage": "You can keep using Asinu while it downloads. Please stay connected to the internet.",
+    "downloadNoticeTitle": "Update at your own pace",
+    "downloadNoticeMessage": "We will ask before restarting Asinu to install the new version.",
+    "installNoticeTitle": "Installed through Google Play",
+    "installNoticeMessage": "Google Play manages the installation process.",
+    "continueUsing": "Keep using Asinu",
+    "retry": "Try again",
+    "iosStoreNote": "Update through the App Store",
+    "androidStoreNote": "Update through Google Play",
+    "benefits": {
+      "experience": {
+        "title": "A more convenient experience",
+        "message": "Get the latest improvements."
+      },
+      "connection": {
+        "title": "Stay connected to family",
+        "message": "Stay connected and care every day."
+      },
+      "store": {
+        "title": "Update with confidence",
+        "message": "Keep using your existing account."
+      }
+    }
+  }
 }

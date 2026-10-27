@@ -378,5 +378,52 @@
   "notifEngagement": "Re-engagement",
   "notifEngagementDesc": "AI nhắc nhở khi lâu không dùng",
   "info": "Thông tin",
-  "tagline": "Sức khoẻ của bạn, mỗi ngày"
+  "tagline": "Sức khoẻ của bạn, mỗi ngày",
+  "appUpdate": {
+    "title": "Asinu có phiên bản mới",
+    "message": "Cập nhật Asinu để sử dụng những cải tiến mới nhất.",
+    "versionMessage": "Phiên bản {{version}} đã sẵn sàng. Cập nhật để sử dụng những cải tiến mới nhất.",
+    "readyTitle": "Bản cập nhật đã tải xong",
+    "readyMessage": "Khởi động lại Asinu để hoàn tất cập nhật. Ứng dụng sẽ mở lại sau khi cài đặt.",
+    "updateNow": "Cập nhật ngay",
+    "restart": "Cài đặt và mở lại",
+    "later": "Để sau",
+    "check": "Kiểm tra cập nhật",
+    "checking": "Đang kiểm tra…",
+    "current": "Bạn đang dùng phiên bản mới nhất có sẵn cho thiết bị này.",
+    "unavailable": "Chưa kiểm tra được phiên bản mới. Vui lòng thử lại sau.",
+    "openFailed": "Chưa mở được trang cập nhật. Vui lòng thử lại.",
+    "experienceTitle": "Đã có phiên bản mới của Asinu!",
+    "experienceMessage": "Cập nhật để trải nghiệm thuận tiện hơn và tiếp tục chăm sóc sức khỏe mỗi ngày.",
+    "versionLabel": "Phiên bản {{version}}",
+    "errorTitle": "Chưa thể cập nhật",
+    "errorMessage": "Bạn vẫn có thể dùng Asinu. Hãy kiểm tra kết nối và thử lại khi thuận tiện.",
+    "downloadingTitle": "Đang tải phiên bản mới…",
+    "installingTitle": "Đang hoàn tất cập nhật…",
+    "installingMessage": "Google Play đang hoàn tất cài đặt. Asinu sẽ mở lại sau khi cập nhật.",
+    "preparingTitle": "Đang chuẩn bị cập nhật…",
+    "downloadingMessage": "Bạn có thể tiếp tục dùng Asinu trong lúc tải. Vui lòng giữ kết nối internet.",
+    "downloadNoticeTitle": "Cập nhật theo cách của bạn",
+    "downloadNoticeMessage": "Bạn sẽ được hỏi trước khi Asinu khởi động lại để cài phiên bản mới.",
+    "installNoticeTitle": "Cài đặt qua Google Play",
+    "installNoticeMessage": "Quá trình cài đặt được Google Play quản lý.",
+    "continueUsing": "Tiếp tục dùng Asinu",
+    "retry": "Thử lại",
+    "iosStoreNote": "Cập nhật qua App Store",
+    "androidStoreNote": "Cập nhật qua Google Play",
+    "benefits": {
+      "experience": {
+        "title": "Trải nghiệm thuận tiện hơn",
+        "message": "Nhận các cải tiến mới nhất."
+      },
+      "connection": {
+        "title": "Đồng hành cùng người thân",
+        "message": "Giữ kết nối và quan tâm mỗi ngày."
+      },
+      "store": {
+        "title": "Cập nhật an tâm",
+        "message": "Tiếp tục dùng tài khoản hiện tại."
+      }
+    }
+  }
 }

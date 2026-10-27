@@ -83,6 +83,7 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
+    sourceSets { main.java.srcDir("../../native/app-update/android") }
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -162,6 +163,7 @@ android {
 }
 
 dependencies {
+    implementation("com.google.android.play:app-update:2.1.0")
     // Android 15+ edge-to-edge fixes for Material dialogs and system bars.
     implementation("com.google.android.material:material:1.14.0")
     // The version of react-native is set by the React Native Gradle Plugin

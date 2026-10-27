@@ -1,5 +1,7 @@
 package com.asinu.lite
 
+import com.asinu.lite.updates.AsinuAppUpdatePackage
+
 import android.app.Application
 import android.content.res.Configuration
 import com.asinu.lite.zalo.AsinuZaloAuthPackage
@@ -22,7 +24,11 @@ import expo.modules.ExpoReactHostFactory
 class MainApplication : Application(), ReactApplication {
 
   private val appPackages: List<ReactPackage> by lazy {
-    PackageList(this).packages.apply { add(AsinuZaloAuthPackage()); add(AsinuCheckinCallPackage()) }
+    PackageList(this).packages.apply {
+      add(AsinuAppUpdatePackage())
+      add(AsinuZaloAuthPackage())
+      add(AsinuCheckinCallPackage())
+    }
   }
 
   override val reactNativeHost: ReactNativeHost = object : DefaultReactNativeHost(this) {

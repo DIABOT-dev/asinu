@@ -1,0 +1,16 @@
+{
+  "tool": "image_gen (built-in)",
+  "generatedAt": "2026-10-27",
+  "assets": [
+    {
+      "file": "update-hero.jpg",
+      "useCase": "photorealistic-natural",
+      "prompt": "Use case: photorealistic-natural. Asset type: production healthcare mobile app update illustration, photographic background only. Generate one premium warm natural editorial photograph, portrait 1024x1536. Scene: a Vietnamese woman doctor around 35 in a clean white coat over muted teal scrubs, gently helping a smiling Vietnamese woman around 65 in a beige cardigan use a smartphone together, a bright softly blurred modern clinic with a leafy plant and daylight. Friendly, calm and authentic natural skin texture, candid eye contact toward the phone, realistic hands, realistic phone proportions. Composition: upper 35% of the image is very light softly luminous mint-white blurred clinic negative space for UI heading overlay, no faces in that upper area. Faces and smartphone occupy the middle-to-lower portion, centered with enough generous side margin to crop on both phone and tablet. The doctor is on the right, older woman on the left. Lower edge of scene softly fades into almost white mint background to merge smoothly into the app surface. Restrained light aqua, seafoam, warm cream, skin tones. No text, no lettering, no UI controls, no progress bars, no logos, no watermarks, no border, no status bar. Smartphone screen only softly lit, no readable content. This is a real bitmap asset to be composed in an app, not a screenshot/mockup."
+    },
+    {
+      "file": "update-download.jpg",
+      "useCase": "photorealistic-natural",
+      "prompt": "Use case: photorealistic-natural. Asset type: production healthcare mobile app update download background photograph only. Generate one premium warm editorial lifestyle photograph, portrait 1024x1536, cohesive with a luminous soft mint and warm-white Vietnamese healthcare app. Subject: a smiling Vietnamese man around 68 with short silver hair in a pale blue casual shirt, comfortably seated near a bright window at home, using a smartphone with natural realistic hands. Candid calm pleased expression, authentic age and skin texture, soft window light and a softly blurred leafy indoor plant. Composition: upper 40% is pale near-white softly blurred generous negative space for app progress UI; man and phone in the lower 60%, centered, medium shot from waist/chest up with generous side crop room. Soft curved diffuse pale mint-white light at edges; blend top and lower edge toward off-white without visible frame. No text, no logos, no lettering, no UI, no bars, no mockup phone frame, no watermark. Keep the image warm and reassuring, realistic premium photograph, not cartoon or 3D render. This is a reusable photographic asset, not a complete UI screenshot."
+    }
+  ]
+}

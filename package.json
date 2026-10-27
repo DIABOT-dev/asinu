@@ -46,7 +46,8 @@
     "lint:assets": "node scripts/check-assets.js",
     "sounds:sync": "node scripts/sync-notification-sounds.cjs",
     "test:notification-sounds": "node scripts/check-notification-sounds.mjs",
-    "postinstall": "patch-package --error-on-fail && node scripts/patch-livekit-signal-lifecycle.cjs"
+    "postinstall": "patch-package --error-on-fail && node scripts/patch-livekit-signal-lifecycle.cjs",
+    "test:app-update": "node scripts/check-app-update.mjs"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
@@ -63,6 +64,7 @@
     "clsx": "^2.1.0",
     "expo": "57.0.23",
     "expo-apple-authentication": "~57.0.2",
+    "expo-application": "~57.0.3",
     "expo-asset": "~57.0.17",
     "expo-audio": "57.0.5",
     "expo-auth-session": "~57.0.12",

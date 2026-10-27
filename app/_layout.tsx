@@ -40,6 +40,7 @@ import { useScaledTypography } from '../src/hooks/useScaledTypography';
 import { trackScreenViewed } from '../src/lib/screenTracking';
 import { useGuardedRouter } from '../src/hooks/useGuardedRouter';
 import { isDoctorFeaturesEnabled } from '../src/lib/appEnv';
+import { AppUpdateGate } from '../src/features/app-update/AppUpdateGate';
 
 registerGlobals();
 
@@ -165,6 +166,7 @@ export default function RootLayout() {
               </Stack>
               <GlobalToastHost />
               <CareCircleInvitationModal />
+              <AppUpdateGate />
               <QueuedModalHost />
               <AsinuBrainOverlayHost />
             </CarePulseProvider>
