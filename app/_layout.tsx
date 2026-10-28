@@ -1,6 +1,10 @@
-import { Stack, usePathname, type NativeStackNavigationProp } from 'expo-router';
-import { registerGlobals } from '@livekit/react-native';
-import type { ParamListBase, RouteProp } from 'expo-router/react-navigation';
+import {
+  Stack,
+  usePathname,
+  type NativeStackNavigationProp,
+} from "expo-router";
+import { registerGlobals } from "@livekit/react-native";
+import type { ParamListBase, RouteProp } from "expo-router/react-navigation";
 import {
   useFonts,
   Inter_400Regular,
@@ -8,39 +12,48 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
   Inter_800ExtraBold,
-} from '@expo-google-fonts/inter';
-import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Appearance, Pressable, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
-import { AsinuBrainOverlayHost } from '../asinu-brain-extension/AsinuBrainOverlayHost';
-import { useAuthStore } from '../src/features/auth/auth.store';
-import { GlobalToastHost } from '../src/components/GlobalToastHost';
-import { CareCircleInvitationModal } from '../src/components/CareCircleInvitationModal';
-import { QueuedModalHost, QueuedModalProvider } from '../src/components/QueuedModal';
-import { ScaledText as Text } from '../src/components/ScaledText';
-import { CarePulseProvider } from '../src/features/care-pulse';
-import { WellnessProvider } from '../src/features/wellness';
-import { useThemeColors } from '../src/hooks/useThemeColors';
-import { useThemeStore } from '../src/stores/theme.store';
-import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+} from "@expo-google-fonts/inter";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import { Appearance, Pressable, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  initialWindowMetrics,
+  SafeAreaProvider,
+} from "react-native-safe-area-context";
+import { AsinuBrainOverlayHost } from "../asinu-brain-extension/AsinuBrainOverlayHost";
+import { useAuthStore } from "../src/features/auth/auth.store";
+import { GlobalToastHost } from "../src/components/GlobalToastHost";
+import { CareCircleInvitationModal } from "../src/components/CareCircleInvitationModal";
+import {
+  QueuedModalHost,
+  QueuedModalProvider,
+} from "../src/components/QueuedModal";
+import { ScaledText as Text } from "../src/components/ScaledText";
+import { CarePulseProvider } from "../src/features/care-pulse";
+import { WellnessProvider } from "../src/features/wellness";
+import { useThemeColors } from "../src/hooks/useThemeColors";
+import { useThemeStore } from "../src/stores/theme.store";
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from "react-native-reanimated";
 configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
-import '../src/i18n';
-import '../src/lib/initErrorHandler';
-import { initializeIap, teardownIap } from '../src/features/iap/iap.service';
-import { QueryProvider } from '../src/providers/QueryProvider';
-import { SessionProvider } from '../src/providers/SessionProvider';
-import { GuidanceProvider } from '../src/features/guidance/GuidanceProvider';
-import { ErrorBoundary } from '../src/components/ErrorBoundary';
-import { applyTheme, spacing } from '../src/styles';
-import { useScaledTypography } from '../src/hooks/useScaledTypography';
-import { trackScreenViewed } from '../src/lib/screenTracking';
-import { useGuardedRouter } from '../src/hooks/useGuardedRouter';
-import { isDoctorFeaturesEnabled } from '../src/lib/appEnv';
-import { AppUpdateGate } from '../src/features/app-update/AppUpdateGate';
+import "../src/i18n";
+import "../src/lib/initErrorHandler";
+import { initializeIap, teardownIap } from "../src/features/iap/iap.service";
+import { QueryProvider } from "../src/providers/QueryProvider";
+import { SessionProvider } from "../src/providers/SessionProvider";
+import { GuidanceProvider } from "../src/features/guidance/GuidanceProvider";
+import { ErrorBoundary } from "../src/components/ErrorBoundary";
+import { applyTheme, spacing } from "../src/styles";
+import { useScaledTypography } from "../src/hooks/useScaledTypography";
+import { trackScreenViewed } from "../src/lib/screenTracking";
+import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
+import { isDoctorFeaturesEnabled } from "../src/lib/appEnv";
+import { AppUpdateGate } from "../src/features/app-update/AppUpdateGate";
 
 registerGlobals();
 
@@ -52,7 +65,7 @@ type ScreenOptionsProps = {
 
 export default function RootLayout() {
   const router = useGuardedRouter();
-  const { t } = useTranslation('auth');
+  const { t } = useTranslation("auth");
   const { colors, isDark } = useThemeColors();
   const scaledTypography = useScaledTypography();
   const setSystemScheme = useThemeStore((s) => s.setSystemScheme);
@@ -75,9 +88,10 @@ export default function RootLayout() {
   // Sync system color scheme
   useEffect(() => {
     const scheme = Appearance.getColorScheme();
-    if (scheme === 'light' || scheme === 'dark') setSystemScheme(scheme);
+    if (scheme === "light" || scheme === "dark") setSystemScheme(scheme);
     const sub = Appearance.addChangeListener(({ colorScheme }) => {
-      if (colorScheme === 'light' || colorScheme === 'dark') setSystemScheme(colorScheme);
+      if (colorScheme === "light" || colorScheme === "dark")
+        setSystemScheme(colorScheme);
     });
     return () => sub.remove();
   }, [setSystemScheme]);
@@ -87,7 +101,9 @@ export default function RootLayout() {
   // and finishTransaction has to fire from the same listener that started it.
   useEffect(() => {
     initializeIap();
-    return () => { teardownIap(); };
+    return () => {
+      teardownIap();
+    };
   }, []);
 
   const screenOptions = useMemo(
@@ -100,25 +116,31 @@ export default function RootLayout() {
 
   const legalScreenOptions = useCallback(
     (_props: ScreenOptionsProps) => ({
-      presentation: 'modal' as const,
+      presentation: "modal" as const,
       headerShown: true,
-      title: t('legalTitle'),
-      headerTitleAlign: 'center' as const,
-      headerTitleStyle: { color: colors.textPrimary, fontSize: scaledTypography.scaledSize.md, fontWeight: '700' as const },
+      title: t("legalTitle"),
+      headerTitleAlign: "center" as const,
+      headerTitleStyle: {
+        color: colors.textPrimary,
+        fontSize: scaledTypography.scaledSize.md,
+        fontWeight: "700" as const,
+      },
       headerStyle: { backgroundColor: colors.surface },
       headerShadowVisible: false,
       headerBackVisible: false,
       headerLeft: () => (
         <Pressable
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace("/")
+          }
           style={styles.headerCloseButton}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={t('legalClose')}
+          accessibilityLabel={t("legalClose")}
         >
           <Ionicons name="close" size={22} color={colors.primary} />
         </Pressable>
-      )
+      ),
     }),
     [t, colors, scaledTypography, router]
   );
@@ -128,55 +150,62 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-    <ErrorBoundary>
-    <QueryProvider>
-      <QueuedModalProvider>
-      <SessionProvider>
-        <ScreenViewTracker />
-        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-          <GuidanceProvider>
-          <WellnessProvider>
-            <CarePulseProvider>
-              <StatusBar style={isDark ? 'light' : 'dark'} />
-              <Stack screenOptions={screenOptions}>
-                <Stack.Protected guard={isDoctorFeaturesEnabled}>
-                  <Stack.Screen name="doctor-consultation" />
-                  <Stack.Screen name="doctor-consultation/[taskId]" />
-                  <Stack.Screen name="doctor-consultation-history" />
-                  <Stack.Screen name="doctor-interview/[sessionId]" />
-                  <Stack.Screen name="doctor-interview/preview" />
-                  <Stack.Screen name="privacy-center" />
-                </Stack.Protected>
-                <Stack.Screen
-                  name="login/index"
-                  options={{ animation: 'fade', animationDuration: 240 }}
-                />
-                <Stack.Screen
-                  name="register/index"
-                  options={{ animation: 'fade', animationDuration: 240 }}
-                />
-                <Stack.Screen
-                  name="legal/content"
-                  options={legalScreenOptions}
-                />
-                <Stack.Screen
-                  name="legal/sources"
-                  options={legalScreenOptions}
-                />
-              </Stack>
-              <GlobalToastHost />
-              <CareCircleInvitationModal />
-              <AppUpdateGate />
-              <QueuedModalHost />
-              <AsinuBrainOverlayHost />
-            </CarePulseProvider>
-          </WellnessProvider>
-          </GuidanceProvider>
-        </SafeAreaProvider>
-      </SessionProvider>
-      </QueuedModalProvider>
-    </QueryProvider>
-    </ErrorBoundary>
+      <ErrorBoundary>
+        <QueryProvider>
+          <QueuedModalProvider>
+            <SessionProvider>
+              <ScreenViewTracker />
+              <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+                <GuidanceProvider>
+                  <WellnessProvider>
+                    <CarePulseProvider>
+                      <StatusBar style={isDark ? "light" : "dark"} />
+                      <Stack screenOptions={screenOptions}>
+                        <Stack.Protected guard={isDoctorFeaturesEnabled}>
+                          <Stack.Screen name="doctor-consultation" />
+                          <Stack.Screen name="doctor-consultation/[taskId]" />
+                          <Stack.Screen name="doctor-consultation-history" />
+                          <Stack.Screen name="doctor-interview/[sessionId]" />
+                          <Stack.Screen name="doctor-call/[sessionId]" />
+                          <Stack.Screen name="doctor-interview/preview" />
+                          <Stack.Screen name="privacy-center" />
+                        </Stack.Protected>
+                        <Stack.Screen
+                          name="login/index"
+                          options={{
+                            animation: "fade",
+                            animationDuration: 240,
+                          }}
+                        />
+                        <Stack.Screen
+                          name="register/index"
+                          options={{
+                            animation: "fade",
+                            animationDuration: 240,
+                          }}
+                        />
+                        <Stack.Screen
+                          name="legal/content"
+                          options={legalScreenOptions}
+                        />
+                        <Stack.Screen
+                          name="legal/sources"
+                          options={legalScreenOptions}
+                        />
+                      </Stack>
+                      <GlobalToastHost />
+                      <CareCircleInvitationModal />
+                      <AppUpdateGate />
+                      <QueuedModalHost />
+                      <AsinuBrainOverlayHost />
+                    </CarePulseProvider>
+                  </WellnessProvider>
+                </GuidanceProvider>
+              </SafeAreaProvider>
+            </SessionProvider>
+          </QueuedModalProvider>
+        </QueryProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }
@@ -188,11 +217,18 @@ function ScreenViewTracker() {
   const lastTrackedPath = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!hydrated || !token || !pathname || pathname === '/login' || pathname === '/register') return;
+    if (
+      !hydrated ||
+      !token ||
+      !pathname ||
+      pathname === "/login" ||
+      pathname === "/register"
+    )
+      return;
     if (lastTrackedPath.current === pathname) return;
 
     lastTrackedPath.current = pathname;
-    const screenName = pathname.replace(/^\/+/, '').trim() || 'home';
+    const screenName = pathname.replace(/^\/+/, "").trim() || "home";
     trackScreenViewed(screenName).catch(() => {
       // Telemetry must never interrupt navigation or show an error to users.
     });
@@ -205,8 +241,8 @@ const styles = StyleSheet.create({
   headerCloseButton: {
     width: 36,
     height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: spacing.xs,
   },
 });

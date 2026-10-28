@@ -29,7 +29,8 @@ import expo.modules.notifications.service.ExpoFirebaseMessagingService
 class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
     val data = remoteMessage.data
-    if (data["type"] != "checkin_call") { super.onMessageReceived(remoteMessage); return }
+    val doctorCall = data["type"] == "doctor_ivr_call" && data["callType"] == "doctor_ivr"
+    if (data["type"] != "checkin_call" && !doctorCall) { super.onMessageReceived(remoteMessage); return }
     if (Build.VERSION.SDK_INT >= 24 && !(getSystemService(Context.USER_SERVICE) as UserManager).isUserUnlocked) return
     CheckinCallNotifications.show(applicationContext, data)
   }
@@ -103,7 +104,7 @@ object CheckinCallNotifications {
 
     val deepLink = Uri.Builder()
       .scheme("asinu-lite")
-      .authority("checkin-call")
+      .authority(if (data["callType"] == "doctor_ivr") "doctor-call" else "checkin-call")
       .appendPath(episodeId)
       .appendQueryParameter("attemptId", attemptId)
       .build()

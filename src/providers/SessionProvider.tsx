@@ -11,9 +11,16 @@ import {
 import { AppState, Linking, Platform } from "react-native";
 import { isDoctorFeaturesEnabled } from "../lib/appEnv";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useGlobalSearchParams, usePathname, useRootNavigationState } from "expo-router";
-import { useGuardedRouter, useNavigationGuardObserver } from "../hooks/useGuardedRouter";
-import { useGuidanceStore } from '../features/guidance/guidance.store';
+import {
+  useGlobalSearchParams,
+  usePathname,
+  useRootNavigationState,
+} from "expo-router";
+import {
+  useGuardedRouter,
+  useNavigationGuardObserver,
+} from "../hooks/useGuardedRouter";
+import { useGuidanceStore } from "../features/guidance/guidance.store";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../features/auth/auth.store";
 import { authApi } from "../features/auth/auth.api";
@@ -45,11 +52,13 @@ import {
   addVoipTokenListener,
   getPendingVoipCall,
   getVoipRegistration,
+  supportsDoctorIvrCalls,
   type VoipCallPayload,
   type VoipRegistration,
 } from "../lib/voip";
 import { CheckinCallHandoff } from "../features/checkin-call/checkin-call.handoff";
 import { acceptCheckinCallOnce } from "../features/checkin-call/checkin-call.accept";
+import { acceptDoctorIvrCallOnce } from "../features/doctor-ivr/ivr-call";
 import { getAndroidCallPermissions } from "../lib/android-checkin-call";
 import { requestAndroidCallAccess } from "../lib/android-call-access";
 
@@ -63,7 +72,7 @@ type Props = { children: ReactNode };
 type PermissionPrompt = {
   accountId: string;
   token: string;
-  kind: 'notifications' | 'notifications-and-calls' | 'android-calls';
+  kind: "notifications" | "notifications-and-calls" | "android-calls";
 };
 
 const createClientMessageId = () => {
@@ -87,27 +96,61 @@ export const SessionProvider = ({ children }: Props) => {
   const hydrated = useAuthStore((state) => state.hydrated);
   const authToken = useAuthStore((state) => state.token);
   const profile = useAuthStore((state) => state.profile);
-  const guidanceWelcomed = useGuidanceStore(state => state.account === String(profile?.id) && state.ready
-    && state.progress.welcomeSeen && !state.welcomeOpen);
+  const guidanceWelcomed = useGuidanceStore(
+    (state) =>
+      state.account === String(profile?.id) &&
+      state.ready &&
+      state.progress.welcomeSeen &&
+      !state.welcomeOpen
+  );
   const pathname = usePathname();
   const navigationState = useRootNavigationState();
-  const callParams = useGlobalSearchParams<{ attemptId?: string; nativeAnswered?: string }>();
+  const callParams = useGlobalSearchParams<{
+    attemptId?: string;
+    nativeAnswered?: string;
+  }>();
   const callHandoff = useRef(new CheckinCallHandoff());
   const callRecoveryRevision = useRef(0);
-  const callContext = useRef({ hydrated, authToken, loading, pathname, navigationState, callParams });
-  callContext.current = { hydrated, authToken, loading, pathname, navigationState, callParams };
+  const callContext = useRef({
+    hydrated,
+    authToken,
+    loading,
+    pathname,
+    navigationState,
+    callParams,
+  });
+  callContext.current = {
+    hydrated,
+    authToken,
+    loading,
+    pathname,
+    navigationState,
+    callParams,
+  };
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [nativeFcmToken, setNativeFcmToken] = useState<string | null>(null);
   const [voipRegistration, setVoipRegistration] =
     useState<VoipRegistration | null>(null);
-  const [permissionPrompt, setPermissionPrompt] = useState<PermissionPrompt | null>(null);
-  const [permissionAppActive, setPermissionAppActive] = useState(AppState.currentState === 'active');
+  const [permissionPrompt, setPermissionPrompt] =
+    useState<PermissionPrompt | null>(null);
+  const [permissionAppActive, setPermissionAppActive] = useState(
+    AppState.currentState === "active"
+  );
   const permissionPromptsShown = useRef(new Set<string>());
-  const notificationPromptVisible = Boolean(permissionPrompt && hydrated && !loading && permissionAppActive
-    && permissionPrompt.token === authToken && permissionPrompt.accountId === String(profile?.id) && guidanceWelcomed);
+  const notificationPromptVisible = Boolean(
+    permissionPrompt &&
+      hydrated &&
+      !loading &&
+      permissionAppActive &&
+      permissionPrompt.token === authToken &&
+      permissionPrompt.accountId === String(profile?.id) &&
+      guidanceWelcomed
+  );
 
   useEffect(() => {
-    const listener = AppState.addEventListener('change', state => setPermissionAppActive(state === 'active'));
+    const listener = AppState.addEventListener("change", (state) =>
+      setPermissionAppActive(state === "active")
+    );
     return () => listener.remove();
   }, []);
 
@@ -134,26 +177,33 @@ export const SessionProvider = ({ children }: Props) => {
     if (__DEV__)
       console.log(
         "[Session] Push token result:",
-        token ? token.substring(0, 30) + "..." : "NULL",
+        token ? token.substring(0, 30) + "..." : "NULL"
       );
     if (token) setExpoPushToken(token);
     else
       console.warn(
-        "[Session] No push token obtained — notifications will not work remotely",
+        "[Session] No push token obtained — notifications will not work remotely"
       );
     if (fcmToken) setNativeFcmToken(fcmToken);
   }, [authToken]);
 
   const enableNotifications = useCallback(async () => {
     const prompt = permissionPrompt;
-    const stillCurrent = () => Boolean(prompt && useAuthStore.getState().token === prompt.token
-      && String(useAuthStore.getState().profile?.id) === prompt.accountId);
-    const canOpenSettings = () => stillCurrent() && AppState.currentState === 'active'
-      && callContext.current.pathname === '/home';
+    const stillCurrent = () =>
+      Boolean(
+        prompt &&
+          useAuthStore.getState().token === prompt.token &&
+          String(useAuthStore.getState().profile?.id) === prompt.accountId
+      );
+    const canOpenSettings = () =>
+      stillCurrent() &&
+      AppState.currentState === "active" &&
+      callContext.current.pathname === "/home";
     if (!canOpenSettings()) return;
-    if (prompt?.kind === 'android-calls') {
+    if (prompt?.kind === "android-calls") {
       const opened = await requestAndroidCallAccess();
-      if (!opened && canOpenSettings()) showToast(t('androidCallPermissionError'), 'error');
+      if (!opened && canOpenSettings())
+        showToast(t("androidCallPermissionError"), "error");
       return;
     }
     let granted: boolean;
@@ -175,11 +225,16 @@ export const SessionProvider = ({ children }: Props) => {
       syncExistingPushToken(),
       updateNotificationPreferences({ reminders_enabled: true }),
     ])
-      .then(() => { if (canOpenSettings()) showToast(t("scheduleSaved"), "success"); })
-      .catch(() => { if (canOpenSettings()) showToast(t("scheduleSaveError"), "error"); });
-    if (prompt?.kind === 'notifications-and-calls' && canOpenSettings()) {
+      .then(() => {
+        if (canOpenSettings()) showToast(t("scheduleSaved"), "success");
+      })
+      .catch(() => {
+        if (canOpenSettings()) showToast(t("scheduleSaveError"), "error");
+      });
+    if (prompt?.kind === "notifications-and-calls" && canOpenSettings()) {
       const opened = await requestAndroidCallAccess();
-      if (!opened && canOpenSettings()) showToast(t('androidCallPermissionError'), 'error');
+      if (!opened && canOpenSettings())
+        showToast(t("androidCallPermissionError"), "error");
     }
   }, [permissionPrompt, syncExistingPushToken, t]);
 
@@ -192,7 +247,13 @@ export const SessionProvider = ({ children }: Props) => {
     let retries = 0;
 
     const restoreSession = async () => {
-      if (!live || recovering || AppState.currentState !== "active" || useAuthStore.getState().hydrated) return;
+      if (
+        !live ||
+        recovering ||
+        AppState.currentState !== "active" ||
+        useAuthStore.getState().hydrated
+      )
+        return;
       recovering = true;
       try {
         await bootstrap();
@@ -201,13 +262,20 @@ export const SessionProvider = ({ children }: Props) => {
       }
       // Keychain availability can lag the foreground event during unlock.
       // Retry briefly, keeping the existing WHEN_UNLOCKED protection.
-      if (live && !useAuthStore.getState().hydrated && AppState.currentState === "active" && retries < 3) {
+      if (
+        live &&
+        !useAuthStore.getState().hydrated &&
+        AppState.currentState === "active" &&
+        retries < 3
+      ) {
         retries++;
-        retryTimer = setTimeout(() => { void restoreSession(); }, 500 * retries);
+        retryTimer = setTimeout(() => {
+          void restoreSession();
+        }, 500 * retries);
       }
     };
 
-    const foreground = AppState.addEventListener("change", state => {
+    const foreground = AppState.addEventListener("change", (state) => {
       if (retryTimer) clearTimeout(retryTimer);
       if (state !== "active") return;
       retries = 0;
@@ -229,16 +297,37 @@ export const SessionProvider = ({ children }: Props) => {
 
   // Save all platform-specific tokens whenever registration or login changes.
   useEffect(() => {
-    if (!authToken || (!expoPushToken && !nativeFcmToken && !voipRegistration?.token)) return;
+    if (
+      !authToken ||
+      (!expoPushToken && !nativeFcmToken && !voipRegistration?.token)
+    )
+      return;
     authApi
       .updatePushToken(
         expoPushToken,
         nativeFcmToken,
         voipRegistration?.token || null,
-        voipRegistration?.environment || null,
+        voipRegistration?.environment || null
       )
-      .then(() => {
+      .then(async () => {
         if (__DEV__) console.log("[Session] Push token saved to server");
+        if (
+          isDoctorFeaturesEnabled &&
+          (Platform.OS === "ios" || Platform.OS === "android")
+        ) {
+          if (useAuthStore.getState().token !== authToken) return;
+          const platform = Platform.OS;
+          const token =
+            platform === "ios"
+              ? voipRegistration?.token || null
+              : nativeFcmToken;
+          const supported = !!token && (await supportsDoctorIvrCalls());
+          if (useAuthStore.getState().token !== authToken) return;
+          await apiClient("/api/doctor/ivr/calls/device", {
+            method: "POST",
+            body: { supported, platform, token },
+          });
+        }
       })
       .catch(() => {});
   }, [authToken, expoPushToken, nativeFcmToken, voipRegistration]);
@@ -246,35 +335,75 @@ export const SessionProvider = ({ children }: Props) => {
   const flushVoipHandoff = useCallback(() => {
     const current = callContext.current;
     const action = callHandoff.current.route({
-      ready: current.hydrated && !current.loading && Boolean(current.authToken && current.navigationState?.key),
+      ready:
+        current.hydrated &&
+        !current.loading &&
+        Boolean(current.authToken && current.navigationState?.key),
       active: AppState.currentState === "active",
       pathname: current.pathname,
-      attemptId: typeof current.callParams.attemptId === "string" ? current.callParams.attemptId : undefined,
-      nativeAnswered: typeof current.callParams.nativeAnswered === "string" ? current.callParams.nativeAnswered : undefined,
+      attemptId:
+        typeof current.callParams.attemptId === "string"
+          ? current.callParams.attemptId
+          : undefined,
+      nativeAnswered:
+        typeof current.callParams.nativeAnswered === "string"
+          ? current.callParams.nativeAnswered
+          : undefined,
     });
     if (!action) return;
     const params = { attemptId: action.call.attemptId, nativeAnswered: "1" };
+    if (action.call.callType === "doctor_ivr") {
+      if (!isDoctorFeaturesEnabled) return;
+      const doctorRoute = {
+        pathname: "/doctor-call/[sessionId]",
+        params: { ...params, sessionId: action.call.episodeId },
+      };
+      if (action.kind === "params") router.setParams(params);
+      else if (action.kind === "replace") router.replace(doctorRoute as any);
+      else router.navigate(doctorRoute as any);
+      return;
+    }
     if (action.kind === "params") router.setParams(params);
     else {
-      const route = { pathname: "/checkin-call/[episodeId]", params: { ...params, episodeId: action.call.episodeId } };
-      if (action.kind === "replace") router.replace(route as any);
-      else router.navigate(route as any);
+      const checkinRoute = {
+        pathname: "/checkin-call/[episodeId]",
+        params: { ...params, episodeId: action.call.episodeId },
+      };
+      if (action.kind === "replace") router.replace(checkinRoute as any);
+      else router.navigate(checkinRoute as any);
     }
   }, [router]);
 
-  const openVoipCall = useCallback((call: VoipCallPayload) => {
-    callHandoff.current.receive(call);
-    // Accept immediately after session recovery, even while the lock-screen
-    // UI is still visible. Neither accepting nor opening the app is check-in.
-    if (callContext.current.hydrated && callContext.current.authToken) {
-      void acceptCheckinCallOnce(call.attemptId).catch(() => {});
-    }
-    flushVoipHandoff();
-  }, [flushVoipHandoff]);
+  const openVoipCall = useCallback(
+    (call: VoipCallPayload) => {
+      if (call.callType === "doctor_ivr" && !isDoctorFeaturesEnabled) return;
+      callHandoff.current.receive(call);
+      // Accept immediately after session recovery, even while the lock-screen
+      // UI is still visible. Neither accepting nor opening the app is check-in.
+      if (callContext.current.hydrated && callContext.current.authToken) {
+        void (
+          call.callType === "doctor_ivr"
+            ? acceptDoctorIvrCallOnce
+            : acceptCheckinCallOnce
+        )(call.attemptId).catch(() => {});
+      }
+      flushVoipHandoff();
+    },
+    [flushVoipHandoff]
+  );
 
   useEffect(() => {
     flushVoipHandoff();
-  }, [hydrated, authToken, loading, pathname, navigationState?.key, callParams.attemptId, callParams.nativeAnswered, flushVoipHandoff]);
+  }, [
+    hydrated,
+    authToken,
+    loading,
+    pathname,
+    navigationState?.key,
+    callParams.attemptId,
+    callParams.nativeAnswered,
+    flushVoipHandoff,
+  ]);
 
   // Preserve events before hydration, retry the handoff on foreground, and
   // ignore a getter that completes after its call has ended or been replaced.
@@ -283,30 +412,51 @@ export const SessionProvider = ({ children }: Props) => {
     const recover = async () => {
       const requestRevision = callRecoveryRevision.current;
       const call = await getPendingVoipCall();
-      if (live && requestRevision === callRecoveryRevision.current && call) openVoipCall(call);
+      if (live && requestRevision === callRecoveryRevision.current && call)
+        openVoipCall(call);
     };
-    const removeAnswer = addVoipCallAnsweredListener(call => {
+    const removeAnswer = addVoipCallAnsweredListener((call) => {
       callRecoveryRevision.current++;
       openVoipCall(call);
     });
-    const removeEnded = addVoipCallEndedListener(call => {
+    const removeEnded = addVoipCallEndedListener((call) => {
       callRecoveryRevision.current++;
       callHandoff.current.clear(call.attemptId);
       // A Telecom hang-up can arrive before the check-in screen has mounted.
       // Use the authenticated endpoint; the ring-only native capability cannot
       // modify a connected call or confirm anyone's health status.
-      if (call.endReason === 'user' && useAuthStore.getState().token) {
-        void apiClient(`/api/mobile/checkin-call/attempts/${encodeURIComponent(call.attemptId)}/decline`, { method: 'POST' }).catch(() => {});
+      if (call.endReason === "user" && useAuthStore.getState().token) {
+        const doctor = call.callType === "doctor_ivr";
+        if (doctor) {
+          if (!isDoctorFeaturesEnabled) return;
+          void apiClient(
+            `/api/doctor/ivr/calls/${encodeURIComponent(
+              call.attemptId
+            )}/action`,
+            { method: "POST", body: { action: "end" } }
+          ).catch(() => {});
+        } else
+          void apiClient(
+            `/api/mobile/checkin-call/attempts/${encodeURIComponent(
+              call.attemptId
+            )}/decline`,
+            { method: "POST" }
+          ).catch(() => {});
       }
     });
-    const foreground = AppState.addEventListener("change", state => {
+    const foreground = AppState.addEventListener("change", (state) => {
       if (state !== "active") return;
       callHandoff.current.foreground();
       void recover();
       flushVoipHandoff();
     });
     void recover();
-    return () => { live = false; removeAnswer(); removeEnded(); foreground.remove(); };
+    return () => {
+      live = false;
+      removeAnswer();
+      removeEnded();
+      foreground.remove();
+    };
   }, [openVoipCall, flushVoipHandoff]);
 
   // PushKit registration is independent from the regular notification prompt.
@@ -315,7 +465,9 @@ export const SessionProvider = ({ children }: Props) => {
     const removeToken = addVoipTokenListener((registration) => {
       setVoipRegistration(registration);
       if (!registration && authToken) {
-        void authApi.updatePushToken(null, null, null, null, true).catch(() => {});
+        void authApi
+          .updatePushToken(null, null, null, null, true)
+          .catch(() => {});
       }
     });
     return () => {
@@ -328,10 +480,17 @@ export const SessionProvider = ({ children }: Props) => {
     let live = true;
     const requestRevision = callRecoveryRevision.current;
     void getPendingVoipCall().then((call) => {
-      if (live && requestRevision === callRecoveryRevision.current
-        && useAuthStore.getState().token === authToken && call) openVoipCall(call);
+      if (
+        live &&
+        requestRevision === callRecoveryRevision.current &&
+        useAuthStore.getState().token === authToken &&
+        call
+      )
+        openVoipCall(call);
     });
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, [authToken, hydrated, openVoipCall]);
 
   // Ask once after sign-in, profile onboarding and the welcome role choice,
@@ -340,8 +499,15 @@ export const SessionProvider = ({ children }: Props) => {
   // avoiding a native permission prompt on the login or onboarding screens.
   useEffect(() => {
     setPermissionPrompt(null);
-    if (!hydrated || !authToken || profile?.onboardingCompleted !== true || !guidanceWelcomed
-      || !permissionAppActive || pathname !== '/home') return;
+    if (
+      !hydrated ||
+      !authToken ||
+      profile?.onboardingCompleted !== true ||
+      !guidanceWelcomed ||
+      !permissionAppActive ||
+      pathname !== "/home"
+    )
+      return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -354,7 +520,9 @@ export const SessionProvider = ({ children }: Props) => {
       const [permissionGranted, preferences, callAccess] = await Promise.all([
         checkNotificationPermission(),
         getNotificationPreferences().catch(() => null),
-        Platform.OS === 'android' ? getAndroidCallPermissions() : Promise.resolve(null),
+        Platform.OS === "android"
+          ? getAndroidCallPermissions()
+          : Promise.resolve(null),
       ]);
       if (cancelled) return;
 
@@ -362,19 +530,34 @@ export const SessionProvider = ({ children }: Props) => {
         await syncExistingPushToken();
       }
       const [notificationSeen, callSeen] = await Promise.all([
-        permissionPromptsShown.current.has(promptKey) || AsyncStorage.getItem(promptKey),
-        permissionPromptsShown.current.has(callPromptKey) || AsyncStorage.getItem(callPromptKey),
+        permissionPromptsShown.current.has(promptKey) ||
+          AsyncStorage.getItem(promptKey),
+        permissionPromptsShown.current.has(callPromptKey) ||
+          AsyncStorage.getItem(callPromptKey),
       ]);
       if (cancelled) return;
-      const missingCallAccess = Boolean(callAccess && (!callAccess.fullScreen || !callAccess.channels));
-      const needsNotificationOptIn = !permissionGranted || !preferences?.reminders_enabled;
-      const kind: PermissionPrompt['kind'] | null = needsNotificationOptIn && !notificationSeen
-        ? missingCallAccess && !callSeen ? 'notifications-and-calls' : 'notifications'
-        : permissionGranted && missingCallAccess && !callSeen ? 'android-calls' : null;
+      const missingCallAccess = Boolean(
+        callAccess && (!callAccess.fullScreen || !callAccess.channels)
+      );
+      const needsNotificationOptIn =
+        !permissionGranted || !preferences?.reminders_enabled;
+      const kind: PermissionPrompt["kind"] | null =
+        needsNotificationOptIn && !notificationSeen
+          ? missingCallAccess && !callSeen
+            ? "notifications-and-calls"
+            : "notifications"
+          : permissionGranted && missingCallAccess && !callSeen
+          ? "android-calls"
+          : null;
       if (!kind) return;
 
       timer = setTimeout(() => {
-        if (!cancelled) setPermissionPrompt({ accountId: String(profile.id), token: authToken, kind });
+        if (!cancelled)
+          setPermissionPrompt({
+            accountId: String(profile.id),
+            token: authToken,
+            kind,
+          });
       }, 1800);
     };
 
@@ -414,7 +597,7 @@ export const SessionProvider = ({ children }: Props) => {
         // and health state stale while the app is open.
         dispatchRealtimeRefresh(type);
 
-        if (data?.checkinCall === true && data?.kind === 'INCOMING_CALL') {
+        if (data?.checkinCall === true && data?.kind === "INCOMING_CALL") {
           const route = routeFromNotificationData(data);
           if (route) router.navigate(route as any);
           return;
@@ -448,13 +631,13 @@ export const SessionProvider = ({ children }: Props) => {
             type === "payment_failed" || type === "health_alert"
               ? "error"
               : type === "care_circle_accepted" ||
-                  type === "wallet_topup_success" ||
-                  type === "caregiver_confirmed"
-                ? "success"
-                : "info";
+                type === "wallet_topup_success" ||
+                type === "caregiver_confirmed"
+              ? "success"
+              : "info";
           showToast(body || title, toastType, 4000);
         }
-      },
+      }
     );
     return () => sub.remove();
   }, [router]);
@@ -471,7 +654,7 @@ export const SessionProvider = ({ children }: Props) => {
       }
       router.navigate(route as any);
     },
-    [router],
+    [router]
   );
 
   // Handle notification taps: deep link + action buttons (warm start)
@@ -481,7 +664,8 @@ export const SessionProvider = ({ children }: Props) => {
       const data = notification.request.content.data as Record<string, unknown>;
 
       if (data?.checkinCall === true) {
-        if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) handleNotificationRoute(data);
+        if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER)
+          handleNotificationRoute(data);
         return;
       }
 
@@ -531,7 +715,7 @@ export const SessionProvider = ({ children }: Props) => {
                 message_type: "follow_up",
                 client_message_id: createClientMessageId(),
               },
-            },
+            }
           ).catch(() => {
             // The notification action has no reliable foreground surface for
             // an error. The conversation remains available from the push tap.
@@ -574,7 +758,7 @@ export const SessionProvider = ({ children }: Props) => {
 
   const value = useMemo(
     () => ({ ready: !loading && hydrated }),
-    [loading, hydrated],
+    [loading, hydrated]
   );
 
   return (
@@ -585,25 +769,51 @@ export const SessionProvider = ({ children }: Props) => {
         visible={notificationPromptVisible && pathname === "/home"}
         onShow={() => {
           // Mark only a presented prompt, never one merely waiting in the queue.
-          if (!permissionPrompt || useAuthStore.getState().token !== permissionPrompt.token
-            || String(useAuthStore.getState().profile?.id) !== permissionPrompt.accountId) return;
+          if (
+            !permissionPrompt ||
+            useAuthStore.getState().token !== permissionPrompt.token ||
+            String(useAuthStore.getState().profile?.id) !==
+              permissionPrompt.accountId
+          )
+            return;
           const keys: string[] = [];
-          if (permissionPrompt.kind !== 'android-calls') keys.push(`@asinu/notification_permission_prompted:v2:${permissionPrompt.accountId}`);
-          if (permissionPrompt.kind !== 'notifications') keys.push(`@asinu/android_call_permission_prompted:v1:${permissionPrompt.accountId}`);
+          if (permissionPrompt.kind !== "android-calls")
+            keys.push(
+              `@asinu/notification_permission_prompted:v2:${permissionPrompt.accountId}`
+            );
+          if (permissionPrompt.kind !== "notifications")
+            keys.push(
+              `@asinu/android_call_permission_prompted:v1:${permissionPrompt.accountId}`
+            );
           for (const key of keys) {
             permissionPromptsShown.current.add(key);
-            void AsyncStorage.setItem(key, '1').catch(() => {});
+            void AsyncStorage.setItem(key, "1").catch(() => {});
           }
         }}
-        title={t(permissionPrompt?.kind === 'android-calls' ? 'androidCallPermissionTitle'
-          : permissionPrompt?.kind === 'notifications-and-calls' ? 'pushAndCallsPermissionTitle' : 'pushPermissionTitle')}
-        message={t(permissionPrompt?.kind === 'android-calls' ? 'androidCallPermissionDesc'
-          : permissionPrompt?.kind === 'notifications-and-calls' ? 'pushAndCallsPermissionDesc' : 'pushPermissionDesc')}
+        title={t(
+          permissionPrompt?.kind === "android-calls"
+            ? "androidCallPermissionTitle"
+            : permissionPrompt?.kind === "notifications-and-calls"
+            ? "pushAndCallsPermissionTitle"
+            : "pushPermissionTitle"
+        )}
+        message={t(
+          permissionPrompt?.kind === "android-calls"
+            ? "androidCallPermissionDesc"
+            : permissionPrompt?.kind === "notifications-and-calls"
+            ? "pushAndCallsPermissionDesc"
+            : "pushPermissionDesc"
+        )}
         buttons={[
           { text: t("later"), style: "cancel" },
           {
-            text: t(permissionPrompt?.kind === 'android-calls' ? 'enableAndroidCalls'
-              : permissionPrompt?.kind === 'notifications-and-calls' ? 'enableNotificationsAndCalls' : 'enableNotifications'),
+            text: t(
+              permissionPrompt?.kind === "android-calls"
+                ? "enableAndroidCalls"
+                : permissionPrompt?.kind === "notifications-and-calls"
+                ? "enableNotificationsAndCalls"
+                : "enableNotifications"
+            ),
             onPress: enableNotifications,
           },
         ]}

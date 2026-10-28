@@ -535,7 +535,11 @@
     "none"
   ],
   "checkinFallbackFollowup1Question": "Compared with before, how are you feeling now?",
-  "checkinFallbackFollowup1Options": ["better", "about the same", "worse"],
+  "checkinFallbackFollowup1Options": [
+    "better",
+    "about the same",
+    "worse"
+  ],
   "checkinFallbackFollowup2Question": "Do you have any new symptoms?",
   "checkinFallbackFollowup2Options": [
     "headache",
@@ -653,7 +657,7 @@
     "title": "Asinu assistant",
     "doctor": "Doctor {{name}}",
     "replayShort": "Replay",
-    "chooseNow": "Choose whenever you are ready, even while listening.",
+    "chooseNow": "You can choose while the question is being read.",
     "skip": "Not sure, skip this question",
     "questionCount": "{{count}} short questions",
     "preview": {
@@ -692,6 +696,13 @@
       "reply": "Try keeping regular sleeping and waking times and limiting tea in the evening. You can record your sleep times, night awakenings and how you feel in the morning to track changes.",
       "networkError": "Unable to load the session. Check your connection and try reloading."
     },
-    "recordHint": "Speak your answer. Asinu is listening."
+    "recordHint": "Speak your answer. Asinu is listening.",
+    "speechSpeed": "Reading speed",
+    "speechSpeedValue": "Reading speed {{rate}} times",
+    "callConnecting": "Connecting to your doctor…",
+    "callConnectError": "Unable to connect. Retry or answer in the app.",
+    "continueInApp": "Answer in the app",
+    "noResponse": "No answer received. Asinu will move to the next question.",
+    "speechRateValue": "{{rate}}×"
   }
 }

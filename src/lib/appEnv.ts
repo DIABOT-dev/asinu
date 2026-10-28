@@ -7,9 +7,9 @@ const appEnv: AppEnv =
 export const isDevBuild = appEnv === "dev";
 export const isStagingBuild = appEnv === "staging";
 export const isProdBuild = appEnv === "prod";
-// Temporarily hide Dr.Asinu entry points in every build. Keep the flows/data
-// intact; this single flag can restore the buttons when the service reopens.
-export const isDoctorFeaturesEnabled: boolean = false;
+// Reopen Dr.Asinu for local development while store and staging builds stay hidden.
+export const isDoctorFeaturesEnabled: boolean =
+  typeof __DEV__ !== "undefined" && __DEV__ && isDevBuild;
 // Native UI previews are available only in a development runtime and environment.
 export const isCheckinUiGalleryEnabled =
   typeof __DEV__ !== "undefined" && __DEV__ && isDevBuild;

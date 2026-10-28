@@ -58,6 +58,7 @@ import { canAcceptIvrSnapshot } from "../../src/features/doctor-ivr/ivr-state";
 import { Audio } from "../../src/lib/audio";
 import { ApiError, getApiErrorMessage } from "../../src/lib/apiClient";
 import { DoctorIvrQuestion } from "../../src/features/doctor-ivr/DoctorIvrQuestion";
+import { endDoctorIvrCall } from "../../src/features/doctor-ivr/ivr-call";
 import { DoctorIvrBackdrop } from "../../src/features/doctor-ivr/DoctorIvrBackdrop";
 import { radius, spacing } from "../../src/styles/theme";
 
@@ -92,7 +93,10 @@ export default function DoctorInterviewScreen() {
   );
 }
 function AuthenticatedDoctorInterview() {
-  const params = useLocalSearchParams<{ sessionId: string }>(),
+  const params = useLocalSearchParams<{
+      sessionId: string;
+      callAttempt?: string;
+    }>(),
     id = Array.isArray(params.sessionId)
       ? params.sessionId[0]
       : params.sessionId;
@@ -117,6 +121,11 @@ function AuthenticatedDoctorInterview() {
       fallback: false,
     });
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [speechRate, setSpeechRate] = useState(0.9);
+  const [foregroundRevision, setForegroundRevision] = useState(0);
+  const speechRateRef = useRef(speechRate);
+  speechRateRef.current = speechRate;
+  const responseRetries = useRef({ question: "", count: 0 });
   const contentScroll = useRef<ScrollView | null>(null);
   const focused = useRef(false),
     screenEpoch = useRef(0),
@@ -166,6 +175,8 @@ function AuthenticatedDoctorInterview() {
   );
   const recordingConsented = useRef(false);
   const close = () => {
+    if (params.callAttempt && useAuthStore.getState().token === token)
+      void endDoctorIvrCall(params.callAttempt).catch(() => {});
     void audio.current?.stop();
     void stopRecording();
     if (router.canGoBack()) router.back();
@@ -216,6 +227,7 @@ function AuthenticatedDoctorInterview() {
         // the saved answer is still being read back to the patient.
         if (!inFlight.current) accept(value);
         setLoading(false);
+        return value;
       }
     } catch (e) {
       if (focused.current && epoch === screenEpoch.current) {
@@ -273,14 +285,14 @@ function AuthenticatedDoctorInterview() {
           { uri },
           { shouldPlay: false }
         );
-        await sound.setRateAsync(0.9);
+        await sound.setRateAsync(speechRateRef.current);
         return sound;
       },
       stopSpeech: () => Speech.stop(),
       speak: (prompt, callbacks) =>
         Speech.speak(prompt.text, {
           language: "vi-VN",
-          rate: 0.9,
+          rate: speechRateRef.current,
           onStart: callbacks.onStart,
           onDone: callbacks.onDone,
           onError: callbacks.onError,
@@ -326,7 +338,16 @@ function AuthenticatedDoctorInterview() {
           setAudioState({ phase: "idle", prompt: null, fallback: false });
           setRecording(false);
           setVoiceOption(null);
-          void load();
+          const previous = state.current;
+          void load().then((value) => {
+            if (
+              focused.current &&
+              value?.status === "in_progress" &&
+              previous?.status === "in_progress" &&
+              value.current_question_id === previous.current_question_id
+            )
+              setForegroundRevision((v) => v + 1);
+          });
         }
       });
       return () => {
@@ -448,7 +469,7 @@ function AuthenticatedDoctorInterview() {
       text,
       language: "vi",
     });
-  }, [index]);
+  }, [index, speechRate]);
   useEffect(() => {
     if (session?.status === "in_progress" && q && !recording && !voiceOption) {
       replay();
@@ -456,7 +477,7 @@ function AuthenticatedDoctorInterview() {
     return () => {
       void audio.current?.stop();
     };
-  }, [session?.status, q?.id, replay]);
+  }, [session?.status, q?.id, replay, foregroundRevision]);
   const select = async (option: IvrOption) => {
     const current = state.current;
     const question = current?.content.questions.find(
@@ -522,16 +543,60 @@ function AuthenticatedDoctorInterview() {
     if (!value?.current_question_id || inFlight.current || !focused.current)
       return;
     setVoiceOption(null);
-    await act({
-      action: "answer",
-      question_id: value.current_question_id,
-      revision: value.revision,
-      request_id: Crypto.randomUUID(),
-      skip_reason: reason,
-    });
+    await act(
+      {
+        action: "answer",
+        question_id: value.current_question_id,
+        revision: value.revision,
+        request_id: Crypto.randomUUID(),
+        skip_reason: reason,
+      },
+      reason === "no_response" ? t("ivr.noResponse") : undefined
+    );
   };
-  // In-app patients may need time to read, think or ask someone nearby.
-  // Silence never submits an answer. Only an explicit tap may skip a question.
+  // QR-10: wait AFTER narration, replay once, then record an explicit
+  // no_response skip. Never count playback, consent, background or upload time.
+  useEffect(() => {
+    if (responseRetries.current.question !== q?.id)
+      responseRetries.current = { question: q?.id || "", count: 0 };
+    if (
+      !q ||
+      session?.status !== "in_progress" ||
+      busy ||
+      recording ||
+      voiceOption ||
+      error ||
+      pending.some((p) => p.fields.question_id === q.id) ||
+      ["loading", "playing"].includes(audioState.phase)
+    )
+      return;
+    const questionId = q.id,
+      epoch = screenEpoch.current;
+    const timer = setTimeout(() => {
+      if (
+        !focused.current ||
+        epoch !== screenEpoch.current ||
+        inFlight.current ||
+        recorder.current ||
+        state.current?.current_question_id !== questionId
+      )
+        return;
+      if (responseRetries.current.count++ === 0) replay();
+      else void sendSkip("no_response");
+    }, (session.response_timeout_seconds || 10) * 1000);
+    return () => clearTimeout(timer);
+  }, [
+    q?.id,
+    session?.status,
+    session?.response_timeout_seconds,
+    busy,
+    recording,
+    voiceOption,
+    error,
+    pending,
+    audioState.phase,
+    replay,
+  ]);
   useLayoutEffect(() => {
     contentScroll.current?.scrollTo({ y: 0, animated: false });
   }, [q?.id]);
@@ -709,7 +774,7 @@ function AuthenticatedDoctorInterview() {
       if (
         elapsed >= maximum ||
         (heardSound.current && Date.now() - lastSound.current >= 3000) ||
-        (!heardSound.current && elapsed >= 6)
+        (!heardSound.current && elapsed >= 3)
       )
         void finishRecording.current();
     }, 200);
@@ -747,6 +812,8 @@ function AuthenticatedDoctorInterview() {
         aiConsent,
         audioState,
         selectedOption,
+        speechRate,
+        callMode: !!params.callAttempt,
       }}
       actions={{
         close,
@@ -764,6 +831,7 @@ function AuthenticatedDoctorInterview() {
         setConsentVisible,
         setVoiceOption,
         beginRecording,
+        setSpeechRate,
       }}
       contentScroll={contentScroll}
     />
@@ -784,10 +852,12 @@ export type DoctorInterviewViewState = {
   aiConsent: boolean;
   audioState: CallAudioState;
   selectedOption: string | null;
+  speechRate?: number;
+  callMode?: boolean;
 };
 export type DoctorInterviewViewActions = {
   close: () => void;
-  load: () => Promise<void>;
+  load: () => Promise<unknown>;
   retryUploads: () => Promise<void>;
   act: (input: Record<string, unknown>) => Promise<unknown>;
   select: (option: IvrOption) => Promise<void>;
@@ -803,6 +873,7 @@ export type DoctorInterviewViewActions = {
   setConsentVisible: Dispatch<SetStateAction<boolean>>;
   setVoiceOption: Dispatch<SetStateAction<IvrOption | null>>;
   beginRecording: () => Promise<void>;
+  setSpeechRate?: Dispatch<SetStateAction<number>>;
 };
 
 // The live route and development gallery render this exact native view.
@@ -830,6 +901,8 @@ export function DoctorInterviewView({
     aiConsent,
     audioState,
     selectedOption,
+    speechRate = 0.9,
+    callMode = false,
   } = state;
   const {
     close,
@@ -847,6 +920,7 @@ export function DoctorInterviewView({
     setConsentVisible,
     setVoiceOption,
     beginRecording,
+    setSpeechRate,
   } = actions;
   const { t } = useTranslation("home"),
     insets = useSafeAreaInsets(),
@@ -1099,6 +1173,9 @@ export function DoctorInterviewView({
               onSelect={(option) => void select(option)}
               onReplay={replay}
               onStopAudio={() => void audio.current?.stop()}
+              speechRate={speechRate}
+              onSpeechRate={setSpeechRate}
+              callMode={callMode}
             />
             {!recording &&
               !q.fixed &&
@@ -1208,7 +1285,7 @@ export function DoctorInterviewView({
                   />
                 </View>
                 {button(
-                  t("ivr.finishRecording"),
+                  (callMode ? "# · " : "") + t("ivr.finishRecording"),
                   () => void finishRecording.current()
                 )}
               </View>
@@ -1243,6 +1320,7 @@ export function DoctorInterviewView({
                     { color: colors.textSecondary },
                   ]}
                 >
+                  {callMode ? "0 · " : ""}
                   {t("ivr.previous")}
                 </Text>
               </Pressable>

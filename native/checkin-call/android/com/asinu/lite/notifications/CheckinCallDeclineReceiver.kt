@@ -27,7 +27,7 @@ class CheckinCallDeclineReceiver : BroadcastReceiver() {
       if (capability.isBlank()) return // old server: never substitute a login token
       val builder = OneTimeWorkRequestBuilder<CheckinCallDeclineWorker>()
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-        .setInputData(workDataOf("attemptId" to id, "capability" to capability, "expiresAt" to data.optLong("expiresAt") + 30_000))
+        .setInputData(workDataOf("attemptId" to id, "capability" to capability, "callType" to data.optString("callType"), "expiresAt" to data.optLong("expiresAt") + 30_000))
       if (Build.VERSION.SDK_INT >= 31) builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
       val work = builder.build()
       WorkManager.getInstance(context).enqueueUniqueWork("checkin-decline:$id", ExistingWorkPolicy.KEEP, work)

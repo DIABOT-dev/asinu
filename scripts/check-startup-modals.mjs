@@ -366,6 +366,7 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
     '../src/components/DataConsentModal': { DataConsentModal: 'ConsentModal', hasDataConsent: () => consent },
     '../src/features/auth/auth.store': { useAuthStore: select => select(state) },
     '../src/lib/notifications': { routeFromNotificationData: data => data.route },
+    '../src/lib/appEnv': { isDoctorFeaturesEnabled: false },
     '../src/lib/voip': { getPendingVoipCall: async () => { calls.native++; return await call; } },
     '../src/styles': { spacing: { lg: 24 } },
     '@/hooks/useGuardedRouter': { useGuardedRouter: () => router },

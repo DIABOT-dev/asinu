@@ -1,6 +1,6 @@
-import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
+import { NativeEventEmitter, NativeModules, Platform } from "react-native";
 
-export type VoipEnvironment = 'sandbox' | 'production';
+export type VoipEnvironment = "sandbox" | "production";
 
 export type VoipRegistration = {
   token: string;
@@ -8,6 +8,7 @@ export type VoipRegistration = {
 };
 
 export type VoipCallPayload = {
+  callType?: "doctor_ivr";
   episodeId: string;
   attemptId: string;
   severity?: string;
@@ -16,32 +17,61 @@ export type VoipCallPayload = {
   nativeEnded?: string;
   continuationUntil?: string;
   audioSessionReleased?: string;
-  endReason?: 'user';
+  endReason?: "user";
 };
 
 type NativeVoipModule = {
+  getCapabilities?(): Promise<{ doctorIvr: boolean }>;
+  finishCallHandoff?(attemptId: string): Promise<boolean>;
   getRegistration(): Promise<VoipRegistration | null>;
   consumePendingCall(): Promise<VoipCallPayload | null>;
   getPendingCall?(): Promise<VoipCallPayload | null>;
   getActiveCalls?(): Promise<VoipCallPayload[]>;
-  completeAnswer?(attemptId: string, connected: boolean, deadline: string): Promise<boolean>;
-  setCallUIActive?(attemptId: string, active: boolean, deadline: string): Promise<boolean>;
+  completeAnswer?(
+    attemptId: string,
+    connected: boolean,
+    deadline: string
+  ): Promise<boolean>;
+  setCallUIActive?(
+    attemptId: string,
+    active: boolean,
+    deadline: string
+  ): Promise<boolean>;
   endCall(attemptId: string): Promise<boolean>;
   simulateIncomingCall(payload: Partial<VoipCallPayload>): Promise<boolean>;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
 };
 
-const nativeModule = (Platform.OS === 'android' ? NativeModules.AsinuCheckinCallModule : NativeModules.AsinuVoipModule) as NativeVoipModule | undefined;
-const emitter = (Platform.OS === 'ios' || Platform.OS === 'android') && nativeModule
-  ? new NativeEventEmitter(nativeModule as never)
-  : null;
+const nativeModule = (
+  Platform.OS === "android"
+    ? NativeModules.AsinuCheckinCallModule
+    : NativeModules.AsinuVoipModule
+) as NativeVoipModule | undefined;
+const emitter =
+  (Platform.OS === "ios" || Platform.OS === "android") && nativeModule
+    ? new NativeEventEmitter(nativeModule as never)
+    : null;
+
+export async function supportsDoctorIvrCalls(): Promise<boolean> {
+  try {
+    return (await nativeModule?.getCapabilities?.())?.doctorIvr === true;
+  } catch {
+    return false;
+  }
+}
+export async function finishVoipCallHandoff(
+  attemptId: string
+): Promise<boolean> {
+  return (await nativeModule?.finishCallHandoff?.(attemptId)) ?? false;
+}
 
 export async function getVoipRegistration(): Promise<VoipRegistration | null> {
-  if (Platform.OS !== 'ios' || !nativeModule) return null;
+  if (Platform.OS !== "ios" || !nativeModule) return null;
   try {
     const value = await nativeModule.getRegistration();
-    if (!value?.token || !['sandbox', 'production'].includes(value.environment)) return null;
+    if (!value?.token || !["sandbox", "production"].includes(value.environment))
+      return null;
     return value;
   } catch {
     return null;
@@ -67,54 +97,97 @@ export async function getPendingVoipCall(): Promise<VoipCallPayload | null> {
       ? await nativeModule.getPendingCall()
       : await nativeModule.consumePendingCall();
     return value?.episodeId && value?.attemptId ? value : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-export async function completeVoipCallAnswer(attemptId: string, connected: boolean, deadline?: string | null): Promise<void> {
+export async function completeVoipCallAnswer(
+  attemptId: string,
+  connected: boolean,
+  deadline?: string | null
+): Promise<void> {
   if (!attemptId) return;
-  await nativeModule?.completeAnswer?.(attemptId, connected, deadline || '');
+  await nativeModule?.completeAnswer?.(attemptId, connected, deadline || "");
 }
 
 export async function getActiveVoipCalls(): Promise<VoipCallPayload[]> {
   if (!nativeModule?.getActiveCalls) return [];
   try {
     const calls = await nativeModule.getActiveCalls();
-    return Array.isArray(calls) ? calls.filter(call =>
-      typeof call?.episodeId === 'string' && Boolean(call.episodeId)
-      && typeof call?.attemptId === 'string' && Boolean(call.attemptId)) : [];
-  } catch { return []; }
+    return Array.isArray(calls)
+      ? calls.filter(
+          (call) =>
+            typeof call?.episodeId === "string" &&
+            Boolean(call.episodeId) &&
+            typeof call?.attemptId === "string" &&
+            Boolean(call.attemptId)
+        )
+      : [];
+  } catch {
+    return [];
+  }
 }
 
-export async function setVoipCallUIActive(attemptId: string, active: boolean, deadline?: string | null): Promise<boolean> {
+export async function setVoipCallUIActive(
+  attemptId: string,
+  active: boolean,
+  deadline?: string | null
+): Promise<boolean> {
   if (!attemptId) return false;
-  return await nativeModule?.setCallUIActive?.(attemptId, active, deadline || '') ?? false;
+  return (
+    (await nativeModule?.setCallUIActive?.(
+      attemptId,
+      active,
+      deadline || ""
+    )) ?? false
+  );
 }
 
-export function addVoipCallEndedListener(callback: (value: VoipCallPayload) => void): () => void {
+export function addVoipCallEndedListener(
+  callback: (value: VoipCallPayload) => void
+): () => void {
   if (!emitter) return () => {};
-  const subscription = emitter.addListener('onVoipCallEnded', (value: VoipCallPayload) => {
-    if (value?.episodeId && value?.attemptId) callback(value);
-  });
-  return () => subscription.remove();
-}
-
-export function addVoipTokenListener(callback: (value: VoipRegistration | null) => void): () => void {
-  if (Platform.OS !== 'ios' || !emitter) return () => {};
-  const subscription = emitter.addListener('onVoipToken', (value: Partial<VoipRegistration>) => {
-    if (value?.token && value.environment && ['sandbox', 'production'].includes(value.environment)) {
-      callback(value as VoipRegistration);
-    } else {
-      callback(null);
+  const subscription = emitter.addListener(
+    "onVoipCallEnded",
+    (value: VoipCallPayload) => {
+      if (value?.episodeId && value?.attemptId) callback(value);
     }
-  });
+  );
   return () => subscription.remove();
 }
 
-export function addVoipCallAnsweredListener(callback: (value: VoipCallPayload) => void): () => void {
+export function addVoipTokenListener(
+  callback: (value: VoipRegistration | null) => void
+): () => void {
+  if (Platform.OS !== "ios" || !emitter) return () => {};
+  const subscription = emitter.addListener(
+    "onVoipToken",
+    (value: Partial<VoipRegistration>) => {
+      if (
+        value?.token &&
+        value.environment &&
+        ["sandbox", "production"].includes(value.environment)
+      ) {
+        callback(value as VoipRegistration);
+      } else {
+        callback(null);
+      }
+    }
+  );
+  return () => subscription.remove();
+}
+
+export function addVoipCallAnsweredListener(
+  callback: (value: VoipCallPayload) => void
+): () => void {
   if (!emitter) return () => {};
-  const subscription = emitter.addListener('onVoipCallAnswered', (value: VoipCallPayload) => {
-    if (value?.episodeId && value?.attemptId) callback(value);
-  });
+  const subscription = emitter.addListener(
+    "onVoipCallAnswered",
+    (value: VoipCallPayload) => {
+      if (value?.episodeId && value?.attemptId) callback(value);
+    }
+  );
   return () => subscription.remove();
 }
 
@@ -127,8 +200,10 @@ export async function endVoipCall(attemptId: string): Promise<void> {
   }
 }
 
-export async function simulateIncomingVoipCall(payload: Partial<VoipCallPayload> = {}): Promise<boolean> {
-  if (!__DEV__ || Platform.OS !== 'ios' || !nativeModule) return false;
+export async function simulateIncomingVoipCall(
+  payload: Partial<VoipCallPayload> = {}
+): Promise<boolean> {
+  if (!__DEV__ || Platform.OS !== "ios" || !nativeModule) return false;
   try {
     return await nativeModule.simulateIncomingCall(payload);
   } catch {

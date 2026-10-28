@@ -282,7 +282,7 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 40 previews stay read-only a
     '../../src/features/checkin/checkin-ui-gallery': { CHECKIN_UI_PREVIEWS },
     '../../src/features/checkin-call/voice-preferences': evaluate(read('src/features/checkin-call/voice-preferences.ts')),
     '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech', CheckinCallSafetyNote: 'Safety' },
-    '../../src/lib/appEnv': { isDevBuild: true, isCheckinUiGalleryEnabled: true },
+    '../../src/lib/appEnv': { isDevBuild: true, isCheckinUiGalleryEnabled: true, isDoctorFeaturesEnabled: true },
     'react-native-svg': { __esModule: true, default: 'Svg', Svg: 'Svg', Path: 'Path' },
   };
   const { default: Gallery } = evaluate(read('app/checkin-call/ui-gallery.tsx'), adapters);

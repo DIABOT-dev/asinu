@@ -1,48 +1,92 @@
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
 
-const read = file => fs.readFileSync(file, 'utf8');
-const native = read('ios/Asinu/VoipCallManager.swift');
-assert.ok(!/AVAudioPlayer|AVPlayer|AVSpeechSynthesizer|AVSpeechUtterance|playHandoffPrompt/.test(native), 'CallKit must leave spoken guidance to the app');
-const duration = native.match(/private let maximumCallDuration: TimeInterval = ([^\n]+)/);
+const read = (file) => fs.readFileSync(file, "utf8");
+const native = read("ios/Asinu/VoipCallManager.swift");
+assert.ok(
+  !/AVAudioPlayer|AVPlayer|AVSpeechSynthesizer|AVSpeechUtterance|playHandoffPrompt/.test(
+    native
+  ),
+  "CallKit must leave spoken guidance to the app"
+);
+const duration = native.match(
+  /private let maximumCallDuration: TimeInterval = ([^\n]+)/
+);
 assert.ok(duration);
-assert.equal(duration[1].trim(), '10 * 60');
-const configuration = native.slice(native.indexOf('  private func configureAudioSession()'), native.indexOf('  private func scheduleCallTimeout('));
-assert.ok(configuration.includes('mode: .default'));
-assert.ok(configuration.includes('.defaultToSpeaker') && configuration.includes('.allowBluetoothHFP'));
-assert.ok(!configuration.includes('overrideOutputAudioPort') && !native.includes('setActive('));
-console.log('PASS CallKit has no native spoken reminder; app audio retains speaker/Bluetooth routes');
-const foreground = native.slice(native.indexOf('center.addObserver(forName: UIApplication.didBecomeActiveNotification'), native.indexOf('    #if DEBUG'));
-assert.ok(foreground.indexOf('self.expireCallsIfNeeded()') >= 0 && foreground.indexOf('self.expireCallsIfNeeded()') < foreground.indexOf('self.pendingCall()'));
-console.log('PASS the native 10-minute cap is checked before foreground handoff');
+assert.equal(duration[1].trim(), "10 * 60");
+const configuration = native.slice(
+  native.indexOf("  private func configureAudioSession()"),
+  native.indexOf("  private func scheduleCallTimeout(")
+);
+assert.ok(configuration.includes("mode: .default"));
+assert.ok(
+  configuration.includes(".defaultToSpeaker") &&
+    configuration.includes(".allowBluetoothHFP")
+);
+assert.ok(
+  !configuration.includes("overrideOutputAudioPort") &&
+    !native.includes("setActive(")
+);
+console.log(
+  "PASS CallKit has no native spoken reminder; app audio retains speaker/Bluetooth routes"
+);
+const foreground = native.slice(
+  native.indexOf(
+    "center.addObserver(forName: UIApplication.didBecomeActiveNotification"
+  ),
+  native.indexOf("    #if DEBUG")
+);
+assert.ok(
+  foreground.indexOf("self.expireCallsIfNeeded()") >= 0 &&
+    foreground.indexOf("self.expireCallsIfNeeded()") <
+      foreground.indexOf("self.pendingCall()")
+);
+console.log(
+  "PASS the native 10-minute cap is checked before foreground handoff"
+);
 
-if (process.platform !== 'darwin') {
-  console.log('SKIP native Swift runtime checks (macOS required); source checks passed');
+if (process.platform !== "darwin") {
+  console.log(
+    "SKIP native Swift runtime checks (macOS required); source checks passed"
+  );
   process.exit(0);
 }
 // Extract checked-in handlers; only Apple framework adapters are mocked.
 const method = (start, end) => {
-  const from = native.indexOf(start), to = native.indexOf(end, from + start.length);
+  const from = native.indexOf(start),
+    to = native.indexOf(end, from + start.length);
   assert.ok(from >= 0 && to > from, start);
-  return native.slice(from, to).replace(/private func /g, 'func ');
+  return native.slice(from, to).replace(/private func /g, "func ");
 };
 const handlers = [
-  method('  func activeCalls()', '  func consumePendingCall()'),
-  method('  func pendingCall()', '  func completeAnswer('),
-  method('  func completeAnswer(', '  func setCallUIActive('),
-  method('  func setCallUIActive(', '  // The self-link'),
-  method('  func handleAnsweredCallURL(', '  func reportIncoming('),
-  method('  func provider(_ provider: CXProvider, perform action: CXAnswerCallAction)', '  private func openResponseScreen('),
-  method('  private func openResponseScreen(', '  func providerDidReset('),
-  method('  func providerDidReset(', '  func provider(_ provider: CXProvider, didActivate'),
-  method('  func provider(_ provider: CXProvider, didActivate', '  func provider(_ provider: CXProvider, timedOutPerforming'),
-  method('  private func configureAudioSession()', '  private func scheduleCallTimeout('),
-  method('  private func scheduleCallTimeout(', '  private func removeCall('),
-  method('  private func removeCall(', '  private func scheduleRingTimeout('),
-].join('\n');
+  method("  func activeCalls()", "  func consumePendingCall()"),
+  method("  func pendingCall()", "  func completeAnswer("),
+  method("  func completeAnswer(", "  func setCallUIActive("),
+  method("  func setCallUIActive(", "  // The self-link"),
+  method("  func handleAnsweredCallURL(", "  func reportIncoming("),
+  method(
+    "  func provider(_ provider: CXProvider, perform action: CXAnswerCallAction)",
+    "  private func openResponseScreen("
+  ),
+  method("  private func openResponseScreen(", "  func providerDidReset("),
+  method(
+    "  func providerDidReset(",
+    "  func provider(_ provider: CXProvider, didActivate"
+  ),
+  method(
+    "  func provider(_ provider: CXProvider, didActivate",
+    "  func provider(_ provider: CXProvider, timedOutPerforming"
+  ),
+  method(
+    "  private func configureAudioSession()",
+    "  private func scheduleCallTimeout("
+  ),
+  method("  private func scheduleCallTimeout(", "  private func removeCall("),
+  method("  private func removeCall(", "  private func scheduleRingTimeout("),
+].join("\n");
 const swift = `
 import Foundation
 extension Notification.Name {
@@ -114,6 +158,7 @@ final class Handler {
   var callTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
   var callDeadlinesByUUID: [UUID: Date] = [:]
   var audioSessionActive = true
+  var doctorHandoffWaiters: [String: (Bool) -> Void] = [:]
   var responseAfterAudioRelease: [String: String]?
   let provider = CXProvider()
   init(maximumCallDuration: TimeInterval = ${duration[1]}) { self.maximumCallDuration = maximumCallDuration }
@@ -138,6 +183,15 @@ final class Handler {
 }
 var checks = 0
 func check(_ label: String, _ body: () -> Void) { body(); checks += 1; print("PASS " + label) }
+check("Doctor handoff releases CallKit audio before the questionnaire starts") {
+  let h = Handler(), uuid = h.seed()
+  h.callsByUUID[uuid]?["callType"] = "doctor_ivr"
+  var ready: Bool? = nil
+  h.finishDoctorHandoff(attemptId: "attempt") { ready = $0 }
+  assert(ready == nil && h.callsByUUID.isEmpty)
+  h.provider(h.provider, didDeactivate: AVAudioSession.sharedInstance())
+  assert(ready == true && h.doctorHandoffWaiters.isEmpty)
+}
 check("accepted hangup persists a bounded response handoff, fulfills CallKit, and opens app") {
   UIApplication.shared.applicationState = .background
   defer { UIApplication.shared.applicationState = .active }
@@ -396,11 +450,13 @@ check("CallKit reset retires every call and timer without resuming guidance") {
 }
 print("Native CallKit handoff and timeout: \\(checks) runtime checks passed")
 `;
-const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'asinu-continuation-'));
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), "asinu-continuation-"));
 try {
-  const fixture = path.join(directory, 'test.swift');
+  const fixture = path.join(directory, "test.swift");
   fs.writeFileSync(fixture, swift);
-  process.stdout.write(execFileSync('swift', [fixture], { encoding: 'utf8', timeout: 60000 }));
+  process.stdout.write(
+    execFileSync("swift", [fixture], { encoding: "utf8", timeout: 60000 })
+  );
 } finally {
   fs.rmSync(directory, { recursive: true, force: true });
 }

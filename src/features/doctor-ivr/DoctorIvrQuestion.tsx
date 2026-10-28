@@ -23,6 +23,9 @@ export function DoctorIvrQuestion({
   onReplay,
   onStopAudio,
   recording = false,
+  speechRate = 0.9,
+  onSpeechRate,
+  callMode = false,
 }: {
   question: IvrQuestion;
   index: number;
@@ -34,6 +37,9 @@ export function DoctorIvrQuestion({
   onReplay: () => void;
   onStopAudio: () => void;
   recording?: boolean;
+  speechRate?: number;
+  onSpeechRate?: (value: number) => void;
+  callMode?: boolean;
 }) {
   const { t } = useTranslation("home");
   const { colors } = useThemeColors();
@@ -49,10 +55,12 @@ export function DoctorIvrQuestion({
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t(speaking ? "ivr.stopAudio" : "ivr.replay")}
+          accessibilityLabel={t(
+            speaking && !callMode ? "ivr.stopAudio" : "ivr.replay"
+          )}
           accessibilityState={{ disabled }}
           disabled={disabled}
-          onPress={speaking ? onStopAudio : onReplay}
+          onPress={speaking && !callMode ? onStopAudio : onReplay}
           style={({ pressed }) => [
             styles.audioButton,
             {
@@ -67,10 +75,42 @@ export function DoctorIvrQuestion({
             color={colors.primaryText}
           />
           <Text style={[styles.audioLabel, { color: colors.primaryText }]}>
-            {t(speaking ? "ivr.stopAudio" : "ivr.replayShort")}
+            {callMode ? "9 · " : ""}
+            {t(speaking && !callMode ? "ivr.stopAudio" : "ivr.replayShort")}
           </Text>
         </Pressable>
       </View>
+      {onSpeechRate && !recording && (
+        <View style={styles.speedRow}>
+          <Text style={{ color: colors.textSecondary }}>
+            {t("ivr.speechSpeed")}
+          </Text>
+          {[0.8, 0.9, 1].map((rate) => (
+            <Pressable
+              key={rate}
+              disabled={disabled}
+              onPress={() => onSpeechRate(rate)}
+              accessibilityRole="button"
+              accessibilityLabel={t("ivr.speechSpeedValue", { rate })}
+              accessibilityState={{ selected: speechRate === rate, disabled }}
+              style={({ pressed }) => [
+                styles.speedButton,
+                {
+                  backgroundColor:
+                    speechRate === rate ? colors.primaryLight : colors.surface,
+                  borderColor:
+                    speechRate === rate ? colors.primary : colors.border,
+                  opacity: disabled || pressed ? 0.6 : 1,
+                },
+              ]}
+            >
+              <Text style={{ color: colors.primaryText, fontSize: 17 }}>
+                {t("ivr.speechRateValue", { rate: rate.toFixed(1) })}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
       <View style={[styles.track, { backgroundColor: colors.border }]}>
         <View
           style={[
@@ -199,6 +239,21 @@ export function DoctorIvrQuestion({
 }
 
 const styles = StyleSheet.create({
+  speedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  speedButton: {
+    minHeight: 56,
+    minWidth: 56,
+    paddingHorizontal: spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderRadius: radius.full,
+  },
   layout: { gap: spacing.md },
   progressRow: {
     flexDirection: "row",

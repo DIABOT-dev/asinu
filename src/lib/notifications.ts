@@ -1,5 +1,5 @@
-import { runNativePermission } from './native-permissions';
-import { isDoctorFeaturesEnabled } from './appEnv';
+import { runNativePermission } from "./native-permissions";
+import { isDoctorFeaturesEnabled } from "./appEnv";
 // Push notification service for care circle invitations
 // Note: This requires expo-notifications to be installed
 // Run: npx expo install expo-notifications
@@ -7,10 +7,14 @@ import { isDoctorFeaturesEnabled } from './appEnv';
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { configureAndroidCheckinCalls } from './android-checkin-call';
+import { configureAndroidCheckinCalls } from "./android-checkin-call";
 import i18n from "../i18n";
 import { useNotificationStore } from "../stores/notification.store";
-import { notificationSoundConfig, notificationSoundManifest, type NotificationSoundGroup } from './notification-sounds';
+import {
+  notificationSoundConfig,
+  notificationSoundManifest,
+  type NotificationSoundGroup,
+} from "./notification-sounds";
 
 /**
  * Initialize the notification handler. Must be called explicitly (e.g. inside
@@ -190,22 +194,67 @@ async function configureNotificationChannels(): Promise<void> {
 
   // Versioned channels are required when migrating to a different sound.
   // Registering an existing channel again only refreshes its translated name.
-  const settings: Record<NotificationSoundGroup, Omit<Notifications.NotificationChannelInput, 'name'>> = {
-    reminder: { importance: Notifications.AndroidImportance.DEFAULT, vibrationPattern: [0, 200], lightColor: '#08b8a2' },
-    alert: { importance: Notifications.AndroidImportance.MAX, vibrationPattern: [0, 300, 150, 300], lightColor: '#FF6B6B', bypassDnd: true },
-    'care-circle': { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250, 100, 250], lightColor: '#6B8FFF' },
-    'doctor-consultation': { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250, 100, 250], lightColor: '#08b8a2' },
-    checkin: { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 300, 100, 300], lightColor: '#08b8a2' },
-    milestone: { importance: Notifications.AndroidImportance.DEFAULT, vibrationPattern: [0, 100, 50, 100, 50, 200], lightColor: '#FFD700' },
-    incoming: { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 700, 300, 700], lightColor: '#08b8a2' },
-    missed: { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 200], lightColor: '#08b8a2' },
-    billing: { importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 200], lightColor: '#08b8a2' },
+  const settings: Record<
+    NotificationSoundGroup,
+    Omit<Notifications.NotificationChannelInput, "name">
+  > = {
+    reminder: {
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 200],
+      lightColor: "#08b8a2",
+    },
+    alert: {
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 300, 150, 300],
+      lightColor: "#FF6B6B",
+      bypassDnd: true,
+    },
+    "care-circle": {
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 100, 250],
+      lightColor: "#6B8FFF",
+    },
+    "doctor-consultation": {
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 100, 250],
+      lightColor: "#08b8a2",
+    },
+    checkin: {
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 300, 100, 300],
+      lightColor: "#08b8a2",
+    },
+    milestone: {
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 100, 50, 100, 50, 200],
+      lightColor: "#FFD700",
+    },
+    incoming: {
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 700, 300, 700],
+      lightColor: "#08b8a2",
+    },
+    missed: {
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 200],
+      lightColor: "#08b8a2",
+    },
+    billing: {
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 200],
+      lightColor: "#08b8a2",
+    },
   };
-  for (const [group, config] of Object.entries(notificationSoundManifest.groups)) {
-    const sound = notificationSoundManifest.sounds[config.sound as keyof typeof notificationSoundManifest.sounds];
+  for (const [group, config] of Object.entries(
+    notificationSoundManifest.groups
+  )) {
+    const sound =
+      notificationSoundManifest.sounds[
+        config.sound as keyof typeof notificationSoundManifest.sounds
+      ];
     await Notifications.setNotificationChannelAsync(config.channelId, {
       ...settings[group as NotificationSoundGroup],
-      name: i18n.t(config.label, { ns: 'common' }),
+      name: i18n.t(config.label, { ns: "common" }),
       sound: sound.android,
       enableVibrate: true,
     });
@@ -232,14 +281,18 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     let finalStatus = existingStatus;
 
     if (existingStatus !== "granted") {
-      const { status } = await runNativePermission(() => Notifications.requestPermissionsAsync({
-        ios: {
-          allowAlert: true,
-          allowBadge: true,
-          allowSound: true,
-        },
-        android: {},
-      }), { key: 'notifications' });
+      const { status } = await runNativePermission(
+        () =>
+          Notifications.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+            },
+            android: {},
+          }),
+        { key: "notifications" }
+      );
       finalStatus = status;
     }
 
@@ -320,7 +373,9 @@ export async function scheduleLocalNotification(
   data?: NotificationData
 ) {
   try {
-    if (Platform.OS === 'android') { await configureNotificationChannels(); }
+    if (Platform.OS === "android") {
+      await configureNotificationChannels();
+    }
     const config = notificationSoundConfig(data, Platform.OS);
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -330,7 +385,8 @@ export async function scheduleLocalNotification(
         sound: config.sound,
         priority: Notifications.AndroidNotificationPriority.HIGH,
       },
-      trigger: Platform.OS === 'android' ? { channelId: config.channelId } : null,
+      trigger:
+        Platform.OS === "android" ? { channelId: config.channelId } : null,
     });
   } catch (error) {}
 }
@@ -347,8 +403,13 @@ export async function reNotifyAsLocal(
   data: Record<string, unknown>
 ): Promise<void> {
   try {
-    if (Platform.OS === 'android') { await configureNotificationChannels(); }
-    const config = notificationSoundConfig({ type: 'health_alert' }, Platform.OS);
+    if (Platform.OS === "android") {
+      await configureNotificationChannels();
+    }
+    const config = notificationSoundConfig(
+      { type: "health_alert" },
+      Platform.OS
+    );
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
@@ -358,7 +419,8 @@ export async function reNotifyAsLocal(
         categoryIdentifier: "health_alert",
         priority: Notifications.AndroidNotificationPriority.MAX,
       },
-      trigger: Platform.OS === 'android' ? { channelId: config.channelId } : null,
+      trigger:
+        Platform.OS === "android" ? { channelId: config.channelId } : null,
     });
   } catch {}
 }
@@ -412,6 +474,17 @@ export type NotificationRoute =
 export function routeFromNotificationData(
   data: Record<string, unknown> | null | undefined
 ): NotificationRoute | null {
+  if (data?.callType === "doctor_ivr" || data?.type === "doctor_ivr_call") {
+    if (!isDoctorFeaturesEnabled || typeof data?.episodeId !== "string")
+      return "/(tabs)/home";
+    return {
+      pathname: "/doctor-call/[sessionId]",
+      params: {
+        sessionId: data.episodeId,
+        attemptId: String(data.attemptId || ""),
+      },
+    };
+  }
   if (data?.checkinCall === true && typeof data.episodeId === "string") {
     return {
       pathname: "/checkin-call/[episodeId]",
@@ -423,16 +496,19 @@ export function routeFromNotificationData(
   }
   const type = data?.type as string | undefined;
   if (!type) return null;
-  if (type === 'checkin_inactivity_notice') return '/(tabs)/care-circle';
-  if (type === 'gift_opened') {
+  if (type === "checkin_inactivity_notice") return "/(tabs)/care-circle";
+  if (type === "gift_opened") {
     const giftId = data?.giftId;
-    return typeof giftId === 'string' && /^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(giftId)
-      ? { pathname: '/checkin-rewards/receipt', params: { gift: giftId } } : '/checkin-rewards/history';
+    return typeof giftId === "string" &&
+      /^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(giftId)
+      ? { pathname: "/checkin-rewards/receipt", params: { gift: giftId } }
+      : "/checkin-rewards/history";
   }
-  if (type === 'gift_draw_result') {
-    const period = String(data?.drawPeriodId || '');
+  if (type === "gift_draw_result") {
+    const period = String(data?.drawPeriodId || "");
     return /^\d{1,18}$/.test(period)
-      ? { pathname: '/checkin-rewards/results', params: { period } } : '/checkin-rewards/history';
+      ? { pathname: "/checkin-rewards/results", params: { period } }
+      : "/checkin-rewards/history";
   }
 
   if (type === "early_signal") {
@@ -542,8 +618,15 @@ export function routeFromNotificationData(
   if (type === "doctor_ivr_session" || type === "doctor_ivr_reply") {
     if (!isDoctorFeaturesEnabled) return "/(tabs)/home";
     const sessionId = String(data?.sessionId || "");
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(sessionId))
-      return { pathname: "/doctor-interview/[sessionId]", params: { sessionId } };
+    if (
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(
+        sessionId
+      )
+    )
+      return {
+        pathname: "/doctor-interview/[sessionId]",
+        params: { sessionId },
+      };
     return "/doctor-consultation";
   }
   if (type === "doctor_message") {

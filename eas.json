@@ -5,12 +5,14 @@
   },
   "build": {
     "development": {
+      "node": "22.22.3",
       "developmentClient": true,
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
       "ios": {
+        "image": "sdk-57",
         "resourceClass": "m-medium"
       },
       "env": {
@@ -81,6 +83,15 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "416338225523-e095rh2637h6fto5ia0gvnn8faeq96fd.apps.googleusercontent.com",
         "EXPO_PUBLIC_APPLE_CLIENT_ID": "com.asinu.lite.service",
         "EXPO_PUBLIC_ZALO_APP_ID": "1593272240133048788"
+      }
+    },
+    "development-vps": {
+      "extends": "development",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "dev",
+        "EXPO_PUBLIC_API_BASE_URL": "https://asinu.top",
+        "EXPO_PUBLIC_PAYMENT_METHOD": "iap",
+        "NODE_ENV": "development"
       }
     }
   },

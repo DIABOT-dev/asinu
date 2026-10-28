@@ -657,7 +657,7 @@
     "title": "Tổng đài Asinu",
     "doctor": "Bác sĩ {{name}}",
     "replayShort": "Nghe lại",
-    "chooseNow": "Bạn cứ từ từ chọn. Có thể bấm khi đang nghe.",
+    "chooseNow": "Bạn có thể chọn ngay khi đang nghe câu hỏi.",
     "skip": "Chưa rõ, bỏ qua câu này",
     "questionCount": "{{count}} câu hỏi ngắn",
     "preview": {
@@ -696,6 +696,13 @@
       "reply": "Bác thử giữ giờ đi ngủ và thức dậy đều đặn, hạn chế uống trà vào buổi tối. Bác có thể ghi lại giờ ngủ, số lần thức giấc và cảm giác buổi sáng để theo dõi thay đổi.",
       "networkError": "Chưa tải được phiên. Bác kiểm tra kết nối rồi bấm Tải lại phiên nhé."
     },
-    "recordHint": "Bạn hãy nói câu trả lời. Asinu đang lắng nghe."
+    "recordHint": "Bạn hãy nói câu trả lời. Asinu đang lắng nghe.",
+    "speechSpeed": "Tốc độ đọc",
+    "speechSpeedValue": "Tốc độ đọc {{rate}} lần",
+    "callConnecting": "Đang kết nối với bác sĩ…",
+    "callConnectError": "Chưa kết nối được. Bạn có thể thử lại hoặc trả lời trong app.",
+    "continueInApp": "Trả lời trong app",
+    "noResponse": "Chưa nhận được câu trả lời. Asinu chuyển sang câu tiếp theo nhé.",
+    "speechRateValue": "{{rate}}×"
   }
 }

@@ -26,6 +26,8 @@ export type IvrSession = {
   expires_at: string | null;
   remind_at: string | null;
   safety_notice: string | null;
+  response_timeout_seconds?: number;
+  channel?: "app" | "call" | "both";
   doctor_reply: string | null;
   content: { greeting: string; closing: string; questions: IvrQuestion[] };
   answers: Array<{

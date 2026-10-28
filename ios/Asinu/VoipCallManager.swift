@@ -15,6 +15,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   private let tokenKey = "asinu.voip.token"
   private let pendingCallKey = "asinu.voip.pendingCall"
+  private var doctorHandoffWaiters: [String: (Bool) -> Void] = [:]
   private let maximumCallDuration: TimeInterval = 10 * 60
   private var pushRegistry: PKPushRegistry?
   private var callsByUUID: [UUID: [String: String]] = [:]
@@ -177,12 +178,12 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   // so Expo's URL handler and the native event cannot stack duplicate screens.
   func handleAnsweredCallURL(_ url: URL) -> Bool {
     expireCallsIfNeeded()
-    guard url.scheme == "asinu-lite", url.host == "checkin-call",
+    guard url.scheme == "asinu-lite", (url.host == "checkin-call" || url.host == "doctor-call"),
           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
           components.queryItems?.contains(where: { $0.name == "nativeAnswered" && $0.value == "1" }) == true,
           let attemptId = components.queryItems?.first(where: { $0.name == "attemptId" })?.value else { return false }
     let call = uuidByAttempt[attemptId].flatMap { callsByUUID[$0] } ?? pendingCall()
-    guard let call, call["attemptId"] == attemptId,
+    guard let call, url.host == (call["callType"] == "doctor_ivr" ? "doctor-call" : "checkin-call"), call["attemptId"] == attemptId,
           call["nativeAnswered"] == "1", url.path == "/" + (call["episodeId"] ?? "") else { return false }
     UserDefaults.standard.set(call, forKey: pendingCallKey)
     NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: call)
@@ -199,6 +200,22 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     }
     provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
     removeCall(uuid: uuid)
+  }
+
+  // The questionnaire owns playback/recording only after CallKit releases audio.
+  // A timeout is a failed handoff, never permission to race AVAudioSession.
+  func finishDoctorHandoff(attemptId: String, completion: @escaping (Bool) -> Void) {
+    guard let uuid = uuidByAttempt[attemptId], callsByUUID[uuid]?["callType"] == "doctor_ivr" else {
+      completion(!audioSessionActive)
+      return
+    }
+    if audioSessionActive { doctorHandoffWaiters[attemptId] = completion }
+    let wasActive = audioSessionActive
+    endCall(attemptId: attemptId)
+    if !wasActive { completion(true); return }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+      self?.doctorHandoffWaiters.removeValue(forKey: attemptId)?(false)
+    }
   }
 
   func reportIncoming(payload: [AnyHashable: Any], completion: @escaping () -> Void) {
@@ -237,6 +254,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     let ringSeconds = min(max(configuredRingSeconds, 30), 180)
     let call = [
       "episodeId": episodeId,
+      "callType": string(payload["callType"]) == "doctor_ivr" ? "doctor_ivr" : "checkin",
       "attemptId": attemptId,
       "severity": severity,
       "kind": kind,
@@ -382,7 +400,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private func openResponseScreen(_ call: [String: String]) {
     var components = URLComponents()
     components.scheme = "asinu-lite"
-    components.host = "checkin-call"
+    components.host = call["callType"] == "doctor_ivr" ? "doctor-call" : "checkin-call"
     components.path = "/" + (call["episodeId"] ?? "")
     components.queryItems = [
       URLQueryItem(name: "attemptId", value: call["attemptId"]),
@@ -449,6 +467,9 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
 
   func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
     audioSessionActive = false
+    let waiters = doctorHandoffWaiters
+    doctorHandoffWaiters.removeAll()
+    waiters.values.forEach { $0(true) }
     // An already-visible response screen may have been playing through the
     // native session. Let it re-prepare Expo playback only AFTER CallKit has
     // released that session; do not replay completed or declined calls.

@@ -3,6 +3,16 @@ import React
 
 @objc(AsinuVoipModule)
 final class AsinuVoipModule: RCTEventEmitter {
+  @objc(getCapabilities:rejecter:)
+  func getCapabilities(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    resolve(["doctorIvr": true])
+  }
+  @objc(finishCallHandoff:resolver:rejecter:)
+  func finishCallHandoff(_ attemptId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async {
+      VoipCallManager.shared.finishDoctorHandoff(attemptId: attemptId) { ready in resolve(ready) }
+    }
+  }
   private var observing = false
   private var observers: [NSObjectProtocol] = []
 

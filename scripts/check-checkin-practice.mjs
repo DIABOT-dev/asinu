@@ -210,7 +210,7 @@ for (const language of ['vi', 'en']) {
     const router = { push: route => calls.network.push(route) };
     const stop = async () => {};
     const DoneScreen = evaluate(`${extract('stripEmojis')}\n${extract('extractRecordedSymptoms')}\n${extract('DoneScreen')}\nmodule.exports = DoneScreen;`, {
-      ...native, ...runtime, ...tr, useRouter: () => router,
+      ...native, ...runtime, ...tr, isDoctorFeaturesEnabled: true, useRouter: () => router,
       useCheckinCallAudio: () => ({ audio: { phase: 'idle' }, play: (...args) => calls.network.push(args), stopAudio: stop }),
       Linking: { openURL: uri => { calls.network.push(uri); return Promise.resolve(); } }, showToast() {},
       guidanceAudio: { stop, speak: (...args) => calls.playback.push(args) } });
@@ -256,7 +256,7 @@ for (const language of ['vi', 'en']) {
     const source = [extractVariable('createResultPreviewSession'), extractVariable('BODY_LOCATION_OPTIONS'),
       ...['CheckinUiPreview', 'StatusScreen', 'LocationScreen', 'TriageScreen', 'ConclusionLoadingView', 'stripEmojis', 'extractRecordedSymptoms', 'DoneScreen'].map(extract),
       'module.exports = CheckinUiPreview;'].join('\n');
-    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, MAX_TRIAGE_QUESTIONS: 4,
+    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, isDoctorFeaturesEnabled: true, MAX_TRIAGE_QUESTIONS: 4,
       CHECKIN_STATUS_CHOICES: [{ status: 'fine' }, { status: 'tired' }, { status: 'very_tired' }],
       CheckinStatusChoice: 'StatusChoice', VoiceAnswerButton: 'VoiceAnswerButton',
       CheckinGiftModal: (props) => ({ type: 'Pressable', props: { disabled: true, children: null } }),

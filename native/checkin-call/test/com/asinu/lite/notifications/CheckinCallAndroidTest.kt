@@ -64,6 +64,29 @@ class CheckinCallAndroidTest {
     assertFalse(CheckinCallStore.incoming(context, call()))
     assertEquals(first, CheckinCallStore.ringing(context, id)!!.optLong("expiresAt"))
   }
+  @Test fun doctorIncomingPushRetainsItsIdentityAcrossAnswerAndRecovery() {
+    val data = call() + mapOf("type" to "doctor_ivr_call", "callType" to "doctor_ivr", "declineCapability" to "scoped-token")
+    Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get()
+      .onMessageReceived(RemoteMessage.Builder("fixture").setData(data).build())
+    assertEquals("doctor_ivr", CheckinCallStore.ringing(context, id)!!.optString("callType"))
+    assertTrue(CheckinCallStore.answer(context, id))
+    assertEquals("doctor_ivr", CheckinCallStore.pending(context)!!.optString("callType"))
+    assertEquals(episode, CheckinCallStore.pending(context)!!.optString("episodeId"))
+    assertFalse(CheckinCallStore.pending(context)!!.has("declineCapability"))
+  }
+  @Test fun doctorDeclineUsesOnlyTheDoctorEndpointAndNoLoginCredential() {
+    val server = MockWebServer()
+    server.enqueue(MockResponse().setResponseCode(200)); server.start()
+    try {
+      CheckinCallStore.preferences(context).edit().putString("apiBaseUrl", server.url("/").toString().trimEnd('/')).commit()
+      val work = TestListenableWorkerBuilder<CheckinCallDeclineWorker>(context)
+        .setInputData(workDataOf("attemptId" to id, "capability" to "scoped-token", "callType" to "doctor_ivr", "expiresAt" to System.currentTimeMillis() + 60_000)).build()
+      assertEquals(ListenableWorker.Result.success(), work.doWork())
+      val request = server.takeRequest(2, TimeUnit.SECONDS)!!
+      assertEquals("/api/doctor/ivr/native/calls/$id/decline", request.path)
+      assertNull(request.getHeader("Authorization"))
+    } finally { server.shutdown() }
+  }
   @Test fun delayedOrMalformedPushDoesNotShowCall() {
     assertFalse(CheckinCallStore.incoming(context, call() + ("ringDeadline" to Instant.now().minusSeconds(1).toString())))
     assertFalse(CheckinCallStore.incoming(context, call() + ("attemptId" to "bad")))

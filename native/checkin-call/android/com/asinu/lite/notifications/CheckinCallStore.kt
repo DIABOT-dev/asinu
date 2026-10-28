@@ -48,7 +48,7 @@ object CheckinCallStore {
     if (existing != null) return false // repeated delivery must not replay the ringtone
     prune(context)
     val stored = JSONObject()
-    listOf("episodeId", "attemptId", "kind", "severity", "lang", "declineCapability").forEach { key ->
+    listOf("episodeId", "attemptId", "callType", "kind", "severity", "lang", "declineCapability").forEach { key ->
       data[key]?.let { stored.put(key, it) }
     }
     prefs.edit().putString("ring:$id", stored.put("expiresAt", end).toString()).commit()
@@ -122,7 +122,7 @@ object CheckinCallStore {
     val context = reactContext ?: return
     if (!context.hasActiveReactInstance()) return
     val value = Arguments.createMap()
-    listOf("episodeId", "attemptId", "kind", "severity", "lang", "endReason").forEach { value.putString(it, data.optString(it)) }
+    listOf("episodeId", "attemptId", "callType", "kind", "severity", "lang", "endReason").forEach { value.putString(it, data.optString(it)) }
     // Never send the decline credential into React/analytics/logging.
     runCatching { context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit(name, value) }
   }

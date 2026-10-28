@@ -114,7 +114,7 @@ export function AppUpdateExperience({ visible, version, phase, downloadedBytes, 
                     </View>
                     {percent !== null && <Text style={styles.percent}>{percent}%</Text>}
                   </View>
-                  {measured && <Text style={styles.bytes}>{megabytes(downloadedBytes)} MB / {megabytes(totalBytes)} MB</Text>}
+                  {measured && <Text style={styles.bytes}>{t('appUpdate.downloadSize', { downloaded: megabytes(downloadedBytes), total: megabytes(totalBytes) })}</Text>}
                 </View>
               </View>
               <View style={[styles.photo, styles.downloadPhoto, { height: tablet ? 360 : Math.max(240, Math.min(340, height * 0.35)) }]}>

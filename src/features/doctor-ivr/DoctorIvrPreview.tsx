@@ -7,7 +7,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { Stack, useFocusEffect } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,7 +43,16 @@ type Scenario = (typeof DOCTOR_IVR_PREVIEW_SCENARIOS)[number];
 // This controller only changes in-memory examples. The production native view
 // is shared verbatim; there is no auth bypass, API call, upload or microphone use.
 export function DoctorIvrPreview() {
-  const [selected, setSelected] = useState<Scenario | null>(null);
+  const params = useLocalSearchParams<{ scenario?: string }>();
+  const [selected, setSelected] = useState<Scenario | null>(
+    DOCTOR_IVR_PREVIEW_SCENARIOS.includes(params.scenario as Scenario)
+      ? (params.scenario as Scenario)
+      : null
+  );
+  useEffect(() => {
+    if (DOCTOR_IVR_PREVIEW_SCENARIOS.includes(params.scenario as Scenario))
+      setSelected(params.scenario as Scenario);
+  }, [params.scenario]);
   const router = useGuardedRouter(),
     { colors } = useThemeColors(),
     insets = useSafeAreaInsets();
@@ -229,6 +238,7 @@ function PreviewSession({
       aiConsent: false,
       audioState: { phase: "idle", prompt: null, fallback: true },
       selectedOption: null,
+      speechRate: 0.9,
     };
   });
   const selectedVoice = useRef<IvrOption | null>(state.voiceOption);
@@ -315,7 +325,7 @@ function PreviewSession({
       try {
         Speech.speak(prompt.text, {
           language: i18n.resolvedLanguage?.startsWith("en") ? "en-US" : "vi-VN",
-          rate: 0.9,
+          rate: currentState.current.speechRate || 0.9,
           onDone: done,
           onError: done,
           onStopped: done,
@@ -493,6 +503,12 @@ function PreviewSession({
     finishRecording: {
       current: async () => setState((s) => advance(s, "voice")),
     },
+    setSpeechRate: (value) =>
+      setState((s) => ({
+        ...s,
+        speechRate:
+          typeof value === "function" ? value(s.speechRate || 0.9) : value,
+      })),
   };
   return (
     <DoctorInterviewView
