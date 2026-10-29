@@ -1,3 +1,4 @@
+import { reportError } from '../observability/sentry';
 type LogContext = Record<string, unknown>;
 
 // TẮT TẠM THỜI - đặt lại thành true để bật log
@@ -11,7 +12,8 @@ export const logError = (error: unknown, context: LogContext = {}) => {
   if (__DEV__ && LOGGING_ENABLED) {
 
   }
-  // hook for Sentry/Crashlytics in future
+  // API failures are observed by the transport; never send arbitrary log context.
+  if (!context.url) reportError(error, { component: 'application' });
 };
 
 export const logWarn = (message: string, context: LogContext = {}) => {

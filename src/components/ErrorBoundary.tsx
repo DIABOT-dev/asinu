@@ -1,3 +1,4 @@
+import { reportError } from '../observability/sentry';
 import React, { Component, ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +27,10 @@ class ErrorBoundaryImpl extends Component<LocalizedProps, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error) {
+    reportError(error, { component: 'react', operation: 'render' });
   }
 
   handleRetry = () => {

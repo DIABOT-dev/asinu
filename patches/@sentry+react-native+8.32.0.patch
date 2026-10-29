@@ -1,0 +1,54 @@
+diff --git a/node_modules/@sentry/react-native/android/src/main/java/io/sentry/react/RNSentryStart.java b/node_modules/@sentry/react-native/android/src/main/java/io/sentry/react/RNSentryStart.java
+index 0b80ef4..da51442 100644
+--- a/node_modules/@sentry/react-native/android/src/main/java/io/sentry/react/RNSentryStart.java
++++ b/node_modules/@sentry/react-native/android/src/main/java/io/sentry/react/RNSentryStart.java
+@@ -391,7 +391,24 @@ final class RNSentryStart {
+           // Note: In Sentry Android SDK v7, native SDK packages/integrations are already
+           // included in the SDK version set during initialization, so no need to copy them here.
+           if (userBeforeSend != null) {
+-            return userBeforeSend.execute(event, hint);
++            event = userBeforeSend.execute(event, hint);
++          }
++          if (event == null) return null;
++          // Asinu: native events bypass the JavaScript beforeSend privacy policy.
++          event.setUser(null);
++          event.setRequest(null);
++          event.setExtras(null);
++          event.setBreadcrumbs(null);
++          event.getContexts().clear();
++          event.setMessage(null);
++          event.setTransaction(null);
++          event.setServerName(null);
++          event.setThreads(null);
++          event.setTags(java.util.Collections.singletonMap("service", "asinu-mobile-native"));
++          if (event.getExceptions() != null) {
++            for (io.sentry.protocol.SentryException exception : event.getExceptions()) {
++              exception.setValue(exception.getType());
++            }
+           }
+           return event;
+         });
+diff --git a/node_modules/@sentry/react-native/ios/RNSentry.mm b/node_modules/@sentry/react-native/ios/RNSentry.mm
+index cc03afb..61b8336 100644
+--- a/node_modules/@sentry/react-native/ios/RNSentry.mm
++++ b/node_modules/@sentry/react-native/ios/RNSentry.mm
+@@ -162,6 +162,19 @@ static bool hasFetchedAppStart;
+         }
+ 
+         [self setEventOriginTag:event];
++        // Asinu: native crashes bypass the JavaScript beforeSend privacy policy.
++        event.user = nil;
++        event.request = nil;
++        event.extra = nil;
++        event.breadcrumbs = @[];
++        event.context = @{};
++        event.message = nil;
++        event.transaction = nil;
++        event.threads = @[];
++        event.tags = @{ @"service" : @"asinu-mobile-native" };
++        for (SentryException *exception in event.exceptions) {
++            exception.value = exception.type;
++        }
+         return event;
+     };
+ 

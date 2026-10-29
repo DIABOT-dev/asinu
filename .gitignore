@@ -72,3 +72,6 @@ yarn-error.*
 *.tsbuildinfo
 
 # @end expo-cli
+# Sentry upload credentials belong in build secrets, never Git.
+sentry.properties
+.sentry-artifacts/
