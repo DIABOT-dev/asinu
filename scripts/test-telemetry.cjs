@@ -184,3 +184,22 @@ test("build releases retain hexadecimal SHAs containing long numeric sequences",
   );
   assert.equal(validRelease("release with personal text"), undefined);
 });
+
+
+test('global errors preserve the installed handler without duplicate handled events', () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, '../src/lib/initErrorHandler.ts'), 'utf8');
+  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  for (const hasPrevious of [true, false]) {
+    let handler, delegated = 0, logged = 0;
+    const error = new Error('synthetic');
+    const ErrorUtils = {
+      getGlobalHandler: () => hasPrevious ? (received, fatal) => { assert.equal(received, error); assert.equal(fatal, true); delegated++; } : undefined,
+      setGlobalHandler: value => { handler = value; },
+    };
+    vm.runInNewContext(code, { exports: {}, globalThis: { ErrorUtils }, require: () => ({ logError: () => logged++ }) });
+    handler(error, true);
+    assert.equal(delegated, hasPrevious ? 1 : 0);
+    assert.equal(logged, hasPrevious ? 0 : 1);
+  }
+});
