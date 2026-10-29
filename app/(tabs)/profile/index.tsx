@@ -1167,6 +1167,31 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionHeading}>{ts("title")}</Text>
               </View>
               <View style={styles.cardsStack}>
+                {isDoctorFeaturesEnabled && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={ts('doctorConsultation')}
+                    style={styles.actionCard}
+                    onPress={() => router.push('/doctor-consultation')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="medical-outline"
+                        size={22}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>
+                      {ts('doctorConsultation')}
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
                 {isDoctorFeaturesEnabled && <TouchableOpacity
                   style={styles.actionCard}
                   onPress={() =>

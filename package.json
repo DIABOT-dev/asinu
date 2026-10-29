@@ -15,6 +15,7 @@
     "i18n:check": "node scripts/check-i18n.mjs && node scripts/check-ui-copy.mjs",
     "test:doctor-ivr": "node scripts/check-doctor-ivr.mjs && node scripts/check-doctor-ivr-timeouts.mjs",
     "test:doctor-hidden": "node scripts/check-doctor-ui-hidden.mjs",
+    "test:doctor-consultation": "node scripts/check-doctor-consultation.mjs",
     "test:api-contract": "node scripts/check-api-contract.mjs",
     "test:checkin-contract": "node scripts/check-checkin-api-contract.mjs",
     "test:care-circle-health": "node scripts/check-care-circle-health.mjs",

@@ -1,4 +1,8 @@
-import { runNativePermission } from '../src/lib/native-permissions';
+import { LinearGradient } from "expo-linear-gradient";
+import { DoctorConsultationIntake } from "../src/features/doctor-consultation/DoctorConsultationIntake";
+import { useConsultationDraft } from "../src/features/doctor-consultation/useConsultationDraft";
+import { useConsultationDirectory, type DoctorRecommendation, type DoctorSpecialty } from "../src/features/doctor-consultation/useConsultationDirectory";
+import { runNativePermission } from "../src/lib/native-permissions";
 import { Stack } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +14,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -17,7 +22,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { ScaledText as Text } from "../src/components/ScaledText";
-import { ScaledTextInput as TextInput } from "../src/components/ScaledTextInput";
 import { AppAlertModal } from "../src/components/AppAlertModal";
 import { ScreenBackButton } from "../src/components/ScreenHeaderButton";
 import { useAuthStore } from "../src/features/auth/auth.store";
@@ -44,27 +48,6 @@ type DoctorTaskListResponse = {
       latest_message_at?: string | null;
     }>;
   };
-};
-type DoctorRecommendation = {
-  doctorId: string;
-  fullName: string;
-  avatarUrl?: string | null;
-  specialties: string[];
-  reputation: number;
-  ratingCount?: number;
-  estimatedWaitMinutes: number;
-  preferred: boolean;
-  routingTenantId?: string;
-  availability?: "online" | "busy" | "offline";
-};
-type DoctorRecommendationResponse = {
-  ok: boolean;
-  data?: { items: DoctorRecommendation[]; estimatedWaitMinutes: number | null };
-};
-type DoctorSpecialty = { code: string; name: string };
-type DoctorSpecialtyResponse = {
-  ok: boolean;
-  data?: { items: DoctorSpecialty[] };
 };
 type DoctorReview = {
   score: number;
@@ -137,7 +120,13 @@ export default function DoctorConsultationScreen() {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   // Form State
-  const [summary, setSummary] = useState("");
+  const conditionDraft = useConsultationDraft(profile?.id ?? null);
+  const { summary, symptomOnset, progression, severity } = conditionDraft.values;
+  const directory = useConsultationDirectory();
+  const {
+    recommendations, preferredDoctorId, specialties, selectedSpecialty, estimatedWaitMinutes,
+    selectSpecialty: setSelectedSpecialty, selectDoctor: setPreferredDoctorId,
+  } = directory;
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeConsultation, setActiveConsultation] = useState<
@@ -145,29 +134,11 @@ export default function DoctorConsultationScreen() {
   >(null);
   const [activeWarningVisible, setActiveWarningVisible] = useState(false);
   const activeWarningTaskRef = useRef<string | null>(null);
-  const [recommendations, setRecommendations] = useState<
-    DoctorRecommendation[]
-  >([]);
-  const [preferredDoctorId, setPreferredDoctorId] = useState<string | null>(
-    null
-  );
-  const [specialties, setSpecialties] = useState<DoctorSpecialty[]>([]);
   // Tenant routing is intentionally opaque to patients. It is only retained
   // long enough to submit the task to the provider backend.
   const [selectedTenantId, setSelectedTenantId] = useState(env.doctorTenantId);
-  const [selectedSpecialty, setSelectedSpecialty] = useState("");
-  const [estimatedWaitMinutes, setEstimatedWaitMinutes] = useState<
-    number | null
-  >(null);
-  const [symptomOnset, setSymptomOnset] = useState<
-    "today" | "two_to_seven_days" | "over_one_week" | "ongoing" | ""
-  >("");
-  const [progression, setProgression] = useState<
-    "improving" | "stable" | "worsening" | ""
-  >("");
-  const [severity, setSeverity] = useState<"mild" | "moderate" | "severe" | "">(
-    ""
-  );
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshInFlight = useRef(false);
   const [emergencyConfirmed, setEmergencyConfirmed] = useState(false);
   const [pendingAttachment, setPendingAttachment] =
     useState<PendingAttachment | null>(null);
@@ -210,50 +181,21 @@ export default function DoctorConsultationScreen() {
   };
 
   useEffect(() => {
-    void apiClient<DoctorSpecialtyResponse>("/api/doctor/specialty-options")
-      .then((response) => {
-        const items = response.data?.items ?? [];
-        setSpecialties(items);
-        setSelectedSpecialty((current) =>
-          items.some((item) => item.code === current)
-            ? current
-            : items[0]?.code || ""
-        );
-      })
-      .catch(() => {
-        setSpecialties([]);
-        setSelectedSpecialty("");
-        setRecommendations([]);
-      });
-    if (env.doctorTenantId) void loadTasks(env.doctorTenantId);
-  }, []);
-
-  useEffect(() => {
     if (!selectedTenantId) return;
     void loadTasks(selectedTenantId);
   }, [selectedTenantId]);
 
-  useEffect(() => {
-    if (!selectedSpecialty) return;
-    setPreferredDoctorId(null);
-    void apiClient<DoctorRecommendationResponse>("/api/doctor/specialists", {
-      method: "POST",
-      body: {
-        specialty: selectedSpecialty,
-        service_flow: "clinical",
-        priority: "normal",
-        limit: 6,
-      },
-    })
-      .then((response) => {
-        setRecommendations(response.data?.items ?? []);
-        setEstimatedWaitMinutes(response.data?.estimatedWaitMinutes ?? null);
-      })
-      .catch(() => {
-        setRecommendations([]);
-        setEstimatedWaitMinutes(null);
-      });
-  }, [selectedSpecialty]);
+  const handleRefresh = async () => {
+    if (refreshInFlight.current || isSubmitting) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await Promise.all([directory.refresh(), selectedTenantId ? loadTasks(selectedTenantId) : Promise.resolve()]);
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  };
 
   const openReviews = async (doctor: DoctorRecommendation) => {
     setReviewDoctor(doctor);
@@ -278,8 +220,10 @@ export default function DoctorConsultationScreen() {
 
   const pickPreConsultationImage = async () => {
     try {
-      const permission =
-        await runNativePermission(() => ImagePicker.requestMediaLibraryPermissionsAsync(), { key: 'photo-library' });
+      const permission = await runNativePermission(
+        () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+        { key: "photo-library" }
+      );
       if (!permission.granted) {
         showToast(t("doctorConsultationPhotoPermission"), "error");
         return;
@@ -377,6 +321,7 @@ export default function DoctorConsultationScreen() {
             }
           );
         }
+        await conditionDraft.clear();
         showToast(t("doctorConsultationSuccess"), "success");
         submissionTaskIdRef.current = null;
         submissionAttachmentMessageIdRef.current = null;
@@ -438,6 +383,7 @@ export default function DoctorConsultationScreen() {
   };
 
   const handleStep2Next = () => {
+    if (directory.loading) return;
     if (!selectedSpecialty) {
       showToast(t("doctorConsultationSpecialtyRequired"), "error");
       return;
@@ -466,6 +412,18 @@ export default function DoctorConsultationScreen() {
           { backgroundColor: isDark ? colors.background : "#F5FBFC" },
         ]}
       >
+        <LinearGradient
+          pointerEvents="none"
+          accessible={false}
+          colors={
+            isDark
+              ? ["#12312F", "#151F28", "#0F1117"]
+              : ["#E1F3EF", "#F0F8F7", "#F1F6FB"]
+          }
+          locations={[0, 0.4, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+
         <Stack.Screen options={{ headerShown: false }} />
 
         {/* Top Header Bar with Standard Back Button */}
@@ -480,8 +438,13 @@ export default function DoctorConsultationScreen() {
           <View style={styles.topBarSpacer} />
         </View>
 
-        {/* 3-Step Wizard Navigation Stepper matching Mockup exactly */}
-        <View style={styles.stepperContainer}>
+        {/* Consultation progress */}
+        <View
+          style={[
+            styles.stepperContainer,
+            { borderBottomColor: colors.border },
+          ]}
+        >
           {/* Step 1 Tab */}
           <Pressable
             accessibilityLabel={t("doctorConsultationStepCondition")}
@@ -499,10 +462,22 @@ export default function DoctorConsultationScreen() {
                     : currentStep > 1
                     ? styles.stepBadgeCompleted
                     : styles.stepBadgeInactive,
+                  {
+                    backgroundColor:
+                      currentStep >= 1
+                        ? colors.primaryText
+                        : isDark
+                        ? colors.surfaceMuted
+                        : colors.border,
+                  },
                 ]}
               >
                 {currentStep > 1 ? (
-                  <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                  <Ionicons
+                    name="checkmark"
+                    size={13}
+                    color={isDark ? colors.background : colors.surface}
+                  />
                 ) : (
                   <Text
                     style={[
@@ -510,6 +485,14 @@ export default function DoctorConsultationScreen() {
                       currentStep === 1
                         ? styles.stepNumberActive
                         : styles.stepNumberInactive,
+                      {
+                        color:
+                          currentStep === 1
+                            ? isDark
+                              ? colors.background
+                              : colors.surface
+                            : colors.textSecondary,
+                      },
                     ]}
                   >
                     1
@@ -522,13 +505,26 @@ export default function DoctorConsultationScreen() {
                   currentStep === 1
                     ? styles.stepTitleActive
                     : styles.stepTitleInactive,
+                  {
+                    color:
+                      currentStep === 1
+                        ? colors.primaryText
+                        : colors.textSecondary,
+                  },
                 ]}
                 numberOfLines={2}
               >
                 {t("doctorConsultationStepCondition")}
               </Text>
             </View>
-            {currentStep === 1 && <View style={styles.stepActiveUnderline} />}
+            {currentStep === 1 && (
+              <View
+                style={[
+                  styles.stepActiveUnderline,
+                  { backgroundColor: colors.primaryText },
+                ]}
+              />
+            )}
           </Pressable>
 
           {/* Step 2 Tab */}
@@ -554,10 +550,22 @@ export default function DoctorConsultationScreen() {
                     : currentStep > 2
                     ? styles.stepBadgeCompleted
                     : styles.stepBadgeInactive,
+                  {
+                    backgroundColor:
+                      currentStep >= 2
+                        ? colors.primaryText
+                        : isDark
+                        ? colors.surfaceMuted
+                        : colors.border,
+                  },
                 ]}
               >
                 {currentStep > 2 ? (
-                  <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                  <Ionicons
+                    name="checkmark"
+                    size={13}
+                    color={isDark ? colors.background : colors.surface}
+                  />
                 ) : (
                   <Text
                     style={[
@@ -565,6 +573,14 @@ export default function DoctorConsultationScreen() {
                       currentStep === 2
                         ? styles.stepNumberActive
                         : styles.stepNumberInactive,
+                      {
+                        color:
+                          currentStep === 2
+                            ? isDark
+                              ? colors.background
+                              : colors.surface
+                            : colors.textSecondary,
+                      },
                     ]}
                   >
                     2
@@ -577,13 +593,26 @@ export default function DoctorConsultationScreen() {
                   currentStep === 2
                     ? styles.stepTitleActive
                     : styles.stepTitleInactive,
+                  {
+                    color:
+                      currentStep === 2
+                        ? colors.primaryText
+                        : colors.textSecondary,
+                  },
                 ]}
                 numberOfLines={2}
               >
                 {t("doctorConsultationStepSpecialist")}
               </Text>
             </View>
-            {currentStep === 2 && <View style={styles.stepActiveUnderline} />}
+            {currentStep === 2 && (
+              <View
+                style={[
+                  styles.stepActiveUnderline,
+                  { backgroundColor: colors.primaryText },
+                ]}
+              />
+            )}
           </Pressable>
 
           {/* Step 3 Tab */}
@@ -607,6 +636,14 @@ export default function DoctorConsultationScreen() {
                   currentStep === 3
                     ? styles.stepBadgeActive
                     : styles.stepBadgeInactive,
+                  {
+                    backgroundColor:
+                      currentStep >= 3
+                        ? colors.primaryText
+                        : isDark
+                        ? colors.surfaceMuted
+                        : colors.border,
+                  },
                 ]}
               >
                 <Text
@@ -615,6 +652,14 @@ export default function DoctorConsultationScreen() {
                     currentStep === 3
                       ? styles.stepNumberActive
                       : styles.stepNumberInactive,
+                    {
+                      color:
+                        currentStep === 3
+                          ? isDark
+                            ? colors.background
+                            : colors.surface
+                          : colors.textSecondary,
+                    },
                   ]}
                 >
                   3
@@ -626,13 +671,26 @@ export default function DoctorConsultationScreen() {
                   currentStep === 3
                     ? styles.stepTitleActive
                     : styles.stepTitleInactive,
+                  {
+                    color:
+                      currentStep === 3
+                        ? colors.primaryText
+                        : colors.textSecondary,
+                  },
                 ]}
                 numberOfLines={2}
               >
                 {t("doctorConsultationStepReview")}
               </Text>
             </View>
-            {currentStep === 3 && <View style={styles.stepActiveUnderline} />}
+            {currentStep === 3 && (
+              <View
+                style={[
+                  styles.stepActiveUnderline,
+                  { backgroundColor: colors.primaryText },
+                ]}
+              />
+            )}
           </Pressable>
         </View>
 
@@ -644,300 +702,35 @@ export default function DoctorConsultationScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          alwaysBounceVertical
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              enabled={!isSubmitting}
+              tintColor={colors.primaryText}
+              colors={[colors.primaryText]}
+            />
+          }
         >
           {/* ========================================================================= */}
           {/* STEP 1: TÌNH TRẠNG                                                        */}
           {/* ========================================================================= */}
-          {currentStep === 1 && (
-            <>
-              {/* Hero Banner with Doctor Connect & Better Health badge */}
-              <View
-                style={[
-                  styles.heroCard,
-                  {
-                    backgroundColor: isDark ? colors.surface : "#EDFAF8",
-                    borderColor: isDark ? colors.border : "#C6ECE5",
-                  },
-                ]}
-              >
-                <View style={styles.heroLeft}>
-                  <Text style={styles.heroHeading}>
-                    {t("doctorConsultationTitle")}
-                  </Text>
-                  <Text style={styles.heroSubheading}>
-                    {t("doctorConsultationSubtitle")}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.heroDivider,
-                    { backgroundColor: isDark ? colors.border : "#C6ECE5" },
-                  ]}
-                />
-
-                <View style={styles.heroRight}>
-                  <Ionicons name="people" size={28} color="#3A968B" />
-                  <Text style={styles.heroRightText}>
-                    {t("doctorConsultationHeroBadge")}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Thông tin sàng lọc ban đầu */}
-              <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: isDark ? colors.border : "#E2ECE9",
-                  },
-                ]}
-              >
-                <View style={styles.cardHeaderRow}>
-                  <View style={styles.cardIconBox}>
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={20}
-                      color="#EA580C"
-                    />
-                  </View>
-                  <View style={styles.cardHeaderTextCol}>
-                    <Text style={styles.cardTitle}>
-                      {t("doctorConsultationScreeningTitle")}
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      {t("doctorConsultationScreeningHint")}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Onset Question - 4 pills in 1 row */}
-                <Text style={styles.questionLabel}>
-                  {t("doctorConsultationOnsetLabel")}
-                </Text>
-                <View style={styles.optionRow4}>
-                  {(
-                    [
-                      "today",
-                      "two_to_seven_days",
-                      "over_one_week",
-                      "ongoing",
-                    ] as const
-                  ).map((value) => {
-                    const selected = symptomOnset === value;
-                    return (
-                      <Pressable
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        key={value}
-                        onPress={() => setSymptomOnset(value)}
-                        style={[
-                          styles.optionPillFlex,
-                          styles.optionPillTwoColumn,
-                          {
-                            backgroundColor: selected
-                              ? "#EDFAF8"
-                              : isDark
-                              ? colors.background
-                              : "#FFFFFF",
-                            borderColor: selected
-                              ? "#3A968B"
-                              : isDark
-                              ? colors.border
-                              : "#E2ECE9",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionPillTextSmall,
-                            {
-                              color: selected
-                                ? "#3A968B"
-                                : isDark
-                                ? colors.textSecondary
-                                : "#2D4348",
-                              fontWeight: selected ? "700" : "500",
-                            },
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {t(`doctorConsultationOnset_${value}`)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* Progression Question - 3 equal pills */}
-                <Text style={styles.questionLabel}>
-                  {t("doctorConsultationProgressionLabel")}
-                </Text>
-                <View style={styles.optionRow3}>
-                  {(["improving", "stable", "worsening"] as const).map(
-                    (value) => {
-                      const selected = progression === value;
-                      return (
-                        <Pressable
-                          accessibilityRole="radio"
-                          accessibilityState={{ selected }}
-                          key={value}
-                          onPress={() => setProgression(value)}
-                          style={[
-                            styles.optionPillFlex,
-                            {
-                              backgroundColor: selected
-                                ? "#EDFAF8"
-                                : isDark
-                                ? colors.background
-                                : "#FFFFFF",
-                              borderColor: selected
-                                ? "#3A968B"
-                                : isDark
-                                ? colors.border
-                                : "#E2ECE9",
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.optionPillText,
-                              {
-                                color: selected
-                                  ? "#3A968B"
-                                  : isDark
-                                  ? colors.textSecondary
-                                  : "#2D4348",
-                                fontWeight: selected ? "700" : "500",
-                              },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {t(`doctorConsultationProgression_${value}`)}
-                          </Text>
-                        </Pressable>
-                      );
-                    }
-                  )}
-                </View>
-
-                {/* Severity Question - 3 equal pills */}
-                <Text style={styles.questionLabel}>
-                  {t("doctorConsultationSeverityLabel")}
-                </Text>
-                <View style={styles.optionRow3}>
-                  {(["mild", "moderate", "severe"] as const).map((value) => {
-                    const selected = severity === value;
-                    return (
-                      <Pressable
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        key={value}
-                        onPress={() => setSeverity(value)}
-                        style={[
-                          styles.optionPillFlex,
-                          {
-                            backgroundColor: selected
-                              ? "#EDFAF8"
-                              : isDark
-                              ? colors.background
-                              : "#FFFFFF",
-                            borderColor: selected
-                              ? "#3A968B"
-                              : isDark
-                              ? colors.border
-                              : "#E2ECE9",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionPillText,
-                            {
-                              color: selected
-                                ? "#3A968B"
-                                : isDark
-                                ? colors.textSecondary
-                                : "#2D4348",
-                              fontWeight: selected ? "700" : "500",
-                            },
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {t(`doctorConsultationSeverity_${value}`)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Bạn muốn bác sĩ hỗ trợ điều gì? */}
-              <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: isDark ? colors.border : "#E2ECE9",
-                  },
-                ]}
-              >
-                <View style={styles.cardHeaderRow}>
-                  <View style={styles.cardIconBox}>
-                    <Ionicons name="document-text" size={20} color="#3A968B" />
-                  </View>
-                  <View style={styles.cardHeaderTextCol}>
-                    <Text style={styles.cardTitle}>
-                      {t("doctorConsultationSummaryLabel")}
-                    </Text>
-                    <Text style={styles.cardSubtitle}>
-                      {t("doctorConsultationSummaryHint")}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Text Area */}
-                <View
-                  style={[
-                    styles.textAreaContainer,
-                    {
-                      backgroundColor: isDark ? colors.background : "#FFFFFF",
-                      borderColor: isDark ? colors.border : "#D4E2DF",
-                    },
-                  ]}
-                >
-                  <TextInput
-                    maxLength={500}
-                    multiline
-                    onChangeText={setSummary}
-                    placeholder={t("doctorConsultationSummaryPlaceholder")}
-                    placeholderTextColor={
-                      isDark ? colors.textSecondary : "#94A3B8"
-                    }
-                    style={[
-                      styles.textInputField,
-                      {
-                        color: colors.textPrimary,
-                      },
-                    ]}
-                    textAlignVertical="top"
-                    value={summary}
-                  />
-                </View>
-              </View>
-
-              {/* Step 1 Primary Action */}
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleStep1Next}
-                style={styles.primaryActionButton}
-              >
-                <Text style={styles.primaryActionButtonText}>
-                  {t("common:continue")}
-                </Text>
-              </Pressable>
-            </>
+          {currentStep === 1 && !conditionDraft.ready && (
+            <ActivityIndicator accessibilityLabel={t("common:loading")} color={colors.primaryText} />
+          )}
+          {currentStep === 1 && conditionDraft.ready && (
+            <DoctorConsultationIntake
+              symptomOnset={symptomOnset}
+              progression={progression}
+              severity={severity}
+              summary={summary}
+              onSymptomOnsetChange={(value) => conditionDraft.update("symptomOnset", value)}
+              onProgressionChange={(value) => conditionDraft.update("progression", value)}
+              onSeverityChange={(value) => conditionDraft.update("severity", value)}
+              onSummaryChange={(value) => conditionDraft.update("summary", value)}
+              onContinue={handleStep1Next}
+            />
           )}
 
           {/* ========================================================================= */}
@@ -945,6 +738,20 @@ export default function DoctorConsultationScreen() {
           {/* ========================================================================= */}
           {currentStep === 2 && (
             <>
+              {(directory.loading || directory.error) && (
+                <View style={{ gap: 12 }} accessibilityLiveRegion="polite">
+                  {directory.loading && <ActivityIndicator color={colors.primaryText} />}
+                  <Text accessibilityRole={directory.error ? "alert" : undefined} style={{ color: colors.textSecondary }}>
+                    {t(directory.loading ? "doctorConsultationDirectoryLoading" : "doctorConsultationDirectoryError")}
+                  </Text>
+                  {directory.error && !directory.loading && (
+                    <Pressable accessibilityRole="button" onPress={handleRefresh}
+                      style={[styles.secondaryNavBtn, { minHeight: 56, borderColor: colors.primaryText }]}>
+                      <Text style={{ color: colors.primaryText }}>{t("common:retry")}</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
               {/* Card 1: Chuyên khoa muốn được hỗ trợ */}
               <View
                 style={[
@@ -960,10 +767,17 @@ export default function DoctorConsultationScreen() {
                     <Ionicons name="pulse" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
-                    <Text style={styles.cardTitle}>
+                    <Text
+                      style={[styles.cardTitle, { color: colors.textPrimary }]}
+                    >
                       {t("doctorConsultationSpecialtyLabel")}
                     </Text>
-                    <Text style={styles.cardSubtitle}>
+                    <Text
+                      style={[
+                        styles.cardSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
                       {t("doctorConsultationSpecialtyHint")}
                     </Text>
                   </View>
@@ -971,7 +785,7 @@ export default function DoctorConsultationScreen() {
 
                 {/* Specialties Radio List */}
                 <View style={styles.selectionList}>
-                  {visibleSpecialties.length === 0 ? (
+                  {visibleSpecialties.length === 0 ? !directory.loading && !directory.error && (
                     <Text style={styles.emptySelectionText}>
                       {t("doctorConsultationNoSpecialties")}
                     </Text>
@@ -1061,10 +875,17 @@ export default function DoctorConsultationScreen() {
                     <Ionicons name="people" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
-                    <Text style={styles.cardTitle}>
+                    <Text
+                      style={[styles.cardTitle, { color: colors.textPrimary }]}
+                    >
                       {t("doctorConsultationSpecialistsTitle")}
                     </Text>
-                    <Text style={styles.cardSubtitle}>
+                    <Text
+                      style={[
+                        styles.cardSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
                       {t("doctorConsultationSpecialistsHint")}
                     </Text>
                   </View>
@@ -1113,7 +934,7 @@ export default function DoctorConsultationScreen() {
                   </View>
                 </Pressable>
                 <View style={styles.selectionList}>
-                  {recommendations.length === 0 ? (
+                  {recommendations.length === 0 ? !directory.loading && !directory.error && (
                     <Text style={styles.emptySelectionText}>
                       {t("doctorConsultationNoSpecialists")}
                     </Text>
@@ -1278,10 +1099,17 @@ export default function DoctorConsultationScreen() {
                     <Ionicons name="image" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
-                    <Text style={styles.cardTitle}>
+                    <Text
+                      style={[styles.cardTitle, { color: colors.textPrimary }]}
+                    >
                       {t("doctorConsultationPreAttachmentTitle")}
                     </Text>
-                    <Text style={styles.cardSubtitle}>
+                    <Text
+                      style={[
+                        styles.cardSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
                       {t("doctorConsultationPreAttachmentHint")}
                     </Text>
                   </View>
@@ -1379,7 +1207,9 @@ export default function DoctorConsultationScreen() {
                 <Pressable
                   accessibilityRole="button"
                   onPress={handleStep2Next}
-                  style={styles.primaryNavBtn}
+                  disabled={directory.loading || !selectedSpecialty}
+                  accessibilityState={{ disabled: directory.loading || !selectedSpecialty }}
+                  style={[styles.primaryNavBtn, { opacity: directory.loading || !selectedSpecialty ? 0.5 : 1 }]}
                 >
                   <Text style={styles.primaryNavBtnText}>
                     {t("common:continue")}
@@ -1409,7 +1239,9 @@ export default function DoctorConsultationScreen() {
                     <Ionicons name="document-text" size={20} color="#3A968B" />
                   </View>
                   <View style={styles.cardHeaderTextCol}>
-                    <Text style={styles.cardTitle}>
+                    <Text
+                      style={[styles.cardTitle, { color: colors.textPrimary }]}
+                    >
                       {t("doctorConsultationReviewTitle")}
                     </Text>
                   </View>
@@ -1638,11 +1470,11 @@ export default function DoctorConsultationScreen() {
 
                 <Pressable
                   accessibilityRole="button"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || directory.loading}
                   onPress={handleStep3Submit}
                   style={[
                     styles.submitNavBtn,
-                    { opacity: isSubmitting ? 0.7 : 1 },
+                    { opacity: isSubmitting || directory.loading ? 0.7 : 1 },
                   ]}
                 >
                   {isSubmitting ? (
@@ -1833,10 +1665,10 @@ const styles = StyleSheet.create({
   },
   stepBadge: {
     alignItems: "center",
-    borderRadius: 13,
-    height: 26,
+    borderRadius: 16,
+    height: 32,
     justifyContent: "center",
-    width: 26,
+    width: 32,
   },
   stepBadgeActive: {
     backgroundColor: "#3A968B",
@@ -1858,8 +1690,8 @@ const styles = StyleSheet.create({
     color: "#64748B",
   },
   stepTitle: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
     textAlign: "center",
   },
   stepTitleActive: {
@@ -1881,52 +1713,11 @@ const styles = StyleSheet.create({
     right: 8,
   },
   content: {
-    gap: 12,
-    padding: 14,
-  },
-  heroCard: {
-    alignItems: "stretch",
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: "column",
-    overflow: "hidden",
-    padding: 14,
-  },
-  heroLeft: {
-    flex: 1.3,
-    minWidth: 0,
-  },
-  heroHeading: {
-    color: "#0F2F38",
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  heroSubheading: {
-    color: "#6B8289",
-    fontSize: 12.5,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-  heroDivider: {
-    height: 1,
-    marginVertical: 10,
+    gap: 16,
+    padding: 20,
     width: "100%",
-  },
-  heroRight: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "flex-start",
-    minWidth: 0,
-  },
-  heroRightText: {
-    color: "#3A968B",
-    flexShrink: 1,
-    fontSize: 12.5,
-    fontWeight: "700",
-    lineHeight: 17,
-    textAlign: "left",
+    maxWidth: 720,
+    alignSelf: "center",
   },
   card: {
     borderRadius: 20,
@@ -1961,80 +1752,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 17.5,
     marginTop: 2,
-  },
-  questionLabel: {
-    color: "#0F2F38",
-    fontSize: 13.5,
-    fontWeight: "700",
-    marginBottom: 8,
-    marginTop: 10,
-  },
-  optionRow4: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 6,
-  },
-  optionRow3: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 6,
-  },
-  optionPillFlex: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 38,
-    minWidth: 0,
-    paddingHorizontal: 4,
-    paddingVertical: 7,
-  },
-  optionPillTwoColumn: {
-    flexBasis: "45%",
-  },
-  optionPillTextSmall: {
-    fontSize: 12,
-    lineHeight: 16,
-    textAlign: "center",
-  },
-  optionPillText: {
-    fontSize: 13,
-    lineHeight: 17,
-    textAlign: "center",
-  },
-  textAreaContainer: {
-    borderRadius: 14,
-    borderWidth: 1,
-    marginTop: 4,
-    minHeight: 100,
-    padding: 12,
-  },
-  textInputField: {
-    fontSize: 14,
-    lineHeight: 20,
-    minHeight: 76,
-  },
-  primaryActionButton: {
-    alignItems: "center",
-    backgroundColor: "#3A968B",
-    borderRadius: 16,
-    elevation: 2,
-    justifyContent: "center",
-    marginTop: 4,
-    minHeight: 52,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    shadowColor: "#3A968B",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-  },
-  primaryActionButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
   },
   selectionList: {
     gap: 10,

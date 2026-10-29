@@ -1,5 +1,6 @@
 {
   "title": "Settings",
+  "doctorConsultation": "Consult a specialist",
   "doctorConsultationHistory": "Consultation history",
   "doctorConsultationHistoryOngoing": "Waiting or in progress",
   "doctorConsultationHistoryClosed": "Closed",
