@@ -12,6 +12,7 @@ import { useAuthStore } from '../auth/auth.store';
 import { type GiftToday } from './checkin-gifts.api';
 import { CheckinGiftFlow } from './CheckinGiftFlow';
 import { canReplayCheckinGift, loadCheckinGiftDay } from './checkin-gift-replay';
+import { takeCheckinGiftOnHome } from './checkin-gift-handoff';
 
 const cloverArt = require('../../../assets/images/rewards/daily_clover.png');
 const heroArt = require('../../../assets/images/rewards/daily_gift_hero.png');
@@ -57,10 +58,11 @@ function AccountCard({ account }: { account: string }) {
               String(useAuthStore.getState().profile?.id) === account
             ) {
               acceptDay(result);
+              const afterResult = result.gift && takeCheckinGiftOnHome(account, result.gift.id);
               if (
-                result.offerOnAppOpen &&
                 result.gift &&
-                automaticallyOffered.current !== result.gift.id
+                !result.gift.openedAt &&
+                (afterResult || (result.offerOnAppOpen && automaticallyOffered.current !== result.gift.id))
               ) {
                 automaticallyOffered.current = result.gift.id;
                 setOpen(true);

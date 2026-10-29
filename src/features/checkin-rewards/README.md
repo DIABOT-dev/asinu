@@ -2,8 +2,12 @@
 
 Production entry points use `checkin-gifts.api.ts` and `CheckinGiftFlow`.
 After a saved check-in, the user chooses one of six illustrated boxes, then reads
-the received fortune. Urgent health results stay visible until the user closes
-them; urgent dialogs can interrupt the gift without overlapping native modals.
+the received fortune. The health result and its spoken conclusion stay on screen
+until the user explicitly presses Close. Finishing narration or its loading
+timeout never opens a gift. Close stops playback, queues an account-scoped UI
+intent and returns to Home. Only focused Home loads and presents an available,
+unopened gift from the backend. The intent is consumed once and cleared on a
+session change. Urgent dialogs can interrupt the gift without overlapping native modals.
 A call check-in offers its unopened gift on the next visit to Home. Home also
 provides the current receipt, seven weekly dots, a streak and the fortune collection.
 
@@ -42,15 +46,18 @@ iPhone 18 Pro Max. The gift sheet starts with six bundled Asinu mascot gift illu
 in a 3-by-2 grid. There is no skip button, QR-code instruction or disabled footer
 before a successful open.
 
-The selected present moves into focus and opens. The result has the full fortune
-in the upper section and the original six-slot grid directly below it. All five
-remaining boxes open their lids and reveal their rewards together on one shared
-1.1-second native animation, with no per-slot delay. The selected slot keeps
-its received badge. There is no sequential reveal or separate row of rewards.
-The existing preview catalogue never creates another award, ticket, coupon or claim.
+The selected present moves into focus and opens. A separate result view shows
+only the received gift and its full fortune for five visible seconds. The box
+grid, other reward images and labels are not mounted during this result view.
+The countdown or the back action returns to the original six-slot grid. Only
+then do all five remaining boxes open their lids and reveal their rewards
+together on one shared 1.1-second native animation, with no per-slot delay.
+The selected slot keeps its received badge and saved server result.
+There is no sequential reveal or separate row of rewards. The existing preview
+catalogue never creates another award, ticket, coupon or claim.
 
-The five-second countdown collapses only the upper fortune section. The complete
-grid remains open until the user closes it, without a second automatic-close timer.
+Returning from the result view leaves the grid open until the user closes it;
+there is no second automatic-close timer.
 Queued or interrupted presentations do not count down behind another dialog.
 
 Wishes, proverbs and tips are read in the upper result section only; their full
@@ -60,7 +67,7 @@ remain available when the received gift needs rules or redemption information.
 The fixed header and footer stay outside the scrolling body. Queued, interrupted,
 unopened and read-only gifts do not count down. Local “Mở quà thử” remains enabled
 for the already opted-in development account. Reduced Motion skips animation,
-while keeping the upper fortune section and the five-second reading time.
+while keeping the separate result view and the five-second reading time.
 Interrupting the shared opening completes its visual state so no box stays half-open.
 
 Reduced Motion skips the sequence and shows the saved result immediately. Actual

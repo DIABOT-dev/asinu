@@ -4,9 +4,9 @@ import ts from 'typescript';
 
 const read = file => fs.readFileSync(file, 'utf8');
 const jsx = (type, props) => ({ type, props });
-function evaluate(file, dependencies = {}, globals = {}) {
+function evaluate(file, dependencies = {}, globals = {}, source = read(file)) {
   const module = { exports: {} };
-  const code = ts.transpileModule(read(file), { fileName: file, compilerOptions: {
+  const code = ts.transpileModule(source, { fileName: file, compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
   } }).outputText;
   // eslint-disable-next-line no-new-func
@@ -241,17 +241,16 @@ await test('production never touches demo storage; storage failure never blocks 
   assert.equal((await explicit.settle()).type, 'Alert');
 });
 
-function buttonHarness({ eligible = true, disabled = false, prod = false, before = async () => {} } = {}) {
+function buttonHarness({ disabled = false, before = async () => {} } = {}) {
   const runtime = hooks(), calls = [];
   const { CheckinGiftCloseButton } = evaluate('src/features/checkin-rewards/CheckinGiftCloseButton.tsx', {
     react: runtime, 'react-native': { Pressable: 'Button' },
-    './CheckinGiftFlow': { CheckinGiftFlow: 'GiftFlow' },
   });
-  const render = () => CheckinGiftCloseButton({ eligible, disabled,
+  const render = () => CheckinGiftCloseButton({ disabled,
     onBeforeClose: async () => { calls.push('stop audio'); await before(); }, onClose: () => calls.push('leave') });
   return { calls, render: () => runtime.render(render) };
 }
-await test('closing stops audio first, repeated taps cannot reopen, and dismissing the gift navigates once', async () => {
+await test('closing stops audio first and leaves the result once without presenting a gift there', async () => {
   let resolve;
   const h = buttonHarness({ before: () => new Promise(done => { resolve = done; }) });
   const button = nodes(h.render()).find(node => node.type === 'Button');
@@ -259,11 +258,12 @@ await test('closing stops audio first, repeated taps cannot reopen, and dismissi
   assert.deepEqual(h.calls, ['stop audio']);
   assert.ok(!nodes(h.render()).some(node => node.type === 'GiftFlow'));
   resolve(); await closing;
-  const flow = nodes(h.render()).find(node => node.type === 'GiftFlow'); assert.ok(flow);
-  flow.props.onClose(); assert.deepEqual(h.calls, ['stop audio', 'leave']);
+  assert.ok(!nodes(h.render()).some(node => node.type === 'GiftFlow'));
+  assert.deepEqual(h.calls, ['stop audio', 'leave']);
+  await button.props.onPress(); assert.deepEqual(h.calls, ['stop audio', 'leave']);
 });
-await test('preview/practice eligibility keeps the original close action while production uses server gifts', async () => {
-  for (const options of [{ eligible: false }, { eligible: false, before: async () => { throw new Error('audio failed'); } }]) {
+await test('failed audio cleanup still allows closing; read-only results remain inert', async () => {
+  for (const options of [{}, { before: async () => { throw new Error('audio failed'); } }]) {
     const h = buttonHarness(options);
     await nodes(h.render()).find(node => node.type === 'Button').props.onPress();
     assert.deepEqual(h.calls, ['stop audio', 'leave']);
@@ -272,9 +272,103 @@ await test('preview/practice eligibility keeps the original close action while p
   const readOnly = buttonHarness({ disabled: true });
   await nodes(readOnly.render()).find(node => node.type === 'Button').props.onPress();
   assert.deepEqual(readOnly.calls, []);
-  const production = buttonHarness({ prod: true });
+  const production = buttonHarness();
   await nodes(production.render()).find(node => node.type === 'Button').props.onPress();
-  assert.ok(nodes(production.render()).some(node => node.type === 'GiftFlow'));
+  assert.deepEqual(production.calls, ['stop audio', 'leave']);
+  assert.ok(!nodes(production.render()).some(node => node.type === 'GiftFlow'));
+});
+
+function resultGiftHarness({ language = 'vi', status = 'fine', severity, practice = false, readOnly = false, opened = false } = {}) {
+  const runtime = hooks(), buttonRuntime = hooks(), clock = giftClock(), calls = [];
+  const file = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const source = ['stripEmojis', 'extractRecordedSymptoms', 'DoneScreen'].map(name => {
+    const component = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+    assert.ok(component, `Missing actual result component ${name}`); return component.getText(file);
+  }).join('\n') + '\nmodule.exports = { DoneScreen };';
+  const catalogue = JSON.parse(read(`src/i18n/locales/${language}/home.json`));
+  const t = key => catalogue[key] || key;
+  let audio = { phase: 'idle', prompt: null, fallback: false };
+  const play = async (key, text) => { calls.push('read result'); audio = { phase: 'loading', prompt: { key, text }, fallback: false }; };
+  const stop = async () => { calls.push('stop result'); audio = { ...audio, phase: 'idle' }; };
+  const animation = { duration: () => animation, delay: () => animation };
+  const { DoneScreen } = evaluate('app/checkin/index.tsx', {}, {
+    ...runtime, useTranslation: () => ({ t, i18n: { resolvedLanguage: language } }), useRouter: () => ({ push() {} }),
+    useCheckinCallAudio: () => ({ audio, play, stopAudio: stop }),
+    View: 'View', Text: 'Text', Pressable: 'Button', Svg: 'Svg', Path: 'Path', Ionicons: 'Icon',
+    Animated: { View: 'Animated' }, FadeIn: animation, FadeInDown: animation,
+    GuideTarget: 'Guide', CheckinHeroBadge: 'Hero', ConclusionLoadingView: 'Loading', CheckinGiftCloseButton: 'GiftClose',
+    guideColors: {}, colors: {}, isDoctorFeaturesEnabled: false, showToast() {}, Linking: { openURL() {} },
+    guidanceAudio: { stop: async () => { calls.push('stop guide'); } },
+    setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
+  }, source);
+  const { CheckinGiftCloseButton } = evaluate('src/features/checkin-rewards/CheckinGiftCloseButton.tsx', {
+    react: buttonRuntime, 'react-native': { Pressable: 'Button' },
+  });
+  const props = { styles: {}, session: { id: 42, initial_status: status, current_status: status,
+    gift: { id: 'saved-gift', openedAt: opened ? '2026-10-29T01:00:00Z' : null } },
+    triageSummary: severity ? { severity, summary: 'Recorded symptoms', recommendation: 'Saved advice' } : null,
+    isFollowUp: false, practice, readOnly, onClose: () => calls.push('leave result') };
+  const render = () => {
+    const tree = runtime.render(() => DoneScreen(props));
+    const close = nodes(tree).find(node => node.type === 'GiftClose');
+    const action = close ? buttonRuntime.render(() => CheckinGiftCloseButton(close.props)) : null;
+    return { tree, action, gift: nodes(action).find(node => node.type === 'GiftFlow') };
+  };
+  const settle = async () => { let result; for (let i = 0; i < 5; i++) { result = render(); await tick(); } return result; };
+  return { calls, render, settle, t, phase: phase => { audio = { ...audio, phase }; },
+    advance: milliseconds => clock.advance(milliseconds, settle),
+    cleanup: () => { buttonRuntime.unmount(); runtime.unmount(); } };
+}
+
+for (const language of ['vi', 'en']) for (const status of ['fine', 'tired']) await test(`${language}/${status}: narration finishing keeps the actual result open until explicit Close`, async () => {
+  const h = resultGiftHarness({ language, status, severity: status === 'tired' ? 'medium' : undefined });
+  try {
+    let result = await h.settle(); assert.equal(result.gift, undefined);
+    result = await h.advance(4500);
+    assert.ok(nodes(result.tree).some(node => node.type === 'Text' && node.props.children === h.t('checkinDoneNoted')));
+    assert.equal(result.gift, undefined, 'The loading timeout shows the health result, never the gift');
+    assert.ok(!h.calls.includes('stop result'), 'Downloading the narration must not be cancelled by the gift');
+    h.phase('playing'); result = await h.settle();
+    assert.equal(result.gift, undefined); assert.ok(!h.calls.includes('stop result'));
+    h.phase('finished'); result = await h.settle();
+    assert.equal(result.gift, undefined); assert.equal(h.calls.filter(call => call === 'read result').length, 1);
+    assert.equal(h.calls.filter(call => call === 'stop result').length, 0);
+    assert.equal(h.calls.filter(call => call === 'leave result').length, 0, 'Finishing speech cannot navigate or open a gift');
+    const close = nodes(result.action).find(node => node.type === 'Button');
+    await close.props.onPress(); await close.props.onPress();
+    assert.equal(h.calls.filter(call => call === 'stop result').length, 1);
+    assert.equal(h.calls.filter(call => call === 'leave result').length, 1);
+  } finally { h.cleanup(); }
+});
+
+await test('failed result narration keeps the result and Replay visible instead of auto-opening its gift', async () => {
+  const h = resultGiftHarness();
+  try {
+    await h.settle(); h.phase('error'); let result = await h.settle();
+    assert.equal(result.gift, undefined); assert.ok(!h.calls.includes('stop result'));
+    assert.ok(nodes(result.tree).some(node => node.props.children === h.t('checkinSpeechUnavailable')));
+    const replay = nodes(result.tree).find(node => node.props.accessibilityLabel === h.t('checkinReplaySound'));
+    assert.ok(replay); replay.props.onPress(); result = await h.settle();
+    assert.equal(result.gift, undefined); assert.equal(h.calls.filter(call => call === 'read result').length, 2);
+    h.phase('playing'); result = await h.settle(); assert.equal(result.gift, undefined);
+    h.phase('finished'); result = await h.settle(); assert.equal(result.gift, undefined);
+    assert.ok(!h.calls.includes('leave result'));
+  } finally { h.cleanup(); }
+});
+
+for (const severity of ['high', 'emergency']) await test(`${severity}: finishing result speech never replaces urgent information with a gift`, async () => {
+  const h = resultGiftHarness({ status: 'very_tired', severity });
+  try {
+    await h.settle(); h.phase('finished'); const result = await h.settle();
+    assert.equal(result.gift, undefined); assert.ok(!h.calls.includes('stop result'));
+    assert.ok(nodes(result.tree).some(node => node.type === 'Text' && node.props.children === h.t(severity === 'high' ? 'checkinHighSubtitle' : 'checkinEmergencySubtitle')));
+  } finally { h.cleanup(); }
+});
+
+for (const options of [{ practice: true }, { readOnly: true }, { opened: true }]) await test(`practice, preview or existing receipt ${JSON.stringify(options)} never auto-claims a gift`, async () => {
+  const h = resultGiftHarness(options);
+  try { await h.settle(); h.phase('finished'); assert.equal((await h.settle()).gift, undefined); }
+  finally { h.cleanup(); }
 });
 
 function animationHarness(automatic = true) {
@@ -485,7 +579,7 @@ await test('completed wish and proverb grids omit the repeated fortune underneat
     assert.deepEqual(h.calls.opens, []);
   }
 });
-await test('all five remaining boxes share one lid-opening and reward-reveal animation below the fortune', async () => {
+await test('the reward page hides every other box until returning, then opens all five together', async () => {
   const h = modalHarness({ automaticAnimation: false, open: async box => ({ id: 'fortune', box, title: 'Một ngày bình yên' }) });
   let tree = await h.settle();
   nodes(tree).find(node => node.props.accessibilityLabel === 'Mở hộp quà số 5').props.onPress();
@@ -497,40 +591,67 @@ await test('all five remaining boxes share one lid-opening and reward-reveal ani
   h.animations.finishNext(); tree = await h.settle();
   assert.ok(nodes(tree).some(node => node.props.testID === 'gift-emerging-reward'));
   h.animations.finishNext(); tree = await h.settle();
-  const upper = nodes(tree).find(node => node.props.testID === 'gift-reward-page');
+  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-reward-page'));
+  assert.ok(!nodes(tree).some(node => /^(gift-result-grid|gift-chooser-grid|gift-other-)/.test(node.props.testID || '')),
+    'No grid, prize image, label or accessibility content is mounted beneath the received gift');
+  assert.equal(h.animations.pending.length, 0, 'Other lids must not animate behind the reward page');
+  assert.ok(!h.animations.timings.some(timing => timing.duration === 1100));
+  tree = await h.advance(4999);
+  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-reward-page'));
+  assert.ok(!nodes(tree).some(node => /^(gift-result-grid|gift-chooser-grid|gift-other-)/.test(node.props.testID || '')));
+  tree = await h.advance(1);
+  assert.ok(!nodes(tree).some(node => node.props.testID === 'gift-reward-page'));
   const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
-  assert.ok(upper); assert.ok(grid);
-  assert.ok(nodes(tree).indexOf(upper) < nodes(tree).indexOf(grid), 'Fortune is above the grid in the same result view');
+  assert.ok(grid);
   assert.equal(grid.props.children.length, 6);
   assert.equal(grid.props.children[4].props.testID, 'gift-received-4');
   assert.equal(nodes(grid).filter(node => /^gift-other-\d+$/.test(node.props.testID || '')).length, 5);
-  assert.equal(h.animations.pending.length, 1, 'One native animation opens every remaining box, with no per-slot sequence');
+  assert.equal(h.animations.pending.length, 1, 'One native animation starts only after returning to the grid');
   const openings = nodes(grid).filter(node => /^gift-other-opening-\d+$/.test(node.props.testID || ''));
   const reveals = nodes(grid).filter(node => /^gift-other-reveal-\d+$/.test(node.props.testID || ''));
   assert.equal(openings.length, 5); assert.equal(reveals.length, 5);
   const sharedProgress = reveals[0].props.style.opacity.value;
-  assert.equal(sharedProgress.value, 0, 'Rewards start hidden behind the closed boxes');
+  assert.equal(sharedProgress.value, 0, 'Rewards are still hidden at the first frame of the returned grid');
   assert.ok(reveals.every(node => node.props.style.opacity.value === sharedProgress));
   assert.ok(openings.every(node => node.props.style[1].opacity.value === sharedProgress));
   for (const box of [0, 1, 2, 3, 5]) {
     const lid = nodes(grid).find(node => node.props.testID === `gift-box-lid-${box}`);
-    assert.equal(lid.props.style.transform[0].translateY.value, sharedProgress, 'All five lids move on the same timeline');
+    assert.equal(lid.props.style.transform[0].translateY.value, sharedProgress);
   }
   assert.equal(h.animations.timings.at(-1).duration, 1100);
   assert.equal(h.animations.timings.at(-1).useNativeDriver, true);
   h.animations.finishNext(); tree = await h.settle();
   assert.equal(sharedProgress.value, 1, 'All five prizes finish revealing together');
   assert.equal(h.animations.pending.length, 0);
-  tree = await h.advance(4999);
-  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-reward-page'));
-  assert.equal(nodes(tree).filter(node => /^gift-other-\d+$/.test(node.props.testID || '')).length, 5);
-  tree = await h.advance(1);
-  assert.ok(!nodes(tree).some(node => node.props.testID === 'gift-reward-page'));
-  assert.ok(nodes(tree).some(node => node.props.testID === 'gift-result-grid'));
-  assert.equal(h.animations.pending.length, 0);
   assert.equal(h.clock.pending.size, 0);
   await h.advance(10000); assert.equal(h.calls.closes, 0);
   assert.deepEqual(h.calls.opens, [4]); assert.equal(h.calls.received.length, 1);
+});
+for (const reduceMotion of [false, true]) await test(`manual return with reduced motion ${reduceMotion}: all six slots keep today's gift and reveal alternatives only after returning`, async () => {
+  for (let box = 0; box < 6; box++) {
+    const h = modalHarness({ reduceMotion, open: async selected => ({ id: 'today-fixed', box: selected, kind: 'wish', title: 'Lời chúc của hôm nay' }) });
+    let tree = await h.settle();
+    nodes(tree).find(node => node.props.accessibilityLabel === `Mở hộp quà số ${box + 1}`).props.onPress();
+    tree = await h.settle();
+    const fortune = nodes(tree).find(node => node.props.testID === 'gift-fortune');
+    assert.ok(nodes(fortune).some(node => node.props.children === 'Lời chúc của hôm nay'));
+    assert.ok(!nodes(tree).some(node => /^(gift-result-grid|gift-chooser-grid|gift-other-)/.test(node.props.testID || '')));
+    assert.ok(!h.animations.timings.some(timing => timing.duration === 1100));
+    nodes(tree).find(node => node.type === 'Modal').props.onRequestClose();
+    tree = await h.settle();
+    assert.ok(!nodes(tree).some(node => node.props.testID === 'gift-reward-page'));
+    const grid = nodes(tree).find(node => node.props.testID === 'gift-result-grid');
+    assert.equal(grid.props.children.length, 6);
+    assert.equal(grid.props.children[box].props.testID, `gift-received-${box}`);
+    assert.ok(grid.props.children[box].props.accessibilityLabel.includes('Lời chúc của hôm nay'));
+    assert.equal(nodes(grid).filter(node => /^gift-other-\d+$/.test(node.props.testID || '')).length, 5);
+    assert.equal(h.animations.timings.filter(timing => timing.duration === 1100).length, reduceMotion ? 0 : 1);
+    assert.deepEqual(h.calls.opens, [box]);
+    assert.equal(h.calls.received.length, 1);
+    await h.advance(10000);
+    assert.equal(h.calls.closes, 0);
+    assert.equal(h.clock.pending.size, 0);
+  }
 });
 await test('interrupting the simultaneous reveal stops its animation and keeps all saved rewards visible on return', async () => {
   const h = modalHarness({ automaticAnimation: false });
@@ -538,6 +659,7 @@ await test('interrupting the simultaneous reveal stops its animation and keeps a
   nodes(tree).find(node => node.props.accessibilityLabel === 'Mở hộp quà số 1').props.onPress();
   await h.settle(); h.animations.finishNext(); await h.settle();
   h.animations.finishNext(); tree = await h.settle();
+  tree = await h.advance(5000);
   const reveal = nodes(tree).find(node => /^gift-other-reveal-\d+$/.test(node.props.testID || ''));
   const progress = reveal.props.style.opacity.value;
   assert.equal(progress.value, 0); assert.equal(h.animations.pending.length, 1);
@@ -617,8 +739,7 @@ await test('the reward page counts down 5, 4, 3, 2, 1, returns once and never au
   for (let second = 5; second >= 1; second--) {
     assert.ok(nodes(tree).some(node => node.props.children === `Sẽ đóng sau ${second}s`));
     assert.ok(nodes(tree).some(node => node.props.testID === 'gift-reward-page'));
-    assert.ok(nodes(tree).some(node => node.props.testID === 'gift-result-grid'));
-    assert.equal(nodes(tree).filter(node => /^gift-other-\d+$/.test(node.props.testID || '')).length, 5);
+    assert.ok(!nodes(tree).some(node => /^(gift-result-grid|gift-chooser-grid|gift-other-)/.test(node.props.testID || '')));
     tree = await h.advance(1000);
   }
   assert.equal(h.calls.closes, 0);
@@ -904,7 +1025,17 @@ await test('gift notification taps use validated identifiers and never follow ar
   assert.equal(route({ type: 'gift_draw_result', drawPeriodId: 'https://untrusted.invalid' }), '/checkin-rewards/history');
   assert.equal(route({ type: 'morning_checkin' }), '/checkin');
 });
-function homeHarness(today, { replay = false, history = async () => ({ items: [] }) } = {}) {
+function handoffTools() {
+  let now = Date.now(); const listeners = [];
+  return {
+    ...evaluate('src/features/checkin-rewards/checkin-gift-handoff.ts', {
+      '../../lib/tokenStore': { tokenStore: { subscribeSession: cb => listeners.push(cb) } },
+    }, { Date: { now: () => now } }),
+    expire: () => { now += 16 * 60 * 1000; },
+    logout: () => listeners.forEach(listener => listener()),
+  };
+}
+function homeHarness(today, { replay = false, history = async () => ({ items: [] }), handoff = handoffTools() } = {}) {
     const runtime=hooks(), account={profile:{id:'parent'}}, callbacks=[];
     const useAuthStore=select=>select(account);useAuthStore.getState=()=>account;
     const {HomeGiftCard}=evaluate('src/features/checkin-rewards/HomeGiftCard.tsx',{
@@ -915,13 +1046,85 @@ function homeHarness(today, { replay = false, history = async () => ({ items: []
       '../../hooks/useThemeColors':{useThemeColors:()=>({colors:{},isDark:false})},'../../hooks/useGuardedRouter':{useGuardedRouter:()=>({push(){}})},
       '../auth/auth.store':{useAuthStore},'./CheckinGiftFlow':{CheckinGiftFlow:'Gift'},
       './checkin-gift-replay':replayTools({today,history},{dev:replay,account:'parent'}),
+      './checkin-gift-handoff':handoff,
       '../../../assets/images/rewards/daily_clover.png':1001,
       '../../../assets/images/rewards/daily_gift_hero.png':1002,
       '../../../assets/images/rewards/daily_chest.png':1003,
     });
     const render=()=>{const root=HomeGiftCard();return root.type(root.props);};
-    return { account, callbacks, settle: () => runtime.settle(render) };
+    return { account, callbacks, handoff, runtime, settle: () => runtime.settle(render) };
 }
+
+await test('closing a real saved result queues numeric and PostgreSQL string IDs before navigating to Home, preserving practice navigation', () => {
+  const file = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let close;
+  function find(node) {
+    if (ts.isVariableDeclaration(node) && node.name.getText(file) === 'closeCheckin') close = node.getText(file);
+    ts.forEachChild(node, find);
+  }
+  find(file); assert.ok(close);
+  for (const practice of [false, true]) for (const checkinId of [42, '1208']) for (const hasGiftSnapshot of [false, true]) {
+    const calls = [], handoff = handoffTools();
+    const closeCheckin = evaluate('app/checkin/index.tsx', {}, {
+      guidanceAudio: { stop: async () => {} }, isPractice: practice, isResultPreview: false,
+      screen: 'done', session: { id: checkinId, ...(hasGiftSnapshot ? { gift: { id: 'daily-gift' } } : {}) }, userId: 'parent',
+      useGuidanceStore: { getState: () => ({ acknowledge: step => calls.push(step) }) },
+      offerCheckinGiftOnHome: (...args) => { calls.push('queue gift'); handoff.offerCheckinGiftOnHome(...args); },
+      router: { canGoBack: () => true, back: () => calls.push('back'), replace: route => calls.push(route) },
+    }, `const ${close}; module.exports = closeCheckin;`);
+    closeCheckin();
+    assert.deepEqual(calls, practice ? ['checkin.finished', 'back'] : ['queue gift', '/(tabs)/home']);
+    assert.equal(handoff.takeCheckinGiftOnHome('parent', 'daily-gift'), !practice);
+  }
+});
+
+await test('Home handoff accepts real PostgreSQL BIGINT strings losslessly and rejects malformed IDs', () => {
+  for (const id of [1208, '1208', '9223372036854775807']) {
+    const h = handoffTools(); h.offerCheckinGiftOnHome('parent', id);
+    assert.equal(h.takeCheckinGiftOnHome('parent', 'daily-gift'), true, `Valid wire ID ${id}`);
+  }
+  for (const id of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '', '0', '-42', '2.5', '1e3', ' 1208 ', '12no', null, undefined, {}, true]) {
+    const h = handoffTools(); h.offerCheckinGiftOnHome('parent', id);
+    assert.equal(h.takeCheckinGiftOnHome('parent', 'daily-gift'), false, `Malformed ID ${String(id)}`);
+  }
+});
+
+await test('only returning to focused Home loads and opens a saved manual check-in gift, exactly once', async () => {
+  const handoff = handoffTools(); handoff.offerCheckinGiftOnHome('parent', '1208');
+  const h = homeHarness(async () => ({ enabled: true, gift: { id: 'daily-gift', openedAt: null }, streak: 1, week: [], offerOnAppOpen: false }), { handoff });
+  let tree = await h.settle(); const gift = nodes(tree).find(node => node.type === 'Gift'); assert.ok(gift);
+  gift.props.onClose(); tree = await h.settle(); assert.ok(!nodes(tree).some(node => node.type === 'Gift'));
+  h.callbacks.at(-1)('active'); tree = await h.settle(); assert.ok(!nodes(tree).some(node => node.type === 'Gift'));
+});
+
+await test('a failed Home load retains the handoff for retry without changing saved health or gift state', async () => {
+  const handoff = handoffTools(); handoff.offerCheckinGiftOnHome('parent', 42, 'daily-gift'); let offline = true;
+  const h = homeHarness(async () => {
+    if (offline) throw new Error('offline');
+    return { enabled: true, gift: { id: 'daily-gift', openedAt: null }, streak: 1, week: [] };
+  }, { handoff });
+  assert.ok(!nodes(await h.settle()).some(node => node.type === 'Gift'));
+  offline = false; h.callbacks.at(-1)('active'); assert.ok(nodes(await h.settle()).some(node => node.type === 'Gift'));
+});
+
+await test('a pending gift never opens Home underneath the result after Home loses focus', async () => {
+  let resolve; const handoff = handoffTools();
+  const h = homeHarness(() => new Promise(done => { resolve = done; }), { handoff });
+  await h.settle(); h.runtime.unmount(); handoff.offerCheckinGiftOnHome('parent', 42, 'daily-gift');
+  resolve({ enabled: true, gift: { id: 'daily-gift', openedAt: null }, streak: 1, week: [] }); await tick();
+  assert.equal(handoff.takeCheckinGiftOnHome('parent', 'daily-gift'), true, 'An unfocused stale fetch cannot consume or display the handoff');
+});
+
+await test('handoffs cannot cross accounts, expired sessions, different gift IDs or logouts', () => {
+  const h = handoffTools();
+  h.offerCheckinGiftOnHome('parent', 42, 'daily-gift');
+  assert.equal(h.takeCheckinGiftOnHome('other-account', 'daily-gift'), false);
+  assert.equal(h.takeCheckinGiftOnHome('parent', 'different-gift'), false);
+  assert.equal(h.takeCheckinGiftOnHome('parent', 'daily-gift'), true);
+  assert.equal(h.takeCheckinGiftOnHome('parent', 'daily-gift'), false);
+  h.offerCheckinGiftOnHome('parent', 42, 'daily-gift'); h.expire(); assert.equal(h.takeCheckinGiftOnHome('parent', 'daily-gift'), false);
+  h.offerCheckinGiftOnHome('parent', 42, 'daily-gift'); h.logout(); assert.equal(h.takeCheckinGiftOnHome('parent', 'daily-gift'), false);
+});
 await test('local Home keeps the test opening action available after closing, even with no check-in today', async () => {
   const day = { enabled: true, gift: null, streak: 0, week: [] };
   const gift = { id: 'saved', openedAt: '2026-10-19T01:00:00Z' };

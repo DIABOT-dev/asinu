@@ -34,6 +34,7 @@ import { isDoctorFeaturesEnabled } from '../../src/lib/appEnv';
 import type { CheckinUiPreviewId } from '../../src/features/checkin/checkin-ui-gallery';
 import { CheckinGiftModal } from '../../src/features/checkin-rewards/CheckinGiftModal';
 import { CheckinGiftCloseButton } from '../../src/features/checkin-rewards/CheckinGiftCloseButton';
+import { offerCheckinGiftOnHome } from '../../src/features/checkin-rewards/checkin-gift-handoff';
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
@@ -570,6 +571,11 @@ function CheckinScreen() {
   const closeCheckin = () => {
     void guidanceAudio.stop();
     if (isPractice && screen === 'done') useGuidanceStore.getState().acknowledge('checkin.finished');
+    if (!isPractice && !isResultPreview && screen === 'done' && session && session.id > 0) {
+      offerCheckinGiftOnHome(userId, session.id, session.gift?.id);
+      router.replace('/(tabs)/home');
+      return;
+    }
     if (router.canGoBack()) router.back(); else router.replace('/(tabs)/home');
   };
 
@@ -2249,13 +2255,9 @@ function DoneScreen({
       </GuideTarget>}
       <GuideTarget step="checkin.result_close" enabled={practice}>
       <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+        {/* Closing returns to Home; the result never presents a gift itself. */}
         <CheckinGiftCloseButton
           accessibilityRole="button"
-          eligible={!practice && !readOnly && !forceLoading && !!session && session.id > 0 &&
-            (isFine || !!triageSummary)}
-          autoOffer={!practice && !readOnly && !isHigh && !isEmergency && !!session?.gift && !session.gift.openedAt}
-          status={session?.current_status}
-          familyAlerted={session?.family_alerted}
           onBeforeClose={async () => {
             await Promise.allSettled([stopConclusionAudio(), guidanceAudio.stop()]);
           }}
