@@ -123,7 +123,7 @@ for (const file of appFiles) {
     if (ts.isCallExpression(node)) {
       const callee = node.expression.getText(source);
       const isApiClient = callee === 'apiClient';
-      const isFetch = callee === 'fetch';
+      const isFetch = callee === 'fetch' || callee === 'monitoredFetch';
       const isHealthFeedClient = callee === 'healthFeedApi';
       const isDoctorIvrRequest = isDoctorIvrModule && callee === 'request';
       if (isApiClient || isFetch || isHealthFeedClient || isDoctorIvrRequest) {

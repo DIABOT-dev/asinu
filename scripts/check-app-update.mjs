@@ -52,6 +52,7 @@ await test('check-in, recording, call, purchase and medical screens are excluded
 function service(platform, native, fetcher = async () => ({ ok: true, json: async () => catalog('2.0.3') }), opens = [], nativeApp = { applicationId: policy.APP_BUNDLE_ID, nativeApplicationVersion: '2.0.2' }) {
   const subscriptions = new Map();
   const result = evaluate('src/features/app-update/app-update.service.ts', {
+    '../../observability/sentry': { monitoredFetch: fetcher },
     'expo-modules-core': { requireOptionalNativeModule: () => nativeApp },
     'expo-localization': { getLocales: () => [{ regionCode: 'VN' }] },
     './update-policy': policy,
