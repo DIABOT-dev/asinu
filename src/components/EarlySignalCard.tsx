@@ -189,9 +189,8 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
 
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${t("earlyTitle")}. ${t(view.labelKey)}. ${summary}`}
+      <View
+        testID="early-signal-card"
         style={[
           styles.card,
           canOpenDetails && {
@@ -199,49 +198,58 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
             backgroundColor: view.color + "08",
           },
         ]}
-        onPress={() => (canOpenDetails ? setOpen(true) : evaluate())}
-        disabled={evaluating}
       >
-        <View style={styles.icon}>
-          <MaterialCommunityIcons
-            name="radar"
-            size={27}
-            color={view.color}
-          />
-        </View>
-        <View style={styles.copy}>
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>{t("earlyTitle")}</Text>
-            {canOpenDetails && (
-              <Text style={[styles.level, { color: view.color }]}>
-                {t(view.labelKey)}
-              </Text>
-            )}
-          </View>
-          <Text style={styles.body} numberOfLines={canOpenDetails ? 2 : 3}>
-            {summary}
-          </Text>
-        </View>
-        {loading || evaluating ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : (
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.textSecondary}
-          />
-        )}
-      </Pressable>
-
-      {!assessment && !loading && (
         <Pressable
-          style={styles.evaluateButton}
-          onPress={evaluate}
+          accessibilityRole="button"
+          accessibilityLabel={`${t("earlyTitle")}. ${t(view.labelKey)}. ${summary}`}
+          style={styles.cardHeader}
+          onPress={() => (canOpenDetails ? setOpen(true) : evaluate())}
           disabled={evaluating}
         >
-          <Text style={styles.evaluateText}>{t("earlyEvaluate")}</Text>
+          <View style={styles.icon}>
+            <MaterialCommunityIcons
+              name="radar"
+              size={27}
+              color={view.color}
+            />
+          </View>
+          <View style={styles.copy}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{t("earlyTitle")}</Text>
+              {canOpenDetails && (
+                <Text style={[styles.level, { color: view.color }]}>
+                  {t(view.labelKey)}
+                </Text>
+              )}
+            </View>
+            <Text style={styles.body} numberOfLines={canOpenDetails ? 2 : 3}>
+              {summary}
+            </Text>
+          </View>
+          {loading || evaluating ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          )}
         </Pressable>
-      )}
+
+        {!assessment && !loading && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("earlyEvaluate")}
+            testID="early-signal-evaluate"
+            style={styles.evaluateButton}
+            onPress={evaluate}
+            disabled={evaluating}
+          >
+            <Text allowFontScaling style={styles.evaluateText}>{t("earlyEvaluate")}</Text>
+          </Pressable>
+        )}
+      </View>
 
       <Modal
         visible={open && canOpenDetails}
@@ -325,9 +333,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+    minHeight: 56,
   },
   icon: {
     width: 46,
@@ -336,14 +347,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  copy: { flex: 1 },
+  copy: { flex: 1, minWidth: 0 },
   titleRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     alignItems: "center",
     gap: spacing.sm,
   },
   title: {
+    flexShrink: 1,
     fontSize: typography.size.md,
     fontWeight: "900",
     color: colors.textPrimary,
@@ -356,9 +369,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   evaluateButton: {
-    marginTop: -8,
-    alignSelf: "flex-start",
-    marginLeft: 62,
+    marginTop: spacing.sm,
+    alignSelf: "stretch",
+    marginLeft: 58,
+    minHeight: 56,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 7,
     backgroundColor: colors.primaryLight,
@@ -367,7 +383,8 @@ const styles = StyleSheet.create({
   evaluateText: {
     fontSize: typography.size.xs,
     fontWeight: "800",
-    color: colors.primaryDark,
+    color: colors.primaryText,
+    textAlign: "center",
   },
   backdrop: {
     position: "absolute",

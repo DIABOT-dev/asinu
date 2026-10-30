@@ -146,7 +146,12 @@ export const useHomeViewModel = () => {
     return () => controller.abort();
   }, [fetchLogs, fetchMissions, fetchTree, fetchHealthScore]);
 
-  const isOffline = logsError === 'remote-failed' || missionsError === 'remote-failed' || treeError === 'remote-failed';
+  // A failed section does not prove the device lost Internet access. Keep its
+  // retry banner, and reserve the modal for failure across all Home data sources.
+  // Include no-data failures so a first launch without a cache can still retry.
+  const refreshErrors = [logsError, missionsError, treeError];
+  const hasRefreshError = refreshErrors.some(error => error === 'remote-failed' || error === 'no-data');
+  const isOffline = refreshErrors.every(error => error === 'remote-failed' || error === 'no-data');
 
   return {
     logs,
@@ -162,6 +167,7 @@ export const useHomeViewModel = () => {
     logsError,
     missionsError,
     treeError,
+    hasRefreshError,
     isOffline,
     refreshAll
   };

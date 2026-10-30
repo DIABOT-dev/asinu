@@ -244,6 +244,59 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(calls.playback, Array(4).fill(['practice_result', language, true]));
   });
 }
+// Verify the redesigned choices still report the original API status values.
+const choiceFile = ts.createSourceFile('choice.tsx', read('src/features/checkin/CheckinStatusChoice.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const choiceSource = choiceFile.statements.filter(node => !ts.isImportDeclaration(node)).map(node => node.getText(choiceFile)).join('\n');
+for (const language of ['vi', 'en']) for (const isDark of [false, true]) {
+  await test(`${language}/${isDark ? 'dark' : 'light'}: status cards preserve all three actions, readable labels and read-only previews`, () => {
+    const { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } = evaluate(choiceSource, {
+      ...native, React: {}, LinearGradient: 'Gradient', StyleSheet: { create: value => value },
+      useTranslation: translations(language).useTranslation, useThemeColors: () => ({ isDark }),
+    });
+    const selected = [];
+    assert.deepEqual(CHECKIN_STATUS_CHOICES.map(choice => choice.status), ['fine', 'tired', 'very_tired']);
+    for (const choice of CHECKIN_STATUS_CHOICES) {
+      const tree = CheckinStatusChoice({ choice, onSelect: value => selected.push(value) });
+      const card = nodes(tree).find(node => node.type === 'Gradient');
+      const cardStyle = Object.assign({}, ...card.props.style);
+      assert.ok(cardStyle.minHeight >= 104);
+      assert.equal(cardStyle.height, undefined);
+      assert.equal(tree.props.accessibilityRole, 'button');
+      assert.equal(tree.props.testID, `checkin-status-${choice.status}`);
+      assert.ok(tree.props.accessibilityLabel.includes(translations(language).t(choice.labelKey)));
+      const labels = nodes(card).filter(node => node.type === 'Text');
+      assert.equal(labels.length, 2);
+      for (const label of labels) {
+        assert.equal(label.props.allowFontScaling, true);
+        assert.equal(label.props.numberOfLines, undefined);
+      }
+      tree.props.onPress();
+      const preview = CheckinStatusChoice({ choice });
+      assert.equal(nodes(preview).some(node => node.type === 'Pressable'), false);
+    }
+    assert.deepEqual(selected, ['fine', 'tired', 'very_tired']);
+  });
+}
+
+for (const language of ['vi', 'en']) {
+  for (const [hour, key] of [[8, 'Morning'], [13, 'Afternoon'], [16, 'Evening2'], [21, 'Evening']]) {
+    await test(`${language}: status greeting follows the time at ${hour}:00 for practice and normal check-in`, () => {
+      const tr = translations(language);
+      const StatusScreen = evaluate(`${extract('StatusScreen')}\nmodule.exports = StatusScreen;`, {
+        ...native, ...tr, CHECKIN_STATUS_CHOICES: [], CheckinStatusChoice: 'Choice',
+        Date: class extends Date { getHours() { return hour; } },
+      });
+      for (const practice of [false, true]) {
+        const tree = StatusScreen({ styles: {}, onSelect() {}, isFollowUp: false, practice });
+        const heading = nodes(tree).find(node => node.type === 'Text' && node.props.accessibilityRole === 'header');
+        assert.equal(heading.props.children, tr.t(`checkinGreeting${key}`));
+      }
+      const followup = StatusScreen({ styles: {}, onSelect() {}, isFollowUp: true });
+      assert.ok(nodes(followup).some(node => node.type === 'Text' && node.props.children === tr.t('checkinGreetingFollowUp')));
+    });
+  }
+}
+
 // Exercise the real shared screen components independently of the live route.
 const { CHECKIN_UI_PREVIEWS } = evaluate(read('src/features/checkin/checkin-ui-gallery.ts'));
 const extractVariable = name => routeFile.statements.find(item => ts.isVariableStatement(item)

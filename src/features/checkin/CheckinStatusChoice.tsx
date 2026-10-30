@@ -3,99 +3,19 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import type { CheckinStatus } from "./checkin.api";
 
-// Subtle watermarks rendered on the right background of each card
-function WatermarkLeaves({ color = "#08b8a2" }: { color?: string }) {
+// The same quiet botanical motif ties all three status cards together.
+function WatermarkLeaves({ color }: { color: string }) {
   return (
-    <Svg width={80} height={76} viewBox="0 0 80 76" fill="none" style={styles.watermark}>
-      <Path
-        d="M20 72C32 56 48 38 64 12"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        opacity={0.32}
-      />
-      <Path
-        d="M64 12C70 24 58 36 46 34C40 33 50 18 64 12Z"
-        fill={color}
-        opacity={0.22}
-      />
-      <Path
-        d="M50 32C62 38 58 50 46 48C38 46 43 35 50 32Z"
-        fill={color}
-        opacity={0.2}
-      />
-      <Path
-        d="M32 46C22 42 24 28 36 30C42 31 38 44 32 46Z"
-        fill={color}
-        opacity={0.18}
-      />
-    </Svg>
-  );
-}
-
-function WatermarkHeartPulse({ color = "#F59E0B" }: { color?: string }) {
-  return (
-    <Svg width={78} height={66} viewBox="0 0 78 66" fill="none" style={styles.watermark}>
-      <Path
-        d="M39 58C39 58 14 40 14 22C14 12 21 6 30 6C36 6 39 10 39 10C39 10 42 6 48 6C57 6 64 12 64 22C64 40 39 58 39 58Z"
-        fill={color}
-        opacity={0.22}
-      />
-      <Path
-        d="M22 25H29L33 16L39 34L44 20L48 25H58"
-        stroke="#FFFFFF"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.7}
-      />
-    </Svg>
-  );
-}
-
-function WatermarkHospitalBed({ color = "#F43F5E" }: { color?: string }) {
-  return (
-    <Svg width={78} height={66} viewBox="0 0 78 66" fill="none" style={styles.watermark}>
-      {/* Medical Cross above */}
-      <Path
-        d="M48 8H54V14H60V20H54V26H48V20H42V14H48V8Z"
-        fill={color}
-        opacity={0.25}
-      />
-      {/* Bed headboard */}
-      <Path
-        d="M12 24V50"
-        stroke={color}
-        strokeWidth={3}
-        strokeLinecap="round"
-        opacity={0.3}
-      />
-      {/* Person pillow / head */}
-      <Path
-        d="M22 32C25 32 27 30 27 27C27 24 25 22 22 22C19 22 17 24 17 27C17 30 19 32 22 32Z"
-        fill={color}
-        opacity={0.25}
-      />
-      {/* Bed mattress */}
-      <Path
-        d="M12 40H64C66 40 68 38 68 36V35H12V40Z"
-        fill={color}
-        opacity={0.25}
-      />
-      {/* Bed frame & legs */}
-      <Path
-        d="M12 42H68V50"
-        stroke={color}
-        strokeWidth={2.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.3}
-      />
+    <Svg width={150} height={118} viewBox="0 0 150 118" fill="none" style={styles.watermark} pointerEvents="none" accessible={false}>
+      <Path d="M76 124C72 92 73 57 93 12M75 112C57 93 41 78 17 68M78 110C95 91 113 78 137 70" stroke={color} strokeWidth={1.5} opacity={0.14} />
+      <Path d="M80 75C59 49 74 18 99 7C109 31 100 60 80 75Z" fill={color} opacity={0.14} />
+      <Path d="M72 111C40 109 15 89 11 61C42 61 68 79 72 111Z" fill={color} opacity={0.11} />
+      <Path d="M80 113C83 85 110 70 145 72C134 101 110 117 80 113Z" fill={color} opacity={0.12} />
     </Svg>
   );
 }
@@ -129,17 +49,17 @@ export const CHECKIN_STATUS_CHOICES: Array<{
     bg: "#f4fcfb",
     border: "#a4e8df",
     borderDark: "rgba(8, 184, 162, 0.35)",
-    color: "#0f766e",
+    color: "#083842",
     darkColor: "#5eead4",
-    iconColor: "#08b8a2",
-    subColor: "#475569",
+    iconColor: "#00847d",
+    subColor: "#61758b",
     darkSubColor: "#94a3b8",
-    gradient: ["#ffffff", "#f8fdfb"],
+    gradient: ["#fdfffe", "#effbf8"],
     gradientDark: ["#072421", "#041715"],
-    avatarBg: "transparent",
-    avatarBgDark: "transparent",
+    avatarBg: "#e2f7f3",
+    avatarBgDark: "#163e38",
     avatarBorder: "transparent",
-    chevronColor: "#08b8a2",
+    chevronColor: "#00847d",
   },
   {
     status: "tired",
@@ -152,12 +72,12 @@ export const CHECKIN_STATUS_CHOICES: Array<{
     color: "#b45309",
     darkColor: "#fcd34d",
     iconColor: "#d97706",
-    subColor: "#78350F",
+    subColor: "#61758b",
     darkSubColor: "#fde68a",
-    gradient: ["#ffffff", "#fffdf7"],
+    gradient: ["#fffdfb", "#fff7ee"],
     gradientDark: ["#291a07", "#1c1103"],
-    avatarBg: "transparent",
-    avatarBgDark: "transparent",
+    avatarBg: "#fff0e1",
+    avatarBgDark: "#483015",
     avatarBorder: "transparent",
     chevronColor: "#d97706",
   },
@@ -172,12 +92,12 @@ export const CHECKIN_STATUS_CHOICES: Array<{
     color: "#be123c",
     darkColor: "#fda4af",
     iconColor: "#e11d48",
-    subColor: "#881337",
+    subColor: "#61758b",
     darkSubColor: "#fecdd3",
-    gradient: ["#ffffff", "#fffafa"],
+    gradient: ["#fffdfd", "#fff1f4"],
     gradientDark: ["#29080e", "#1c0307"],
-    avatarBg: "transparent",
-    avatarBgDark: "transparent",
+    avatarBg: "#ffe7ec",
+    avatarBgDark: "#4b2030",
     avatarBorder: "transparent",
     chevronColor: "#e11d48",
   },
@@ -192,6 +112,7 @@ export function CheckinStatusChoice({
 }) {
   const { t } = useTranslation("home");
   const { isDark } = useThemeColors();
+  const faceColor = isDark ? choice.darkColor : choice.iconColor;
 
   const content = (
     <LinearGradient
@@ -203,32 +124,20 @@ export function CheckinStatusChoice({
         { borderColor: isDark ? choice.borderDark : choice.border },
       ]}
     >
-      {/* Right Watermark */}
-      {choice.status === "fine" ? (
-        <WatermarkLeaves color={choice.iconColor} />
-      ) : choice.status === "tired" ? (
-        <WatermarkHeartPulse color={choice.iconColor} />
-      ) : (
-        <WatermarkHospitalBed color={choice.iconColor} />
-      )}
-
-      {/* Status icon with check badge for 'fine' - clean direct icon without background */}
-      <View style={styles.avatarWrap}>
-        <MaterialCommunityIcons
-          name={choice.icon}
-          size={34}
-          color={choice.iconColor}
-        />
-        {choice.status === "fine" && (
-          <View style={styles.avatarCheckBadge}>
-            <Ionicons name="checkmark" size={10} color="#FFFFFF" />
-          </View>
-        )}
+      <WatermarkLeaves color={isDark ? choice.darkColor : choice.iconColor} />
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.avatarWrap, { backgroundColor: isDark ? choice.avatarBgDark : choice.avatarBg }]}>
+        <Svg width={46} height={46} viewBox="0 0 46 46" fill="none" accessible={false}>
+          <Circle cx={23} cy={23} r={17} stroke={faceColor} strokeWidth={2.5} />
+          <Circle cx={17} cy={20} r={1.7} fill={faceColor} />
+          <Circle cx={29} cy={20} r={1.7} fill={faceColor} />
+          <Path d={choice.status === "fine" ? "M16 28Q23 35 30 28" : choice.status === "tired" ? "M17 29H29" : "M17 32Q23 25 29 32"} stroke={faceColor} strokeWidth={2.5} strokeLinecap="round" />
+        </Svg>
       </View>
 
       {/* Text Copy */}
       <View style={styles.copy}>
         <Text
+          allowFontScaling
           style={[
             styles.label,
             { color: isDark ? choice.darkColor : choice.color },
@@ -237,6 +146,7 @@ export function CheckinStatusChoice({
           {t(choice.labelKey)}
         </Text>
         <Text
+          allowFontScaling
           style={[
             styles.sub,
             { color: isDark ? choice.darkSubColor : choice.subColor },
@@ -246,14 +156,17 @@ export function CheckinStatusChoice({
         </Text>
       </View>
 
-      {/* Chevron Forward */}
-      <Ionicons name="chevron-forward" size={22} color={choice.chevronColor} />
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.chevron, { backgroundColor: isDark ? choice.avatarBgDark : choice.avatarBg }]}>
+        <Ionicons name="chevron-forward" size={22} color={isDark ? choice.darkColor : choice.chevronColor} />
+      </View>
     </LinearGradient>
   );
 
   return onSelect ? (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${t(choice.labelKey)}. ${t(choice.sublabelKey)}`}
+      testID={`checkin-status-${choice.status}`}
       style={({ pressed }) => [pressed && { opacity: 0.88, transform: [{ scale: 0.995 }] }]}
       onPress={() => onSelect(choice.status)}
     >
@@ -269,11 +182,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderRadius: 22,
-    borderWidth: 1.5,
-    minHeight: 80,
+    borderWidth: 1,
+    minHeight: 104,
     shadowColor: "#08b8a2",
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -285,25 +198,21 @@ const styles = StyleSheet.create({
   watermark: {
     position: "absolute",
     right: 26,
-    bottom: -6,
+    bottom: -4,
   },
   avatarWrap: {
-    width: 44,
-    height: 44,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
   },
-  avatarCheckBadge: {
-    position: "absolute",
-    bottom: -1,
-    right: -1,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#08b8a2",
-    borderWidth: 1.5,
-    borderColor: "#FFFFFF",
+  chevron: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -313,15 +222,16 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   label: {
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: "800",
-    lineHeight: 28,
+    lineHeight: 32,
     letterSpacing: -0.2,
   },
   sub: {
-    fontSize: 18,
+    maxWidth: 188,
+    fontSize: 16,
     marginTop: 4,
-    lineHeight: 25,
-    fontWeight: "500",
+    lineHeight: 23,
+    fontWeight: "400",
   },
 });

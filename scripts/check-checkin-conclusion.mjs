@@ -96,11 +96,21 @@ test('the light check-in header can override its arrow color without changing ot
     nodes(checkin).find((node) => node.type === 'Icon').props.color,
     '#0F172A',
   );
-  assert.ok(
-    fs
-      .readFileSync('app/checkin/index.tsx', 'utf8')
-      .includes('iconColor="#0F172A"'),
-  );
+  const route = ts.createSourceFile('checkin.tsx', fs.readFileSync('app/checkin/index.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let arrow;
+  const visit = node => {
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(route) === 'ScreenBackButton') {
+      arrow ??= node.attributes.properties.find(prop => prop.name?.getText(route) === 'iconColor');
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(route);
+  assert.ok(arrow?.initializer?.expression, 'Check-in header must set its arrow color');
+  const resolveColor = new Function('screen', 'colors', `return (${arrow.initializer.expression.getText(route)})`);
+  for (const textPrimary of ['#221f1f', '#f0f0f5']) {
+    assert.equal(resolveColor('status', { textPrimary }), textPrimary, 'Status header follows its theme');
+    assert.equal(resolveColor('triage', { textPrimary }), '#0F172A', 'Existing light triage header keeps a dark arrow');
+  }
 });
 for (const lang of ['vi', 'en']) {
   const home = JSON.parse(

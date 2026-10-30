@@ -609,11 +609,12 @@ function CheckinScreen() {
           paddingTop: insets.top + 8,
           paddingBottom: 10,
           paddingHorizontal: 16,
-          backgroundColor: '#f3fbf8',
+          backgroundColor: screen === 'status' ? (isDark ? colors.background : '#f4fdfb') : '#f3fbf8',
         }}
       >
         <ScreenBackButton
-          iconColor="#0F172A"
+          iconColor={screen === 'status' ? colors.textPrimary : "#0F172A"}
+          style={{ width: 44, height: 44 }}
           onPress={() => {
             if (screen === 'location') {
               setPendingStatus(null);
@@ -624,19 +625,20 @@ function CheckinScreen() {
           }}
         />
         {isPractice ? <GuideTarget step="checkin.practice" style={{ flex: 1, marginHorizontal: 12 }}>
-          <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: guideColors.ink, textAlign: 'center' }}>
+          <Text allowFontScaling style={{ fontSize: 22, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' }}>
             {tg('guidance.practiceTitle')}
           </Text>
         </GuideTarget> : <Text
           style={{
-            fontSize: 17,
+            fontSize: screen === 'status' ? 22 : 17,
             fontWeight: '700',
-            color: '#0F172A',
+            color: screen === 'status' ? colors.textPrimary : '#0F172A',
             textAlign: 'center',
             flex: 1,
             marginHorizontal: 12,
           }}
-          numberOfLines={1}
+          allowFontScaling
+          numberOfLines={screen === 'status' ? undefined : 1}
         >
           {isResultPreview
             ? t('checkinResultPreviewHeader')
@@ -654,12 +656,12 @@ function CheckinScreen() {
           style={{
             alignItems: 'center',
             borderRadius: 20,
-            height: 40,
+            height: 44,
             justifyContent: 'center',
-            width: 40,
+            width: 44,
           }}
         >
-          <Ionicons name="help-circle-outline" size={22} color={colors.primary} />
+          <Ionicons name="help-circle-outline" size={24} color={colors.primaryText} />
         </Pressable>
       </View>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
@@ -671,8 +673,8 @@ function CheckinScreen() {
       <GuideScrollScope scrollRef={mainScrollRef} offset={guideScrollOffset}>
       <ScrollView
         ref={mainScrollRef}
-        style={{ flex: 1, backgroundColor: '#f3fbf8' }}
-        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 120 }]}
+        style={{ flex: 1, backgroundColor: screen === 'status' ? (isDark ? colors.background : '#f4fdfb') : '#f3fbf8' }}
+        contentContainerStyle={[styles.container, screen === 'status' && { paddingTop: 8 }, { paddingBottom: insets.bottom + (screen === 'status' ? 24 : 120) }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
@@ -820,7 +822,6 @@ function StatusScreen({
   readOnly?: boolean;
 }) {
   const { t } = useTranslation('home');
-
   const getGreeting = () => {
     if (isFollowUp) return t('checkinGreetingFollowUp');
     const h = new Date().getHours();
@@ -831,123 +832,61 @@ function StatusScreen({
   };
 
   return (
-    <View style={styles.statusSection}>
-      {/* Decorative Upper Hero Section */}
-      <View style={styles.heroDecorativeRow}>
-        <Svg width={110} height={120} viewBox="0 0 110 120" fill="none" style={styles.heroTopLeftBranch} pointerEvents="none">
-          <Path
-            d="M-10 120 C20 100 35 60 30 10"
-            stroke="#a4e8df"
-            strokeWidth={2}
-            strokeLinecap="round"
-            opacity={0.55}
-          />
-          <Path
-            d="M30 10 C32 26 20 38 12 34 C6 30 16 16 30 10 Z"
-            fill="#cdeee7"
-            opacity={0.5}
-          />
-          <Path
-            d="M26 45 C42 42 46 56 36 62 C28 66 22 52 26 45 Z"
-            fill="#6ddcd0"
-            opacity={0.4}
-          />
-          <Path
-            d="M16 80 C30 76 36 90 26 96 C18 100 12 88 16 80 Z"
-            fill="#b2ebe3"
-            opacity={0.45}
-          />
+    <View style={styles.statusSection} testID="checkin-status-screen">
+      <View style={styles.statusBackdrop} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Svg width="100%" height="100%" viewBox="0 0 430 760" preserveAspectRatio="none">
+          <Path d="M0 0C125 125 179 133 275 89C338 60 379 5 430 16V186C326 140 280 155 210 175C121 200 54 184 0 142Z" fill={colors.primaryLight} opacity={0.65} />
+          <Path d="M0 161C103 223 143 136 238 147C322 157 373 190 430 159V205C355 162 280 167 225 190C132 229 62 198 0 211Z" fill={colors.surface} opacity={0.6} />
+          <Path d="M0 705C93 731 140 674 236 704C323 732 370 695 430 730V760H0Z" fill={colors.primaryLight} opacity={0.75} />
+          <Path d="M0 62C27 69 26 103 3 115C-3 96-2 78 0 62ZM0 120C27 111 29 130 6 142Z" fill={colors.primary} opacity={0.09} />
+          <Path d="M0 713C13 683 37 694 23 724C15 740 10 742 0 750ZM12 748C10 718 41 716 43 702C54 729 35 746 12 748ZM410 703C394 677 390 715 413 725C430 735 430 722 430 722Z" fill={colors.primary} opacity={0.1} />
         </Svg>
-
-        {/* Left cursive slogan */}
-        <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.heroSideWrapLeft}>
-          <Text style={styles.heroSideText}>{t('checkinHeroSloganLeft')}</Text>
-        </Animated.View>
-
-        {/* Center circular heart ECG badge */}
-        <Animated.View entering={FadeIn.duration(400)} style={styles.heroCenterBadgeWrap}>
-          <Svg width={112} height={104} viewBox="0 0 112 104" fill="none" style={styles.heroCenterBadgeDecor} pointerEvents="none">
-            {/* Floating primary crosses */}
-            <Path d="M12 28H17V23H19V28H24V30H19V35H17V30H12V28Z" fill="#08b8a2" opacity={0.65} />
-            <Path d="M92 34H97V29H99V34H104V36H99V41H97V36H92V34Z" fill="#08b8a2" opacity={0.65} />
-            {/* Soft glowing primaryLight aura circle */}
-            <Path d="M56 10 A42 42 0 1 0 56 94 A42 42 0 1 0 56 10 Z" fill="#e6faf8" opacity={0.95} />
-            {/* Delicate leaves on bottom-left and bottom-right of badge */}
-            <Path d="M26 64C22 58 24 50 30 48C32 54 30 62 26 64Z" fill="#6ddcd0" opacity={0.75} />
-            <Path d="M22 70C18 66 19 60 24 59C26 64 24 69 22 70Z" fill="#08b8a2" opacity={0.6} />
-            <Path d="M86 64C90 58 88 50 82 48C80 54 82 62 86 64Z" fill="#6ddcd0" opacity={0.75} />
-            <Path d="M90 70C94 66 93 60 88 59C86 64 88 69 90 70Z" fill="#08b8a2" opacity={0.6} />
+      </View>
+      <View style={styles.heroDecorativeRow}>
+        <View style={styles.heroSideWrapLeft}>
+          <Text allowFontScaling style={styles.heroSideText}>{t('checkinHeroSloganLeft')}</Text>
+        </View>
+        <View style={styles.heroCenterBadgeWrap} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Svg width={130} height={120} viewBox="0 0 130 120" fill="none">
+            <Circle cx={65} cy={60} r={54} fill={colors.primaryLight} />
+            <Path d="M65 92C65 92 32 70 32 46C32 32 43 23 54 26C59 27 63 31 65 35C68 30 72 26 79 26C93 25 100 36 98 48C96 69 65 92 65 92Z" fill={colors.primary} />
+            <Path d="M65 35C58 19 31 23 32 46C32 59 42 72 53 82C38 60 47 37 65 35Z" fill="#b2f0e7" opacity={0.38} />
+            <Path d="M35 60H49L56 43L64 72L71 50L76 61H96" stroke="#f8fffd" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M39 108C19 104 9 91 10 76C27 78 38 90 39 108ZM87 109C87 89 107 76 127 78C122 97 108 109 87 109Z" fill={colors.primary} opacity={0.2} />
+            <Path d="M87 107C80 91 91 76 109 69C111 85 100 101 87 107Z" fill={colors.primary} opacity={0.16} />
           </Svg>
-          {/* Center app brand heart with white ECG line */}
-          <View style={styles.heroCenterHeartBadge}>
-            <Svg width={54} height={48} viewBox="0 0 54 48" fill="none">
-              <Path
-                d="M27 45C27 45 4 30 4 14C4 6.5 10 1 18 1C22.5 1 25.5 3.5 27 6C28.5 3.5 31.5 1 36 1C44 1 50 6.5 50 14C50 30 27 45 27 45Z"
-                fill="#08b8a2"
-              />
-              <Path
-                d="M7 23H17L21 14L26 34L31 16L34 25L37 23H47"
-                stroke="#FFFFFF"
-                strokeWidth={2.4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </View>
-        </Animated.View>
-
-        {/* Right cursive slogan */}
-        <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.heroSideWrapRight}>
-          <Text style={styles.heroSideText}>{t('checkinHeroSloganRight')}</Text>
-        </Animated.View>
+        </View>
+        <View style={styles.heroSideWrapRight}>
+          <Text allowFontScaling style={[styles.heroSideText, styles.heroSideTextRight]}>{t('checkinHeroSloganRight')}</Text>
+        </View>
       </View>
 
-      {/* Greeting & Subheading */}
-      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.heroHeadingWrap}>
-        <Text style={styles.heroHeading}>{!practice && !isFollowUp ? t('checkinGift.question') : getGreeting()}</Text>
-        <Text style={styles.heroSubheading}>{t('checkinSubheading')}</Text>
-        <View style={styles.heroIndicatorPill} />
-      </Animated.View>
+      <View style={styles.heroHeadingWrap}>
+        <Text allowFontScaling accessibilityRole="header" style={styles.heroHeading}>{getGreeting()}</Text>
+        <Text allowFontScaling style={styles.heroSubheading}>{t('checkinSubheading')}</Text>
+      </View>
 
-      {/* 3 Status Cards */}
       <GuideTarget step="checkin.status" style={styles.optionList} enabled={practice}>
-        {CHECKIN_STATUS_CHOICES.map((choice, idx) => (
-          <Animated.View key={choice.status} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
-            <CheckinStatusChoice choice={practice ? choice : { ...choice, labelKey: `checkinGift.status_${choice.status}` }} onSelect={readOnly ? undefined : onSelect} />
-          </Animated.View>
+        {CHECKIN_STATUS_CHOICES.map(choice => (
+          <CheckinStatusChoice key={choice.status} choice={choice} onSelect={readOnly ? undefined : onSelect} />
         ))}
       </GuideTarget>
 
-      {/* Bottom Footer Section */}
-      {!practice && <Text style={{ fontSize: 18, lineHeight: 27, textAlign: 'center', color: colors.textSecondary }}>{t('checkinGift.afterCheckin')}</Text>}
-      <Animated.View entering={FadeInDown.delay(450).duration(400)} style={styles.footerBrandWrap}>
+      {!practice && <Text allowFontScaling style={styles.statusGiftHint}>{t('checkinGift.afterCheckin')}</Text>}
+      <View style={styles.footerBrandWrap}>
         <View style={styles.footerBrandLeft}>
-          <Text style={styles.footerBrandWord}>{t('checkinFooterBrand1')}</Text>
-          <Text style={styles.footerBrandWord}>{t('checkinFooterBrand2')}</Text>
-          <Text style={styles.footerBrandWord}>{t('checkinFooterBrand3')}</Text>
-          <View style={styles.footerBrandUnderline} />
+          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand1')}</Text>
+          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand2')}</Text>
+          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand3')}</Text>
         </View>
-
         <View style={styles.footerBrandRight}>
-          <Svg width={110} height={36} viewBox="0 0 110 36" fill="none">
-            <Path
-              d="M26 30 C15 22 10 16 10 10 C10 4.5 14.5 1 20 1 C23.5 1 26.5 3 28 5.5 C29.5 3 32.5 1 36 1 C41.5 1 46 4.5 46 10 C46 16 41 22 30 30 Z"
-              stroke="#08b8a2"
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <Path
-              d="M45 20 H56 L61 9 L66 29 L71 13 L75 24 L78 20 H106"
-              stroke="#08b8a2"
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+          <Svg width={110} height={36} viewBox="0 0 110 36" fill="none" accessible={false}>
+            <Path d="M26 30C15 22 10 16 10 10C10 4.5 14.5 1 20 1C23.5 1 26.5 3 28 5.5C29.5 3 32.5 1 36 1C41.5 1 46 4.5 46 10C46 16 41 22 30 30Z" stroke={colors.primaryText} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M45 20H56L61 9L66 29L71 13L75 24L78 20H106" stroke={colors.primaryText} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Text style={styles.footerBrandTagline}>{t('checkinFooterTagline')}</Text>
+          <Text allowFontScaling style={styles.footerBrandTagline}>{t('checkinFooterTagline')}</Text>
         </View>
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -2353,123 +2292,22 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
 
     // ── Status screen ──
     statusSection: { gap: spacing.lg, position: 'relative' },
-    heroDecorativeRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 4,
-      minHeight: 110,
-      position: 'relative',
-    },
-    heroTopLeftBranch: {
-      position: 'absolute',
-      top: -24,
-      left: -18,
-    },
-    heroSideWrapLeft: {
-      flex: 1,
-      alignItems: 'flex-start',
-      justifyContent: 'center',
-      paddingRight: 6,
-    },
-    heroSideWrapRight: {
-      flex: 1,
-      alignItems: 'flex-end',
-      justifyContent: 'center',
-      paddingLeft: 6,
-    },
-    heroSideText: {
-      fontSize: 12.5,
-      lineHeight: 18,
-      fontStyle: 'italic',
-      color: '#08b8a2',
-      fontWeight: '500',
-    },
-    heroCenterBadgeWrap: {
-      width: 112,
-      height: 104,
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-    },
-    heroCenterBadgeDecor: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
-    heroCenterHeartBadge: {
-      width: 60,
-      height: 60,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    heroHeadingWrap: {
-      alignItems: 'center',
-      paddingHorizontal: 8,
-    },
-    heroHeading: {
-      fontSize: 21,
-      fontWeight: '800',
-      color: '#123b36',
-      textAlign: 'center',
-      lineHeight: 28,
-      letterSpacing: -0.3,
-    },
-    heroSubheading: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: '#64748b',
-      textAlign: 'center',
-      lineHeight: 20,
-      marginTop: 8,
-    },
-    heroIndicatorPill: {
-      width: 38,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: '#08b8a2',
-      alignSelf: 'center',
-      marginTop: 12,
-      marginBottom: 2,
-    },
-    footerBrandWrap: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      justifyContent: 'space-between',
-      marginTop: spacing.xl,
-      paddingHorizontal: 8,
-      paddingVertical: 12,
-    },
-    footerBrandLeft: {
-      alignItems: 'flex-start',
-    },
-    footerBrandWord: {
-      fontSize: 11,
-      fontWeight: '700',
-      letterSpacing: 1.2,
-      color: '#64748b',
-      lineHeight: 15,
-    },
-    footerBrandUnderline: {
-      width: 32,
-      height: 2.5,
-      backgroundColor: '#08b8a2',
-      borderRadius: 2,
-      marginTop: 4,
-    },
-    footerBrandRight: {
-      alignItems: 'flex-end',
-      gap: 2,
-    },
-    footerBrandTagline: {
-      fontSize: 12,
-      fontStyle: 'italic',
-      color: '#08b8a2',
-      textAlign: 'right',
-      marginTop: 2,
-    },
+    statusBackdrop: { position: 'absolute', top: -20, bottom: -24, left: -20, right: -20 },
+    heroDecorativeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 120 },
+    heroSideWrapLeft: { flex: 1, minWidth: 0, alignItems: 'flex-start', justifyContent: 'center' },
+    heroSideWrapRight: { flex: 1, minWidth: 0, alignItems: 'flex-end', justifyContent: 'center' },
+    heroSideText: { fontSize: 12, lineHeight: 18, color: colors.primaryText },
+    heroSideTextRight: { textAlign: 'right' },
+    heroCenterBadgeWrap: { width: 130, height: 120, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    heroHeadingWrap: { alignItems: 'center', paddingHorizontal: 4 },
+    heroHeading: { fontSize: 22, fontWeight: '800', color: colors.textPrimary, textAlign: 'center', lineHeight: 31, letterSpacing: -0.3 },
+    heroSubheading: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', lineHeight: 23, marginTop: 8 },
+    statusGiftHint: { fontSize: 15, lineHeight: 23, textAlign: 'center', color: colors.textSecondary },
+    footerBrandWrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingHorizontal: 4, paddingVertical: 8, marginTop: 4 },
+    footerBrandLeft: { alignItems: 'flex-start', flexShrink: 0 },
+    footerBrandWord: { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: colors.textSecondary, lineHeight: 15 },
+    footerBrandRight: { flex: 1, minWidth: 150, alignItems: 'flex-end', gap: 2 },
+    footerBrandTagline: { fontSize: 12, color: colors.primaryText, textAlign: 'right', marginTop: 2 },
     statusAvatarWrap: { alignItems: 'center', marginBottom: spacing.xs },
     statusAvatar: {
       alignItems: 'center',

@@ -477,6 +477,7 @@ export default function HomeScreen() {
     logsError,
     missionsError,
     treeError,
+    hasRefreshError,
     isOffline,
     refreshAll
   } = useHomeViewModel();
@@ -838,7 +839,7 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {isOffline ? <OfflineBanner onRetry={() => { refreshAll(); }} /> : null}
+      {hasRefreshError ? <OfflineBanner onRetry={() => { refreshAll(); }} /> : null}
       <NoInternetModal
         visible={Boolean(isOffline && !offlineModalDismissed)}
         onClose={() => setOfflineModalDismissed(true)}

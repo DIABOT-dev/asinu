@@ -213,11 +213,13 @@ function CareCircleScanScreen() {
           style={styles.permissionScroll}
         >
           {/* Family photo hero banner behind the card */}
-          <View pointerEvents="none" style={styles.heroBannerWrap}>
+          <View pointerEvents="none" style={styles.heroBannerWrap} testID="camera-permission-family-frame">
             <Image
               source={require('../../../../assets/images/care-circle/camera_permission_family_hero.png')}
               style={styles.heroBannerImage}
-              resizeMode="cover"
+              testID="camera-permission-family-banner"
+              resizeMode="contain"
+              accessible={false}
             />
           </View>
 
@@ -475,15 +477,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     heroBannerWrap: {
       alignItems: 'center',
+      alignSelf: 'center',
+      aspectRatio: 1024 / 360,
       justifyContent: 'center',
       marginBottom: -24,
       marginTop: spacing.xs,
+      maxWidth: 420,
       overflow: 'hidden',
       width: '100%',
       zIndex: 1,
     },
     heroBannerImage: {
-      aspectRatio: 1024 / 360,
+      height: '100%',
       width: '100%',
     },
     permissionScroll: {

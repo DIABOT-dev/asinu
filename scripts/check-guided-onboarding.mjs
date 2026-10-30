@@ -442,7 +442,7 @@ await test('the real first check-in screen guides all three health choices witho
   const statuses = ['fine', 'tired', 'very_tired'].map(status => ({ status }));
   const StatusScreen = evaluateSource(`${statusScreen.getText(file)}\nmodule.exports = StatusScreen;`, {
     'react/jsx-runtime': { jsx, jsxs: jsx },
-  }, { View: 'View', Text: 'Text', Svg: 'Svg', Path: 'Path', MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
+  }, { View: 'View', Text: 'Text', Svg: 'Svg', Path: 'Path', Circle: 'Circle', colors: theme.colors, MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
     FadeIn: animation, FadeInDown: animation, GuideTarget: 'GuideTarget', CheckinStatusChoice: 'StatusChoice',
     CHECKIN_STATUS_CHOICES: statuses, useTranslation: () => ({ t: key => key }) });
   const selected = [], onSelect = status => selected.push(status);
