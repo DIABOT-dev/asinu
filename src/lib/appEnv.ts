@@ -13,7 +13,6 @@ export const isDoctorFeaturesEnabled: boolean =
 // The SRS check-in conclusion links to real expert consultation in every build.
 // Keep the separate IVR/interview rollout behind the existing development flag.
 export const isExpertConsultationEnabled: boolean = true;
-// Native UI previews are available only in a development runtime and environment.
-export const isCheckinUiGalleryEnabled =
-  typeof __DEV__ !== "undefined" && __DEV__ && isDevBuild;
+// Temporarily hide the UI catalogue in every build, including development.
+export const isCheckinUiGalleryEnabled: boolean = false;
 export { appEnv };

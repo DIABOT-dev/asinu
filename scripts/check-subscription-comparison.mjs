@@ -25,7 +25,7 @@ const evaluate = (file, dependencies, extra = '') => {
 const theme = evaluate('src/styles/theme.ts', {});
 const { localizedPlanName } = evaluate('src/features/subscription/planName.ts', {});
 const native = Object.fromEntries(['View', 'Text', 'ScrollView', 'Pressable', 'Modal', 'ActivityIndicator'].map(name => [name, name]));
-native.StyleSheet = { create: value => value };
+native.StyleSheet = { create: value => value, hairlineWidth: 0.5 };
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree)
   ? tree.flatMap(nodes) : [tree, ...nodes(tree.props?.children)];
 const style = value => typeof value === 'function' ? style(value({ pressed: false }))
@@ -63,16 +63,18 @@ function hooks() {
 }
 const comparisonPath = 'src/features/subscription/components/SubscriptionScenarioComparison.tsx';
 function comparisonHarness({ language = 'vi', mode = 'light', width = 430, fontScale = 1, multiplier = 1 } = {}) {
-  theme.applyTheme(mode); const h = hooks(); const t = translate(language);
+  theme.applyTheme(mode); const h = hooks(); const t = translate(language); const navigations = [];
   const exports = evaluate(comparisonPath, {
-    '@expo/vector-icons': { Ionicons: 'Icon' },
+    '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
+    'expo-image': { Image: 'Image' },
+    '../../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: path => navigations.push(path) }) },
     react: h.react, 'react-native': { ...native, useWindowDimensions: () => ({ width, fontScale }) },
     'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) },
     '../../../components/ScaledText': { ScaledText: 'Text' }, '../../../styles': theme,
     '../../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.colors }) },
     '../../../hooks/useScaledTypography': { useScaledTypography: () => ({ size: theme.typography.size, scaledSize: { sm: theme.typography.size.sm * multiplier } }) },
   });
-  return { ...h, ...exports, t, render: () => h.render(exports.SubscriptionScenarioComparison) };
+  return { ...h, ...exports, t, navigations, render: () => h.render(exports.SubscriptionScenarioComparison), renderContent: () => h.render(exports.SubscriptionComparisonContent) };
 }
 let checks = 0;
 const test = async (label, work) => { await work(); checks++; console.log(`PASS ${label}`); };
@@ -80,62 +82,84 @@ const test = async (label, work) => { await work(); checks++; console.log(`PASS 
 for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
   for (const dimensions of [
     { width: 320, fontScale: 1, multiplier: 1 },
+    { width: 360, fontScale: 1, multiplier: 1 },
     { width: 430, fontScale: 1, multiplier: 1 },
     { width: 430, fontScale: 1.5, multiplier: 1 },
     { width: 430, fontScale: 1, multiplier: 1.25 },
   ]) {
-    await test(`${language}/${mode}: five complete scenarios without a duplicate price card at ${JSON.stringify(dimensions)}`, () => {
+    await test(`${language}/${mode}: comparison navigates to a readable page at ${JSON.stringify(dimensions)}`, () => {
       const h = comparisonHarness({ language, mode, ...dimensions });
-      let tree = h.render(); h.effects();
-      const toggle = () => nodes(tree).find(node => node.type === 'Pressable');
-      assert.equal(toggle().props.accessibilityRole, 'button');
-      assert.equal(toggle().props.accessibilityLabel, `${h.t('comparison.title')}. ${h.t('comparison.headerSubtitle')}`);
-      assert.ok(texts(toggle()).includes(h.t('comparison.title')));
-      assert.ok(texts(toggle()).includes(h.t('comparison.headerSubtitle')));
-      assert.equal(style(tree.props.style).backgroundColor, theme.colors.surface);
-      const headerIcons = nodes(toggle()).filter(node => node.type === 'Icon');
-      assert.equal(headerIcons.length, 2);
-      assert.equal(headerIcons[0].props.name, 'git-compare-outline');
-      assert.equal(headerIcons[1].props.name, 'chevron-down');
-      for (const icon of headerIcons) assert.equal(icon.props.color, theme.colors.primaryText);
-      const [leadingIcon, copy, arrow] = toggle().props.children;
-      assert.equal(style(leadingIcon.props.style).backgroundColor, undefined);
-      assert.equal(style(leadingIcon.props.style).flexShrink, 0);
-      assert.equal(style(copy.props.style).flex, 1);
-      assert.equal(style(copy.props.style).minWidth, 0);
-      assert.equal(style(arrow.props.style).flexShrink, 0);
-      assert.equal(style(toggle().props.style).height, undefined);
-      assert.equal(toggle().props.accessibilityState.expanded, false);
-      assert.equal(nodes(tree).filter(node => node.props.testID?.startsWith('comparison-scenario-')).length, 0);
-      assert.ok(style(toggle().props.style).minHeight >= 56);
-      toggle().props.onPress(); tree = h.render();
-      assert.equal(toggle().props.accessibilityState.expanded, true);
-      assert.equal(nodes(toggle()).filter(node => node.type === 'Icon')[1].props.name, 'chevron-up');
-      const priceRows = nodes(tree).filter(node => node.props.testID?.startsWith('comparison-price-'));
-      assert.equal(priceRows.length, 0);
+      const entry = h.render();
+      const link = nodes(entry).find(node => node.type === 'Pressable');
+      assert.equal(link.props.accessibilityRole, 'button');
+      assert.equal(link.props.accessibilityLabel, `${h.t('comparison.title')}. ${h.t('comparison.headerSubtitle')}`);
+      assert.equal(link.props.accessibilityHint, h.t('comparison.openHint'));
+      assert.equal(link.props.accessibilityState?.expanded, undefined);
+      assert.ok(texts(link).includes(h.t('comparison.title')));
+      assert.ok(texts(link).includes(h.t('comparison.headerSubtitle')));
+      assert.ok(style(link.props.style).minHeight >= 56);
+      assert.deepEqual(nodes(link).filter(node => node.type === 'Icon').map(node => node.props.name), ['git-compare-outline', 'chevron-forward']);
+      assert.equal(nodes(entry).filter(node => node.props.testID?.startsWith('comparison-scenario-')).length, 0);
+      link.props.onPress(); assert.deepEqual(h.navigations, ['/subscription/comparison']);
+      const tree = h.renderContent();
       assert.equal(nodes(tree).filter(node => node.props.testID?.startsWith('comparison-scenario-')).length, 5);
-      assert.equal(texts(tree).includes(h.t('iapMonthly')), false);
-      assert.equal(texts(tree).includes(h.t('iapYearly')), false);
+      assert.ok(texts(tree).includes(h.t('comparison.subtitle')));
+      const stacked = dimensions.width < 360 || dimensions.fontScale * dimensions.multiplier > 1.15;
+      assert.equal(nodes(tree).some(node => node.props.testID === 'comparison-table-header'), !stacked);
       for (const key of ['missed', 'unanswered', 'busy', 'trend', 'people']) {
         const row = nodes(tree).find(node => node.props.testID === `comparison-scenario-${key}`);
         for (const field of ['title', 'free', 'anTam']) assert.ok(texts(row).includes(h.t(`comparison.${key}.${field}`)));
-        const columns = row.props.children[1];
-        const stacked = dimensions.width < 420 || dimensions.fontScale * dimensions.multiplier > 1.15;
-        assert.equal(style(columns.props.style).flexDirection, stacked ? 'column' : 'row');
-        if (stacked) for (const cell of columns.props.children) assert.equal(style(cell.props.style).flexBasis, 'auto');
+        assert.equal(style(row.props.style).flexDirection, stacked ? 'column' : 'row');
+        const [scenario, free, anTam] = row.props.children;
+        assert.equal(style(free.props.style).backgroundColor, theme.colors.surfaceMuted);
+        assert.equal(style(anTam.props.style).backgroundColor, theme.colors.primaryLight);
+        assert.equal(nodes(scenario).filter(node => node.type === 'Icon').length, 1);
+        assert.equal(nodes(free).some(node => node.props.accessibilityLabel === `${h.t('comparison.freeLabel')}: ${h.t(`comparison.${key}.free`)}`), true);
+        assert.equal(nodes(anTam).some(node => node.props.accessibilityLabel === `${h.t('comparison.anTamLabel')}: ${h.t(`comparison.${key}.anTam`)}`), true);
+        if (stacked) {
+          for (const cell of [free, anTam]) assert.equal(style(cell.props.style).flexBasis, 'auto');
+          assert.ok(texts(free).includes(h.t('comparison.freeLabel')));
+          assert.ok(texts(anTam).includes(h.t('comparison.anTamLabel')));
+        }
       }
       for (const node of nodes(tree).filter(node => node.type === 'Text')) {
         assert.equal(node.props.allowFontScaling, true);
         assert.equal(node.props.numberOfLines, undefined);
         assert.equal(style(node.props.style).height, undefined);
       }
-      assert.equal(nodes(tree).filter(node => node.type === 'Pressable').length, 1);
+      const art = nodes(tree).find(node => node.type === 'Image');
+      assert.equal(art.props.accessible, false);
+      assert.equal(nodes(tree).filter(node => node.type === 'Pressable').length, 0);
       assert.equal(nodes(tree).some(node => node.type === 'Modal'), false);
-      toggle().props.onPress(); tree = h.render();
-      assert.equal(toggle().props.accessibilityState.expanded, false);
-      assert.equal(nodes(tree).filter(node => node.props.testID?.startsWith('comparison-scenario-')).length, 0);
+      assert.equal(texts(tree).includes(h.t('iapMonthly')), false);
+      assert.equal(texts(tree).includes(h.t('iapYearly')), false);
     });
   }
+}
+
+for (const canGoBack of [false, true]) {
+  await test(`comparison page returns safely with history=${canGoBack}`, () => {
+    const h = hooks(); const actions = [];
+    const { default: Page } = evaluate('app/subscription/comparison.tsx', {
+      react: h.react, 'react-native': native,
+      'expo-router': { Stack: { Screen: 'StackScreen' } },
+      'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 24, bottom: 16 }) },
+      '../../src/components/Screen': { Screen: 'Screen' },
+      '../../src/components/ScreenHeaderButton': { ScreenBackButton: 'Back' },
+      '../../src/features/subscription/components/SubscriptionScenarioComparison': { SubscriptionComparisonContent: 'Content' },
+      '../../src/hooks/useGuardedRouter': { useGuardedRouter: () => ({ canGoBack: () => canGoBack, back: () => actions.push('back'), replace: path => actions.push(path) }) },
+      '../../src/hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.colors }) },
+    });
+    const tree = h.render(Page);
+    assert.equal(nodes(tree).find(node => node.type === 'StackScreen').props.options.headerShown, false);
+    const scroll = nodes(tree).find(node => node.type === 'ScrollView');
+    assert.ok(style(scroll.props.contentContainerStyle).paddingTop >= 24);
+    assert.ok(style(scroll.props.contentContainerStyle).paddingBottom >= 16);
+    const back = nodes(tree).find(node => node.type === 'Back');
+    assert.ok(style(back.props.style).width >= 44);
+    back.props.onPress(); assert.deepEqual(actions, [canGoBack ? 'back' : '/subscription']);
+    assert.equal(nodes(tree).filter(node => node.type === 'Content').length, 1);
+  });
 }
 
 for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {

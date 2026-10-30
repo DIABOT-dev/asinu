@@ -181,6 +181,10 @@ export default function PrivacyCenterScreen() {
     receiptsError ||
     sharingEnabled === null;
   const dialogAction = selectedAction;
+  const cancelsConsultations =
+    dialogAction === "withdraw_consent" ||
+    dialogAction === "anonymize" ||
+    dialogAction === "delete";
   const anonymizeDisabled =
     busy !== null ||
     receiptsLoading ||
@@ -332,17 +336,8 @@ export default function PrivacyCenterScreen() {
           </View>
         </View>
         <View style={styles.actionList}>
-          <Pressable
-            accessible={false}
-            disabled={anonymizeDisabled}
-            onPress={openAnonymizeConfirmation}
-            style={({ pressed }) => [
-              styles.actionRow,
-              styles.controlRow,
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.copy}>
+          <View style={[styles.actionRow, styles.anonymizeSection]}>
+            <View style={styles.anonymizeCopy}>
               <Text style={styles.actionTitle}>
                 {t("privacyAction_anonymize")}
               </Text>
@@ -360,37 +355,59 @@ export default function PrivacyCenterScreen() {
                 )}
               </Text>
             </View>
-            {receiptsLoading || busy === "anonymize" ? (
-              <ActivityIndicator
-                accessibilityLabel={t(
-                  busy === "anonymize"
-                    ? "privacyAnonymizing"
-                    : "privacySettingsLoading"
+            {detailsAnonymized && !receiptsLoading && !receiptsError ? (
+              <View
+                style={styles.anonymizedStatus}
+                accessibilityLiveRegion="polite"
+              >
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={22}
+                  color={colors.primaryText}
+                />
+                <Text style={styles.anonymizedStatusText}>
+                  {t("privacyAnonymizedStatus")}
+                </Text>
+              </View>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("privacyAction_anonymize")}
+                accessibilityHint={t("privacyDescription_anonymize")}
+                accessibilityState={{
+                  disabled: anonymizeDisabled,
+                  busy: receiptsLoading || busy === "anonymize",
+                }}
+                disabled={anonymizeDisabled}
+                onPress={openAnonymizeConfirmation}
+                style={({ pressed }) => [
+                  styles.anonymizeButton,
+                  pressed && styles.pressed,
+                  anonymizeDisabled && styles.disabled,
+                ]}
+              >
+                {receiptsLoading || busy === "anonymize" ? (
+                  <ActivityIndicator
+                    accessibilityLabel={t(
+                      busy === "anonymize"
+                        ? "privacyAnonymizing"
+                        : "privacySettingsLoading"
+                    )}
+                    color={colors.primaryText}
+                  />
+                ) : (
+                  <Ionicons
+                    name="eye-off-outline"
+                    size={21}
+                    color={colors.textPrimary}
+                  />
                 )}
-                color={colors.primaryText}
-              />
-            ) : null}
-            <Switch
-              accessibilityLabel={t("privacyAction_anonymize")}
-              accessibilityHint={t(
-                detailsAnonymized
-                  ? "privacyAnonymizedDescription"
-                  : "privacyDescription_anonymize"
-              )}
-              accessibilityState={{
-                checked: detailsAnonymized === true,
-                disabled: anonymizeDisabled,
-                busy: receiptsLoading || busy === "anonymize",
-              }}
-              value={detailsAnonymized === true}
-              disabled={anonymizeDisabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              ios_backgroundColor={colors.border}
-              onValueChange={(enabled) => {
-                if (enabled) openAnonymizeConfirmation();
-              }}
-            />
-          </Pressable>
+                <Text style={styles.anonymizeButtonText}>
+                  {t("privacyAnonymizeButton")}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
         <View style={styles.actionList}>{renderAction(actions[3], true)}</View>
         {receiptsError ? (
@@ -506,17 +523,20 @@ export default function PrivacyCenterScreen() {
         queued
         visible={!!dialogAction}
         title={dialogAction ? t(`privacyConfirmTitle_${dialogAction}`) : ""}
-        message={dialogAction ? t(`privacyConfirmBody_${dialogAction}`) : ""}
+        message={
+          dialogAction && !cancelsConsultations
+            ? t(`privacyConfirmBody_${dialogAction}`)
+            : ""
+        }
         icon={{
           background: "none",
           name:
             selectedAction === "delete"
               ? "trash-can-outline"
+              : cancelsConsultations
+              ? "alert-outline"
               : "shield-check-outline",
-          color:
-            selectedAction === "delete" || selectedAction === "anonymize"
-              ? colors.danger
-              : colors.primary,
+          color: cancelsConsultations ? colors.danger : colors.primary,
         }}
         primaryButtonColors={{
           background: colors.primary,
@@ -540,7 +560,23 @@ export default function PrivacyCenterScreen() {
               ]
             : []
         }
-      />
+      >
+        {cancelsConsultations && dialogAction ? (
+          <View style={styles.confirmationDetails}>
+            <View style={styles.cancellationWarning} accessibilityRole="alert">
+              <Text style={styles.cancellationWarningTitle}>
+                {t("privacyCancellationWarningTitle")}
+              </Text>
+              <Text style={styles.cancellationWarningBody}>
+                {t("privacyCancellationWarningBody")}
+              </Text>
+            </View>
+            <Text style={styles.confirmationBody}>
+              {t(`privacyConfirmBody_${dialogAction}`)}
+            </Text>
+          </View>
+        ) : null}
+      </AppAlertModal>
     </View>
   );
 }
@@ -584,6 +620,65 @@ const createStyles = (colors: ThemeColors) =>
     },
     actionIcon: { marginTop: 3 },
     controlRow: { alignItems: "center" },
+    anonymizeSection: { flexDirection: "column", alignItems: "stretch" },
+    anonymizeCopy: { gap: spacing.xs },
+    anonymizeButton: {
+      minHeight: 56,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.sm,
+    },
+    anonymizeButtonText: {
+      flexShrink: 1,
+      color: colors.textPrimary,
+      fontSize: 16,
+      lineHeight: 24,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    anonymizedStatus: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+    anonymizedStatusText: {
+      flex: 1,
+      color: colors.primaryText,
+      fontSize: 16,
+      lineHeight: 24,
+      fontWeight: "600",
+    },
+    confirmationDetails: { gap: spacing.md, marginTop: spacing.md },
+    cancellationWarning: {
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.danger + "45",
+      borderRadius: radius.md,
+      backgroundColor: colors.danger + "12",
+    },
+    cancellationWarningTitle: {
+      color: colors.textPrimary,
+      fontSize: 17,
+      fontWeight: "700",
+      lineHeight: 25,
+    },
+    cancellationWarningBody: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      lineHeight: 23,
+    },
+    confirmationBody: {
+      color: colors.textSecondary,
+      fontSize: 15,
+      lineHeight: 23,
+    },
     exportButton: {
       minWidth: 56,
       minHeight: 48,

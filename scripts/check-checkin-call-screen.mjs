@@ -353,13 +353,13 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 40 previews stay read-only a
     assert.equal(restricted.props.href, '/(tabs)/profile');
   }
 });
-test('Native preview library and profile entry are available only in development', () => {
+test('Native preview library is hidden in every build, including development', () => {
   const previousEnvironment = process.env.EXPO_PUBLIC_APP_ENV;
   try {
     for (const runtime of [false, true]) for (const environment of ['dev', 'staging', 'prod']) {
       process.env.EXPO_PUBLIC_APP_ENV = environment;
       assert.equal(evaluate(read('src/lib/appEnv.ts'), {}, runtime).isCheckinUiGalleryEnabled,
-        runtime && environment === 'dev');
+        false);
     }
   } finally {
     if (previousEnvironment === undefined) delete process.env.EXPO_PUBLIC_APP_ENV;

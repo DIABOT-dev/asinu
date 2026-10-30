@@ -21,7 +21,7 @@
     "test:care-circle-health": "node scripts/check-care-circle-health.mjs",
     "test:care-circle-qr": "node scripts/check-care-circle-qr.mjs",
     "test:edit-save-state": "node scripts/check-edit-save-state.mjs",
-    "test:profile-edit": "node scripts/check-profile-edit.mjs",
+    "test:profile-edit": "node scripts/check-profile-edit.mjs && node scripts/check-delete-account-modal.mjs",
     "test:subscription-comparison": "node scripts/check-subscription-comparison.mjs",
     "test:checkin-settings": "node scripts/check-checkin-call-settings.mjs",
     "test:checkin-personalization": "node scripts/check-checkin-call-personalization.mjs",

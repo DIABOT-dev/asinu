@@ -49,6 +49,7 @@ import { AndroidCallAccessCard } from "../../../src/features/checkin-call/Androi
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
+const CHECKIN_ACCESS_ART = require("../../../assets/images/subscription/checkin_access_shield.png");
 
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
@@ -89,6 +90,7 @@ import {
   categoryColors,
   colors,
   iconColors,
+  lightColors,
   radius,
   spacing,
 } from "../../../src/styles";
@@ -513,12 +515,12 @@ export default function ProfileScreen() {
         router.replace("/login");
         setPendingToast(ts("accountDeleted"), "success");
       } else {
-        showAlert(tc("error"), ts("deleteError"));
+        throw new Error(ts("deleteError"));
       }
     } catch {
-      showAlert(tc("error"), ts("deleteErrorGeneric"));
+      throw new Error(ts("deleteErrorGeneric"));
     }
-  }, [logout, router, showAlert, ts, tc]);
+  }, [logout, router, ts]);
 
   const handleEditProfile = () => {
     const values = getProfileEditValues(profile);
@@ -708,10 +710,24 @@ export default function ProfileScreen() {
         { text: tc("later"), style: "cancel" },
         {
           text: t("chooseAnTam"),
+          variant: "primary",
           onPress: () => router.push("/subscription"),
         },
       ],
       { name: "lock-outline", color: colors.premiumDark },
+      {
+        appearance: "access",
+        heroImage: CHECKIN_ACCESS_ART,
+        primaryButtonBackground: (
+          <LinearGradient
+            pointerEvents="none"
+            colors={["#00847d", lightColors.primaryText]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        ),
+      },
     );
   }, [hasCheckinCallAccess, router, showAlert, t, tc]);
 
