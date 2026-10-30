@@ -216,6 +216,9 @@ export default function DoctorConsultationThreadScreen() {
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [rateable, setRateable] = useState(false);
   const [taskStatus, setTaskStatus] = useState<TaskStatusResponse | null>(null);
+  const taskStatusRef = useRef(taskStatus);
+  taskStatusRef.current = taskStatus;
+  const threadLoadRef = useRef({ version: 0, pending: false });
   const [statusClock, setStatusClock] = useState(() => Date.now());
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [busyModalVisible, setBusyModalVisible] = useState(false);
@@ -223,7 +226,10 @@ export default function DoctorConsultationThreadScreen() {
   const busyModalShownRef = useRef(false);
 
   const loadThread = async (showLoading = false) => {
-    if (!taskId) return;
+    if (!taskId || threadLoadRef.current.pending) return;
+    const request = ++threadLoadRef.current.version;
+    threadLoadRef.current.pending = true;
+    const current = () => request === threadLoadRef.current.version;
     if (showLoading) setLoading(true);
     try {
       const response = await apiClient<ThreadResponse>(
@@ -236,6 +242,7 @@ export default function DoctorConsultationThreadScreen() {
           retry: { attempts: 3, initialDelayMs: 500, backoffFactor: 2 },
         }
       );
+      if (!current()) return;
       setSummary(response.data?.summary ?? null);
       setMessages(response.data?.messages ?? []);
       setDoctorTyping(response.data?.typing?.is_typing === true);
@@ -291,6 +298,7 @@ export default function DoctorConsultationThreadScreen() {
         }
       }
 
+      if (!current()) return;
       setRateable(resolvedTaskStatus?.rateable === true);
       setTaskStatus(resolvedTaskStatus);
       if (
@@ -303,14 +311,17 @@ export default function DoctorConsultationThreadScreen() {
         setBusyModalVisible(true);
       }
     } catch (error) {
-      if (showLoading) {
+      if (current() && showLoading) {
         showToast(
           getApiErrorMessage(error, t, "doctorConsultationThreadError"),
           "error"
         );
       }
     } finally {
-      if (showLoading) setLoading(false);
+      if (current()) {
+        threadLoadRef.current.pending = false;
+        if (showLoading) setLoading(false);
+      }
     }
   };
 
@@ -320,7 +331,9 @@ export default function DoctorConsultationThreadScreen() {
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     const fallbackTimer = setInterval(() => {
-      if (!connected) void loadThread();
+      // A live chat socket does not mean the newly enqueued task is ready yet.
+      if (!connected || !taskStatusRef.current?.status ||
+        ["new", "queued", "assigned"].includes(taskStatusRef.current.status)) void loadThread();
     }, 5000);
 
     const connect = async () => {
@@ -337,6 +350,7 @@ export default function DoctorConsultationThreadScreen() {
         socket.onopen = () => {
           connected = true;
           setRealtimeConnected(true);
+          void loadThread();
         };
         socket.onmessage = (event) => {
           try {
@@ -347,7 +361,7 @@ export default function DoctorConsultationThreadScreen() {
                 is_typing?: boolean;
               };
             };
-            if (envelope.type === "chat.message.changed") {
+            if (envelope.type === "chat.message.changed" || envelope.type === "chat.task.status.changed") {
               void loadThread();
             } else if (envelope.type === "chat.typing.changed") {
               setDoctorTyping(
@@ -381,6 +395,8 @@ export default function DoctorConsultationThreadScreen() {
     void connect();
     return () => {
       disposed = true;
+      threadLoadRef.current.version++;
+      threadLoadRef.current.pending = false;
       connected = false;
       setRealtimeConnected(false);
       if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -711,6 +727,7 @@ export default function DoctorConsultationThreadScreen() {
         new Date(taskStatus.follow_up_until).getTime() > statusClock)
   );
   const currentStatus = taskStatus?.status;
+  const statusUnknown = !currentStatus;
   const reopenOpen = Boolean(
     ["cancelled", "expired"].includes(currentStatus ?? "") &&
       taskStatus?.reopen_open === true &&
@@ -723,12 +740,9 @@ export default function DoctorConsultationThreadScreen() {
     : false;
   const statusLabel = taskStatus?.status
     ? t(`doctorConsultationStatus_${taskStatus.status}`)
-    : loading
-    ? t("doctorConsultationWaiting")
-    : t("doctorConsultationStatus_completed");
+    : t("doctorConsultationStatusSyncing");
   const statusIsTerminal =
-    !taskStatus ||
-    ["completed", ...terminalStatuses].includes(taskStatus.status);
+    Boolean(currentStatus && ["completed", ...terminalStatuses].includes(currentStatus));
 
   useEffect(() => {
     const followUpUntil = taskStatus?.follow_up_until;
@@ -751,7 +765,7 @@ export default function DoctorConsultationThreadScreen() {
 
   useEffect(() => {
     if (conversationOpen) return;
-    if (draft) setDraft("");
+    if (currentStatus && draft) setDraft("");
     if (recording) {
       const activeRecording = recordingRef.current;
       if (activeRecording) {
@@ -760,7 +774,7 @@ export default function DoctorConsultationThreadScreen() {
       recordingRef.current = null;
       setRecording(false);
     }
-  }, [conversationOpen, draft, recording]);
+  }, [conversationOpen, currentStatus, draft, recording]);
 
   useEffect(() => {
     if (!taskId || !conversationOpen) return;
@@ -820,7 +834,7 @@ export default function DoctorConsultationThreadScreen() {
             <View
               style={[
                 styles.statusDot,
-                { backgroundColor: statusIsTerminal ? "#94A3B8" : "#10B981" },
+                { backgroundColor: statusIsTerminal || statusUnknown ? "#94A3B8" : "#10B981" },
               ]}
             />
             <Text
@@ -889,12 +903,12 @@ export default function DoctorConsultationThreadScreen() {
                 {
                   backgroundColor: isDark
                     ? colors.surface
-                    : statusIsTerminal
+                    : statusIsTerminal || statusUnknown
                     ? "#F8FAFC"
                     : "#F0FDF4",
                   borderColor: isDark
                     ? colors.border
-                    : statusIsTerminal
+                    : statusIsTerminal || statusUnknown
                     ? "#E2E8F0"
                     : "#BBF7D0",
                 },
@@ -902,15 +916,15 @@ export default function DoctorConsultationThreadScreen() {
             >
               <View style={styles.statusHeading}>
                 <Ionicons
-                  name={statusIsTerminal ? "checkmark-circle" : "pulse"}
+                  name={statusUnknown ? "time-outline" : statusIsTerminal ? "checkmark-circle" : "pulse"}
                   size={18}
-                  color={statusIsTerminal ? "#64748B" : "#00A88F"}
+                  color={statusIsTerminal || statusUnknown ? "#64748B" : "#00A88F"}
                 />
                 <Text
                   style={[
                     styles.statusLabel,
                     {
-                      color: statusIsTerminal
+                      color: statusIsTerminal || statusUnknown
                         ? isDark
                           ? colors.textPrimary
                           : "#334155"
@@ -918,9 +932,7 @@ export default function DoctorConsultationThreadScreen() {
                     },
                   ]}
                 >
-                  {statusIsTerminal
-                    ? t("doctorConsultationStatus_completed")
-                    : statusLabel}
+                  {statusLabel}
                 </Text>
               </View>
               <Text
@@ -929,12 +941,19 @@ export default function DoctorConsultationThreadScreen() {
                   { color: isDark ? colors.textSecondary : "#64748B" },
                 ]}
               >
-                {conversationOpen
+                {statusUnknown ? t("doctorConsultationStatusSyncingHint") : conversationOpen
                   ? taskStatus?.status === "completed"
                     ? t("doctorConsultationFollowUpOpen")
                     : t("doctorConsultationStatusTrackingHint")
                   : t("doctorConsultationConversationClosed")}
               </Text>
+              {statusUnknown && (
+                <Pressable accessibilityRole="button" accessibilityLabel={t("common:retry")}
+                  onPress={() => void loadThread(true)}
+                  style={{ minHeight: 56, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: 16 }}>
+                  <Text style={{ color: colors.primaryText, fontWeight: "600" }}>{t("common:retry")}</Text>
+                </Pressable>
+              )}
             </View>
 
             {taskStatus?.consultation_summary ? (
@@ -1689,18 +1708,18 @@ export default function DoctorConsultationThreadScreen() {
               },
             ]}
           >
-            <Ionicons
+            {statusUnknown ? <ActivityIndicator color={colors.textSecondary} size="small" /> : <Ionicons
               name="lock-closed-outline"
               size={18}
               color={colors.textSecondary}
-            />
+            />}
             <Text
               style={[
                 styles.closedComposerText,
                 { color: colors.textSecondary },
               ]}
             >
-              {t("doctorConsultationConversationClosed")}
+              {t(statusUnknown ? "doctorConsultationStatusSyncingHint" : "doctorConsultationConversationClosed")}
             </Text>
           </View>
         )}
