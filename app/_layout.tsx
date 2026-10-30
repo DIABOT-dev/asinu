@@ -53,7 +53,7 @@ import { applyTheme, spacing } from "../src/styles";
 import { useScaledTypography } from "../src/hooks/useScaledTypography";
 import { trackScreenViewed } from "../src/lib/screenTracking";
 import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
-import { isDoctorFeaturesEnabled } from "../src/lib/appEnv";
+import { isDoctorFeaturesEnabled, isExpertConsultationEnabled } from "../src/lib/appEnv";
 import { AppUpdateGate } from "../src/features/app-update/AppUpdateGate";
 
 registerGlobals();
@@ -162,14 +162,16 @@ export default function RootLayout() {
                     <CarePulseProvider>
                       <StatusBar style={isDark ? "light" : "dark"} />
                       <Stack screenOptions={screenOptions}>
-                        <Stack.Protected guard={isDoctorFeaturesEnabled}>
+                        <Stack.Protected guard={isExpertConsultationEnabled}>
                           <Stack.Screen name="doctor-consultation" />
                           <Stack.Screen name="doctor-consultation/[taskId]" />
                           <Stack.Screen name="doctor-consultation-history" />
+                          <Stack.Screen name="privacy-center" />
+                        </Stack.Protected>
+                        <Stack.Protected guard={isDoctorFeaturesEnabled}>
                           <Stack.Screen name="doctor-interview/[sessionId]" />
                           <Stack.Screen name="doctor-call/[sessionId]" />
                           <Stack.Screen name="doctor-interview/preview" />
-                          <Stack.Screen name="privacy-center" />
                         </Stack.Protected>
                         <Stack.Screen
                           name="login/index"

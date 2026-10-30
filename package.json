@@ -49,7 +49,8 @@
     "test:notification-sounds": "node scripts/check-notification-sounds.mjs",
     "postinstall": "patch-package --error-on-fail && node scripts/patch-livekit-signal-lifecycle.cjs",
     "test:app-update": "node scripts/check-app-update.mjs",
-    "test:telemetry": "node --test scripts/test-telemetry.cjs"
+    "test:telemetry": "node --test scripts/test-telemetry.cjs",
+    "test:checkin-conclusion": "node scripts/check-checkin-conclusion.mjs"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",

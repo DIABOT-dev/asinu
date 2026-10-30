@@ -13,7 +13,7 @@ type HeaderButtonProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-export function ScreenBackButton({ onPress, accessibilityLabel, disabled, style }: HeaderButtonProps) {
+export function ScreenBackButton({ onPress, accessibilityLabel, disabled, style, iconColor = colors.textPrimary }: HeaderButtonProps & { iconColor?: string }) {
   const { t } = useTranslation('common');
 
   return (
@@ -25,7 +25,7 @@ export function ScreenBackButton({ onPress, accessibilityLabel, disabled, style 
       onPress={onPress}
       style={({ pressed }) => [styles.backButton, style, pressed && styles.pressed, disabled && styles.disabled]}
     >
-      <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+      <Ionicons name="arrow-back" size={20} color={iconColor} />
     </Pressable>
   );
 }

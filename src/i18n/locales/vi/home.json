@@ -416,7 +416,7 @@
   "checkinSelectSingleHint": "Chọn một đáp án phù hợp nhất với tình trạng hiện tại của bạn.",
   "checkinTriageMascotBubble": "Bạn ơi, hãy cho Asinu biết tình trạng hiện tại để Asinu hỗ trợ bạn tốt nhất nhé!",
   "checkinLocationMascotBubble": "Bạn ơi, hãy cho Asinu biết bạn đang cảm thấy khó chịu ở vị trí nào nhé!",
-  "checkinSynthesizingTitle": "Asinu đang tạo kết luận...",
+  "checkinSynthesizingTitle": "Asinu đang xem lại…",
   "checkinSynthesizingSubtitle": "Bạn chờ một chút nhé.\nAsinu đang chuẩn bị phản hồi cho bạn.",
   "checkinCompanionFooter": "Asinu luôn đồng hành cùng bạn",
   "checkinClose": "Đóng",
@@ -500,7 +500,7 @@
     "khát nước",
     "không rõ"
   ],
-  "checkinFallbackInitial3Question": "Tình trạng này bắt đầu từ khi nào?",
+  "checkinFallbackInitial3Question": "Bạn bắt đầu thấy những khó chịu này từ khi nào?",
   "checkinFallbackInitial3Options": [
     "vừa mới",
     "vài giờ trước",
@@ -515,7 +515,7 @@
     "quên uống thuốc",
     "không rõ"
   ],
-  "checkinFallbackInitial5Question": "Bạn đã làm gì để cải thiện chưa?",
+  "checkinFallbackInitial5Question": "Bạn đã làm gì để cải thiện tình trạng đang gặp chưa?",
   "checkinFallbackInitial5Options": [
     "nghỉ ngơi",
     "ăn uống",
@@ -523,13 +523,13 @@
     "uống thuốc",
     "chưa làm gì"
   ],
-  "checkinFallbackProgressionQuestion": "Từ lúc bắt đầu đến giờ, tình trạng thay đổi thế nào?",
+  "checkinFallbackProgressionQuestion": "So với lúc mới bị, tình trạng của bạn đang đỡ hơn, vẫn vậy hay nặng hơn?",
   "checkinFallbackProgressionOptions": [
     "đang đỡ dần",
     "vẫn như cũ",
     "có vẻ nặng hơn"
   ],
-  "checkinFallbackRedFlagsQuestion": "Bạn có dấu hiệu nghiêm trọng nào sau đây không?",
+  "checkinFallbackRedFlagsQuestion": "Để hiểu rõ hơn tình trạng đang gặp, bạn có thêm dấu hiệu nào dưới đây không?",
   "checkinFallbackRedFlagsOptions": [
     "khó thở dữ dội",
     "đau ngực kèm vã mồ hôi",
@@ -538,13 +538,13 @@
     "nôn ra máu",
     "không có"
   ],
-  "checkinFallbackFollowup1Question": "So với lần trước, bạn cảm thấy thế nào?",
+  "checkinFallbackFollowup1Question": "So với lần check-in trước, tình trạng sức khỏe của bạn hiện giờ thế nào?",
   "checkinFallbackFollowup1Options": [
     "đã đỡ hơn",
     "vẫn như cũ",
     "mệt hơn trước"
   ],
-  "checkinFallbackFollowup2Question": "Bạn có thêm triệu chứng nào mới không?",
+  "checkinFallbackFollowup2Question": "Ngoài những khó chịu đã chia sẻ, bạn có gặp thêm biểu hiện nào mới không?",
   "checkinFallbackFollowup2Options": [
     "đau đầu",
     "chóng mặt",
@@ -708,5 +708,13 @@
     "continueInApp": "Trả lời trong app",
     "noResponse": "Chưa nhận được câu trả lời. Asinu chuyển sang câu tiếp theo nhé.",
     "speechRateValue": "{{rate}}×"
-  }
+  },
+  "checkinConclusionMessage": "Lời nhắn của Asinu",
+  "checkinConclusionExplanation": "Tình trạng này thường liên quan gì?",
+  "checkinConclusionTodo": "Hôm nay nên làm",
+  "checkinConclusionWarning": "Khi nào cần đi khám?",
+  "checkinConclusionFollowup": "Hẹn hỏi lại",
+  "checkinConclusionExpertLink": "Kết nối với chuyên gia sức khoẻ của Asinu",
+  "checkinConclusionLoading": "Asinu đang xem lại…",
+  "checkinTriageAnalyzing": "Asinu đang phân tích…"
 }

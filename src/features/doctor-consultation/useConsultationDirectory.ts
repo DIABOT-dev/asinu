@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../lib/apiClient';
-import { isDoctorFeaturesEnabled } from '../../lib/appEnv';
+import { isExpertConsultationEnabled } from '../../lib/appEnv';
 
 export type DoctorSpecialty = { code: string; name: string };
 export type DoctorRecommendation = {
@@ -39,7 +39,7 @@ export function useConsultationDirectory() {
 
   const loadSpecialists = useCallback(
     async (specialty: string, request: number) => {
-      if (!isDoctorFeaturesEnabled) {
+      if (!isExpertConsultationEnabled) {
         return;
       }
       const response = await apiClient<{
@@ -74,7 +74,7 @@ export function useConsultationDirectory() {
   );
 
   const refresh = useCallback(async () => {
-    if (!isDoctorFeaturesEnabled) {
+    if (!isExpertConsultationEnabled) {
       publish({ loading: false });
       return;
     }

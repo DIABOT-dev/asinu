@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { AppState, Linking, Platform } from "react-native";
-import { isDoctorFeaturesEnabled } from "../lib/appEnv";
+import { isDoctorFeaturesEnabled, isExpertConsultationEnabled } from "../lib/appEnv";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   useGlobalSearchParams,
@@ -694,7 +694,7 @@ export const SessionProvider = ({ children }: Props) => {
       // the consultation screen keeps this path subject to lifecycle checks,
       // follow-up windows and idempotency.
       if (actionIdentifier === "REPLY_DOCTOR_MESSAGE") {
-        if (!isDoctorFeaturesEnabled) return;
+        if (!isExpertConsultationEnabled) return;
         const taskId =
           typeof data?.task_id === "string" ? data.task_id.trim() : "";
         const userText =

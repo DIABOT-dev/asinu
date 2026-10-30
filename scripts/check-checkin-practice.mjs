@@ -74,7 +74,7 @@ const native = { View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: '
   ActivityIndicator: 'Spinner', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Stack: { Screen: 'Stack' },
   GuidePracticeScope: 'PracticeScope', GuideScrollScope: 'ScrollScope', GuideTarget: 'GuideTarget',
   ScreenBackButton: 'Back', AppAlertModal: 'Alert', AiDataConsentModal: 'Consent',
-  CheckinGiftCloseButton: ({ disabled, eligible, children }) => {
+  CheckinGiftCloseButton: ({ disabled, eligible = false, children }) => {
     assert.equal(eligible, false, 'Tutorials and read-only UI previews cannot consume daily gifts');
     return jsx('Pressable', { disabled, children });
   },
@@ -113,6 +113,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
     guidanceAudio: { stop: async () => calls.audio.push('stop') }, Platform: { OS: 'ios' },
     StatusScreen: 'Status', LocationScreen: 'Location', TriageScreen: 'Question', DoneScreen: 'Result',
     ConclusionLoadingView: 'Loading',
+    offerCheckinGiftOnHome() {},
     getLocalFallbackQuestion: () => assert.fail('Practice must not require an API fallback'), __DEV__: false });
   return { calls, guideState, settle: () => runtime.settle(() => CheckinScreen()) };
 }

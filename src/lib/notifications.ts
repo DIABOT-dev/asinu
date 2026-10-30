@@ -1,5 +1,5 @@
 import { runNativePermission } from "./native-permissions";
-import { isDoctorFeaturesEnabled } from "./appEnv";
+import { isDoctorFeaturesEnabled, isExpertConsultationEnabled } from "./appEnv";
 // Push notification service for care circle invitations
 // Note: This requires expo-notifications to be installed
 // Run: npx expo install expo-notifications
@@ -84,7 +84,7 @@ export async function registerNotificationCategories(): Promise<void> {
       },
     ]);
 
-    if (!isDoctorFeaturesEnabled) {
+    if (!isExpertConsultationEnabled) {
       await Notifications.deleteNotificationCategoryAsync("doctor_message");
       return;
     }
@@ -630,7 +630,7 @@ export function routeFromNotificationData(
     return "/doctor-consultation";
   }
   if (type === "doctor_message") {
-    if (!isDoctorFeaturesEnabled) return "/(tabs)/home";
+    if (!isExpertConsultationEnabled) return "/(tabs)/home";
     const taskId = data?.task_id as string;
     const tenantId = data?.tenant_id as string;
     if (taskId)

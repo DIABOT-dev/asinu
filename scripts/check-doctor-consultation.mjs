@@ -93,7 +93,7 @@ function harness(language = 'vi') {
     return { data: { tasks: [] } };
   };
   const draftHook = load('src/features/doctor-consultation/useConsultationDraft.ts', { react: runtime, '../../lib/healthStoreSession': healthModule });
-  const directoryHook = load('src/features/doctor-consultation/useConsultationDirectory.ts', { react: runtime, '../../lib/apiClient': { apiClient }, '../../lib/appEnv': { isDoctorFeaturesEnabled: true } });
+  const directoryHook = load('src/features/doctor-consultation/useConsultationDirectory.ts', { react: runtime, '../../lib/apiClient': { apiClient }, '../../lib/appEnv': { isExpertConsultationEnabled: true } });
   const Screen = load('app/doctor-consultation.tsx', {
     react: runtime,
     'expo-linear-gradient': { LinearGradient: 'Gradient' },

@@ -30,7 +30,7 @@ import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../src/components/ScaledTextInput';
-import { isDoctorFeaturesEnabled } from '../../src/lib/appEnv';
+import { isDoctorFeaturesEnabled, isExpertConsultationEnabled } from '../../src/lib/appEnv';
 import type { CheckinUiPreviewId } from '../../src/features/checkin/checkin-ui-gallery';
 import { CheckinGiftModal } from '../../src/features/checkin-rewards/CheckinGiftModal';
 import { CheckinGiftCloseButton } from '../../src/features/checkin-rewards/CheckinGiftCloseButton';
@@ -38,6 +38,8 @@ import { offerCheckinGiftOnHome } from '../../src/features/checkin-rewards/check
 import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer, type TriageSummaryView, type TriageOptionGroup } from '../../src/features/checkin/checkin.api';
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
+import { CheckinConclusion } from '../../src/features/checkin/CheckinConclusion';
+import { hasStructuredCheckinConclusion, structuredCheckinSpeech } from '../../src/features/checkin/checkin-conclusion';
 import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
 import { chatApi } from '../../src/features/chat/chat.api';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
@@ -428,7 +430,7 @@ function CheckinScreen() {
     if (!skipLoadingStart) setLoading(true);
     try {
       const result = await checkinClient.triage(sess.id, prevAnswers);
-      if (__DEV__) console.log('[Checkin] triage result:', JSON.stringify(result));
+      if (__DEV__) console.log('[Checkin] triage completed:', { isDone: result.isDone, step: result.step });
       if ((result as any).ok === false) {
         throw new Error((result as any).error || 'Triage API error');
       }
@@ -438,6 +440,15 @@ function CheckinScreen() {
           severity: result.severity || 'medium',
           recommendation: result.recommendation || '',
           needsDoctor: result.needsDoctor ?? false,
+          conclusionVersion: result.conclusionVersion,
+          personalMessage: result.personalMessage,
+          explanation: result.explanation,
+          todo: result.todo,
+          seeDoctorWhen: result.seeDoctorWhen,
+          disclaimer: result.disclaimer,
+          closeMessage: result.closeMessage,
+          followUpHours: result.followUpHours,
+          familyAlertResult: result.familyAlertResult,
           _progress: result._progress,
           caregiver_status: result.caregiver_status,
           needs_caregiver_cta: result.needs_caregiver_cta,
@@ -602,6 +613,7 @@ function CheckinScreen() {
         }}
       >
         <ScreenBackButton
+          iconColor="#0F172A"
           onPress={() => {
             if (screen === 'location') {
               setPendingStatus(null);
@@ -1321,7 +1333,7 @@ function TriageScreen({
               </View>
               <View style={styles.historyAnswerCard}>
                 <Ionicons name="checkmark-circle" size={14} color="#08b8a2" />
-                <Text style={styles.historyAnswerText}>{a.answer}</Text>
+                <Text style={styles.historyAnswerText}>{formatTriageOptionLabel(a.answer)}</Text>
               </View>
             </View>
           ))}
@@ -1332,6 +1344,7 @@ function TriageScreen({
         <Animated.View entering={FadeInLeft.duration(300)} style={styles.mascotRow}>
           <Image source={asinuChatSticker} style={styles.mascotSticker} resizeMode="contain" />
           <View style={styles.mascotBubble}>
+            <Text accessibilityLiveRegion="polite" style={styles.mascotBubbleText}>{t('checkinTriageAnalyzing')}</Text>
             <View style={styles.typingRow}>
               <View style={[styles.typingDot, { opacity: 0.8 }]} />
               <View style={[styles.typingDot, { opacity: 0.5 }]} />
@@ -1751,7 +1764,7 @@ function DoneScreen({
   const { t: tg } = useTranslation('onboarding');
   const router = useRouter();
   const [practiceSeverity, setPracticeSeverity] = useState<'low' | 'medium' | 'high' | 'emergency' | null>(null);
-  const conclusionSpeechPlayedRef = useRef(false);
+  const conclusionSpeechPlayedRef = useRef<string | null>(null);
   const [speechReplayKey, setSpeechReplayKey] = useState(0);
   const [audioReady, setAudioReady] = useState(practice || readOnly);
   const language = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi';
@@ -1766,6 +1779,14 @@ function DoneScreen({
   const isEmergency = severity === 'emergency';
   const isHigh = severity === 'high';
   const isMedium = severity === 'medium';
+  const structuredConclusion = !isEmergency && !isFine && triageSummary?.conclusionVersion === 2
+    && hasStructuredCheckinConclusion(triageSummary) ? triageSummary : null;
+  const connectConclusionExpert = () => {
+    if (readOnly) return;
+    if (practice) { showToast(tg('guidance.practiceActionNotice'), 'info'); return; }
+    if (!isExpertConsultationEnabled) return;
+    router.push('/doctor-consultation' as any);
+  };
 
   // Severity configurations
   const pillBg = isEmergency
@@ -1838,7 +1859,7 @@ function DoneScreen({
   const cleanSummary = stripEmojis(triageSummary?.summary || '');
   const shouldReadSummary = cleanSummary && cleanSummary !== recordedSymptoms;
 
-  const conclusionSpeechText = [
+  const conclusionSpeechText = structuredConclusion ? structuredCheckinSpeech(structuredConclusion) : [
     t('checkinDoneNoted'),
     pillText,
     cleanSubtitle,
@@ -1851,18 +1872,19 @@ function DoneScreen({
     .filter(Boolean)
     .join('. ') + '.';
 
+  const conclusionSpeechIdentity = JSON.stringify([session?.id, language, conclusionSpeechText, speechReplayKey]);
   useEffect(() => {
     if (practice || readOnly) return; // The bundled coach recordings explain example results offline.
-    if (conclusionSpeechPlayedRef.current || !conclusionSpeechText) {
+    if (conclusionSpeechPlayedRef.current === conclusionSpeechIdentity || !conclusionSpeechText) {
       return;
     }
-    conclusionSpeechPlayedRef.current = true;
+    conclusionSpeechPlayedRef.current = conclusionSpeechIdentity;
     void playConclusionAudio('conclusion', conclusionSpeechText);
 
     return () => {
       void stopConclusionAudio();
     };
-  }, [practice, readOnly, conclusionSpeechText, language, session?.id, speechReplayKey, playConclusionAudio, stopConclusionAudio]);
+  }, [practice, readOnly, conclusionSpeechIdentity, conclusionSpeechText, playConclusionAudio, stopConclusionAudio]);
 
   useEffect(() => {
     if (practice || readOnly || audioReady) return;
@@ -1879,11 +1901,11 @@ function DoneScreen({
   const replayConclusionSpeech = () => {
     if (readOnly) return;
     if (practice) { void guidanceAudio.speak('practice_result', language, true); return; }
-    conclusionSpeechPlayedRef.current = false;
+    conclusionSpeechPlayedRef.current = null;
     setSpeechReplayKey((value) => value + 1);
   };
 
-  if (forceLoading || (!audioReady && !practice && !readOnly)) {
+  if (forceLoading || (!structuredConclusion && !audioReady && !practice && !readOnly)) {
     return <ConclusionLoadingView styles={styles} />;
   }
 
@@ -1967,9 +1989,9 @@ function DoneScreen({
         <Text style={{ fontSize: 24, fontWeight: '800', color: '#0F172A', textAlign: 'center', letterSpacing: -0.3 }}>
           {practice ? tg('guidance.practiceResultTitle') : t('checkinDoneNoted')}
         </Text>
-        <Text allowFontScaling style={[{ fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 21, marginTop: 6, maxWidth: 330 }, practiceText]}>
+        {!structuredConclusion && <Text allowFontScaling style={[{ fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 21, marginTop: 6, maxWidth: 330 }, practiceText]}>
           {cleanSubtitle}
-        </Text>
+        </Text>}
       </Animated.View>
 
       {/* Main White Card matching mockup */}
@@ -2048,6 +2070,8 @@ function DoneScreen({
             </GuideTarget>
           )}
 
+          {structuredConclusion ? <CheckinConclusion result={structuredConclusion}
+            onConnectExpert={connectConclusionExpert} expertAvailable={isExpertConsultationEnabled} readOnly={readOnly} /> : <>
           {/* Triệu chứng đã ghi nhận */}
           <GuideTarget step="checkin.result_symptoms" enabled={practice}>
           <View style={{ gap: 6 }}>
@@ -2174,6 +2198,8 @@ function DoneScreen({
             </Pressable>
             </GuideTarget>
           )}
+
+          </>}
 
           {practice && <GuideTarget step="checkin.result_family">
             <Text allowFontScaling style={{ fontSize: 22, lineHeight: 32, color: guideColors.ink }}>{tg('guidance.practiceFamilyNotice')}</Text>

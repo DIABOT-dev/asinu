@@ -416,7 +416,7 @@
   "checkinSelectSingleHint": "Choose the most appropriate answer for your current condition.",
   "checkinTriageMascotBubble": "Please let Asinu know your current condition so Asinu can support you best!",
   "checkinLocationMascotBubble": "Please let Asinu know which body area is making you feel uncomfortable!",
-  "checkinSynthesizingTitle": "Asinu is generating conclusion...",
+  "checkinSynthesizingTitle": "Asinu is reviewing…",
   "checkinSynthesizingSubtitle": "Please wait a moment.\nAsinu is preparing feedback for you.",
   "checkinCompanionFooter": "Asinu is always by your side",
   "checkinClose": "Close",
@@ -708,5 +708,13 @@
     "continueInApp": "Answer in the app",
     "noResponse": "No answer received. Asinu will move to the next question.",
     "speechRateValue": "{{rate}}×"
-  }
+  },
+  "checkinConclusionMessage": "A message from Asinu",
+  "checkinConclusionExplanation": "What might this be related to?",
+  "checkinConclusionTodo": "What to do today",
+  "checkinConclusionWarning": "When to seek care",
+  "checkinConclusionFollowup": "Your next check-in",
+  "checkinConclusionExpertLink": "Connect with an Asinu health expert",
+  "checkinConclusionLoading": "Asinu is reviewing…",
+  "checkinTriageAnalyzing": "Asinu is analyzing your answers…"
 }
