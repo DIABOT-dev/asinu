@@ -1821,6 +1821,11 @@ function DoneScreen({
     void playConclusionAudio('conclusion', conclusionSpeechText);
 
     return () => {
+      // Development effect replay stops the player but preserves this ref.
+      // Let the next setup restart the narration that cleanup interrupted.
+      if (conclusionSpeechPlayedRef.current === conclusionSpeechIdentity) {
+        conclusionSpeechPlayedRef.current = null;
+      }
       void stopConclusionAudio();
     };
   }, [practice, readOnly, conclusionSpeechIdentity, conclusionSpeechText, playConclusionAudio, stopConclusionAudio]);

@@ -406,7 +406,8 @@ for (const lang of ['vi', 'en']) {
       calls.push(args);
       return Promise.resolve();
     };
-    const stopAudio = async () => {};
+    let stopCalls = 0;
+    const stopAudio = async () => { stopCalls++; };
     const hooks = {
       useState(initial) {
         const index = cursor++;
@@ -428,7 +429,7 @@ for (const lang of ['vi', 'en']) {
         const index = cursor++,
           old = slots[index];
         if (!old || deps.some((v, i) => !Object.is(v, old.deps[i]))) {
-          slots[index] = { deps };
+          slots[index] = { deps, setup: fn };
           effects.push(() => {
             old?.cleanup?.();
             slots[index].cleanup = fn();
@@ -552,6 +553,19 @@ for (const lang of ['vi', 'en']) {
         calls[1][1],
         helper.structuredCheckinSpeech(next.triageSummary),
       );
+      // React development effect replay preserves refs while recreating effects.
+      // A stopped narration must not remain marked as played on the next setup.
+      const activeEffects = slots.filter(slot => slot?.setup);
+      for (const slot of activeEffects) slot.cleanup?.();
+      assert.ok(stopCalls > 0);
+      for (const slot of activeEffects) slot.cleanup = slot.setup();
+      assert.equal(calls.length, 3, 'Development effect replay restarts the narration it stopped');
+      render(next);
+      assert.equal(calls.length, 3, 'An ordinary rerender does not restart narration');
+      const replay = nodes(render(next)).find(node => node.props?.accessibilityLabel === home.checkinReplaySound);
+      replay.props.onPress();
+      render(next);
+      assert.equal(calls.length, 4, 'Explicit Replay restarts the same conclusion');
       const preview = render({ ...next, readOnly: true });
       nodes(preview)
         .find((n) => n.type === CheckinConclusion)
@@ -559,7 +573,7 @@ for (const lang of ['vi', 'en']) {
       assert.deepEqual(navigation, ['/doctor-consultation']);
       assert.equal(
         calls.length,
-        2,
+        4,
         'A read-only result must not synthesize speech',
       );
     } finally {

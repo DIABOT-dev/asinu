@@ -15,4 +15,6 @@ export const isDoctorFeaturesEnabled: boolean =
 export const isExpertConsultationEnabled: boolean = true;
 // Temporarily hide the UI catalogue in every build, including development.
 export const isCheckinUiGalleryEnabled: boolean = false;
+// Hide test-only gift reopening in every build, even with an old local opt-in.
+export const isCheckinGiftReplayEnabled: boolean = false;
 export { appEnv };

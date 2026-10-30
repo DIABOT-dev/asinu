@@ -64,9 +64,9 @@ function hooks() {
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
   : [tree, ...nodes(tree.props?.children)];
 
-function replayTools(api, { dev = false, appDev = dev, account = 'parent-account', apiUrl = 'http://localhost:3300', replayUrl = apiUrl, randomByte = () => 0 } = {}) {
+function replayTools(api, { dev = false, appDev = dev, replayEnabled = dev, account = 'parent-account', apiUrl = 'http://localhost:3300', replayUrl = apiUrl, randomByte = () => 0 } = {}) {
   return evaluate('src/features/checkin-rewards/checkin-gift-replay.ts', {
-    '../../lib/appEnv': { isDevBuild: appDev },
+    '../../lib/appEnv': { isDevBuild: appDev, isCheckinGiftReplayEnabled: replayEnabled },
     '../../lib/env': { env: { apiBaseUrl: apiUrl } },
     './checkin-gifts.api': { checkinGiftsApi: api },
     'expo-crypto': { getRandomBytes: size => { assert.equal(size, 1); return Uint8Array.of(randomByte()); } },
@@ -76,7 +76,21 @@ function replayTools(api, { dev = false, appDev = dev, account = 'parent-account
   } } });
 }
 
-await test('gift replay requires a development build, the opted-in account and the configured API', () => {
+await test('gift replay is hidden in every real build, including opted-in development accounts', async () => {
+  for (const runtimeDev of [true, false]) for (const appEnv of ['local', 'dev', 'staging', 'prod']) {
+    const flags = evaluate('src/lib/appEnv.ts', {}, { __DEV__: runtimeDev, process: { env: { EXPO_PUBLIC_APP_ENV: appEnv } } });
+    assert.equal(flags.isCheckinGiftReplayEnabled, false);
+    let historyCalls = 0;
+    const day = { enabled: true, gift: null, streak: 0, week: [] };
+    const tools = replayTools({ today: async () => day, history: async () => { historyCalls++; return { items: [] }; } }, { dev: runtimeDev, appDev: flags.isDevBuild, replayEnabled: flags.isCheckinGiftReplayEnabled });
+    assert.equal(tools.canReplayCheckinGift('parent-account'), false);
+    assert.equal(await tools.loadCheckinGiftDay('parent-account', true), day);
+    assert.equal(historyCalls, 0);
+    assert.throws(() => tools.previewCheckinGift('parent-account', 0, key => key), /unavailable/);
+  }
+});
+
+await test('a future replay opt-in also requires a development build, the opted-in account and the configured API', () => {
   for (const options of [
     {}, { dev: true, appDev: false }, { dev: true, replayUrl: 'https://another-api.invalid' },
     { dev: true, account: '' }, { dev: true, replayUrl: '' },
