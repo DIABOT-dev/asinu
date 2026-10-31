@@ -37,6 +37,8 @@
     "test:startup-modals": "npm run test:permissions && node scripts/check-startup-modals.mjs && node scripts/check-connection-actions-and-restore.mjs && npm run test:subscription-comparison && node scripts/check-doctor-privacy.cjs && node scripts/check-privacy-modal-visuals.cjs",
     "test:checkin-connection": "node scripts/check-livekit-signal-lifecycle.mjs",
     "test:checkin-audio": "node scripts/check-checkin-call-audio.mjs && node scripts/check-checkin-call-screen.mjs && node scripts/check-checkin-call-completion.mjs",
+    "test:v21-pending": "node scripts/check-v21-pending.mjs",
+    "test:v21": "npm run test:v21-pending && node scripts/check-v21-medication-screen.mjs",
     "test:interactions": "node scripts/check-interactions.mjs && node scripts/check-navigation-stack.mjs",
     "test:guidance": "node scripts/check-guided-onboarding.mjs",
     "test:checkin-practice": "node scripts/check-checkin-practice.mjs",

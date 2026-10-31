@@ -19,6 +19,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private let maximumCallDuration: TimeInterval = 10 * 60
   private var pushRegistry: PKPushRegistry?
   private var callsByUUID: [UUID: [String: String]] = [:]
+  private var medicationMonitors: [UUID: DispatchWorkItem] = [:]
   private var uuidByAttempt: [String: UUID] = [:]
   private var endedAttempts: [String: Date] = [:]
   private var ringTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
@@ -178,13 +179,13 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   // so Expo's URL handler and the native event cannot stack duplicate screens.
   func handleAnsweredCallURL(_ url: URL) -> Bool {
     expireCallsIfNeeded()
-    guard url.scheme == "asinu-lite", (url.host == "checkin-call" || url.host == "doctor-call"),
+    guard url.scheme == "asinu-lite", (url.host == "checkin-call" || url.host == "doctor-call" || url.host == "medication"),
           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
           components.queryItems?.contains(where: { $0.name == "nativeAnswered" && $0.value == "1" }) == true,
           let attemptId = components.queryItems?.first(where: { $0.name == "attemptId" })?.value else { return false }
     let call = uuidByAttempt[attemptId].flatMap { callsByUUID[$0] } ?? pendingCall()
-    guard let call, url.host == (call["callType"] == "doctor_ivr" ? "doctor-call" : "checkin-call"), call["attemptId"] == attemptId,
-          call["nativeAnswered"] == "1", url.path == "/" + (call["episodeId"] ?? "") else { return false }
+    guard let call, url.host == (call["callType"] == "medication" ? "medication" : call["callType"] == "doctor_ivr" ? "doctor-call" : "checkin-call"), call["attemptId"] == attemptId,
+          call["nativeAnswered"] == "1", url.path == (call["callType"] == "medication" ? (call["medConsentId", default: ""].isEmpty ? "/call/" + (call["episodeId"] ?? "") : "/consent") : "/" + (call["episodeId"] ?? "")) else { return false }
     UserDefaults.standard.set(call, forKey: pendingCallKey)
     NotificationCenter.default.post(name: .asinuVoipCallAnswered, object: nil, userInfo: call)
     return true
@@ -205,7 +206,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   // The questionnaire owns playback/recording only after CallKit releases audio.
   // A timeout is a failed handoff, never permission to race AVAudioSession.
   func finishDoctorHandoff(attemptId: String, completion: @escaping (Bool) -> Void) {
-    guard let uuid = uuidByAttempt[attemptId], callsByUUID[uuid]?["callType"] == "doctor_ivr" else {
+    guard let uuid = uuidByAttempt[attemptId], (callsByUUID[uuid]?["callType"] == "doctor_ivr" || callsByUUID[uuid]?["callType"] == "medication") else {
       completion(!audioSessionActive)
       return
     }
@@ -247,6 +248,17 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
       return
     }
 
+    // Check-in and specialist calls keep priority over optional medication reminders.
+    if string(payload["callType"]) == "medication" {
+      if callsByUUID.values.contains(where: { $0["callType"] != "medication" }) {
+        reportDiscardedVoipPush(completion: completion)
+        return
+      }
+    } else {
+      let medicationAttempts = callsByUUID.values.filter { $0["callType"] == "medication" }.compactMap { $0["attemptId"] }
+      for medicationAttempt in medicationAttempts { endCall(attemptId: medicationAttempt) }
+    }
+
     let uuid = UUID()
     let severity = string(payload["severity"])
     let localizedTitle = string(payload["title"])
@@ -254,7 +266,9 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     let ringSeconds = min(max(configuredRingSeconds, 30), 180)
     let call = [
       "episodeId": episodeId,
-      "callType": string(payload["callType"]) == "doctor_ivr" ? "doctor_ivr" : "checkin",
+      "callType": string(payload["callType"]) == "medication" ? "medication" : string(payload["callType"]) == "doctor_ivr" ? "doctor_ivr" : "checkin",
+      "medDoseId": string(payload["medDoseId"]),
+      "medConsentId": string(payload["medConsentId"]),
       "attemptId": attemptId,
       "severity": severity,
       "kind": kind,
@@ -264,6 +278,7 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     callsByUUID[uuid] = call
     uuidByAttempt[attemptId] = uuid
     scheduleCallTimeout(uuid: uuid)
+    if call["callType"]=="medication" { monitorMedication(uuid:uuid,capability:string(payload["statusCapability"]),until:Date().addingTimeInterval(180)) }
 
     let update = CXCallUpdate()
     update.remoteHandle = CXHandle(
@@ -400,11 +415,12 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
   private func openResponseScreen(_ call: [String: String]) {
     var components = URLComponents()
     components.scheme = "asinu-lite"
-    components.host = call["callType"] == "doctor_ivr" ? "doctor-call" : "checkin-call"
-    components.path = "/" + (call["episodeId"] ?? "")
+    components.host = call["callType"] == "medication" ? "medication" : call["callType"] == "doctor_ivr" ? "doctor-call" : "checkin-call"
+    components.path = call["callType"] == "medication" ? (call["medConsentId", default: ""].isEmpty ? "/call/" + (call["episodeId"] ?? "") : "/consent") : "/" + (call["episodeId"] ?? "")
     components.queryItems = [
       URLQueryItem(name: "attemptId", value: call["attemptId"]),
       URLQueryItem(name: "nativeAnswered", value: "1"),
+      URLQueryItem(name: "scheduleId", value: call["medConsentId"]),
     ]
     if let url = components.url {
       DispatchQueue.main.async {
@@ -543,7 +559,31 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: timeout)
   }
 
+  private func monitorMedication(uuid:UUID,capability:String,until:Date) {
+    guard !capability.isEmpty,Date()<until,callsByUUID[uuid] != nil else {return}
+    let work=DispatchWorkItem { [weak self] in
+      guard let self,let call=self.callsByUUID[uuid],let id=call["attemptId"],let base=UserDefaults.standard.string(forKey:"asinu.medication.apiBaseUrl"),let url=URL(string:base.trimmingCharacters(in:CharacterSet(charactersIn:"/"))+"/api/mobile/med-native/"+id+"/status") else {return}
+      var request=URLRequest(url:url,cachePolicy:.reloadIgnoringLocalCacheData,timeoutInterval:3)
+      request.httpMethod="POST";request.setValue("application/json",forHTTPHeaderField:"Content-Type")
+      request.httpBody=try? JSONSerialization.data(withJSONObject:["capability":capability])
+      // Ephemeral session, no cookies/cache/credentials; the trusted app base URL
+      // is configured before device registration, never supplied in a push.
+      let session=URLSession(configuration:.ephemeral,delegate:MedicationStatusRedirectPolicy.shared,delegateQueue:nil)
+      session.dataTask(with:request) { [weak self] data,response,_ in
+        let active=(response as? HTTPURLResponse)?.statusCode==200 ? ((data.flatMap {try? JSONSerialization.jsonObject(with:$0)} as? [String:Any])?["active"] as? Bool) : nil
+        session.finishTasksAndInvalidate()
+        DispatchQueue.main.async {
+          guard let self,self.callsByUUID[uuid] != nil else {return}
+          if active==false {self.endCall(attemptId:id)} else {self.monitorMedication(uuid:uuid,capability:capability,until:until)}
+        }
+      }.resume()
+    }
+    medicationMonitors[uuid]=work
+    DispatchQueue.main.asyncAfter(deadline:.now()+3,execute:work)
+  }
+
   private func removeCall(uuid: UUID) {
+    medicationMonitors.removeValue(forKey:uuid)?.cancel()
     callTimeoutsByUUID.removeValue(forKey: uuid)?.cancel()
     callDeadlinesByUUID.removeValue(forKey: uuid)
     cancelRingTimeout(uuid: uuid)
@@ -584,4 +624,10 @@ final class VoipCallManager: NSObject, PKPushRegistryDelegate, CXProviderDelegat
     if let number = value as? NSNumber { return number.stringValue }
     return ""
   }
+}
+
+// Never forward an ephemeral status capability to a redirected host.
+private final class MedicationStatusRedirectPolicy: NSObject, URLSessionTaskDelegate {
+  static let shared=MedicationStatusRedirectPolicy()
+  func urlSession(_ session:URLSession,task:URLSessionTask,willPerformHTTPRedirection response:HTTPURLResponse,newRequest request:URLRequest,completionHandler:@escaping (URLRequest?)->Void){completionHandler(nil)}
 }

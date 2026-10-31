@@ -43,9 +43,7 @@ export class CheckinCallHandoff {
       return null;
     if (
       gate.pathname ===
-      `/${call.callType === "doctor_ivr" ? "doctor-call" : "checkin-call"}/${
-        call.episodeId
-      }`
+      (call.callType === 'medication' ? (call.medConsentId ? '/medication/consent' : `/medication/call/${call.episodeId}`) : `/${call.callType === "doctor_ivr" ? "doctor-call" : "checkin-call"}/${call.episodeId}`)
     ) {
       if (gate.attemptId === call.attemptId && gate.nativeAnswered === "1")
         return null;

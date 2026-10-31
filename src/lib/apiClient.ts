@@ -1,3 +1,4 @@
+import { notifyHealthAction } from './health-action-events';
 import { monitoredFetch, reportError, markTelemetryHandled } from '../observability/sentry';
 import i18n from '../i18n';
 import { env } from './env';
@@ -209,6 +210,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
         error.name = 'ApiResponseContractError';
         reportError(error, { component: 'api', operation: 'response_contract', route: path, method, status_code: response.status });
       }
+      if(body?.ok!==false)notifyHealthAction(path,method);
       return body as T;
     } catch (error) {
       const userFacingError = isRequestTimeout(error)

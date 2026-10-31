@@ -29,8 +29,9 @@ import expo.modules.notifications.service.ExpoFirebaseMessagingService
 class AsinuFirebaseMessagingService : ExpoFirebaseMessagingService() {
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
     val data = remoteMessage.data
+    if (data["type"] == "med_reminder") { MedicationReminderNotification.show(applicationContext, data); return }
     val doctorCall = data["type"] == "doctor_ivr_call" && data["callType"] == "doctor_ivr"
-    if (data["type"] != "checkin_call" && !doctorCall) { super.onMessageReceived(remoteMessage); return }
+    if (data["type"] != "checkin_call" && !doctorCall && !(data["type"] == "medication_call" && data["callType"] == "medication")) { super.onMessageReceived(remoteMessage); return }
     if (Build.VERSION.SDK_INT >= 24 && !(getSystemService(Context.USER_SERVICE) as UserManager).isUserUnlocked) return
     CheckinCallNotifications.show(applicationContext, data)
   }
@@ -104,8 +105,8 @@ object CheckinCallNotifications {
 
     val deepLink = Uri.Builder()
       .scheme("asinu-lite")
-      .authority(if (data["callType"] == "doctor_ivr") "doctor-call" else "checkin-call")
-      .appendPath(episodeId)
+      .authority(if (data["callType"] == "medication") "medication" else if (data["callType"] == "doctor_ivr") "doctor-call" else "checkin-call")
+      .apply { if(data["callType"]=="medication") { if(data["medConsentId"].isNullOrBlank()) { appendPath("call");appendPath(episodeId) } else { appendPath("consent");appendQueryParameter("scheduleId",data["medConsentId"]) } } else appendPath(episodeId) }
       .appendQueryParameter("attemptId", attemptId)
       .build()
     val intent = Intent(Intent.ACTION_VIEW, deepLink, this, MainActivity::class.java).apply {

@@ -54,6 +54,11 @@ export function setupNotificationHandler(): void {
  */
 export async function registerNotificationCategories(): Promise<void> {
   try {
+    await Notifications.setNotificationCategoryAsync('MEDICATION_DOSE',[
+      {identifier:'MED_TAKEN',buttonTitle:i18n.t('TAKEN',{ns:'v21'}),options:{opensAppToForeground:true,isAuthenticationRequired:true}},
+      {identifier:'MED_SKIP',buttonTitle:i18n.t('SKIPPED',{ns:'v21'}),options:{opensAppToForeground:true,isAuthenticationRequired:true}},
+      {identifier:'MED_OUT',buttonTitle:i18n.t('OUT_OF_MEDS',{ns:'v21'}),options:{opensAppToForeground:true,isAuthenticationRequired:true}},
+    ]);
     await Notifications.setNotificationCategoryAsync("health_alert", [
       {
         identifier: "ACKNOWLEDGE",
@@ -472,8 +477,17 @@ export type NotificationRoute =
   | { pathname: string; params?: Record<string, string> };
 
 export function routeFromNotificationData(
-  data: Record<string, unknown> | null | undefined
+  data: Record<string, unknown> | null | undefined, actionIdentifier?: string
 ): NotificationRoute | null {
+  if(data?.callType==='medication'||data?.type==='med_reminder'||data?.type==='med_consent') {
+    const consent=typeof data.medConsentId==='string'?data.medConsentId:typeof data.scheduleId==='string'?data.scheduleId:null;
+    if(consent)return {pathname:'/medication/consent',params:{scheduleId:consent,attemptId:String(data.attemptId||'')}};
+    const dose=typeof data.medDoseId==='string'?data.medDoseId:typeof data.episodeId==='string'?data.episodeId:null;
+    if(dose)return {pathname:'/medication/call/[doseId]',params:{doseId:dose,attemptId:String(data.attemptId||''),...(['MED_TAKEN','MED_SKIP','MED_OUT'].includes(actionIdentifier||'')?{quickButton:String(['MED_TAKEN','MED_SKIP','MED_OUT'].indexOf(actionIdentifier!)+1)}:{})}};
+    return '/medication';
+  }
+  if(typeof data?.type==='string'&&data.type.startsWith('coin_'))return '/coins';
+  if(typeof data?.type==='string'&&data.type.startsWith('med_'))return '/medication';
   if (data?.callType === "doctor_ivr" || data?.type === "doctor_ivr_call") {
     if (!isDoctorFeaturesEnabled || typeof data?.episodeId !== "string")
       return "/(tabs)/home";

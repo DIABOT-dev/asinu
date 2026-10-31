@@ -53,9 +53,12 @@ import {
   getPendingVoipCall,
   getVoipRegistration,
   supportsDoctorIvrCalls,
+  supportsMedicationCalls, medicationCallRoute, configureMedicationCalls,
   type VoipCallPayload,
   type VoipRegistration,
 } from "../lib/voip";
+import { acceptMedicationCallOnce } from '../features/v21/medication.accept';
+import { CoinEarnedHost } from '../features/v21/CoinEarnedHost';
 import { CheckinCallHandoff } from "../features/checkin-call/checkin-call.handoff";
 import { acceptCheckinCallOnce } from "../features/checkin-call/checkin-call.accept";
 import { acceptDoctorIvrCallOnce } from "../features/doctor-ivr/ivr-call";
@@ -311,6 +314,15 @@ export const SessionProvider = ({ children }: Props) => {
       )
       .then(async () => {
         if (__DEV__) console.log("[Session] Push token saved to server");
+        if ((Platform.OS==='ios'||Platform.OS==='android') && useAuthStore.getState().token===authToken) {
+          const platform=Platform.OS, token=platform==='ios'?voipRegistration?.token:nativeFcmToken;
+          const medicationEnabled=await apiClient<{medication:boolean}>('/api/mobile/v21/config').then(f=>f.medication).catch(()=>false);
+          if(medicationEnabled&&token){
+            const configured=await configureMedicationCalls(env.apiBaseUrl).catch(()=>false);
+            if(useAuthStore.getState().token!==authToken)return;
+            await apiClient('/api/mobile/medication/device',{method:'POST',body:{platform,token,supported:configured&&await supportsMedicationCalls()}}).catch(()=>{});
+          }
+        }
         if (
           isDoctorFeaturesEnabled &&
           (Platform.OS === "ios" || Platform.OS === "android")
@@ -352,6 +364,13 @@ export const SessionProvider = ({ children }: Props) => {
     });
     if (!action) return;
     const params = { attemptId: action.call.attemptId, nativeAnswered: "1" };
+    if (action.call.callType === 'medication') {
+      const route=medicationCallRoute(action.call);
+      if(action.kind==='params')router.setParams(route.params);
+      else if(action.kind==='replace')router.replace(route as any);
+      else router.navigate(route as any);
+      return;
+    }
     if (action.call.callType === "doctor_ivr") {
       if (!isDoctorFeaturesEnabled) return;
       const doctorRoute = {
@@ -382,7 +401,7 @@ export const SessionProvider = ({ children }: Props) => {
       // UI is still visible. Neither accepting nor opening the app is check-in.
       if (callContext.current.hydrated && callContext.current.authToken) {
         void (
-          call.callType === "doctor_ivr"
+          call.callType === "medication" ? acceptMedicationCallOnce : call.callType === "doctor_ivr"
             ? acceptDoctorIvrCallOnce
             : acceptCheckinCallOnce
         )(call.attemptId).catch(() => {});
@@ -426,6 +445,7 @@ export const SessionProvider = ({ children }: Props) => {
       // Use the authenticated endpoint; the ring-only native capability cannot
       // modify a connected call or confirm anyone's health status.
       if (call.endReason === "user" && useAuthStore.getState().token) {
+        if(call.callType==='medication') {void apiClient(`/api/mobile/med-call-attempts/${encodeURIComponent(call.attemptId)}/end`,{method:'POST'}).catch(()=>{});return;}
         const doctor = call.callType === "doctor_ivr";
         if (doctor) {
           if (!isDoctorFeaturesEnabled) return;
@@ -669,6 +689,12 @@ export const SessionProvider = ({ children }: Props) => {
         return;
       }
 
+      // A medication action is only processed on the authenticated response screen.
+      // The route supplies the pressed button; a stable per-dose receipt prevents
+      // duplicate background/cold-start notification delivery from answering twice.
+      if (typeof data?.medDoseId==='string' && ['MED_TAKEN','MED_SKIP','MED_OUT'].includes(actionIdentifier)) {
+        router.navigate({pathname:'/medication/call/[doseId]',params:{doseId:data.medDoseId,quickButton:String(['MED_TAKEN','MED_SKIP','MED_OUT'].indexOf(actionIdentifier)+1)}} as any);return;
+      }
       // Action buttons on caregiver alert push notification
       if (actionIdentifier === "ACKNOWLEDGE") {
         const alertId = data?.alertId ? Number(data.alertId) : null;
@@ -764,6 +790,7 @@ export const SessionProvider = ({ children }: Props) => {
   return (
     <SessionContext.Provider value={value}>
       {children}
+      <CoinEarnedHost />
       <AppAlertModal
         queued
         visible={notificationPromptVisible && pathname === "/home"}

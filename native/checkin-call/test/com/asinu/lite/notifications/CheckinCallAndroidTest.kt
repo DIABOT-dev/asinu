@@ -64,6 +64,55 @@ class CheckinCallAndroidTest {
     assertFalse(CheckinCallStore.incoming(context, call()))
     assertEquals(first, CheckinCallStore.ringing(context, id)!!.optLong("expiresAt"))
   }
+  @Test fun medicationCancellationStatusIsReadOnlyAndRejectsRedirects() {
+    val server=MockWebServer();server.start()
+    try {
+      CheckinCallStore.preferences(context).edit().putString("apiBaseUrl",server.url("/").toString().trimEnd('/')).commit()
+      server.enqueue(MockResponse().setResponseCode(200).setBody("{\"active\":false}"))
+      assertEquals(false,MedicationCallMonitor.readStatus(context,id,"short-read-capability"))
+      val request=server.takeRequest(2,TimeUnit.SECONDS)!!
+      assertEquals("/api/mobile/med-native/$id/status",request.path)
+      assertNull(request.getHeader("Authorization"))
+      server.enqueue(MockResponse().setResponseCode(302).setHeader("Location","https://untrusted.invalid/"))
+      assertNull(MedicationCallMonitor.readStatus(context,id,"short-read-capability"))
+    } finally {server.shutdown()}
+  }
+  @Test fun ordinaryMedicationPushHasThreeAuthenticatedAppActions() {
+    MedicationReminderNotification.show(context,mapOf("medDoseId" to episode,"lang" to "vi"))
+    val notification=shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).getNotification(episode.hashCode())
+    assertEquals(3,notification.actions.size)
+    assertEquals("Bỏ qua",notification.actions[1].title)
+    val intent=shadowOf(notification.actions[1].actionIntent).savedIntent
+    assertEquals("medication",intent.data!!.host)
+    assertEquals("2",intent.data!!.getQueryParameter("quickButton"))
+    assertFalse(notification.extras.containsKey("medication_name"))
+  }
+  @Test fun medicationIdentitySurvivesColdAnswerWithoutSharingDeclineCredential() {
+    val data=call()+mapOf("type" to "medication_call","callType" to "medication","medDoseId" to episode,"declineCapability" to "one-ring")
+    Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get().onMessageReceived(RemoteMessage.Builder("fixture").setData(data).build())
+    assertEquals("medication",CheckinCallStore.ringing(context,id)!!.optString("callType"))
+    assertTrue(CheckinCallStore.answer(context,id))
+    assertEquals(episode,CheckinCallStore.pending(context)!!.optString("medDoseId"))
+    assertFalse(CheckinCallStore.pending(context)!!.has("declineCapability"))
+  }
+  @Test fun urgentCheckinPreemptsMedicationAndMedicationCannotPreemptCheckin() {
+    val other="a1111111-1111-4111-8111-111111111111"
+    assertTrue(CheckinCallStore.incoming(context,call()+mapOf("callType" to "medication")))
+    assertTrue(CheckinCallStore.incoming(context,call()+mapOf("attemptId" to other,"severity" to "URGENT")))
+    assertNull(CheckinCallStore.ringing(context,id))
+    assertFalse(CheckinCallStore.incoming(context,call()+mapOf("attemptId" to "b1111111-1111-4111-8111-111111111111","callType" to "medication")))
+  }
+  @Test fun medicationDeclineUsesOnlyMedicationEndpoint() {
+    val server=MockWebServer();server.enqueue(MockResponse().setResponseCode(200));server.start()
+    try {
+      CheckinCallStore.preferences(context).edit().putString("apiBaseUrl",server.url("/").toString().trimEnd('/')).commit()
+      val work=TestListenableWorkerBuilder<CheckinCallDeclineWorker>(context).setInputData(workDataOf("attemptId" to id,"capability" to "one-ring","callType" to "medication","expiresAt" to System.currentTimeMillis()+60_000)).build()
+      assertEquals(ListenableWorker.Result.success(),work.doWork())
+      val request=server.takeRequest(2,TimeUnit.SECONDS)!!
+      assertEquals("/api/mobile/med-native/$id/decline",request.path)
+      assertNull(request.getHeader("Authorization"))
+    } finally {server.shutdown()}
+  }
   @Test fun doctorIncomingPushRetainsItsIdentityAcrossAnswerAndRecovery() {
     val data = call() + mapOf("type" to "doctor_ivr_call", "callType" to "doctor_ivr", "declineCapability" to "scoped-token")
     Robolectric.buildService(AsinuFirebaseMessagingService::class.java).get()

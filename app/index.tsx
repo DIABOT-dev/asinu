@@ -170,6 +170,9 @@ export default function Index() {
             } as any);
             return;
           }
+          if (call?.callType === 'medication') {
+            router.replace((call.medConsentId ? {pathname:'/medication/consent',params:{scheduleId:call.medConsentId,attemptId:call.attemptId,nativeAnswered:'1'}} : {pathname:'/medication/call/[doseId]',params:{doseId:call.medDoseId||call.episodeId,attemptId:call.attemptId,nativeAnswered:'1'}}) as any); return;
+          }
           if (call && call.callType !== "doctor_ivr") {
             router.replace({
               pathname: "/checkin-call/[episodeId]",
@@ -191,7 +194,7 @@ export default function Index() {
               unknown
             >;
             if (ageSec < (data?.checkinCall === true ? 30 * 60 : 60)) {
-              const route = routeFromNotificationData(data);
+              const route = routeFromNotificationData(data, response.actionIdentifier);
               if (route) {
                 if (typeof route === "string") router.replace(route as any);
                 else router.replace(route as any);

@@ -20,7 +20,8 @@ class CheckinCallDeclineWorker(context: Context, params: WorkerParameters) : Wor
     if ((uri.scheme != "https" && !(BuildConfig.DEBUG && uri.scheme == "http")) || uri.host == null || uri.userInfo != null || uri.query != null || uri.fragment != null) return Result.failure()
     var connection: HttpURLConnection? = null
     return try {
-      val path = if (inputData.getString("callType") == "doctor_ivr") "/api/doctor/ivr/native/calls/$id/decline"
+      val path = if (inputData.getString("callType") == "medication") "/api/mobile/med-native/$id/decline"
+        else if (inputData.getString("callType") == "doctor_ivr") "/api/doctor/ivr/native/calls/$id/decline"
         else "/api/mobile/checkin-call/native/attempts/$id/decline"
       connection = URI(base.trimEnd('/') + path).toURL().openConnection() as HttpURLConnection
       connection.requestMethod = "POST"

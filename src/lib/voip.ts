@@ -8,7 +8,9 @@ export type VoipRegistration = {
 };
 
 export type VoipCallPayload = {
-  callType?: "doctor_ivr";
+  callType?: "doctor_ivr" | "medication";
+  medDoseId?: string;
+  medConsentId?: string;
   episodeId: string;
   attemptId: string;
   severity?: string;
@@ -21,7 +23,8 @@ export type VoipCallPayload = {
 };
 
 type NativeVoipModule = {
-  getCapabilities?(): Promise<{ doctorIvr: boolean }>;
+  configure?(apiBaseUrl:string):Promise<boolean>;
+  getCapabilities?(): Promise<{ doctorIvr: boolean; medCall?: boolean }>;
   finishCallHandoff?(attemptId: string): Promise<boolean>;
   getRegistration(): Promise<VoipRegistration | null>;
   consumePendingCall(): Promise<VoipCallPayload | null>;
@@ -53,6 +56,15 @@ const emitter =
     ? new NativeEventEmitter(nativeModule as never)
     : null;
 
+export async function configureMedicationCalls(apiBaseUrl:string){return nativeModule?.configure ? (await nativeModule.configure(apiBaseUrl))!==false : false;}
+export async function supportsMedicationCalls(): Promise<boolean> {
+  try { return (await nativeModule?.getCapabilities?.())?.medCall === true; } catch { return false; }
+}
+export function medicationCallRoute(call: VoipCallPayload) {
+  return call.medConsentId
+    ? {pathname:'/medication/consent',params:{scheduleId:call.medConsentId,attemptId:call.attemptId,nativeAnswered:'1'}}
+    : {pathname:'/medication/call/[doseId]',params:{doseId:call.medDoseId||call.episodeId,attemptId:call.attemptId,nativeAnswered:'1'}};
+}
 export async function supportsDoctorIvrCalls(): Promise<boolean> {
   try {
     return (await nativeModule?.getCapabilities?.())?.doctorIvr === true;
