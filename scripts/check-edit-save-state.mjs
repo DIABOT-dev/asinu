@@ -191,15 +191,17 @@ await test('family dropdown searches accents and unaccented text using the actua
   assert.equal(filterOptions(options, '').length, 54);
 });
 
-function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update } = {}) {
+function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false } = {}) {
   theme.applyTheme(isDark ? 'dark' : 'light');
   const h = hooks();
   const t = translate(language, 'careCircle');
   const tc = translate(language, 'common');
-  const calls = { alerts: [], writes: [], toasts: [] };
+  const calls = { alerts: [], writes: [], toasts: [], routes: [] };
   const connection = {
     id: 'connection', requester_id: 'me', addressee_id: 'relative', status: 'accepted',
-    addressee_full_name: 'Family Member', relationship_type: relationship, role,
+    addressee_name: 'Family Display', addressee_full_name: 'Family Member', addressee_avatar_url: 'https://example.invalid/avatar.jpg',
+    addressee_email: 'relative@example.invalid', addressee_phone: '0900000000', addressee_can_view_logs: canViewTheirs,
+    relationship_type: relationship, role,
     permissions: permissions ?? { can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true },
   };
   const write = async (kind, id, values) => {
@@ -218,10 +220,11 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     'react-i18next': { useTranslation: namespace => ({ t: namespace === 'common' ? tc : t }) },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView', useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     'react-native-svg': { __esModule: true, default: 'Svg', Path: 'Path' },
-    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ push() {} }) },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => calls.routes.push(route) }) },
     '../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../src/components/Button': { Button: 'Button' }, '../../src/components/Dropdown': { Dropdown: 'Dropdown' },
     '../../src/components/AppAlertModal': { AppAlertModal: 'AlertModal', useAppAlert: () => ({ alertState: {}, dismissAlert() {}, showAlert: (...args) => calls.alerts.push(args) }) },
+    '../../src/components/Avatar': { Avatar: 'Avatar' },
     '../../src/components/ScaledText': { ScaledText: 'Text' }, '../../src/components/Screen': { Screen: 'Screen' },
     '../../src/components/state/MainScreenSkeletons': { CareCircleTabSkeleton: 'Skeleton' },
     '../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: () => false },
@@ -245,13 +248,16 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
   const render = () => h.render(Screen);
   const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible);
   const membersToggle = () => nodes(render()).find(node => typeof node.props?.accessibilityState?.expanded === 'boolean');
-  return { calls, connection, modal, render,
+  const menu = () => {
+    if (!membersToggle().props.accessibilityState.expanded) membersToggle().props.onPress();
+    nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === tc('notificationMoreActions')).props.onPress();
+    return calls.alerts.at(-1)[2];
+  };
+  return { calls, connection, modal, render, menu,
     toggleMembers: () => membersToggle().props.onPress(),
     membersExpanded: () => membersToggle().props.accessibilityState.expanded,
     open: () => {
-      if (!membersToggle().props.accessibilityState.expanded) membersToggle().props.onPress();
-      nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === tc('notificationMoreActions')).props.onPress();
-      calls.alerts.at(-1)[2].find(button => button.text === t('editConnection')).onPress();
+      menu().find(button => button.text === t('editConnection')).onPress();
     },
     save: () => nodes(modal()).find(node => node.type === 'Button' && node.props.accessibilityLabel === tc('save')),
     choose: (field, id) => {
@@ -269,6 +275,35 @@ for (const language of ['vi', 'en']) {
     h.toggleMembers(); assert.equal(h.membersExpanded(), true); assert.equal(more(), true);
     h.toggleMembers(); assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
     assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []);
+  });
+}
+for (const language of ['vi', 'en']) {
+  await test(`${language}: member rows show only the display name and avatar while information is opened from the menu`, () => {
+    const h = connectionHarness({ language }); h.toggleMembers();
+    const row = nodes(h.render()).find(node => node.props?.accessibilityLabel === h.connection.addressee_name);
+    const labels = nodes(row).filter(node => node.type === 'Text');
+    assert.deepEqual(labels.map(node => node.props.children), [h.connection.addressee_name]);
+    assert.equal(labels[0].props.numberOfLines, undefined);
+    assert.equal(nodes(row).find(node => node.type === 'Avatar').props.imageUrl, h.connection.addressee_avatar_url);
+    h.menu().find(action => action.text === translate(language, 'careCircle')('viewConnectionInfo')).onPress();
+    const info = nodes(h.modal());
+    assert.ok(info.some(node => node.props.children === h.connection.addressee_email));
+    assert.ok(info.some(node => node.props.children === h.connection.addressee_phone));
+    assert.equal(info.find(node => node.type === 'Avatar').props.name, h.connection.addressee_name);
+    assert.deepEqual(h.calls.routes, []);
+  });
+  await test(`${language}: health profile stays locked without consent and opens only while the current consent permits it`, () => {
+    const label = translate(language, 'careCircle')('viewHealthProfile');
+    const locked = connectionHarness({ language });
+    const lockedAction = locked.menu().find(action => action.text === label);
+    assert.equal(lockedAction.disabled, true); assert.equal(lockedAction.icon, 'lock-outline');
+    lockedAction.onPress(); assert.deepEqual(locked.calls.routes, []);
+    const allowed = connectionHarness({ language, canViewTheirs: true });
+    const allowedAction = allowed.menu().find(action => action.text === label);
+    assert.equal(allowedAction.disabled, false); allowedAction.onPress();
+    assert.deepEqual(allowed.calls.routes, [{ pathname: '/care-circle/member/[id]', params: { id: 'relative', name: allowed.connection.addressee_name } }]);
+    allowed.connection.addressee_can_view_logs = false; allowed.render();
+    allowedAction.onPress(); assert.equal(allowed.calls.routes.length, 1, 'An open menu cannot reuse revoked health consent');
   });
 }
 for (const language of ['vi', 'en']) for (const isDark of [false, true]) {

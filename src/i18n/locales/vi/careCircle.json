@@ -179,6 +179,7 @@
   "permissionsDesc": "Quản lý những thông tin người này có thể xem và nhận",
   "permViewLogs": "Xem nhật ký sức khỏe",
   "permViewLogsDesc": "Cho người này xem hồ sơ, lịch check-in và nhật ký của bạn, chỉ khi còn trong Vòng kết nối",
+  "viewConnectionInfo": "Xem thông tin",
   "viewHealthProfile": "Xem hồ sơ sức khỏe",
   "memberHealthProfileTitle": "Hồ sơ sức khỏe của {{name}}",
   "tabHealthCalendar": "Lịch sức khỏe",

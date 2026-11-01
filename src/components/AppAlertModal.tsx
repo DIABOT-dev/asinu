@@ -20,6 +20,8 @@ export type AlertButton = {
   style?: 'default' | 'cancel' | 'destructive';
   variant?: 'primary' | 'outline' | 'text' | 'destructive';
   icon?: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  disabled?: boolean;
+  accessibilityHint?: string;
   onPress?: () => void | Promise<void>;
 };
 
@@ -131,6 +133,7 @@ export function AppAlertModal({
   );
 
   const handlePress = (btn: AlertButton) => {
+    if (btn.disabled) return;
     if (queued) {
       if (closingRef.current) return;
       closingRef.current = true;
@@ -158,7 +161,7 @@ export function AppAlertModal({
       {resolvedButtons.map((btn, i) => {
         const isCancel = btn.style === 'cancel';
         const isDestructive = btn.variant === 'destructive' || (!btn.variant && btn.style === 'destructive');
-        const tint = actionList
+        const tint = btn.disabled ? colors.textSecondary : actionList
           ? isDestructive ? colors.danger : isCancel ? colors.textSecondary : colors.primaryText
           : btn.variant === 'primary' ? primaryButtonColors?.foreground ?? '#ffffff'
           : btn.variant === 'outline' ? '#466d82'
@@ -169,6 +172,9 @@ export function AppAlertModal({
             key={i}
             accessibilityRole="button"
             accessibilityLabel={btn.text}
+            accessibilityHint={btn.accessibilityHint}
+            accessibilityState={{ disabled: !!btn.disabled }}
+            disabled={btn.disabled}
             style={({ pressed }) => [
               styles.button,
               verticalButtons ? { width: '100%', minHeight: 48, justifyContent: 'center' } : { flex: 1 },
@@ -182,7 +188,8 @@ export function AppAlertModal({
               actionList && styles.actionButton,
               accessAppearance && styles.accessButton,
               accessAppearance && isCancel && styles.accessCancel,
-              pressed && { opacity: 0.8 },
+              btn.disabled && { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+              pressed && !btn.disabled && { opacity: 0.8 },
             ]}
             onPress={() => handlePress(btn)}
           >
@@ -203,12 +210,13 @@ export function AppAlertModal({
               actionList && styles.actionButtonText,
               actionList && { color: tint },
               accessAppearance && styles.accessButtonText,
+              btn.disabled && { color: colors.textSecondary },
             ]}>
               {!actionList && btn.icon ? <MaterialCommunityIcons name={btn.icon} size={18} color={tint} /> : null}
               {!actionList && btn.icon ? '  ' : null}
               {btn.text}
             </Text>
-            {actionList && !isCancel ? (
+            {actionList && !isCancel && !btn.disabled ? (
               <MaterialCommunityIcons name="chevron-right" size={23} color={tint} />
             ) : null}
           </Pressable>

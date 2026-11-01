@@ -177,6 +177,7 @@
   "selectRole": "Select role...",
   "permissions": "Permissions",
   "permissionsDesc": "Manage the information this person can view and receive",
+  "viewConnectionInfo": "View information",
   "viewHealthProfile": "View health profile",
   "memberHealthProfileTitle": "{{name}}'s health profile",
   "tabHealthCalendar": "Health calendar",
