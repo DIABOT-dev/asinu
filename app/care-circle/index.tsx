@@ -25,7 +25,6 @@ import { Screen } from '../../src/components/Screen';
 import { CareCircleTabSkeleton } from '../../src/components/state/MainScreenSkeletons';
 import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
 import { useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
@@ -43,9 +42,6 @@ import {
 } from '../../src/features/care-circle/family-relationships';
 import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
-import { CareCircleInviteBanner } from '../../src/features/care-circle/components/CareCircleInviteBanner';
-import { CareCircleHeroBanner } from '../../src/features/care-circle/components/CareCircleHeroBanner';
-import { CareCircleEmptyState } from '../../src/features/care-circle/components/CareCircleEmptyState';
 import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 import Svg, { Path } from 'react-native-svg';
 
@@ -96,7 +92,6 @@ export default function CareCircleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const profile = useAuthStore((state) => state.profile);
-  const { language } = useLanguageStore();
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
@@ -121,6 +116,7 @@ export default function CareCircleScreen() {
   } = useCareCircle();
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [membersExpanded, setMembersExpanded] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editConnection, setEditConnection] = useState<{
     id: string;
@@ -323,10 +319,17 @@ export default function CareCircleScreen() {
       <Screen style={styles.screen}>
         {/* Custom Header matching design */}
         <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 20) + 10 }]}>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>{t('title')}</Text>
-            <Text style={styles.headerSubtitle}>{t('headerSubtitle')}</Text>
-          </View>
+          <GuideTarget step="circle.add">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('scanQr')}
+            onPress={() => router.push('/care-circle/scan')}
+            style={({ pressed }) => [styles.scanQrButton, pressed && { opacity: 0.75 }]}
+          >
+            <Ionicons name="scan-outline" size={24} color={colors.primaryDark} />
+            <Text style={styles.scanQrLabel}>{t('scanQr')}</Text>
+          </Pressable>
+          </GuideTarget>
         </View>
 
         <GuideScrollScope scrollRef={guideScrollRef} offset={guideScrollOffset}>
@@ -343,30 +346,11 @@ export default function CareCircleScreen() {
           }}
           showsVerticalScrollIndicator={false}
         >
+          <CareCircleQrActions />
           {showInitialSkeleton ? (
             <CareCircleTabSkeleton />
           ) : (
             <>
-              {/* Hero Banner Card (Animated 3D Family) */}
-              <CareCircleHeroBanner
-                title={t('title')}
-                subtitle={t('headerSubtitle')}
-                language={language}
-                connectionsCount={connections.length}
-                receivedCount={receivedInvitations.length}
-                sentCount={sentInvitations.length}
-              />
-
-              {/* Quick Action Banner: Mời người mới (Animated) */}
-              <GuideTarget step="circle.add">
-                <CareCircleInviteBanner onPress={() => router.push('/care-circle/invite')} />
-              </GuideTarget>
-
-              <CareCircleQrActions
-                onShowQr={() => router.push('/care-circle/qr' as never)}
-                onScanQr={() => router.push('/care-circle/scan' as never)}
-              />
-
               {/* Received Invitations (if any) */}
               {receivedInvitations.length > 0 && (
                 <View style={styles.section}>
@@ -515,18 +499,24 @@ export default function CareCircleScreen() {
 
               {/* Active Connections Section */}
               <View style={styles.activeSection}>
-                <View style={styles.activeSectionHeader}>
-                  <Ionicons name="people" size={20} color="#0D9488" />
+                <Pressable
+                  style={({ pressed }) => [styles.activeSectionHeader, pressed && { opacity: 0.75 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('activeConnections', { count: connections.length })}
+                  accessibilityState={{ expanded: membersExpanded }}
+                  onPress={() => setMembersExpanded((expanded) => !expanded)}
+                >
+                  <Ionicons name="people-outline" size={24} color={colors.primaryDark} />
                   <Text style={styles.activeSectionTitle}>
                     {t('activeConnections', { count: connections.length })}
                   </Text>
-                </View>
+                  <Ionicons name={membersExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
+                </Pressable>
 
-                {(loading || refreshing) && connections.length === 0 ? (
+                {membersExpanded && ((loading || refreshing) && connections.length === 0 ? (
                   <ActivityIndicator size="large" color="#0D9488" style={styles.loader} />
                 ) : connections.length === 0 ? (
-                  /* Empty State Card matching design (Animated) */
-                  <CareCircleEmptyState onInvite={() => router.push('/care-circle/invite')} />
+                  <Text style={styles.noMembers}>{t('noConnections')}</Text>
                 ) : (
                   /* Active Connection Cards */
                   <View style={styles.connectionsList}>
@@ -700,7 +690,7 @@ export default function CareCircleScreen() {
                       );
                     })}
                   </View>
-                )}
+                ))}
               </View>
             </>
           )}
@@ -960,27 +950,24 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     // Top Header matching design
     topHeader: {
-      alignItems: 'center',
+      alignItems: 'flex-end',
       justifyContent: 'center',
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.sm,
       backgroundColor: 'transparent',
     },
-    headerTitleWrap: {
+    scanQrButton: {
+      minHeight: 48,
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      gap: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 8,
     },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      textAlign: 'center',
-    },
-    headerSubtitle: {
-      fontSize: 13,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginTop: 3,
+    scanQrLabel: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.primaryText,
     },
     // Hero Banner Card
     heroCardShadowWrap: {
@@ -1097,13 +1084,23 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: spacing.lg,
+      paddingVertical: 12,
+      minHeight: 56,
       gap: 8,
       marginBottom: spacing.sm + 2,
     },
     activeSectionTitle: {
-      fontSize: 16,
+      flex: 1,
+      fontSize: 18,
       fontWeight: '700',
       color: colors.textPrimary,
+    },
+    noMembers: {
+      marginLeft: 36,
+      marginRight: spacing.lg,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: colors.textSecondary,
     },
     emptyCard: {
       marginHorizontal: spacing.lg,

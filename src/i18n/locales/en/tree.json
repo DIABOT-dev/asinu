@@ -112,5 +112,6 @@
   "earlyFor": "Early Signals: {{name}}",
   "earlyCallPerson": "Call {{name}}",
   "earlyConsult": "Consult specialist",
-  "earlyRetry": "Try again"
+  "earlyRetry": "Try again",
+  "earlyOpen": "View your recent health"
 }

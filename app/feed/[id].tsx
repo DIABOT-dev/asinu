@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { showToast } from '../../src/stores/toast.store';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
+import { HealthFeedThumbnail } from '../../src/features/health-feed/HealthFeedThumbnail';
 
 async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
@@ -201,7 +202,8 @@ export default function ArticleDetailScreen() {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>{content.title}</Text>
+        <Text accessibilityRole="header" style={styles.title}>{content.title}</Text>
+        <HealthFeedThumbnail item={content} style={styles.articleCover} />
 
         {/* Summary */}
         {content.summary && (
@@ -211,7 +213,9 @@ export default function ArticleDetailScreen() {
         )}
 
         {/* Body Text */}
-        <Text style={styles.body}>{content.body}</Text>
+        {String(content.body || '').split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => (
+          <Text key={index} style={styles.body}>{paragraph}</Text>
+        ))}
 
         {/* Checklist Section */}
         {content.checklist && content.checklist.length > 0 && (
@@ -309,11 +313,17 @@ const styles = StyleSheet.create({
     color: '#ef4444',
   },
   title: {
-    fontSize: 20,
+    fontSize: 26,
     fontWeight: '800',
     color: colors.textPrimary,
-    lineHeight: 28,
+    lineHeight: 36,
     marginBottom: spacing.md,
+  },
+  articleCover: {
+    width: '100%',
+    aspectRatio: 1.6,
+    borderRadius: 16,
+    marginBottom: spacing.lg,
   },
   summaryContainer: {
     backgroundColor: '#f8fafc',
@@ -324,15 +334,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   summaryText: {
-    fontSize: 15,
+    fontSize: 18,
     color: colors.textSecondary,
-    lineHeight: 22,
-    fontStyle: 'italic',
+    lineHeight: 28,
   },
   body: {
-    fontSize: 15,
+    fontSize: 18,
     color: colors.textPrimary,
-    lineHeight: 24,
+    lineHeight: 30,
     marginBottom: spacing.lg,
   },
   checklistSection: {
@@ -356,9 +365,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   checkText: {
-    fontSize: 14,
+    fontSize: 18,
     color: colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 28,
     flex: 1,
   },
   sourcesLink: {

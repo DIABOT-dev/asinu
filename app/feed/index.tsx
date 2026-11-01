@@ -9,7 +9,7 @@ import {
   Share,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -23,6 +23,7 @@ import { colors, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { showToast } from '../../src/stores/toast.store';
+import { HealthFeedThumbnail } from '../../src/features/health-feed/HealthFeedThumbnail';
 
 async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
@@ -216,27 +217,6 @@ export default function FeedListScreen() {
     handleItemPress(item);
   };
 
-  const getCardIcon = (type: string) => {
-    switch (type) {
-      case 'family':
-      case 'family_note':
-        return <MaterialCommunityIcons name="account-heart" size={26} color={brandGreen} />;
-      case 'checklist':
-        return <MaterialCommunityIcons name="calendar-check" size={25} color={brandGreen} />;
-      case 'chat':
-        return <Ionicons name="chatbubble-ellipses" size={24} color={brandGreen} />;
-      case 'schedule':
-      case 'weekly_summary':
-        return <MaterialCommunityIcons name="calendar-clock" size={26} color={brandGreen} />;
-      case 'shield':
-      case 'warning':
-        return <MaterialCommunityIcons name="shield-check" size={26} color={brandGreen} />;
-      case 'article':
-      default:
-        return <MaterialCommunityIcons name="book-open-variant" size={25} color={brandGreen} />;
-    }
-  };
-
   const getFeedTypeLabel = (type: string) => {
     switch (type) {
       case 'checklist':
@@ -256,6 +236,7 @@ export default function FeedListScreen() {
   const displayFeedItems = useMemo(() => {
     if (feedItems.length > 0) {
       return feedItems.map((item) => ({
+        ...item,
         id: item.id,
         content_id: item.content_id,
         title: item.title,
@@ -374,11 +355,10 @@ export default function FeedListScreen() {
               >
                 {/* Header row: Circular Icon Badge + (Title & Category) + Chevron */}
                 <View style={styles.cardHeaderRow}>
-                  <View style={styles.cardBadge}>{getCardIcon(item.iconType)}</View>
+                  <HealthFeedThumbnail item={item} style={styles.articleThumbnail} />
                   <View style={styles.cardHeaderInfo}>
                     <Text
                       style={[styles.cardTitle, isRead && styles.cardTitleRead]}
-                      numberOfLines={2}
                     >
                       {item.title}
                     </Text>
@@ -435,11 +415,9 @@ export default function FeedListScreen() {
               onPress={() => router.push(`/feed/${item.id}` as any)}
             >
               <View style={styles.cardHeaderRow}>
-                <View style={styles.cardBadge}>
-                  {getCardIcon(item.content_type || 'article')}
-                </View>
+                <HealthFeedThumbnail item={item} style={styles.articleThumbnail} />
                 <View style={styles.cardHeaderInfo}>
-                  <Text style={styles.cardTitle} numberOfLines={2}>
+                  <Text style={styles.cardTitle}>
                     {item.title}
                   </Text>
                   <Text style={styles.cardCategory}>{tc('savedItemLabel')}</Text>
@@ -582,19 +560,16 @@ function createStyles(isDark: boolean, themeColors: ReturnType<typeof useThemeCo
       marginBottom: spacing.xs,
     },
     feedCardRead: {
-      opacity: 0.88,
       backgroundColor: isDark ? themeColors.surface : '#FAFDFB',
     },
     cardHeaderRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
     },
-    cardBadge: {
-      width: 32,
-      height: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 2,
+    articleThumbnail: {
+      width: 88,
+      height: 104,
+      borderRadius: 12,
     },
     cardHeaderInfo: {
       flex: 1,
@@ -602,16 +577,16 @@ function createStyles(isDark: boolean, themeColors: ReturnType<typeof useThemeCo
       marginRight: 6,
     },
     cardTitle: {
-      fontSize: 15.5,
+      fontSize: 19,
       fontWeight: '700',
       color: themeColors.textPrimary,
-      lineHeight: 21,
+      lineHeight: 28,
     },
     cardTitleRead: {
       color: themeColors.textSecondary,
     },
     cardCategory: {
-      fontSize: 12,
+      fontSize: 15,
       color: themeColors.textSecondary,
       marginTop: 3,
       fontWeight: '500',
@@ -620,9 +595,9 @@ function createStyles(isDark: boolean, themeColors: ReturnType<typeof useThemeCo
       marginTop: 4,
     },
     cardSummary: {
-      fontSize: 13.5,
+      fontSize: 17,
       color: themeColors.textSecondary,
-      lineHeight: 19.5,
+      lineHeight: 26,
       marginTop: 10,
       marginBottom: 12,
     },
@@ -630,6 +605,8 @@ function createStyles(isDark: boolean, themeColors: ReturnType<typeof useThemeCo
       opacity: 0.9,
     },
     actionPill: {
+      minHeight: 48,
+      justifyContent: 'center',
       alignSelf: 'flex-start',
       backgroundColor: lightBadge,
       borderRadius: 18,

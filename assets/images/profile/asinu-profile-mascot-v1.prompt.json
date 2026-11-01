@@ -1,0 +1,20 @@
+{
+  "mode": "built-in image_gen",
+  "purpose": "Sharp Asinu mascot on the profile screen healthcare background",
+  "reference": "../../asinu_chat_sticker.png",
+  "asset": "asinu-profile-mascot-v1.webp",
+  "dimensions": {
+    "width": 384,
+    "height": 384
+  },
+  "encoding": {
+    "format": "webp",
+    "quality": 92,
+    "alphaQuality": 100
+  },
+  "wordmark": {
+    "text": "ASINU",
+    "rendering": "Native ScaledText at full opacity, outside the dimmed background image"
+  },
+  "prompt": "Use case: identity-preserve.\nAsset type: high-resolution transparent brand mascot cutout for the Asinu mobile healthcare app.\nReference image 1 is the exact existing Asinu mascot to preserve, not a general inspiration.\nRe-create this SAME mascot with crisp high-resolution edges and clean details: the friendly teal rounded drop-shaped body, oversized bright expressive eyes, happy open smile, its olive green Vietnamese military-style helmet with the small red star badge, the same dark headset, teal arms, small feet and raised waving hand. Keep the original proportions, colors, face, pose, accessories and character identity. Do not redesign it or give it new clothing or medical accessories.\nComposition: one full-body mascot centered with a small clear margin all around, isolated on a genuinely transparent background. No floor, no background color, no shadows outside the character, no extra objects. Sharpen and reconstruct details cleanly so it remains recognizable and clear at mobile retina sizes.\nStyle: match the reference's polished three-dimensional friendly cartoon rendering and smooth shading. Make the contours and facial features sharp, with no motion blur, no depth-of-field blur, no glow and no faded opacity.\nText: none. No letters, slogans or watermark. The ASINU wordmark will be drawn separately using native app typography to keep it perfectly sharp."
+}

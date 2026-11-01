@@ -244,8 +244,12 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
   });
   const render = () => h.render(Screen);
   const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible);
-  return { calls, connection, modal,
+  const membersToggle = () => nodes(render()).find(node => typeof node.props?.accessibilityState?.expanded === 'boolean');
+  return { calls, connection, modal, render,
+    toggleMembers: () => membersToggle().props.onPress(),
+    membersExpanded: () => membersToggle().props.accessibilityState.expanded,
     open: () => {
+      if (!membersToggle().props.accessibilityState.expanded) membersToggle().props.onPress();
       nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === tc('notificationMoreActions')).props.onPress();
       calls.alerts.at(-1)[2].find(button => button.text === t('editConnection')).onPress();
     },
@@ -256,6 +260,16 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     },
     permission: (index, value) => nodes(modal()).filter(node => node.type === 'Switch')[index].props.onValueChange(value),
   };
+}
+for (const language of ['vi', 'en']) {
+  await test(`${language}: connected members expand inline and collapse without changing saved connections`, () => {
+    const h = connectionHarness({ language });
+    const more = () => nodes(h.render()).some(node => node.props?.accessibilityLabel === translate(language, 'common')('notificationMoreActions'));
+    assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
+    h.toggleMembers(); assert.equal(h.membersExpanded(), true); assert.equal(more(), true);
+    h.toggleMembers(); assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
+    assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []);
+  });
 }
 for (const language of ['vi', 'en']) for (const isDark of [false, true]) {
   await test(`${language}/${isDark ? 'dark' : 'light'}: unchanged connection is muted and submits nothing`, async () => {

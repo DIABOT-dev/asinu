@@ -160,5 +160,6 @@
   "weekCoins": "Nhận được {{count}} xu trong tuần.",
   "drawRules": "Thể lệ dự thưởng kỳ này",
   "scheduleInactive": "Lịch nhắc này không còn hoạt động.",
-  "weekSkipped": "Uống không đều: đã bỏ qua {{count}} cữ thuốc."
+  "weekSkipped": "Uống không đều: đã bỏ qua {{count}} cữ thuốc.",
+  "taskProgressShort": "{{done}}/{{total}} việc"
 }

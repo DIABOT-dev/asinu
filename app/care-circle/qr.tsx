@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -21,11 +21,10 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { authApi } from '../../src/features/auth/auth.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useProfileStore } from '../../src/features/profile/profile.store';
-import { careCircleApi, type CareCircleQrToken } from '../../src/features/care-circle';
+import { useCareCircleQr } from '../../src/features/care-circle/useCareCircleQr';
 import { useGuardedRouter as useRouter } from '../../src/hooks/useGuardedRouter';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { radius, spacing } from '../../src/styles';
 
 export default function CareCircleQrScreen() {
@@ -47,11 +46,7 @@ export default function CareCircleQrScreen() {
   const profileStore = useProfileStore((state) => state.profile);
   const profile = authProfile || profileStore;
 
-  const [code, setCode] = useState<{ account: string; qr: CareCircleQrToken } | null>(null);
-  const qr = code?.account === account ? code.qr : null;
-  const requestVersion = useRef(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { qr, loading, error, loadCode } = useCareCircleQr();
 
   // Dimensions
   const qrBoxSize = Math.min(270, Math.max(220, width - 110));
@@ -73,34 +68,6 @@ export default function CareCircleQrScreen() {
       .catch(() => {});
     return () => { active = false; };
   }, [account, authToken]);
-
-  const loadCode = useCallback(async () => {
-    const version = ++requestVersion.current;
-    if (!account || !authToken) {
-      setCode(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      // The server returns the same account-owned code on every visit/device.
-      const next = await careCircleApi.createQrToken();
-      if (version !== requestVersion.current) return;
-      setCode({ account, qr: next });
-    } catch (err) {
-      if (version !== requestVersion.current) return;
-      setCode(null);
-      setError(getApiErrorMessage(err, t, 'qrCreateError'));
-    } finally {
-      if (version === requestVersion.current) setLoading(false);
-    }
-  }, [account, authToken, t]);
-
-  useEffect(() => {
-    void loadCode();
-    return () => { ++requestVersion.current; };
-  }, [loadCode]);
 
   const displayName = profile?.name || profileStore?.name || t('qrFallbackName');
   const avatarUrl = profile?.avatarUrl || profileStore?.avatarUrl;

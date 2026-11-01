@@ -56,47 +56,27 @@ function LoadingStatus() {
 export function HomeTabSkeleton() {
   return (
     <>
-      <LoadingStatus />
-      <View style={styles.homeHero}>
-        <SkeletonBlock width="34%" height={18} color={onPrimary} />
-        <SkeletonBlock width="58%" height={24} color={onPrimary} />
-        <SkeletonBlock width="78%" height={16} color={onPrimarySoft} />
-      </View>
-
-      <MetricPairSkeleton />
-
-      <SkeletonCard style={styles.tallCard}>
-        <View style={styles.centered}>
-          <SkeletonBlock width={92} height={92} borderRadius={46} />
-          <SkeletonBlock width="42%" height={16} />
-          <SkeletonBlock width="70%" height={11} />
-        </View>
-      </SkeletonCard>
-
-      <SkeletonSectionTitle width="46%" />
-      {[0, 1, 2].map((item) => (
-        <RowCardSkeleton key={item} right />
-      ))}
-
-      <SkeletonSectionTitle width="38%" />
-      <View style={styles.treeGrid}>
-        <SkeletonCard style={styles.treeMain}>
-          <View style={styles.centered}>
-            <SkeletonBlock width={104} height={104} borderRadius={52} />
-            <SkeletonBlock width="68%" height={12} />
+      {[0, 1].map((item) => (
+        <SkeletonCard key={item} style={{ minHeight: 184, justifyContent: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <SkeletonBlock width={48} height={48} borderRadius={24} />
+            <View style={{ flex: 1, gap: 10 }}>
+              <SkeletonBlock width="58%" height={28} />
+              <SkeletonBlock width="90%" height={14} />
+            </View>
           </View>
         </SkeletonCard>
-        <View style={{ flex: 1, gap: spacing.md }}>
-          <SkeletonCard style={styles.smallStat}><SkeletonBlock width="76%" height={42} /></SkeletonCard>
-          <SkeletonCard style={styles.smallStat}><SkeletonBlock width="64%" height={42} /></SkeletonCard>
-        </View>
-      </View>
-
-      <SkeletonSectionTitle width="44%" />
-      <SkeletonCard style={{ height: 220 }}>
-        <SkeletonBlock width="100%" height={160} borderRadius={radius.lg} />
-        <SkeletonBlock width="48%" height={12} />
+      ))}
+      <SkeletonCard style={{ gap: 8 }}>
+        {[0, 1, 2].map((item) => (
+          <View key={item} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <SkeletonBlock width={28} height={28} borderRadius={14} />
+            <SkeletonBlock width="60%" height={18} />
+          </View>
+        ))}
       </SkeletonCard>
+      <SkeletonSectionTitle width="46%" />
+      <RowCardSkeleton right />
     </>
   );
 }
@@ -249,20 +229,6 @@ export function CareCircleTabSkeleton() {
   return (
     <>
       <LoadingStatus />
-      <SkeletonCard style={styles.careHero}>
-        <View style={styles.centered}>
-          <SkeletonBlock width={40} height={40} borderRadius={20} />
-          <SkeletonBlock width="48%" height={24} />
-          <SkeletonBlock width="74%" height={14} />
-        </View>
-      </SkeletonCard>
-
-      <View style={styles.careSection}>
-        {[0, 1, 2].map((item) => (
-          <RowCardSkeleton key={item} lines={1} right />
-        ))}
-      </View>
-
       <View style={styles.careSection}>
         <SkeletonBlock width="100%" height={54} borderRadius={radius.lg} color={colors.primaryLight} />
       </View>
@@ -330,12 +296,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  homeHero: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.sm,
   },
   profileHero: {
     borderRadius: radius.xl,

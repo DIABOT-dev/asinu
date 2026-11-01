@@ -1049,15 +1049,15 @@ function handoffTools() {
     logout: () => listeners.forEach(listener => listener()),
   };
 }
-function homeHarness(today, { replay = false, history = async () => ({ items: [] }), handoff = handoffTools() } = {}) {
-    const runtime=hooks(), account={profile:{id:'parent'}}, callbacks=[];
+function homeHarness(today, { replay = false, history = async () => ({ items: [] }), handoff = handoffTools(), headless = false } = {}) {
+    const runtime=hooks(), account={profile:{id:'parent'}}, callbacks=[], routes=[];
     const useAuthStore=select=>select(account);useAuthStore.getState=()=>account;
     const {HomeGiftCard}=evaluate('src/features/checkin-rewards/HomeGiftCard.tsx',{
       react:runtime,'react-native':{View:'View',Pressable:'Button',StyleSheet:{create:s=>s},AppState:{addEventListener:(_type,cb)=>{callbacks.push(cb);return {remove(){}};}}},
       'expo-router':{useFocusEffect:cb=>runtime.useEffect(cb,[cb])},'@expo/vector-icons':{Ionicons:'Icon'},
       'expo-linear-gradient':{LinearGradient:'View'},'expo-image':{Image:'Image'},
       'react-i18next':{useTranslation:()=>({t:key=>key})},'../../components/ScaledText':{ScaledText:'Text'},
-      '../../hooks/useThemeColors':{useThemeColors:()=>({colors:{},isDark:false})},'../../hooks/useGuardedRouter':{useGuardedRouter:()=>({push(){}})},
+      '../../hooks/useThemeColors':{useThemeColors:()=>({colors:{},isDark:false})},'../../hooks/useGuardedRouter':{useGuardedRouter:()=>({push:route=>routes.push(route)})},
       '../auth/auth.store':{useAuthStore},'./CheckinGiftFlow':{CheckinGiftFlow:'Gift'},
       './checkin-gift-replay':replayTools({today,history},{dev:replay,account:'parent'}),
       './checkin-gift-handoff':handoff,
@@ -1065,9 +1065,43 @@ function homeHarness(today, { replay = false, history = async () => ({ items: []
       '../../../assets/images/rewards/daily_gift_hero.png':1002,
       '../../../assets/images/rewards/daily_chest.png':1003,
     });
-    const render=()=>{const root=HomeGiftCard();return root.type(root.props);};
-    return { account, callbacks, handoff, runtime, settle: () => runtime.settle(render) };
+    const render=()=>{const root=HomeGiftCard({headless});return root.type(root.props);};
+    return { account, callbacks, handoff, runtime, routes, settle: () => runtime.settle(render) };
 }
+
+await test('Home hides the daily card while preserving automatic manual and call gifts exactly once', async () => {
+  for (const source of ['manual', 'call']) {
+    const handoff = handoffTools();
+    if (source === 'manual') handoff.offerCheckinGiftOnHome('parent', '1208', 'daily-gift');
+    const h = homeHarness(async () => ({ enabled: true, gift: { id: 'daily-gift', openedAt: null }, streak: 1, week: [], offerOnAppOpen: source === 'call' }), { handoff, headless: true });
+    let tree = await h.settle();
+    const gift = nodes(tree).find(node => node.type === 'Gift');
+    assert.ok(gift, `${source}: the available gift must still open`);
+    assert.ok(!nodes(tree).some(node => node.type === 'Text' || node.type === 'Button'), 'Home does not display the daily/collection cards');
+    gift.props.onClose();
+    tree = await h.settle();
+    assert.equal(tree, null, 'No empty card or extra layout stays on Home');
+    h.callbacks.at(-1)('active');
+    assert.equal(await h.settle(), null, 'Foreground refresh cannot present the same gift again');
+  }
+});
+
+await test('the combined gifts entry keeps the collection reachable on failure and retries daily loading', async () => {
+  let offline = true;
+  const h = homeHarness(async () => {
+    if (offline) throw new Error('offline');
+    return { enabled: true, gift: { id: 'daily-gift', openedAt: null }, streak: 1, week: [] };
+  });
+  let tree = await h.settle();
+  const collection = nodes(tree).find(node => node.props.accessibilityLabel === 'checkinGift.collection');
+  assert.ok(collection); collection.props.onPress();
+  assert.deepEqual(h.routes, ['/checkin-rewards/history']);
+  const retry = nodes(tree).find(node => node.props.accessibilityLabel === 'retry');
+  assert.ok(retry);
+  offline = false; retry.props.onPress();
+  tree = await h.settle();
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.choose'));
+});
 
 await test('closing a real saved result queues numeric and PostgreSQL string IDs before navigating to Home, preserving practice navigation', () => {
   const file = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

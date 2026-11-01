@@ -204,72 +204,54 @@ await test('the original personal calendar retains its own report API', async ()
   const h = harness({ subjectName: '' }); h.render(); h.effects(); await flush();
   assert.deepEqual(h.selfCalls, [['month', '2026-10']]); h.unmount();
 });
+function flattenElements(tree) {
+  if (Array.isArray(tree)) return tree.flatMap(flattenElements);
+  if (!tree || typeof tree !== 'object') return [];
+  return [tree, ...flattenElements(tree.props?.children)];
+}
 const flatten = style => Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean).map(flatten)) : style ?? {};
 for (const language of ['vi', 'en']) {
-  await test(`${language}: QR actions keep aligned icon frames, readable text and both navigation callbacks`, () => {
-    const catalog = JSON.parse(read(`src/i18n/locales/${language}/careCircle.json`));
-    for (const [width, multiplier, expectedDirection] of [
-      [320, 1, 'column'], [375, 1, 'row'], [390, 1, 'row'], [430, 1, 'row'],
-      [390, 1.25, 'column'], [320, 1.25, 'column'], [768, 2, 'row'],
-    ]) {
+  await test(`${language}: connection QR is visible immediately, with retry on failure and no extra headings`, () => {
+    const catalogs = Object.fromEntries(['careCircle', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${language}/${ns}.json`))]));
+    for (const width of [320, 375, 390, 768]) {
       for (const isDark of [false, true]) {
-        const palette = { surface: isDark ? '#1a1d27' : '#ffffff', border: '#abcabc', primaryDark: '#087F73', textPrimary: '#123456', textSecondary: '#456789' };
+        const palette = { primaryDark: '#087F73', primaryText: '#087F73', textPrimary: '#123456', textSecondary: '#456789' };
+        let current = { qr: { value: 'asinu-lite://care-circle/scan?token=owner' }, loading: false, error: '', loadCode: () => clicked.push('retry') };
         const { CareCircleQrActions } = evaluate(`import React from 'react';\n${read('src/features/care-circle/components/CareCircleQrActions.tsx')}`, {
           react: React,
           '@expo/vector-icons': { Ionicons: 'Icon' },
-          'react-i18next': { useTranslation: () => ({ t: key => { assert.equal(typeof catalog[key], 'string'); return catalog[key]; } }) },
-          'react-native': { View: 'View', Pressable: 'Pressable', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width }) },
+          'react-i18next': { useTranslation: ns => ({ t: key => { assert.equal(typeof catalogs[ns][key], 'string'); return catalogs[ns][key]; } }) },
+          'react-native': { View: 'View', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width }) },
+          'react-native-qrcode-svg': { __esModule: true, default: 'QRCode' },
           '../../../components/ScaledText': { ScaledText: 'Text' },
-          '../../../hooks/useScaledTypography': { useScaledTypography: () => ({ size: { sm: 15 }, scaledSize: { sm: Math.round(15 * multiplier) } }) },
-          '../../../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette }) },
+          '../../../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark }) },
           '../../../styles': { spacing: { sm: 8, md: 12, lg: 16 } },
+          '../../auth/auth.store': { useAuthStore: selector => selector({ profile: { name: 'Owner' } }) },
+          '../useCareCircleQr': { useCareCircleQr: () => current },
         });
         const clicked = [];
-        const row = CareCircleQrActions({ onShowQr: () => clicked.push('show'), onScanQr: () => clicked.push('scan') });
-        const rowStyle = flatten(row.props.style);
-        assert.equal(rowStyle.flexDirection, expectedDirection, `${width}px / ${multiplier}x`);
-        assert.equal(rowStyle.alignItems, 'stretch');
-        const buttons = row.props.children;
-        assert.equal(buttons.length, 2);
-        const normalStyles = buttons.map(button => flatten(button.props.style({ pressed: false })));
-        assert.deepEqual(normalStyles[0], normalStyles[1]);
-        const copyStyles = [];
-        buttons.forEach((button, index) => {
-          assert.equal(button.props.accessibilityRole, 'button');
-          assert.equal(button.props.accessibilityLabel, catalog[index ? 'scanQr' : 'myQrTitle']);
-          assert.equal(button.props.accessibilityHint, catalog[index ? 'scanQrShortHint' : 'myQrShortHint']);
-          const buttonStyle = normalStyles[index];
-          assert.ok(buttonStyle.minHeight >= 44);
-          assert.equal(buttonStyle.height, undefined, 'Text must be allowed to grow');
-          assert.equal(buttonStyle.backgroundColor, palette.surface);
-          assert.equal(buttonStyle.flex, expectedDirection === 'row' ? 1 : 0);
-          const [icon, copy] = button.props.children;
-          assert.equal(icon.props.style.width, 32);
-          assert.equal(icon.props.style.flexShrink, 0);
-          assert.equal(icon.props.style.alignItems, 'center');
-          assert.equal(icon.props.style.justifyContent, 'center');
-          assert.equal(icon.props.importantForAccessibility, 'no-hide-descendants');
-          assert.equal(icon.props.children.props.size, 28);
-          assert.equal(icon.props.children.props.name, index ? 'scan-outline' : 'qr-code-outline');
-          assert.equal(copy.props.style.minWidth, 0);
-          assert.equal(copy.props.style.alignSelf, 'stretch');
-          assert.equal(copy.props.style.justifyContent, 'center');
-          const copyNodes = React.Children.toArray(copy.props.children);
-          copyStyles.push(copyNodes.map(textNode => flatten(textNode.props.style)));
-          copyNodes.forEach(textNode => {
-            assert.equal(textNode.props.numberOfLines, undefined, 'Do not truncate QR labels');
-            assert.equal(textNode.props.adjustsFontSizeToFit, undefined, 'Do not shrink labels');
-          });
-          assert.ok(copyStyles[index][0].fontSize >= 14);
-          assert.equal(flatten(button.props.style({ pressed: true })).opacity, 0.8);
-          button.props.onPress();
-        });
-        assert.deepEqual(copyStyles[0], copyStyles[1], 'Both cards use the same text metrics');
-        assert.deepEqual(clicked, ['show', 'scan']);
+        const render = () => flattenElements(CareCircleQrActions());
+        let rendered = render();
+        const qr = rendered.find(node => node.type === 'QRCode');
+        assert.equal(qr.props.value, current.qr.value);
+        assert.ok(qr.props.size >= 248 && qr.props.size + qr.props.quietZone * 2 <= width - 32);
+        assert.equal(qr.props.backgroundColor, '#ffffff');
+        assert.equal(qr.props.color, '#0f172a');
+        assert.equal(rendered.filter(node => node.type === 'Pressable').length, 0, 'QR shows directly, scanning belongs in the screen header');
+        assert.equal(rendered.some(node => node.type === 'Text' && ['QR', catalogs.careCircle.myQrDescription, catalogs.careCircle.headerSubtitle].includes(node.props.children)), false);
+        for (const label of rendered.filter(node => node.type === 'Text')) assert.equal(label.props.numberOfLines, undefined);
+        current = { ...current, qr: null, error: 'offline' }; rendered = render();
+        assert.equal(rendered.some(node => node.type === 'QRCode'), false);
+        const retry = rendered.find(node => node.type === 'Pressable' && flattenElements(node).some(child => child.type === 'Text' && child.props.children === catalogs.common.retry));
+        retry.props.onPress(); assert.deepEqual(clicked, ['retry']);
+        current = { ...current, loading: true }; rendered = render();
+        assert.ok(rendered.some(node => node.type === 'Spinner'));
+        assert.equal(rendered.some(node => node.type === 'QRCode'), false);
       }
     }
   });
 }
+
 await test('global green plus launcher renders nothing and has no hidden interaction or API effects', () => {
   const { AsinuEmergencyFAB } = evaluate(read('asinu-brain-extension/ui/AsinuEmergencyFAB.tsx'), {});
   assert.equal(AsinuEmergencyFAB({ onInteraction: () => assert.fail('Hidden launcher must not interact') }), null);

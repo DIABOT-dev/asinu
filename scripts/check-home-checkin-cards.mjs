@@ -195,7 +195,7 @@ for (const language of ["vi", "en"]) {
           [
             "InstantCheckinCard",
             "checkinInstantTitle",
-            26,
+            30,
             { pathname: "/checkin", params: { mode: "random" } },
           ],
         ]) {

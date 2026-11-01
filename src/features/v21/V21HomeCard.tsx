@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
+import { useGuardedRouter as useRouter } from "../../hooks/useGuardedRouter";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { ScaledText as Text } from "../../components/ScaledText";
@@ -46,127 +47,71 @@ export function V21HomeCard() {
         unsubscribe();
         if (timer) clearInterval(timer);
       };
-    }, [user, t]),
+    }, [user, t])
   );
   if (owner !== String(user)) return null;
   if (!flags?.coins && !flags?.patients?.length) return null;
+  const dailyTasks =
+    today?.tasks.filter((task) => task.task_code !== "WEEKLY") ?? [];
+  const total = dailyTasks.reduce((sum, task) => sum + task.daily_limit, 0);
+  const done = dailyTasks.reduce(
+    (sum, task) => sum + Math.min(task.done, task.daily_limit),
+    0
+  );
+  const rowStyle = {
+    flex: 1,
+    minHeight: 64,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    paddingVertical: 10,
+  };
+  const titleStyle = {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: colors.textPrimary,
+  };
   return (
-    <View
-      style={{
-        gap: 14,
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.surface,
-        padding: 18,
-      }}
-    >
-      {flags.coins && (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push("/coins" as any)}
-          style={{ minHeight: 64, gap: 8 }}
-        >
-          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-            <MaterialCommunityIcons
-              name="checkbox-marked-circle-outline"
-              size={30}
-              color={colors.primaryText}
-            />
-            <Text
-              style={{
-                fontSize: 23,
-                fontWeight: "700",
-                color: colors.textPrimary,
-                flex: 1,
-              }}
-            >
-              {t("tasksTitle")}
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={28}
-              color={colors.textSecondary}
-            />
-          </View>
-          <Text style={{ fontSize: 18, color: colors.primaryText }}>
-            {today ? t("balance", { count: today.balance }) : t("loading")}
-          </Text>
-          {today?.tasks
-            .filter((x) => x.task_code !== "WEEKLY")
-            .map((x) => (
-              <View
-                key={x.task_code}
-                style={{ flexDirection: "row", gap: 8, alignItems: "center" }}
-              >
-                <MaterialCommunityIcons
-                  name={
-                    x.done >= x.daily_limit ? "check-circle" : "circle-outline"
-                  }
-                  size={23}
-                  color={colors.primaryText}
-                />
-                <Text
-                  style={{
-                    flex: 1,
-                    fontSize: 17,
-                    lineHeight: 25,
-                    color: colors.textPrimary,
-                  }}
-                >
-                  {t(x.task_code)}
-                </Text>
-                <Text style={{ fontSize: 16, color: colors.primaryText }}>
-                  {t("taskCoins", { count: x.coins })}
-                </Text>
-              </View>
-            ))}
-        </Pressable>
-      )}
+    <View style={{ flexDirection: "row", gap: 12 }}>
       {!!flags.patients?.length && (
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push("/medication" as any)}
-          style={{
-            minHeight: 64,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-            borderTopWidth: flags.coins ? 1 : 0,
-            borderTopColor: colors.border,
-            paddingTop: flags.coins ? 14 : 0,
-          }}
+          accessibilityLabel={t("medicationTitle")}
+          onPress={() => router.push("/medication")}
+          style={({ pressed }) => [rowStyle, pressed && { opacity: 0.7 }]}
         >
           <MaterialCommunityIcons
             name="pill"
-            size={30}
+            size={28}
+            color={colors.primaryText}
+          />
+          <Text style={[titleStyle, { flex: 1 }]}>{t("medicationTitle")}</Text>
+        </Pressable>
+      )}
+      {flags.coins && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            today
+              ? `${t("tasksTitle")}. ${t("taskProgress", { done, total })}`
+              : t("tasksTitle")
+          }
+          onPress={() => router.push("/coins")}
+          style={({ pressed }) => [rowStyle, pressed && { opacity: 0.7 }]}
+        >
+          <MaterialCommunityIcons
+            name="checkbox-marked-circle-outline"
+            size={28}
             color={colors.primaryText}
           />
           <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: "700",
-                color: colors.textPrimary,
-              }}
-            >
-              {t("medicationTitle")}
-            </Text>
-            <Text
-              style={{
-                fontSize: 16,
-                lineHeight: 24,
-                color: colors.textSecondary,
-              }}
-            >
-              {t("medicationSubtitle")}
-            </Text>
+            <Text style={titleStyle}>{t("tasksTitle")}</Text>
+            {today && total > 0 && (
+              <Text style={{ fontSize: 15, color: colors.textSecondary }}>
+                {t("taskProgressShort", { done, total })}
+              </Text>
+            )}
           </View>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={28}
-            color={colors.textSecondary}
-          />
         </Pressable>
       )}
     </View>

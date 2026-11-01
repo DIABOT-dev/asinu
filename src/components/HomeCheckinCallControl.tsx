@@ -20,7 +20,7 @@ import { AndroidCallAccessCard } from '../features/checkin-call/AndroidCallAcces
 
 type Dialog = { kind: "confirm"; enabled: boolean } | { kind: "access" };
 
-export function HomeCheckinCallControl({ userId }: { userId: string }) {
+export function HomeCheckinCallControl({ userId, compact = false }: { userId: string; compact?: boolean }) {
   const router = useGuardedRouter();
   const { t } = useTranslation("checkinCall");
   const { t: tc } = useTranslation("common");
@@ -178,10 +178,10 @@ export function HomeCheckinCallControl({ userId }: { userId: string }) {
   ];
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, compact && styles.compactRoot]}>
       <View style={styles.row}>
         <Ionicons name="call-outline" size={28} color={colors.primaryDark} />
-        <View style={styles.copy}><Text style={styles.title}>{t("homeControl.title")}</Text></View>
+        <View style={styles.copy}><Text style={styles.title}>{t(compact ? "homeControl.shortTitle" : "homeControl.title")}</Text></View>
         <Switch
           accessibilityRole="switch"
           accessibilityLabel={t("homeControl.title")}
@@ -248,6 +248,7 @@ try {
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     root: { paddingVertical: spacing.md },
+    compactRoot: { paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, minHeight: 56, justifyContent: "center" },
     row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
     copy: { flex: 1, minWidth: 0 },
     title: { fontSize: typography.size.md, fontWeight: "700", color: colors.textPrimary },

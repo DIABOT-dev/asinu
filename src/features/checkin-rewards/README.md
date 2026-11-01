@@ -8,8 +8,10 @@ timeout never opens a gift. Close stops playback, queues an account-scoped UI
 intent and returns to Home. Only focused Home loads and presents an available,
 unopened gift from the backend. The intent is consumed once and cleared on a
 session change. Urgent dialogs can interrupt the gift without overlapping native modals.
-A call check-in offers its unopened gift on the next visit to Home. Home also
-provides the current receipt, seven weekly dots, a streak and the fortune collection.
+A call check-in offers its unopened gift on the next visit to Home. Home retains
+only this automatic presenter, with no visible gift card. Profile → Health →
+Daily gifts & collection opens `/checkin-rewards`, which provides the current
+receipt, seven weekly dots, a streak and the fortune collection in one place.
 
 The authenticated backend decides and persists the fortune and optional ticket
 at check-in time. Box selection never rerolls the result. One household/Vietnam

@@ -19,7 +19,6 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -50,6 +49,8 @@ import { useAppUpdateStore } from "../../../src/features/app-update/app-update.s
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const CHECKIN_ACCESS_ART = require("../../../assets/images/subscription/checkin_access_shield.png");
+const PROFILE_BACKGROUND = require("../../../assets/images/profile/profile-healthcare-background-v1.webp");
+const PROFILE_MASCOT = require("../../../assets/images/profile/asinu-profile-mascot-v1.webp");
 
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
@@ -109,8 +110,6 @@ type SubStatus = {
   expiresAt: string | null;
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 32 - 10) / 2;
 const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const CHRONIC_DISEASE_OPTIONS = [
   { value: "Tiểu đường", labelKey: "diseaseDiabetes" },
@@ -133,6 +132,14 @@ type ProfileEditValues = {
   bloodType: string;
   chronicDiseases: string;
 };
+
+type ProfileSection =
+  | "personal"
+  | "actions"
+  | "health"
+  | "account"
+  | "settings"
+  | "system";
 
 function getProfileEditValues(profile: Profile | null): ProfileEditValues {
   return {
@@ -198,6 +205,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
+  // The tab bar is absolute; keep the artwork and scroll footer above it.
+  const tabBarHeight = 28 + scaledTypography.scaledSize.xs + 16 + 14 + insets.bottom;
   const { isDark } = useThemeColors();
   const styles = useMemo(
     () => createStyles(scaledTypography, isDark),
@@ -223,6 +232,47 @@ export default function ProfileScreen() {
   const [healthFeedEnabled, setHealthFeedEnabled] = useState(true);
   const [aiConsentEnabled, setAiConsentEnabled] = useState(false);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
+  const [expandedSections, setExpandedSections] = useState<
+    Record<ProfileSection, boolean>
+  >({
+    personal: false,
+    actions: false,
+    health: false,
+    account: false,
+    settings: false,
+    system: false,
+  });
+
+  const renderSectionHeader = (
+    section: ProfileSection,
+    title: string,
+    icon: React.ReactNode,
+  ) => (
+    <TouchableOpacity
+      style={styles.sectionHeaderRow}
+      onPress={() =>
+        setExpandedSections((previous) => ({
+          ...previous,
+          [section]: !previous[section],
+        }))
+      }
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ expanded: expandedSections[section] }}
+    >
+      <View style={styles.sectionHeaderLeft}>
+        {icon}
+        <Text style={styles.sectionHeading}>{title}</Text>
+      </View>
+      <Ionicons
+        name={expandedSections[section] ? "chevron-up" : "chevron-down"}
+        size={20}
+        color={isDark ? "#a7f3d0" : "#059669"}
+        accessible={false}
+      />
+    </TouchableOpacity>
+  );
 
   const fontLabel =
     fontScale === "small"
@@ -485,7 +535,6 @@ export default function ProfileScreen() {
       ? t("newCustomer")
       : t("notLoggedIn");
   const statusText = hasProfile ? t("active") : t("notLoggedIn");
-
   const handleShareApp = useCallback(async () => {
     try {
       await Share.share({ message: t("shareMessage"), title: "Asinu" });
@@ -733,6 +782,19 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
+      <View
+        style={[StyleSheet.absoluteFill, { bottom: tabBarHeight }]}
+        pointerEvents="none"
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <Image
+          source={PROFILE_BACKGROUND}
+          style={styles.profileBackgroundImage}
+          resizeMode="cover"
+        />
+      </View>
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={handleRefresh}
@@ -740,7 +802,7 @@ export default function ProfileScreen() {
           styles.container,
           {
             paddingTop: insets.top + spacing.sm,
-            paddingBottom: Math.max(insets.bottom, 16) + 40,
+            paddingBottom: tabBarHeight + spacing.sm,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -749,30 +811,8 @@ export default function ProfileScreen() {
           <ProfileTabSkeleton />
         ) : (
           <>
-            {/* ==================== 01 TOP: HEADER ==================== */}
-            <Animated.View
-              entering={FadeIn.delay(0).duration(350)}
-              style={styles.headerRow}
-            >
-              <View style={styles.headerTextGroup}>
-                <Text style={styles.headerTitle}>{t("headerTitle")}</Text>
-                <Text style={styles.headerSubtitle}>{t("headerSubtitle")}</Text>
-              </View>
-              <View style={styles.headerArtGroup}>
-                <Image
-                  source={
-                    language === "en"
-                      ? require("../../../assets/images/profile/profile_header_art_en.png")
-                      : require("../../../assets/images/profile/profile_header_art_vi.png")
-                  }
-                  style={styles.headerArtImage}
-                  resizeMode="contain"
-                />
-              </View>
-            </Animated.View>
-
             {/* ==================== USER PROFILE CARD ==================== */}
-            <Animated.View entering={FadeIn.delay(60).duration(350)}>
+            <Animated.View entering={FadeIn.duration(350)}>
               <View style={styles.userCard}>
                 {/* Avatar with active green dot */}
                 <View style={styles.avatarWrap}>
@@ -832,155 +872,184 @@ export default function ProfileScreen() {
 
             {/* ==================== THÔNG TIN CÁ NHÂN SECTION ==================== */}
             <Animated.View entering={FadeIn.delay(120).duration(350)}>
-              <View style={styles.sectionHeaderBetween}>
-                <View style={styles.sectionHeaderLeft}>
-                  <Ionicons name="person" size={18} color="#059669" />
-                  <Text style={styles.sectionHeading}>{t("personalInfo")}</Text>
-                </View>
+              <View style={[styles.sectionHeaderRow, styles.personalInfoHeader]}>
                 <TouchableOpacity
-                  style={styles.editBtn}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.75}
+                  style={styles.personalInfoToggle}
+                  onPress={() =>
+                    setExpandedSections((previous) => ({
+                      ...previous,
+                      personal: !previous.personal,
+                    }))
+                  }
+                  activeOpacity={0.7}
                   accessibilityRole="button"
-                  accessibilityLabel={t("edit")}
+                  accessibilityLabel={t("personalInfo")}
+                  accessibilityState={{ expanded: expandedSections.personal }}
                 >
-                  <Ionicons name="pencil" size={14} color="#059669" />
-                  <Text style={styles.editBtnText}>{t("edit")}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 2-Column Info Grid */}
-              <View style={styles.infoGrid}>
-                {/* 1. Số điện thoại */}
-                <View style={styles.gridCard}>
-                  <View style={styles.gridIconWrap}>
-                    <Ionicons name="call" size={20} color="#059669" />
+                  <View style={styles.sectionHeaderLeft}>
+                    <Ionicons name="person" size={18} color="#059669" />
+                    <Text style={styles.sectionHeading}>{t("personalInfo")}</Text>
                   </View>
-                  <View style={styles.gridCardContent}>
-                    <Text style={styles.gridCardLabel}>{t("phone")}</Text>
-                    <Text style={styles.gridCardValue} numberOfLines={1}>
-                      {phone || tc("notUpdated")}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* 2. Giới tính */}
-                <View style={styles.gridCard}>
-                  <View style={styles.gridIconWrap}>
-                    <Ionicons
-                      name={profile?.gender === "Nữ" ? "female" : "male"}
-                      size={20}
-                      color="#2563eb"
-                    />
-                  </View>
-                  <View style={styles.gridCardContent}>
-                    <Text style={styles.gridCardLabel}>{t("gender")}</Text>
-                    <Text style={styles.gridCardValue} numberOfLines={1}>
-                      {profile?.gender
-                        ? profile.gender === "Nam"
-                          ? tc("male")
-                          : tc("female")
-                        : tc("notUpdated")}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* 3. Tuổi */}
-                <View style={styles.gridCard}>
-                  <View style={styles.gridIconWrap}>
-                    <Ionicons
-                      name="calendar-outline"
-                      size={20}
-                      color="#ea580c"
-                    />
-                  </View>
-                  <View style={styles.gridCardContent}>
-                    <Text style={styles.gridCardLabel}>{t("age")}</Text>
-                    <Text style={styles.gridCardValue} numberOfLines={1}>
-                      {profile?.age
-                        ? `${Math.round(profile.age)} ${t("ageUnit")}`
-                        : tc("notUpdated")}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* 4. Chiều cao */}
-                <View style={styles.gridCard}>
-                  <View style={styles.gridIconWrap}>
-                    <MaterialCommunityIcons
-                      name="human-male-height"
-                      size={20}
-                      color="#9333ea"
-                    />
-                  </View>
-                  <View style={styles.gridCardContent}>
-                    <Text style={styles.gridCardLabel}>{t("height")}</Text>
-                    <Text style={styles.gridCardValue} numberOfLines={1}>
-                      {profile?.heightCm
-                        ? t("heightValue", {
-                            value: Math.round(profile.heightCm),
-                          })
-                        : tc("notUpdated")}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* 5. Cân nặng */}
-                <View style={styles.gridCard}>
-                  <View style={styles.gridIconWrap}>
-                    <MaterialCommunityIcons
-                      name="scale-bathroom"
-                      size={20}
-                      color="#0d9488"
-                    />
-                  </View>
-                  <View style={styles.gridCardContent}>
-                    <Text style={styles.gridCardLabel}>{t("weight")}</Text>
-                    <Text style={styles.gridCardValue} numberOfLines={1}>
-                      {profile?.weightKg
-                        ? t("weightValue", {
-                            value: Math.round(profile.weightKg),
-                          })
-                        : tc("notUpdated")}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* 6. Nhóm máu */}
-                <View style={styles.gridCard}>
-                  <View style={styles.gridIconWrap}>
-                    <Ionicons name="water" size={20} color="#e11d48" />
-                  </View>
-                  <View style={styles.gridCardContent}>
-                    <Text style={styles.gridCardLabel}>{t("bloodType")}</Text>
-                    <Text style={styles.gridCardValue} numberOfLines={1}>
-                      {profile?.bloodType || tc("notUpdated")}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Full Width Card: Bệnh nền */}
-              <View style={styles.chronicDiseaseCard}>
-                <View style={styles.gridIconWrap}>
-                  <MaterialCommunityIcons
-                    name="plus-box"
-                    size={22}
-                    color="#e11d48"
+                  <Ionicons
+                    name={expandedSections.personal ? "chevron-up" : "chevron-down"}
+                    size={20}
+                    color={isDark ? "#a7f3d0" : "#059669"}
+                    accessible={false}
                   />
-                </View>
-                <View style={styles.gridCardContent}>
-                  <Text style={styles.gridCardLabel}>
-                    {t("chronicDiseases")}
-                  </Text>
-                  <Text style={styles.gridCardValue} numberOfLines={1}>
-                    {profile?.chronicDiseases &&
-                    profile.chronicDiseases.length > 0
-                      ? profile.chronicDiseases.join(", ")
-                      : t("noChronicDiseases")}
-                  </Text>
-                </View>
+                </TouchableOpacity>
+                {expandedSections.personal && (
+                  <TouchableOpacity
+                    style={styles.personalInfoEditButton}
+                    onPress={handleEditProfile}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("editProfile")}
+                  >
+                    <Ionicons
+                      name="pencil-outline"
+                      size={16}
+                      color={isDark ? "#99f6e4" : "#0b5e56"}
+                    />
+                    <Text style={styles.personalInfoEditText}>{t("edit")}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
+              {expandedSections.personal && (
+                <>
+                  {/* 2-Column Info Grid */}
+                  <View style={styles.infoGrid}>
+                    {/* 1. Số điện thoại */}
+                    <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <Ionicons name="call" size={20} color="#059669" />
+                      </View>
+                      <View style={styles.gridCardContent}>
+                        <Text style={styles.gridCardLabel}>{t("phone")}</Text>
+                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                          {phone || tc("notUpdated")}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 2. Giới tính */}
+                    <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <Ionicons
+                          name={profile?.gender === "Nữ" ? "female" : "male"}
+                          size={20}
+                          color="#2563eb"
+                        />
+                      </View>
+                      <View style={styles.gridCardContent}>
+                        <Text style={styles.gridCardLabel}>{t("gender")}</Text>
+                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                          {profile?.gender
+                            ? profile.gender === "Nam"
+                              ? tc("male")
+                              : tc("female")
+                            : tc("notUpdated")}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 3. Tuổi */}
+                    <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <Ionicons
+                          name="calendar-outline"
+                          size={20}
+                          color="#ea580c"
+                        />
+                      </View>
+                      <View style={styles.gridCardContent}>
+                        <Text style={styles.gridCardLabel}>{t("age")}</Text>
+                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                          {profile?.age
+                            ? `${Math.round(profile.age)} ${t("ageUnit")}`
+                            : tc("notUpdated")}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 4. Chiều cao */}
+                    <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <MaterialCommunityIcons
+                          name="human-male-height"
+                          size={20}
+                          color="#9333ea"
+                        />
+                      </View>
+                      <View style={styles.gridCardContent}>
+                        <Text style={styles.gridCardLabel}>{t("height")}</Text>
+                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                          {profile?.heightCm
+                            ? t("heightValue", {
+                                value: Math.round(profile.heightCm),
+                              })
+                            : tc("notUpdated")}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 5. Cân nặng */}
+                    <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <MaterialCommunityIcons
+                          name="scale-bathroom"
+                          size={20}
+                          color="#0d9488"
+                        />
+                      </View>
+                      <View style={styles.gridCardContent}>
+                        <Text style={styles.gridCardLabel}>{t("weight")}</Text>
+                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                          {profile?.weightKg
+                            ? t("weightValue", {
+                                value: Math.round(profile.weightKg),
+                              })
+                            : tc("notUpdated")}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 6. Nhóm máu */}
+                    <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <Ionicons name="water" size={20} color="#e11d48" />
+                      </View>
+                      <View style={styles.gridCardContent}>
+                        <Text style={styles.gridCardLabel}>{t("bloodType")}</Text>
+                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                          {profile?.bloodType || tc("notUpdated")}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Full Width Card: Bệnh nền */}
+                  <View style={styles.chronicDiseaseCard}>
+                    <View style={styles.gridIconWrap}>
+                      <MaterialCommunityIcons
+                        name="plus-box"
+                        size={22}
+                        color="#e11d48"
+                      />
+                    </View>
+                    <View style={styles.gridCardContent}>
+                      <Text style={styles.gridCardLabel}>
+                        {t("chronicDiseases")}
+                      </Text>
+                      <Text style={styles.gridCardValue} numberOfLines={1}>
+                        {profile?.chronicDiseases &&
+                        profile.chronicDiseases.length > 0
+                          ? profile.chronicDiseases.join(", ")
+                          : t("noChronicDiseases")}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              )}
             </Animated.View>
 
             {/* ==================== BANNER CHĂM SÓC SỨC KHỎE ==================== */}
@@ -1012,466 +1081,499 @@ export default function ProfileScreen() {
 
             {/* ==================== 02 MIDDLE: THAO TÁC ==================== */}
             <Animated.View entering={FadeIn.delay(220).duration(350)}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="flash" size={18} color="#10b981" />
-                <Text style={styles.sectionHeading}>{t("sectionActions")}</Text>
-              </View>
-              <View style={styles.cardsStack}>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/reminder-config")}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="alarm-outline" size={22} color="#f97316" />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("reminderSchedule")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.actionCard,
-                    !hasCheckinCallAccess && styles.actionCardLocked,
-                  ]}
-                  onPress={handleCheckinCallPress}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    hasCheckinCallAccess
-                      ? t("checkinCall")
-                      : `${t("checkinCall")}. ${t("requiresAnTam")}`
-                  }
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name={hasCheckinCallAccess ? "call-outline" : "lock-closed-outline"}
-                      size={22}
-                      color={hasCheckinCallAccess ? "#07846d" : "#94a3b8"}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.rowLabel,
-                      !hasCheckinCallAccess && styles.rowLabelLocked,
-                    ]}
-                  >
-                    {t("checkinCall")}
-                  </Text>
-                  {!hasCheckinCallAccess && (
-                    <View style={styles.lockedBadge}>
-                      <Text style={styles.lockedBadgeText}>{t("requiresAnTam")}</Text>
-                    </View>
-                  )}
-                  <Ionicons
-                    name={hasCheckinCallAccess ? "chevron-forward" : "lock-closed"}
-                    size={16}
-                    color="#94a3b8"
-                  />
-                </TouchableOpacity>
-
-                {__DEV__ && isDevBuild && isCheckinUiGalleryEnabled && (
+              {renderSectionHeader(
+                "actions",
+                t("sectionActions"),
+                <Ionicons name="flash" size={18} color="#10b981" />,
+              )}
+              {expandedSections.actions && (
+                <View style={styles.cardsStack}>
                   <TouchableOpacity
                     style={styles.actionCard}
-                    onPress={() => router.push("/checkin-call/ui-gallery" as any)}
+                    onPress={() => router.push("/reminder-config")}
                     activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("checkinCallGalleryAccessibility")}
                   >
                     <View style={styles.rowIconWrap}>
-                      <Ionicons name="eye-outline" size={22} color="#07846d" />
+                      <Ionicons name="alarm-outline" size={22} color="#f97316" />
                     </View>
-                    <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
+                    <Text style={styles.rowLabel}>{t("reminderSchedule")}</Text>
                     <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
-                )}
-              </View>
-            </Animated.View>
 
-            {/* ==================== 02 MIDDLE: SỨC KHỎE ==================== */}
-            <Animated.View entering={FadeIn.delay(260).duration(350)}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="heart" size={18} color="#10b981" />
-                <Text style={styles.sectionHeading}>{t("sectionHealth")}</Text>
-              </View>
-              <View style={styles.cardsStack}>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/logs")}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="journal-outline"
-                      size={22}
-                      color="#f43f5e"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("logEntry")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                <View style={styles.actionCard}>
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="bookmark-outline"
-                      size={22}
-                      color="#8b5cf6"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
-                  <Switch
-                    value={healthFeedEnabled}
-                    onValueChange={handleToggleHealthFeed}
-                    trackColor={{ false: "#d1d5db", true: colors.primary }}
-                    thumbColor={colors.surface}
-                    ios_backgroundColor="#d1d5db"
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/(tabs)/missions" as any)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="flag-outline" size={22} color="#10b981" />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("missions")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-
-            {/* ==================== 02 MIDDLE: TÀI KHOẢN ==================== */}
-            <Animated.View entering={FadeIn.delay(300).duration(350)}>
-              <View style={styles.sectionHeaderRow}>
-                <FontAwesome5 name="crown" size={15} color="#f59e0b" />
-                <Text style={styles.sectionHeading}>{t("sectionAccount")}</Text>
-              </View>
-              <View style={styles.cardsStack}>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/subscription")}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="star-outline" size={22} color="#f59e0b" />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("subscription")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/wallet")}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="wallet-outline" size={22} color="#0d9488" />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("wallet")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-
-            {/* ==================== 02 MIDDLE: CÀI ĐẶT ==================== */}
-            <Animated.View entering={FadeIn.delay(340).duration(350)}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="settings-sharp" size={18} color="#10b981" />
-                <Text style={styles.sectionHeading}>{ts("title")}</Text>
-              </View>
-              <View style={styles.cardsStack}>
-                {isDoctorFeaturesEnabled && (
                   <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={ts('doctorConsultation')}
-                    style={styles.actionCard}
-                    onPress={() => router.push('/doctor-consultation')}
+                    style={[
+                      styles.actionCard,
+                      !hasCheckinCallAccess && styles.actionCardLocked,
+                    ]}
+                    onPress={handleCheckinCallPress}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      hasCheckinCallAccess
+                        ? t("checkinCall")
+                        : `${t("checkinCall")}. ${t("requiresAnTam")}`
+                    }
                   >
                     <View style={styles.rowIconWrap}>
                       <Ionicons
-                        name="medical-outline"
+                        name={hasCheckinCallAccess ? "call-outline" : "lock-closed-outline"}
                         size={22}
-                        color={colors.primary}
+                        color={hasCheckinCallAccess ? "#07846d" : "#94a3b8"}
                       />
                     </View>
-                    <Text style={styles.rowLabel}>
-                      {ts('doctorConsultation')}
+                    <Text
+                      style={[
+                        styles.rowLabel,
+                        !hasCheckinCallAccess && styles.rowLabelLocked,
+                      ]}
+                    >
+                      {t("checkinCall")}
                     </Text>
+                    {!hasCheckinCallAccess && (
+                      <View style={styles.lockedBadge}>
+                        <Text style={styles.lockedBadgeText}>{t("requiresAnTam")}</Text>
+                      </View>
+                    )}
                     <Ionicons
-                      name="chevron-forward"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                )}
-                {isDoctorFeaturesEnabled && <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() =>
-                    router.push("/doctor-consultation-history" as any)
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="chatbubbles-outline"
-                      size={22}
-                      color="#0d9488"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>
-                    {ts("doctorConsultationHistory")}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>}
-
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => setShowFontPicker(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="text-outline" size={22} color="#0d9488" />
-                  </View>
-                  <Text style={styles.rowLabel}>{ts("fontSize")}</Text>
-                  <Text style={styles.rowMeta}>{fontLabel}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => setShowLangPicker(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="language-outline"
-                      size={22}
-                      color="#10b981"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>{ts("language")}</Text>
-                  <Text style={styles.rowMeta}>{langLabel}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-              </View>
-            </Animated.View>
-
-            {/* ==================== 03 BOTTOM: HỆ THỐNG ==================== */}
-            <Animated.View entering={FadeIn.delay(380).duration(350)}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="cube" size={18} color="#10b981" />
-                <Text style={styles.sectionHeading}>{t("sectionSystem")}</Text>
-              </View>
-              <View style={styles.cardsStack}>
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => { void checkForUpdate(); }}
-                  disabled={checkingUpdate}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: checkingUpdate, busy: checkingUpdate }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="cloud-download-outline" size={22} color={colors.primary} />
-                  </View>
-                  <Text style={styles.rowLabel}>{tc(checkingUpdate ? 'appUpdate.checking' : 'appUpdate.check')}</Text>
-                  {checkingUpdate ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />}
-                </TouchableOpacity>
-                {/* Trợ giúp qua Zalo */}
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => Linking.openURL("https://zalo.me/0898888917")}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="chatbubble-ellipses-outline"
-                      size={22}
-                      color="#0ea5e9"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>{ts("helpSupport")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                {/* Chia sẻ Asinu */}
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={handleShareApp}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="share-social-outline"
-                      size={22}
-                      color="#14b8a6"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>{t("shareApp")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                {/* Điều khoản dịch vụ */}
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/legal/content",
-                      params: { type: "terms" },
-                    } as any)
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="document-text-outline"
-                      size={22}
-                      color="#8b5cf6"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>{ts("termsOfService")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                {/* Quyền dùng Asinu AI */}
-                <View style={styles.actionCard}>
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="sparkles-outline"
-                      size={22}
-                      color="#10b981"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>
-                    {ts("aiDataConsentSettings")}
-                  </Text>
-                  <Switch
-                    value={aiConsentEnabled}
-                    onValueChange={handleToggleAiConsent}
-                    trackColor={{ false: "#d1d5db", true: colors.primary }}
-                    thumbColor={colors.surface}
-                    ios_backgroundColor="#d1d5db"
-                  />
-                </View>
-
-                {/* Chính sách bảo mật */}
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/legal/content",
-                      params: { type: "privacy" },
-                    } as any)
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="shield-checkmark-outline"
-                      size={22}
-                      color="#14b8a6"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>{ts("privacyPolicy")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                {/* Trung tâm quyền dữ liệu chuyên gia */}
-                {isDoctorFeaturesEnabled && <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/privacy-center" as any)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons
-                      name="finger-print-outline"
-                      size={22}
-                      color="#06b6d4"
-                    />
-                  </View>
-                  <Text style={styles.rowLabel}>
-                    {ts("privacyCenterTitle")}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>}
-
-                {/* Nguồn tham khảo sức khỏe */}
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() => router.push("/legal/sources" as any)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="book-outline" size={22} color="#0284c7" />
-                  </View>
-                  <Text style={styles.rowLabel}>{ts("healthSources")}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                {/* Yêu cầu xóa dữ liệu */}
-                <TouchableOpacity
-                  style={styles.actionCard}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/legal/content",
-                      params: { type: "dataDeletion" },
-                    } as any)
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowIconWrap}>
-                    <Ionicons name="globe-outline" size={22} color="#0d9488" />
-                  </View>
-                  <Text style={styles.rowLabel}>
-                    {ts("requestDataDeletion")}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-
-                {/* Đổi mật khẩu (nếu tài khoản dùng mật khẩu) */}
-                {profile?.hasPassword ? (
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => setShowChangePasswordModal(true)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="key-outline" size={22} color="#6366f1" />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("changePassword")}</Text>
-                    <Ionicons
-                      name="chevron-forward"
+                      name={hasCheckinCallAccess ? "chevron-forward" : "lock-closed"}
                       size={16}
                       color="#94a3b8"
                     />
                   </TouchableOpacity>
-                ) : null}
-              </View>
 
-              {/* Xóa tài khoản vĩnh viễn (Destructive Card) */}
-              <TouchableOpacity
-                style={styles.deleteAccountCard}
-                onPress={() => setShowDeleteModal(true)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-              >
-                <Ionicons
-                  name="trash-outline"
-                  size={22}
-                  color="#ef4444"
-                  style={{ marginRight: 12 }}
-                />
-                <Text style={styles.deleteAccountText}>
-                  {ts("deleteAccountForever")}
-                </Text>
-              </TouchableOpacity>
+                  {__DEV__ && isDevBuild && isCheckinUiGalleryEnabled && (
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() => router.push("/checkin-call/ui-gallery" as any)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("checkinCallGalleryAccessibility")}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons name="eye-outline" size={22} color="#07846d" />
+                      </View>
+                      <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </Animated.View>
 
-              {/* Nút Đăng xuất */}
+            {/* ==================== 02 MIDDLE: SỨC KHỎE ==================== */}
+            <Animated.View entering={FadeIn.delay(260).duration(350)}>
+              {renderSectionHeader(
+                "health",
+                t("sectionHealth"),
+                <Ionicons name="heart" size={18} color="#10b981" />,
+              )}
+              {expandedSections.health && (
+                <View style={styles.cardsStack}>
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/logs")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="journal-outline"
+                        size={22}
+                        color="#f43f5e"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("logEntry")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  <View style={styles.actionCard}>
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="bookmark-outline"
+                        size={22}
+                        color="#8b5cf6"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
+                    <Switch
+                      value={healthFeedEnabled}
+                      onValueChange={handleToggleHealthFeed}
+                      trackColor={{ false: "#d1d5db", true: colors.primary }}
+                      thumbColor={colors.surface}
+                      ios_backgroundColor="#d1d5db"
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/(tabs)/missions" as any)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="flag-outline" size={22} color="#10b981" />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("missions")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/checkin-rewards")}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("dailyGifts")}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="gift-outline" size={22} color={colors.primary} />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("dailyGifts")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </Animated.View>
+
+            {/* ==================== 02 MIDDLE: TÀI KHOẢN ==================== */}
+            <Animated.View entering={FadeIn.delay(300).duration(350)}>
+              {renderSectionHeader(
+                "account",
+                t("sectionAccount"),
+                <FontAwesome5 name="crown" size={15} color="#f59e0b" />,
+              )}
+              {expandedSections.account && (
+                <View style={styles.cardsStack}>
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/subscription")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="star-outline" size={22} color="#f59e0b" />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("subscription")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/wallet")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="wallet-outline" size={22} color="#0d9488" />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("wallet")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </Animated.View>
+
+            {/* ==================== 02 MIDDLE: CÀI ĐẶT ==================== */}
+            <Animated.View entering={FadeIn.delay(340).duration(350)}>
+              {renderSectionHeader(
+                "settings",
+                ts("title"),
+                <Ionicons name="settings-sharp" size={18} color="#10b981" />,
+              )}
+              {expandedSections.settings && (
+                <View style={styles.cardsStack}>
+                  {isDoctorFeaturesEnabled && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={ts('doctorConsultation')}
+                      style={styles.actionCard}
+                      onPress={() => router.push('/doctor-consultation')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="medical-outline"
+                          size={22}
+                          color={colors.primary}
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>
+                        {ts('doctorConsultation')}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  )}
+                  {isDoctorFeaturesEnabled && <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() =>
+                      router.push("/doctor-consultation-history" as any)
+                    }
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="chatbubbles-outline"
+                        size={22}
+                        color="#0d9488"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>
+                      {ts("doctorConsultationHistory")}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>}
+
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => setShowFontPicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="text-outline" size={22} color="#0d9488" />
+                    </View>
+                    <Text style={styles.rowLabel}>{ts("fontSize")}</Text>
+                    <Text style={styles.rowMeta}>{fontLabel}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => setShowLangPicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="language-outline"
+                        size={22}
+                        color="#10b981"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>{ts("language")}</Text>
+                    <Text style={styles.rowMeta}>{langLabel}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                </View>
+              )}
+            </Animated.View>
+
+            {/* ==================== 03 BOTTOM: HỆ THỐNG ==================== */}
+            <Animated.View entering={FadeIn.delay(380).duration(350)}>
+              {renderSectionHeader(
+                "system",
+                t("sectionSystem"),
+                <Ionicons name="cube" size={18} color="#10b981" />,
+              )}
+              {expandedSections.system && (
+                <>
+                  <View style={styles.cardsStack}>
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() => { void checkForUpdate(); }}
+                      disabled={checkingUpdate}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: checkingUpdate, busy: checkingUpdate }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons name="cloud-download-outline" size={22} color={colors.primary} />
+                      </View>
+                      <Text style={styles.rowLabel}>{tc(checkingUpdate ? 'appUpdate.checking' : 'appUpdate.check')}</Text>
+                      {checkingUpdate ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />}
+                    </TouchableOpacity>
+                    {/* Trợ giúp qua Zalo */}
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() => Linking.openURL("https://zalo.me/0898888917")}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="chatbubble-ellipses-outline"
+                          size={22}
+                          color="#0ea5e9"
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>{ts("helpSupport")}</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+
+                    {/* Chia sẻ Asinu */}
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={handleShareApp}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="share-social-outline"
+                          size={22}
+                          color="#14b8a6"
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>{t("shareApp")}</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+
+                    {/* Điều khoản dịch vụ */}
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/legal/content",
+                          params: { type: "terms" },
+                        } as any)
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="document-text-outline"
+                          size={22}
+                          color="#8b5cf6"
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>{ts("termsOfService")}</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+
+                    {/* Quyền dùng Asinu AI */}
+                    <View style={styles.actionCard}>
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="sparkles-outline"
+                          size={22}
+                          color="#10b981"
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>
+                        {ts("aiDataConsentSettings")}
+                      </Text>
+                      <Switch
+                        value={aiConsentEnabled}
+                        onValueChange={handleToggleAiConsent}
+                        trackColor={{ false: "#d1d5db", true: colors.primary }}
+                        thumbColor={colors.surface}
+                        ios_backgroundColor="#d1d5db"
+                      />
+                    </View>
+
+                    {/* Chính sách bảo mật */}
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/legal/content",
+                          params: { type: "privacy" },
+                        } as any)
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="shield-checkmark-outline"
+                          size={22}
+                          color="#14b8a6"
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>{ts("privacyPolicy")}</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+
+                    {/* Trung tâm quyền dữ liệu chuyên gia */}
+                    {isDoctorFeaturesEnabled && <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() => router.push("/privacy-center" as any)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="finger-print-outline"
+                          size={22}
+                          color="#06b6d4"
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>
+                        {ts("privacyCenterTitle")}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>}
+
+                    {/* Nguồn tham khảo sức khỏe */}
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() => router.push("/legal/sources" as any)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons name="book-outline" size={22} color="#0284c7" />
+                      </View>
+                      <Text style={styles.rowLabel}>{ts("healthSources")}</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+
+                    {/* Yêu cầu xóa dữ liệu */}
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/legal/content",
+                          params: { type: "dataDeletion" },
+                        } as any)
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons name="globe-outline" size={22} color="#0d9488" />
+                      </View>
+                      <Text style={styles.rowLabel}>
+                        {ts("requestDataDeletion")}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+
+                    {/* Đổi mật khẩu (nếu tài khoản dùng mật khẩu) */}
+                    {profile?.hasPassword ? (
+                      <TouchableOpacity
+                        style={styles.actionCard}
+                        onPress={() => setShowChangePasswordModal(true)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.rowIconWrap}>
+                          <Ionicons name="key-outline" size={22} color="#6366f1" />
+                        </View>
+                        <Text style={styles.rowLabel}>{t("changePassword")}</Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color="#94a3b8"
+                        />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  {/* Xóa tài khoản vĩnh viễn (Destructive Card) */}
+                  <TouchableOpacity
+                    style={styles.deleteAccountCard}
+                    onPress={() => setShowDeleteModal(true)}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={22}
+                      color="#ef4444"
+                      style={{ marginRight: 12 }}
+                    />
+                    <Text style={styles.deleteAccountText}>
+                      {ts("deleteAccountForever")}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+            </Animated.View>
+
+            <View style={styles.profileFooter}>
               <TouchableOpacity
                 style={styles.logoutButton}
                 onPress={() => setShowLogoutModal(true)}
@@ -1485,20 +1587,23 @@ export default function ProfileScreen() {
                 />
                 <Text style={styles.logoutButtonText}>{t("logout")}</Text>
               </TouchableOpacity>
-
-              {/* Footer illustration banner matching design */}
-              <View style={styles.footerBannerWrap}>
+              <View
+                style={styles.profileBackgroundBrand}
+                pointerEvents="none"
+                accessible={false}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
                 <Image
-                  source={
-                    language === "en"
-                      ? require("../../../assets/images/profile/footer_quote_banner_en.png")
-                      : require("../../../assets/images/profile/footer_quote_banner_vi.png")
-                  }
-                  style={styles.footerBannerImage}
-                  resizeMode="cover"
+                  source={PROFILE_MASCOT}
+                  style={styles.profileBackgroundMascot}
+                  resizeMode="contain"
                 />
+                <Text style={styles.profileBackgroundWordmark}>
+                  {t("brandName")}
+                </Text>
               </View>
-            </Animated.View>
+            </View>
           </>
         )}
       </RippleRefreshScrollView>
@@ -2377,61 +2482,139 @@ function createStyles(
 
   return StyleSheet.create({
     container: {
-      paddingBottom: 40,
-      backgroundColor: isDark ? "#0f172a" : "#f4fbf9",
+      flexGrow: 1,
+      backgroundColor: "transparent",
     },
-
-    // Header (Top of screen)
-    headerRow: {
+    profileBackgroundImage: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      opacity: isDark ? 0.12 : 1,
+    },
+    profileFooter: {
+      flexGrow: 1,
+      minHeight: 164,
+      marginHorizontal: 24,
+      marginTop: 8,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    profileBackgroundBrand: {
+      alignSelf: "flex-end",
+      alignItems: "center",
+    },
+    profileBackgroundMascot: {
+      width: 140,
+      height: 140,
+    },
+    profileBackgroundWordmark: {
+      fontSize: 18,
+      fontWeight: "800",
+      letterSpacing: 2,
+      color: isDark ? "#99f6e4" : "#0b5e56",
+    },
+    personalInfoHeader: {
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      gap: 0,
+    },
+    personalInfoToggle: {
+      flex: 1,
+      minHeight: 56,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 14,
+      gap: 12,
     },
-    headerTextGroup: {
-      flex: 1,
-      paddingRight: 8,
-    },
-    headerTitle: {
-      fontSize: 26,
-      fontWeight: "800",
-      color: textPrimaryCol,
-      letterSpacing: -0.5,
-    },
-    headerSubtitle: {
-      fontSize: 13,
-      color: textSecondaryCol,
-      marginTop: 3,
-      fontWeight: "400",
-    },
-    headerArtGroup: {
+    personalInfoEditButton: {
+      minHeight: 44,
+      marginRight: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 4,
     },
-    headerArtImage: {
-      width: 105,
-      height: 90,
-      resizeMode: "contain",
-      opacity: isDark ? 0.85 : 1,
+    personalInfoEditText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#99f6e4" : "#0b5e56",
     },
 
-    // User Profile Card
-    userCard: {
+    // Info Grid
+    infoGrid: {
       marginHorizontal: 16,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      rowGap: 10,
+    },
+    gridCard: {
+      width: "48.5%",
       backgroundColor: cardBg,
-      borderRadius: 22,
-      padding: 16,
+      borderRadius: 16,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
       borderWidth: 1,
       borderColor: borderCol,
       flexDirection: "row",
       alignItems: "center",
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: isDark ? 0.2 : 0.05,
-      shadowRadius: 8,
-      elevation: 2,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0.15 : 0.03,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    gridIconWrap: {
+      width: 26,
+      height: 26,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 8,
+    },
+    gridCardContent: {
+      flex: 1,
+    },
+    gridCardLabel: {
+      fontSize: 11,
+      color: textSecondaryCol,
+    },
+    gridCardValue: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: textPrimaryCol,
+      marginTop: 2,
+    },
+    chronicDiseaseCard: {
+      marginHorizontal: 16,
+      marginTop: 10,
+      backgroundColor: cardBg,
+      borderRadius: 16,
+      paddingVertical: 13,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: borderCol,
+      flexDirection: "row",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0.15 : 0.03,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+
+    // Identity sits directly on the healthcare wallpaper.
+    userCard: {
+      marginHorizontal: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      flexDirection: "row",
+      alignItems: "center",
     },
     avatarWrap: {
       width: 64,
@@ -2507,100 +2690,18 @@ function createStyles(
       color: isDark ? "#fcd34d" : "#b45309",
     },
 
-    // Section Header (Title + Edit button)
-    sectionHeaderBetween: {
-      marginHorizontal: 20,
-      marginTop: 18,
-      marginBottom: 12,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
     sectionHeaderLeft: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
     },
     sectionHeading: {
+      flexShrink: 1,
       fontSize: 16,
       fontWeight: "700",
       color: textPrimaryCol,
     },
-    editBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingVertical: 4,
-      paddingHorizontal: 8,
-    },
-    editBtnText: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: "#059669",
-    },
-
-    // Info Grid
-    infoGrid: {
-      marginHorizontal: 16,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "space-between",
-      rowGap: 10,
-    },
-    gridCard: {
-      width: GRID_ITEM_WIDTH,
-      backgroundColor: cardBg,
-      borderRadius: 16,
-      paddingVertical: 12,
-      paddingHorizontal: 12,
-      borderWidth: 1,
-      borderColor: borderCol,
-      flexDirection: "row",
-      alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: isDark ? 0.15 : 0.03,
-      shadowRadius: 3,
-      elevation: 1,
-    },
-    gridIconWrap: {
-      width: 26,
-      height: 26,
-      justifyContent: "center",
-      alignItems: "center",
-      marginRight: 8,
-    },
-    gridCardContent: {
-      flex: 1,
-    },
-    gridCardLabel: {
-      fontSize: 11,
-      color: textSecondaryCol,
-    },
-    gridCardValue: {
-      fontSize: 14,
-      fontWeight: "700",
-      color: textPrimaryCol,
-      marginTop: 2,
-    },
-    chronicDiseaseCard: {
-      marginHorizontal: 16,
-      marginTop: 10,
-      backgroundColor: cardBg,
-      borderRadius: 16,
-      paddingVertical: 13,
-      paddingHorizontal: 12,
-      borderWidth: 1,
-      borderColor: borderCol,
-      flexDirection: "row",
-      alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: isDark ? 0.15 : 0.03,
-      shadowRadius: 3,
-      elevation: 1,
-    },
-
     // Care Banner
     careBanner: {
       marginHorizontal: 16,
@@ -2637,37 +2738,31 @@ function createStyles(
 
     // Grouped Section (Thao tác, Sức khỏe, Tài khoản, Cài đặt, Hệ thống)
     sectionHeaderRow: {
-      marginHorizontal: 20,
-      marginTop: 18,
-      marginBottom: 8,
+      marginHorizontal: 16,
+      marginTop: 6,
+      marginBottom: 4,
+      minHeight: 56,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      justifyContent: "space-between",
+      gap: 12,
     },
     cardsStack: {
-      marginHorizontal: 16,
-      gap: 8,
+      marginLeft: 36,
+      marginRight: 16,
+      backgroundColor: "transparent",
     },
     actionCard: {
-      backgroundColor: cardBg,
-      borderRadius: 16,
+      minHeight: 56,
       paddingVertical: 13,
       paddingHorizontal: 16,
-      borderWidth: 1,
-      borderColor: borderCol,
       flexDirection: "row",
       alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: isDark ? 0.15 : 0.03,
-      shadowRadius: 3,
-      elevation: 1,
     },
     actionCardLocked: {
-      backgroundColor: isDark ? "#1f2937" : "#f8fafc",
-      borderColor: isDark ? "#374151" : "#e2e8f0",
-      shadowOpacity: 0,
-      elevation: 0,
+      backgroundColor: "transparent",
     },
     rowIconWrap: {
       width: 28,
@@ -2704,14 +2799,11 @@ function createStyles(
       color: textSecondaryCol,
       marginRight: 6,
     },
-    // Delete Account Card (Destructive in System Section)
+    // Destructive action in the System section
     deleteAccountCard: {
       marginHorizontal: 16,
       marginTop: 12,
-      backgroundColor: cardBg,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: borderCol,
+      minHeight: 56,
       paddingVertical: 14,
       paddingHorizontal: 16,
       flexDirection: "row",
@@ -2726,39 +2818,18 @@ function createStyles(
 
     // Logout Button
     logoutButton: {
-      marginHorizontal: 16,
-      marginTop: 14,
-      marginBottom: 16,
-      backgroundColor: isDark ? "#451a1a33" : "#fff5f5",
-      borderRadius: 999,
-      borderWidth: 1.5,
-      borderColor: isDark ? "#7f1d1d" : "#fca5a5",
+      alignSelf: "flex-start",
+      flexShrink: 1,
       minHeight: 52,
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: 16,
+      paddingHorizontal: 8,
       paddingVertical: 10,
     },
     logoutButtonText: {
       fontSize: 16,
       fontWeight: "600",
       color: isDark ? "#f87171" : "#e11d48",
-    },
-
-    // Footer illustration banner
-    footerBannerWrap: {
-      width: SCREEN_WIDTH,
-      marginTop: 14,
-      marginBottom: 0,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    footerBannerImage: {
-      width: SCREEN_WIDTH,
-      height: Math.round(SCREEN_WIDTH * (210 / 774)),
-      resizeMode: "contain",
-      opacity: isDark ? 0.85 : 1,
     },
 
     // Overlay & Modal styles

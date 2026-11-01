@@ -18,15 +18,16 @@ const cloverArt = require('../../../assets/images/rewards/daily_clover.png');
 const heroArt = require('../../../assets/images/rewards/daily_gift_hero.png');
 const chestArt = require('../../../assets/images/rewards/daily_chest.png');
 
-export function HomeGiftCard() {
+export function HomeGiftCard({ headless = false }: { headless?: boolean } = {}) {
   const account = useAuthStore((s) => s.profile?.id);
   return account ? (
-    <AccountCard key={String(account)} account={String(account)} />
+    <AccountCard key={String(account)} account={String(account)} headless={headless} />
   ) : null;
 }
 
-function AccountCard({ account }: { account: string }) {
+function AccountCard({ account, headless }: { account: string; headless: boolean }) {
   const { t } = useTranslation('home');
+  const { t: tc } = useTranslation('common');
   const { colors, isDark = false } = useThemeColors();
   const router = useGuardedRouter();
   const focused = useRef(false);
@@ -34,6 +35,8 @@ function AccountCard({ account }: { account: string }) {
   const loadGeneration = useRef(0);
   const [day, setDay] = useState<GiftToday | null>(null);
   const [open, setOpen] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reload, setReload] = useState(0);
   const replayOpening = canReplayCheckinGift(account);
 
   const acceptDay = useCallback((result: GiftToday) => {
@@ -50,6 +53,7 @@ function AccountCard({ account }: { account: string }) {
       focused.current = true;
       const load = () => {
         const request = ++loadGeneration.current;
+        setLoadFailed(false);
         return loadCheckinGiftDay(account, true)
           .then((result) => {
             if (
@@ -69,7 +73,13 @@ function AccountCard({ account }: { account: string }) {
               }
             }
           })
-          .catch(() => {});
+          .catch(() => {
+            if (
+              live &&
+              request === loadGeneration.current &&
+              String(useAuthStore.getState().profile?.id) === account
+            ) setLoadFailed(true);
+          });
       };
       void load();
       const subscription = AppState.addEventListener('change', (state) => {
@@ -82,10 +92,39 @@ function AccountCard({ account }: { account: string }) {
         subscription.remove();
         setOpen(false);
       };
-    }, [account, acceptDay])
+    }, [account, acceptDay, reload])
   );
 
-  if (!day?.enabled) return null;
+  if (!day?.enabled) {
+    if (headless) return null;
+    return (
+      <View style={styles.outerStack}>
+        <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary }}>
+          {tc(loadFailed ? 'cannotLoadData' : day ? 'noData' : 'loading')}
+        </Text>
+        {loadFailed && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={tc('retry')}
+            onPress={() => setReload((current) => current + 1)}
+            style={styles.fallbackAction}
+          >
+            <Text style={{ color: colors.primaryText }}>{tc('retry')}</Text>
+          </Pressable>
+        )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('checkinGift.collection')}
+          onPress={() => router.push('/checkin-rewards/history')}
+          style={styles.fallbackAction}
+        >
+          <Ionicons name="archive-outline" size={22} color={colors.primary} />
+          <Text style={{ color: colors.textPrimary }}>{t('checkinGift.collection')}</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+    );
+  }
 
   const isDarkMode = Boolean(isDark);
   const containerBg = isDarkMode ? 'rgba(20, 184, 166, 0.12)' : '#e8f7f4';
@@ -98,6 +137,44 @@ function AccountCard({ account }: { account: string }) {
   const buttonGradientColors = isDarkMode
     ? (['#14b8a6', '#0f766e'] as const)
     : (['#3bd3be', '#1ca492'] as const);
+
+  const giftFlow = open ? (
+    <CheckinGiftFlow
+      reviewExisting
+      status={day.checkinStatus || undefined}
+      familyAlerted={day.familyAlerted}
+      onOpened={(gift) => {
+        if (
+          !focused.current ||
+          String(useAuthStore.getState().profile?.id) !== account
+        ) return;
+        // A completed open is newer than any pending Home refresh.
+        loadGeneration.current++;
+        automaticallyOffered.current = gift.id;
+        setDay((current) =>
+          current?.gift?.id === gift.id
+            ? { ...current, gift, offerOnAppOpen: false }
+            : current
+        );
+      }}
+      onClose={() => {
+        setOpen(false);
+        const request = ++loadGeneration.current;
+        loadCheckinGiftDay(account, true)
+          .then((result) => {
+            if (
+              focused.current &&
+              request === loadGeneration.current &&
+              String(useAuthStore.getState().profile?.id) === account
+            )
+              acceptDay(result);
+          })
+          .catch(() => {});
+      }}
+    />
+  ) : null;
+
+  if (headless) return giftFlow;
 
   return (
     <View style={styles.outerStack}>
@@ -300,46 +377,21 @@ function AccountCard({ account }: { account: string }) {
         </View>
       </Pressable>
 
-      {open && (
-        <CheckinGiftFlow
-          reviewExisting
-          status={day.checkinStatus || undefined}
-          familyAlerted={day.familyAlerted}
-          onOpened={(gift) => {
-            if (
-              !focused.current ||
-              String(useAuthStore.getState().profile?.id) !== account
-            ) return;
-            // A completed open is newer than any pending Home refresh.
-            loadGeneration.current++;
-            automaticallyOffered.current = gift.id;
-            setDay((current) =>
-              current?.gift?.id === gift.id
-                ? { ...current, gift, offerOnAppOpen: false }
-                : current
-            );
-          }}
-          onClose={() => {
-            setOpen(false);
-            const request = ++loadGeneration.current;
-            loadCheckinGiftDay(account, true)
-              .then((result) => {
-                if (
-                  focused.current &&
-                  request === loadGeneration.current &&
-                  String(useAuthStore.getState().profile?.id) === account
-                )
-                  acceptDay(result);
-              })
-              .catch(() => {});
-          }}
-        />
-      )}
+      {giftFlow}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fallbackAction: {
+    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
   outerStack: {
     gap: 12,
   },

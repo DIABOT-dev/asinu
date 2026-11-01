@@ -160,5 +160,6 @@
   "weekCoins": "{{count}} coins earned this week.",
   "drawRules": "This draw's rules",
   "scheduleInactive": "This reminder is no longer active.",
-  "weekSkipped": "Irregular adherence: {{count}} medicine doses skipped."
+  "weekSkipped": "Irregular adherence: {{count}} medicine doses skipped.",
+  "taskProgressShort": "{{done}}/{{total}} done"
 }

@@ -255,7 +255,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     followTitle:  { fontSize: typography.size.sm, fontWeight: '700', color: '#d97706' },
     fineTitle:    { fontSize: typography.size.xl, fontWeight: '800', color: colors.textPrimary },
-    instantTitle: { fontSize: typography.size.lg + 4, fontWeight: '800', color: colors.textPrimary },
+    instantTitle: { fontSize: typography.size.xl, fontWeight: '800', color: colors.textPrimary },
     sub:          { fontSize: typography.size.sm, color: colors.textSecondary, marginTop: spacing.xs },
   });
 }

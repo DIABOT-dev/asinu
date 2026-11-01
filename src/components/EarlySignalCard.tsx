@@ -22,6 +22,7 @@ import { colors, radius, spacing, typography } from "../styles";
 type Props = {
   refreshKey?: number;
   healthScore?: HealthScoreData | null;
+  compact?: boolean;
 };
 
 const presentation = {
@@ -48,7 +49,7 @@ const attentionPresentation = {
   icon: "alert-circle-outline" as const,
 };
 
-export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
+export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false }: Props) {
   const { t } = useTranslation("tree");
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [assessment, setAssessment] = useState<EarlySignalAssessment | null>(
@@ -197,16 +198,17 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
             borderColor: view.color + "26",
             backgroundColor: view.color + "08",
           },
+          compact && styles.compactCard,
         ]}
       >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${t("earlyTitle")}. ${t(view.labelKey)}. ${summary}`}
-          style={styles.cardHeader}
+          style={[styles.cardHeader, compact && styles.compactHeader]}
           onPress={() => (canOpenDetails ? setOpen(true) : evaluate())}
           disabled={evaluating}
         >
-          <View style={styles.icon}>
+          <View style={[styles.icon, compact && styles.compactIcon]}>
             <MaterialCommunityIcons
               name="radar"
               size={27}
@@ -216,14 +218,14 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
           <View style={styles.copy}>
             <View style={styles.titleRow}>
               <Text style={styles.title}>{t("earlyTitle")}</Text>
-              {canOpenDetails && (
+              {!compact && canOpenDetails && (
                 <Text style={[styles.level, { color: view.color }]}>
                   {t(view.labelKey)}
                 </Text>
               )}
             </View>
-            <Text style={styles.body} numberOfLines={canOpenDetails ? 2 : 3}>
-              {summary}
+            <Text style={[styles.body, compact && styles.compactBody]} numberOfLines={compact ? undefined : canOpenDetails ? 2 : 3}>
+              {compact ? (canOpenDetails ? t(view.labelKey) : t("earlyOpen")) : summary}
             </Text>
           </View>
           {loading || evaluating ? (
@@ -237,7 +239,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
           )}
         </Pressable>
 
-        {!assessment && !loading && (
+        {!compact && !assessment && !loading && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("earlyEvaluate")}
@@ -326,6 +328,19 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
 }
 
 const styles = StyleSheet.create({
+  compactCard: {
+    minHeight: 68,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: "transparent",
+  },
+  compactHeader: { minHeight: 52, gap: 12 },
+  compactIcon: { width: 28, height: 32, borderRadius: 0 },
+  compactBody: { marginTop: 0, fontSize: 15 },
   card: {
     minHeight: 104,
     padding: spacing.md,

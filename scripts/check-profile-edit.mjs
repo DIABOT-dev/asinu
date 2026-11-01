@@ -38,7 +38,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   let cursor = 0;
   let pendingEffects = [];
   let needsRender = false;
-  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0 };
+  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [] };
   const profile = { id: 'profile-fixture', name: 'Demo', phone: '', age: 40, gender: 'Nam',
     heightCm: 170, weightKg: 70, bloodType, chronicDiseases: [], ...profileOverrides };
   const auth = { profile, logout: async () => {} };
@@ -95,7 +95,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     'react-i18next': { useTranslation: ns => ({ t: translate(ns), i18n: { language } }) },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     'expo-linear-gradient': { LinearGradient: 'LinearGradient' },
-    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ push() {}, replace() {}, back() {} }) },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => calls.routes.push(route), replace() {}, back() {} }) },
     '../../../src/components/AppAlertModal': { AppAlertModal: 'AppAlertModal', useAppAlert: () => ({ alertState: { visible: false }, showAlert() {}, dismissAlert() {} }) },
     '../../../src/components/AiDataConsentModal': { AiDataConsentModal: 'AiDataConsentModal', hasAiDataConsent: async () => false, revokeAiDataConsent: async () => {} },
     '../../../src/components/ScaledTextInput': { ScaledTextInput: 'TextInput' },
@@ -122,7 +122,10 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/subscription/planName': { localizedPlanName: () => 'Fixture plan' },
     '../../../src/stores/font-size.store': { useFontSizeStore: () => ({ scale: 'normal', multiplier, setScale() {} }) },
     '../../../src/stores/language.store': { useLanguageStore: () => ({ language, setLanguage() {} }) },
-    '../../../src/hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
+    '../../../src/hooks/useScaledTypography': { useScaledTypography: () => ({
+      ...theme.typography,
+      scaledSize: Object.fromEntries(Object.entries(theme.typography.size).map(([key, value]) => [key, Math.round(value * multiplier)])),
+    }) },
     '../../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: () => false },
     '../../../src/lib/apiClient': { ApiError, apiClient: async () => ({}), getApiErrorMessage: (_error, t, key) => t(key) },
     '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: false, isCheckinUiGalleryEnabled: false },
@@ -187,36 +190,74 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   const avatarButton = () => nodes(modal()).find(node => node.type === 'Pressable' && text(node).trim() === translate('profile')('uploadPhoto'));
   const updateProfile = update => { auth.profile = { ...auth.profile, ...update }; };
   const open = () => {
+    const header = nodes(render()).find(node => node.props.accessibilityRole === 'button'
+      && node.props.accessibilityLabel === translate('profile')('personalInfo'));
+    assert.ok(header, 'Personal-info dropdown must exist');
+    if (!header.props.accessibilityState.expanded) header.props.onPress();
     const edit = nodes(render()).find(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && node.props.onPress?.name === 'handleEditProfile');
     assert.ok(edit, 'Profile edit button must exist'); edit.props.onPress(); assert.ok(modal());
   };
+  const toggleSection = title => {
+    const header = nodes(render()).find(node => node.props.accessibilityRole === 'button'
+      && node.props.accessibilityLabel === title && 'expanded' in (node.props.accessibilityState || {}));
+    assert.ok(header, `Profile section ${title} must be expandable`);
+    header.props.onPress();
+    return render();
+  };
   return { render, modal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
     openDiseasePicker, diseaseChoice, toggleDisease, customInput, addDiseaseButton, addDisease, cancel,
-    avatarButton, updateProfile, calls, t: translate('profile'), tc: translate('common') };
+    avatarButton, updateProfile, toggleSection, calls, t: translate('profile'), tc: translate('common') };
 }
 
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
   for (const isDark of [false, true]) {
-    await test(`${language}/${isDark ? 'dark' : 'light'}: the care promotion banner is hidden without removing profile actions`, async () => {
+    await test(`${language}/${isDark ? 'dark' : 'light'}: profile groups expand inline and independently without removing their actions`, async () => {
       const h = harness({ language, isDark });
       const tree = h.render();
       const all = nodes(tree);
       assert.ok(!all.some(node => node.type === 'Text' && [h.t('careBannerTitle'), h.t('careBannerSubtitle')].includes(node.props.children)));
       assert.ok(all.some(node => node.type === 'Text' && node.props.children === h.t('sectionActions')));
-      assert.ok(all.some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t('reminderSchedule')));
+      const hasRow = (tree, key) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t(key));
+      assert.equal(all.filter(node => node.type === 'TouchableOpacity' && node.props.accessibilityState?.expanded === false).length, 6);
+      const mainContent = all.find(node => node.type === 'ScrollView');
+      assert.ok(!nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')), 'Personal details stay hidden until expanded');
+      assert.ok(!hasRow(tree, 'reminderSchedule'));
+      assert.ok(!hasRow(tree, 'logEntry'));
+      assert.ok(hasRow(h.toggleSection(h.t('sectionActions')), 'reminderSchedule'));
+      const bothOpen = h.toggleSection(h.t('sectionHealth'));
+      assert.ok(hasRow(bothOpen, 'reminderSchedule'));
+      assert.ok(hasRow(bothOpen, 'logEntry'));
+      const giftEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('dailyGifts'));
+      assert.equal(giftEntries.length, 1, 'Daily gifts and the collection share one profile entry');
+      giftEntries[0].props.onPress();
+      assert.deepEqual(h.calls.routes, ['/checkin-rewards']);
+      const actionsClosed = h.toggleSection(h.t('sectionActions'));
+      assert.ok(!hasRow(actionsClosed, 'reminderSchedule'));
+      assert.ok(hasRow(actionsClosed, 'logEntry'));
       h.open(); assert.ok(h.modal());
     });
   }
-  await test(`${language}: profile editing remains only in the personal-info header, not the actions list`, async () => {
+  await test(`${language}: personal info expands read-only and opens the editor only through Edit`, async () => {
     const h = harness({ language });
+    assert.ok(!nodes(h.render()).some(node => node.props.onPress?.name === 'handleEditProfile'));
+    h.toggleSection(h.t('personalInfo'));
+    assert.equal(h.modal(), undefined, 'Expanding personal details must not open an editor');
+    const mainContent = nodes(h.render()).find(node => node.type === 'ScrollView');
+    assert.ok(nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')));
+    assert.ok(!nodes(mainContent).some(node => node.type === 'TextInput'), 'Inline details cannot be edited');
+    assert.equal(h.calls.saves.length, 0);
+    assert.equal(h.calls.uploads.length, 0);
+    h.toggleSection(h.t('personalInfo'));
+    assert.ok(!nodes(h.render()).some(node => node.props.onPress?.name === 'handleEditProfile'));
+    h.toggleSection(h.t('personalInfo'));
+    h.toggleSection(h.t('sectionActions'));
     const controls = nodes(h.render()).filter(node => ['Pressable', 'TouchableOpacity'].includes(node.type));
     const editors = controls.filter(node => node.props.onPress?.name === 'handleEditProfile');
     assert.equal(editors.length, 1, 'Exactly one profile edit entry must remain');
-    assert.equal(editors[0].props.accessibilityLabel, h.t('edit'));
+    assert.equal(editors[0].props.accessibilityLabel, h.t('editProfile'));
     assert.equal(text(editors[0]).trim(), h.t('edit'));
-    assert.ok(!controls.some(node => text(node).trim() === h.t('editProfile')), 'The duplicate actions card must be removed');
     assert.ok(controls.some(node => text(node).trim() === h.t('reminderSchedule')), 'Other actions must remain');
     editors[0].props.onPress(); assert.ok(h.modal());
   });
