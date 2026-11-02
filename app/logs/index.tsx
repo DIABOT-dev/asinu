@@ -177,7 +177,6 @@ export default function LogsIndexScreen() {
               <ScreenBackButton onPress={() => router.back()} />
               <View style={styles.headerText}>
                 <Text style={styles.headerTitle}>{t('logTitle')}</Text>
-                <Text style={styles.headerSub}>{t('logSubtitle')}</Text>
               </View>
             </View>
           </Animated.View>
@@ -263,11 +262,6 @@ function createStyles(
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.3,
-    },
-    headerSub: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      marginTop: 2,
     },
     // Grid
     grid: {

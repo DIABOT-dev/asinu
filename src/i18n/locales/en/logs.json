@@ -20,7 +20,6 @@
 
   "logMetrics": "Log Metrics",
   "logTitle": "Health Log",
-  "logSubtitle": "Select log type",
   "quickLog": "Quick log",
   "waterTodayTotal": "Today total: {{ml}} ml",
   "heroSub": "Choose the metric you want to log today",
