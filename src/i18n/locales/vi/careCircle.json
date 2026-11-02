@@ -299,7 +299,6 @@
   "cameraPermissionNeedSettings": "Bạn đã tắt quyền camera. Vui lòng mở Cài đặt thiết bị để cho phép Asinu sử dụng camera.",
   "cameraPermissionHeaderTitle": "Quét mã kết nối",
   "cameraPermissionHeaderSubtitle": "Quét bằng camera hoặc chọn ảnh QR trong máy.",
-  "qrConnectFamily": "Kết nối người thân",
   "qrSaveToPhotos": "Lưu QR vào Ảnh",
   "qrSaving": "Đang lưu ảnh...",
   "qrSaved": "Đã lưu mã QR vào Ảnh",
@@ -311,5 +310,6 @@
   "qrReadingPhoto": "Đang đọc ảnh QR...",
   "qrImageNoCode": "Chưa tìm thấy mã QR trong ảnh. Anh/chị chọn ảnh rõ mã hơn nhé.",
   "qrImageMultiple": "Ảnh có nhiều mã kết nối. Anh/chị chọn ảnh chỉ có một mã QR nhé.",
-  "qrImageError": "Chưa đọc được ảnh QR. Anh/chị vui lòng chọn lại."
+  "qrImageError": "Chưa đọc được ảnh QR. Anh/chị vui lòng chọn lại.",
+  "qrConnectFamilyNow": "Kết nối người thân ngay"
 }

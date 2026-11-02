@@ -299,7 +299,6 @@
   "cameraPermissionNeedSettings": "Camera permission is turned off. Please open device Settings to allow camera access for Asinu.",
   "cameraPermissionHeaderTitle": "Scan connection code",
   "cameraPermissionHeaderSubtitle": "Use your camera or choose a QR photo.",
-  "qrConnectFamily": "Connect with family",
   "qrSaveToPhotos": "Save QR to Photos",
   "qrSaving": "Saving image...",
   "qrSaved": "QR code saved to Photos",
@@ -311,5 +310,6 @@
   "qrReadingPhoto": "Reading QR photo...",
   "qrImageNoCode": "No QR code found in this photo. Please choose a clearer photo.",
   "qrImageMultiple": "This photo has multiple connection codes. Choose a photo with just one QR code.",
-  "qrImageError": "Could not read this QR photo. Please try another photo."
+  "qrImageError": "Could not read this QR photo. Please try another photo.",
+  "qrConnectFamilyNow": "Connect with family now"
 }
