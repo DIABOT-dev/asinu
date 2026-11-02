@@ -180,6 +180,7 @@ export default function MealLogScreen() {
                 <View style={styles.sectionCard}>
                   <Text style={styles.sectionLabel}>{t('nutrition')}</Text>
                   <TextInput
+                    style={styles.plainInput}
                     label={t('kcal')}
                     keyboardType="numeric"
                     value={kcal}
@@ -190,6 +191,7 @@ export default function MealLogScreen() {
                   <View style={styles.macroRow}>
                     <View style={styles.macroInput}>
                       <TextInput
+                        style={styles.plainInput}
                         label={t('carbs')}
                         keyboardType="numeric"
                         value={carbsG}
@@ -199,6 +201,7 @@ export default function MealLogScreen() {
                     </View>
                     <View style={styles.macroInput}>
                       <TextInput
+                        style={styles.plainInput}
                         label={t('protein')}
                         keyboardType="numeric"
                         value={proteinG}
@@ -208,6 +211,7 @@ export default function MealLogScreen() {
                     </View>
                     <View style={styles.macroInput}>
                       <TextInput
+                        style={styles.plainInput}
                         label={t('fat')}
                         keyboardType="numeric"
                         value={fatG}
@@ -223,6 +227,7 @@ export default function MealLogScreen() {
               <Animated.View entering={FadeInDown.delay(300).duration(400).springify()}>
                 <View style={styles.sectionCard}>
                   <TextInput
+                    style={styles.plainInput}
                     label={t('notes')}
                     value={notes}
                     onChangeText={setNotes}
@@ -293,12 +298,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.textSecondary,
     },
     sectionCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.sm,
       gap: spacing.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+    },
+    plainInput: {
+      backgroundColor: 'transparent',
+      borderRadius: 0,
+      borderWidth: 0,
+      borderBottomWidth: 1,
+      paddingHorizontal: 0,
+      minHeight: 48,
     },
     sectionLabel: {
       fontSize: typography.size.sm,

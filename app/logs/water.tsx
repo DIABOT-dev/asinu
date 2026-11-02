@@ -213,6 +213,7 @@ export default function WaterLogScreen() {
               <Animated.View entering={FadeInDown.delay(280).duration(400).springify()}>
                 <View style={styles.sectionCard}>
                   <TextInput
+                    style={styles.plainInput}
                     label={t('notes')}
                     value={notes}
                     onChangeText={setNotes}
@@ -283,18 +284,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.textSecondary,
     },
     numberCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.lg,
       alignItems: 'center',
       gap: spacing.sm,
-      borderWidth: 1.5,
+      borderBottomWidth: 1,
       borderColor: colors.border,
-      shadowColor: '#000',
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 3,
     },
     numberCardError: {
       borderColor: colors.danger + '80',
@@ -339,12 +334,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontWeight: '700',
     },
     sectionCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.sm,
       gap: spacing.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+    },
+    plainInput: {
+      backgroundColor: 'transparent',
+      borderRadius: 0,
+      borderWidth: 0,
+      borderBottomWidth: 1,
+      paddingHorizontal: 0,
+      minHeight: 48,
     },
     sectionLabel: {
       fontSize: typography.size.sm,

@@ -30,7 +30,7 @@ import { AppAlertModal, useAppAlert } from './AppAlertModal';
 import { ScaledText as Text } from './ScaledText';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { VoiceLogType, VoiceParseResult, voiceParseLogs } from '../features/logs/voice.api';
-import { colors, radius, spacing } from '../styles';
+import { colors, spacing } from '../styles';
 
 type Props = {
   logType: VoiceLogType;
@@ -248,11 +248,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.md,
     },
     containerLocked: {
       borderColor: colors.border,

@@ -149,6 +149,7 @@ export default function MedicationLogScreen() {
                 <Animated.View style={[styles.sectionCard, shakeStyle]}>
                   <Text style={styles.sectionLabel}>{t('medicationInfo')}</Text>
                   <TextInput
+                    style={styles.plainInput}
                     label={t('medicationName')}
                     value={medication}
                     onChangeText={(v) => { setMedication(v); setErrors({}); }}
@@ -157,6 +158,7 @@ export default function MedicationLogScreen() {
                     leftIcon={<MaterialCommunityIcons name="pill" size={18} color={colors.textSecondary} />}
                   />
                   <TextInput
+                    style={styles.plainInput}
                     label={t('medicationDose')}
                     value={dose}
                     onChangeText={(v) => { setDose(v); setErrors({}); }}
@@ -192,6 +194,7 @@ export default function MedicationLogScreen() {
                     })}
                   </View>
                   <TextInput
+                    style={styles.plainInput}
                     label={t('frequency')}
                     value={frequencyText}
                     onChangeText={setFrequencyText}
@@ -204,6 +207,7 @@ export default function MedicationLogScreen() {
               <Animated.View entering={FadeInDown.delay(300).duration(400).springify()}>
                 <View style={styles.sectionCard}>
                   <TextInput
+                    style={styles.plainInput}
                     label={t('notes')}
                     value={notes}
                     onChangeText={setNotes}
@@ -271,12 +275,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
     },
     sectionCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.sm,
       gap: spacing.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+    },
+    plainInput: {
+      backgroundColor: 'transparent',
+      borderRadius: 0,
+      borderWidth: 0,
+      borderBottomWidth: 1,
+      paddingHorizontal: 0,
+      minHeight: 48,
     },
     sectionLabel: {
       fontSize: typography.size.sm,

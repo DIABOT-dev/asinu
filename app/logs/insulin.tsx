@@ -207,6 +207,7 @@ export default function InsulinLogScreen() {
                 <Animated.View style={[styles.sectionCard, shakeStyle]}>
                   <Text style={styles.sectionLabel}>{t('insulinDose')}</Text>
                   <TextInput
+                    style={styles.plainInput}
                     label={t('insulinDose')}
                     keyboardType="numeric"
                     value={dose}
@@ -285,6 +286,7 @@ export default function InsulinLogScreen() {
               <Animated.View entering={FadeInDown.delay(540).duration(400).springify()}>
                 <View style={styles.sectionCard}>
                   <TextInput
+                    style={styles.plainInput}
                     label={t('notes')}
                     value={notes}
                     onChangeText={setNotes}
@@ -355,12 +357,17 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: colors.textSecondary,
     },
     sectionCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.sm,
       gap: spacing.md,
-      borderWidth: 1.5,
-      borderColor: colors.border,
+    },
+    plainInput: {
+      backgroundColor: 'transparent',
+      borderRadius: 0,
+      borderWidth: 0,
+      borderBottomWidth: 1,
+      paddingHorizontal: 0,
+      minHeight: 48,
     },
     sectionLabel: {
       fontSize: typography.size.sm,
