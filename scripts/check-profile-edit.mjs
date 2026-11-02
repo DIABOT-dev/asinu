@@ -166,7 +166,10 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   const bloodValue = () => bloodField().props.accessibilityValue.text;
   const bloodChoices = () => {
     if (!bloodField().props.accessibilityState.expanded) bloodField().props.onPress();
-    return nodes(modal()).filter(node => node.props.accessibilityRole === 'radio');
+    const group = nodes(modal()).find(node => node.props.accessibilityRole === 'radiogroup'
+      && node.props.accessibilityLabel === translate('profile')('bloodType'));
+    assert.ok(group, 'Blood type choices must have their own labelled group');
+    return nodes(group).filter(node => node.props.accessibilityRole === 'radio');
   };
   const selectBloodType = value => {
     const option = bloodChoices().find(node => node.props.accessibilityLabel === (value || translate('profile')('bloodTypeUnknown')));

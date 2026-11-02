@@ -1785,15 +1785,6 @@ export default function ProfileScreen() {
                   </Pressable>
                 </View>
 
-                {/* Subtle decorative heart pulse watermark on the right */}
-                <View style={styles.avatarWatermark}>
-                  <MaterialCommunityIcons
-                    name="heart-pulse"
-                    size={68}
-                    color={colors.primary}
-                    style={{ opacity: 0.12 }}
-                  />
-                </View>
               </View>
 
               {/* Section 1: Thông tin cá nhân */}
@@ -1802,7 +1793,7 @@ export default function ProfileScreen() {
                   {t("personalInfo")}
                 </Text>
 
-                <View style={styles.twoColumnRow}>
+                <View style={styles.namePhoneFields}>
                   {/* Họ tên */}
                   <View style={styles.compactInputCard}>
                     <View style={styles.cardHeaderRow}>
@@ -1816,6 +1807,7 @@ export default function ProfileScreen() {
                     <TextInput
                       style={styles.compactInputText}
                       value={editName}
+                      accessibilityLabel={t("fullName")}
                       onChangeText={setEditName}
                       placeholder={t("enterName")}
                       placeholderTextColor={colors.textSecondary}
@@ -1840,6 +1832,7 @@ export default function ProfileScreen() {
                     <TextInput
                       style={styles.compactInputText}
                       value={editPhone}
+                      accessibilityLabel={t("phone")}
                       onChangeText={(text) => {
                         setEditPhone(text);
                         setPhoneError("");
@@ -1856,18 +1849,22 @@ export default function ProfileScreen() {
               </View>
 
               {/* Section 2: Giới tính */}
-              <View style={styles.sheetSection}>
-                <Text style={styles.sheetSectionTitleOnly}>{t("gender")}</Text>
-                <View style={styles.genderRow}>
+              <View style={[styles.sheetSection, styles.editorGenderSection]}>
+                <Text style={[styles.sheetSectionTitleOnly, styles.genderLabel]}>{t("gender")}</Text>
+                <View style={styles.genderRow} accessibilityRole="radiogroup" accessibilityLabel={t("gender")}>
                   <Pressable
                     style={[
                       styles.genderCard,
                       editGender === "Nam" && styles.genderCardActiveMale,
                     ]}
                     onPress={() => setEditGender("Nam")}
+                    accessibilityRole="radio"
+                    accessibilityLabel={tc("male")}
+                    accessibilityState={{ checked: editGender === "Nam", disabled: isSaving }}
+                    disabled={isSaving}
                   >
                     <Ionicons
-                      name="male"
+                      name={editGender === "Nam" ? "radio-button-on" : "radio-button-off"}
                       size={18}
                       color={
                         editGender === "Nam"
@@ -1891,9 +1888,13 @@ export default function ProfileScreen() {
                       editGender === "Nữ" && styles.genderCardActiveFemale,
                     ]}
                     onPress={() => setEditGender("Nữ")}
+                    accessibilityRole="radio"
+                    accessibilityLabel={tc("female")}
+                    accessibilityState={{ checked: editGender === "Nữ", disabled: isSaving }}
+                    disabled={isSaving}
                   >
                     <Ionicons
-                      name="female"
+                      name={editGender === "Nữ" ? "radio-button-on" : "radio-button-off"}
                       size={18}
                       color={
                         editGender === "Nữ" ? "#E11D48" : colors.textSecondary
@@ -1912,9 +1913,9 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
-              {/* Section 3: 4 Stats Row (Tuổi, Chiều cao, Cân nặng, Nhóm máu) */}
+              {/* Each measurement occupies one compact row. */}
               <View style={styles.sheetSection}>
-                <View style={styles.fourStatsRow}>
+                <View style={styles.measurementFields}>
                   {/* Tuổi */}
                   <View style={styles.statBox}>
                     <View style={styles.statBoxHeader}>
@@ -1928,6 +1929,7 @@ export default function ProfileScreen() {
                     <TextInput
                       style={styles.statBoxInput}
                       value={editAge}
+                      accessibilityLabel={t("age")}
                       onChangeText={setEditAge}
                       placeholder="--"
                       placeholderTextColor={colors.textSecondary}
@@ -1949,6 +1951,7 @@ export default function ProfileScreen() {
                     <TextInput
                       style={styles.statBoxInput}
                       value={editHeight}
+                      accessibilityLabel={t("height")}
                       onChangeText={setEditHeight}
                       placeholder="--"
                       placeholderTextColor={colors.textSecondary}
@@ -1970,6 +1973,7 @@ export default function ProfileScreen() {
                     <TextInput
                       style={styles.statBoxInput}
                       value={editWeight}
+                      accessibilityLabel={t("weight")}
                       onChangeText={setEditWeight}
                       placeholder="--"
                       placeholderTextColor={colors.textSecondary}
@@ -2009,7 +2013,6 @@ export default function ProfileScreen() {
                         color={colors.primaryDark}
                       />
                     </Pressable>
-                    <Text style={styles.statBoxUnit}> </Text>
                   </View>
                 </View>
                 {showBloodTypePicker && (
@@ -2964,22 +2967,14 @@ function createStyles(
       paddingBottom: 16,
     },
 
-    // Avatar Row Card
+    // Compact avatar row.
     editAvatarSection: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: isDark ? "rgba(13, 148, 136, 0.12)" : "#E8F7F6",
-      borderWidth: 1,
-      borderColor: isDark
-        ? "rgba(13, 148, 136, 0.25)"
-        : "rgba(13, 148, 136, 0.15)",
-      borderRadius: 16,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      marginBottom: 12,
-      overflow: "hidden",
-      position: "relative",
+      backgroundColor: "transparent",
+      paddingVertical: 6,
+      marginBottom: 8,
     },
     avatarLeftRow: {
       flexDirection: "row",
@@ -2989,28 +2984,28 @@ function createStyles(
     },
     avatarCircleWrapper: {
       position: "relative",
-      width: 58,
-      height: 58,
+      width: 48,
+      height: 48,
     },
     avatarCircleImg: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: colors.primaryLight,
       borderWidth: 2,
       borderColor: "#FFFFFF",
     },
     avatarCirclePlaceholder: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       alignItems: "center",
       justifyContent: "center",
     },
     editAvatarLoading: {
       ...StyleSheet.absoluteFill,
       backgroundColor: "rgba(0,0,0,0.4)",
-      borderRadius: 29,
+      borderRadius: 24,
       justifyContent: "center",
       alignItems: "center",
     },
@@ -3028,34 +3023,16 @@ function createStyles(
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 20,
-      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF",
-      borderWidth: 1,
-      borderColor: isDark
-        ? "rgba(255,255,255,0.15)"
-        : "rgba(13, 148, 136, 0.25)",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      minHeight: 44,
+      backgroundColor: "transparent",
     },
     uploadPhotoPillText: {
-      fontSize: 12.5,
+      fontSize: 14,
       fontWeight: "600",
       color: colors.primaryDark,
     },
-    avatarWatermark: {
-      position: "absolute",
-      right: 4,
-      top: -6,
-      bottom: 0,
-      justifyContent: "center",
-      pointerEvents: "none",
-    },
-
     // Sheet Sections
     sheetSection: {
       marginBottom: 12,
@@ -3068,40 +3045,42 @@ function createStyles(
       paddingHorizontal: 2,
     },
 
-    // Two Column Row (Họ tên & Phone)
-    twoColumnRow: {
-      flexDirection: "row",
-      gap: 10,
+    // One field per row, with the label and value side by side.
+    namePhoneFields: {
+      flexDirection: "column",
     },
     compactInputCard: {
-      flex: 1,
-      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
-      borderWidth: 1,
-      borderColor: borderCol,
-      borderRadius: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      minHeight: 48,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "transparent",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: borderCol,
     },
     compactInputError: {
-      borderColor: "#EF4444",
+      borderBottomColor: "#EF4444",
     },
     cardHeaderRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
-      marginBottom: 3,
+      width: "42%",
     },
     compactLabel: {
-      fontSize: 11,
+      flexShrink: 1,
+      fontSize: 14,
       fontWeight: "500",
       color: textSecondaryCol,
     },
     compactInputText: {
-      fontSize: 13.5,
-      fontWeight: "600",
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "500",
       color: textPrimaryCol,
-      padding: 0,
-      height: 22,
+      paddingHorizontal: 4,
+      paddingVertical: 8,
+      minHeight: 44,
+      textAlign: "right",
     },
     fieldErrorPhone: {
       fontSize: 11,
@@ -3111,29 +3090,36 @@ function createStyles(
     },
 
     // Gender Row
-    genderRow: {
+    editorGenderSection: {
       flexDirection: "row",
-      gap: 10,
+      alignItems: "center",
+      minHeight: 48,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: borderCol,
+    },
+    genderLabel: { width: "42%", marginBottom: 0, paddingHorizontal: 0, fontSize: 14, fontWeight: "500", color: textSecondaryCol },
+    genderRow: {
+      flex: 1,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "flex-end",
+      gap: 8,
     },
     genderCard: {
-      flex: 1,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
-      paddingVertical: 10,
-      borderRadius: 12,
-      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
-      borderWidth: 1.5,
-      borderColor: borderCol,
+      gap: 4,
+      paddingVertical: 4,
+      paddingHorizontal: 4,
+      minHeight: 44,
+      backgroundColor: "transparent",
     },
     genderCardActiveMale: {
-      backgroundColor: isDark ? "#064E3B20" : "#E6F7F5",
-      borderColor: colors.primaryDark,
+      backgroundColor: "transparent",
     },
     genderCardActiveFemale: {
-      backgroundColor: isDark ? "#4C051920" : "#FFF1F2",
-      borderColor: "#E11D48",
+      backgroundColor: "transparent",
     },
     genderCardText: {
       fontSize: 13.5,
@@ -3149,21 +3135,21 @@ function createStyles(
       fontWeight: "700",
     },
 
-    // 4 Stats Row (Tuổi, Chiều cao, Cân nặng, Nhóm máu)
+    // Compact measurement and blood-type rows.
     bloodTypeField: {
       minHeight: 44,
-      width: "100%",
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent: "flex-end",
       gap: 2,
     },
     bloodTypeValue: {
       flexShrink: 1,
-      fontSize: 15,
-      fontWeight: "700",
+      fontSize: 14,
+      fontWeight: "500",
       color: textPrimaryCol,
-      textAlign: "center",
+      textAlign: "right",
     },
     bloodTypeOptions: {
       flexDirection: "row",
@@ -3184,57 +3170,58 @@ function createStyles(
       borderWidth: 1,
       borderColor: borderCol,
     },
-    fourStatsRow: {
-      flexDirection: "row",
-      gap: 8,
+    measurementFields: {
+      flexDirection: "column",
     },
     statBox: {
-      flex: 1,
-      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
-      borderWidth: 1,
-      borderColor: borderCol,
-      borderRadius: 12,
-      paddingHorizontal: 4,
-      paddingVertical: 8,
+      minHeight: 48,
+      flexDirection: "row",
+      backgroundColor: "transparent",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: borderCol,
       alignItems: "center",
     },
     statBoxHeader: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
-      marginBottom: 4,
+      width: "42%",
+      gap: 6,
     },
     statBoxLabel: {
-      fontSize: 10.5,
+      flexShrink: 1,
+      fontSize: 14,
       fontWeight: "500",
       color: textSecondaryCol,
-      textAlign: "center",
+      textAlign: "left",
     },
     statBoxInput: {
-      fontSize: 15,
-      fontWeight: "700",
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "500",
       color: textPrimaryCol,
-      textAlign: "center",
-      padding: 0,
+      textAlign: "right",
+      paddingHorizontal: 4,
+      paddingVertical: 8,
       minWidth: 32,
       minHeight: 44,
     },
     statBoxUnit: {
-      fontSize: 10.5,
+      minWidth: 28,
+      fontSize: 12,
       color: textSecondaryCol,
-      marginTop: 2,
+      marginLeft: 8,
+      textAlign: "right",
     },
 
-    // Chronic Diseases Card
+    // Chronic condition row.
     sheetChronicDiseaseCard: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
-      borderWidth: 1,
-      borderColor: borderCol,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      backgroundColor: "transparent",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: borderCol,
+      minHeight: 48,
+      paddingVertical: 8,
       gap: 8,
     },
     chronicCardLeft: {
@@ -3243,7 +3230,7 @@ function createStyles(
       gap: 6,
     },
     chronicCardLabel: {
-      fontSize: 12.5,
+      fontSize: 14,
       fontWeight: "600",
       color: textPrimaryCol,
     },
@@ -3368,10 +3355,9 @@ function createStyles(
     customDiseaseInput: {
       flex: 1,
       minHeight: 44,
-      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
-      borderWidth: 1,
-      borderColor: borderCol,
-      borderRadius: 12,
+      backgroundColor: "transparent",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: borderCol,
       paddingHorizontal: 12,
       paddingVertical: 8,
       fontSize: 13,
