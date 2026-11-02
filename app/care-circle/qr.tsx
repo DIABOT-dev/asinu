@@ -22,6 +22,8 @@ import { authApi } from '../../src/features/auth/auth.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { useProfileStore } from '../../src/features/profile/profile.store';
 import { useCareCircleQr } from '../../src/features/care-circle/useCareCircleQr';
+import { useSaveCareCircleQr } from '../../src/features/care-circle/useSaveCareCircleQr';
+import { AppAlertModal } from '../../src/components/AppAlertModal';
 import { useGuardedRouter as useRouter } from '../../src/hooks/useGuardedRouter';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
@@ -47,6 +49,7 @@ export default function CareCircleQrScreen() {
   const profile = authProfile || profileStore;
 
   const { qr, loading, error, loadCode } = useCareCircleQr();
+  const { image, saving, save, alertState, dismissAlert } = useSaveCareCircleQr(qr?.value);
 
   // Dimensions
   const qrBoxSize = Math.min(270, Math.max(220, width - 110));
@@ -149,7 +152,7 @@ export default function CareCircleQrScreen() {
 
               <View style={styles.personCopy}>
                 <Text numberOfLines={1} style={styles.personName}>
-                  {displayName}
+                  {t('myQrTitle')}
                 </Text>
                 <Text style={styles.personMeta}>{t('qrIdentityHint')}</Text>
               </View>
@@ -171,9 +174,10 @@ export default function CareCircleQrScreen() {
               ) : qr ? (
                 <View style={styles.qrInner}>
                   <QRCode
-                    backgroundColor="transparent"
-                    color={isDark ? '#f8fafc' : '#0f172a'}
-                    quietZone={4}
+                    getRef={(ref) => { image.current = ref; }}
+                    backgroundColor="#ffffff"
+                    color="#0f172a"
+                    quietZone={16}
                     size={qrCodeSize}
                     value={qr.value}
                   />
@@ -186,6 +190,19 @@ export default function CareCircleQrScreen() {
                 </View>
               )}
             </View>
+
+            {!loading && qr && <Pressable
+              accessibilityLabel={t('qrSaveToPhotos')}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: saving, busy: saving }}
+              disabled={saving}
+              onPress={() => void save()}
+              style={styles.refreshBtn}
+            >
+              {saving ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="download-outline" size={22} color={colors.primary} />}
+              <Text style={styles.refreshText}>{t(saving ? 'qrSaving' : 'qrSaveToPhotos')}</Text>
+            </Pressable>}
+            <AppAlertModal {...alertState} onDismiss={dismissAlert} queued />
 
             {/* Retry fetch only on failure; never replace an existing code. */}
             {!loading && !qr && error ? <Pressable

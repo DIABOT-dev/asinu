@@ -1,10 +1,10 @@
 import { runNativePermission } from '../../../lib/native-permissions';
 import { Ionicons } from '@expo/vector-icons';
-import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,21 +13,8 @@ import { ScaledText as Text } from '../../../components/ScaledText';
 import { useGuardedRouter as useRouter } from '../../../hooks/useGuardedRouter';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { getApiErrorMessage } from '../../../lib/apiClient';
 import { radius, spacing } from '../../../styles';
-import { careCircleApi } from '../care-circle.api';
-
-function tokenFromQr(value: string) {
-  const trimmed = value.trim();
-  try {
-    const parsed = Linking.parse(trimmed);
-    const token = parsed.queryParams?.token;
-    if (typeof token === 'string' && token.length >= 32) {
-      return token;
-    }
-  } catch {}
-  return /^[A-Za-z0-9_-]{32,256}$/.test(trimmed) ? trimmed : null;
-}
+import { useCareCircleScanner } from '../useCareCircleScanner';
 
 function CareCircleScanScreen() {
   const { t } = useTranslation('careCircle');
@@ -35,52 +22,13 @@ function CareCircleScanScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ token?: string | string[] }>();
   const inboundToken = Array.isArray(params.token) ? params.token[0] : params.token;
-  const inboundHandled = useRef(false);
   const insets = useSafeAreaInsets();
   const typography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(typography, isDark), [typography, isDark]);
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [error, setError] = useState('');
-
-  const openToken = useCallback(async (token: string) => {
-    setScanning(true);
-    setError('');
-    try {
-      await careCircleApi.previewQrToken(token);
-      router.replace({ pathname: '/care-circle/invite', params: { qrToken: token } } as never);
-    } catch (err) {
-      setError(getApiErrorMessage(err, t, 'qrPreviewError'));
-    }
-  }, [router, t]);
-
-  const scan = useCallback(async ({ data }: BarcodeScanningResult) => {
-    if (scanning) {
-      return;
-    }
-    const token = tokenFromQr(data);
-    if (!token) {
-      setError(t('qrInvalidFormat'));
-      setScanning(true);
-      return;
-    }
-    await openToken(token);
-  }, [openToken, scanning, t]);
-
-  useEffect(() => {
-    if (!inboundToken || inboundHandled.current) {
-      return;
-    }
-    inboundHandled.current = true;
-    openToken(inboundToken).catch(() => {});
-  }, [inboundToken, openToken]);
-
-  const retry = () => {
-    setError('');
-    setScanning(false);
-  };
+  const { scanning, pickingImage, error, scan, pickImage, retry } = useCareCircleScanner(inboundToken);
 
   if (inboundToken) {
     return (
@@ -312,6 +260,19 @@ function CareCircleScanScreen() {
               </LinearGradient>
             </Pressable>
 
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('qrChoosePhoto')}
+              accessibilityState={{ disabled: scanning && !error, busy: pickingImage }}
+              disabled={scanning && !error}
+              onPress={() => void pickImage()}
+              style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}
+            >
+              {pickingImage ? <ActivityIndicator color={isDark ? '#5EEAD4' : '#0D766E'} /> : <Ionicons name="images-outline" size={24} color={isDark ? '#5EEAD4' : '#0D766E'} />}
+              <Text style={styles.photoButtonText}>{t(pickingImage ? 'qrReadingPhoto' : 'qrChoosePhoto')}</Text>
+            </Pressable>
+            {!!error && <Text accessibilityLiveRegion="polite" style={styles.permissionBody}>{error}</Text>}
+
             {/* Secondary Action Button */}
             <Pressable
               accessibilityRole="button"
@@ -331,7 +292,7 @@ function CareCircleScanScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <CameraView
-        active
+        active={!pickingImage}
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         enableTorch={torch}
         facing="back"
@@ -399,6 +360,17 @@ function CareCircleScanScreen() {
             <Text style={styles.instructionBody}>{t('scanQrDescription')}</Text>
           </>
         )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('qrChoosePhoto')}
+          accessibilityState={{ disabled: scanning && !error, busy: pickingImage }}
+          disabled={scanning && !error}
+          onPress={() => void pickImage()}
+          style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}
+        >
+          {pickingImage ? <ActivityIndicator color="#F7FFFD" /> : <Ionicons name="images-outline" size={24} color="#F7FFFD" />}
+          <Text style={[styles.photoButtonText, { color: '#F7FFFD' }]}>{t(pickingImage ? 'qrReadingPhoto' : 'qrChoosePhoto')}</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -653,6 +625,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     errorBody: { color: '#FECACA', fontSize: typography.size.sm, lineHeight: 20, marginTop: 4, textAlign: 'center' },
     retryButton: { alignItems: 'center', backgroundColor: '#B9F4EA', borderRadius: radius.full, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: spacing.md, minHeight: 46, paddingHorizontal: spacing.lg },
     retryText: { color: '#073B36', fontSize: typography.size.sm, fontWeight: '800' },
+    photoButton: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: spacing.md, paddingHorizontal: spacing.md },
+    photoButtonText: { flexShrink: 1, color: isDark ? '#5EEAD4' : '#0D766E', fontSize: typography.size.md, fontWeight: '600', textAlign: 'center' },
     pressed: { opacity: 0.82 },
   });
 }

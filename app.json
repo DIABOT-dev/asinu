@@ -87,7 +87,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện"
+          "photosPermission": "Asinu dùng ảnh bạn chọn để cập nhật ảnh đại diện hoặc quét mã QR kết nối người thân."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Asinu dùng ảnh bạn chọn để cập nhật ảnh đại diện hoặc quét mã QR kết nối người thân.",
+          "savePhotosPermission": "Asinu cần quyền thêm ảnh để lưu mã QR của bạn vào thư viện ảnh.",
+          "granularPermissions": [],
+          "isAccessMediaLocationEnabled": false
         }
       ],
       [

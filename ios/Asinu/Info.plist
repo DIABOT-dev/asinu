@@ -89,8 +89,10 @@
     <string>Asinu có thể dùng cảm biến chuyển động để xác định hướng camera khi bạn quét mã QR kết nối người thân. Ứng dụng không theo dõi hoạt động thể chất.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Asinu chỉ dùng microphone khi bạn chọn nhập bằng giọng nói, ví dụ chuyển câu "đường huyết 95 lúc đói" thành bản ghi sức khỏe hoặc tin nhắn chat. Ứng dụng không ghi âm trong nền.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Asinu cần quyền thêm ảnh để lưu mã QR của bạn vào thư viện ảnh.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện</string>
+    <string>Asinu dùng ảnh bạn chọn để cập nhật ảnh đại diện hoặc quét mã QR kết nối người thân.</string>
     <key>LSApplicationQueriesSchemes</key>
     <array>
       <string>zalosdk</string>

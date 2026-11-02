@@ -289,8 +289,12 @@ export default function CareCircleScreen() {
             onPress={() => router.push('/care-circle/scan')}
             style={({ pressed }) => [styles.scanQrButton, pressed && { opacity: 0.75 }]}
           >
+            <Image source={require('../../assets/asinu_chat_sticker.png')} style={styles.scanMascot} resizeMode="contain" accessible={false} />
+            <View style={styles.scanQrCopy}>
+              <Text style={styles.scanQrLabel}>{t('scanQr')}</Text>
+              <Text style={styles.scanQrHint}>{t('qrConnectFamily')}</Text>
+            </View>
             <Ionicons name="scan-outline" size={24} color={colors.primaryDark} />
-            <Text style={styles.scanQrLabel}>{t('scanQr')}</Text>
           </Pressable>
           </GuideTarget>
         </View>
@@ -875,6 +879,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       fontWeight: '600',
       color: colors.primaryText,
     },
+    scanMascot: { width: 60, height: 60 },
+    scanQrCopy: { flexShrink: 1, gap: 2 },
+    scanQrHint: { fontSize: 14, color: colors.textSecondary },
     // Hero Banner Card
     heroCardShadowWrap: {
       marginHorizontal: spacing.lg,

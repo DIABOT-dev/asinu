@@ -4,11 +4,12 @@
     "NSLocationWhenInUseUsageDescription": "Asinu cần vị trí để gửi tín hiệu SOS khẩn cấp.",
     "NSCameraUsageDescription": "Asinu chỉ dùng camera khi bạn quét mã QR để kết nối người thân.",
     "NSMotionUsageDescription": "Asinu có thể dùng cảm biến chuyển động để xác định hướng camera khi bạn quét mã QR kết nối người thân. Ứng dụng không theo dõi hoạt động thể chất.",
-    "NSPhotoLibraryUsageDescription": "Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện.",
+    "NSPhotoLibraryUsageDescription": "Asinu dùng ảnh bạn chọn để cập nhật ảnh đại diện hoặc quét mã QR kết nối người thân.",
     "Localizable.strings": {
       "checkin_call_handle": "Check-in",
       "checkin_call_title": "Tổng đài check-in Asinu",
       "checkin_call_open_app_prompt": "Bạn đã nhận cuộc gọi Asinu. Vui lòng mở khóa điện thoại rồi mở ứng dụng Asinu để chọn phản hồi trên màn hình. Nhận cuộc gọi chưa gửi phản hồi."
-    }
+    },
+    "NSPhotoLibraryAddUsageDescription": "Asinu cần quyền thêm ảnh để lưu mã QR của bạn vào thư viện ảnh."
   }
 }

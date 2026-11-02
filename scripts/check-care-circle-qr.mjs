@@ -55,6 +55,8 @@ function harness(language, options = {}) {
     useTranslation: ns => ({ t: translators[ns] }), useSafeAreaInsets: () => ({ top: 59, bottom: 34 }),
     useWindowDimensions: () => ({ width: 393 }), useScaledTypography: () => ({}),
     useThemeColors: () => ({ colors: { primary: '#08b8a2' }, isDark: false }), createStyles: () => ({}),
+    AppAlertModal: 'AppAlertModal',
+    useSaveCareCircleQr: () => ({ image: { current: null }, saving: false, save: () => {}, alertState: {}, dismissAlert: () => {} }),
     useAuthStore, useProfileStore: select => select({ profile: null }),
     useRouter: () => ({ back: () => calls.routes.push('back'), push: route => calls.routes.push(route) }),
     authApi: { fetchProfile: options.profileLoad ?? (async () => null) },

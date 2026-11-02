@@ -2,4 +2,5 @@
 "NSLocationWhenInUseUsageDescription" = "Asinu dùng vị trí khi bạn chọn gửi SOS hoặc bật lời nhắc thời tiết theo khu vực. Không theo dõi vị trí trong nền.";
 "NSCameraUsageDescription" = "Asinu chỉ dùng camera khi bạn quét mã QR để kết nối người thân.";
 "NSMotionUsageDescription" = "Asinu có thể dùng cảm biến chuyển động để xác định hướng camera khi bạn quét mã QR kết nối người thân. Ứng dụng không theo dõi hoạt động thể chất.";
-"NSPhotoLibraryUsageDescription" = "Asinu cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện.";
+"NSPhotoLibraryUsageDescription" = "Asinu dùng ảnh bạn chọn để cập nhật ảnh đại diện hoặc quét mã QR kết nối người thân.";
+"NSPhotoLibraryAddUsageDescription" = "Asinu cần quyền thêm ảnh để lưu mã QR của bạn vào thư viện ảnh.";

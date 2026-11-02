@@ -211,13 +211,13 @@ function flattenElements(tree) {
 }
 const flatten = style => Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean).map(flatten)) : style ?? {};
 for (const language of ['vi', 'en']) {
-  await test(`${language}: connection QR is visible immediately, with retry on failure and no extra headings`, () => {
+  await test(`${language}: connection QR is visible immediately, with a save action and retry on failure`, () => {
     const catalogs = Object.fromEntries(['careCircle', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${language}/${ns}.json`))]));
     for (const width of [320, 375, 390, 768]) {
       for (const isDark of [false, true]) {
         const palette = { primaryDark: '#087F73', primaryText: '#087F73', textPrimary: '#123456', textSecondary: '#456789' };
         let current = { qr: { value: 'asinu-lite://care-circle/scan?token=owner' }, loading: false, error: '', loadCode: () => clicked.push('retry') };
-        const { CareCircleQrActions } = evaluate(`import React from 'react';\n${read('src/features/care-circle/components/CareCircleQrActions.tsx')}`, {
+        const { CareCircleQrActions } = evaluate(read('src/features/care-circle/components/CareCircleQrActions.tsx'), {
           react: React,
           '@expo/vector-icons': { Ionicons: 'Icon' },
           'react-i18next': { useTranslation: ns => ({ t: key => { assert.equal(typeof catalogs[ns][key], 'string'); return catalogs[ns][key]; } }) },
@@ -228,6 +228,8 @@ for (const language of ['vi', 'en']) {
           '../../../styles': { spacing: { sm: 8, md: 12, lg: 16 } },
           '../../auth/auth.store': { useAuthStore: selector => selector({ profile: { name: 'Owner' } }) },
           '../useCareCircleQr': { useCareCircleQr: () => current },
+          '../useSaveCareCircleQr': { useSaveCareCircleQr: () => ({ image: { current: null }, saving: false, save: () => clicked.push('save'), alertState: {}, dismissAlert: () => {} }) },
+          '../../../components/AppAlertModal': { AppAlertModal: 'AppAlertModal' },
         });
         const clicked = [];
         const render = () => flattenElements(CareCircleQrActions());
@@ -237,7 +239,10 @@ for (const language of ['vi', 'en']) {
         assert.ok(qr.props.size >= 248 && qr.props.size + qr.props.quietZone * 2 <= width - 32);
         assert.equal(qr.props.backgroundColor, '#ffffff');
         assert.equal(qr.props.color, '#0f172a');
-        assert.equal(rendered.filter(node => node.type === 'Pressable').length, 0, 'QR shows directly, scanning belongs in the screen header');
+        assert.equal(rendered.filter(node => node.type === 'Pressable').length, 1, 'The only QR action is saving; scanning belongs in the screen header');
+        assert.ok(rendered.some(node => node.type === 'Text' && node.props.children === catalogs.careCircle.myQrTitle));
+        rendered.find(node => node.props?.accessibilityLabel === catalogs.careCircle.qrSaveToPhotos).props.onPress();
+        assert.deepEqual(clicked.splice(0), ['save']);
         assert.equal(rendered.some(node => node.type === 'Text' && ['QR', catalogs.careCircle.myQrDescription, catalogs.careCircle.headerSubtitle].includes(node.props.children)), false);
         for (const label of rendered.filter(node => node.type === 'Text')) assert.equal(label.props.numberOfLines, undefined);
         current = { ...current, qr: null, error: 'offline' }; rendered = render();
