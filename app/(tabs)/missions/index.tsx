@@ -48,7 +48,6 @@ const MISSION_CONFIG: Record<
     order: number;
     badgeBg: string;
     badgeColor: string;
-    art: any;
     defaultGoal: number;
     titleKey: string;
     descKey: string;
@@ -58,7 +57,6 @@ const MISSION_CONFIG: Record<
     order: 1,
     badgeBg: '#dcfce7',
     badgeColor: '#059669',
-    art: require('../../../assets/images/missions/mission_checkin_art.png'),
     defaultGoal: 1,
     titleKey: 'dailyCheckIn',
     descKey: 'dailyCheckInDesc',
@@ -67,7 +65,6 @@ const MISSION_CONFIG: Record<
     order: 2,
     badgeBg: '#ffe4e6',
     badgeColor: '#f43f5e',
-    art: require('../../../assets/images/missions/mission_bp_art.png'),
     defaultGoal: 2,
     titleKey: 'measureBP',
     descKey: 'measureBPDesc',
@@ -76,7 +73,6 @@ const MISSION_CONFIG: Record<
     order: 3,
     badgeBg: '#ede9fe',
     badgeColor: '#6366f1',
-    art: require('../../../assets/images/missions/mission_glucose_art.png'),
     defaultGoal: 2,
     titleKey: 'measureGlucose',
     descKey: 'measureGlucoseDesc',
@@ -85,7 +81,6 @@ const MISSION_CONFIG: Record<
     order: 4,
     badgeBg: '#e0f2fe',
     badgeColor: '#0284c7',
-    art: require('../../../assets/images/missions/mission_water_art.png'),
     defaultGoal: 4,
     titleKey: 'waterIntake',
     descKey: 'waterIntakeDesc',
@@ -94,7 +89,6 @@ const MISSION_CONFIG: Record<
     order: 5,
     badgeBg: '#fef3c7',
     badgeColor: '#d97706',
-    art: require('../../../assets/images/missions/mission_weight_art.png'),
     defaultGoal: 1,
     titleKey: 'weightMission',
     descKey: 'weightMissionDesc',
@@ -222,7 +216,7 @@ export default function MissionsScreen() {
             <>
               {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
 
-              {/* Cards List */}
+              {/* Missions sit directly on the screen background. */}
               {orderedMissions.map((item, index) => {
                 const progressRatio = item.goal > 0 ? item.progress / item.goal : 0;
                 const isCompleted = item.status === 'completed' || item.progress >= item.goal;
@@ -245,13 +239,6 @@ export default function MissionsScreen() {
                         }
                       }}
                     >
-                      {/* Background Artwork */}
-                      <Image
-                        source={item.config.art}
-                        style={styles.cardBgArt}
-                        resizeMode="contain"
-                      />
-
                       {/* Top-Right Info Button */}
                       <Pressable
                         style={styles.infoBtn}
@@ -462,34 +449,16 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       fontWeight: '500',
     },
 
-    // Card
+    // Mission rows
     card: {
-      backgroundColor: '#ffffff',
-      borderRadius: 22,
+      backgroundColor: 'transparent',
       paddingVertical: 16,
-      paddingHorizontal: 16,
-      borderWidth: 1,
-      borderColor: '#eef5f2',
+      paddingHorizontal: 8,
       position: 'relative',
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOpacity: 0.035,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 2,
-    },
-    cardBgArt: {
-      position: 'absolute',
-      right: 0,
-      top: 0,
-      bottom: 0,
-      width: 170,
-      height: '100%',
-      pointerEvents: 'none',
     },
     infoBtn: {
       position: 'absolute',
-      right: 14,
+      right: 8,
       top: 14,
       zIndex: 6,
     },
@@ -500,7 +469,7 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      paddingRight: 80,
+      paddingRight: 32,
     },
     badgeCircle: {
       width: 40,
@@ -534,7 +503,6 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       gap: 12,
       marginTop: 14,
-      paddingRight: 60,
     },
     progressTrack: {
       flex: 1,
