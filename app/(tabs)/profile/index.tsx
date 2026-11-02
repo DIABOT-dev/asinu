@@ -88,6 +88,7 @@ import { ApiError, apiClient, getApiErrorMessage } from "../../../src/lib/apiCli
 import { isDevBuild, isCheckinUiGalleryEnabled, isDoctorFeaturesEnabled } from "../../../src/lib/appEnv";
 import {
   brandColors,
+  getBottomTabBarHeight,
   categoryColors,
   colors,
   iconColors,
@@ -206,7 +207,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
   // The tab bar is absolute; keep the artwork and scroll footer above it.
-  const tabBarHeight = 28 + scaledTypography.scaledSize.xs + 16 + 14 + insets.bottom;
+  const tabBarHeight = getBottomTabBarHeight(insets.bottom);
   const { isDark } = useThemeColors();
   const styles = useMemo(
     () => createStyles(scaledTypography, isDark),

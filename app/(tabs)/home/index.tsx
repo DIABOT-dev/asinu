@@ -42,7 +42,7 @@ import { useNotificationStore } from '../../../src/stores/notification.store';
 import { showToast, useToastStore } from '../../../src/stores/toast.store';
 import { getHealthFeedPreference } from '../../../src/stores/health-feed-preference';
 import { subscribeRealtimeRefresh } from '../../../src/lib/realtimeSync';
-import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
+import { brandColors, categoryColors, colors, getBottomTabBarHeight, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import type { Mission } from '../../../src/features/missions/missions.store';
 import React from 'react';
@@ -885,7 +885,7 @@ export default function HomeScreen() {
         scrollEventThrottle={32}
         refreshing={refreshing || loading}
         onRefresh={handleRefresh}
-        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
+        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: getBottomTabBarHeight(insets.bottom) + spacing.lg }]}
         showsVerticalScrollIndicator={false}
       >
         {showInitialSkeleton ? (

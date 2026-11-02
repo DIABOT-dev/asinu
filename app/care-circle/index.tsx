@@ -29,7 +29,7 @@ import { useAuthStore } from '../../src/features/auth/auth.store';
 import { showToast } from '../../src/stores/toast.store';
 import { useCareCircle } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
-import { colors, iconColors, spacing } from '../../src/styles';
+import { colors, getBottomTabBarHeight, iconColors, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
@@ -305,7 +305,7 @@ export default function CareCircleScreen() {
           style={styles.container}
           contentContainerStyle={{
             paddingTop: spacing.xs,
-            paddingBottom: 110,
+            paddingBottom: getBottomTabBarHeight(insets.bottom) + spacing.lg,
           }}
           showsVerticalScrollIndicator={false}
         >

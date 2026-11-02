@@ -23,7 +23,7 @@ import { useTreeStore } from '../../../src/features/tree/tree.store';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
-import { colors, spacing } from '../../../src/styles';
+import { colors, getBottomTabBarHeight, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import { checkinApi, type HealthScoreData } from '../../../src/features/checkin/checkin.api';
 import React from 'react';
@@ -220,7 +220,7 @@ export default function TreeScreen() {
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
+        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: getBottomTabBarHeight(insets.bottom) + spacing.lg }]}
         showsVerticalScrollIndicator={false}
       >
         {showInitialSkeleton ? (

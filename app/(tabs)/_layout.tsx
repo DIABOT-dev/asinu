@@ -6,8 +6,8 @@ import { Image, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
-import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { bottomTabBar, getBottomTabBarHeight } from '../../src/styles';
 
 const homeIcon = require('../../src/assets/tab-icons/home.png');
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
@@ -62,7 +62,6 @@ function TabIcon({ source, focused, ready }: { source: TabIconSource; focused: b
 
 export default function TabsLayout() {
   const { t } = useTranslation('common');
-  const scaledTypography = useScaledTypography();
   const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
   const [tabIconSources, setTabIconSources] = useState<Array<TabIconSource | null>>(
@@ -105,16 +104,17 @@ export default function TabsLayout() {
       tabBarActiveTintColor: colors.primary,
       tabBarInactiveTintColor: colors.textSecondary,
       tabBarHideOnKeyboard: false,
-      tabBarLabelStyle: [styles.tabBarLabel, { fontSize: scaledTypography.scaledSize.xs }],
+      tabBarShowLabel: false,
+      tabBarItemStyle: { minHeight: bottomTabBar.contentHeight },
       tabBarStyle: {
         ...styles.tabBar,
         backgroundColor: colors.surface,
-        height: 28 + scaledTypography.scaledSize.xs + 16 + 14 + bottom,
-        paddingBottom: bottom > 0 ? bottom : 8,
-        paddingTop: 8,
+        height: getBottomTabBarHeight(bottom),
+        paddingBottom: Math.max(bottom, bottomTabBar.minimumBottomPadding),
+        paddingTop: 0,
       },
     }),
-    [scaledTypography, bottom, colors]
+    [bottom, colors]
   );
 
   // Keep the whole visible tab bar in loading state until all four icons are ready.
@@ -140,7 +140,7 @@ export default function TabsLayout() {
         name="home/index"
         options={{
           title: t('tabHome'),
-          tabBarLabel: visibleTabIconsReady ? t('tabHome') : t('loading'),
+          tabBarAccessibilityLabel: t('tabHome'),
           tabBarIcon: renderHomeIcon
         }}
       />
@@ -150,7 +150,7 @@ export default function TabsLayout() {
         name="care-circle/index"
         options={{
           title: t('tabConnect'),
-          tabBarLabel: visibleTabIconsReady ? t('tabConnect') : t('loading'),
+          tabBarAccessibilityLabel: t('tabConnect'),
           tabBarIcon: renderCareCircleIcon
         }}
       />
@@ -158,7 +158,7 @@ export default function TabsLayout() {
         name="tree/index"
         options={{
           title: t('tabOverview'),
-          tabBarLabel: visibleTabIconsReady ? t('tabOverview') : t('loading'),
+          tabBarAccessibilityLabel: t('tabOverview'),
           tabBarIcon: renderTreeIcon
         }}
       />
@@ -166,7 +166,7 @@ export default function TabsLayout() {
         name="profile/index"
         options={{
           title: t('tabProfile'),
-          tabBarLabel: visibleTabIconsReady ? t('tabProfile') : t('loading'),
+          tabBarAccessibilityLabel: t('tabProfile'),
           tabBarIcon: renderProfileIcon
         }}
       />
@@ -185,9 +185,6 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabBarLabel: {
-    marginTop: 1
-  },
   tabBar: {
     position: 'absolute',
     left: 0,
@@ -203,12 +200,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
   },
   icon: {
-    width: 28,
-    height: 28,
+    width: bottomTabBar.iconSize,
+    height: bottomTabBar.iconSize,
   },
   iconSkeleton: {
-    width: 28,
-    height: 28,
+    width: bottomTabBar.iconSize,
+    height: bottomTabBar.iconSize,
     borderRadius: 8,
   },
 });
