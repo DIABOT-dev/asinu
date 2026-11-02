@@ -182,7 +182,7 @@ export const spacing = {
 
 export const bottomTabBar = {
   contentHeight: 48,
-  iconSize: 24,
+  iconSize: 32,
   minimumBottomPadding: 8,
   verticalPadding: 4,
   horizontalInset: 12,

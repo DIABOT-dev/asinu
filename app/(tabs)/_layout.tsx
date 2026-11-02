@@ -57,7 +57,7 @@ function TabIcon({ source, focused, ready }: { source: TabIconSource; focused: b
         <Animated.View style={animStyle}>
           <Image
             source={source}
-            style={[styles.icon, { tintColor: focused ? colors.primaryText : colors.textSecondary }]}
+            style={styles.icon}
             resizeMode="contain"
           />
         </Animated.View>
@@ -71,7 +71,7 @@ export default function TabsLayout() {
   const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const barWidth = Math.min(width - bottomTabBar.horizontalInset * 2, bottomTabBar.maxWidth);
+  const sideInset = Math.max(bottomTabBar.horizontalInset, (width - bottomTabBar.maxWidth) / 2);
   const [tabIconSources, setTabIconSources] = useState<Array<TabIconSource | null>>(
     () => tabIconModules.map(() => null),
   );
@@ -113,14 +113,14 @@ export default function TabsLayout() {
       tabBarInactiveTintColor: colors.textSecondary,
       tabBarHideOnKeyboard: false,
       tabBarShowLabel: false,
-      tabBarItemStyle: { minHeight: bottomTabBar.contentHeight },
+      tabBarItemStyle: { flex: 1, minHeight: bottomTabBar.contentHeight },
       tabBarIconStyle: styles.iconBounds,
       tabBarStyle: {
         ...styles.tabBar,
         backgroundColor: colors.surface,
         borderColor: colors.border,
-        width: barWidth,
-        left: (width - barWidth) / 2,
+        left: sideInset,
+        right: sideInset,
         bottom: Math.max(bottom, bottomTabBar.minimumBottomPadding),
         height: bottomTabBar.contentHeight + bottomTabBar.verticalPadding * 2 + 2,
         paddingHorizontal: 4,
@@ -128,7 +128,7 @@ export default function TabsLayout() {
         paddingTop: bottomTabBar.verticalPadding,
       },
     }),
-    [barWidth, bottom, colors, width]
+    [bottom, colors, sideInset]
   );
 
   // Keep the whole visible tab bar in loading state until all four icons are ready.
