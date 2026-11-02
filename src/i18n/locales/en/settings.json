@@ -79,7 +79,6 @@
   "testNotification": "Test AI Notification",
   "testNotificationBody": "Come check your health in the app!",
   "scheduleTitle": "Reminder Schedule",
-  "scheduleHint": "Asinu learns from your habits automatically. You can also set times manually.",
   "scheduleMorning": "Morning",
   "scheduleAfternoon": "Afternoon",
   "scheduleEvening": "Evening",

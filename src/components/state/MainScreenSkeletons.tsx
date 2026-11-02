@@ -246,40 +246,26 @@ export function CareCircleTabSkeleton() {
 export function ReminderConfigSkeleton() {
   return (
     <>
-      <SkeletonCard style={styles.reminderHero}>
-        <SkeletonBlock width={28} height={28} borderRadius={14} />
+      <View style={styles.reminderRow}>
+        <SkeletonBlock width={52} height={40} borderRadius={12} />
         <View style={{ flex: 1, gap: 8 }}>
           <SkeletonBlock width="62%" height={20} />
           <SkeletonBlock width="92%" height={12} />
         </View>
-      </SkeletonCard>
-
-      <RowCardSkeleton lines={2} right />
+        <SkeletonBlock width={48} height={28} borderRadius={14} />
+      </View>
 
       {[0, 1, 2].map((item) => (
-        <SkeletonCard key={item}>
-          <View style={styles.cardHeader}>
-            <SkeletonBlock width={24} height={24} borderRadius={12} />
-            <View style={{ flex: 1, gap: 8 }}>
-              <SkeletonBlock width="42%" height={16} />
-              <SkeletonBlock width="72%" height={10} />
-            </View>
-          </View>
-          <View style={styles.progressRow}>
+        <View key={item} style={styles.reminderRow}>
+          <SkeletonBlock width={52} height={40} borderRadius={12} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <SkeletonBlock width="48%" height={18} />
+            <SkeletonBlock width="90%" height={12} />
             <SkeletonBlock width={92} height={28} borderRadius={14} />
-            <SkeletonBlock width={78} height={22} borderRadius={11} />
-            <SkeletonBlock width={32} height={32} borderRadius={12} style={{ marginLeft: 'auto' }} />
           </View>
-        </SkeletonCard>
-      ))}
-
-      <SkeletonCard style={styles.infoSkeleton}>
-        <SkeletonBlock width={18} height={18} borderRadius={9} />
-        <View style={{ flex: 1, gap: 8 }}>
-          <SkeletonBlock width="86%" height={11} />
-          <SkeletonBlock width="64%" height={11} />
+          <SkeletonBlock width={32} height={32} borderRadius={12} />
         </View>
-      </SkeletonCard>
+      ))}
     </>
   );
 }
@@ -404,14 +390,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
-  reminderHero: {
+  reminderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fffbeb',
-  },
-  infoSkeleton: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primaryLight,
+    minHeight: 96,
+    paddingVertical: 16,
+    gap: 14,
   },
 });
