@@ -2,12 +2,12 @@ import { Asset } from 'expo-asset';
 import { Tabs } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, StyleSheet } from 'react-native';
+import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { bottomTabBar, getBottomTabBarHeight } from '../../src/styles';
+import { bottomTabBar } from '../../src/styles';
 
 const homeIcon = require('../../src/assets/tab-icons/home.png');
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
@@ -34,29 +34,35 @@ function TabIconSkeleton() {
 
 function TabIcon({ source, focused, ready }: { source: TabIconSource; focused: boolean; ready: boolean }) {
   const { colors } = useThemeColors();
-  const scale = useSharedValue(focused ? 1 : 0.9);
-  const opacity = useSharedValue(focused ? 1 : 0.65);
+  const scale = useSharedValue(focused ? 1.05 : 1);
 
   useEffect(() => {
-    scale.value = withTiming(focused ? 1.05 : 0.9, { duration: 250 });
-    opacity.value = withTiming(focused ? 1 : 0.65, { duration: 200 });
+    scale.value = withTiming(focused ? 1.05 : 1, { duration: 180 });
   }, [focused]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: opacity.value,
   }));
 
-  if (!ready) return <TabIconSkeleton />;
-
   return (
-    <Animated.View style={animStyle}>
-      <Image
-        source={source}
-        style={[styles.icon, { tintColor: focused ? colors.primary : undefined }]}
-        resizeMode="contain"
-      />
-    </Animated.View>
+    <View style={[
+      styles.iconBounds,
+      styles.iconFrame,
+      {
+        backgroundColor: focused ? colors.primaryLight : 'transparent',
+        borderColor: focused ? colors.primaryText + '30' : 'transparent',
+      },
+    ]}>
+      {!ready ? <TabIconSkeleton /> : (
+        <Animated.View style={animStyle}>
+          <Image
+            source={source}
+            style={[styles.icon, { tintColor: focused ? colors.primaryText : colors.textSecondary }]}
+            resizeMode="contain"
+          />
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -64,6 +70,8 @@ export default function TabsLayout() {
   const { t } = useTranslation('common');
   const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const barWidth = Math.min(width - bottomTabBar.horizontalInset * 2, bottomTabBar.maxWidth);
   const [tabIconSources, setTabIconSources] = useState<Array<TabIconSource | null>>(
     () => tabIconModules.map(() => null),
   );
@@ -106,15 +114,21 @@ export default function TabsLayout() {
       tabBarHideOnKeyboard: false,
       tabBarShowLabel: false,
       tabBarItemStyle: { minHeight: bottomTabBar.contentHeight },
+      tabBarIconStyle: styles.iconBounds,
       tabBarStyle: {
         ...styles.tabBar,
         backgroundColor: colors.surface,
-        height: getBottomTabBarHeight(bottom),
-        paddingBottom: Math.max(bottom, bottomTabBar.minimumBottomPadding),
-        paddingTop: 0,
+        borderColor: colors.border,
+        width: barWidth,
+        left: (width - barWidth) / 2,
+        bottom: Math.max(bottom, bottomTabBar.minimumBottomPadding),
+        height: bottomTabBar.contentHeight + bottomTabBar.verticalPadding * 2 + 2,
+        paddingHorizontal: 4,
+        paddingBottom: bottomTabBar.verticalPadding,
+        paddingTop: bottomTabBar.verticalPadding,
       },
     }),
-    [bottom, colors]
+    [barWidth, bottom, colors, width]
   );
 
   // Keep the whole visible tab bar in loading state until all four icons are ready.
@@ -187,17 +201,24 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopWidth: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    elevation: 10,
+    borderWidth: 1,
+    borderTopWidth: 1,
+    borderRadius: 999,
+    elevation: 8,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -4 },
+  },
+  iconBounds: {
+    width: 60,
+    height: 38,
+  },
+  iconFrame: {
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   icon: {
     width: bottomTabBar.iconSize,
