@@ -176,6 +176,19 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     assert.ok(option, `Blood type option ${value || 'unknown'} must exist`);
     option.props.onPress();
   };
+  const openDiseasePicker = () => {
+    const button = nodes(modal()).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === translate('profile')('chronicDiseases'));
+    if (!button.props.accessibilityState.expanded) button.props.onPress();
+    return modal();
+  };
+  const diseaseChoice = label => nodes(openDiseasePicker()).find(node => node.props.accessibilityRole === 'checkbox' && node.props.accessibilityLabel === translate('profile')(label));
+  const toggleDisease = key => {
+    const option = diseaseChoice(key);
+    assert.ok(option, `Disease option ${key} must exist`); option.props.onPress();
+  };
+  const customInput = () => nodes(openDiseasePicker()).find(node => node.type === 'TextInput' && node.props.placeholder === translate('profile')('enterCustomDisease'));
+  const addDiseaseButton = () => nodes(openDiseasePicker()).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === translate('profile')('addCustomDisease'));
+  const addDisease = value => { customInput().props.onChangeText(value); addDiseaseButton().props.onPress(); };
   const cancel = () => nodes(modal()).find(node => node.type === 'Pressable' && text(node).trim() === translate('common')('cancel')).props.onPress();
   const avatarButton = () => nodes(modal()).find(node => node.type === 'Pressable' && text(node).trim() === translate('profile')('uploadPhoto'));
   const updateProfile = update => { auth.profile = { ...auth.profile, ...update }; };
@@ -195,7 +208,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     return render();
   };
   return { render, modal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
-    cancel,
+    openDiseasePicker, diseaseChoice, toggleDisease, customInput, addDiseaseButton, addDisease, cancel,
     avatarButton, updateProfile, toggleSection, calls, t: translate('profile'), tc: translate('common') };
 }
 
@@ -289,7 +302,7 @@ for (const language of ['vi', 'en']) {
   });
   await test(`${language}: blood type is selection only, with accessible choices and no extra subtitles`, async () => {
     const h = harness({ language, multiplier: 1.6 }); h.open();
-    for (const key of ['editProfileSubtitle', 'basicInfoSubtitle', 'healthInfoSubtitle', 'bloodTypeExample']) {
+    for (const key of ['editProfileSubtitle', 'basicInfoSubtitle', 'healthInfo', 'healthInfoSubtitle', 'bloodTypeExample']) {
       assert.ok(!text(h.modal()).includes(h.t(key)), `${key} must not add tiny helper copy`);
     }
     assert.ok(!nodes(h.modal()).some(node => node.type === 'TextInput' && node.props.accessibilityLabel === h.t('bloodType')));
@@ -393,10 +406,17 @@ for (const language of ['vi', 'en']) {
     h.input('name').props.onChangeText('Demo Updated'); assert.equal(h.saveButton().props.disabled, true);
   });
 }
-await test('gender selection enables Save and disables it again when reverted', async () => {
+await test('gender and disease selections enable Save and disable it again when reverted', async () => {
   const h = harness(); h.open();
   h.selectGender('female'); assert.equal(h.saveButton().props.disabled, false);
   h.selectGender('male'); assert.equal(h.saveButton().props.disabled, true);
+  h.toggleDisease('diseaseDiabetes'); assert.equal(h.saveButton().props.disabled, false);
+  h.toggleDisease('diseaseDiabetes'); assert.equal(h.saveButton().props.disabled, true);
+});
+await test('disease membership remains unchanged after removing and adding the same disease in a different order', async () => {
+  const h = harness({ profile: { chronicDiseases: ['Tiểu đường', 'Tăng huyết áp'] } }); h.open();
+  h.toggleDisease('diseaseDiabetes'); assert.equal(h.saveButton().props.disabled, false);
+  h.toggleDisease('diseaseDiabetes'); assert.equal(h.saveButton().props.disabled, true);
 });
 await test('equivalent whitespace, blood-type formatting, and numeric values do not activate Save', async () => {
   const h = harness({ bloodType: ' ａ ＋ ', profile: { phone: '0901234567' } }); h.open();
@@ -448,19 +468,100 @@ for (const [field, value, message] of [['name', ' ', 'nameRequired'], ['age', '1
 }
 
 for (const language of ['vi', 'en']) {
-  await test(`${language}: editing personal details does not overwrite saved chronic conditions`, async () => {
-    const conditions = ['Tiểu đường', 'Viêm khớp'];
-    const h = harness({ language, profile: { chronicDiseases: conditions } }); h.open();
-    const modalText = text(h.modal());
-    assert.ok(!modalText.includes(h.t('healthInfo')));
-    assert.ok(!modalText.includes(h.t('chronicDiseases')));
-    assert.ok(!nodes(h.modal()).some(node => node.props.accessibilityRole === 'checkbox'));
-    h.input('name').props.onChangeText('Demo Updated');
+  await test(`${language}: chronic conditions open inline without a second native modal or premature API write`, async () => {
+    const h = harness({ language, multiplier: 1.6 }); h.open(); h.openDiseasePicker();
+    assert.equal(nodes(h.render()).filter(node => node.type === 'Modal' && node.props.visible).length, 1);
+    assert.equal(h.saveButton().props.disabled, true);
+    assert.equal(h.calls.saves.length, 0);
+    const options = nodes(h.modal()).filter(node => node.props.accessibilityRole === 'checkbox');
+    assert.equal(options.length, 8);
+    for (const option of options) {
+      assert.ok(Object.assign({}, ...option.props.style.filter(Boolean)).minHeight >= 44);
+      assert.equal(option.props.accessibilityState.checked, false);
+    }
+    h.toggleDisease('diseaseDiabetes');
+    assert.equal(h.diseaseChoice('diseaseDiabetes').props.accessibilityState.checked, true);
+    assert.ok(text(h.modal()).includes(h.t('diseaseDiabetes')));
+    assert.equal(h.saveButton().props.disabled, false);
+    assert.equal(h.calls.saves.length, 0, 'Only the profile Save button persists choices');
+  });
+  await test(`${language}: selected and custom conditions persist in the profile payload and survive reopening`, async () => {
+    const h = harness({ language }); h.open();
+    h.toggleDisease('diseaseDiabetes'); h.toggleDisease('diseaseAsthma');
+    h.addDisease('  Viêm khớp  ');
+    assert.equal(h.customInput().props.value, '');
+    assert.equal(h.addDiseaseButton().props.disabled, true);
+    assert.equal(h.diseaseChoice('Viêm khớp').props.accessibilityState.checked, true);
     await h.saveButton().props.onPress();
-    assert.equal(Object.hasOwn(h.calls.saves[0], 'chronicDiseases'), false);
-    assert.deepEqual(h.calls.profileWrites.at(-1).profile.chronicDiseases, conditions);
+    assert.deepEqual(h.calls.saves[0].chronicDiseases, ['Tiểu đường', 'Hen suyễn', 'Viêm khớp']);
+    assert.equal(h.calls.saves[0].bloodType, 'A+');
+    assert.equal(h.modal(), undefined); h.open();
+    assert.equal(h.saveButton().props.disabled, true);
+    for (const key of ['diseaseDiabetes', 'diseaseAsthma', 'Viêm khớp']) {
+      assert.equal(h.diseaseChoice(key).props.accessibilityState.checked, true);
+    }
+    assert.equal(h.saveButton().props.disabled, true);
+  });
+  await test(`${language}: removing all known and custom conditions explicitly saves an empty array`, async () => {
+    const h = harness({ language, profile: { chronicDiseases: ['Tiểu đường', 'Viêm khớp'] } }); h.open();
+    h.toggleDisease('diseaseDiabetes'); h.toggleDisease('Viêm khớp');
+    assert.equal(h.diseaseChoice('Viêm khớp').props.accessibilityState.checked, false, 'Removed custom choices remain available until closing');
+    assert.equal(h.saveButton().props.disabled, false);
+    await h.saveButton().props.onPress();
+    assert.deepEqual(h.calls.saves[0].chronicDiseases, []);
+    h.open(); assert.ok(text(h.modal()).includes(h.t('noChronicDiseases')));
+    assert.equal(h.saveButton().props.disabled, true);
+    assert.equal(h.diseaseChoice('diseaseDiabetes').props.accessibilityState.checked, false);
+    assert.equal(h.diseaseChoice('Viêm khớp'), undefined);
+  });
+  await test(`${language}: cancelling condition changes discards custom choices and keeps the saved profile`, async () => {
+    const h = harness({ language, profile: { chronicDiseases: ['Tiểu đường'] } }); h.open();
+    h.toggleDisease('diseaseDiabetes'); h.addDisease('Viêm khớp'); h.cancel(); h.open();
+    assert.equal(h.diseaseChoice('diseaseDiabetes').props.accessibilityState.checked, true);
+    assert.equal(h.diseaseChoice('Viêm khớp'), undefined);
+    assert.equal(h.saveButton().props.disabled, true);
+    assert.equal(h.calls.saves.length, 0);
+  });
+  await test(`${language}: removing and reselecting an existing custom condition restores unchanged state`, async () => {
+    const h = harness({ language, profile: { chronicDiseases: ['Viêm khớp'] } }); h.open();
+    h.toggleDisease('Viêm khớp'); assert.equal(h.saveButton().props.disabled, false);
+    h.toggleDisease('Viêm khớp'); assert.equal(h.saveButton().props.disabled, true);
   });
 }
+await test('all built-in conditions persist with canonical API values regardless of UI language', async () => {
+  const h = harness({ language: 'en' }); h.open();
+  for (const key of ['diseaseDiabetes', 'diseaseHypertension', 'diseaseHeart', 'diseaseCholesterol', 'diseaseGout', 'diseaseAsthma', 'diseaseStomach', 'diseaseFattyLiver']) h.toggleDisease(key);
+  await h.saveButton().props.onPress();
+  assert.deepEqual(h.calls.saves[0].chronicDiseases, ['Tiểu đường', 'Cao huyết áp', 'Tim mạch', 'Mỡ máu', 'Gút (Gout)', 'Hen suyễn', 'Dạ dày', 'Gan nhiễm mỡ']);
+});
+await test('blank and duplicate custom condition entries do not activate Save', async () => {
+  const h = harness({ profile: { chronicDiseases: ['Tiểu đường'] } }); h.open();
+  assert.equal(h.addDiseaseButton().props.disabled, true);
+  h.addDisease('  '); assert.equal(h.saveButton().props.disabled, true);
+  h.addDisease('  Tiểu đường  '); assert.equal(h.saveButton().props.disabled, true);
+  assert.equal(nodes(h.modal()).filter(node => node.props.accessibilityRole === 'checkbox' && node.props.accessibilityLabel === h.t('diseaseDiabetes')).length, 1);
+});
+await test('comma-separated custom conditions have unique, individually removable options', async () => {
+  const h = harness(); h.open(); h.addDisease('Viêm khớp, Thiếu máu, Viêm khớp');
+  assert.equal(h.diseaseChoice('Viêm khớp').props.accessibilityState.checked, true);
+  assert.equal(h.diseaseChoice('Thiếu máu').props.accessibilityState.checked, true);
+  h.toggleDisease('Viêm khớp');
+  await h.saveButton().props.onPress(); assert.deepEqual(h.calls.saves[0].chronicDiseases, ['Thiếu máu']);
+});
+await test('condition controls are disabled during saving and API failure retains choices for retry', async () => {
+  let rejectSave;
+  const h = harness({ save: () => new Promise((_resolve, reject) => { rejectSave = reject; }) }); h.open();
+  h.toggleDisease('diseaseDiabetes'); h.customInput().props.onChangeText('Viêm khớp');
+  const first = h.saveButton().props.onPress();
+  assert.equal(h.diseaseChoice('diseaseDiabetes').props.disabled, true);
+  assert.equal(h.customInput().props.editable, false); assert.equal(h.addDiseaseButton().props.disabled, true);
+  rejectSave(new Error('Fixture failure')); await first;
+  assert.equal(h.diseaseChoice('diseaseDiabetes').props.accessibilityState.checked, true);
+  assert.equal(h.diseaseChoice('diseaseDiabetes').props.disabled, false);
+  assert.equal(h.customInput().props.value, 'Viêm khớp');
+  assert.equal(h.saveButton().props.disabled, false);
+  assert.deepEqual(h.calls.saves[0].chronicDiseases, ['Tiểu đường']);
+});
 
 function toastHarness() {
   const cleanups = new Map();
