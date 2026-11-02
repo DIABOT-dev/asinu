@@ -924,7 +924,7 @@ export default function ProfileScreen() {
               </View>
               {expandedSections.personal && (
                 <>
-                  {/* 2-Column Info Grid */}
+                  {/* Profile details sit directly on the page background. */}
                   <View style={styles.infoGrid}>
                     {/* 1. Số điện thoại */}
                     <View style={styles.gridCard}>
@@ -933,7 +933,7 @@ export default function ProfileScreen() {
                       </View>
                       <View style={styles.gridCardContent}>
                         <Text style={styles.gridCardLabel}>{t("phone")}</Text>
-                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                        <Text style={styles.gridCardValue}>
                           {phone || tc("notUpdated")}
                         </Text>
                       </View>
@@ -950,7 +950,7 @@ export default function ProfileScreen() {
                       </View>
                       <View style={styles.gridCardContent}>
                         <Text style={styles.gridCardLabel}>{t("gender")}</Text>
-                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                        <Text style={styles.gridCardValue}>
                           {profile?.gender
                             ? profile.gender === "Nam"
                               ? tc("male")
@@ -971,7 +971,7 @@ export default function ProfileScreen() {
                       </View>
                       <View style={styles.gridCardContent}>
                         <Text style={styles.gridCardLabel}>{t("age")}</Text>
-                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                        <Text style={styles.gridCardValue}>
                           {profile?.age
                             ? `${Math.round(profile.age)} ${t("ageUnit")}`
                             : tc("notUpdated")}
@@ -990,7 +990,7 @@ export default function ProfileScreen() {
                       </View>
                       <View style={styles.gridCardContent}>
                         <Text style={styles.gridCardLabel}>{t("height")}</Text>
-                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                        <Text style={styles.gridCardValue}>
                           {profile?.heightCm
                             ? t("heightValue", {
                                 value: Math.round(profile.heightCm),
@@ -1011,7 +1011,7 @@ export default function ProfileScreen() {
                       </View>
                       <View style={styles.gridCardContent}>
                         <Text style={styles.gridCardLabel}>{t("weight")}</Text>
-                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                        <Text style={styles.gridCardValue}>
                           {profile?.weightKg
                             ? t("weightValue", {
                                 value: Math.round(profile.weightKg),
@@ -1028,14 +1028,14 @@ export default function ProfileScreen() {
                       </View>
                       <View style={styles.gridCardContent}>
                         <Text style={styles.gridCardLabel}>{t("bloodType")}</Text>
-                        <Text style={styles.gridCardValue} numberOfLines={1}>
+                        <Text style={styles.gridCardValue}>
                           {profile?.bloodType || tc("notUpdated")}
                         </Text>
                       </View>
                     </View>
                   </View>
 
-                  {/* Full Width Card: Bệnh nền */}
+                  {/* Full-width health information. */}
                   <View style={styles.chronicDiseaseCard}>
                     <View style={styles.gridIconWrap}>
                       <MaterialCommunityIcons
@@ -1048,7 +1048,7 @@ export default function ProfileScreen() {
                       <Text style={styles.gridCardLabel}>
                         {t("chronicDiseases")}
                       </Text>
-                      <Text style={styles.gridCardValue} numberOfLines={1}>
+                      <Text style={styles.gridCardValue}>
                         {profile?.chronicDiseases &&
                         profile.chronicDiseases.length > 0
                           ? profile.chronicDiseases.join(", ")
@@ -2567,19 +2567,11 @@ function createStyles(
     },
     gridCard: {
       width: "48.5%",
-      backgroundColor: cardBg,
-      borderRadius: 16,
+      backgroundColor: "transparent",
       paddingVertical: 12,
       paddingHorizontal: 12,
-      borderWidth: 1,
-      borderColor: borderCol,
       flexDirection: "row",
       alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: isDark ? 0.15 : 0.03,
-      shadowRadius: 3,
-      elevation: 1,
     },
     gridIconWrap: {
       width: 26,
@@ -2592,11 +2584,11 @@ function createStyles(
       flex: 1,
     },
     gridCardLabel: {
-      fontSize: 11,
+      fontSize: 13,
       color: textSecondaryCol,
     },
     gridCardValue: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: "700",
       color: textPrimaryCol,
       marginTop: 2,
@@ -2604,19 +2596,11 @@ function createStyles(
     chronicDiseaseCard: {
       marginHorizontal: 16,
       marginTop: 10,
-      backgroundColor: cardBg,
-      borderRadius: 16,
+      backgroundColor: "transparent",
       paddingVertical: 13,
       paddingHorizontal: 12,
-      borderWidth: 1,
-      borderColor: borderCol,
       flexDirection: "row",
       alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: isDark ? 0.15 : 0.03,
-      shadowRadius: 3,
-      elevation: 1,
     },
 
     // Identity sits directly on the healthcare wallpaper.
