@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { bottomTabBar } from '../../src/styles';
+import { useOnboardingGate } from '../../src/features/auth/useOnboardingGate';
 
 const homeIcon = require('../../src/assets/tab-icons/home.png');
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
@@ -67,6 +68,7 @@ function TabIcon({ source, focused, ready }: { source: TabIconSource; focused: b
 }
 
 export default function TabsLayout() {
+  const canShowTabs = useOnboardingGate();
   const { t } = useTranslation('common');
   const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
@@ -147,6 +149,8 @@ export default function TabsLayout() {
   const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIconSource} focused={focused} ready={visibleTabIconsReady} />, [profileIconSource, visibleTabIconsReady]);
   const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={overviewIconSource} focused={focused} ready={visibleTabIconsReady} />, [overviewIconSource, visibleTabIconsReady]);
   const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={connectIconSource} focused={focused} ready={visibleTabIconsReady} />, [connectIconSource, visibleTabIconsReady]);
+
+  if (!canShowTabs) return null;
 
   return (
     <Tabs screenOptions={screenOptions}>

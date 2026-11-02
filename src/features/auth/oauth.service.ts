@@ -258,14 +258,15 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
         sub: credential.user
       }
     };
-  } catch (error: any) {
-    if (error.code === 'ERR_CANCELED') {
+  } catch (error: unknown) {
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+    if (code === 'ERR_REQUEST_CANCELED' || code === 'ERR_CANCELED') {
       return { type: 'cancel' };
     }
 
     return {
       type: 'error',
-      error: error.message || t('appleAuthFailed')
+      error: t('appleAuthFailed')
     };
   }
 }

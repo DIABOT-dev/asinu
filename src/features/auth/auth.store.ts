@@ -12,7 +12,7 @@ import { useWellnessStore } from '../wellness/store/wellness.store';
 import { AppLanguage, useLanguageStore } from '../../stores/language.store';
 import { apiClient } from '../../lib/apiClient';
 import { authApi, LoginPayload, UpdateProfilePayload } from './auth.api';
-import { authService, SocialProvider } from './auth.service';
+import { authService, SocialProvider, SocialAuthCancelledError } from './auth.service';
 
 export type Profile = {
   id: string;
@@ -239,8 +239,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           if (profile?.id) localCache.setUserId(profile.id);
           set({ profile, token, loading: false });
         } catch (error) {
-
-          set({ loading: false, error: (error as Error).message });
+          set({ loading: false, error: error instanceof SocialAuthCancelledError ? undefined : (error as Error).message });
           throw error;
         }
       },

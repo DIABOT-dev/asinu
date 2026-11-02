@@ -146,7 +146,7 @@ function controlHarness(file, imports = {}) {
 
 await test('welcome and its narration stay hidden until authenticated profile onboarding is complete', async () => {
   for (const state of [
-    { profile: null, token: null }, { token: null }, { hydrated: false },
+    { profile: null, token: null }, { token: null }, { hydrated: false }, { loading: true },
     { profile: { id: 'a', onboardingCompleted: false } }, { profile: { id: 'a' } },
     { path: '/' }, { path: '/login' }, { path: '/login/email' }, { path: '/register' },
     { path: '/onboarding' }, { path: '/auth/google/callback' },
