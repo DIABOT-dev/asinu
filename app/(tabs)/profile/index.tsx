@@ -784,12 +784,19 @@ export default function ProfileScreen() {
   return (
     <Screen>
       <View
-        style={[StyleSheet.absoluteFill, { bottom: tabBarHeight }]}
+        style={[StyleSheet.absoluteFill, styles.profileBackgroundBase]}
         pointerEvents="none"
         accessible={false}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
+        <LinearGradient
+          colors={isDark ? ["#0f172a", "#111c29", "#10242a"] : ["#f5fbfc", "#ffffff", "#eff9f5"]}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <Image
           source={PROFILE_BACKGROUND}
           style={styles.profileBackgroundImage}
@@ -2486,30 +2493,33 @@ function createStyles(
       flexGrow: 1,
       backgroundColor: "transparent",
     },
+    profileBackgroundBase: {
+      backgroundColor: isDark ? "#0f172a" : "#ffffff",
+    },
     profileBackgroundImage: {
       position: "absolute",
       top: 0,
       left: 0,
       width: "100%",
       height: "100%",
-      opacity: isDark ? 0.12 : 1,
+      opacity: isDark ? 0.035 : 0.06,
     },
     profileFooter: {
       flexGrow: 1,
       minHeight: 164,
       marginHorizontal: 24,
       marginTop: 8,
-      flexDirection: "row",
+      flexDirection: "column",
       justifyContent: "space-between",
-      gap: 8,
+      gap: 16,
     },
     profileBackgroundBrand: {
-      alignSelf: "flex-end",
+      alignSelf: "center",
       alignItems: "center",
     },
     profileBackgroundMascot: {
-      width: 140,
-      height: 140,
+      width: 96,
+      height: 96,
     },
     profileBackgroundWordmark: {
       fontSize: 18,
