@@ -13,6 +13,7 @@ import { ScaledText as Text } from "../../components/ScaledText";
 import { useGuardedRouter } from "../../hooks/useGuardedRouter";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { checkNotificationPermission } from "../../lib/notifications";
+import { subscribeNotificationPermissionChanged } from "../../lib/device-permission-events";
 import { useAuthStore } from "../auth/auth.store";
 
 export function ReminderSettingsEntry() {
@@ -38,6 +39,11 @@ export function ReminderSettingsEntry() {
     useCallback(() => {
       focused.current = true;
       void refresh();
+      const unsubscribePermission = subscribeNotificationPermissionChanged(
+        () => {
+          if (focused.current) void refresh();
+        },
+      );
       const subscription = AppState.addEventListener("change", (state) => {
         if (state === "active" && focused.current) void refresh();
       });
@@ -45,8 +51,9 @@ export function ReminderSettingsEntry() {
         focused.current = false;
         request.current++;
         subscription.remove();
+        unsubscribePermission();
       };
-    }, [refresh])
+    }, [refresh]),
   );
 
   const open = async () => {
