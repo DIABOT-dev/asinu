@@ -1,0 +1,419 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import ts from "typescript";
+
+const require = createRequire(import.meta.url);
+const rules = require("../src/lib/blood-pressure.js");
+const read = (file) => fs.readFileSync(file, "utf8");
+const jsx = (type, props) => ({ type, props });
+const nodes = (tree) =>
+  !tree || typeof tree !== "object"
+    ? []
+    : Array.isArray(tree)
+    ? tree.flatMap(nodes)
+    : [tree, ...nodes(tree.props?.children)];
+function evaluate(file, imports = {}) {
+  const module = { exports: {} };
+  const output = ts.transpileModule(read(file), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      jsx: ts.JsxEmit.ReactJSX,
+    },
+  }).outputText;
+  // Run the actual screen and submission handlers with isolated device adapters.
+  // eslint-disable-next-line no-new-func
+  new Function("module", "exports", "require", output)(
+    module,
+    module.exports,
+    (id) => {
+      assert.ok(id in imports, `Missing BP adapter: ${id}`);
+      return imports[id];
+    }
+  );
+  return module.exports;
+}
+const theme = evaluate("src/styles/theme.ts");
+const deferred = () => {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  return { promise, resolve, reject };
+};
+function hooks() {
+  let cursor = 0;
+  const slots = [],
+    effects = [];
+  const memo = (work, deps) => {
+    const index = cursor++;
+    if (
+      !slots[index] ||
+      deps.some((value, offset) => !Object.is(value, slots[index].deps[offset]))
+    ) {
+      slots[index] = { value: work(), deps };
+    }
+    return slots[index].value;
+  };
+  return {
+    react: {
+      useState: (initial) => {
+        const index = cursor++;
+        slots[index] ??= { value: initial };
+        return [
+          slots[index].value,
+          (value) => {
+            slots[index].value = value;
+          },
+        ];
+      },
+      useRef: (initial) => (slots[cursor++] ??= { current: initial }),
+      useMemo: memo,
+      useCallback: (work, deps) => memo(() => work, deps),
+      useEffect: (work, deps) => {
+        const index = cursor++;
+        if (
+          !slots[index] ||
+          deps.some(
+            (value, offset) => !Object.is(value, slots[index].deps[offset])
+          )
+        ) {
+          const previous = slots[index];
+          const slot = (slots[index] = { deps });
+          effects.push(() => {
+            previous?.cleanup?.();
+            slot.cleanup = work();
+          });
+        }
+      },
+    },
+    render: (component) => {
+      cursor = 0;
+      const tree = component();
+      effects.splice(0).forEach((work) => work());
+      return tree;
+    },
+  };
+}
+function harness({
+  language = "vi",
+  profile = { id: "owner", age: 40 },
+  latest = async () => null,
+  fullProfile = async () => ({ id: "owner", age: 40 }),
+  save = async () => {},
+} = {}) {
+  const h = hooks();
+  const catalog = JSON.parse(read(`src/i18n/locales/${language}/logs.json`));
+  const t = (key) => {
+    assert.equal(typeof catalog[key], "string", key);
+    return catalog[key];
+  };
+  const calls = { writes: [], toasts: [], routes: [], phones: [], profiles: 0 };
+  let auth = { profile, token: "isolated-test-token" };
+  const authStore = (select) => select(auth);
+  authStore.getState = () => auth;
+  const animation = {
+    delay() {
+      return this;
+    },
+    duration() {
+      return this;
+    },
+    springify() {
+      return this;
+    },
+  };
+  const { default: Component } = evaluate("app/logs/blood-pressure.tsx", {
+    react: h.react,
+    "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" },
+    "react-native": {
+      ...Object.fromEntries(
+        [
+          "ActivityIndicator",
+          "KeyboardAvoidingView",
+          "ScrollView",
+          "View",
+          "Pressable",
+        ].map((name) => [name, name])
+      ),
+      StyleSheet: { create: (value) => value },
+      Platform: { OS: "ios" },
+      Linking: {
+        openURL: async (url) => {
+          calls.phones.push(url);
+        },
+      },
+    },
+    "react-native-reanimated": {
+      __esModule: true,
+      default: { View: "AnimatedView" },
+      FadeInDown: animation,
+      ZoomIn: animation,
+      useAnimatedStyle: (work) => work(),
+      useSharedValue: (value) => ({ value }),
+      withSequence() {},
+      withTiming() {},
+    },
+    "react-native-safe-area-context": {
+      useSafeAreaInsets: () => ({ top: 59, bottom: 34 }),
+    },
+    "expo-router": { Stack: { Screen: "StackScreen" } },
+    "@/hooks/useGuardedRouter": {
+      useGuardedRouter: () => ({ back: () => calls.routes.push("back") }),
+    },
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "react-i18next": { useTranslation: () => ({ t }) },
+    "../../src/components/ScaledText": { ScaledText: "Text" },
+    "../../src/components/ScaledTextInput": { ScaledTextInput: "NumericInput" },
+    "../../src/components/LogEntryHeader": { LogEntryHeader: "Header" },
+    "../../src/components/Screen": { Screen: "Screen" },
+    "../../src/components/TextInput": { TextInput: "Field" },
+    "../../src/components/VoiceLogButton": { VoiceLogButton: "VoiceInput" },
+    "../../src/features/auth/auth.store": { useAuthStore: authStore },
+    "../../src/features/auth/auth.api": {
+      authApi: {
+        fetchProfile: async () => {
+          calls.profiles++;
+          return fullProfile();
+        },
+      },
+    },
+    "../../src/features/logs/logs.api": {
+      logsApi: { fetchLatestByType: latest },
+    },
+    "../../src/features/logs/logs.store": {
+      useLogsStore: (select) =>
+        select({
+          createBloodPressure: async (payload) => {
+            calls.writes.push(payload);
+            await save(payload);
+          },
+        }),
+    },
+    "../../src/hooks/useScaledTypography": {
+      useScaledTypography: () => theme.typography,
+    },
+    "../../src/hooks/useThemeColors": {
+      useThemeColors: () => ({ isDark: false, colors: theme.colors }),
+    },
+    "../../src/stores/toast.store": {
+      showToast: (...args) => calls.toasts.push(args),
+    },
+    "../../src/styles": theme,
+    "../../src/lib/blood-pressure": rules,
+  });
+  const render = () => h.render(Component);
+  const all = () => nodes(render());
+  return {
+    calls,
+    t,
+    render,
+    async ready() {
+      render();
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      render();
+    },
+    input(sys, dia, pulse = "") {
+      const inputs = all().filter((node) => node.type === "NumericInput");
+      inputs[0].props.onChangeText(String(sys));
+      inputs[1].props.onChangeText(String(dia));
+      all()
+        .find(
+          (node) => node.type === "Field" && node.props.label === t("pulse")
+        )
+        .props.onChangeText(pulse);
+    },
+    text: () =>
+      all()
+        .filter((node) => node.type === "Text")
+        .map((node) => node.props.children),
+    pulse: () =>
+      all().find(
+        (node) => node.type === "Field" && node.props.label === t("pulse")
+      ),
+    values: () =>
+      all()
+        .filter((node) => node.type === "NumericInput")
+        .map((node) => node.props.value),
+    save: () =>
+      all()
+        .find((node) => node.type === "Header")
+        .props.onSave(),
+    emergency: () =>
+      all().find(
+        (node) =>
+          node.type === "Pressable" &&
+          node.props.accessibilityLabel === t("bpCallEmergency")
+      ),
+    switchAccount(newProfile) {
+      auth = { profile: newProfile, token: "different-test-token" };
+      render();
+    },
+  };
+}
+let checks = 0;
+async function test(label, work) {
+  await work();
+  checks++;
+  console.log(`PASS ${label}`);
+}
+
+await test("mobile and backend have byte-identical AHA/ACC rules when both checkouts exist", () => {
+  const backend = new URL(
+    "../../backend.asinu/src/lib/blood-pressure.js",
+    import.meta.url
+  );
+  if (fs.existsSync(backend))
+    assert.equal(read(backend), read("src/lib/blood-pressure.js"));
+  for (const [sys, dia, expected] of [
+    [119, 79, "normal"],
+    [120, 79, "elevated"],
+    [129, 80, "stage1"],
+    [130, 79, "stage1"],
+    [139, 89, "stage1"],
+    [140, 79, "stage2"],
+    [128, 98, "stage2"],
+    [150, 55, "stage2"],
+    [180, 120, "stage2"],
+    [181, 79, "severe"],
+    [160, 121, "severe"],
+    [200, 55, "severe"],
+  ]) {
+    assert.equal(
+      rules.assessBloodPressure(sys, dia, { age: 40 }).category,
+      expected
+    );
+  }
+});
+for (const language of ["vi", "en"]) {
+  await test(`${language}: actual screen uses both readings and low pressure cannot hide high pressure`, async () => {
+    const h = harness({ language });
+    await h.ready();
+    for (const [sys, dia, expected] of [
+      [118, 78, "normal"],
+      [125, 79, "elevated"],
+      [135, 85, "stage1"],
+      [128, 98, "stage2"],
+      [150, 55, "stage2"],
+      [200, 55, "severe"],
+    ]) {
+      h.input(sys, dia);
+      assert.ok(h.text().includes(h.t(`bpStatus_${expected}`)));
+      assert.ok(h.text().includes(h.t("bpReadingReference")));
+    }
+    assert.ok(h.text().includes(h.t("bpHighReadingGuide")));
+    assert.ok(h.emergency());
+    assert.deepEqual(
+      h.calls.phones,
+      [],
+      "Rendering a warning must not place a call"
+    );
+    await h.emergency().props.onPress();
+    assert.deepEqual(h.calls.phones, ["tel:115"]);
+  });
+  await test(`${language}: invalid pairs and pulse cannot save; correcting them saves unchanged`, async () => {
+    const h = harness({ language });
+    await h.ready();
+    h.input(80, 120);
+    await h.save();
+    assert.ok(h.text().includes(h.t("errBpOrder")));
+    h.input("120abc", 80);
+    await h.save();
+    assert.ok(h.text().includes(h.t("errBpNumbers")));
+    h.input(260, 160);
+    await h.save();
+    assert.ok(h.text().includes(h.t("errBpRange")));
+    assert.ok(
+      h.emergency(),
+      "Out-of-range high readings still need safety guidance"
+    );
+    h.input(120, 80, "72abc");
+    await h.save();
+    assert.equal(h.pulse().props.error, h.t("bpPulseInvalid"));
+    assert.equal(h.calls.writes.length, 0);
+    h.input(200, 55, "72");
+    await h.save();
+    assert.deepEqual(h.calls.writes, [
+      {
+        systolic: 200,
+        diastolic: 55,
+        pulse: 72,
+        context: "morning",
+        notes: undefined,
+      },
+    ]);
+    assert.deepEqual(h.calls.toasts, [[h.t("savedTitle"), "success"]]);
+    assert.deepEqual(h.calls.routes, ["back"]);
+  });
+  await test(`${language}: under-18 and unknown-age profiles do not receive adult categories`, async () => {
+    for (const [profile, key] of [
+      [{ id: "owner", age: 12 }, "bpUnder18Reference"],
+      [{ id: "owner" }, "bpMissingAgeReference"],
+    ]) {
+      const h = harness({
+        language,
+        profile,
+        fullProfile: async () => profile,
+      });
+      await h.ready();
+      h.input(118, 78);
+      assert.ok(h.text().includes(h.t(key)));
+      assert.ok(!h.text().includes(h.t("bpStatus_normal")));
+      await h.save();
+      assert.equal(
+        h.calls.writes.length,
+        1,
+        "An unassessed reading can still be recorded"
+      );
+    }
+  });
+}
+await test("basic bootstrap profiles fetch age before classifying; a failed profile fetch stays neutral", async () => {
+  const h = harness({ profile: { id: "owner" } });
+  await h.ready();
+  h.input(135, 85);
+  assert.equal(h.calls.profiles, 1);
+  assert.ok(h.text().includes(h.t("bpStatus_stage1")));
+  const failed = harness({
+    profile: { id: "owner" },
+    fullProfile: async () => {
+      throw new Error("offline");
+    },
+  });
+  await failed.ready();
+  failed.input(118, 78);
+  assert.ok(failed.text().includes(failed.t("bpMissingAgeReference")));
+});
+await test("rapid duplicate saves write once; stale completions cannot navigate another account", async () => {
+  const pending = deferred();
+  const h = harness({ save: () => pending.promise });
+  await h.ready();
+  h.input(128, 98);
+  const first = h.save();
+  await h.save();
+  assert.equal(h.calls.writes.length, 1);
+  h.switchAccount({ id: "other", age: 40 });
+  await h.ready();
+  pending.resolve();
+  await first;
+  assert.deepEqual(h.calls.routes, []);
+  assert.deepEqual(h.calls.toasts, []);
+});
+await test("latest reading and profile from a previous account cannot populate the new account", async () => {
+  const old = deferred();
+  let requests = 0;
+  const h = harness({
+    latest: () => (++requests === 1 ? old.promise : Promise.resolve(null)),
+  });
+  h.render();
+  h.switchAccount({ id: "other", age: 12 });
+  await h.ready();
+  old.resolve({ systolic: 200, diastolic: 55, context: "evening" });
+  await h.ready();
+  assert.deepEqual(h.values(), ["", ""]);
+  h.input(118, 78);
+  assert.ok(h.text().includes(h.t("bpUnder18Reference")));
+});
+console.log(`Blood pressure: ${checks} regression groups passed.`);

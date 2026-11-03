@@ -1,11 +1,12 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -18,7 +19,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,12 +30,14 @@ import { TextInput } from '../../src/components/TextInput';
 import { VoiceLogButton } from '../../src/components/VoiceLogButton';
 import { VoiceParseResult } from '../../src/features/logs/voice.api';
 import { useAuthStore } from '../../src/features/auth/auth.store';
+import { authApi } from '../../src/features/auth/auth.api';
 import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { showToast } from '../../src/stores/toast.store';
-import { categoryColors, colors, iconColors, radius, spacing } from '../../src/styles';
+import { categoryColors, colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { assessBloodPressure, validateBloodPressure, type BPProfile } from '../../src/lib/blood-pressure';
 
 // ─── BP status helpers ─────────────────────────────────────────────
 
@@ -46,16 +48,12 @@ type BPStatus = {
   icon: keyof typeof Ionicons.glyphMap;
 };
 
-function getBPStatus(sys: number, dia: number): BPStatus {
-  if (sys < 90 || dia < 60)
-    return { key: 'low', color: colors.warning, bgColor: colors.premiumLight, icon: 'arrow-down-circle' };
-  if (sys < 120 && dia < 80)
-    return { key: 'normal', color: colors.emerald, bgColor: colors.emeraldLight, icon: 'checkmark-circle' };
-  if (sys < 130 && dia < 80)
-    return { key: 'elevated', color: colors.warning, bgColor: colors.premiumLight, icon: 'alert' };
-  if (sys < 140 && dia < 90)
-    return { key: 'stage1', color: '#f97316', bgColor: '#fff7ed', icon: 'alert-circle' };
-  return { key: 'stage2', color: colors.danger, bgColor: '#fef2f2', icon: 'alert-circle' };
+function getBPStatus(key: NonNullable<ReturnType<typeof assessBloodPressure>['displayCategory']>): BPStatus {
+  if (key === 'low') return { key, color: colors.warning, bgColor: colors.premiumLight, icon: 'arrow-down-circle' };
+  if (key === 'normal') return { key, color: colors.emerald, bgColor: colors.emeraldLight, icon: 'checkmark-circle' };
+  if (key === 'elevated') return { key, color: colors.warning, bgColor: colors.premiumLight, icon: 'alert' };
+  if (key === 'stage1') return { key, color: '#f97316', bgColor: '#fff7ed', icon: 'alert-circle' };
+  return { key, color: colors.danger, bgColor: '#fef2f2', icon: 'alert-circle' };
 }
 
 const CTX_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -71,8 +69,8 @@ export default function BloodPressureLogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
-  const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
+  const { colors: themeColors } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography, themeColors), [scaledTypography, themeColors]);
 
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
@@ -80,33 +78,55 @@ export default function BloodPressureLogScreen() {
   const [context, setContext] = useState('morning');
   const [notes, setNotes] = useState('');
   const [bpError, setBpError] = useState('');
+  const [pulseError, setPulseError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const saveInFlight = useRef(false);
 
   const createBloodPressure = useLogsStore((state) => state.createBloodPressure);
   const profile = useAuthStore((state) => state.profile);
+  const profileId = profile?.id;
+  const token = useAuthStore((state) => state.token);
+  const [assessmentProfile, setAssessmentProfile] = useState<BPProfile | null>(profile);
 
   const shakeX = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }],
   }));
 
-  const sysNum = parseFloat(systolic) || 0;
-  const diaNum = parseFloat(diastolic) || 0;
-  const status = sysNum > 0 && diaNum > 0 ? getBPStatus(sysNum, diaNum) : null;
+  const assessment = assessBloodPressure(systolic, diastolic, assessmentProfile);
+  const status = assessment.displayCategory ? getBPStatus(assessment.displayCategory) : null;
 
   useEffect(() => {
+    let active = true;
+    const owner = profileId;
+    const ownerProfile = useAuthStore.getState().profile;
+    const current = () => active && useAuthStore.getState().profile?.id === owner && useAuthStore.getState().token === token;
+    setAssessmentProfile(ownerProfile);
+    setSystolic(''); setDiastolic(''); setPulse(''); setNotes(''); setBpError(''); setPulseError('');
+    setContext('morning');
+    setIsLoading(true);
     (async () => {
       try {
-        const latest = await logsApi.fetchLatestByType('bp');
-        if (latest?.systolic) setSystolic(String(latest.systolic));
-        if (latest?.diastolic) setDiastolic(String(latest.diastolic));
-        if (latest?.context) setContext(latest.context);
+        if (!owner) return;
+        const [latestResult, profileResult] = await Promise.allSettled([
+          logsApi.fetchLatestByType('bp'),
+          ownerProfile?.dateOfBirth || typeof ownerProfile?.age === 'number' ? Promise.resolve(ownerProfile) : authApi.fetchProfile(),
+        ]);
+        if (!current()) return;
+        if (latestResult.status === 'fulfilled') {
+          const latest = latestResult.value;
+          if (latest?.systolic) setSystolic(String(latest.systolic));
+          if (latest?.diastolic) setDiastolic(String(latest.diastolic));
+          if (latest?.context) setContext(latest.context);
+        }
+        if (profileResult.status === 'fulfilled') setAssessmentProfile(profileResult.value);
       } catch { /* ignore */ } finally {
-        setIsLoading(false);
+        if (current()) setIsLoading(false);
       }
     })();
-  }, []);
+    return () => { active = false; };
+  }, [profileId, token]);
 
   const handleBack = useCallback(() => router.back(), [router]);
 
@@ -128,29 +148,35 @@ export default function BloodPressureLogScreen() {
   }
 
   const handleSubmit = async () => {
-    const sys = parseFloat(systolic);
-    const dia = parseFloat(diastolic);
-    if (!systolic || !diastolic || isNaN(sys) || isNaN(dia) || sys <= 0 || dia <= 0) {
-      setBpError(t('enterValidBP'));
+    if (saveInFlight.current) return;
+    const validated = validateBloodPressure(systolic, diastolic, pulse);
+    if (!validated.ok) {
+      if (validated.error === 'pulse') setPulseError(t('bpPulseInvalid'));
+      else setBpError(t(validated.error === 'order' ? 'errBpOrder' : validated.error === 'range' ? 'errBpRange' : 'errBpNumbers'));
       triggerShake();
       return;
     }
     setBpError('');
+    setPulseError('');
+    saveInFlight.current = true;
     setIsSaving(true);
+    const sameSession = () => useAuthStore.getState().profile?.id === profileId && useAuthStore.getState().token === token;
     try {
       const payload = {
-        systolic: sys,
-        diastolic: dia,
-        pulse: pulse ? parseInt(pulse, 10) : undefined,
+        systolic: validated.systolic,
+        diastolic: validated.diastolic,
+        pulse: validated.pulse,
         context,
         notes: notes || undefined,
       };
       await createBloodPressure(payload);
+      if (!sameSession()) return;
       showToast(t('savedTitle'), 'success');
       router.back();
     } catch {
-      showToast(t('saveFailed'), 'error');
+      if (sameSession()) showToast(t('saveFailed'), 'error');
     } finally {
+      saveInFlight.current = false;
       setIsSaving(false);
     }
   };
@@ -252,6 +278,18 @@ export default function BloodPressureLogScreen() {
                       </Text>
                     </Animated.View>
                   ) : null}
+                  {assessment.valid && <Text style={[styles.bpReference, { color: colors.textSecondary }]}>
+                    {t(assessment.scope === 'under18' ? 'bpUnder18Reference' : assessment.scope === 'unknown_age' ? 'bpMissingAgeReference' : 'bpReadingReference')}
+                  </Text>}
+                  {assessment.low && !assessment.repeatHigh && <Text style={[styles.bpReference, { color: colors.warning }]}>{t('bpLowReadingNote')}</Text>}
+                  {assessment.repeatHigh && <View style={styles.bpHighGuidance}>
+                    <Text style={[styles.bpHighTitle, { color: colors.danger }]}>{t('bpHighReadingTitle')}</Text>
+                    <Text style={[styles.bpReference, { color: colors.textPrimary }]}>{t('bpHighReadingGuide')}</Text>
+                    <Pressable accessibilityRole="button" accessibilityLabel={t('bpCallEmergency')} onPress={() => { void Linking.openURL('tel:115').catch(() => showToast(t('bpCallFailed'), 'error')); }} style={styles.bpEmergencyButton}>
+                      <Ionicons name="call-outline" size={20} color={colors.danger} />
+                      <Text style={[styles.bpHighTitle, { color: colors.danger }]}>{t('bpCallEmergency')}</Text>
+                    </Pressable>
+                  </View>}
                 </View>
               </Animated.View>
 
@@ -263,7 +301,8 @@ export default function BloodPressureLogScreen() {
                     label={t('pulse')}
                     keyboardType="numeric"
                     value={pulse}
-                    onChangeText={setPulse}
+                    onChangeText={(value) => { setPulse(value); setPulseError(''); }}
+                    error={pulseError}
                     placeholder={t('optional')}
                     leftIcon={<Ionicons name="pulse-outline" size={18} color={colors.textSecondary} />}
                   />
@@ -334,12 +373,16 @@ export default function BloodPressureLogScreen() {
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, colors: ReturnType<typeof useThemeColors>['colors']) {
   return StyleSheet.create({
     container: {
       paddingHorizontal: spacing.lg,
       gap: spacing.md,
     },
+    bpReference: { fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
+    bpHighGuidance: { gap: spacing.xs, marginTop: spacing.md },
+    bpHighTitle: { fontSize: 15, fontWeight: '700' },
+    bpEmergencyButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, alignSelf: 'flex-start' },
     loadingContainer: {
       flex: 1,
       justifyContent: 'center',

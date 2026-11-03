@@ -1,5 +1,6 @@
 import i18n from '../../i18n';
 import { apiClient } from '../../lib/apiClient';
+import { assessBloodPressure } from '../../lib/blood-pressure';
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(key, { ns: 'logs', ...opts });
 
@@ -54,7 +55,7 @@ class LogsService {
         const diastolic = parseFloat(data.diastolic);
         
         // Nguy hiểm cao
-        if (systolic >= 180 || diastolic >= 110) {
+        if (assessBloodPressure(systolic, diastolic).repeatHigh) {
           await this.sendHealthAlert({
             type: 'blood_pressure_critical',
             title: t('alertBpCritical'),
