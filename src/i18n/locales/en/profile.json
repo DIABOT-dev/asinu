@@ -1,6 +1,7 @@
 {
   "brandName": "ASINU",
-  "dailyGifts": "Daily gifts & collection",
+  "dailyGifts": "Daily gifts",
+  "giftCollection": "My fortunes",
   "greeting": "Hello,",
   "mascotGreeting": "Hello",
   "healthCoins": "Health coins",

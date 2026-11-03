@@ -1216,6 +1216,49 @@ export default function ProfileScreen() {
                     <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>}
 
+                  {/* Trung tâm quyền dữ liệu chuyên gia */}
+                  {isDoctorFeaturesEnabled && <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={ts("privacyCenterTitle")}
+                    style={styles.actionCard}
+                    onPress={() => router.push("/privacy-center" as any)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="finger-print-outline"
+                        size={22}
+                        color="#06b6d4"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>
+                      {ts("privacyCenterTitle")}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>}
+
+                  {/* Quyền dùng Asinu AI */}
+                  <View style={styles.actionCard}>
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="sparkles-outline"
+                        size={22}
+                        color="#10b981"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>
+                      {ts("aiDataConsentSettings")}
+                    </Text>
+                    <Switch
+                      accessibilityLabel={ts("aiDataConsentSettings")}
+                      accessibilityState={{ checked: aiConsentEnabled }}
+                      value={aiConsentEnabled}
+                      onValueChange={handleToggleAiConsent}
+                      trackColor={{ false: "#d1d5db", true: colors.primary }}
+                      thumbColor={colors.surface}
+                      ios_backgroundColor="#d1d5db"
+                    />
+                  </View>
                 </View>
               )}
             </Animated.View>
@@ -1263,6 +1306,19 @@ export default function ProfileScreen() {
                       <Ionicons name="gift-outline" size={22} color={colors.primary} />
                     </View>
                     <Text style={styles.rowLabel}>{t("dailyGifts")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/checkin-rewards/history")}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("giftCollection")}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="archive-outline" size={22} color={colors.primary} />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("giftCollection")}</Text>
                     <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
                 </View>
@@ -1420,49 +1476,6 @@ export default function ProfileScreen() {
                       ios_backgroundColor="#d1d5db"
                     />
                   </View>
-
-                    {/* Quyền dùng Asinu AI */}
-                    <View style={styles.actionCard}>
-                      <View style={styles.rowIconWrap}>
-                        <Ionicons
-                          name="sparkles-outline"
-                          size={22}
-                          color="#10b981"
-                        />
-                      </View>
-                      <Text style={styles.rowLabel}>
-                        {ts("aiDataConsentSettings")}
-                      </Text>
-                      <Switch
-                        accessibilityLabel={ts("aiDataConsentSettings")}
-                        accessibilityState={{ checked: aiConsentEnabled }}
-                        value={aiConsentEnabled}
-                        onValueChange={handleToggleAiConsent}
-                        trackColor={{ false: "#d1d5db", true: colors.primary }}
-                        thumbColor={colors.surface}
-                        ios_backgroundColor="#d1d5db"
-                      />
-                    </View>
-
-                    {/* Trung tâm quyền dữ liệu chuyên gia */}
-                    {isDoctorFeaturesEnabled && <TouchableOpacity
-                      style={styles.actionCard}
-                      onPress={() => router.push("/privacy-center" as any)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.rowIconWrap}>
-                        <Ionicons
-                          name="finger-print-outline"
-                          size={22}
-                          color="#06b6d4"
-                        />
-                      </View>
-                      <Text style={styles.rowLabel}>
-                        {ts("privacyCenterTitle")}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                    </TouchableOpacity>}
-
                 </View>
               )}
             </Animated.View>
