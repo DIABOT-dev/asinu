@@ -135,6 +135,9 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: false, isCheckinUiGalleryEnabled: false },
     '../../../src/features/app-update/app-update.store': { useAppUpdateStore: Object.assign(selector => selector({ checking: false }), { getState: () => ({ check: async () => ({ status: 'current' }) }) }) },
     '../../../src/features/profile/ProfileMascotGreeting': { ProfileMascotGreeting: 'MascotGreeting' },
+    '../../../src/features/profile/FontSizePickerModal': { FontSizePickerModal: 'FontSizePickerModal' },
+    '../../../src/features/profile/LanguagePickerModal': { LanguagePickerModal: 'LanguagePickerModal' },
+    '../../../src/features/profile/ProfileDevicePermissions': { ProfileDevicePermissions: 'DevicePermissions' },
     '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => ({ enabled: true, balance: 12, earnedToday: 10 }) },
     '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
     '../../../src/features/care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
@@ -144,6 +147,18 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/stores/health-feed-preference': { getHealthFeedPreference: async () => true, setHealthFeedPreference: async enabled => enabled },
   };
   const { default: ProfileScreen } = evaluate(read('app/(tabs)/profile/index.tsx'), imports);
+  const preferenceImports = {
+    'react-native': { ...imports['react-native'], Text: 'NativeText' },
+    '@expo/vector-icons': imports['@expo/vector-icons'],
+    'react-i18next': imports['react-i18next'],
+    'react-native-safe-area-context': imports['react-native-safe-area-context'],
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ isDark, colors: isDark ? theme.darkColors : theme.lightColors }) },
+  };
+  const preference = evaluate(read('src/features/profile/ProfilePreferenceModal.tsx'), preferenceImports);
+  const pickerImports = { ...preferenceImports, './ProfilePreferenceModal': preference };
+  const { FontSizePickerModal } = evaluate(read('src/features/profile/FontSizePickerModal.tsx'), pickerImports);
+  const { LanguagePickerModal } = evaluate(read('src/features/profile/LanguagePickerModal.tsx'), pickerImports);
   const render = () => {
     let tree;
     let renders = 0;
@@ -162,6 +177,8 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     return tree;
   };
   const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible && text(node).includes(translate('profile')('editProfileTitle')));
+  const fontModal = () => preference.ProfilePreferenceModal(FontSizePickerModal(nodes(render()).find(node => node.type === 'FontSizePickerModal').props).props);
+  const languageModal = () => preference.ProfilePreferenceModal(LanguagePickerModal(nodes(render()).find(node => node.type === 'LanguagePickerModal').props).props);
   const saveButton = () => nodes(modal()).find(node => node.type === 'Pressable' && node.props.onPress?.name === 'handleSaveProfile');
   const input = (field = 'name') => {
     const inputs = nodes(modal()).filter(node => node.type === 'TextInput');
@@ -215,7 +232,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     header.props.onPress();
     return render();
   };
-  return { render, modal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
+  return { render, modal, fontModal, languageModal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
     openDiseasePicker, diseaseChoice, toggleDisease, customInput, addDiseaseButton, addDisease, cancel,
     avatarButton, updateProfile, toggleSection, calls, t: translate('profile'), tc: translate('common'), ts: translate('settings') };
 }
@@ -245,7 +262,7 @@ for (const language of ['vi', 'en']) {
       assert.ok(!all.some(node => node.type === 'Text' && [h.t('careBannerTitle'), h.t('careBannerSubtitle')].includes(node.props.children)));
       assert.ok(all.some(node => node.type === 'Text' && node.props.children === h.t('sectionActions')));
       const hasRow = (tree, key) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t(key));
-      assert.equal(all.filter(node => node.type === 'TouchableOpacity' && node.props.accessibilityState?.expanded === false).length, 6);
+      assert.equal(all.filter(node => node.type === 'TouchableOpacity' && node.props.accessibilityState?.expanded === false).length, 7);
       const mainContent = all.find(node => node.type === 'ScrollView');
       assert.ok(!nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')), 'Personal details stay hidden until expanded');
       assert.ok(!hasRow(tree, 'reminderSchedule'));
@@ -263,36 +280,63 @@ for (const language of ['vi', 'en']) {
       assert.ok(hasRow(actionsClosed, 'logEntry'));
       h.open(); assert.ok(h.modal());
     });
-    await test(`${language}/${isDark ? 'dark' : 'light'}: inline font and language choices save, collapse, and preserve the selection`, () => {
+    await test(`${language}/${isDark ? 'dark' : 'light'}: permission controls share their own section instead of Settings or System`, () => {
+      const h = harness({ language, isDark });
+      const deviceControls = tree => nodes(tree).filter(node => node.type === 'DevicePermissions');
+      assert.equal(deviceControls(h.render()).length, 0);
+      assert.equal(deviceControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
+      assert.equal(deviceControls(h.toggleSection(h.t('sectionSystem'))).length, 0);
+      const expanded = h.toggleSection(h.ts('appPermissions'));
+      assert.equal(deviceControls(expanded).length, 1);
+      assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')).length, 1);
+      const closed = h.toggleSection(h.ts('appPermissions'));
+      assert.equal(deviceControls(closed).length, 0);
+      assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')));
+    });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: font and language modals show previews, retain selections and dismiss without changes`, () => {
       const h = harness({ language, isDark });
       h.toggleSection(h.t('sectionSettings'));
       const control = key => nodes(h.render()).find(node => node.props.accessibilityRole === 'button'
         && node.props.accessibilityLabel === h.ts(key));
       const groups = () => nodes(nodes(h.render()).find(node => node.type === 'ScrollView'))
         .filter(node => node.props.accessibilityRole === 'radiogroup');
-      const options = () => nodes(groups()).filter(node => node.props.accessibilityRole === 'radio');
+      const fontOptions = () => nodes(h.fontModal()).filter(node => node.props.accessibilityRole === 'radio');
+      const languageOptions = () => nodes(h.languageModal()).filter(node => node.props.accessibilityRole === 'radio');
       control('fontSize').props.onPress();
-      assert.equal(groups().length, 1);
-      assert.equal(options().length, 4);
-      assert.equal(options().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, h.ts('fontNormal'));
+      assert.equal(groups().length, 0, 'Font choices must not expand inside the profile page');
+      assert.equal(h.fontModal().type, 'Modal');
+      assert.equal(h.fontModal().props.visible, true);
+      assert.equal(fontOptions().length, 4);
+      const previews = nodes(h.fontModal()).filter(node => node.type === 'NativeText' && node.props.children === h.ts('fontPreview'));
+      assert.deepEqual(previews.map(node => Object.assign({}, ...node.props.style).fontSize), [14, 16, 18, 20]);
+      assert.ok(previews.every(node => node.props.allowFontScaling === false), 'A preview must use its target size rather than multiplying the current scale again');
+      assert.equal(fontOptions().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, h.ts('fontNormal'));
       assert.equal(nodes(h.render()).filter(node => node.type === 'Modal' && node.props.visible).length, 0);
-      options().find(node => node.props.accessibilityLabel === h.ts('fontLarge')).props.onPress();
+      fontOptions().find(node => node.props.accessibilityLabel === h.ts('fontLarge')).props.onPress();
       assert.deepEqual(h.calls.fontSizes, ['large']);
-      assert.equal(control('fontSize').props.accessibilityState.expanded, false);
+      assert.equal(h.fontModal().props.visible, false);
       control('fontSize').props.onPress();
-      assert.equal(options().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, h.ts('fontLarge'));
+      assert.equal(fontOptions().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, h.ts('fontLarge'));
+      h.fontModal().props.onRequestClose();
+      assert.equal(h.fontModal().props.visible, false);
+      assert.deepEqual(h.calls.fontSizes, ['large'], 'Dismissing the modal must not change the preference');
       control('language').props.onPress();
-      assert.equal(groups().length, 1);
+      assert.equal(groups().length, 0);
+      assert.equal(h.languageModal().props.visible, true);
+      assert.equal(h.languageModal().type, 'Modal');
+      assert.deepEqual(nodes(h.languageModal()).filter(node => node.type === 'NativeText').map(node => node.props.children), ['🇻🇳', '🇬🇧']);
       assert.equal(control('fontSize').props.accessibilityState.expanded, false);
-      assert.equal(options().length, 2);
+      assert.equal(languageOptions().length, 2);
       const next = language === 'vi' ? 'en' : 'vi';
       const nextLabel = h.ts(next === 'vi' ? 'languageVi' : 'languageEn');
-      options().find(node => node.props.accessibilityLabel === nextLabel).props.onPress();
+      languageOptions().find(node => node.props.accessibilityLabel === nextLabel).props.onPress();
       assert.deepEqual(h.calls.languages, [next]);
-      assert.equal(control('language').props.accessibilityState.expanded, false);
+      assert.equal(h.languageModal().props.visible, false);
       control('language').props.onPress();
-      assert.equal(options().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, nextLabel);
-      control('language').props.onPress();
+      assert.equal(languageOptions().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, nextLabel);
+      h.languageModal().props.onRequestClose();
+      assert.equal(h.languageModal().props.visible, false);
+      assert.deepEqual(h.calls.languages, [next]);
       assert.equal(groups().length, 0);
     });
   }

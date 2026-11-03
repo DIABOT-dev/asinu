@@ -44,13 +44,14 @@ import {
 import { ScaledTextInput as TextInput } from "../../../src/components/ScaledTextInput";
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { LinearGradient } from "expo-linear-gradient";
-import { AndroidCallAccessCard } from "../../../src/features/checkin-call/AndroidCallAccessCard";
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
 import { ProfileMascotGreeting } from "../../../src/features/profile/ProfileMascotGreeting";
 import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
 import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
-import { QrCameraPermissionRow } from "../../../src/features/care-circle/components/QrCameraPermissionRow";
 import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
+import { FontSizePickerModal } from "../../../src/features/profile/FontSizePickerModal";
+import { LanguagePickerModal } from "../../../src/features/profile/LanguagePickerModal";
+import { ProfileDevicePermissions } from "../../../src/features/profile/ProfileDevicePermissions";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const CHECKIN_ACCESS_ART = require("../../../assets/images/subscription/checkin_access_shield.png");
@@ -76,11 +77,9 @@ import { useLogsStore } from "../../../src/features/logs/logs.store";
 import { useMissionsStore } from "../../../src/features/missions/missions.store";
 import { localizedPlanName } from "../../../src/features/subscription/planName";
 import {
-  FontSizeScale,
   useFontSizeStore,
 } from "../../../src/stores/font-size.store";
 import {
-  AppLanguage,
   useLanguageStore,
 } from "../../../src/stores/language.store";
 import { useScaledTypography } from "../../../src/hooks/useScaledTypography";
@@ -141,6 +140,7 @@ type ProfileSection =
   | "health"
   | "account"
   | "settings"
+  | "permissions"
   | "system";
 
 function getProfileEditValues(profile: Profile | null): ProfileEditValues {
@@ -243,6 +243,7 @@ export default function ProfileScreen() {
     health: false,
     account: false,
     settings: false,
+    permissions: false,
     system: false,
   });
 
@@ -1088,8 +1089,6 @@ export default function ProfileScreen() {
               </Animated.View>
             )}
 
-            <AndroidCallAccessCard onlyWhenNeeded />
-
             {/* ==================== 02 MIDDLE: THAO TÁC ==================== */}
             <Animated.View entering={FadeIn.delay(220).duration(350)}>
               {renderSectionHeader(
@@ -1348,7 +1347,7 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     style={styles.actionCard}
                     onPress={() => {
-                      setShowFontPicker((visible) => !visible);
+                      setShowFontPicker(true);
                       setShowLangPicker(false);
                     }}
                     activeOpacity={0.7}
@@ -1361,39 +1360,12 @@ export default function ProfileScreen() {
                     </View>
                     <Text style={styles.rowLabel}>{ts("fontSize")}</Text>
                     <Text style={styles.rowMeta}>{fontLabel}</Text>
-                    <Ionicons name={showFontPicker ? "chevron-up" : "chevron-down"} size={16} color="#94a3b8" />
                   </TouchableOpacity>
-                  {showFontPicker && (
-                    <View style={styles.pickerOptions} accessibilityRole="radiogroup" accessibilityLabel={ts("fontSize")}>
-                      {(["small", "normal", "large", "xlarge"] as FontSizeScale[]).map((size) => {
-                        const label = size === "small" ? ts("fontSmall")
-                          : size === "normal" ? ts("fontNormal")
-                          : size === "large" ? ts("fontLarge") : ts("fontXLarge");
-                        const active = fontScale === size;
-                        return (
-                          <Pressable
-                            key={size}
-                            style={({ pressed }) => [styles.pickerRow, pressed && { opacity: 0.65 }]}
-                            accessibilityRole="radio"
-                            accessibilityLabel={label}
-                            accessibilityState={{ checked: active }}
-                            onPress={() => {
-                              setFontScale(size);
-                              setShowFontPicker(false);
-                            }}
-                          >
-                            <Text style={[styles.pickerRowText, active && styles.pickerRowTextActive]}>{label}</Text>
-                            {active && <Ionicons name="checkmark" size={20} color={styles.pickerRowTextActive.color} />}
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  )}
 
                   <TouchableOpacity
                     style={styles.actionCard}
                     onPress={() => {
-                      setShowLangPicker((visible) => !visible);
+                      setShowLangPicker(true);
                       setShowFontPicker(false);
                     }}
                     activeOpacity={0.7}
@@ -1410,34 +1382,62 @@ export default function ProfileScreen() {
                     </View>
                     <Text style={styles.rowLabel}>{ts("language")}</Text>
                     <Text style={styles.rowMeta}>{langLabel}</Text>
-                    <Ionicons name={showLangPicker ? "chevron-up" : "chevron-down"} size={16} color="#94a3b8" />
                   </TouchableOpacity>
-                  {showLangPicker && (
-                    <View style={styles.pickerOptions} accessibilityRole="radiogroup" accessibilityLabel={ts("language")}>
-                      {(["vi", "en"] as AppLanguage[]).map((lang) => {
-                        const active = language === lang;
-                        const label = lang === "vi" ? ts("languageVi") : ts("languageEn");
-                        return (
-                          <Pressable
-                            key={lang}
-                            style={({ pressed }) => [styles.pickerRow, pressed && { opacity: 0.65 }]}
-                            accessibilityRole="radio"
-                            accessibilityLabel={label}
-                            accessibilityState={{ checked: active }}
-                            onPress={() => {
-                              setLanguage(lang);
-                              setShowLangPicker(false);
-                            }}
-                          >
-                            <Text style={[styles.pickerRowText, active && styles.pickerRowTextActive]}>{label}</Text>
-                            {active && <Ionicons name="checkmark" size={20} color={styles.pickerRowTextActive.color} />}
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  )}
 
-                  <QrCameraPermissionRow />
+                </View>
+              )}
+            </Animated.View>
+
+            <Animated.View entering={FadeIn.delay(360).duration(350)}>
+              {renderSectionHeader(
+                "permissions",
+                ts("appPermissions"),
+                <Ionicons name="shield-checkmark-outline" size={18} color="#10b981" />,
+              )}
+              {expandedSections.permissions && (
+                <View style={styles.cardsStack}>
+                  <ProfileDevicePermissions />
+                    {/* Quyền dùng Asinu AI */}
+                    <View style={styles.actionCard}>
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="sparkles-outline"
+                          size={22}
+                          color="#10b981"
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>
+                        {ts("aiDataConsentSettings")}
+                      </Text>
+                      <Switch
+                        accessibilityLabel={ts("aiDataConsentSettings")}
+                        accessibilityState={{ checked: aiConsentEnabled }}
+                        value={aiConsentEnabled}
+                        onValueChange={handleToggleAiConsent}
+                        trackColor={{ false: "#d1d5db", true: colors.primary }}
+                        thumbColor={colors.surface}
+                        ios_backgroundColor="#d1d5db"
+                      />
+                    </View>
+
+                    {/* Trung tâm quyền dữ liệu chuyên gia */}
+                    {isDoctorFeaturesEnabled && <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() => router.push("/privacy-center" as any)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons
+                          name="finger-print-outline"
+                          size={22}
+                          color="#06b6d4"
+                        />
+                      </View>
+                      <Text style={styles.rowLabel}>
+                        {ts("privacyCenterTitle")}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    </TouchableOpacity>}
 
                 </View>
               )}
@@ -1523,27 +1523,6 @@ export default function ProfileScreen() {
                       <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
 
-                    {/* Quyền dùng Asinu AI */}
-                    <View style={styles.actionCard}>
-                      <View style={styles.rowIconWrap}>
-                        <Ionicons
-                          name="sparkles-outline"
-                          size={22}
-                          color="#10b981"
-                        />
-                      </View>
-                      <Text style={styles.rowLabel}>
-                        {ts("aiDataConsentSettings")}
-                      </Text>
-                      <Switch
-                        value={aiConsentEnabled}
-                        onValueChange={handleToggleAiConsent}
-                        trackColor={{ false: "#d1d5db", true: colors.primary }}
-                        thumbColor={colors.surface}
-                        ios_backgroundColor="#d1d5db"
-                      />
-                    </View>
-
                     {/* Chính sách bảo mật */}
                     <TouchableOpacity
                       style={styles.actionCard}
@@ -1565,25 +1544,6 @@ export default function ProfileScreen() {
                       <Text style={styles.rowLabel}>{ts("privacyPolicy")}</Text>
                       <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
-
-                    {/* Trung tâm quyền dữ liệu chuyên gia */}
-                    {isDoctorFeaturesEnabled && <TouchableOpacity
-                      style={styles.actionCard}
-                      onPress={() => router.push("/privacy-center" as any)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.rowIconWrap}>
-                        <Ionicons
-                          name="finger-print-outline"
-                          size={22}
-                          color="#06b6d4"
-                        />
-                      </View>
-                      <Text style={styles.rowLabel}>
-                        {ts("privacyCenterTitle")}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                    </TouchableOpacity>}
 
                     {/* Nguồn tham khảo sức khỏe */}
                     <TouchableOpacity
@@ -2299,6 +2259,26 @@ export default function ProfileScreen() {
           {isEditModalVisible && <ModalToastHost />}
         </KeyboardAvoidingView>
       </Modal>
+
+      <FontSizePickerModal
+        visible={showFontPicker}
+        value={fontScale}
+        onSelect={(size) => {
+          setFontScale(size);
+          setShowFontPicker(false);
+        }}
+        onClose={() => setShowFontPicker(false)}
+      />
+
+      <LanguagePickerModal
+        visible={showLangPicker}
+        value={language}
+        onSelect={(lang) => {
+          setLanguage(lang);
+          setShowLangPicker(false);
+        }}
+        onClose={() => setShowLangPicker(false)}
+      />
 
       {showDeleteModal && (
         <DeleteAccountModal
@@ -3287,30 +3267,6 @@ function createStyles(
       fontSize: 13,
       fontWeight: "600",
       color: "#FFFFFF",
-    },
-
-    // Inline choices (Font size, Language)
-    pickerOptions: {
-      marginLeft: 56,
-      marginRight: 16,
-    },
-    pickerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      minHeight: 48,
-      paddingVertical: 10,
-      backgroundColor: "transparent",
-      gap: 8,
-    },
-    pickerRowText: {
-      fontSize: 15,
-      fontWeight: "500",
-      color: textPrimaryCol,
-      flex: 1,
-    },
-    pickerRowTextActive: {
-      color: isDark ? "#6ee7b7" : colors.primaryDark,
-      fontWeight: "600",
     },
 
     // Logout Modal

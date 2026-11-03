@@ -13,7 +13,7 @@
   "fontNormal": "Bình thường",
   "fontLarge": "Lớn",
   "fontXLarge": "Rất lớn",
-  "fontPreview": "Đây là ví dụ về kích thước chữ hiện tại",
+  "fontPreview": "Chăm sóc sức khỏe cùng Asinu.",
   "darkMode": "Chế độ tối",
   "darkModeDesc": "Giao diện tối giúp dễ nhìn ban đêm",
   "notifications": "Thông báo",
@@ -169,5 +169,10 @@
   "deleteWarningTitle2": "Xóa dữ liệu trên Asinu",
   "deleteWarningTitle3": "Không thể hoàn tác",
   "deleteWarningTitle4": "Dữ liệu tư vấn đã chia sẻ",
-  "deleteProcessing": "Đang xóa tài khoản…"
+  "deleteProcessing": "Đang xóa tài khoản…",
+  "appPermissions": "Quyền ứng dụng",
+  "devicePermissions": "Thông báo, micro và ảnh",
+  "devicePermissionsError": "Chưa mở được Cài đặt. Vui lòng thử lại.",
+  "languageViPreview": "Chăm sóc sức khỏe mỗi ngày",
+  "languageEnPreview": "Take care of your health every day"
 }

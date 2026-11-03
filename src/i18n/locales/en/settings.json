@@ -13,7 +13,7 @@
   "fontNormal": "Normal",
   "fontLarge": "Large",
   "fontXLarge": "X-Large",
-  "fontPreview": "This is an example of the current font size",
+  "fontPreview": "Take care of your health with Asinu.",
   "darkMode": "Dark Mode",
   "darkModeDesc": "Dark theme for comfortable viewing at night",
   "notifications": "Notifications",
@@ -169,5 +169,10 @@
   "deleteWarningTitle2": "Delete data in Asinu",
   "deleteWarningTitle3": "This cannot be undone",
   "deleteWarningTitle4": "Previously shared consultation data",
-  "deleteProcessing": "Deleting account…"
+  "deleteProcessing": "Deleting account…",
+  "appPermissions": "App permissions",
+  "devicePermissions": "Notifications, microphone & photos",
+  "devicePermissionsError": "Could not open Settings. Please try again.",
+  "languageViPreview": "Chăm sóc sức khỏe mỗi ngày",
+  "languageEnPreview": "Take care of your health every day"
 }
