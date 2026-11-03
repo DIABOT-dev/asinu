@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
+import { useScaledFontSize } from "../../hooks/useScaledTypography";
 import { getCoinJourney } from "./coin-progress";
 import type { CoinToday, CoinTask } from "./v21.api";
 
@@ -21,18 +22,18 @@ const RING_LENGTH = 2 * Math.PI * 51;
 
 export function HealthCoinJourney({
   data,
-  expanded,
-  onToggleDetails,
+  onOpenDetails,
 }: {
   data: CoinToday;
-  expanded: boolean;
-  onToggleDetails: () => void;
+  onOpenDetails: () => void;
 }) {
   const { t } = useTranslation("v21");
   const { colors, isDark } = useThemeColors();
   const { width, fontScale } = useWindowDimensions();
-  const stacked = width < 340 || fontScale > 1.35;
-  const ringSize = Math.min(200, Math.round(120 * Math.max(1, fontScale || 1)));
+  const textScale = useScaledFontSize(100) / 100;
+  const layoutScale = Math.max(1, textScale, fontScale || 1);
+  const stacked = width < 340 || layoutScale > 1.2;
+  const ringSize = Math.min(200, Math.round(120 * layoutScale));
   const model = getCoinJourney(data);
   const ink = { color: colors.textPrimary };
   const muted = { color: colors.textSecondary };
@@ -95,11 +96,6 @@ export function HealthCoinJourney({
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
-            <MaterialCommunityIcons
-              name="sprout-outline"
-              size={23}
-              color={accent}
-            />
             <Text style={[styles.percent, ink]}>{model.percent}%</Text>
             <Text style={[styles.completeLabel, muted]}>
               {t("journeyComplete")}
@@ -117,9 +113,7 @@ export function HealthCoinJourney({
           </Text>
           <Text style={[styles.heroDescription, muted]}>
             {t(
-              model.percent === 100
-                ? "journeyFinished"
-                : "journeyEncouragement",
+              model.percent === 100 ? "journeyFinished" : "journeyEncouragement"
             )}
           </Text>
           <MaterialCommunityIcons
@@ -213,29 +207,10 @@ export function HealthCoinJourney({
         ))}
       </View>
 
-      {model.tasks.length > 0 && (
-        <View style={[styles.reward, line]}>
-          <MaterialCommunityIcons
-            name="gift-outline"
-            size={44}
-            color={accent}
-            accessible={false}
-          />
-          <View style={[styles.rewardCopy, { borderColor: colors.border }]}>
-            <Text style={[styles.rewardTitle, ink]}>
-              {t(model.percent === 100 ? "journeyGoalComplete" : "journeyGoal")}
-            </Text>
-            <Text style={[styles.heroDescription, muted]}>
-              {t("journeyRewardDescription")}
-            </Text>
-          </View>
-        </View>
-      )}
-
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        onPress={onToggleDetails}
+        accessibilityLabel={t("rules")}
+        onPress={onOpenDetails}
         style={({ pressed }) => [styles.rules, pressed && { opacity: 0.65 }]}
       >
         <MaterialCommunityIcons
@@ -244,11 +219,6 @@ export function HealthCoinJourney({
           color={accent}
         />
         <Text style={[styles.rulesTitle, ink]}>{t("rules")}</Text>
-        <MaterialCommunityIcons
-          name={expanded ? "chevron-up" : "chevron-down"}
-          size={20}
-          color={accent}
-        />
       </Pressable>
     </View>
   );
@@ -273,11 +243,20 @@ const styles = StyleSheet.create({
   },
   ringCopy: {
     position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: "center",
     justifyContent: "center",
   },
-  percent: { fontSize: 28, fontWeight: "800" },
-  completeLabel: { fontSize: 13 },
+  percent: {
+    fontSize: 28,
+    lineHeight: 36,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  completeLabel: { fontSize: 13, lineHeight: 18, textAlign: "center" },
   heroDivider: { width: StyleSheet.hairlineWidth, height: 90 },
   heroCopy: { flex: 1, minWidth: 0, gap: 6 },
   heroCopyStack: {
@@ -327,22 +306,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  reward: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 18,
-    paddingVertical: 20,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rewardCopy: {
-    flex: 1,
-    minWidth: 0,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    paddingLeft: 18,
-    gap: 3,
-  },
-  rewardTitle: { fontSize: 18, fontWeight: "700" },
   rules: {
     minHeight: 52,
     flexDirection: "row",

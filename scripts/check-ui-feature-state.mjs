@@ -1033,6 +1033,9 @@ for (const language of ["vi", "en"]) {
           "../../hooks/useThemeColors": {
             useThemeColors: () => ({ isDark: false, colors: {} }),
           },
+          "../../hooks/useScaledTypography": {
+            useScaledFontSize: (size) => size,
+          },
           "./coin-progress": { getCoinJourney },
         },
       );
@@ -1040,8 +1043,7 @@ for (const language of ["vi", "en"]) {
       const nodes = journeyNodes(
         HealthCoinJourney({
           data: journeyData(),
-          expanded: false,
-          onToggleDetails: () => opened++,
+          onOpenDetails: () => opened++,
         }),
       );
       const progress = nodes.filter(
@@ -1054,7 +1056,7 @@ for (const language of ["vi", "en"]) {
       const details = nodes.find(
         (node) => node.props.accessibilityRole === "button",
       );
-      assert.equal(details.props.accessibilityState.expanded, false);
+      assert.equal(details.props.accessibilityLabel, t("rules"));
       details.props.onPress();
       assert.equal(opened, 1);
     });

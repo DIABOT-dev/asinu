@@ -22,6 +22,7 @@ import {
 } from "../../src/features/v21/V21Layout";
 import { useToastStore } from "../../src/stores/toast.store";
 import { HealthCoinJourney } from "../../src/features/v21/HealthCoinJourney";
+import { CoinDetailsModal } from "../../src/features/v21/CoinDetailsModal";
 
 export default function CoinsScreen() {
   const { t, i18n } = useTranslation("v21"),
@@ -35,7 +36,7 @@ export default function CoinsScreen() {
     [selected, setSelected] = useState<Reward | null>(null),
     [recipient, setRecipient] = useState<number | null>(null),
     [template, setTemplate] = useState<string | null>(null);
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -56,7 +57,7 @@ export default function CoinsScreen() {
   useFocusEffect(
     useCallback(() => {
       void refresh();
-    }, [refresh]),
+    }, [refresh])
   );
   const redeem = async () => {
     if (!selected || busy) return;
@@ -103,16 +104,19 @@ export default function CoinsScreen() {
       {data ? (
         <HealthCoinJourney
           data={data}
-          expanded={detailsExpanded}
-          onToggleDetails={() => setDetailsExpanded((value) => !value)}
+          onOpenDetails={() => setDetailsOpen(true)}
         />
       ) : (
         <Note>{t("loading")}</Note>
       )}
-      {detailsExpanded && data && (
-        <View style={{ gap: 18 }}>
-          <Heading>{t("balance", { count: data.balance })}</Heading>
+      {data && (
+        <CoinDetailsModal
+          visible={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
+        >
           <Note>{t("coinRules")}</Note>
+          <Note>{t("coinExpiry")}</Note>
+          <Note>{t("coinLimits")}</Note>
           {data.tasks.map((task) => (
             <View key={task.task_code} style={{ gap: 4 }}>
               <Heading>{t(task.task_code)}</Heading>
@@ -146,12 +150,13 @@ export default function CoinsScreen() {
             <Action
               secondary
               label={t("drawRules")}
-              onPress={() =>
+              onPress={() => {
+                setDetailsOpen(false);
                 router.push({
                   pathname: "/checkin-rewards/rules",
                   params: { period: catalog.drawPeriodId },
-                } as any)
-              }
+                } as any);
+              }}
             />
           )}
           {selected && (
@@ -204,7 +209,7 @@ export default function CoinsScreen() {
                     [
                       { text: t("cancel"), style: "cancel" },
                       { text: t("redeem"), onPress: () => void redeem() },
-                    ],
+                    ]
                   )
                 }
               />
@@ -216,11 +221,6 @@ export default function CoinsScreen() {
               />
             </View>
           )}
-          <Action
-            secondary
-            label={t("rules")}
-            onPress={() => router.push("/coins/rules" as any)}
-          />
           <Heading>{t("history")}</Heading>
           {!history.length && <Note>{t("emptyHistory")}</Note>}
           {history.map((x) => (
@@ -251,7 +251,7 @@ export default function CoinsScreen() {
               }}
             />
           )}
-        </View>
+        </CoinDetailsModal>
       )}
     </V21Layout>
   );
