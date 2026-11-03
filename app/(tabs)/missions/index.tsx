@@ -205,7 +205,6 @@ export default function MissionsScreen() {
               />
               <View style={styles.headerTitleWrap}>
                 <Text style={styles.headerTitle}>{t('missionList')}</Text>
-                <Text style={styles.headerSubtitle}>{t('missionListSubtitle')}</Text>
               </View>
             </View>
           </Animated.View>
@@ -218,7 +217,6 @@ export default function MissionsScreen() {
 
               {/* Missions sit directly on the screen background. */}
               {orderedMissions.map((item, index) => {
-                const progressRatio = item.goal > 0 ? item.progress / item.goal : 0;
                 const isCompleted = item.status === 'completed' || item.progress >= item.goal;
                 const isInProgress = item.progress > 0 && !isCompleted;
 
@@ -278,41 +276,16 @@ export default function MissionsScreen() {
                           </View>
                           <View style={styles.cardTitleWrap}>
                             <Text style={styles.cardTitle}>{item.title}</Text>
-                            <Text style={styles.cardSubtitle}>{item.description}</Text>
                           </View>
                         </View>
 
-                        {/* Progress Bar Row */}
-                        <View style={styles.progressRow}>
-                          <View style={styles.progressTrack}>
-                            <View
-                              style={[
-                                styles.progressFill,
-                                {
-                                  width: `${Math.min(progressRatio * 100, 100)}%`,
-                                  backgroundColor: isCompleted
-                                    ? '#00897b'
-                                    : item.config.badgeColor,
-                                },
-                              ]}
-                            />
-                          </View>
+                        {/* Progress and status stay visible without a panel or underline. */}
+                        <View style={styles.statusRow}>
                           <Text style={styles.progressText}>
                             {item.progress}/{item.goal}
                           </Text>
-                        </View>
-
-                        {/* Status Badge */}
-                        <View style={styles.statusRow}>
                           <View
-                            style={[
-                              styles.statusPill,
-                              isCompleted
-                                ? styles.statusPillCompleted
-                                : isInProgress
-                                ? styles.statusPillActive
-                                : styles.statusPillNotStarted,
-                            ]}
+                            style={styles.statusPill}
                           >
                             <Ionicons
                               name={
@@ -441,13 +414,6 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       color: '#0f3e36',
       letterSpacing: -0.3,
     },
-    headerSubtitle: {
-      fontSize: 13,
-      color: '#476861',
-      lineHeight: 18,
-      marginTop: 4,
-      fontWeight: '500',
-    },
 
     // Mission rows
     card: {
@@ -491,30 +457,6 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       fontWeight: '700',
       color: '#0f172a',
     },
-    cardSubtitle: {
-      fontSize: 12.5,
-      color: '#64748b',
-      lineHeight: 16,
-    },
-
-    // Progress Bar
-    progressRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      marginTop: 14,
-    },
-    progressTrack: {
-      flex: 1,
-      height: 6.5,
-      backgroundColor: '#e2e8f0',
-      borderRadius: 999,
-      overflow: 'hidden',
-    },
-    progressFill: {
-      height: '100%',
-      borderRadius: 999,
-    },
     progressText: {
       fontSize: 13,
       fontWeight: '700',
@@ -527,30 +469,13 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
     statusRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 12,
+      justifyContent: 'space-between',
+      marginTop: 10,
     },
     statusPill: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      paddingHorizontal: 10,
-      paddingVertical: 4.5,
-      borderRadius: 999,
-    },
-    statusPillNotStarted: {
-      backgroundColor: '#f8fafc',
-      borderWidth: 1,
-      borderColor: '#e2e8f0',
-    },
-    statusPillActive: {
-      backgroundColor: '#fefce8',
-      borderWidth: 1,
-      borderColor: '#fef08a',
-    },
-    statusPillCompleted: {
-      backgroundColor: '#f0fdf4',
-      borderWidth: 1,
-      borderColor: '#bbf7d0',
     },
     statusText: {
       fontSize: 12,

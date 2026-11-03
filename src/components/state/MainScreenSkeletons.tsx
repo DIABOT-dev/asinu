@@ -134,14 +134,12 @@ export function MissionsTabSkeleton() {
             <SkeletonBlock width={40} height={40} borderRadius={20} />
             <View style={styles.missionSkeletonText}>
               <SkeletonBlock width="66%" height={18} />
-              <SkeletonBlock width="88%" height={12} />
             </View>
           </View>
-          <View style={styles.progressRow}>
-            <SkeletonBlock width="78%" height={10} borderRadius={999} />
-            <SkeletonBlock width={42} height={14} />
+          <View style={styles.missionSkeletonStatus}>
+            <SkeletonBlock width={36} height={14} />
+            <SkeletonBlock width={96} height={14} />
           </View>
-          <SkeletonBlock width={96} height={26} borderRadius={13} />
         </View>
       ))}
     </>
@@ -274,6 +272,11 @@ const styles = StyleSheet.create({
   missionSkeletonText: {
     flex: 1,
     gap: spacing.xs,
+  },
+  missionSkeletonStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   treeHeader: {
     flexDirection: 'row',
