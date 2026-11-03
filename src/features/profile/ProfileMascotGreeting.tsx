@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { ScaledText as Text } from "../../components/ScaledText";
-import { TypewriterText } from "../../components/TypewriterText";
+import { MascotSpeechBubble } from "../../components/MascotSpeechBubble";
 import { useThemeColors } from "../../hooks/useThemeColors";
 
 export function ProfileMascotGreeting() {
@@ -40,17 +40,7 @@ export function ProfileMascotGreeting() {
   }));
   return (
     <View style={styles.brand} pointerEvents="none">
-      <View
-        style={[
-          styles.greetingBubble,
-          { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-        ]}
-      >
-        <TypewriterText
-          text={t("mascotGreeting")}
-          style={[styles.greeting, { color: colors.primaryText }]}
-        />
-      </View>
+      <MascotSpeechBubble text={t("mascotGreeting")} />
       <Animated.View
         style={animation}
         accessible={false}
@@ -72,14 +62,5 @@ export function ProfileMascotGreeting() {
 const styles = StyleSheet.create({
   brand: { alignSelf: "center", alignItems: "center", gap: 8, paddingTop: 6 },
   mascot: { width: 96, height: 96 },
-  greetingBubble: {
-    minWidth: 136,
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderWidth: 1.5,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  greeting: { fontSize: 18, fontWeight: "700", textAlign: "center" },
   wordmark: { fontSize: 18, fontWeight: "800", letterSpacing: 2 },
 });

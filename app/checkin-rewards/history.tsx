@@ -98,32 +98,25 @@ function AccountHistory({ account }: { account: string }) {
     <Screen
       style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom }}
     >
-      {/* Header Container */}
       <View style={styles.headerContainer}>
-        {/* Floating 3D Treasure Chest Hero Art */}
-        <Image
-          source={historyChestHeroArt}
-          style={styles.headerHeroArt}
-          contentFit="contain"
-          accessible={false}
-        />
-
-        {/* Back button */}
         <ScreenBackButton
           onPress={() =>
             router.canGoBack() ? router.back() : router.replace('/home')
           }
         />
 
-        {/* Title */}
-        <View style={styles.headerTextWrapper}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.headerTitle, { color: colors.textPrimary }]}
-          >
-            {t('checkinGift.collection')}
-          </Text>
-        </View>
+        <Text
+          accessibilityRole="header"
+          style={[styles.headerTitle, { color: colors.textPrimary }]}
+        >
+          {t('checkinGift.collection')}
+        </Text>
+        <Image
+          source={historyChestHeroArt}
+          style={styles.headerHeroArt}
+          contentFit="contain"
+          accessible={false}
+        />
       </View>
 
       <FlatList
@@ -302,29 +295,22 @@ function AccountHistory({ account }: { account: string }) {
 
 const styles = StyleSheet.create({
   headerContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    position: 'relative',
-    overflow: 'visible',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   headerHeroArt: {
-    position: 'absolute',
-    top: -12,
-    right: 0,
-    width: 155,
-    height: 125,
-    zIndex: 0,
-  },
-  headerTextWrapper: {
-    marginTop: 16,
-    zIndex: 1,
-    maxWidth: '68%',
+    width: 64,
+    height: 64,
+    flexShrink: 0,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.4,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 22,
+    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: 20,

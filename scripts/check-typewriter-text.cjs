@@ -227,8 +227,9 @@ for (const language of ["vi", "en"]) {
       assert.equal(h.text(), text);
     });
   }
-  test(`${language}: both mascot labels use the same typing component`, () => {
+  test(`${language}: both mascot labels share the same bubble format, theme and typing component`, () => {
     function TypewriterText() {}
+    let isDark = false;
     const native = {
       Image: "Image",
       StyleSheet: { create: (styles) => styles },
@@ -237,21 +238,23 @@ for (const language of ["vi", "en"]) {
     const theme = {
       useThemeColors: () => ({
         colors: { primaryText: "#007f73" },
-        isDark: false,
+        isDark,
       }),
     };
     const i18n = {
       useTranslation: (namespace) => ({ t: (key) => catalogs[namespace][key] }),
     };
+    const { MascotSpeechBubble } = evaluate("src/components/MascotSpeechBubble.tsx", {
+      react: {}, "react-native": native,
+      "react-native-svg": { __esModule: true, default: "Svg", Path: "Path" },
+      "../hooks/useThemeColors": theme, "./TypewriterText": { TypewriterText },
+    });
     const speech = evaluate(
       "src/features/care-circle/components/CareCircleScanSpeech.tsx",
       {
         react: {},
-        "react-native": native,
         "react-i18next": i18n,
-        "react-native-svg": { __esModule: true, default: "Svg", Path: "Path" },
-        "../../../components/TypewriterText": { TypewriterText },
-        "../../../hooks/useThemeColors": theme,
+        "../../../components/MascotSpeechBubble": { MascotSpeechBubble },
       }
     ).CareCircleScanSpeech();
     const profile = evaluate("src/features/profile/ProfileMascotGreeting.tsx", {
@@ -268,19 +271,28 @@ for (const language of ["vi", "en"]) {
         cancelAnimation() {},
       },
       "../../components/ScaledText": { ScaledText: "Text" },
-      "../../components/TypewriterText": { TypewriterText },
+      "../../components/MascotSpeechBubble": { MascotSpeechBubble },
       "../../hooks/useThemeColors": theme,
       "../../../assets/images/profile/asinu-profile-mascot-v1.webp":
         "MascotArt",
     }).ProfileMascotGreeting();
-    assert.equal(
-      nodes(speech).find((node) => node.type === TypewriterText).props.text,
-      catalogs.careCircle.qrConnectFamilyNow
-    );
-    assert.equal(
-      nodes(profile).find((node) => node.type === TypewriterText).props.text,
-      catalogs.profile.mascotGreeting
-    );
+    const speechProps = nodes(speech).find((node) => node.type === MascotSpeechBubble).props;
+    const profileProps = nodes(profile).find((node) => node.type === MascotSpeechBubble).props;
+    assert.equal(speechProps.text, catalogs.careCircle.qrConnectFamilyNow);
+    assert.equal(profileProps.text, catalogs.profile.mascotGreeting);
+    for (isDark of [false, true]) {
+      const speechTree = MascotSpeechBubble(speechProps);
+      const profileTree = MascotSpeechBubble(profileProps);
+      const speechText = nodes(speechTree).find(node => node.type === TypewriterText);
+      const profileText = nodes(profileTree).find(node => node.type === TypewriterText);
+      assert.deepEqual(profileText.props.style, speechText.props.style, 'Text size, weight, alignment and color match');
+      assert.equal(profileText.props.style.at(-1).color, isDark ? '#ecfdf5' : '#064e3b');
+      assert.deepEqual(profileTree.props.children[0].props.style, speechTree.props.children[0].props.style, 'Bubble shape and background match');
+      const tail = nodes(profileTree).find(node => node.type === 'Path');
+      assert.equal(tail.props.fill, isDark ? '#134e4a' : '#d1fae5');
+      assert.equal(profileTree.props.accessibilityElementsHidden, false, 'The greeting remains readable to assistive technology');
+      assert.equal(speechTree.props.accessibilityElementsHidden, true, 'Decorative connection guidance stays decorative');
+    }
   });
 }
 test("blurring and unmounting cancel timers, including already queued callbacks", () => {
