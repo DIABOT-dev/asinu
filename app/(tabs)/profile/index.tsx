@@ -52,6 +52,7 @@ import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
 import { FontSizePickerModal } from "../../../src/features/profile/FontSizePickerModal";
 import { LanguagePickerModal } from "../../../src/features/profile/LanguagePickerModal";
 import { ProfileDevicePermissions } from "../../../src/features/profile/ProfileDevicePermissions";
+import { ReminderSettingsEntry } from "../../../src/features/profile/ReminderSettingsEntry";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const CHECKIN_ACCESS_ART = require("../../../assets/images/subscription/checkin_access_shield.png");
@@ -1099,18 +1100,6 @@ export default function ProfileScreen() {
               {expandedSections.actions && (
                 <View style={styles.cardsStack}>
                   <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/reminder-config")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="alarm-outline" size={22} color="#f97316" />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("reminderSchedule")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
                     style={[
                       styles.actionCard,
                       !hasCheckinCallAccess && styles.actionCardLocked,
@@ -1194,24 +1183,6 @@ export default function ProfileScreen() {
                     <Text style={styles.rowLabel}>{t("logEntry")}</Text>
                     <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
-
-                  <View style={styles.actionCard}>
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons
-                        name="bookmark-outline"
-                        size={22}
-                        color="#8b5cf6"
-                      />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
-                    <Switch
-                      value={healthFeedEnabled}
-                      onValueChange={handleToggleHealthFeed}
-                      trackColor={{ false: "#d1d5db", true: colors.primary }}
-                      thumbColor={colors.surface}
-                      ios_backgroundColor="#d1d5db"
-                    />
-                  </View>
 
                   <TouchableOpacity
                     style={styles.actionCard}
@@ -1397,6 +1368,27 @@ export default function ProfileScreen() {
               {expandedSections.permissions && (
                 <View style={styles.cardsStack}>
                   <ProfileDevicePermissions />
+                  <ReminderSettingsEntry />
+                  <View style={styles.actionCard}>
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="bookmark-outline"
+                        size={22}
+                        color="#8b5cf6"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
+                    <Switch
+                      accessibilityLabel={t("healthFeed")}
+                      accessibilityState={{ checked: healthFeedEnabled }}
+                      value={healthFeedEnabled}
+                      onValueChange={handleToggleHealthFeed}
+                      trackColor={{ false: "#d1d5db", true: colors.primary }}
+                      thumbColor={colors.surface}
+                      ios_backgroundColor="#d1d5db"
+                    />
+                  </View>
+
                     {/* Quyền dùng Asinu AI */}
                     <View style={styles.actionCard}>
                       <View style={styles.rowIconWrap}>

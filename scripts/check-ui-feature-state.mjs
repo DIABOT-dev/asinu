@@ -11,12 +11,17 @@ function evaluate(file, adapters) {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
       target: ts.ScriptTarget.ES2022,
+      jsx: ts.JsxEmit.ReactJSX,
     },
   }).outputText;
   new Function("module", "exports", "require", code)(
     module,
     module.exports,
     (id) => {
+      if (id === 'react/jsx-runtime') {
+        const jsx = (type, props, key) => ({ type, props: { ...props, key } });
+        return { jsx, jsxs: jsx };
+      }
       assert.ok(id in adapters, `Missing hook adapter ${id}`);
       return adapters[id];
     }
@@ -415,5 +420,88 @@ await test("leaving Overview ignores a pending health result", async () => {
   await flush();
   assert.equal(h.read().score, null);
 });
+
+function reminderHarness() {
+  const r = runtime();
+  const listeners = new Set();
+  const auth = { token: 'session-a' };
+  const server = { allowed: false, pending: null, error: false };
+  const calls = { reads: 0, routes: [] };
+  const { ReminderSettingsEntry } = evaluate('src/features/profile/ReminderSettingsEntry.tsx', {
+    react: r.hooks, 'expo-router': r.router,
+    'react-native': {
+      ActivityIndicator: 'Spinner', Pressable: 'Button', View: 'View',
+      StyleSheet: { create: value => value },
+      AppState: { addEventListener: (_, listener) => { listeners.add(listener); return { remove: () => listeners.delete(listener) }; } },
+    },
+    '@expo/vector-icons': { Ionicons: 'Icon' },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: path => calls.routes.push(path) }) },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../auth/auth.store': { useAuthStore: { getState: () => auth } },
+    '../../lib/notifications': { checkNotificationPermission: async () => {
+      calls.reads++;
+      if (server.error) throw new Error('Permission lookup failed');
+      return server.pending ?? server.allowed;
+    } },
+  });
+  return {
+    ...r, auth, server, calls,
+    read: () => r.render(ReminderSettingsEntry),
+    settle: () => r.settle(ReminderSettingsEntry),
+    foreground: () => listeners.forEach(listener => listener('active')),
+  };
+}
+await test('reminder settings are disabled without notification permission, including direct handler calls', async () => {
+  const h = reminderHarness();
+  await h.settle();
+  assert.equal(h.read().props.disabled, true);
+  assert.equal(h.read().props.accessibilityState.disabled, true);
+  h.read().props.onPress(); await flush();
+  assert.deepEqual(h.calls.routes, []); h.blur();
+});
+await test('granting and revoking notifications in device Settings refreshes reminder access on return', async () => {
+  const h = reminderHarness(); await h.settle();
+  h.server.allowed = true; h.foreground(); await h.settle();
+  assert.equal(h.read().props.disabled, false);
+  h.server.allowed = false; h.foreground(); await h.settle();
+  assert.equal(h.read().props.disabled, true); h.blur();
+});
+await test('a failed permission lookup never enables reminder settings', async () => {
+  const h = reminderHarness(); h.server.error = true; await h.settle();
+  assert.equal(h.read().props.disabled, true);
+  h.read().props.onPress(); await flush(); assert.deepEqual(h.calls.routes, []); h.blur();
+});
+await test('permission revoked after rendering is checked before opening reminder settings', async () => {
+  const h = reminderHarness(); h.server.allowed = true; await h.settle();
+  assert.equal(h.read().props.disabled, false);
+  h.server.allowed = false; h.read().props.onPress(); await h.settle();
+  assert.deepEqual(h.calls.routes, []); assert.equal(h.read().props.disabled, true); h.blur();
+});
+await test('duplicate taps recheck permission once and open one reminder screen', async () => {
+  const h = reminderHarness(); h.server.allowed = true; await h.settle(); let finish;
+  h.server.pending = new Promise(resolve => { finish = resolve; });
+  const button = h.read(); button.props.onPress(); button.props.onPress();
+  assert.equal(h.read().props.disabled, true); assert.equal(h.calls.reads, 2);
+  finish(true); await h.settle();
+  assert.deepEqual(h.calls.routes, ['/reminder-config']); h.blur();
+});
+await test('a late permission read cannot replace a newer revoked permission', async () => {
+  const h = reminderHarness(); let finish;
+  h.server.pending = new Promise(resolve => { finish = resolve; }); await h.settle();
+  assert.equal(h.read().props.accessibilityState.busy, true);
+  h.server.pending = null; h.server.allowed = false; h.foreground(); await h.settle();
+  finish(true); await flush();
+  assert.equal(h.read().props.disabled, true); h.blur();
+});
+for (const leave of ['blur', 'account']) {
+  await test(`${leave}: a pending permission recheck cannot navigate after the session changes`, async () => {
+    const h = reminderHarness(); h.server.allowed = true; await h.settle(); let finish;
+    h.server.pending = new Promise(resolve => { finish = resolve; }); h.read().props.onPress();
+    if (leave === 'blur') h.blur(); else h.auth.token = 'session-b';
+    finish(true); await flush(); assert.deepEqual(h.calls.routes, []); h.blur();
+  });
+}
 
 console.log(`UI feature state: ${checks} runtime checks passed.`);

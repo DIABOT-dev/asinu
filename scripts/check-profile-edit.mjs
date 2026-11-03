@@ -138,6 +138,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/profile/FontSizePickerModal': { FontSizePickerModal: 'FontSizePickerModal' },
     '../../../src/features/profile/LanguagePickerModal': { LanguagePickerModal: 'LanguagePickerModal' },
     '../../../src/features/profile/ProfileDevicePermissions': { ProfileDevicePermissions: 'DevicePermissions' },
+    '../../../src/features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: 'ReminderSettingsEntry' },
     '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => ({ enabled: true, balance: 12, earnedToday: 10 }) },
     '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
     '../../../src/features/care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
@@ -267,9 +268,9 @@ for (const language of ['vi', 'en']) {
       assert.ok(!nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')), 'Personal details stay hidden until expanded');
       assert.ok(!hasRow(tree, 'reminderSchedule'));
       assert.ok(!hasRow(tree, 'logEntry'));
-      assert.ok(hasRow(h.toggleSection(h.t('sectionActions')), 'reminderSchedule'));
+      assert.ok(!hasRow(h.toggleSection(h.t('sectionActions')), 'reminderSchedule'));
       const bothOpen = h.toggleSection(h.t('sectionHealth'));
-      assert.ok(hasRow(bothOpen, 'reminderSchedule'));
+      assert.ok(!hasRow(bothOpen, 'reminderSchedule'));
       assert.ok(hasRow(bothOpen, 'logEntry'));
       const giftEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('dailyGifts'));
       assert.equal(giftEntries.length, 1, 'Daily gifts and the collection share one profile entry');
@@ -286,11 +287,17 @@ for (const language of ['vi', 'en']) {
       assert.equal(deviceControls(h.render()).length, 0);
       assert.equal(deviceControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
       assert.equal(deviceControls(h.toggleSection(h.t('sectionSystem'))).length, 0);
+      const health = h.toggleSection(h.t('sectionHealth'));
+      assert.ok(!nodes(health).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
       const expanded = h.toggleSection(h.ts('appPermissions'));
       assert.equal(deviceControls(expanded).length, 1);
+      assert.equal(nodes(expanded).filter(node => node.type === 'ReminderSettingsEntry').length, 1);
+      assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')).length, 1);
       assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')).length, 1);
       const closed = h.toggleSection(h.ts('appPermissions'));
       assert.equal(deviceControls(closed).length, 0);
+      assert.ok(!nodes(closed).some(node => node.type === 'ReminderSettingsEntry'));
+      assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
       assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')));
     });
     await test(`${language}/${isDark ? 'dark' : 'light'}: font and language modals show previews, retain selections and dismiss without changes`, () => {
@@ -359,7 +366,7 @@ for (const language of ['vi', 'en']) {
     assert.equal(editors.length, 1, 'Exactly one profile edit entry must remain');
     assert.equal(editors[0].props.accessibilityLabel, h.t('editProfile'));
     assert.equal(text(editors[0]).trim(), h.t('edit'));
-    assert.ok(controls.some(node => text(node).trim() === h.t('reminderSchedule')), 'Other actions must remain');
+    assert.ok(controls.some(node => node.props.accessibilityLabel?.startsWith(h.t('checkinCall'))), 'Other actions must remain');
     editors[0].props.onPress(); assert.ok(h.modal());
   });
   await test(`${language}: opening an unchanged profile leaves Save muted, accessible, and unable to submit`, async () => {
