@@ -523,6 +523,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
     const header = tree => nodes(tree).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('faqTitle'));
     const questions = tree => nodes(tree).filter(node => node.type?.type?.name === 'FAQItem');
     let tree = render(); assert.equal(header(tree).props.accessibilityState.expanded, false); assert.equal(questions(tree).length, 0);
+    assert.ok(!nodes(header(tree)).some(node => node.type === 'Text' && node.props.children === t('faqTapHint')), 'The compact FAQ does not repeat a tap instruction');
     const headerStyle = style(header(tree).props.style({ pressed: false }));
     assert.ok(headerStyle.minHeight >= 56); assert.equal(headerStyle.height, undefined);
     for (const text of nodes(header(tree)).filter(node => node.type === 'Text'

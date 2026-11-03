@@ -168,9 +168,11 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
             <Text allowFontScaling style={[styles.headerTitle, { color: colors.textPrimary }]}>
               {t("faqTitle")}
             </Text>
-            <Text allowFontScaling style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              {t(expanded ? "faqSubtitle" : "faqTapHint")}
-            </Text>
+            {expanded && (
+              <Text allowFontScaling style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                {t("faqSubtitle")}
+              </Text>
+            )}
           </View>
         </View>
         <Ionicons

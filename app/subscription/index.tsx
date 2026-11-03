@@ -39,8 +39,6 @@ import { showToast } from "../../src/stores/toast.store";
 import { colors, radius, spacing } from "../../src/styles";
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 
-const CROWN_HERO = require("../../assets/images/subscription/crown_hero.png");
-const LEAVES_LEFT = require("../../assets/images/subscription/header_leaves_left.png");
 const PLAN_FREE_IMG = require("../../assets/images/subscription/plan_free.png");
 const PLAN_ANTAM_IMG = require("../../assets/images/subscription/plan_antam.png");
 const PLAN_ANTAM_2_IMG = require("../../assets/images/subscription/plan_antam_2.png");
@@ -530,22 +528,10 @@ export default function SubscriptionScreen() {
       >
         <Animated.View entering={FadeInDown.duration(280)}>
           <View style={styles.headerRow}>
-            <View pointerEvents="none" style={styles.leavesLeftWrap}>
-              <Image
-                cachePolicy="memory-disk"
-                contentFit="contain"
-                priority="high"
-                source={LEAVES_LEFT}
-                style={styles.leavesLeftImg}
-              />
-            </View>
             <ScreenBackButton onPress={() => router.back()} />
             <View style={styles.headerTextCol}>
               <Text numberOfLines={2} style={styles.headerTitle}>
                 {t("features.premiumTitle")}
-              </Text>
-              <Text numberOfLines={2} style={styles.headerSubtitle}>
-                {t("v2HeroTitle")}
               </Text>
             </View>
             <Pressable
@@ -587,15 +573,6 @@ export default function SubscriptionScreen() {
                 </View>
               )}
             </Pressable>
-            <View pointerEvents="none" style={styles.crownArtWrap}>
-              <Image
-                cachePolicy="memory-disk"
-                contentFit="contain"
-                priority="high"
-                source={CROWN_HERO}
-                style={styles.crownHeroImg}
-              />
-            </View>
           </View>
 
           <CurrentPlanCard
@@ -932,26 +909,15 @@ function createStyles(
     headerRow: {
       alignItems: "center",
       flexDirection: "row",
-      minHeight: 112,
+      minHeight: 56,
       paddingBottom: 8,
       paddingTop: 6,
-      position: "relative",
     },
-    leavesLeftWrap: {
-      height: 85,
-      left: -14,
-      position: "absolute",
-      top: -8,
-      width: 140,
-      zIndex: 0,
-    },
-    leavesLeftImg: { height: "100%", width: "100%" },
     headerTextCol: {
       flex: 1,
       justifyContent: "center",
       paddingLeft: 10,
-      paddingRight: 142,
-      zIndex: 1,
+      paddingRight: 12,
     },
     headerTitle: {
       color: isDark ? "#f8fafc" : "#0f172a",
@@ -960,22 +926,12 @@ function createStyles(
       letterSpacing: -0.4,
       lineHeight: 28,
     },
-    headerSubtitle: {
-      color: isDark ? "#94a3b8" : "#047857",
-      fontSize: 12,
-      fontWeight: "500",
-      lineHeight: 17,
-      marginTop: 2,
-    },
     protectedHeaderButton: {
       alignItems: "center",
       height: 44,
       justifyContent: "center",
-      position: "absolute",
-      right: 0,
-      top: 0,
       width: 44,
-      zIndex: 4,
+      flexShrink: 0,
     },
     protectedHeaderButtonPressed: { opacity: 0.58 },
     protectedHeaderButtonDisabled: { opacity: 0.62 },
@@ -1003,15 +959,6 @@ function createStyles(
       fontWeight: "800",
       lineHeight: 13,
     },
-    crownArtWrap: {
-      height: 78,
-      position: "absolute",
-      right: 5,
-      top: 28,
-      width: 132,
-      zIndex: 1,
-    },
-    crownHeroImg: { height: "100%", width: "100%" },
     currentPlanCard: {
       alignItems: "center",
       flexDirection: "row",
