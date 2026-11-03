@@ -754,13 +754,7 @@ export default function DoctorConsultationScreen() {
               )}
               {/* Card 1: Chuyên khoa muốn được hỗ trợ */}
               <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: isDark ? colors.border : "#E2ECE9",
-                  },
-                ]}
+                style={styles.section}
               >
                 <View style={styles.cardHeaderRow}>
                   <View style={styles.cardIconBox}>
@@ -805,9 +799,7 @@ export default function DoctorConsultationScreen() {
                                 ? isDark
                                   ? "rgba(58,150,139,0.15)"
                                   : "#EDFAF8"
-                                : isDark
-                                ? colors.background
-                                : "#FFFFFF",
+                                : "transparent",
                               borderColor: selected
                                 ? "#3A968B"
                                 : isDark
@@ -862,13 +854,7 @@ export default function DoctorConsultationScreen() {
 
               {/* Card 2: Danh sách bác sĩ phù hợp */}
               <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: isDark ? colors.border : "#E2ECE9",
-                  },
-                ]}
+                style={styles.section}
               >
                 <View style={styles.cardHeaderRow}>
                   <View style={styles.cardIconBox}>
@@ -900,7 +886,7 @@ export default function DoctorConsultationScreen() {
                       backgroundColor:
                         preferredDoctorId === null
                           ? "#EDFAF8"
-                          : colors.background,
+                          : "transparent",
                       borderColor:
                         preferredDoctorId === null ? "#3A968B" : colors.border,
                     },
@@ -951,7 +937,7 @@ export default function DoctorConsultationScreen() {
                             {
                               backgroundColor: selected
                                 ? "#EDFAF8"
-                                : colors.background,
+                                : "transparent",
                               borderColor: selected ? "#3A968B" : colors.border,
                             },
                           ]}
@@ -1086,13 +1072,7 @@ export default function DoctorConsultationScreen() {
 
               {/* Card 3: Ảnh hoặc hồ sơ liên quan */}
               <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: isDark ? colors.border : "#E2ECE9",
-                  },
-                ]}
+                style={styles.section}
               >
                 <View style={styles.cardHeaderRow}>
                   <View style={styles.cardIconBox}>
@@ -1168,7 +1148,7 @@ export default function DoctorConsultationScreen() {
                     style={[
                       styles.uploadPhotoBtn,
                       {
-                        backgroundColor: colors.surface,
+                        backgroundColor: "transparent",
                         borderColor: "#3A968B",
                       },
                     ]}
@@ -1189,7 +1169,7 @@ export default function DoctorConsultationScreen() {
                   style={[
                     styles.secondaryNavBtn,
                     {
-                      backgroundColor: colors.surface,
+                      backgroundColor: "transparent",
                       borderColor: isDark ? colors.border : "#A8DFD6",
                     },
                   ]}
@@ -1226,13 +1206,7 @@ export default function DoctorConsultationScreen() {
             <>
               {/* Card: Xác nhận trước khi gửi */}
               <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: isDark ? colors.border : "#E2ECE9",
-                  },
-                ]}
+                style={styles.section}
               >
                 <View style={styles.cardHeaderRow}>
                   <View style={styles.cardIconBox}>
@@ -1453,7 +1427,7 @@ export default function DoctorConsultationScreen() {
                   style={[
                     styles.secondaryNavBtn,
                     {
-                      backgroundColor: colors.surface,
+                      backgroundColor: "transparent",
                       borderColor: isDark ? colors.border : "#A8DFD6",
                     },
                   ]}
@@ -1719,10 +1693,8 @@ const styles = StyleSheet.create({
     maxWidth: 720,
     alignSelf: "center",
   },
-  card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 14,
+  section: {
+    paddingVertical: 14,
   },
   cardHeaderRow: {
     alignItems: "center",
@@ -1764,9 +1736,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   doctorListItem: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 10,
+    paddingVertical: 10,
   },
   doctorListMain: {
     alignItems: "center",
@@ -1926,12 +1896,10 @@ const styles = StyleSheet.create({
   },
   selectableItem: {
     alignItems: "center",
-    borderRadius: 16,
-    borderWidth: 1.5,
     flexDirection: "row",
     justifyContent: "space-between",
     minHeight: 52,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   selectableItemLeft: {
     alignItems: "center",
@@ -1969,8 +1937,6 @@ const styles = StyleSheet.create({
   },
   uploadPhotoBtn: {
     alignItems: "center",
-    borderRadius: 14,
-    borderWidth: 1.5,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",

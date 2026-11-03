@@ -88,7 +88,7 @@ function ChoiceGroup<T extends string>({
                 {
                   backgroundColor: selected
                     ? colors.primaryLight
-                    : colors.surface,
+                    : 'transparent',
                   borderColor: selected ? colors.primaryText : colors.border,
                   opacity: pressed ? 0.78 : 1,
                 },
@@ -283,7 +283,7 @@ export function DoctorConsultationIntake(props: IntakeProps) {
           style={[
             styles.summaryInput,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: 'transparent',
               color: colors.textPrimary,
               borderColor: colors.border,
             },
@@ -375,11 +375,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    borderWidth: 1,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     minHeight: 64,
     paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.sm,
   },
   choiceTile: {
     flexDirection: 'column',
@@ -407,9 +406,8 @@ const styles = StyleSheet.create({
   summary: { gap: spacing.sm, paddingTop: spacing.xs },
   summaryHint: { fontSize: 14, lineHeight: 22 },
   summaryInput: {
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderBottomWidth: 1,
+    paddingVertical: spacing.md,
     minHeight: 140,
     fontSize: 16,
     lineHeight: 24,

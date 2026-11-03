@@ -958,13 +958,7 @@ export default function DoctorConsultationThreadScreen() {
 
             {taskStatus?.consultation_summary ? (
               <View
-                style={[
-                  styles.summaryCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
+                style={styles.summaryCard}
               >
                 <View style={styles.summaryHeading}>
                   <Ionicons
@@ -1519,13 +1513,7 @@ export default function DoctorConsultationThreadScreen() {
             {/* Rating Section if available */}
             {rateable && (
               <View
-                style={[
-                  styles.ratingCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
+                style={styles.ratingCard}
               >
                 <Text
                   style={[styles.ratingTitle, { color: colors.textPrimary }]}
@@ -1867,11 +1855,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   summaryCard: {
-    borderRadius: 18,
-    borderWidth: 1,
     gap: spacing.md,
     marginBottom: spacing.lg,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
   },
   summaryHeading: {
     alignItems: "center",
@@ -2163,11 +2149,9 @@ const styles = StyleSheet.create({
     width: 50,
   },
   ratingCard: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
     gap: spacing.sm,
     marginTop: spacing.md,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
   },
   ratingTitle: { fontSize: 16, fontWeight: "800" },
   ratingHint: { fontSize: 13, lineHeight: 19 },
