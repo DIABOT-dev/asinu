@@ -1116,18 +1116,9 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
 
     // ── Main Section Cards ──────────────────────────────
     sectionCard: {
-      backgroundColor: '#FFFFFF',
       marginHorizontal: 16,
       marginBottom: 16,
-      borderRadius: 24,
-      padding: 18,
-      borderWidth: 1,
-      borderColor: '#F0F4F2',
-      shadowColor: '#000',
-      shadowOpacity: 0.04,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 2,
+      paddingVertical: spacing.md,
     },
     sectionHeader: {
       flexDirection: 'row',
@@ -1195,7 +1186,6 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       borderColor: '#059669',
     },
     quickCardInactive: {
-      backgroundColor: '#FFFFFF',
       borderWidth: 1,
       borderColor: '#E5E7EB',
     },
@@ -1331,15 +1321,9 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       marginBottom: 14,
     },
     qrContainer: {
+      // Preserve the QR quiet zone without a decorative card or shadow.
       backgroundColor: '#fff',
-      borderRadius: 20,
       padding: 14,
-      shadowColor: '#000',
-      shadowOpacity: 0.08,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 6 },
-      borderWidth: 1,
-      borderColor: '#E5E7EB',
     },
     qrImage: {
       width: 200,

@@ -168,10 +168,8 @@ export default function InsulinLogScreen() {
               {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
                 <LogHeroBanner
-                  category="insulin"
                   title={t('insulin')}
                   description={t('insulinBannerDesc')}
-                  unit="IU"
                 />
               </Animated.View>
 

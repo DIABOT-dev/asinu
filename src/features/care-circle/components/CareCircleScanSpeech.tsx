@@ -52,37 +52,30 @@ export function CareCircleScanSpeech() {
       importantForAccessibility="no-hide-descendants"
       style={[styles.speech, animation]}
     >
-      <Svg width={200} height={96} viewBox="0 0 200 96" style={styles.tail}>
-        <Path
-          d="M56 32 C40 52 20 66 0 76 C40 62 66 52 76 32 Z"
-          fill={bubbleColor}
-        />
-      </Svg>
       <View style={[styles.bubble, { backgroundColor: bubbleColor }]}>
         <Text style={[styles.text, { color: isDark ? "#ecfdf5" : "#064e3b" }]}>
           {t("qrConnectFamilyNow")}
         </Text>
       </View>
+      <Svg width={32} height={16} viewBox="0 0 32 16" style={styles.tail}>
+        <Path d="M0 0 H32 L16 16 Z" fill={bubbleColor} />
+      </Svg>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Keep the tail anchored at the mascot's mouth without moving the scan button.
+  // Keep the speech above the centered mascot, clear of both action buttons.
   speech: {
-    position: "absolute",
-    left: 56,
-    top: 64,
-    width: 0,
-    height: 0,
+    alignSelf: "stretch",
+    alignItems: "center",
+    paddingBottom: 16,
     zIndex: 2,
   },
-  tail: { position: "absolute", left: 0, top: -76 },
+  tail: { position: "absolute", bottom: 0 },
   bubble: {
-    position: "absolute",
-    left: 56,
-    top: -76,
     width: 164,
+    maxWidth: "100%",
     paddingHorizontal: 10,
     paddingVertical: 10,
     borderRadius: 18,

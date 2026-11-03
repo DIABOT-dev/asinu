@@ -149,10 +149,8 @@ export default function WeightLogScreen() {
               {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
                 <LogHeroBanner
-                  category="weight"
                   title={t('weight')}
                   description={t('weightBannerDesc')}
-                  unit="kg"
                 />
               </Animated.View>
 

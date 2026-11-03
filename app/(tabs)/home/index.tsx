@@ -9,7 +9,6 @@ import { AppState, FlatList, Image, Modal, Platform, Pressable, ScrollView, Styl
 import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, useAnimatedScrollHandler, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
-import { Avatar } from '../../../src/components/Avatar';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HomeCheckinCallControl } from '../../../src/components/HomeCheckinCallControl';
 import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
@@ -20,8 +19,8 @@ import { V21HomeCard } from '../../../src/features/v21/V21HomeCard';
 import { HomeGiftCard } from '../../../src/features/checkin-rewards/HomeGiftCard';
 import { HealthFeedThumbnail } from '../../../src/features/health-feed/HealthFeedThumbnail';
 import { apiClient } from '../../../src/lib/apiClient';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
-import * as Haptics from 'expo-haptics';
+import { HomeHealthFeedCarousel } from '../../../src/features/health-feed/HomeHealthFeedCarousel';
+import { useHealthFeedDismissals } from '../../../src/features/health-feed/useHealthFeedDismissals';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { NotificationBell } from '../../../src/components/NotificationBell';
 import { NoInternetModal } from '../../../src/components/NoInternetModal';
@@ -39,7 +38,7 @@ import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { useNotificationStore } from '../../../src/stores/notification.store';
-import { showToast, useToastStore } from '../../../src/stores/toast.store';
+import { useToastStore } from '../../../src/stores/toast.store';
 import { getHealthFeedPreference } from '../../../src/stores/health-feed-preference';
 import { subscribeRealtimeRefresh } from '../../../src/lib/realtimeSync';
 import { brandColors, categoryColors, colors, getBottomTabBarHeight, iconColors, radius, spacing } from '../../../src/styles';
@@ -462,6 +461,8 @@ export default function HomeScreen() {
   const { t } = useTranslation('home');
   const { t: tc } = useTranslation('common');
   const fetchFlags = useFlagsStore((s) => s.fetchFlags);
+  const { t: tt } = useTranslation('tree');
+  const [showEarlySignal, setShowEarlySignal] = useState(false);
   // Refresh check-in and Care Circle flags whenever the home screen is focused.
   useFocusEffect(useCallback(() => { fetchFlags().catch(() => {}); }, [fetchFlags]));
   const router = useRouter();
@@ -609,6 +610,8 @@ export default function HomeScreen() {
   const [healthFeedEnabled, setHealthFeedEnabled] = useState(false);
   const [healthFeedVisible, setHealthFeedVisible] = useState(true);
   const [healthFeedItems, setHealthFeedItems] = useState<any[]>([]);
+  const { hiddenIds: hiddenFeedIds } = useHealthFeedDismissals();
+  const visibleHealthFeedItems = healthFeedItems.filter(item => !hiddenFeedIds.has(String(item.id)));
 
   const refreshHealthFeed = useCallback(async () => {
     if (!profile) return;
@@ -682,29 +685,16 @@ export default function HomeScreen() {
           {healthFeedEnabled && (
             <GuideTarget step="home.suggestions">
               <Pressable accessibilityRole="button" onPress={() => router.push('/feed' as any)} hitSlop={12}>
-                <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: healthFeedItems.length })}</Text>
+                <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: visibleHealthFeedItems.length })}</Text>
               </Pressable>
             </GuideTarget>
           )}
         </View>
 
-        {healthFeedItems.length > 0 ? (
-          <View style={styles.healthFeedList}>
-            {healthFeedItems.slice(0, 2).map((item) => {
+        {visibleHealthFeedItems.length > 0 ? (
+          <HomeHealthFeedCarousel items={visibleHealthFeedItems} renderItem={(item) => {
               const isRead = !!item.read_at;
               const isWarning = item.severity_level === 'warning' || item.priority >= 100;
-
-              const handleHomeDismiss = async (itemId: string) => {
-                try {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  await healthFeedApi(`/feed/${itemId}/dismiss`, { method: 'POST' });
-                  setHealthFeedItems(prev => prev.filter(i => i.id !== itemId));
-                  showToast(tc('feedDismissed'), 'success');
-                } catch (err) {
-                  console.error('[Home Health Feed] Failed to dismiss:', err);
-                  showToast(tc('feedActionFailed'), 'error');
-                }
-              };
 
               const handleHomePress = async (i: any) => {
                 try {
@@ -720,25 +710,7 @@ export default function HomeScreen() {
                 router.push(`/feed/${i.content_id}` as any);
               };
 
-              const renderRightAction = () => (
-                <Pressable
-                  style={styles.healthFeedDismissBtn}
-                  onPress={() => handleHomeDismiss(item.id)}
-                >
-                  <Ionicons name="eye-off-outline" size={20} color={colors.danger} />
-                </Pressable>
-              );
-
               return (
-                <Swipeable
-                  key={item.id}
-                  renderRightActions={renderRightAction}
-                  onSwipeableOpen={(direction) => {
-                    if (direction === 'right') {
-                      handleHomeDismiss(item.id);
-                    }
-                  }}
-                >
                   <Pressable
                     style={[
                       styles.healthFeedCard,
@@ -762,12 +734,9 @@ export default function HomeScreen() {
 
                     {isWarning && !isRead && <View style={styles.healthFeedWarningDot} />}
 
-                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} style={styles.healthFeedChevron} />
                   </Pressable>
-                </Swipeable>
               );
-            })}
-          </View>
+            }} />
         ) : (
           <View style={styles.healthFeedEmptyCard}>
             <Image
@@ -857,24 +826,23 @@ export default function HomeScreen() {
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
         <View style={[styles.headerActions, { top: insets.top + spacing.sm }]}>
+          <V21HomeCard iconOnly />
+          <HomeCheckinCallControl key={profile.id} userId={String(profile.id)} iconOnly />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={tt('earlyTitle')}
+            style={({ pressed }) => [styles.headerIcon, pressed && styles.headerActionPressed]}
+            onPress={() => setShowEarlySignal(true)}
+          >
+            <MaterialCommunityIcons name="radar" size={30} color={healthScore?.factors.length ? colors.warning : colors.primaryText} />
+          </Pressable>
           <NotificationBell
             unreadCount={unreadCount}
             onOpen={handleOpenNotifications}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={tc('tabProfile')}
-            style={({ pressed }) => [styles.profileButton, pressed && styles.headerActionPressed]}
-            onPress={() => router.replace('/(tabs)/profile')}
-          >
-            <Avatar
-              name={profile.name || tc('tabProfile')}
-              imageUrl={profile.avatarUrl}
-              size={44}
-            />
-          </Pressable>
         </View>
       )}
+      {showEarlySignal && <EarlySignalCard healthScore={healthScore} modalOnly onClose={() => setShowEarlySignal(false)} />}
 
       {!showInitialSkeleton && noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
       {!showInitialSkeleton && !hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
@@ -900,12 +868,6 @@ export default function HomeScreen() {
             <HomeGiftCard headless />
           </View>
         </Animated.View>
-
-        <View style={styles.todayActions}>
-          <V21HomeCard />
-          {profile?.id && <HomeCheckinCallControl key={profile.id} userId={String(profile.id)} compact />}
-          <EarlySignalCard healthScore={healthScore} compact />
-        </View>
 
         {renderHealthFeedBlock()}
 
@@ -1175,9 +1137,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   checkinStack: {
     gap: spacing.sm,
   },
-  todayActions: {
-    backgroundColor: 'transparent',
-  },
   headerActions: {
     position: 'absolute',
     right: spacing.md,
@@ -1186,10 +1145,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: spacing.sm,
   },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  headerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1692,8 +1651,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
     backgroundColor: 'transparent',
     marginBottom: 2,
   },
@@ -1738,15 +1695,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   },
   healthFeedChevron: {
     marginLeft: spacing.xs,
-  },
-  healthFeedDismissBtn: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 60,
-    borderRadius: 16,
-    alignSelf: 'stretch',
-    minHeight: 128,
-    marginLeft: 10,
   },
   healthFeedEmptyCard: {
     flexDirection: 'row',

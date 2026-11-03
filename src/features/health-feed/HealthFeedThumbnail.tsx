@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Image, type ImageStyle, type StyleProp } from "react-native";
+import { Image } from 'expo-image';
+import { type ImageStyle, type StyleProp } from "react-native";
 
 type ArticleImage = {
   thumbnail_url?: string | null;
@@ -12,11 +12,11 @@ type ArticleImage = {
 const artwork = {
   family: require("../../../assets/images/app-update/update-hero.jpg"),
   warning: require("../../../assets/images/home/checkin-unwell-background-v1.png"),
-  checklist: require("../../../assets/images/checkin-guide/slide1_daily_checkin.png"),
+  checklist: require("../../../assets/images/app-update/update-download.jpg"),
   advice: require("../../../assets/images/home/checkin-fine-background-v1.png"),
 };
 
-/** A bundled cover remains available offline and when an article image fails. */
+/** Bundled photos of people keep article thumbnails consistent and available offline. */
 export function HealthFeedThumbnail({
   item,
   style,
@@ -24,8 +24,6 @@ export function HealthFeedThumbnail({
   item: ArticleImage;
   style: StyleProp<ImageStyle>;
 }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const url = item.thumbnail_url || item.cover_url;
   const type = item.feed_type || item.content_type || item.iconType;
   const fallback =
     type === "warning" || type === "shield"
@@ -35,16 +33,13 @@ export function HealthFeedThumbnail({
       : type === "checklist" || type === "schedule" || type === "weekly_summary"
       ? artwork.checklist
       : artwork.advice;
-  const source =
-    url && /^https:\/\//i.test(url) && failedUrl !== url
-      ? { uri: url }
-      : fallback;
+  const widePhoto = fallback === artwork.warning || fallback === artwork.advice;
   return (
     <Image
-      source={source}
+      source={fallback}
       style={style}
-      resizeMode="cover"
-      onError={() => setFailedUrl(url || null)}
+      contentFit="cover"
+      contentPosition={widePhoto ? { left: '100%', top: '50%' } : 'center'}
       accessible={false}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"

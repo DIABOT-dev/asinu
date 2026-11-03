@@ -196,10 +196,8 @@ export default function BloodPressureLogScreen() {
               {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
                 <LogHeroBanner
-                  category="bloodPressure"
                   title={t('bloodPressure')}
                   description={t('bpBannerDesc')}
-                  unit="mmHg"
                 />
               </Animated.View>
 

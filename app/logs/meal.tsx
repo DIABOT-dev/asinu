@@ -136,10 +136,8 @@ export default function MealLogScreen() {
               {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
                 <LogHeroBanner
-                  category="meal"
                   title={t('meal')}
                   description={t('mealBannerDesc')}
-                  unit="kcal"
                 />
               </Animated.View>
 

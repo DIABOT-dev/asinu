@@ -1,21 +1,20 @@
 import { useId } from "react";
 import Svg, {
   Defs,
-  Ellipse,
-  G,
+  Circle,
   LinearGradient,
   Path,
   Stop,
 } from "react-native-svg";
 
-/** Gold coins drawn locally so the balance never depends on a network image. */
+/** A complete round coin with space around every edge at small icon sizes. */
 export function HealthCoinIcon({ size = 36 }: { size?: number }) {
   const id = useId().replace(/:/g, "");
   return (
     <Svg
       width={size}
       height={size}
-      viewBox="-4 -4 56 56"
+      viewBox="0 0 48 48"
       style={{ flexShrink: 0 }}
       accessible={false}
     >
@@ -30,67 +29,30 @@ export function HealthCoinIcon({ size = 36 }: { size?: number }) {
           <Stop offset="1" stopColor="#d58b0e" />
         </LinearGradient>
       </Defs>
-      <G rotation={-24} origin="30,17">
-        <Path d="M15 16v6c0 5 30 5 30-1v-5Z" fill={`url(#${id}edge)`} />
-        <Ellipse
-          cx="30"
-          cy="16"
-          rx="15"
-          ry="10"
-          fill={`url(#${id}face)`}
-          stroke="#f4c342"
-        />
-        <Ellipse
-          cx="30"
-          cy="16"
-          rx="11.5"
-          ry="7.2"
-          fill="none"
-          stroke="#fff0a1"
-          strokeWidth="1.4"
-        />
-        <Path d="m31 11-4 5h4l-3 5 7-7h-5l2-3Z" fill="#e4a020" />
-        <Path
-          d="M20 13c3-4 9-5 14-3"
-          fill="none"
-          stroke="#fff8ce"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-        />
-      </G>
-      <G rotation={-18} origin="17,32">
-        <Path d="M2 29v7c0 12 30 12 30 0v-7Z" fill={`url(#${id}edge)`} />
-        <Ellipse
-          cx="17"
-          cy="29"
-          rx="15"
-          ry="10.5"
-          fill={`url(#${id}face)`}
-          stroke="#f4c342"
-        />
-        <Ellipse
-          cx="17"
-          cy="29"
-          rx="11.5"
-          ry="7.5"
-          fill="none"
-          stroke="#fff0a1"
-          strokeWidth="1.5"
-        />
-        <Path d="m18 24-4 5h4l-3 5 7-7h-5l2-3Z" fill="#e4a020" />
-        <Path
-          d="M7 26c3-4 8-5 13-3"
-          fill="none"
-          stroke="#fff8ce"
-          strokeWidth="1.7"
-          strokeLinecap="round"
-        />
-        <Path
-          d="M6 37v3m5-1v3m6-2v3m6-4v3m5-6v3"
-          stroke="#fbe48b"
-          strokeWidth="1.2"
-        />
-      </G>
+      <Circle cx="24" cy="24" r="21" fill={`url(#${id}edge)`} />
+      <Circle
+        cx="24"
+        cy="23"
+        r="19.5"
+        fill={`url(#${id}face)`}
+        stroke="#f4c342"
+      />
+      <Circle
+        cx="24"
+        cy="23"
+        r="15.5"
+        fill="none"
+        stroke="#fff0a1"
+        strokeWidth="1.5"
+      />
+      <Path
+        d="M11 17a15 15 0 0 1 15-9"
+        fill="none"
+        stroke="#fff8ce"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <Path d="m26 12-11 14h8l-2 10 12-16h-9l2-8Z" fill="#dc9918" />
     </Svg>
   );
 }

@@ -144,14 +144,12 @@ export default function WaterLogScreen() {
               {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
                 <LogHeroBanner
-                  category="water"
                   title={t('water')}
                   description={
                     todayTotalMl > 0
                       ? t('waterTodayTotal', { ml: todayTotalMl })
                       : t('waterBannerDesc')
                   }
-                  unit="ml"
                 />
               </Animated.View>
 

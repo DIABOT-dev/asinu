@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -43,19 +42,16 @@ const PERM_META = [
   {
     key: 'can_view_logs' as const,
     titleKey: 'permViewLogs',
-    descKey: 'permViewLogsDesc',
     icon: 'document-text-outline' as const,
   },
   {
     key: 'can_receive_alerts' as const,
     titleKey: 'permReceiveAlerts',
-    descKey: 'permReceiveAlertsDesc',
     icon: 'notifications-outline' as const,
   },
   {
     key: 'can_ack_escalation' as const,
     titleKey: 'permAckEscalation',
-    descKey: 'permAckEscalationDesc',
     icon: 'shield-outline' as const,
   },
 ];
@@ -270,20 +266,7 @@ export default function InviteScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: (selectedUser || qrPreview) ? insets.bottom + 96 : insets.bottom + spacing.xl }]}
           keyboardShouldPersistTaps="handled"
         >
-        <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.md }}>
-        {/* ─── Hero ─── */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroTextWrap}>
-            <Text style={styles.heroTitle}>{t('inviteSubtitle')}</Text>
-            <Text style={styles.heroSubtitle}>{t('inviteHeroDesc')}</Text>
-          </View>
-          <Image
-            source={require('../../assets/images/care-circle/family_3d_art.png')}
-            style={styles.heroArt}
-            resizeMode="contain"
-          />
-        </View>
-
+        <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.xl }}>
         {/* ─── Recipient ─── */}
         <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -466,7 +449,6 @@ export default function InviteScreen() {
                 <Ionicons name={perm.icon} size={22} color="#0D9488" style={styles.permIcon} />
                 <View style={styles.permissionInfo}>
                   <Text style={styles.permissionTitle}>{t(perm.titleKey)}</Text>
-                  <Text style={styles.permissionDesc}>{t(perm.descKey)}</Text>
                 </View>
                 <Switch
                   value={permissions[perm.key]}
@@ -571,54 +553,9 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       width: 40,
       height: 40,
     },
-    // ── Hero ──
-    heroCard: {
-      borderRadius: 24,
-      paddingHorizontal: 18,
-      paddingVertical: 18,
-      backgroundColor: '#E8F7F4',
-      borderWidth: 1,
-      borderColor: '#D4F0EA',
-      position: 'relative',
-      minHeight: 112,
-      justifyContent: 'center',
-    },
-    heroTextWrap: {
-      flex: 1,
-      paddingRight: 124,
-    },
-    heroTitle: {
-      fontSize: 15.5,
-      fontWeight: '700',
-      color: '#0F172A',
-      lineHeight: 22,
-    },
-    heroSubtitle: {
-      fontSize: 12.5,
-      color: '#475569',
-      lineHeight: 18,
-      marginTop: 6,
-    },
-    heroArt: {
-      position: 'absolute',
-      right: 2,
-      bottom: 0,
-      width: 135,
-      height: 112,
-    },
-
     // ── Card ──
     card: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: 22,
-      padding: 18,
-      borderWidth: 1,
-      borderColor: '#E2E8F0',
-      shadowColor: '#000',
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 2,
+      paddingVertical: spacing.sm,
     },
     cardHeader: {
       flexDirection: 'row',
@@ -816,20 +753,12 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontWeight: '700',
       color: '#0F172A',
     },
-    permissionDesc: {
-      fontSize: 12.5,
-      color: '#64748B',
-      marginTop: 3,
-      lineHeight: 17,
-    },
 
     // ── Sticky action ──
     stickyActions: {
       paddingHorizontal: 16,
       paddingTop: 12,
-      backgroundColor: '#FFFFFF',
-      borderTopWidth: 1,
-      borderTopColor: '#E2E8F0',
+      backgroundColor: '#F3FBF8',
     },
     sendBtn: {
       flexDirection: 'row',

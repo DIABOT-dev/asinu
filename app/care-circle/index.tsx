@@ -283,33 +283,36 @@ export default function CareCircleScreen() {
       <Screen style={styles.screen}>
         {/* Custom Header matching design */}
         <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 20) + 10 }]}>
-          <GuideTarget step="circle.add">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('addManually')}
-              onPress={() => router.push('/care-circle/invite')}
-              style={({ pressed }) => [styles.manualAddButton, pressed && { opacity: 0.75 }]}
-            >
-              <Ionicons name="add" size={30} color={colors.primaryDark} />
-            </Pressable>
-          </GuideTarget>
-          <View style={styles.scanPrompt}>
-            <Image
-              source={require('../../assets/images/care-circle/asinu-pointing-qr-v1.png')}
-              style={styles.scanMascot}
-              resizeMode="contain"
-              accessible={false}
-            />
-            <CareCircleScanSpeech />
-            <View style={styles.scanPromptContent}>
+          <View style={styles.connectionHeader}>
+            <View style={styles.scanSpeech}>
+              <CareCircleScanSpeech />
+            </View>
+            <View style={styles.scanPrompt}>
+              <GuideTarget step="circle.add" style={styles.headerAction}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('addManually')}
+                  onPress={() => router.push('/care-circle/invite')}
+                  style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.75 }]}
+                >
+                  <Ionicons name="add" size={30} color={colors.primaryDark} />
+                </Pressable>
+              </GuideTarget>
+              <View style={styles.scanPromptContent}>
+                <Image
+                  source={require('../../assets/images/care-circle/asinu-pointing-both-sides-v2.png')}
+                  style={styles.scanMascot}
+                  resizeMode="contain"
+                  accessible={false}
+                />
+              </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('scanQr')}
                 onPress={() => router.push('/care-circle/scan')}
-                style={({ pressed }) => [styles.scanQrButton, pressed && { opacity: 0.75 }]}
+                style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.75 }]}
               >
-                <Ionicons name="scan-outline" size={24} color={colors.primaryDark} />
-                <Text style={styles.scanQrLabel}>{t('scanQr')}</Text>
+                <Ionicons name="qr-code-outline" size={30} color={colors.primaryDark} />
               </Pressable>
             </View>
           </View>
@@ -876,37 +879,23 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     },
     // Top Header matching design
     topHeader: {
-      alignItems: 'flex-end',
+      alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.lg,
       backgroundColor: 'transparent',
     },
-    scanPrompt: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 420, minHeight: 128, position: 'relative' },
-    scanPromptContent: { flex: 1, minWidth: 0 },
-    manualAddButton: {
+    connectionHeader: { width: '100%', maxWidth: 420 },
+    scanSpeech: { paddingHorizontal: 48 },
+    scanPrompt: { flexDirection: 'row', alignItems: 'center', width: '100%' },
+    scanPromptContent: { flex: 1, minWidth: 0, alignItems: 'center' },
+    headerAction: {
       width: 48,
       height: 48,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: spacing.sm,
     },
-    scanQrButton: {
-      minHeight: 56,
-      alignSelf: 'flex-end',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 8,
-    },
-    scanQrLabel: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.primaryText,
-      flexShrink: 1,
-    },
-    scanMascot: { width: 112, height: 112 },
+    scanMascot: { width: 128, height: 128 },
     // Hero Banner Card
     heroCardShadowWrap: {
       marginHorizontal: spacing.lg,

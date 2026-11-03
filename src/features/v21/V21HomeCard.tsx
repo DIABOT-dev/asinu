@@ -10,7 +10,7 @@ import { useAuthStore } from "../auth/auth.store";
 import { subscribeHealthAction } from "../../lib/health-action-events";
 import { v21Api, CoinToday, V21Flags } from "./v21.api";
 
-export function V21HomeCard() {
+export function V21HomeCard({ iconOnly = false }: { iconOnly?: boolean } = {}) {
   const { t } = useTranslation("v21"),
     { colors } = useThemeColors(),
     router = useRouter();
@@ -66,26 +66,27 @@ export function V21HomeCard() {
     gap: 8,
     paddingVertical: 10,
   };
+  const actionStyle = iconOnly ? { width: 48, height: 48, alignItems: 'center' as const, justifyContent: 'center' as const } : rowStyle;
   const titleStyle = {
     fontSize: 18,
     fontWeight: "700" as const,
     color: colors.textPrimary,
   };
   return (
-    <View style={{ flexDirection: "row", gap: 12 }}>
+    <View style={{ flexDirection: "row", gap: iconOnly ? 4 : 12 }}>
       {!!flags.patients?.length && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("medicationTitle")}
           onPress={() => router.push("/medication")}
-          style={({ pressed }) => [rowStyle, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [actionStyle, pressed && { opacity: 0.7 }]}
         >
           <MaterialCommunityIcons
             name="pill"
-            size={28}
+            size={iconOnly ? 30 : 28}
             color={colors.primaryText}
           />
-          <Text style={[titleStyle, { flex: 1 }]}>{t("medicationTitle")}</Text>
+          {!iconOnly && <Text style={[titleStyle, { flex: 1 }]}>{t("medicationTitle")}</Text>}
         </Pressable>
       )}
       {flags.coins && (
@@ -97,21 +98,21 @@ export function V21HomeCard() {
               : t("tasksTitle")
           }
           onPress={() => router.push("/coins")}
-          style={({ pressed }) => [rowStyle, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [actionStyle, pressed && { opacity: 0.7 }]}
         >
           <MaterialCommunityIcons
             name="checkbox-marked-circle-outline"
-            size={28}
+            size={iconOnly ? 30 : 28}
             color={colors.primaryText}
           />
-          <View style={{ flex: 1 }}>
+          {!iconOnly && <View style={{ flex: 1 }}>
             <Text style={titleStyle}>{t("tasksTitle")}</Text>
             {today && total > 0 && (
               <Text style={{ fontSize: 15, color: colors.textSecondary }}>
                 {t("taskProgressShort", { done, total })}
               </Text>
             )}
-          </View>
+          </View>}
         </Pressable>
       )}
     </View>

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   LayoutAnimation,
@@ -149,19 +149,8 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
     setOpenIndex((prev) => (prev === idx ? null : idx));
   }, []);
 
-  const cardStyle = useMemo(
-    () => [
-      styles.card,
-      {
-        backgroundColor: colors.surface,
-        borderColor: isDark ? colors.border : "#e2e8f0",
-      },
-    ],
-    [colors.surface, colors.border, isDark]
-  );
-
   return (
-    <View style={cardStyle}>
+    <View style={styles.card}>
       {/* Header */}
       <Pressable
         accessibilityHint={t(expanded ? "faqCollapseHint" : "faqTapHint")}
@@ -214,9 +203,7 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
   },
   header: {
     flexDirection: "row",

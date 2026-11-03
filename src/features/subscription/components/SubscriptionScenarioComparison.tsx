@@ -7,7 +7,7 @@ import { ScaledText as Text } from '../../../components/ScaledText';
 import { useGuardedRouter } from '../../../hooks/useGuardedRouter';
 import { useScaledTypography } from '../../../hooks/useScaledTypography';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { radius, spacing } from '../../../styles';
+import { spacing } from '../../../styles';
 
 const COMPARISON_ART = require('../../../../assets/images/subscription/protected_hero_shield.png');
 const SCENARIOS = [
@@ -108,7 +108,7 @@ export function SubscriptionComparisonContent() {
 
 function createStyles(colors: ReturnType<typeof useThemeColors>['colors']) {
   return StyleSheet.create({
-    root: { marginTop: spacing.md, marginBottom: spacing.lg, padding: spacing.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xxl },
+    root: { marginTop: spacing.md, marginBottom: spacing.lg, paddingVertical: spacing.lg },
     header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 },
     headerIcon: { width: 32, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1, minWidth: 0, gap: 2 },
@@ -116,7 +116,7 @@ function createStyles(colors: ReturnType<typeof useThemeColors>['colors']) {
     pressed: { opacity: 0.85 },
     heading: { color: colors.textPrimary, fontSize: 18, fontWeight: '700' },
     headerSubtitle: { color: colors.textSecondary, fontSize: 15 },
-    panel: { backgroundColor: colors.surface, borderRadius: 28, paddingHorizontal: 10, paddingTop: 22, paddingBottom: 12, borderWidth: 1, borderColor: colors.primaryLight },
+    panel: { paddingTop: 22, paddingBottom: 12 },
     pageHeader: { minHeight: 82, paddingHorizontal: 8, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 14 },
     pageHeaderIcon: { width: 34, alignItems: 'center' },
     pageHeaderCopy: { flex: 1, minWidth: 0 },

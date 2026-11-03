@@ -138,7 +138,6 @@ export default function MedicationLogScreen() {
               {/* Hero banner */}
               <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
                 <LogHeroBanner
-                  category="medication"
                   title={t('medication')}
                   description={t('medicationBannerDesc')}
                 />

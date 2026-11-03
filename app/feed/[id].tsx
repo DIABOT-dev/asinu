@@ -326,12 +326,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   summaryContainer: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   summaryText: {
     fontSize: 18,
@@ -345,11 +340,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   checklistSection: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: spacing.xl,
   },
   checklistHeading: {
@@ -375,12 +365,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: '#f8fafc',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
   sourcesCopy: {
     flex: 1,
