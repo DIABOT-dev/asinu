@@ -605,17 +605,13 @@ const createStyles = (colors: ThemeColors) =>
     },
     lead: { color: colors.textSecondary, fontSize: 15, lineHeight: 23 },
     actionList: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      overflow: "hidden",
-      backgroundColor: colors.surface,
+      backgroundColor: 'transparent',
     },
     actionRow: {
       flexDirection: "row",
       alignItems: "flex-start",
       gap: spacing.md,
-      padding: spacing.lg,
+      paddingVertical: spacing.lg,
       minHeight: 88,
     },
     actionIcon: { marginTop: 3 },
@@ -694,8 +690,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     loadError: { gap: spacing.xs },
     separator: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
     },
     copy: { flex: 1, minWidth: 0, gap: spacing.xs },
     actionTitle: {
@@ -730,8 +724,6 @@ const createStyles = (colors: ThemeColors) =>
       minHeight: 48,
     },
     historyToggle: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
       paddingTop: spacing.xl,
     },
     history: { gap: spacing.sm, paddingTop: spacing.sm },
@@ -743,8 +735,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     receipt: {
       paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
     },
     receiptAction: {
       flex: 1,

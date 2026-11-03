@@ -1,7 +1,8 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { ScaledText as Text } from '../../src/components/ScaledText';
+import { Screen } from '../../src/components/Screen';
 import { getLegalText } from '../../src/constants/LegalText';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, spacing } from '../../src/styles';
@@ -18,7 +19,7 @@ export default function LegalContentScreen() {
   return (
     <>
       <Stack.Screen options={{ title: content.title }} />
-      <View style={styles.container}>
+      <Screen style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>{content.title}</Text>
           {content.updated ? <Text style={styles.updated}>{content.updated}</Text> : null}
@@ -31,7 +32,7 @@ export default function LegalContentScreen() {
             );
           })}
         </ScrollView>
-      </View>
+      </Screen>
     </>
   );
 }
@@ -40,7 +41,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background
+    backgroundColor: 'transparent'
   },
   content: {
     padding: spacing.xl,

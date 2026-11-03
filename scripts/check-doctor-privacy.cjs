@@ -156,9 +156,11 @@ async function main() {
   let checks = 0;
   const test = async (label, run) => { await run(); checks++; console.log(`PASS ${label}`); };
   for (const language of ['vi', 'en']) {
-    await test(`${language}: four separate cards, one sharing switch and a one-way anonymization button`, async () => {
+    await test(`${language}: four plain actions retain one sharing switch and one-way anonymization`, async () => {
       const h = harness(language), v = await h.mount();
-      assert.equal(v.nodes.filter(node => node.type === 'View' && node.props.style?.overflow === 'hidden').length, 4);
+      for (const key of ['privacyAction_export', 'privacyAction_delete', 'privacyAction_anonymize']) {
+        assert.ok(v.button(key), `Missing privacy action ${key}`);
+      }
       assert.equal(v.nodes.filter(node => node.type === 'Switch').length, 1);
       assert.equal(v.nodes.some(node => node.type === 'TextInput'), false);
       assert.equal(h.posts().length, 0);
