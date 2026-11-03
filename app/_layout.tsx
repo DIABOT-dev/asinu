@@ -126,7 +126,7 @@ export default function RootLayout() {
         fontSize: scaledTypography.scaledSize.md,
         fontWeight: "700" as const,
       },
-      headerStyle: { backgroundColor: colors.surface },
+      headerStyle: { backgroundColor: colors.primaryLight },
       headerShadowVisible: false,
       headerBackVisible: false,
       headerLeft: () => (
