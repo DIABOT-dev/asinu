@@ -1,66 +1,32 @@
-import React, { useCallback } from "react";
-import { useFocusEffect } from "expo-router";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
-import { ScaledText as Text } from "../../../components/ScaledText";
+import { TypewriterText } from "../../../components/TypewriterText";
 import { useThemeColors } from "../../../hooks/useThemeColors";
 
 export function CareCircleScanSpeech() {
   const { t } = useTranslation("careCircle");
   const { isDark } = useThemeColors();
   const bubbleColor = isDark ? "#134e4a" : "#d1fae5";
-  const reducedMotion = useReducedMotion();
-  const opacity = useSharedValue(1);
-
-  useFocusEffect(
-    useCallback(() => {
-      opacity.value = 1;
-      if (!reducedMotion) {
-        opacity.value = withRepeat(
-          withSequence(
-            withDelay(3000, withTiming(0, { duration: 0 })),
-            withDelay(1500, withTiming(1, { duration: 0 }))
-          ),
-          -1,
-          false
-        );
-      }
-      return () => cancelAnimation(opacity);
-    }, [opacity, reducedMotion])
-  );
-
-  const animation = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
   return (
-    <Animated.View
+    <View
       pointerEvents="none"
       accessible={false}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[styles.speech, animation]}
+      style={styles.speech}
     >
       <View style={[styles.bubble, { backgroundColor: bubbleColor }]}>
-        <Text style={[styles.text, { color: isDark ? "#ecfdf5" : "#064e3b" }]}>
-          {t("qrConnectFamilyNow")}
-        </Text>
+        <TypewriterText
+          text={t("qrConnectFamilyNow")}
+          style={[styles.text, { color: isDark ? "#ecfdf5" : "#064e3b" }]}
+        />
       </View>
       <Svg width={32} height={16} viewBox="0 0 32 16" style={styles.tail}>
         <Path d="M0 0 H32 L16 16 Z" fill={bubbleColor} />
       </Svg>
-    </Animated.View>
+    </View>
   );
 }
 

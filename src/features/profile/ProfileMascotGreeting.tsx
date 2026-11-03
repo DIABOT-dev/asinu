@@ -13,6 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { ScaledText as Text } from "../../components/ScaledText";
+import { TypewriterText } from "../../components/TypewriterText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 
 export function ProfileMascotGreeting() {
@@ -39,9 +40,10 @@ export function ProfileMascotGreeting() {
   }));
   return (
     <View style={styles.brand} pointerEvents="none">
-      <Text style={[styles.greeting, { color: colors.primaryText }]}>
-        {t("mascotGreeting")}
-      </Text>
+      <TypewriterText
+        text={t("mascotGreeting")}
+        style={[styles.greeting, { color: colors.primaryText }]}
+      />
       <Animated.View
         style={animation}
         accessible={false}
