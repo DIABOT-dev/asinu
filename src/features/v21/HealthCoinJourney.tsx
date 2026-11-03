@@ -1,9 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { getCoinJourney } from "./coin-progress";
+import { CoinRulesMascot } from "./CoinRulesMascot";
 import type { CoinToday, CoinTask } from "./v21.api";
 
 const ICONS: Record<
@@ -37,12 +38,7 @@ export function HealthCoinJourney({
   return (
     <View style={styles.root}>
       <View style={styles.rulesRow}>
-        <Image
-          source={require("../../../assets/images/care-circle/asinu-pointing-qr-v1.png")}
-          style={styles.rulesMascot}
-          resizeMode="contain"
-          accessible={false}
-        />
+        <CoinRulesMascot />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("rules")}
@@ -185,7 +181,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  rulesMascot: { width: 104, height: 104, flexShrink: 0 },
   rules: {
     flex: 1,
     minHeight: 56,

@@ -1020,7 +1020,6 @@ for (const language of ["vi", "en"]) {
           "react-i18next": { useTranslation: () => ({ t }) },
           "react-native": {
             View: "View",
-            Image: "Image",
             Pressable: "Button",
             StyleSheet: { create: (styles) => styles, hairlineWidth: 0.5 },
             useWindowDimensions: () => dimensions,
@@ -1029,7 +1028,7 @@ for (const language of ["vi", "en"]) {
           "../../hooks/useThemeColors": {
             useThemeColors: () => ({ isDark: false, colors: {} }),
           },
-          "../../../assets/images/care-circle/asinu-pointing-qr-v1.png": "pointing-mascot",
+          "./CoinRulesMascot": { CoinRulesMascot: "CoinRulesMascot" },
           "./coin-progress": { getCoinJourney },
         },
       );
