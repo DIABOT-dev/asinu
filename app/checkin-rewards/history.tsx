@@ -115,18 +115,13 @@ function AccountHistory({ account }: { account: string }) {
           }
         />
 
-        {/* Title & Subtitle */}
+        {/* Title */}
         <View style={styles.headerTextWrapper}>
           <Text
             accessibilityRole="header"
             style={[styles.headerTitle, { color: colors.textPrimary }]}
           >
             {t('checkinGift.collection')}
-          </Text>
-          <Text
-            style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-          >
-            {t('checkinGift.collectionSubtitle')}
           </Text>
         </View>
       </View>
@@ -330,12 +325,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.4,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '500',
-    marginTop: 6,
   },
   listContent: {
     paddingHorizontal: 20,

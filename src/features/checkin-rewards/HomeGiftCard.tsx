@@ -120,7 +120,6 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
         >
           <Ionicons name="archive-outline" size={22} color={colors.primary} />
           <Text style={{ color: colors.textPrimary }}>{t('checkinGift.collection')}</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
         </Pressable>
       </View>
     );
@@ -131,7 +130,6 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
   const streakBg = isDarkMode ? 'rgba(20, 184, 166, 0.25)' : '#cbf0e8';
   const streakBorderColor = isDarkMode ? 'rgba(20, 184, 166, 0.4)' : 'rgba(255, 255, 255, 0.7)';
   const accentColor = isDarkMode ? '#2dd4bf' : '#0d9488';
-  const arrowBg = isDarkMode ? 'rgba(20, 184, 166, 0.18)' : '#e8f7f4';
 
   // Subtle gradient: gentle luminance step without heavy saturation or waves
   const buttonGradientColors = isDarkMode
@@ -178,16 +176,8 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
 
   return (
     <View style={styles.outerStack}>
-      {/* Thẻ Lộc mỗi ngày */}
-      <View
-        style={[
-          styles.mainCard,
-          {
-            backgroundColor: colors.surface,
-            borderColor: isDarkMode ? colors.border : '#edf4f3',
-          },
-        ]}
-      >
+      {/* Lộc mỗi ngày */}
+      <View style={styles.dailySection}>
         {/* Floating 3D Gift Box Hero Art ở góc trên bên phải */}
         <Image
           source={heroArt}
@@ -326,9 +316,6 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
               <Text style={styles.actionButtonText}>
                 {t(replayOpening ? 'checkinGift.replay' : day.gift.openedAt ? 'checkinGift.review' : 'checkinGift.choose')}
               </Text>
-              <View style={styles.chevronCircle}>
-                <Ionicons name="chevron-forward" size={18} color="#ffffff" />
-              </View>
             </LinearGradient>
           </Pressable>
         )}
@@ -343,18 +330,12 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
         )}
       </View>
 
-      {/* Thẻ Kho lộc */}
+      {/* Kho lộc */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('checkinGift.collection')}
         onPress={() => router.push('/checkin-rewards/history')}
-        style={[
-          styles.collectionCard,
-          {
-            backgroundColor: colors.surface,
-            borderColor: isDarkMode ? colors.border : '#edf4f3',
-          },
-        ]}
+        style={styles.collectionRow}
       >
         <View style={styles.collectionLeft}>
           <Image
@@ -371,9 +352,6 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
           >
             {t('checkinGift.collection')}
           </Text>
-        </View>
-        <View style={[styles.collectionArrowCircle, { backgroundColor: arrowBg }]}>
-          <Ionicons name="chevron-forward" size={18} color="#0d9488" />
         </View>
       </Pressable>
 
@@ -395,19 +373,10 @@ const styles = StyleSheet.create({
   outerStack: {
     gap: 12,
   },
-  mainCard: {
-    borderRadius: 24,
-    paddingHorizontal: 16,
+  dailySection: {
     paddingTop: 18,
     paddingBottom: 18,
-    borderWidth: 1,
-    overflow: 'hidden',
     position: 'relative',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
   },
   heroArt: {
     position: 'absolute',
@@ -574,14 +543,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'left',
   },
-  chevronCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(15, 118, 110, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   afterCheckinBox: {
     marginTop: 16,
     borderRadius: 16,
@@ -596,19 +557,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     flex: 1,
   },
-  collectionCard: {
-    borderRadius: 22,
-    paddingHorizontal: 18,
+  collectionRow: {
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
   collectionLeft: {
     flexDirection: 'row',
@@ -622,12 +574,5 @@ const styles = StyleSheet.create({
   collectionText: {
     fontSize: 19,
     fontWeight: '800',
-  },
-  collectionArrowCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
