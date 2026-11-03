@@ -365,7 +365,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       backgroundColor: 'transparent',
       borderRadius: 0,
       borderWidth: 0,
-      borderBottomWidth: 1,
       paddingHorizontal: 0,
       minHeight: 48,
     },

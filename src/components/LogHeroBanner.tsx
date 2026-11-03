@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from './ScaledText';
 import { useThemeColors } from '../hooks/useThemeColors';
@@ -25,21 +23,9 @@ type LogHeroBannerProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const HERO_IMAGES: Record<LogHeroCategory, any> = {
-  bloodPressure: require('../../assets/images/logs/banner_bp.png'),
-  glucose: require('../../assets/images/logs/banner_glucose.png'),
-  weight: require('../../assets/images/logs/banner_weight.png'),
-  water: require('../../assets/images/logs/banner_water.png'),
-  insulin: require('../../assets/images/logs/banner_insulin.png'),
-  meal: require('../../assets/images/logs/banner_meal.png'),
-  medication: require('../../assets/images/logs/banner_medication.png'),
-};
-
 const THEME_CONFIG: Record<
   LogHeroCategory,
   {
-    borderLight: string;
-    borderDark: string;
     eyebrowLight: string;
     eyebrowDark: string;
     badgeBgLight: string;
@@ -47,56 +33,42 @@ const THEME_CONFIG: Record<
   }
 > = {
   bloodPressure: {
-    borderLight: '#fecdd3',
-    borderDark: '#4c222b',
     eyebrowLight: '#94a3b8',
     eyebrowDark: '#94a3b8',
     badgeBgLight: 'rgba(244, 63, 94, 0.12)',
     badgeTextLight: '#e11d48',
   },
   glucose: {
-    borderLight: '#bae6fd',
-    borderDark: '#1e3e60',
     eyebrowLight: '#94a3b8',
     eyebrowDark: '#94a3b8',
     badgeBgLight: 'rgba(14, 165, 233, 0.14)',
     badgeTextLight: '#0284c7',
   },
   weight: {
-    borderLight: '#e9d5ff',
-    borderDark: '#432d66',
     eyebrowLight: '#94a3b8',
     eyebrowDark: '#94a3b8',
     badgeBgLight: 'rgba(168, 85, 247, 0.14)',
     badgeTextLight: '#9333ea',
   },
   water: {
-    borderLight: '#99f6e4',
-    borderDark: '#1f4e4b',
     eyebrowLight: '#94a3b8',
     eyebrowDark: '#94a3b8',
     badgeBgLight: 'rgba(20, 184, 166, 0.14)',
     badgeTextLight: '#0d9488',
   },
   insulin: {
-    borderLight: '#c7d2fe',
-    borderDark: '#313a70',
     eyebrowLight: '#94a3b8',
     eyebrowDark: '#94a3b8',
     badgeBgLight: 'rgba(99, 102, 241, 0.14)',
     badgeTextLight: '#4f46e5',
   },
   meal: {
-    borderLight: '#fde68a',
-    borderDark: '#543f1f',
     eyebrowLight: '#94a3b8',
     eyebrowDark: '#94a3b8',
     badgeBgLight: 'rgba(245, 158, 11, 0.16)',
     badgeTextLight: '#d97706',
   },
   medication: {
-    borderLight: '#bbf7d0',
-    borderDark: '#214932',
     eyebrowLight: '#94a3b8',
     eyebrowDark: '#94a3b8',
     badgeBgLight: 'rgba(16, 185, 129, 0.14)',
@@ -115,40 +87,18 @@ export function LogHeroBanner({
   const { t } = useTranslation('logs');
   const { colors, isDark } = useThemeColors();
   const theme = THEME_CONFIG[category];
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
-
-  const borderColor = isDark ? theme.borderDark : theme.borderLight;
-  const imageSource = HERO_IMAGES[category];
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <View style={[styles.cardContainer, { borderColor }, style]}>
-      {/* Full-bleed background banner image */}
-      <Image
-        source={imageSource}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        transition={150}
-      />
-
-      {/* Dark mode overlay */}
-      {isDark && (
-        <LinearGradient
-          colors={['rgba(20, 24, 33, 0.88)', 'rgba(20, 24, 33, 0.45)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFill}
-        />
-      )}
-
-      {/* Content overlay on the left */}
+    <View style={[styles.header, style]}>
       <View style={styles.textColumn}>
         <Text style={[styles.eyebrow, { color: isDark ? theme.eyebrowDark : theme.eyebrowLight }]}>
           {eyebrow ?? t('healthTracking')}
         </Text>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={styles.title}>
           {title}
         </Text>
-        <Text style={styles.description} numberOfLines={2}>
+        <Text style={styles.description}>
           {description}
         </Text>
         {unit ? (
@@ -173,28 +123,14 @@ export function LogHeroBanner({
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: ReturnType<typeof useThemeColors>['colors']) =>
   StyleSheet.create({
-    cardContainer: {
-      borderRadius: radius.xxl,
-      overflow: 'hidden',
-      borderWidth: 1,
-      minHeight: 140,
-      position: 'relative',
-      justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOpacity: isDark ? 0.25 : 0.04,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 2,
+    header: {
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.sm,
     },
     textColumn: {
-      maxWidth: '60%',
-      paddingLeft: 20,
-      paddingRight: 6,
-      paddingVertical: 16,
-      justifyContent: 'center',
-      zIndex: 2,
+      gap: spacing.xs,
     },
     eyebrow: {
       fontSize: 11,
