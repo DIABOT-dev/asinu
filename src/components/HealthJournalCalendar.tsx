@@ -29,6 +29,12 @@ type Props = {
   refreshKey?: number;
   loadReport?: (month: string) => Promise<HealthReportData>;
   subjectName?: string;
+  plain?: boolean;
+  showSummary?: boolean;
+  showAttention?: boolean;
+  attentionOnly?: boolean;
+  initialMonth?: string;
+  onMonthChange?: (month: string) => void;
 };
 
 const STATUS_COLORS: Record<JournalStatus, { background: string; foreground: string; border: string }> = {
@@ -127,7 +133,7 @@ function uniqueDetailAnswers(session: JournalSession, bodyLabels: string[]): str
   return [...new Map(values.map((answer) => [answer.toLocaleLowerCase(), answer])).values()].slice(0, 6);
 }
 
-export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName }: Props) {
+export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName, plain = false, showSummary = true, showAttention = true, attentionOnly = false, initialMonth, onMonthChange }: Props) {
   const { t, i18n } = useTranslation('tree');
   const { t: th } = useTranslation('home');
   const { t: tc } = useTranslation('careCircle');
@@ -138,7 +144,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
     () => createStyles(typography, colors, isDark),
     [typography, colors, isDark],
   );
-  const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  const [month, setMonth] = useState(() => initialMonth ? parseCalendarDate(`${initialMonth}-01`) : startOfMonth(new Date()));
   const [report, setReport] = useState<HealthReportData | null>(null);
   const [selectedSession, setSelectedSession] = useState<JournalSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,6 +154,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
 
   const monthKey = toMonthKey(month);
   const currentMonth = startOfMonth(new Date());
+  useEffect(() => { onMonthChange?.(monthKey); }, [monthKey, onMonthChange]);
   const canMoveNext = month.getTime() < currentMonth.getTime();
 
   useEffect(() => {
@@ -259,7 +266,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
 
   return (
     <View style={styles.section}>
-      <View style={styles.card}>
+      {!attentionOnly && <View style={[styles.card, plain && styles.plain]}>
         {/* Month Navigation */}
         <View style={styles.monthHeader}>
           <Pressable
@@ -298,10 +305,10 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
         </View>
 
         {/* Summary Card */}
-        {loading || hasMonthCheckins ? (
-          <View style={styles.summaryCard}>
+        {showSummary && (loading || hasMonthCheckins) ? (
+          <View style={[styles.summaryCard, plain && styles.plain]}>
             <CalendarHeartIcon color={isDark ? '#34d399' : '#059669'} size={38} />
-            <View style={styles.summaryContent}>
+            <View style={[styles.summaryContent, plain && { paddingRight: 0 }]}>
               {loading ? (
                 <ActivityIndicator color={colors.primaryDark} />
               ) : (
@@ -326,12 +333,12 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
                 </>
               )}
             </View>
-            <Image
+            {!plain && <Image
               source={LEAF_DECO}
               style={styles.summaryLeafDeco}
               contentFit="contain"
               pointerEvents="none"
-            />
+            />}
           </View>
         ) : null}
 
@@ -388,6 +395,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
                         },
                         isToday && (statusColors ? styles.dayCellTodayChecked : styles.dayCellToday),
                         isSelected && styles.dayCellSelected,
+                        plain && !statusColors && { backgroundColor: 'transparent' },
                         pressed && session && styles.pressed,
                       ]}
                     >
@@ -433,11 +441,11 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
             </View>
           </>
         )}
-      </View>
+      </View>}
 
-      {!loading && !error && (
+      {showAttention && !loading && !error && (
         <View style={styles.attentionSection}>
-          <Text style={styles.attentionTitle}>{t('journalAttentionDays')}</Text>
+          {!attentionOnly && <Text style={styles.attentionTitle}>{t('journalAttentionDays')}</Text>}
           {attentionSessions.length > 0 ? (
             attentionSessions.map((session) => {
               const status = normalizeStatus(session.status);
@@ -446,12 +454,14 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
                 <Pressable
                   key={`${session.id || session.date}`}
                   onPress={() => setSelectedSession(session)}
+                  disabled={attentionOnly}
                   style={({ pressed }) => [
                     styles.attentionCard,
                     { backgroundColor: statusColors.background, borderColor: statusColors.border },
+                    plain && styles.plain,
                     pressed && styles.pressed,
                   ]}
-                  accessibilityRole="button"
+                  accessibilityRole={attentionOnly ? undefined : 'button'}
                   accessibilityLabel={t('journalDayAccessibility', {
                     day: formatDayMonth(session.date),
                     status: statusLabel(status),
@@ -462,20 +472,20 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
                       {t('journalDateShort', { date: formatDayMonth(session.date) })}
                     </Text>
                     {session.summary ? (
-                      <Text style={styles.attentionSummary} numberOfLines={1}>{session.summary}</Text>
+                      <Text style={styles.attentionSummary} numberOfLines={attentionOnly ? undefined : 1}>{session.summary}</Text>
                     ) : null}
                   </View>
                   <View style={styles.attentionStatusRow}>
                     <Text style={[styles.attentionStatus, { color: statusColors.foreground }]}>
                       {statusLabel(status)}
                     </Text>
-                    <Ionicons name="chevron-forward" size={18} color={statusColors.foreground} />
+                    {!plain && <Ionicons name="chevron-forward" size={18} color={statusColors.foreground} />}
                   </View>
                 </Pressable>
               );
             })
           ) : (
-            <View style={styles.noAttentionCard}>
+            <View style={[styles.noAttentionCard, plain && styles.plain]}>
               <Ionicons name="checkmark-circle" size={22} color={colors.primaryDark} />
               <Text style={styles.noAttentionText}>
                 {report?.checkinDays ? t('journalNoAttention') : t('journalNoEntries')}
@@ -484,6 +494,11 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName 
           )}
         </View>
       )}
+      {attentionOnly && loading && <ActivityIndicator color={colors.primaryDark} />}
+      {attentionOnly && error && <View style={styles.errorState}>
+        <Text style={styles.errorText}>{t('journalLoadError')}</Text>
+        <Pressable onPress={() => setRetryKey((value) => value + 1)} style={styles.retryButton}><Text style={styles.retryText}>{t('journalRetry')}</Text></Pressable>
+      </View>}
 
       {/* Details Sheet Modal */}
       <Modal
@@ -605,6 +620,14 @@ function createStyles(
   return StyleSheet.create({
     section: {
       gap: spacing.md,
+    },
+    plain: {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderRadius: 0,
+      paddingHorizontal: 0,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     card: {
       backgroundColor: isDark ? palette.surface : '#ffffff',

@@ -1,5 +1,6 @@
 {
   "healthTree": "Cây sức khỏe",
+  "checkinHistory": "Lịch sử check-in",
   "summaryFromLogs": "Tổng hợp từ dữ liệu bạn ghi log",
   "summaryFromCheckins": "Từ check-in hôm nay và số đo gần nhất",
   "statusBasis": "Cây sức khỏe dựa trên dữ liệu nào?",

@@ -1,5 +1,6 @@
 {
   "healthTree": "Health Tree",
+  "checkinHistory": "Check-in history",
   "summaryFromLogs": "Summary from your logged data",
   "summaryFromCheckins": "From today's check-in and your latest readings",
   "statusBasis": "What is the health tree based on?",

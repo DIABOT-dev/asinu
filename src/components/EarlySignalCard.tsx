@@ -6,6 +6,7 @@ import {
   Linking,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
@@ -23,6 +24,9 @@ type Props = {
   refreshKey?: number;
   healthScore?: HealthScoreData | null;
   compact?: boolean;
+  plain?: boolean;
+  modalOnly?: boolean;
+  onClose?: () => void;
 };
 
 const presentation = {
@@ -49,7 +53,7 @@ const attentionPresentation = {
   icon: "alert-circle-outline" as const,
 };
 
-export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false }: Props) {
+export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false, plain = false, modalOnly = false, onClose }: Props) {
   const { t } = useTranslation("tree");
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [assessment, setAssessment] = useState<EarlySignalAssessment | null>(
@@ -57,14 +61,17 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
   );
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(modalOnly);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const close = () => { setOpen(false); onClose?.(); };
 
   const load = useCallback(() => {
     setLoading(true);
+    setLoadFailed(false);
     earlySignalApi
       .latest()
       .then(setAssessment)
-      .catch(() => {})
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -145,10 +152,10 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
   );
   const canOpenDetails = Boolean(assessment || showsCurrentAttention);
 
-  if (assessment?.is_red_flag) {
+  if (assessment?.is_red_flag && !modalOnly) {
     return (
       <>
-        <View style={styles.emergencyCard} accessibilityRole="alert">
+        <View style={[styles.emergencyCard, plain && styles.plain]} accessibilityRole="alert">
           <View style={styles.emergencyHeading}>
             <Ionicons name="warning-outline" size={28} color="#b91c1c" />
             <Text style={styles.redFlagTitle}>{t("earlyRedFlagTitle")}</Text>
@@ -190,7 +197,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
 
   return (
     <>
-      <View
+      {!modalOnly && <View
         testID="early-signal-card"
         style={[
           styles.card,
@@ -199,6 +206,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
             backgroundColor: view.color + "08",
           },
           compact && styles.compactCard,
+          plain && styles.plain,
         ]}
       >
         <Pressable
@@ -230,13 +238,13 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
           </View>
           {loading || evaluating ? (
             <ActivityIndicator color={colors.primary} />
-          ) : (
+          ) : !plain ? (
             <Ionicons
               name="chevron-forward"
               size={20}
               color={colors.textSecondary}
             />
-          )}
+          ) : null}
         </Pressable>
 
         {!compact && !assessment && !loading && (
@@ -251,17 +259,18 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
             <Text allowFontScaling style={styles.evaluateText}>{t("earlyEvaluate")}</Text>
           </Pressable>
         )}
-      </View>
+      </View>}
 
       <Modal
-        visible={open && canOpenDetails}
+        visible={open && (modalOnly || canOpenDetails)}
         transparent
         animationType="slide"
-        onRequestClose={() => setOpen(false)}
+        onRequestClose={close}
       >
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
+        <Pressable style={styles.backdrop} onPress={close} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
+          <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.sheetTitleRow}>
             <View style={styles.sheetIcon}>
               <Ionicons name={view.icon} size={27} color={view.color} />
@@ -274,6 +283,11 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
             </View>
           </View>
 
+          {modalOnly && <Text style={styles.body}>{t('earlyEmpty')}</Text>}
+          {modalOnly && loading && <ActivityIndicator color={colors.primary} />}
+          {modalOnly && loadFailed && <Pressable onPress={load} accessibilityRole="button">
+            <Text style={styles.body}>{t('earlyErrorBody')} {t('earlyRetry')}</Text>
+          </Pressable>}
           {assessment?.is_red_flag ? (
             <View style={styles.redFlagBox}>
               <Text style={styles.redFlagTitle}>{t("earlyRedFlagTitle")}</Text>
@@ -291,7 +305,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
             </View>
           ) : (
             <>
-              <Text style={styles.summary}>{summary}</Text>
+              {(!modalOnly || canOpenDetails) && <Text style={styles.summary}>{summary}</Text>}
               {!!visibleSignals.length && (
                 <View style={styles.signalsBox}>
                   <Text style={styles.boxLabel}>{t("earlyFound")}</Text>
@@ -314,12 +328,16 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
               )}
             </>
           )}
+          {modalOnly && !assessment && !loading && <Pressable accessibilityRole="button" onPress={evaluate} disabled={evaluating} style={styles.evaluateButton}>
+            {evaluating ? <ActivityIndicator color={colors.primary} /> : <Text style={styles.evaluateText}>{t('earlyEvaluate')}</Text>}
+          </Pressable>}
           <Text style={styles.disclaimer}>
             {assessment?.disclaimer ?? t("earlyDisclaimer")}
           </Text>
-          <Pressable style={styles.closeButton} onPress={() => setOpen(false)}>
+          <Pressable style={styles.closeButton} onPress={close}>
             <Text style={styles.closeText}>{t("earlyUnderstood")}</Text>
           </Pressable>
+          </ScrollView>
         </View>
       </Modal>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
@@ -328,6 +346,12 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
 }
 
 const styles = StyleSheet.create({
+  plain: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingHorizontal: 0,
+  },
   compactCard: {
     minHeight: 68,
     paddingVertical: 8,
@@ -410,6 +434,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15,23,42,0.45)",
   },
   sheet: {
+    maxHeight: '88%',
     position: "absolute",
     left: 0,
     right: 0,
