@@ -1,10 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
-import Svg, { Circle } from "react-native-svg";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
-import { useScaledFontSize } from "../../hooks/useScaledTypography";
 import { getCoinJourney } from "./coin-progress";
 import type { CoinToday, CoinTask } from "./v21.api";
 
@@ -18,7 +16,6 @@ const ICONS: Record<
   GIFT_OPEN: "gift-open-outline",
   WEEKLY: "calendar-check-outline",
 };
-const RING_LENGTH = 2 * Math.PI * 51;
 
 export function HealthCoinJourney({
   data,
@@ -29,11 +26,6 @@ export function HealthCoinJourney({
 }) {
   const { t } = useTranslation("v21");
   const { colors, isDark } = useThemeColors();
-  const { width, fontScale } = useWindowDimensions();
-  const textScale = useScaledFontSize(100) / 100;
-  const layoutScale = Math.max(1, textScale, fontScale || 1);
-  const stacked = width < 340 || layoutScale > 1.2;
-  const ringSize = Math.min(200, Math.round(120 * layoutScale));
   const model = getCoinJourney(data);
   const ink = { color: colors.textPrimary };
   const muted = { color: colors.textSecondary };
@@ -44,86 +36,25 @@ export function HealthCoinJourney({
 
   return (
     <View style={styles.root}>
-      <View style={[styles.hero, stacked && styles.heroStack]}>
-        <View
-          accessible
-          accessibilityRole="progressbar"
-          accessibilityLabel={t("journeyTitle")}
-          accessibilityValue={{
-            min: 0,
-            max: 100,
-            now: model.percent,
-            text: t("journeySummary", {
-              done: model.completed,
-              total: model.tasks.length,
-            }),
-          }}
-          style={[styles.ring, { width: ringSize, height: ringSize }]}
+      <View style={styles.rulesRow}>
+        <Image
+          source={require("../../../assets/images/care-circle/asinu-pointing-qr-v1.png")}
+          style={styles.rulesMascot}
+          resizeMode="contain"
+          accessible={false}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("rules")}
+          onPress={onOpenDetails}
+          style={({ pressed }) => [
+            styles.rules,
+            { backgroundColor: fill },
+            pressed && { opacity: 0.65 },
+          ]}
         >
-          <Svg
-            width={ringSize}
-            height={ringSize}
-            viewBox="0 0 120 120"
-            accessible={false}
-          >
-            <Circle
-              cx={60}
-              cy={60}
-              r={51}
-              stroke={track}
-              strokeWidth={8}
-              fill="none"
-            />
-            {model.percent > 0 && (
-              <Circle
-                cx={60}
-                cy={60}
-                r={51}
-                stroke={accent}
-                strokeWidth={8}
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={`${RING_LENGTH} ${RING_LENGTH}`}
-                strokeDashoffset={RING_LENGTH * (1 - model.percent / 100)}
-                rotation={-90}
-                origin="60,60"
-              />
-            )}
-          </Svg>
-          <View
-            style={styles.ringCopy}
-            pointerEvents="none"
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          >
-            <Text style={[styles.percent, ink]}>{model.percent}%</Text>
-            <Text style={[styles.completeLabel, muted]}>
-              {t("journeyComplete")}
-            </Text>
-          </View>
-        </View>
-        {!stacked && (
-          <View
-            style={[styles.heroDivider, { backgroundColor: colors.border }]}
-          />
-        )}
-        <View style={[styles.heroCopy, stacked && styles.heroCopyStack]}>
-          <Text accessibilityRole="header" style={[styles.heroTitle, ink]}>
-            {t("journeyTitle")}
-          </Text>
-          <Text style={[styles.heroDescription, muted]}>
-            {t(
-              model.percent === 100 ? "journeyFinished" : "journeyEncouragement"
-            )}
-          </Text>
-          <MaterialCommunityIcons
-            name="heart-pulse"
-            size={40}
-            color={accent}
-            style={styles.heroHeart}
-            accessible={false}
-          />
-        </View>
+          <Text style={[styles.rulesTitle, ink]}>{t("rules")}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.taskHeader}>
@@ -143,9 +74,7 @@ export function HealthCoinJourney({
       </View>
 
       {!model.tasks.length && (
-        <Text style={[styles.heroDescription, muted]}>
-          {t("journeyNoTasks")}
-        </Text>
+        <Text style={[styles.emptyText, muted]}>{t("journeyNoTasks")}</Text>
       )}
       <View>
         {model.tasks.map((task, index) => (
@@ -206,68 +135,13 @@ export function HealthCoinJourney({
           </View>
         ))}
       </View>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t("rules")}
-        onPress={onOpenDetails}
-        style={({ pressed }) => [styles.rules, pressed && { opacity: 0.65 }]}
-      >
-        <MaterialCommunityIcons
-          name="information-outline"
-          size={24}
-          color={accent}
-        />
-        <Text style={[styles.rulesTitle, ink]}>{t("rules")}</Text>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { gap: 12 },
-  hero: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  heroStack: { flexDirection: "column", alignItems: "flex-start" },
-  ring: {
-    width: 120,
-    height: 120,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ringCopy: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  percent: {
-    fontSize: 28,
-    lineHeight: 36,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-  completeLabel: { fontSize: 13, lineHeight: 18, textAlign: "center" },
-  heroDivider: { width: StyleSheet.hairlineWidth, height: 90 },
-  heroCopy: { flex: 1, minWidth: 0, gap: 6 },
-  heroCopyStack: {
-    flexGrow: 0,
-    flexShrink: 0,
-    flexBasis: "auto",
-    width: "100%",
-  },
-  heroTitle: { fontSize: 19, lineHeight: 25, fontWeight: "700" },
-  heroDescription: { fontSize: 15, lineHeight: 21 },
-  heroHeart: { position: "absolute", right: 0, bottom: 0, opacity: 0.14 },
+  emptyText: { fontSize: 15, lineHeight: 21 },
   taskHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -306,12 +180,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  rules: {
-    minHeight: 52,
+  rulesRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 8,
+    gap: 8,
   },
-  rulesTitle: { flex: 1, fontSize: 17, fontWeight: "700" },
+  rulesMascot: { width: 104, height: 104, flexShrink: 0 },
+  rules: {
+    flex: 1,
+    minHeight: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 16,
+  },
+  rulesTitle: { fontSize: 17, fontWeight: "700", textAlign: "center" },
 });

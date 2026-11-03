@@ -1020,22 +1020,16 @@ for (const language of ["vi", "en"]) {
           "react-i18next": { useTranslation: () => ({ t }) },
           "react-native": {
             View: "View",
+            Image: "Image",
             Pressable: "Button",
             StyleSheet: { create: (styles) => styles, hairlineWidth: 0.5 },
             useWindowDimensions: () => dimensions,
-          },
-          "react-native-svg": {
-            __esModule: true,
-            default: "Svg",
-            Circle: "Circle",
           },
           "../../components/ScaledText": { ScaledText: "Text" },
           "../../hooks/useThemeColors": {
             useThemeColors: () => ({ isDark: false, colors: {} }),
           },
-          "../../hooks/useScaledTypography": {
-            useScaledFontSize: (size) => size,
-          },
+          "../../../assets/images/care-circle/asinu-pointing-qr-v1.png": "pointing-mascot",
           "./coin-progress": { getCoinJourney },
         },
       );
@@ -1049,8 +1043,8 @@ for (const language of ["vi", "en"]) {
       const progress = nodes.filter(
         (node) => node.props.accessibilityRole === "progressbar",
       );
-      assert.equal(progress.length, 6);
-      assert.equal(progress[0].props.accessibilityValue.now, 40);
+      assert.equal(progress.length, 5);
+      assert.equal(progress[0].props.accessibilityValue.now, 1);
       assert.equal(progress.at(-1).props.accessibilityValue.now, 1);
       assert.equal(progress.at(-1).props.accessibilityValue.max, 5);
       const details = nodes.find(
