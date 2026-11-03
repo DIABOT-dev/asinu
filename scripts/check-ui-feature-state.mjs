@@ -428,7 +428,7 @@ function reminderHarness() {
   const r = runtime();
   const listeners = new Set();
   const auth = { token: "session-a" };
-  const server = { allowed: false, pending: null, error: false };
+  const server = { allowed: false, pending: null, error: false, remindersEnabled: true, preferenceError: false, pendingPrefs: null };
   const calls = { reads: 0, routes: [] };
   const { ReminderSettingsEntry } = evaluate(
     "src/features/profile/ReminderSettingsEntry.tsx",
@@ -455,6 +455,12 @@ function reminderHarness() {
       },
       "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
       "../auth/auth.store": { useAuthStore: { getState: () => auth } },
+      "../notifications/notifications.api": {
+        getNotificationPreferences: async () => {
+          if (server.preferenceError) throw new Error("Reminder preference unavailable");
+          return server.pendingPrefs ?? { ok: true, reminders_enabled: server.remindersEnabled };
+        },
+      },
       "../../lib/device-permission-events": permissionEvents,
       "../../lib/notifications": {
         checkNotificationPermission: async () => {
@@ -496,6 +502,32 @@ await test("granting and revoking notifications in device Settings refreshes rem
   h.foreground();
   await h.settle();
   assert.equal(h.read().props.disabled, true);
+  h.blur();
+});
+await test("notification access alone cannot open reminder settings while task reminders are disabled", async () => {
+  const h = reminderHarness();
+  h.server.allowed = true;
+  h.server.remindersEnabled = false;
+  await h.settle();
+  assert.equal(h.read().props.disabled, true);
+  h.read().props.onPress();
+  await flush();
+  assert.deepEqual(h.calls.routes, []);
+  h.server.remindersEnabled = true;
+  permissionEvents.notifyTaskReminderPreferenceChanged();
+  await h.settle();
+  assert.equal(h.read().props.disabled, false);
+  h.blur();
+});
+await test("failed task reminder preferences keep reminder settings disabled", async () => {
+  const h = reminderHarness();
+  h.server.allowed = true;
+  h.server.preferenceError = true;
+  await h.settle();
+  assert.equal(h.read().props.disabled, true);
+  h.read().props.onPress();
+  await flush();
+  assert.deepEqual(h.calls.routes, []);
   h.blur();
 });
 await test("a failed permission lookup never enables reminder settings", async () => {
@@ -1179,5 +1211,115 @@ await test("coin history loads the next cursor once, removes duplicate entries a
   assert.equal(h.read().history.length, 31); assert.equal(h.read().hasMore, false);
   await h.read().more(); assert.equal(h.calls.history.length, 2); h.blur();
 });
+
+await test("withdrawing task reminders immediately locks reminder times without leaving Profile", async () => {
+  const h = reminderHarness(); h.server.allowed = true; await h.settle();
+  h.server.remindersEnabled = false; permissionEvents.notifyTaskReminderPreferenceChanged(); await h.settle();
+  assert.equal(h.read().props.disabled, true); h.blur();
+});
+await test("task reminder consent is checked again before opening reminder times", async () => {
+  const h = reminderHarness(); h.server.allowed = true; await h.settle();
+  h.server.remindersEnabled = false; h.read().props.onPress(); await h.settle();
+  assert.deepEqual(h.calls.routes, []); assert.equal(h.read().props.disabled, true); h.blur();
+});
+await test("an older reminder preference result cannot undo a newer withdrawal", async () => {
+  const h = reminderHarness(); h.server.allowed = true; await h.settle(); let finish;
+  h.server.pendingPrefs = new Promise(resolve => { finish = resolve; }); h.foreground(); await flush();
+  h.server.pendingPrefs = null; h.server.remindersEnabled = false; permissionEvents.notifyTaskReminderPreferenceChanged(); await h.settle();
+  finish({ ok: true, reminders_enabled: true }); await flush();
+  assert.equal(h.read().props.disabled, true); h.blur();
+});
+
+function taskReminderHarness() {
+  const r = runtime();
+  const auth = { token: "session-a" };
+  const listeners = new Set();
+  const calls = { writes: [], nativeRequests: 0, toasts: [] };
+  const server = { allowed: false, reminders: false, deny: false, readError: false, writeError: false, savedOverride: null, pendingWrite: null, pendingNative: null };
+  const native = {
+    permission: { granted: false }, loading: false, pending: false, failed: false,
+    refresh: async () => {},
+    change: async () => {
+      if (server.pendingNative) await server.pendingNative;
+      if (!server.allowed) calls.nativeRequests++;
+      if (!server.deny) { server.allowed = true; native.permission.granted = true; }
+    },
+  };
+  const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
+  const { useTaskReminderPreference } = evaluate("src/features/profile/useTaskReminderPreference.ts", {
+    react: r.hooks, "expo-router": r.router,
+    "react-native": { AppState: { addEventListener: (_, callback) => { listeners.add(callback); return { remove: () => listeners.delete(callback) }; } } },
+    "react-i18next": { useTranslation: () => ({ t: key => key }) },
+    "../auth/auth.store": { useAuthStore },
+    "./useDevicePermission": { useDevicePermission: () => native },
+    "../../lib/notifications": { checkNotificationPermission: async () => server.allowed },
+    "../../lib/device-permission-events": permissionEvents,
+    "../../stores/toast.store": { showToast: (...args) => calls.toasts.push(args) },
+    "../notifications/notifications.api": {
+      getNotificationPreferences: async () => {
+        if (server.readError) throw new Error("Fixture read failure");
+        return { ok: true, reminders_enabled: server.reminders };
+      },
+      updateNotificationPreferences: async prefs => {
+        calls.writes.push(prefs);
+        if (server.pendingWrite) await server.pendingWrite;
+        if (server.writeError) throw new Error("Fixture write failure");
+        server.reminders = server.savedOverride ?? prefs.reminders_enabled;
+        permissionEvents.notifyTaskReminderPreferenceChanged();
+        return { ok: true, reminders_enabled: server.reminders };
+      },
+    },
+  });
+  return { ...r, auth, server, calls, native,
+    read: () => r.render(useTaskReminderPreference), settle: () => r.settle(useTaskReminderPreference),
+  };
+}
+await test("opening task reminder permissions never requests notification consent or enables delivery", async () => {
+  const h = taskReminderHarness(); await h.settle();
+  assert.equal(h.read().enabled, false); assert.equal(h.calls.nativeRequests, 0); assert.deepEqual(h.calls.writes, []); h.blur();
+});
+await test("enabling task reminders requires native consent and a confirmed backend preference", async () => {
+  const h = taskReminderHarness(); await h.settle(); await h.read().change(true); await h.settle();
+  assert.equal(h.calls.nativeRequests, 1); assert.deepEqual(h.calls.writes, [{ reminders_enabled: true }]);
+  assert.equal(h.read().enabled, true); assert.equal(h.read().pending, false); h.blur();
+});
+await test("denying notification consent cannot enable task reminders on the backend", async () => {
+  const h = taskReminderHarness(); h.server.deny = true; await h.settle(); await h.read().change(true);
+  assert.equal(h.read().enabled, false); assert.deepEqual(h.calls.writes, []); assert.equal(h.read().pending, false); h.blur();
+});
+await test("turning off task reminders keeps other notification permissions granted", async () => {
+  const h = taskReminderHarness(); h.server.allowed = true; h.server.reminders = true; h.native.permission.granted = true;
+  await h.settle(); await h.read().change(false);
+  assert.equal(h.read().enabled, false); assert.equal(h.server.allowed, true); assert.equal(h.calls.nativeRequests, 0);
+  assert.deepEqual(h.calls.writes, [{ reminders_enabled: false }]); h.blur();
+});
+await test("a backend rejection or failed save never displays a false reminder permission", async () => {
+  const h = taskReminderHarness(); h.server.savedOverride = false; await h.settle(); await h.read().change(true);
+  assert.equal(h.read().enabled, false);
+  h.server.savedOverride = null; h.server.writeError = true; await h.read().change(true);
+  assert.equal(h.read().enabled, false); assert.equal(h.read().pending, false); assert.equal(h.calls.toasts.length, 1); h.blur();
+});
+await test("duplicate task reminder toggles write once and wait for server confirmation", async () => {
+  const h = taskReminderHarness(); await h.settle(); let finish;
+  h.server.pendingWrite = new Promise(resolve => { finish = resolve; });
+  const first = h.read().change(true); const second = h.read().change(true); await flush();
+  assert.equal(h.calls.writes.length, 1); assert.equal(h.read().enabled, false); assert.equal(h.read().pending, true);
+  finish(); await Promise.all([first, second]); assert.equal(h.read().enabled, true); h.blur();
+});
+await test("unavailable task reminder preferences stay disabled and can be read again", async () => {
+  const h = taskReminderHarness(); h.server.readError = true; await h.settle();
+  assert.equal(h.read().available, false); assert.equal(h.read().failed, true);
+  await h.read().change(true); assert.deepEqual(h.calls.writes, []);
+  h.server.readError = false; h.read().refresh(); await h.settle(); assert.equal(h.read().failed, false); assert.equal(h.read().available, true); h.blur();
+});
+for (const leave of ["blur", "account"]) {
+  await test(`${leave}: task reminder consent cannot be saved for a session that left during the native prompt`, async () => {
+    const h = taskReminderHarness(); await h.settle(); let finish;
+    h.server.pendingNative = new Promise(resolve => { finish = resolve; });
+    const pending = h.read().change(true); await flush();
+    if (leave === "blur") h.blur(); else h.auth.token = "session-b";
+    finish(); await pending; assert.deepEqual(h.calls.writes, []); h.blur();
+  });
+}
 
 console.log(`UI feature state: ${checks} runtime checks passed.`);

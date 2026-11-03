@@ -31,6 +31,8 @@
   "requestDataDeletionDesc": "Yêu cầu xóa tài khoản và dữ liệu liên quan",
   "supportEmailSubject": "Hỗ trợ Asinu",
   "taskReminders": "Nhắc nhiệm vụ",
+  "enableTaskRemindersFirst": "Bật Nhắc nhiệm vụ trong mục Cấp quyền",
+  "taskRemindersStatusUnavailable": "Chưa đọc được trạng thái nhắc nhiệm vụ",
   "taskRemindersDesc": "Bật nếu bạn muốn nhận nhắc nhở sức khỏe",
   "notificationPermRequired": "Bật thông báo nhắc nhở",
   "notificationPermDesc": "Thông báo là tùy chọn. Nếu để sau, bạn vẫn dùng Asinu bình thường và có thể bật lại trong Cài đặt.",

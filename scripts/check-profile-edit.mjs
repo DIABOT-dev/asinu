@@ -138,6 +138,8 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/profile/FontSizePickerModal': { FontSizePickerModal: 'FontSizePickerModal' },
     '../../../src/features/profile/LanguagePickerModal': { LanguagePickerModal: 'LanguagePickerModal' },
     '../../../src/features/profile/ProfileDevicePermissions': { ProfileDevicePermissions: 'DevicePermissions' },
+    '../../../src/features/profile/TaskReminderPermission': { TaskReminderPermission: 'TaskReminderPermission' },
+    '../../../src/features/profile/SpecialistSharingPermission': { SpecialistSharingPermission: 'SpecialistSharingPermission' },
     '../../../src/features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: 'ReminderSettingsEntry' },
     '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => ({ enabled: true, balance: 12, earnedToday: 10 }) },
     '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
@@ -302,12 +304,14 @@ for (const language of ['vi', 'en']) {
       assert.ok(hasLabel(health, h.ts('doctorConsultation')));
       assert.ok(hasLabel(health, h.ts('doctorConsultationHistory')));
       assert.ok(!hasLabel(health, h.ts('specialistSharing')));
-      assert.ok(!hasLabel(health, h.ts('privacyCenterTitle')));
-      const permissions = h.toggleSection(h.ts('appPermissions'));
-      const privacyEntry = nodes(permissions).find(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.ts('specialistSharing'));
-      assert.ok(privacyEntry, 'Specialist data sharing belongs to permissions');
+      assert.ok(hasLabel(health, h.ts('privacyCenterTitle')));
+      const privacyEntry = nodes(health).find(node => node.props.accessibilityLabel === h.ts('privacyCenterTitle'));
+      assert.ok(privacyEntry, 'Consultation data tools belong to Health care');
       privacyEntry.props.onPress();
       assert.deepEqual(h.calls.routes, ['/privacy-center']);
+      const permissions = h.toggleSection(h.ts('appPermissions'));
+      assert.equal(nodes(permissions).filter(node => node.type === 'SpecialistSharingPermission').length, 1, 'App permissions contains the inline specialist sharing control');
+      assert.ok(!nodes(permissions).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && node.props.accessibilityLabel === h.ts('specialistSharing')), 'Specialist sharing is a switch rather than navigation to consultation data tools');
       const help = h.toggleSection(h.t('sectionSystem'));
       assert.ok(hasLabel(help, h.ts('helpSupport')));
       assert.ok(hasLabel(help, h.ts('termsOfService')));
@@ -330,19 +334,24 @@ for (const language of ['vi', 'en']) {
     await test(`${language}/${isDark ? 'dark' : 'light'}: permission controls share their own section instead of Settings or System`, () => {
       const h = harness({ language, isDark });
       const deviceControls = tree => nodes(tree).filter(node => node.type === 'DevicePermissions');
+      const taskReminderControls = tree => nodes(tree).filter(node => node.type === 'TaskReminderPermission');
       const reminderControls = tree => nodes(tree).filter(node => node.type === 'ReminderSettingsEntry');
       assert.equal(deviceControls(h.render()).length, 0);
+      assert.equal(taskReminderControls(h.render()).length, 0);
       const settingsOpen = h.toggleSection(h.t('sectionSettings'));
       assert.equal(deviceControls(settingsOpen).length, 0);
+      assert.equal(taskReminderControls(settingsOpen).length, 0, 'Reminder permission is separate from reminder time settings');
       assert.equal(reminderControls(settingsOpen).length, 1, 'Reminder times belong to app settings');
       assert.equal(reminderControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
       assert.equal(deviceControls(h.toggleSection(h.t('sectionSystem'))).length, 0);
       const health = h.toggleSection(h.t('sectionHealth'));
+      assert.equal(taskReminderControls(health).length, 0);
       assert.ok(!nodes(health).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
       assert.equal(nodes(health).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')).length, 0, 'AI consent is grouped with permissions');
       h.toggleSection(h.t('sectionHealth'));
       const expanded = h.toggleSection(h.ts('appPermissions'));
       assert.equal(deviceControls(expanded).length, 1);
+      assert.equal(taskReminderControls(expanded).length, 1, 'Task reminders can be enabled from App permissions');
       assert.equal(reminderControls(expanded).length, 0, 'Permissions grant access without duplicating reminder settings');
       assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')).length, 1);
       const aiSwitches = nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings'));
@@ -352,6 +361,7 @@ for (const language of ['vi', 'en']) {
       assert.equal(nodes(h.render()).find(node => node.type === 'AiDataConsentModal').props.visible, true, 'Allowing AI still requires its explicit consent dialog');
       const closed = h.toggleSection(h.ts('appPermissions'));
       assert.equal(deviceControls(closed).length, 0);
+      assert.equal(taskReminderControls(closed).length, 0);
       assert.ok(!nodes(closed).some(node => node.type === 'ReminderSettingsEntry'));
       assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
       assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')));

@@ -1,4 +1,5 @@
 import { apiClient } from '../../lib/apiClient';
+import { notifyTaskReminderPreferenceChanged } from '../../lib/device-permission-events';
 
 export interface NotificationData {
   id: number;
@@ -116,8 +117,12 @@ export async function updateNotificationPreferences(prefs: {
   reminders_enabled?: boolean;
   health_feed_enabled?: boolean;
 }): Promise<NotificationPreferences> {
-  return apiClient<NotificationPreferences>('/api/notifications/preferences', {
+  const response = await apiClient<NotificationPreferences>('/api/notifications/preferences', {
     method: 'PUT',
     body: prefs,
   });
+  if (response.ok && typeof prefs.reminders_enabled === 'boolean') {
+    notifyTaskReminderPreferenceChanged();
+  }
+  return response;
 }

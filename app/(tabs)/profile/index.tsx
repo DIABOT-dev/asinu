@@ -52,6 +52,8 @@ import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
 import { FontSizePickerModal } from "../../../src/features/profile/FontSizePickerModal";
 import { LanguagePickerModal } from "../../../src/features/profile/LanguagePickerModal";
 import { ProfileDevicePermissions } from "../../../src/features/profile/ProfileDevicePermissions";
+import { TaskReminderPermission } from "../../../src/features/profile/TaskReminderPermission";
+import { SpecialistSharingPermission } from "../../../src/features/profile/SpecialistSharingPermission";
 import { ReminderSettingsEntry } from "../../../src/features/profile/ReminderSettingsEntry";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
@@ -1205,6 +1207,25 @@ export default function ProfileScreen() {
                     </Text>
                   </TouchableOpacity>}
 
+                  {/* Trung tâm quyền dữ liệu chuyên gia */}
+                  {isDoctorFeaturesEnabled && <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={ts("privacyCenterTitle")}
+                    style={styles.actionCard}
+                    onPress={() => router.push("/privacy-center" as any)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="finger-print-outline"
+                        size={22}
+                        color="#06b6d4"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>
+                      {ts("privacyCenterTitle")}
+                    </Text>
+                  </TouchableOpacity>}
                 </View>
               )}
             </Animated.View>
@@ -1392,25 +1413,7 @@ export default function ProfileScreen() {
               )}
               {expandedSections.permissions && (
                 <View style={styles.cardsStack}>
-                  {/* Trung tâm quyền dữ liệu chuyên gia */}
-                  {isDoctorFeaturesEnabled && <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={ts("specialistSharing")}
-                    style={styles.actionCard}
-                    onPress={() => router.push("/privacy-center" as any)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons
-                        name="finger-print-outline"
-                        size={22}
-                        color="#06b6d4"
-                      />
-                    </View>
-                    <Text style={styles.rowLabel}>
-                      {ts("specialistSharing")}
-                    </Text>
-                  </TouchableOpacity>}
+                  {isDoctorFeaturesEnabled && <SpecialistSharingPermission />}
 
                   {/* Quyền dùng Asinu AI */}
                   <View style={styles.actionCard}>
@@ -1436,6 +1439,7 @@ export default function ProfileScreen() {
                   </View>
 
                   <ProfileDevicePermissions />
+                  <TaskReminderPermission />
                   <View style={styles.actionCard}>
                     <View style={styles.rowIconWrap}>
                       <Ionicons

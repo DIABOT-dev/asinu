@@ -31,6 +31,8 @@
   "requestDataDeletionDesc": "Request deletion of your account and personal data",
   "supportEmailSubject": "Asinu Support",
   "taskReminders": "Task Reminders",
+  "enableTaskRemindersFirst": "Enable Task reminders in Permissions",
+  "taskRemindersStatusUnavailable": "Task reminder status unavailable",
   "taskRemindersDesc": "Turn on if you want health reminder notifications",
   "notificationPermRequired": "Enable reminder notifications",
   "notificationPermDesc": "Notifications are optional. If you choose later, you can still use Asinu normally and turn them on in Settings anytime.",
