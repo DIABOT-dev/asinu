@@ -194,8 +194,25 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
     assert.equal(inspection.FREE_FEATURES.length, 6); assert.equal(inspection.AN_TAM_FEATURES.length, 6);
     const freeFeatures = inspection.FREE_FEATURES.map(key => ({ text: t(key), description: t(`${key}Description`) }));
     const anTamFeatures = inspection.AN_TAM_FEATURES.map(key => ({ text: t(key), description: t(`${key}Description`) }));
-    const tree = h.render(inspection.PlanComparison.type, { freeFeatures, anTamFeatures, freeIsCurrent: true, onChoosePlan: () => { chosen++; }, t, styles: inspection.createStyles(theme.typography, mode === 'dark') });
+    const renderPlans = () => h.render(inspection.PlanComparison.type, { freeFeatures, anTamFeatures, freeIsCurrent: true, onChoosePlan: () => { chosen++; }, t, styles: inspection.createStyles(theme.typography, mode === 'dark') });
+    const disclosure = (tree, key) => nodes(tree).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t(key));
+    let tree = renderPlans();
     assert.equal(style(tree.props.style).flexDirection, 'column');
+    for (const key of ['v2FreePlan', 'v2AnTamPlanName']) {
+      const header = disclosure(tree, key);
+      assert.equal(header.props.accessibilityState.expanded, false);
+      assert.ok(style(header.props.style).minHeight >= 56);
+    }
+    assert.ok([...freeFeatures, ...anTamFeatures].every(item => !texts(tree).includes(item.text)), 'Benefits start collapsed');
+    assert.equal(disclosure(tree, 'iapChooseTitle'), undefined, 'Checkout only appears inside expanded An Tam');
+    disclosure(tree, 'v2FreePlan').props.onPress();
+    tree = renderPlans();
+    assert.ok(freeFeatures.every(item => texts(tree).includes(item.text)));
+    assert.ok(anTamFeatures.every(item => !texts(tree).includes(item.text)), 'Opening Free leaves An Tam closed');
+    disclosure(tree, 'v2AnTamPlanName').props.onPress();
+    tree = renderPlans();
+    assert.equal(disclosure(tree, 'v2FreePlan').props.accessibilityState.expanded, true);
+    assert.equal(disclosure(tree, 'v2AnTamPlanName').props.accessibilityState.expanded, true);
     for (const item of [...freeFeatures, ...anTamFeatures]) {
       assert.ok(texts(tree).includes(item.text)); assert.ok(texts(tree).includes(item.description));
     }
@@ -222,9 +239,15 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       assert.equal(style(icon.props.style).includeFontPadding, false);
       assert.equal(wrapper.props.importantForAccessibility, 'no-hide-descendants');
     }
-    const button = nodes(tree).find(node => node.type === 'Pressable');
+    const button = disclosure(tree, 'iapChooseTitle');
     assert.ok(style(button.props.style).minHeight >= 56); button.props.onPress(); assert.equal(chosen, 1);
     assert.ok(texts(tree).includes(t('v2AnTamFeature6Description')));
+    disclosure(tree, 'v2FreePlan').props.onPress();
+    tree = renderPlans();
+    assert.equal(disclosure(tree, 'v2FreePlan').props.accessibilityState.expanded, false);
+    assert.ok(freeFeatures.every(item => !texts(tree).includes(item.text)));
+    assert.ok(anTamFeatures.every(item => texts(tree).includes(item.text)), 'Each plan collapses independently');
+    assert.equal(chosen, 1, 'Expanding and collapsing never opens checkout');
   });
   }
 }
