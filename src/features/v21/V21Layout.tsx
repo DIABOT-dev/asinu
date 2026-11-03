@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { Screen } from "../../components/Screen";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
-import { ApiError } from "../../lib/apiClient";
+import { ApiError, getApiErrorMessage } from "../../lib/apiClient";
 import { useToastStore } from "../../stores/toast.store";
 
 export function V21Layout({
@@ -188,8 +188,25 @@ export function Heading({ children }: { children: ReactNode }) {
     </Text>
   );
 }
-export function v21Error(error: unknown, t: (key: string) => string) {
+export function v21Error(
+  error: unknown,
+  t: (key: string) => string,
+  fallbackKey = "error",
+) {
   const code = error instanceof ApiError ? error.code : undefined;
+  const photoKey = code === "UPLOAD_FILE_TOO_LARGE"
+    ? "medicationPhotoTooLarge"
+    : code === "IMAGE_TYPE_UNSUPPORTED"
+      ? "scanPhotoUnsupported"
+      : ["MED_IMAGE_INVALID", "IMAGE_INVALID", "IMAGE_REQUIRED"].includes(code || "")
+        ? "medicationPhotoReadError"
+        : code === "MED_SCAN_LIMIT"
+          ? "scanRateLimited"
+          : undefined;
+  if (photoKey) {
+    useToastStore.getState().show(t(photoKey), "error");
+    return;
+  }
   const key =
     code === "COIN_INSUFFICIENT"
       ? "insufficient"
@@ -209,7 +226,16 @@ export function v21Error(error: unknown, t: (key: string) => string) {
                   : code === "MED_DOSE_NOT_DUE"
                     ? "notDue"
                     : "error";
-  useToastStore.getState().show(t(key), "error");
+  useToastStore.getState().show(
+    key === "error"
+      ? getApiErrorMessage(
+          error instanceof ApiError ? new ApiError("", error.statusCode) : error,
+          t,
+          fallbackKey
+        )
+      : t(key),
+    "error"
+  );
 }
 export const v21Styles = StyleSheet.create({
   header: {

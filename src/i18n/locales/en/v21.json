@@ -195,5 +195,10 @@
   "medicationScheduleActions": "Manage {{time}} reminder",
   "medicationScheduleAt": "{{time}} reminder",
   "medicationPushOnly": "Notification only",
-  "medicationReviewConsent": "Review invitation"
+  "medicationReviewConsent": "Review invitation",
+  "scanPhotoUnsupported": "This image format is not supported. Please choose a JPG, PNG or WebP image, or take a new photo.",
+  "scanRateLimited": "You have sent several photos in a short time. Please wait a little before trying again.",
+  "medicationPhotoReadError": "The image could not be read on this device. Select it again or take a new photo.",
+  "medicationPhotoTooLarge": "The image is larger than 10 MB. Choose a smaller image or take a new photo.",
+  "medicationPhotoUploadError": "The image could not be uploaded. Please try again or enter the medicine name to continue."
 }

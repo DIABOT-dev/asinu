@@ -195,5 +195,10 @@
   "medicationScheduleActions": "Thao tác lịch {{time}}",
   "medicationScheduleAt": "Lịch nhắc {{time}}",
   "medicationPushOnly": "Chỉ gửi thông báo",
-  "medicationReviewConsent": "Xem lời mời"
+  "medicationReviewConsent": "Xem lời mời",
+  "scanPhotoUnsupported": "Định dạng ảnh này chưa được hỗ trợ. Bạn chọn ảnh JPG, PNG hoặc WebP, hoặc chụp ảnh mới nhé.",
+  "scanRateLimited": "Bạn đã gửi nhiều ảnh trong thời gian ngắn. Vui lòng đợi một lúc rồi thử lại nhé.",
+  "medicationPhotoReadError": "Chưa đọc được tệp ảnh trên máy. Bạn chọn lại ảnh hoặc chụp ảnh mới nhé.",
+  "medicationPhotoTooLarge": "Ảnh lớn hơn 10 MB. Bạn chọn ảnh nhỏ hơn hoặc chụp lại nhé.",
+  "medicationPhotoUploadError": "Chưa tải được ảnh lên. Bạn thử lại hoặc tự nhập tên thuốc để tiếp tục nhé."
 }

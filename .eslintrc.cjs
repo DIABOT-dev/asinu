@@ -14,7 +14,7 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['scripts/check-health-feed-dismissals.mjs', 'scripts/check-ui-feature-state.mjs', 'scripts/check-blood-pressure.mjs', 'scripts/check-typewriter-text.cjs'],
+      files: ['scripts/check-health-feed-dismissals.mjs', 'scripts/check-ui-feature-state.mjs', 'scripts/check-blood-pressure.mjs', 'scripts/check-typewriter-text.cjs', 'scripts/check-medication-photo-upload.cjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },

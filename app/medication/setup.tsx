@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import { AiDataConsentModal } from "../../src/components/AiDataConsentModal";
 import { hasAiDataConsent } from "../../src/lib/aiDataConsent";
 import { Audio } from "../../src/lib/audio";
+import { reportError } from "../../src/observability/sentry";
+import { MedicationPhotoError, prepareMedicationPhoto, type MedicationPhotoUpload } from "../../src/features/v21/medication-photo";
 import { useToastStore } from "../../src/stores/toast.store";
 import {
   v21Api,
@@ -140,71 +142,94 @@ export default function MedicationSetup() {
   };
   const pick = async (camera: boolean) => {
     if (busy) return;
-    const permission = camera
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      useToastStore.getState().show(t("photoPermission"), "error");
-      return;
-    }
-    const result = camera
-      ? await ImagePicker.launchCameraAsync({
-          mediaTypes: ["images"],
-          quality: 0.85,
-          exif: false,
-        })
-      : await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          quality: 0.85,
-          exif: false,
-        });
-    if (result.canceled) return;
-    const asset = result.assets[0];
-    setPhoto(asset.uri);
-    await withConsent(async () => {
-      setBusy(true);
-      try {
-        const form = new FormData();
-        if (Platform.OS === "web") {
-          const response = await fetch(asset.uri);
-          (form as any).append("image", await response.blob(), "medicine.jpg");
-        } else
-          form.append("image", {
-            uri: asset.uri,
-            name: "medicine.jpg",
-            type: asset.mimeType || "image/jpeg",
-          } as any);
-        const scan = await v21Api.scan(patient, form);
-        if (!scan.readable || !scan.items.length) {
-          setScanFailures((n) => n + 1);
-          useToastStore
-            .getState()
-            .show(t(scanFailures ? "scanFallback" : "scanRetry"), "info");
-          return;
-        }
-        setDraft(
-          scan.items.map((item) => ({
-            display_name: item.display_name || "",
-            printed_name: item.printed_name,
-            kind: item.kind,
-            source: "PHOTO_AI",
-            confirmed: false,
-            photo_media_id: scan.mediaId,
-            anchors: item.suggested_slots.filter((a): a is Anchor =>
-              anchors.includes(a as Anchor)
-            ),
-          }))
-        );
-        setStep(2);
-        if (scan.partial)
-          useToastStore.getState().show(t("partialScan"), "info");
-      } catch (e) {
-        setScanFailures((n) => n + 1);
-        v21Error(e, t);
-      } finally {
-        setBusy(false);
+    try {
+      const permission = camera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        useToastStore.getState().show(t("photoPermission"), "error");
+        return;
       }
-    });
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ["images"],
+        quality: 0.85,
+        exif: false,
+        base64: Platform.OS !== "web",
+      };
+      const result = camera
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (!asset?.uri) {
+        useToastStore.getState().show(t("medicationPhotoReadError"), "error");
+        return;
+      }
+      setPhoto(asset.uri);
+      await withConsent(async () => {
+        setBusy(true);
+        let upload: MedicationPhotoUpload | null = null;
+        let stage = "photo_prepare";
+        try {
+          upload = await prepareMedicationPhoto(asset);
+          stage = "photo_upload";
+          const scan = await v21Api.scan(patient, upload.body);
+          if (!scan.readable || !scan.items.length) {
+            setScanFailures((n) => n + 1);
+            useToastStore
+              .getState()
+              .show(t(scanFailures ? "scanFallback" : "scanRetry"), "info");
+            return;
+          }
+          setDraft(
+            scan.items.map((item) => ({
+              display_name: item.display_name || "",
+              printed_name: item.printed_name,
+              kind: item.kind,
+              source: "PHOTO_AI",
+              confirmed: false,
+              photo_media_id: scan.mediaId,
+              anchors: item.suggested_slots.filter((a): a is Anchor =>
+                anchors.includes(a as Anchor)
+              ),
+            }))
+          );
+          setStep(2);
+          if (scan.partial)
+            useToastStore.getState().show(t("partialScan"), "info");
+        } catch (error) {
+          reportError(error, {
+            component: "medication_setup",
+            operation: stage,
+          });
+          if (error instanceof MedicationPhotoError) {
+            useToastStore
+              .getState()
+              .show(
+                t(
+                  error.code === "MED_LOCAL_PHOTO_TOO_LARGE"
+                    ? "medicationPhotoTooLarge"
+                    : error.code === "MED_LOCAL_PHOTO_UNSUPPORTED"
+                    ? "scanPhotoUnsupported"
+                    : "medicationPhotoReadError"
+                ),
+                "error"
+              );
+          } else {
+            v21Error(error, t, "medicationPhotoUploadError");
+          }
+        } finally {
+          upload?.dispose();
+          setBusy(false);
+        }
+      });
+    } catch (error) {
+      reportError(error, {
+        component: "medication_setup",
+        operation: "photo_picker",
+      });
+      useToastStore.getState().show(t("medicationPhotoReadError"), "error");
+    }
   };
   const stopVoice = async () => {
     if (!recording.current) return;
