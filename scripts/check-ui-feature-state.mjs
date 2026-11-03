@@ -1079,4 +1079,105 @@ await test("granting notifications in-app immediately updates reminder access wi
   assert.equal(reminder.calls.reads, reads);
 });
 
+function coinDetailsHarness() {
+  const r = runtime();
+  const auth = { profile: { id: "alice" } };
+  const storage = new Map();
+  const calls = { redeems: [], toasts: [], errors: [], history: [] };
+  const reward = { code: "GREETING_CARD", cost: 50, daily_limit: 1, monthly_limit: 0 };
+  const server = { balance: 100, pendingCoins: null, pendingRedeem: null, pendingStorage: null, failRedeem: false, pages: { "": [] } };
+  const t = key => key;
+  const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
+  const data = () => ({ ...journeyData(), balance: server.balance });
+  const { useHealthCoins } = evaluate("src/features/v21/useHealthCoins.ts", {
+    react: r.hooks,
+    "expo-router": { ...r.router, useRouter: () => ({ push() {} }) },
+    "react-i18next": { useTranslation: () => ({ t }) },
+    "@react-native-async-storage/async-storage": { __esModule: true, default: {
+      getItem: async key => server.pendingStorage ? await server.pendingStorage : storage.get(key) ?? null,
+      setItem: async (key, value) => storage.set(key, value), removeItem: async key => storage.delete(key),
+    } },
+    "expo-crypto": { randomUUID: () => "fixture-request-" + calls.redeems.length },
+    "../auth/auth.store": { useAuthStore },
+    "../../stores/toast.store": { useToastStore: { getState: () => ({ show: (...args) => calls.toasts.push(args) }) } },
+    "./V21Layout": { v21Error: error => calls.errors.push(error) },
+    "./v21.api": { v21Api: {
+      coins: async () => server.pendingCoins ?? data(),
+      rewards: async () => ({ items: [reward], recipients: [{ id: 7, name: "Fixture recipient" }], templates: [{ code: "fixture-card", title: "Fixture card", title_en: "Fixture card" }] }),
+      history: async before => { calls.history.push(before || ""); return { items: server.pages[before || ""] ?? [] }; },
+      redeem: async (code, id, payload) => {
+        calls.redeems.push({ code, id, payload });
+        if (server.pendingRedeem) await server.pendingRedeem;
+        if (server.failRedeem) throw new Error("Fixture network failure");
+        server.balance -= reward.cost;
+        return {};
+      },
+    } },
+  });
+  return { ...r, auth, server, calls, storage, reward, data,
+    read: () => r.render(useHealthCoins), settle: () => r.settle(useHealthCoins),
+    prepare: () => { r.render(useHealthCoins).selectReward(reward); r.render(useHealthCoins).selectRecipient(7); r.render(useHealthCoins).selectTemplate("fixture-card"); },
+  };
+}
+await test("coin details load backend values and require a recipient and template before redemption", async () => {
+  const h = coinDetailsHarness(); await h.settle();
+  assert.equal(h.read().data.balance, 100);
+  h.read().selectReward(h.reward);
+  await h.read().redeem();
+  assert.equal(h.calls.redeems.length, 0);
+  h.read().selectRecipient(7);
+  await h.read().redeem();
+  assert.equal(h.calls.redeems.length, 0);
+  h.blur();
+});
+await test("duplicate reward confirmation submits once and refreshes confirmed backend data", async () => {
+  const h = coinDetailsHarness(); await h.settle(); h.prepare(); let finish;
+  h.server.pendingRedeem = new Promise(resolve => { finish = resolve; });
+  const first = h.read().redeem(); const second = h.read().redeem(); await flush();
+  assert.equal(h.calls.redeems.length, 1); assert.equal(h.read().busy, true);
+  finish(); await Promise.all([first, second]); await flush();
+  assert.equal(h.read().data.balance, 50); assert.equal(h.read().selected, null);
+  assert.equal(h.read().busy, false); assert.equal(h.storage.size, 0); assert.equal(h.calls.toasts.length, 1); h.blur();
+});
+await test("an interrupted redemption reuses its request ID when retried", async () => {
+  const h = coinDetailsHarness(); await h.settle(); h.prepare(); h.server.failRedeem = true;
+  await h.read().redeem();
+  assert.equal(h.read().data.balance, 100); assert.equal(h.calls.toasts.length, 0);
+  assert.equal(h.storage.size, 1); assert.equal(h.read().busy, false);
+  h.server.failRedeem = false;
+  await h.read().redeem();
+  assert.equal(h.calls.redeems.length, 2); assert.equal(h.calls.redeems[0].id, h.calls.redeems[1].id);
+  assert.deepEqual(h.calls.redeems[1].payload, { recipientId: 7, templateCode: "fixture-card" }); h.blur();
+});
+await test("insufficient coins cannot submit a reward even through a stale handler", async () => {
+  const h = coinDetailsHarness(); h.server.balance = 12; await h.settle(); h.prepare();
+  await h.read().redeem(); assert.equal(h.calls.redeems.length, 0); assert.equal(h.storage.size, 0); h.blur();
+});
+await test("a late coin response cannot expose the previous account's balance or rewards", async () => {
+  const h = coinDetailsHarness(); await h.settle(); let finish;
+  h.server.pendingCoins = new Promise(resolve => { finish = resolve; });
+  const pending = h.read().refresh(); await flush();
+  h.auth.profile.id = "bob"; assert.equal(h.read().data, null); assert.equal(h.read().catalog, null);
+  h.server.pendingCoins = null; h.server.balance = 200; await h.settle();
+  finish({ ...h.data(), balance: 999 }); await pending; await flush();
+  assert.equal(h.read().data.balance, 200); assert.equal(h.read().selected, null); h.blur();
+});
+await test("leaving the coin screen before request preparation prevents a redemption API call", async () => {
+  const h = coinDetailsHarness(); await h.settle(); h.prepare(); let finish;
+  h.server.pendingStorage = new Promise(resolve => { finish = resolve; });
+  const pending = h.read().redeem(); await flush(); h.blur(); finish(null); await pending;
+  assert.equal(h.calls.redeems.length, 0); assert.equal(h.storage.size, 0);
+});
+
+await test("coin history loads the next cursor once, removes duplicate entries and stops at the last page", async () => {
+  const h = coinDetailsHarness();
+  h.server.pages[""] = Array.from({ length: 30 }, (_, index) => entry(60 - index, 2));
+  h.server.pages["31"] = [entry(31, 2), entry(30, 2)];
+  await h.settle(); assert.equal(h.read().hasMore, true);
+  await h.read().more();
+  assert.deepEqual(h.calls.history, ["", "31"]);
+  assert.equal(h.read().history.length, 31); assert.equal(h.read().hasMore, false);
+  await h.read().more(); assert.equal(h.calls.history.length, 2); h.blur();
+});
+
 console.log(`UI feature state: ${checks} runtime checks passed.`);
