@@ -1085,7 +1085,6 @@ export default function ProfileScreen() {
                       {t("careBannerSubtitle")}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#059669" />
                 </TouchableOpacity>
               </Animated.View>
             )}
@@ -1112,7 +1111,6 @@ export default function ProfileScreen() {
                       />
                     </View>
                     <Text style={styles.rowLabel}>{t("logEntry")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1149,11 +1147,9 @@ export default function ProfileScreen() {
                         <Text style={styles.lockedBadgeText}>{t("requiresAnTam")}</Text>
                       </View>
                     )}
-                    <Ionicons
-                      name={hasCheckinCallAccess ? "chevron-forward" : "lock-closed"}
-                      size={16}
-                      color="#94a3b8"
-                    />
+                    {!hasCheckinCallAccess && (
+                      <Ionicons name="lock-closed" size={16} color="#94a3b8" />
+                    )}
                   </TouchableOpacity>
 
                   {__DEV__ && isDevBuild && isCheckinUiGalleryEnabled && (
@@ -1168,7 +1164,6 @@ export default function ProfileScreen() {
                         <Ionicons name="eye-outline" size={22} color="#07846d" />
                       </View>
                       <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
                   )}
                   {isDoctorFeaturesEnabled && (
@@ -1189,11 +1184,6 @@ export default function ProfileScreen() {
                       <Text style={styles.rowLabel}>
                         {ts('doctorConsultation')}
                       </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
                     </TouchableOpacity>
                   )}
                   {isDoctorFeaturesEnabled && <TouchableOpacity
@@ -1213,7 +1203,6 @@ export default function ProfileScreen() {
                     <Text style={styles.rowLabel}>
                       {ts("doctorConsultationHistory")}
                     </Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>}
 
                 </View>
@@ -1237,7 +1226,6 @@ export default function ProfileScreen() {
                       <Ionicons name="flag-outline" size={22} color="#10b981" />
                     </View>
                     <Text style={styles.rowLabel}>{t("missions")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
 
                   {coinSummary.enabled && <TouchableOpacity
@@ -1263,7 +1251,6 @@ export default function ProfileScreen() {
                       <Ionicons name="gift-outline" size={22} color={colors.primary} />
                     </View>
                     <Text style={styles.rowLabel}>{t("dailyGifts")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.actionCard}
@@ -1276,7 +1263,6 @@ export default function ProfileScreen() {
                       <Ionicons name="archive-outline" size={22} color={colors.primary} />
                     </View>
                     <Text style={styles.rowLabel}>{t("giftCollection")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
                 </View>
               )}
@@ -1300,7 +1286,6 @@ export default function ProfileScreen() {
                       <Ionicons name="star-outline" size={22} color="#f59e0b" />
                     </View>
                     <Text style={styles.rowLabel}>{t("subscription")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1312,7 +1297,6 @@ export default function ProfileScreen() {
                       <Ionicons name="wallet-outline" size={22} color="#0d9488" />
                     </View>
                     <Text style={styles.rowLabel}>{t("wallet")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
 
                   {/* Đổi mật khẩu (nếu tài khoản dùng mật khẩu) */}
@@ -1326,11 +1310,6 @@ export default function ProfileScreen() {
                         <Ionicons name="key-outline" size={22} color="#6366f1" />
                       </View>
                       <Text style={styles.rowLabel}>{t("changePassword")}</Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color="#94a3b8"
-                      />
                     </TouchableOpacity>
                   ) : null}
                   <TouchableOpacity
@@ -1431,7 +1410,6 @@ export default function ProfileScreen() {
                     <Text style={styles.rowLabel}>
                       {ts("specialistSharing")}
                     </Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>}
 
                   {/* Quyền dùng Asinu AI */}
@@ -1503,7 +1481,7 @@ export default function ProfileScreen() {
                         <Ionicons name="cloud-download-outline" size={22} color={colors.primary} />
                       </View>
                       <Text style={styles.rowLabel}>{tc(checkingUpdate ? 'appUpdate.checking' : 'appUpdate.check')}</Text>
-                      {checkingUpdate ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />}
+                      {checkingUpdate && <ActivityIndicator color={colors.primary} />}
                     </TouchableOpacity>
                     {/* Trợ giúp qua Zalo */}
                     <TouchableOpacity
@@ -1519,7 +1497,6 @@ export default function ProfileScreen() {
                         />
                       </View>
                       <Text style={styles.rowLabel}>{ts("helpSupport")}</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
 
                     {/* Chia sẻ Asinu */}
@@ -1536,7 +1513,6 @@ export default function ProfileScreen() {
                         />
                       </View>
                       <Text style={styles.rowLabel}>{t("shareApp")}</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
 
                     {/* Điều khoản dịch vụ */}
@@ -1558,7 +1534,6 @@ export default function ProfileScreen() {
                         />
                       </View>
                       <Text style={styles.rowLabel}>{ts("termsOfService")}</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
 
                     {/* Chính sách bảo mật */}
@@ -1580,7 +1555,6 @@ export default function ProfileScreen() {
                         />
                       </View>
                       <Text style={styles.rowLabel}>{ts("privacyPolicy")}</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
 
                     {/* Nguồn tham khảo sức khỏe */}
@@ -1593,7 +1567,6 @@ export default function ProfileScreen() {
                         <Ionicons name="book-outline" size={22} color="#0284c7" />
                       </View>
                       <Text style={styles.rowLabel}>{ts("healthSources")}</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
 
                     {/* Yêu cầu xóa dữ liệu */}
@@ -1613,7 +1586,6 @@ export default function ProfileScreen() {
                       <Text style={styles.rowLabel}>
                         {ts("requestDataDeletion")}
                       </Text>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
 
                   </View>

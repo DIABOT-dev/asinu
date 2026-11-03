@@ -319,6 +319,13 @@ for (const language of ['vi', 'en']) {
       assert.ok(hasLabel(account, h.t('changePassword')));
       assert.ok(hasLabel(account, h.ts('deleteAccountForever')));
       assert.ok(!hasLabel(account, h.t('healthCoins')));
+      const expandedRewards = h.toggleSection(h.t('sectionRewards'));
+      assert.ok(!nodes(expandedRewards).some(node => node.type === 'Icon' && ['chevron-forward', 'chevron-right'].includes(node.props.name)), 'Actions without an inline dropdown do not show a right arrow');
+      for (const section of [h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.ts('appPermissions'), h.t('sectionSystem')]) {
+        const header = nodes(expandedRewards).find(node => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === section && node.props.accessibilityState?.expanded);
+        assert.ok(header, `Expanded section ${section} remains available`);
+        assert.ok(nodes(header).some(node => node.type === 'Icon' && node.props.name === 'chevron-up'), 'Dropdowns keep their expand/collapse indicator');
+      }
     });
     await test(`${language}/${isDark ? 'dark' : 'light'}: permission controls share their own section instead of Settings or System`, () => {
       const h = harness({ language, isDark });

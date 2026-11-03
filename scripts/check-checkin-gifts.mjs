@@ -1086,21 +1086,27 @@ await test('Home hides the daily card while preserving automatic manual and call
   }
 });
 
-await test('the combined gifts entry keeps the collection reachable on failure and retries daily loading', async () => {
+await test('the daily page omits the collection and duplicate heading while preserving retry and gift opening', async () => {
   let offline = true;
   const h = homeHarness(async () => {
     if (offline) throw new Error('offline');
     return { enabled: true, gift: { id: 'daily-gift', openedAt: null }, streak: 1, week: [] };
   });
   let tree = await h.settle();
-  const collection = nodes(tree).find(node => node.props.accessibilityLabel === 'checkinGift.collection');
-  assert.ok(collection); collection.props.onPress();
-  assert.deepEqual(h.routes, ['/checkin-rewards/history']);
+  const hasCollection = value => nodes(value).some(node => node.props.accessibilityLabel === 'checkinGift.collection'
+    || (node.type === 'Text' && node.props.children === 'checkinGift.collection'));
+  assert.equal(hasCollection(tree), false, 'The collection stays absent on loading failure');
   const retry = nodes(tree).find(node => node.props.accessibilityLabel === 'retry');
   assert.ok(retry);
   offline = false; retry.props.onPress();
   tree = await h.settle();
+  assert.equal(hasCollection(tree), false, 'The loaded daily page has no collection link');
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.dailyTitle'), 'Only the page header shows its title');
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.choose'));
+  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.dailySubtitle'));
+  const open = nodes(tree).find(node => node.type === 'Button' && nodes(node).some(child => child.type === 'Text' && child.props.children === 'checkinGift.choose'));
+  assert.ok(open); open.props.onPress();
+  assert.ok(nodes(await h.settle()).some(node => node.type === 'Gift'), 'A real daily gift remains openable');
 });
 
 await test('closing a real saved result queues numeric and PostgreSQL string IDs before navigating to Home, preserving practice navigation', () => {

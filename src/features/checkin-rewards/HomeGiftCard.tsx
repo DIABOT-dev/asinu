@@ -7,16 +7,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useAuthStore } from '../auth/auth.store';
 import { type GiftToday } from './checkin-gifts.api';
 import { CheckinGiftFlow } from './CheckinGiftFlow';
 import { canReplayCheckinGift, loadCheckinGiftDay } from './checkin-gift-replay';
 import { takeCheckinGiftOnHome } from './checkin-gift-handoff';
 
-const cloverArt = require('../../../assets/images/rewards/daily_clover.png');
 const heroArt = require('../../../assets/images/rewards/daily_gift_hero.png');
-const chestArt = require('../../../assets/images/rewards/daily_chest.png');
 
 export function HomeGiftCard({ headless = false }: { headless?: boolean } = {}) {
   const account = useAuthStore((s) => s.profile?.id);
@@ -29,7 +26,6 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
   const { t } = useTranslation('home');
   const { t: tc } = useTranslation('common');
   const { colors, isDark = false } = useThemeColors();
-  const router = useGuardedRouter();
   const focused = useRef(false);
   const automaticallyOffered = useRef<string | null>(null);
   const loadGeneration = useRef(0);
@@ -112,15 +108,6 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
             <Text style={{ color: colors.primaryText }}>{tc('retry')}</Text>
           </Pressable>
         )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('checkinGift.collection')}
-          onPress={() => router.push('/checkin-rewards/history')}
-          style={styles.fallbackAction}
-        >
-          <Ionicons name="archive-outline" size={22} color={colors.primary} />
-          <Text style={{ color: colors.textPrimary }}>{t('checkinGift.collection')}</Text>
-        </Pressable>
       </View>
     );
   }
@@ -186,24 +173,8 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
           accessible={false}
         />
 
-        {/* Header: Cỏ 4 lá + Tiêu đề + Phụ đề */}
+        {/* Daily message beside the gift illustration. The page owns its title. */}
         <View style={styles.headerArea}>
-          <View style={styles.titleRow}>
-            <Image
-              source={cloverArt}
-              style={styles.cloverIcon}
-              contentFit="contain"
-              accessible={false}
-            />
-            <Text
-              style={[
-                styles.titleText,
-                { color: colors.textPrimary },
-              ]}
-            >
-              {t('checkinGift.dailyTitle')}
-            </Text>
-          </View>
           <Text
             style={[
               styles.subtitleText,
@@ -330,31 +301,6 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
         )}
       </View>
 
-      {/* Kho lộc */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('checkinGift.collection')}
-        onPress={() => router.push('/checkin-rewards/history')}
-        style={styles.collectionRow}
-      >
-        <View style={styles.collectionLeft}>
-          <Image
-            source={chestArt}
-            style={styles.chestIcon}
-            contentFit="contain"
-            accessible={false}
-          />
-          <Text
-            style={[
-              styles.collectionText,
-              { color: colors.textPrimary },
-            ]}
-          >
-            {t('checkinGift.collection')}
-          </Text>
-        </View>
-      </Pressable>
-
       {giftFlow}
     </View>
   );
@@ -389,20 +335,8 @@ const styles = StyleSheet.create({
   headerArea: {
     zIndex: 1,
     maxWidth: '66%',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cloverIcon: {
-    width: 32,
-    height: 32,
-  },
-  titleText: {
-    fontSize: 23,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    minHeight: 96,
+    justifyContent: 'center',
   },
   subtitleText: {
     fontSize: 14,
@@ -556,23 +490,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     flex: 1,
-  },
-  collectionRow: {
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  collectionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  chestIcon: {
-    width: 44,
-    height: 44,
-  },
-  collectionText: {
-    fontSize: 19,
-    fontWeight: '800',
   },
 });
