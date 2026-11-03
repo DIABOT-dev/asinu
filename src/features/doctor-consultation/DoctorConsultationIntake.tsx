@@ -211,30 +211,7 @@ export function DoctorConsultationIntake(props: IntakeProps) {
 
   return (
     <View style={styles.layout}>
-      <View style={styles.introduction}>
-        <View style={styles.introCopy}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.title, { color: colors.textPrimary }]}
-          >
-            {t('doctorConsultationIntakeTitle')}
-          </Text>
-        </View>
-        <View
-          accessible={false}
-          style={[styles.healthMark, { backgroundColor: colors.primaryLight }]}
-        >
-          <Ionicons name="pulse-outline" size={30} color={colors.primaryText} />
-        </View>
-      </View>
-      <Text style={[styles.introHint, { color: colors.textSecondary }]}>
-        {t('doctorConsultationScreeningHint')}
-      </Text>
-
       <View style={styles.screening}>
-        <Text style={[styles.answerHint, { color: colors.textSecondary }]}>
-          {t('doctorConsultationAnswerHint')}
-        </Text>
         <ChoiceGroup
           number="01"
           title={t('doctorConsultationOnsetLabel')}
@@ -268,9 +245,6 @@ export function DoctorConsultationIntake(props: IntakeProps) {
           style={[styles.questionTitle, { color: colors.textPrimary }]}
         >
           {t('doctorConsultationSummaryLabel')}
-        </Text>
-        <Text style={[styles.summaryHint, { color: colors.textSecondary }]}>
-          {t('doctorConsultationSummaryHint')}
         </Text>
         <TextInput
           accessibilityLabel={t('doctorConsultationSummaryLabel')}
@@ -323,29 +297,7 @@ export function DoctorConsultationIntake(props: IntakeProps) {
 
 const styles = StyleSheet.create({
   layout: { gap: spacing.xl },
-  introduction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  introCopy: { flex: 1, minWidth: 0, gap: spacing.sm },
-  title: {
-    fontSize: 27,
-    lineHeight: 36,
-    fontWeight: '700',
-    letterSpacing: -0.6,
-  },
-  healthMark: {
-    width: 60,
-    height: 60,
-    borderRadius: radius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  introHint: { fontSize: 15, lineHeight: 23, marginTop: -spacing.sm },
   screening: { gap: spacing.xl },
-  answerHint: { fontSize: 13, lineHeight: 20 },
   questionGroup: { gap: spacing.md },
   questionHeading: {
     flexDirection: 'row',
@@ -404,7 +356,6 @@ const styles = StyleSheet.create({
   tileRadio: { position: 'absolute', top: spacing.lg, right: spacing.lg },
   divider: { height: 1 },
   summary: { gap: spacing.sm, paddingTop: spacing.xs },
-  summaryHint: { fontSize: 14, lineHeight: 22 },
   summaryInput: {
     borderBottomWidth: 1,
     paddingVertical: spacing.md,
