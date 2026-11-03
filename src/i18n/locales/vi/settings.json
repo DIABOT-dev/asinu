@@ -8,6 +8,7 @@
   "doctorConsultationHistoryEmpty": "Chưa có cuộc tư vấn nào",
   "doctorConsultationHistoryEmptyDescription": "Các yêu cầu tư vấn bạn gửi sẽ được lưu tại đây.",
   "fontSize": "Cỡ chữ ứng dụng",
+  "cameraQrPermission": "Camera quét QR",
   "fontSmall": "Nhỏ",
   "fontNormal": "Bình thường",
   "fontLarge": "Lớn",

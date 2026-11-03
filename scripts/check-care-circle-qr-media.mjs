@@ -263,6 +263,7 @@ for (const lang of ['vi', 'en']) {
         '../../../hooks/useThemeColors': { useThemeColors: () => ({ isDark }) },
         '../../../styles': { spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 }, radius: { full: 999, lg: 16 } },
         '../useCareCircleScanner': { useCareCircleScanner: () => controller },
+        '../useQrCameraPermission': { useQrCameraPermission: () => ({ permission: { granted, canAskAgain: false }, pending: false, change: () => {} }) },
         ...Object.fromEntries(['header_cross_leaves_left.png', 'scan_header_heart_ecg.png', 'scan_bottom_leaves.png', 'camera_permission_family_hero.png'].map(name => [`../../../../assets/images/care-circle/${name}`, name])),
       });
       let nodes = elements(runtime.render(Screen));

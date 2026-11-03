@@ -8,6 +8,7 @@
   "doctorConsultationHistoryEmpty": "No consultations yet",
   "doctorConsultationHistoryEmptyDescription": "Consultation requests you send will appear here.",
   "fontSize": "App Font Size",
+  "cameraQrPermission": "QR camera",
   "fontSmall": "Small",
   "fontNormal": "Normal",
   "fontLarge": "Large",

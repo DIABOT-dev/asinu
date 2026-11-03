@@ -46,11 +46,14 @@ import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { LinearGradient } from "expo-linear-gradient";
 import { AndroidCallAccessCard } from "../../../src/features/checkin-call/AndroidCallAccessCard";
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
+import { ProfileMascotGreeting } from "../../../src/features/profile/ProfileMascotGreeting";
+import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
+import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
+import { QrCameraPermissionRow } from "../../../src/features/care-circle/components/QrCameraPermissionRow";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const CHECKIN_ACCESS_ART = require("../../../assets/images/subscription/checkin_access_shield.png");
 const PROFILE_BACKGROUND = require("../../../assets/images/profile/profile-healthcare-background-v1.webp");
-const PROFILE_MASCOT = require("../../../assets/images/profile/asinu-profile-mascot-v1.webp");
 
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
@@ -203,6 +206,7 @@ export default function ProfileScreen() {
     }
   };
   const profile = useAuthStore((state) => state.profile);
+  const coinSummary = useProfileCoins();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
@@ -842,7 +846,7 @@ export default function ProfileScreen() {
                 <View style={styles.userInfoCol}>
                   <Text
                     style={styles.userName}
-                    numberOfLines={1}
+                    numberOfLines={2}
                     adjustsFontSizeToFit
                     minimumFontScale={0.7}
                   >
@@ -867,6 +871,15 @@ export default function ProfileScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
+                {coinSummary.enabled && coinSummary.balance !== null && (
+                  <View style={styles.coinSummary}>
+                    <HealthCoinIcon />
+                    <View style={styles.coinCopy}>
+                      <Text style={styles.coinBalance}>{t('healthCoinsBalance', { count: coinSummary.balance })}</Text>
+                      {coinSummary.earnedToday !== null && <Text style={styles.coinLabel}>{t('healthCoinsToday', { count: coinSummary.earnedToday })}</Text>}
+                    </View>
+                  </View>
+                )}
               </View>
             </Animated.View>
 
@@ -1264,6 +1277,18 @@ export default function ProfileScreen() {
                     <Text style={styles.rowLabel}>{t("wallet")}</Text>
                     <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
+                  {coinSummary.enabled && <TouchableOpacity
+                    style={styles.actionCard}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('healthCoins')}
+                    onPress={() => router.push('/coins')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <HealthCoinIcon size={24} />
+                    </View>
+                    <Text style={styles.rowLabel}>{t('healthCoins')}</Text>
+                  </TouchableOpacity>}
                 </View>
               )}
             </Animated.View>
@@ -1413,6 +1438,8 @@ export default function ProfileScreen() {
                       })}
                     </View>
                   )}
+
+                  <QrCameraPermissionRow />
 
                 </View>
               )}
@@ -1645,22 +1672,7 @@ export default function ProfileScreen() {
                 />
                 <Text style={styles.logoutButtonText}>{t("logout")}</Text>
               </TouchableOpacity>
-              <View
-                style={styles.profileBackgroundBrand}
-                pointerEvents="none"
-                accessible={false}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-              >
-                <Image
-                  source={PROFILE_MASCOT}
-                  style={styles.profileBackgroundMascot}
-                  resizeMode="contain"
-                />
-                <Text style={styles.profileBackgroundWordmark}>
-                  {t("brandName")}
-                </Text>
-              </View>
+              <ProfileMascotGreeting />
             </View>
           </>
         )}
@@ -2450,25 +2462,27 @@ function createStyles(
       justifyContent: "space-between",
       gap: 16,
     },
-    profileBackgroundBrand: {
-      alignSelf: "center",
-      alignItems: "center",
-    },
-    profileBackgroundMascot: {
-      width: 96,
-      height: 96,
-    },
-    profileBackgroundWordmark: {
-      fontSize: 18,
-      fontWeight: "800",
-      letterSpacing: 2,
-      color: isDark ? "#99f6e4" : "#0b5e56",
-    },
     personalInfoHeader: {
       paddingHorizontal: 0,
       paddingVertical: 0,
       gap: 0,
     },
+    coinSummary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginLeft: 'auto',
+      gap: 8,
+      width: 172,
+      paddingHorizontal: 10,
+      paddingVertical: 12,
+      borderRadius: 32,
+      backgroundColor: isDark ? '#113c36' : '#effbf9',
+      borderWidth: 1,
+      borderColor: isDark ? '#1e6055' : '#cceeea',
+    },
+    coinCopy: { flex: 1, minWidth: 0, gap: 4 },
+    coinBalance: { fontSize: 15, fontWeight: '800', color: isDark ? '#f0fdfa' : '#172033' },
+    coinLabel: { fontSize: 13, fontWeight: '600', color: isDark ? '#6ee7b7' : '#287f6c' },
     personalInfoToggle: {
       flex: 1,
       minHeight: 56,
@@ -2543,23 +2557,24 @@ function createStyles(
     // Identity sits directly on the healthcare wallpaper.
     userCard: {
       marginHorizontal: 16,
-      paddingHorizontal: 16,
       paddingVertical: 12,
       flexDirection: "row",
+      flexWrap: "wrap",
+      rowGap: 12,
       alignItems: "center",
     },
     avatarWrap: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
       justifyContent: "center",
       alignItems: "center",
       position: "relative",
     },
     avatarImg: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
     },
     avatarLoadingOverlay: {
       ...StyleSheet.absoluteFill,
@@ -2570,6 +2585,7 @@ function createStyles(
     },
     userInfoCol: {
       flex: 1,
+      minWidth: 96,
       marginLeft: 14,
       justifyContent: "center",
     },
@@ -2579,6 +2595,7 @@ function createStyles(
       color: textPrimaryCol,
     },
     planBadge: {
+      maxWidth: '100%',
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: isDark ? "#78350f33" : "#fef3c7",
@@ -2591,6 +2608,7 @@ function createStyles(
       borderColor: isDark ? "#92400e" : "#fde68a",
     },
     planBadgeText: {
+      flexShrink: 1,
       fontSize: 12,
       fontWeight: "600",
       color: isDark ? "#fcd34d" : "#b45309",

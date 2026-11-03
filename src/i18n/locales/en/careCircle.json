@@ -262,6 +262,7 @@
   "quickUnknownSender": "Family member",
   "myQrTitle": "My QR code",
   "myQrShortHint": "Let family scan it",
+  "addManually": "Add manually",
   "scanQr": "Scan QR code",
   "scanQrShortHint": "Connect quickly",
   "myQrHeading": "Connect in person",
@@ -311,5 +312,5 @@
   "qrImageNoCode": "No QR code found in this photo. Please choose a clearer photo.",
   "qrImageMultiple": "This photo has multiple connection codes. Choose a photo with just one QR code.",
   "qrImageError": "Could not read this QR photo. Please try another photo.",
-  "qrConnectFamilyNow": "Connect with family now"
+  "qrConnectFamilyNow": "Connect now"
 }

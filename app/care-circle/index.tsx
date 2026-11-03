@@ -43,6 +43,7 @@ import {
 } from '../../src/features/care-circle/family-relationships';
 import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
+import { CareCircleScanSpeech } from '../../src/features/care-circle/components/CareCircleScanSpeech';
 import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 
 export default function CareCircleScreen() {
@@ -282,6 +283,16 @@ export default function CareCircleScreen() {
       <Screen style={styles.screen}>
         {/* Custom Header matching design */}
         <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 20) + 10 }]}>
+          <GuideTarget step="circle.add">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('addManually')}
+              onPress={() => router.push('/care-circle/invite')}
+              style={({ pressed }) => [styles.manualAddButton, pressed && { opacity: 0.75 }]}
+            >
+              <Ionicons name="add" size={30} color={colors.primaryDark} />
+            </Pressable>
+          </GuideTarget>
           <View style={styles.scanPrompt}>
             <Image
               source={require('../../assets/images/care-circle/asinu-pointing-qr-v1.png')}
@@ -289,22 +300,17 @@ export default function CareCircleScreen() {
               resizeMode="contain"
               accessible={false}
             />
+            <CareCircleScanSpeech />
             <View style={styles.scanPromptContent}>
-              <View style={styles.scanSpeech}>
-                <View pointerEvents="none" style={styles.scanSpeechTail} />
-                <Text style={styles.scanSpeechText}>{t('qrConnectFamilyNow')}</Text>
-              </View>
-              <GuideTarget step="circle.add">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('scanQr')}
-                  onPress={() => router.push('/care-circle/scan')}
-                  style={({ pressed }) => [styles.scanQrButton, pressed && { opacity: 0.75 }]}
-                >
-                  <Ionicons name="scan-outline" size={24} color={colors.primaryDark} />
-                  <Text style={styles.scanQrLabel}>{t('scanQr')}</Text>
-                </Pressable>
-              </GuideTarget>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('scanQr')}
+                onPress={() => router.push('/care-circle/scan')}
+                style={({ pressed }) => [styles.scanQrButton, pressed && { opacity: 0.75 }]}
+              >
+                <Ionicons name="scan-outline" size={24} color={colors.primaryDark} />
+                <Text style={styles.scanQrLabel}>{t('scanQr')}</Text>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -876,8 +882,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       paddingBottom: spacing.lg,
       backgroundColor: 'transparent',
     },
-    scanPrompt: { flexDirection: 'row', alignItems: 'flex-end', width: '100%', maxWidth: 420 },
-    scanPromptContent: { flex: 1, minWidth: 0, gap: spacing.xs },
+    scanPrompt: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 420, minHeight: 128, position: 'relative' },
+    scanPromptContent: { flex: 1, minWidth: 0 },
+    manualAddButton: {
+      width: 48,
+      height: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.sm,
+    },
     scanQrButton: {
       minHeight: 56,
       alignSelf: 'flex-end',
@@ -893,10 +906,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       color: colors.primaryText,
       flexShrink: 1,
     },
-    scanMascot: { width: 112, height: 112, marginBottom: -12 },
-    scanSpeech: { alignSelf: 'flex-end', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 18, backgroundColor: colors.primaryLight },
-    scanSpeechTail: { position: 'absolute', left: -5, bottom: 10, width: 12, height: 12, transform: [{ rotate: '45deg' }], backgroundColor: colors.primaryLight },
-    scanSpeechText: { fontSize: 16, fontWeight: '600', color: colors.primaryText },
+    scanMascot: { width: 112, height: 112 },
     // Hero Banner Card
     heroCardShadowWrap: {
       marginHorizontal: spacing.lg,

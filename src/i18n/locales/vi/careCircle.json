@@ -262,6 +262,7 @@
   "quickUnknownSender": "Người thân",
   "myQrTitle": "QR của tôi",
   "myQrShortHint": "Để người thân quét",
+  "addManually": "Thêm thủ công",
   "scanQr": "Quét mã QR",
   "scanQrShortHint": "Kết nối nhanh",
   "myQrHeading": "Kết nối ngay bên cạnh",
@@ -311,5 +312,5 @@
   "qrImageNoCode": "Chưa tìm thấy mã QR trong ảnh. Anh/chị chọn ảnh rõ mã hơn nhé.",
   "qrImageMultiple": "Ảnh có nhiều mã kết nối. Anh/chị chọn ảnh chỉ có một mã QR nhé.",
   "qrImageError": "Chưa đọc được ảnh QR. Anh/chị vui lòng chọn lại.",
-  "qrConnectFamilyNow": "Kết nối người thân ngay"
+  "qrConnectFamilyNow": "Kết nối ngay"
 }
