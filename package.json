@@ -28,6 +28,7 @@
     "test:home-checkin": "node scripts/check-home-checkin-cards.mjs",
     "test:home-connectivity": "node scripts/check-home-connectivity.mjs",
     "test:health-feed": "node scripts/check-health-feed-dismissals.mjs",
+    "test:ui-feature-state": "node scripts/check-ui-feature-state.mjs",
     "test:health-tree-status": "node scripts/check-health-tree-status.mjs",
     "test:home-checkin-call": "node scripts/check-home-checkin-call-control.mjs",
     "test:chatbot-hidden": "node scripts/check-chatbot-ui-hidden.mjs",

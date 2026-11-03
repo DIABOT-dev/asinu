@@ -40,9 +40,9 @@
   "checkinCallGalleryAccessibility": "Open read-only check-in and call screen previews",
   "healthFeed": "Health Feed",
   "sectionPersonal": "Personal",
-  "sectionHealth": "Health",
+  "sectionHealth": "Health care",
   "sectionAccount": "Account",
-  "sectionSystem": "System",
+  "sectionSystem": "Help & information",
   "shareApp": "Share Asinu",
   "shareMessage": "I'm using Asinu to track my health — check it out!",
   "logout": "Sign out",
@@ -113,7 +113,7 @@
   "heightValue": "{{value}} cm",
   "weightValue": "{{value}} kg",
   "wallet": "Wallet",
-  "subscription": "Unlock Advanced Care",
+  "subscription": "Asinu care plans",
   "planPremium": "An Tam",
   "planFree": "Free",
   "accountType": "Account",
@@ -123,7 +123,7 @@
   "headerQuote": "Healthier today, better tomorrow 💚",
   "footerQuote": "Better health every day with Asinu 💚",
   "accountPlan": "Account: {{plan}}",
-  "sectionSettings": "Settings",
+  "sectionSettings": "App settings",
   "deleteAccountForever": "Delete Account Permanently",
   "benefitCircle3": "Care Circle: up to 3 members",
   "benefitCircle1": "Care Circle: 1 member",
@@ -145,5 +145,6 @@
   "premiumFeatureLockedTitle": "This feature is not available yet",
   "checkinCallLockedDesc": "Check-in call settings are included with An Tam. Upgrade so Asinu can call to check on you after a missed check-in.",
   "requiresAnTam": "An Tam required",
-  "chooseAnTam": "Choose An Tam"
+  "chooseAnTam": "Choose An Tam",
+  "sectionRewards": "Tasks & rewards"
 }

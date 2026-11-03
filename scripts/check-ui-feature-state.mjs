@@ -14,6 +14,8 @@ function evaluate(file, adapters) {
       jsx: ts.JsxEmit.ReactJSX,
     },
   }).outputText;
+  // Execute local feature modules with controlled native dependencies.
+  // eslint-disable-next-line no-new-func
   new Function("module", "exports", "require", code)(
     module,
     module.exports,
@@ -282,13 +284,13 @@ function cameraHarness(requestOnFocus) {
       },
     }
   );
-  const hook = () => useQrCameraPermission(requestOnFocus);
+  const useCameraFeature = () => useQrCameraPermission(requestOnFocus);
   return {
     ...r,
     server,
     calls,
-    read: () => r.render(hook),
-    settle: () => r.settle(hook),
+    read: () => r.render(useCameraFeature),
+    settle: () => r.settle(useCameraFeature),
     resume: () => listeners.forEach((fn) => fn("active")),
   };
 }
@@ -503,5 +505,150 @@ for (const leave of ['blur', 'account']) {
     finish(true); await flush(); assert.deepEqual(h.calls.routes, []); h.blur();
   });
 }
+
+function devicePermissionHarness(kind) {
+  const r = runtime();
+  const auth = { token: 'session-a' };
+  const listeners = new Set();
+  const server = { permission: { granted: false, canAskAgain: true }, deny: false, readError: false, pendingRead: null, pendingRequest: null, settingsResult: null };
+  const calls = { reads: 0, requests: 0, settings: 0, native: [], toasts: [], push: [] };
+  const get = async () => {
+    calls.reads++;
+    if (server.readError) throw new Error('Native permission unavailable');
+    return server.pendingRead ?? { ...server.permission };
+  };
+  const request = async () => {
+    calls.requests++;
+    if (server.pendingRequest) await server.pendingRequest;
+    if (!server.deny) server.permission = { ...server.permission, granted: true };
+    return { ...server.permission };
+  };
+  const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
+  const { useDevicePermission } = evaluate('src/features/profile/useDevicePermission.ts', {
+    react: r.hooks, 'expo-router': r.router,
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'expo-notifications': { getPermissionsAsync: get, requestPermissionsAsync: request },
+    'expo-audio': { getRecordingPermissionsAsync: get, requestRecordingPermissionsAsync: request },
+    'expo-image-picker': { getMediaLibraryPermissionsAsync: get, requestMediaLibraryPermissionsAsync: request },
+    'react-native': {
+      AppState: { addEventListener: (_, callback) => { listeners.add(callback); return { remove: () => listeners.delete(callback) }; } },
+      Linking: { openSettings: async () => { calls.settings++; if (server.settingsResult) server.permission = server.settingsResult; } },
+    },
+    '../../lib/native-permissions': { runNativePermission: async (work, options) => {
+      assert.equal(options.canRun(), true); calls.native.push(options.key); return work();
+    } },
+    '../../lib/notifications': { refreshNotificationLocalization: async () => {}, getExpoPushToken: async () => 'fixture-push-token' },
+    '../../stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
+    '../auth/auth.api': { authApi: { updatePushToken: async token => calls.push.push(token) } },
+    '../auth/auth.store': { useAuthStore },
+  });
+  const usePermissionFeature = () => useDevicePermission(kind);
+  return { ...r, auth, server, calls, read: () => r.render(usePermissionFeature), settle: () => r.settle(usePermissionFeature), foreground: () => listeners.forEach(fn => fn('active')) };
+}
+
+for (const kind of ['notifications', 'microphone', 'photos']) {
+  await test(`${kind}: opening Permissions only reads access; enabling requests native consent`, async () => {
+    const h = devicePermissionHarness(kind); await h.settle();
+    assert.equal(h.calls.requests, 0); assert.equal(h.calls.settings, 0);
+    await h.read().change(true); await h.settle();
+    assert.equal(h.calls.requests, 1); assert.equal(h.calls.settings, 0);
+    assert.equal(h.read().permission.granted, true);
+    if (kind === 'notifications') { await flush(); assert.deepEqual(h.calls.push, ['fixture-push-token']); }
+    h.blur();
+  });
+  await test(`${kind}: denying native consent leaves the switch off`, async () => {
+    const h = devicePermissionHarness(kind); h.server.deny = true; await h.settle();
+    await h.read().change(true); await h.settle();
+    assert.equal(h.calls.requests, 1); assert.equal(h.calls.settings, 0);
+    assert.equal(h.read().permission.granted, false); assert.equal(h.read().pending, false);
+    h.blur();
+  });
+  await test(`${kind}: permanent denial opens Settings only after an explicit toggle`, async () => {
+    const h = devicePermissionHarness(kind); h.server.permission.canAskAgain = false; await h.settle();
+    assert.equal(h.calls.settings, 0);
+    h.server.settingsResult = { granted: true, canAskAgain: false };
+    await h.read().change(true); await h.settle();
+    assert.equal(h.calls.requests, 0); assert.equal(h.calls.settings, 1);
+    assert.equal(h.read().permission.granted, true); h.blur();
+  });
+  await test(`${kind}: turning off uses Settings and never invents a revoked permission`, async () => {
+    const h = devicePermissionHarness(kind); h.server.permission.granted = true; await h.settle();
+    await h.read().change(false); await h.settle();
+    assert.equal(h.calls.settings, 1); assert.equal(h.read().permission.granted, true);
+    h.server.permission.granted = false; h.foreground(); await h.settle();
+    assert.equal(h.read().permission.granted, false); h.blur();
+  });
+}
+await test('limited photo access is preserved as limited and can be revoked through Settings', async () => {
+  const h = devicePermissionHarness('photos'); h.server.permission = { granted: false, canAskAgain: true, accessPrivileges: 'limited' }; await h.settle();
+  assert.equal(h.read().permission.accessPrivileges, 'limited');
+  await h.read().change(false); await h.settle();
+  assert.equal(h.calls.settings, 1); assert.equal(h.calls.requests, 0); h.blur();
+});
+await test('duplicate permission toggles send one native request and clear pending after consent', async () => {
+  const h = devicePermissionHarness('microphone'); await h.settle(); let finish;
+  h.server.pendingRequest = new Promise(resolve => { finish = resolve; });
+  const row = h.read(); const first = row.change(true); const duplicate = row.change(true); await flush();
+  assert.equal(h.calls.requests, 1); assert.equal(h.read().pending, true);
+  finish(); await Promise.all([first, duplicate]); await h.settle();
+  assert.equal(h.read().pending, false); assert.equal(h.read().permission.granted, true); h.blur();
+});
+for (const change of ['blur', 'account']) {
+  await test(`${change}: a late permission lookup cannot open a native prompt or Settings`, async () => {
+    const h = devicePermissionHarness('notifications'); await h.settle(); let finish;
+    h.server.pendingRead = new Promise(resolve => { finish = resolve; });
+    const pending = h.read().change(true); await flush();
+    if (change === 'blur') h.blur(); else h.auth.token = 'session-b';
+    finish({ granted: false, canAskAgain: true }); await pending; await flush();
+    assert.equal(h.calls.requests, 0); assert.equal(h.calls.settings, 0); assert.deepEqual(h.calls.push, []); h.blur();
+  });
+}
+await test('a failed native permission read is retryable and cannot enable the switch', async () => {
+  const h = devicePermissionHarness('photos'); h.server.readError = true; await h.settle();
+  assert.equal(h.read().failed, true); assert.equal(h.read().permission, null);
+  await h.read().change(true); assert.equal(h.calls.requests, 0);
+  h.server.readError = false; await h.read().refresh(); await h.settle();
+  assert.equal(h.read().failed, false); assert.equal(h.read().permission.granted, false); h.blur();
+});
+await test('a stale foreground permission result cannot overwrite a newer revocation', async () => {
+  const h = devicePermissionHarness('microphone'); await h.settle(); let finish;
+  h.server.pendingRead = new Promise(resolve => { finish = resolve; }); h.foreground(); await flush();
+  h.server.pendingRead = null; h.foreground(); await h.settle();
+  finish({ granted: true, canAskAgain: true }); await flush();
+  assert.equal(h.read().permission.granted, false); h.blur();
+});
+
+await test('permission rows use the switch instead of repeating granted or denied text below the label', () => {
+  let permission = { granted: true, canAskAgain: true };
+  let failed = false;
+  const { ProfileDevicePermissions } = evaluate('src/features/profile/ProfileDevicePermissions.tsx', {
+    '@expo/vector-icons': { Ionicons: 'Icon' },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'react-native': { View: 'View', ActivityIndicator: 'Loading', Pressable: 'Button', Switch: 'Switch', StyleSheet: { create: styles => styles } },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
+    '../checkin-call/AndroidCallAccessCard': { AndroidCallAccessCard: 'AndroidCallAccessCard' },
+    './useDevicePermission': { useDevicePermission: () => ({ permission, loading: false, pending: false, failed, refresh() {}, change() {} }) },
+  });
+  const nodes = value => !value || typeof value !== 'object' ? [] : Array.isArray(value) ? value.flatMap(nodes) : [value, ...nodes(value.props?.children)];
+  for (const state of [{ granted: true }, { granted: false }, { granted: false, accessPrivileges: 'limited' }]) {
+    permission = state;
+    for (const row of nodes(ProfileDevicePermissions()).filter(node => typeof node.type === 'function')) {
+      const rendered = nodes(row.type(row.props));
+      assert.deepEqual(rendered.filter(node => node.type === 'Text').map(node => node.props.children), [row.props.labelKey]);
+      const toggle = rendered.find(node => node.type === 'Switch');
+      assert.equal(toggle.props.value, state.granted || state.accessPrivileges === 'limited');
+    }
+  }
+  failed = true;
+  permission = null;
+  for (const row of nodes(ProfileDevicePermissions()).filter(node => typeof node.type === 'function')) {
+    const rendered = nodes(row.type(row.props));
+    assert.deepEqual(rendered.filter(node => node.type === 'Text').map(node => node.props.children), [row.props.labelKey, 'devicePermissionUnavailable']);
+    assert.equal(rendered.some(node => node.type === 'Switch'), false);
+    assert.equal(rendered.filter(node => node.type === 'Button').length, 1);
+  }
+});
 
 console.log(`UI feature state: ${checks} runtime checks passed.`);

@@ -14,7 +14,7 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['scripts/check-health-feed-dismissals.mjs'],
+      files: ['scripts/check-health-feed-dismissals.mjs', 'scripts/check-ui-feature-state.mjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },

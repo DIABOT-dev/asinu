@@ -33,7 +33,7 @@ class ApiError extends Error {
   constructor(statusCode) { super('Fixture API failure'); this.statusCode = statusCode; }
 }
 
-function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, profile: profileOverrides = {} } = {}) {
+function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {} } = {}) {
   const slots = [];
   let cursor = 0;
   let pendingEffects = [];
@@ -132,7 +132,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     }) },
     '../../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: () => false },
     '../../../src/lib/apiClient': { ApiError, apiClient: async () => ({}), getApiErrorMessage: (_error, t, key) => t(key) },
-    '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: false, isCheckinUiGalleryEnabled: false },
+    '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: doctorEnabled, isCheckinUiGalleryEnabled: false },
     '../../../src/features/app-update/app-update.store': { useAppUpdateStore: Object.assign(selector => selector({ checking: false }), { getState: () => ({ check: async () => ({ status: 'current' }) }) }) },
     '../../../src/features/profile/ProfileMascotGreeting': { ProfileMascotGreeting: 'MascotGreeting' },
     '../../../src/features/profile/FontSizePickerModal': { FontSizePickerModal: 'FontSizePickerModal' },
@@ -241,9 +241,9 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
-  await test(`${language}: delete confirmation appears on the first render after pressing the System action`, () => {
+  await test(`${language}: account deletion is under Account and its confirmation opens on the first press`, () => {
     const h = harness({ language });
-    const expanded = h.toggleSection(h.t('sectionSystem'));
+    const expanded = h.toggleSection(h.t('sectionAccount'));
     const button = nodes(expanded).find(node => node.props?.accessibilityLabel === h.ts('deleteAccountForever'));
     assert.ok(button);
     button.props.onPress();
@@ -261,37 +261,69 @@ for (const language of ['vi', 'en']) {
       const tree = h.render();
       const all = nodes(tree);
       assert.ok(!all.some(node => node.type === 'Text' && [h.t('careBannerTitle'), h.t('careBannerSubtitle')].includes(node.props.children)));
-      assert.ok(all.some(node => node.type === 'Text' && node.props.children === h.t('sectionActions')));
+      const mainContent = all.find(node => node.type === 'ScrollView');
+      const headings = nodes(mainContent).filter(node => node.props.accessibilityRole === 'button' && 'expanded' in (node.props.accessibilityState || {})).map(node => node.props.accessibilityLabel);
+      assert.deepEqual(headings, [h.t('personalInfo'), h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.t('sectionSettings'), h.ts('appPermissions'), h.t('sectionSystem')]);
       const hasRow = (tree, key) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t(key));
       assert.equal(all.filter(node => node.type === 'TouchableOpacity' && node.props.accessibilityState?.expanded === false).length, 7);
-      const mainContent = all.find(node => node.type === 'ScrollView');
       assert.ok(!nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')), 'Personal details stay hidden until expanded');
       assert.ok(!hasRow(tree, 'reminderSchedule'));
       assert.ok(!hasRow(tree, 'logEntry'));
-      assert.ok(!hasRow(h.toggleSection(h.t('sectionActions')), 'reminderSchedule'));
-      const bothOpen = h.toggleSection(h.t('sectionHealth'));
+      const healthOpen = h.toggleSection(h.t('sectionHealth'));
+      assert.ok(hasRow(healthOpen, 'logEntry'));
+      assert.ok(!hasRow(healthOpen, 'missions'));
+      assert.ok(!hasRow(healthOpen, 'dailyGifts'));
+      const bothOpen = h.toggleSection(h.t('sectionRewards'));
       assert.ok(!hasRow(bothOpen, 'reminderSchedule'));
       assert.ok(hasRow(bothOpen, 'logEntry'));
+      assert.ok(hasRow(bothOpen, 'missions'));
+      assert.ok(hasRow(bothOpen, 'healthCoins'));
       const giftEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('dailyGifts'));
       assert.equal(giftEntries.length, 1, 'Daily gifts and the collection share one profile entry');
       giftEntries[0].props.onPress();
       assert.deepEqual(h.calls.routes, ['/checkin-rewards']);
-      const actionsClosed = h.toggleSection(h.t('sectionActions'));
-      assert.ok(!hasRow(actionsClosed, 'reminderSchedule'));
-      assert.ok(hasRow(actionsClosed, 'logEntry'));
+      const rewardsClosed = h.toggleSection(h.t('sectionRewards'));
+      assert.ok(!hasRow(rewardsClosed, 'missions'));
+      assert.ok(!hasRow(rewardsClosed, 'dailyGifts'));
+      assert.ok(hasRow(rewardsClosed, 'logEntry'));
       h.open(); assert.ok(h.modal());
+    });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: care, account security and support each contain the appropriate actions`, () => {
+      const h = harness({ language, isDark, doctorEnabled: true, profile: { hasPassword: true } });
+      const hasLabel = (tree, label) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === label);
+      const settings = h.toggleSection(h.t('sectionSettings'));
+      assert.ok(!hasLabel(settings, h.ts('doctorConsultation')));
+      assert.ok(!hasLabel(settings, h.ts('doctorConsultationHistory')));
+      const health = h.toggleSection(h.t('sectionHealth'));
+      assert.ok(hasLabel(health, h.ts('doctorConsultation')));
+      assert.ok(hasLabel(health, h.ts('doctorConsultationHistory')));
+      const help = h.toggleSection(h.t('sectionSystem'));
+      assert.ok(hasLabel(help, h.ts('helpSupport')));
+      assert.ok(hasLabel(help, h.ts('termsOfService')));
+      assert.ok(!hasLabel(help, h.t('changePassword')));
+      assert.ok(!hasLabel(help, h.ts('deleteAccountForever')));
+      const account = h.toggleSection(h.t('sectionAccount'));
+      assert.ok(hasLabel(account, h.t('subscription')));
+      assert.ok(hasLabel(account, h.t('wallet')));
+      assert.ok(hasLabel(account, h.t('changePassword')));
+      assert.ok(hasLabel(account, h.ts('deleteAccountForever')));
+      assert.ok(!hasLabel(account, h.t('healthCoins')));
     });
     await test(`${language}/${isDark ? 'dark' : 'light'}: permission controls share their own section instead of Settings or System`, () => {
       const h = harness({ language, isDark });
       const deviceControls = tree => nodes(tree).filter(node => node.type === 'DevicePermissions');
+      const reminderControls = tree => nodes(tree).filter(node => node.type === 'ReminderSettingsEntry');
       assert.equal(deviceControls(h.render()).length, 0);
-      assert.equal(deviceControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
+      const settingsOpen = h.toggleSection(h.t('sectionSettings'));
+      assert.equal(deviceControls(settingsOpen).length, 0);
+      assert.equal(reminderControls(settingsOpen).length, 1, 'Reminder times belong to app settings');
+      assert.equal(reminderControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
       assert.equal(deviceControls(h.toggleSection(h.t('sectionSystem'))).length, 0);
       const health = h.toggleSection(h.t('sectionHealth'));
       assert.ok(!nodes(health).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
       const expanded = h.toggleSection(h.ts('appPermissions'));
       assert.equal(deviceControls(expanded).length, 1);
-      assert.equal(nodes(expanded).filter(node => node.type === 'ReminderSettingsEntry').length, 1);
+      assert.equal(reminderControls(expanded).length, 0, 'Permissions grant access without duplicating reminder settings');
       assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')).length, 1);
       assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')).length, 1);
       const closed = h.toggleSection(h.ts('appPermissions'));
@@ -360,7 +392,7 @@ for (const language of ['vi', 'en']) {
     h.toggleSection(h.t('personalInfo'));
     assert.ok(!nodes(h.render()).some(node => node.props.onPress?.name === 'handleEditProfile'));
     h.toggleSection(h.t('personalInfo'));
-    h.toggleSection(h.t('sectionActions'));
+    h.toggleSection(h.t('sectionHealth'));
     const controls = nodes(h.render()).filter(node => ['Pressable', 'TouchableOpacity'].includes(node.type));
     const editors = controls.filter(node => node.props.onPress?.name === 'handleEditProfile');
     assert.equal(editors.length, 1, 'Exactly one profile edit entry must remain');

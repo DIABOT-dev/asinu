@@ -40,9 +40,9 @@
   "checkinCallGalleryAccessibility": "Mở thư viện chỉ xem giao diện check-in và check-in call",
   "healthFeed": "Bản tin sức khỏe",
   "sectionPersonal": "Cá nhân",
-  "sectionHealth": "Sức khỏe",
+  "sectionHealth": "Chăm sóc sức khỏe",
   "sectionAccount": "Tài khoản",
-  "sectionSystem": "Hệ thống",
+  "sectionSystem": "Trợ giúp & thông tin",
   "shareApp": "Chia sẻ Asinu",
   "shareMessage": "Mình đang dùng Asinu để theo dõi sức khoẻ — thử xem nhé!",
   "logout": "Đăng xuất",
@@ -113,7 +113,7 @@
   "heightValue": "{{value}} cm",
   "weightValue": "{{value}} kg",
   "wallet": "Ví tiền",
-  "subscription": "Mở khoá chăm sóc nâng cao",
+  "subscription": "Gói chăm sóc Asinu",
   "planPremium": "An Tâm",
   "planFree": "Miễn phí",
   "accountType": "Tài khoản",
@@ -123,7 +123,7 @@
   "headerQuote": "Sức khỏe hôm nay tốt hơn ngày mai 💚",
   "footerQuote": "Sức khỏe tốt hơn mỗi ngày cùng Asinu 💚",
   "accountPlan": "Tài khoản: {{plan}}",
-  "sectionSettings": "Cài đặt",
+  "sectionSettings": "Cài đặt ứng dụng",
   "deleteAccountForever": "Xóa tài khoản vĩnh viễn",
   "benefitCircle3": "Vòng kết nối: tối đa 3 người",
   "benefitCircle1": "Vòng kết nối: 1 người",
@@ -145,5 +145,6 @@
   "premiumFeatureLockedTitle": "Bạn chưa có quyền sử dụng",
   "checkinCallLockedDesc": "Cấu hình Tổng đài check-in thuộc gói An Tâm. Hãy nâng cấp để Asinu có thể gọi kiểm tra khi bạn bỏ lỡ check-in.",
   "requiresAnTam": "Cần gói An Tâm",
-  "chooseAnTam": "Chọn gói An Tâm"
+  "chooseAnTam": "Chọn gói An Tâm",
+  "sectionRewards": "Nhiệm vụ & quà tặng"
 }

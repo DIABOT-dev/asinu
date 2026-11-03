@@ -137,7 +137,7 @@ type ProfileEditValues = {
 
 type ProfileSection =
   | "personal"
-  | "actions"
+  | "rewards"
   | "health"
   | "account"
   | "settings"
@@ -240,7 +240,7 @@ export default function ProfileScreen() {
     Record<ProfileSection, boolean>
   >({
     personal: false,
-    actions: false,
+    rewards: false,
     health: false,
     account: false,
     settings: false,
@@ -1090,15 +1090,31 @@ export default function ProfileScreen() {
               </Animated.View>
             )}
 
-            {/* ==================== 02 MIDDLE: THAO TÁC ==================== */}
+            {/* ==================== 02 MIDDLE: SỨC KHỎE ==================== */}
             <Animated.View entering={FadeIn.delay(220).duration(350)}>
               {renderSectionHeader(
-                "actions",
-                t("sectionActions"),
-                <Ionicons name="flash" size={18} color="#10b981" />,
+                "health",
+                t("sectionHealth"),
+                <Ionicons name="heart" size={18} color="#10b981" />,
               )}
-              {expandedSections.actions && (
+              {expandedSections.health && (
                 <View style={styles.cardsStack}>
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/logs")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons
+                        name="journal-outline"
+                        size={22}
+                        color="#f43f5e"
+                      />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("logEntry")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
                   <TouchableOpacity
                     style={[
                       styles.actionCard,
@@ -1155,121 +1171,6 @@ export default function ProfileScreen() {
                       <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
                   )}
-                </View>
-              )}
-            </Animated.View>
-
-            {/* ==================== 02 MIDDLE: SỨC KHỎE ==================== */}
-            <Animated.View entering={FadeIn.delay(260).duration(350)}>
-              {renderSectionHeader(
-                "health",
-                t("sectionHealth"),
-                <Ionicons name="heart" size={18} color="#10b981" />,
-              )}
-              {expandedSections.health && (
-                <View style={styles.cardsStack}>
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/logs")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons
-                        name="journal-outline"
-                        size={22}
-                        color="#f43f5e"
-                      />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("logEntry")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/(tabs)/missions" as any)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="flag-outline" size={22} color="#10b981" />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("missions")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/checkin-rewards")}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("dailyGifts")}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="gift-outline" size={22} color={colors.primary} />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("dailyGifts")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </Animated.View>
-
-            {/* ==================== 02 MIDDLE: TÀI KHOẢN ==================== */}
-            <Animated.View entering={FadeIn.delay(300).duration(350)}>
-              {renderSectionHeader(
-                "account",
-                t("sectionAccount"),
-                <FontAwesome5 name="crown" size={15} color="#f59e0b" />,
-              )}
-              {expandedSections.account && (
-                <View style={styles.cardsStack}>
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/subscription")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="star-outline" size={22} color="#f59e0b" />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("subscription")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/wallet")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="wallet-outline" size={22} color="#0d9488" />
-                    </View>
-                    <Text style={styles.rowLabel}>{t("wallet")}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                  </TouchableOpacity>
-                  {coinSummary.enabled && <TouchableOpacity
-                    style={styles.actionCard}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('healthCoins')}
-                    onPress={() => router.push('/coins')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <HealthCoinIcon size={24} />
-                    </View>
-                    <Text style={styles.rowLabel}>{t('healthCoins')}</Text>
-                  </TouchableOpacity>}
-                </View>
-              )}
-            </Animated.View>
-
-            {/* ==================== 02 MIDDLE: CÀI ĐẶT ==================== */}
-            <Animated.View entering={FadeIn.delay(340).duration(350)}>
-              {renderSectionHeader(
-                "settings",
-                ts("title"),
-                <Ionicons name="settings-sharp" size={18} color="#10b981" />,
-              )}
-              {expandedSections.settings && (
-                <View style={styles.cardsStack}>
                   {isDoctorFeaturesEnabled && (
                     <TouchableOpacity
                       accessibilityRole="button"
@@ -1315,6 +1216,137 @@ export default function ProfileScreen() {
                     <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>}
 
+                </View>
+              )}
+            </Animated.View>
+
+            <Animated.View entering={FadeIn.delay(260).duration(350)}>
+              {renderSectionHeader(
+                "rewards",
+                t("sectionRewards"),
+                <Ionicons name="gift-outline" size={18} color="#10b981" />,
+              )}
+              {expandedSections.rewards && (
+                <View style={styles.cardsStack}>
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/(tabs)/missions" as any)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="flag-outline" size={22} color="#10b981" />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("missions")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  {coinSummary.enabled && <TouchableOpacity
+                    style={styles.actionCard}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('healthCoins')}
+                    onPress={() => router.push('/coins')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <HealthCoinIcon size={24} />
+                    </View>
+                    <Text style={styles.rowLabel}>{t('healthCoins')}</Text>
+                  </TouchableOpacity>}
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/checkin-rewards")}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("dailyGifts")}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="gift-outline" size={22} color={colors.primary} />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("dailyGifts")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </Animated.View>
+
+            {/* ==================== 02 MIDDLE: TÀI KHOẢN ==================== */}
+            <Animated.View entering={FadeIn.delay(300).duration(350)}>
+              {renderSectionHeader(
+                "account",
+                t("sectionAccount"),
+                <Ionicons name="person-circle-outline" size={20} color="#10b981" />,
+              )}
+              {expandedSections.account && (
+                <View style={styles.cardsStack}>
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/subscription")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="star-outline" size={22} color="#f59e0b" />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("subscription")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => router.push("/wallet")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="wallet-outline" size={22} color="#0d9488" />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("wallet")}</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  {/* Đổi mật khẩu (nếu tài khoản dùng mật khẩu) */}
+                  {profile?.hasPassword ? (
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() => setShowChangePasswordModal(true)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons name="key-outline" size={22} color="#6366f1" />
+                      </View>
+                      <Text style={styles.rowLabel}>{t("changePassword")}</Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color="#94a3b8"
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={styles.actionCard}
+                    onPress={() => setShowDeleteModal(true)}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel={ts("deleteAccountForever")}
+                  >
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                    </View>
+                    <Text style={[styles.rowLabel, styles.deleteAccountText]}>
+                      {ts("deleteAccountForever")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </Animated.View>
+
+            {/* ==================== 02 MIDDLE: CÀI ĐẶT ==================== */}
+            <Animated.View entering={FadeIn.delay(340).duration(350)}>
+              {renderSectionHeader(
+                "settings",
+                t("sectionSettings"),
+                <Ionicons name="settings-sharp" size={18} color="#10b981" />,
+              )}
+              {expandedSections.settings && (
+                <View style={styles.cardsStack}>
                   <TouchableOpacity
                     style={styles.actionCard}
                     onPress={() => {
@@ -1355,6 +1387,7 @@ export default function ProfileScreen() {
                     <Text style={styles.rowMeta}>{langLabel}</Text>
                   </TouchableOpacity>
 
+                  <ReminderSettingsEntry />
                 </View>
               )}
             </Animated.View>
@@ -1368,7 +1401,6 @@ export default function ProfileScreen() {
               {expandedSections.permissions && (
                 <View style={styles.cardsStack}>
                   <ProfileDevicePermissions />
-                  <ReminderSettingsEntry />
                   <View style={styles.actionCard}>
                     <View style={styles.rowIconWrap}>
                       <Ionicons
@@ -1435,12 +1467,12 @@ export default function ProfileScreen() {
               )}
             </Animated.View>
 
-            {/* ==================== 03 BOTTOM: HỆ THỐNG ==================== */}
+            {/* ==================== 03 BOTTOM: TRỢ GIÚP & THÔNG TIN ==================== */}
             <Animated.View entering={FadeIn.delay(380).duration(350)}>
               {renderSectionHeader(
                 "system",
                 t("sectionSystem"),
-                <Ionicons name="cube" size={18} color="#10b981" />,
+                <Ionicons name="help-circle-outline" size={20} color="#10b981" />,
               )}
               {expandedSections.system && (
                 <>
@@ -1570,38 +1602,6 @@ export default function ProfileScreen() {
                       <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </TouchableOpacity>
 
-                    {/* Đổi mật khẩu (nếu tài khoản dùng mật khẩu) */}
-                    {profile?.hasPassword ? (
-                      <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={() => setShowChangePasswordModal(true)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.rowIconWrap}>
-                          <Ionicons name="key-outline" size={22} color="#6366f1" />
-                        </View>
-                        <Text style={styles.rowLabel}>{t("changePassword")}</Text>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={16}
-                          color="#94a3b8"
-                        />
-                      </TouchableOpacity>
-                    ) : null}
-                    <TouchableOpacity
-                      style={styles.actionCard}
-                      onPress={() => setShowDeleteModal(true)}
-                      activeOpacity={0.75}
-                      accessibilityRole="button"
-                      accessibilityLabel={ts("deleteAccountForever")}
-                    >
-                      <View style={styles.rowIconWrap}>
-                        <Ionicons name="trash-outline" size={22} color={colors.danger} />
-                      </View>
-                      <Text style={[styles.rowLabel, styles.deleteAccountText]}>
-                        {ts("deleteAccountForever")}
-                      </Text>
-                    </TouchableOpacity>
                   </View>
                 </>
               )}
@@ -2685,7 +2685,7 @@ function createStyles(
       color: textSecondaryCol,
       marginRight: 6,
     },
-    // Destructive action in the System section
+    // Destructive action in the Account section
     deleteAccountText: {
       color: colors.danger,
       fontWeight: "600",

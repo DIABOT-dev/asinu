@@ -1,80 +1,75 @@
-import { useCallback, useRef, useState } from "react";
-import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   StyleSheet,
+  Switch,
   View,
 } from "react-native";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
-import { runNativePermission } from "../../lib/native-permissions";
-import { showToast } from "../../stores/toast.store";
 import { QrCameraPermissionRow } from "../care-circle/components/QrCameraPermissionRow";
 import { AndroidCallAccessCard } from "../checkin-call/AndroidCallAccessCard";
-import { useAuthStore } from "../auth/auth.store";
+import { useDevicePermission, type DevicePermissionKind } from './useDevicePermission';
+
+const permissionRows = [
+  { kind: 'notifications', labelKey: 'deviceNotifications', icon: 'notifications-outline' },
+  { kind: 'microphone', labelKey: 'deviceMicrophone', icon: 'mic-outline' },
+  { kind: 'photos', labelKey: 'devicePhotos', icon: 'images-outline' },
+] as const;
+
+function DevicePermissionRow({ kind, labelKey, icon }: {
+  kind: DevicePermissionKind;
+  labelKey: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+}) {
+  const { t } = useTranslation('settings');
+  const { colors } = useThemeColors();
+  const { permission, loading, pending, failed, refresh, change } = useDevicePermission(kind);
+  const granted = permission?.granted === true || permission?.accessPrivileges === 'limited';
+  const disabled = loading || pending || !permission;
+  return (
+    <View style={styles.row}>
+      <Ionicons name={icon} size={22} color={colors.primaryDark} style={styles.icon} />
+      <View style={styles.copy}>
+        <Text style={[styles.label, { color: colors.textPrimary }]}>{t(labelKey)}</Text>
+        {failed ? (
+          <Text style={[styles.status, { color: colors.textSecondary }]}>{t('devicePermissionUnavailable')}</Text>
+        ) : null}
+      </View>
+      {loading || pending ? <ActivityIndicator color={colors.primary} /> : null}
+      {failed ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('devicePermissionRetry', { name: t(labelKey) })}
+          onPress={() => void refresh()}
+          style={styles.retry}
+        >
+          <Ionicons name="refresh" size={22} color={colors.primaryDark} />
+        </Pressable>
+      ) : (
+        <Switch
+          accessibilityLabel={t(labelKey)}
+          accessibilityHint={t('devicePermissionSwitchHint')}
+          accessibilityValue={permission?.accessPrivileges === 'limited' ? { text: t('devicePhotosLimited') } : undefined}
+          accessibilityState={{ checked: granted, disabled, busy: loading || pending }}
+          value={granted}
+          disabled={disabled}
+          onValueChange={enabled => void change(enabled)}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor={colors.surface}
+        />
+      )}
+    </View>
+  );
+}
 
 export function ProfileDevicePermissions() {
-  const { t } = useTranslation("settings");
-  const { colors } = useThemeColors();
-  const [opening, setOpening] = useState(false);
-  const focused = useRef(false);
-  const busy = useRef(false);
-  useFocusEffect(
-    useCallback(() => {
-      focused.current = true;
-      return () => {
-        focused.current = false;
-      };
-    }, [])
-  );
-
-  const openDeviceSettings = async () => {
-    if (busy.current || !focused.current) return;
-    busy.current = true;
-    setOpening(true);
-    const token = useAuthStore.getState().token;
-    const canRun = () =>
-      focused.current && useAuthStore.getState().token === token;
-    try {
-      await runNativePermission(() => Linking.openSettings(), {
-        key: "app-settings",
-        settings: true,
-        canRun,
-      });
-    } catch {
-      if (canRun()) showToast(t("devicePermissionsError"), "error");
-    } finally {
-      busy.current = false;
-      if (canRun()) setOpening(false);
-    }
-  };
-
   return (
     <View>
       <QrCameraPermissionRow />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t("devicePermissions")}
-        accessibilityState={{ disabled: opening, busy: opening }}
-        disabled={opening}
-        onPress={() => void openDeviceSettings()}
-        style={({ pressed }) => [styles.row, pressed && { opacity: 0.65 }]}
-      >
-        <Ionicons
-          name="options-outline"
-          size={22}
-          color={colors.primaryDark}
-          style={styles.icon}
-        />
-        <Text style={[styles.label, { color: colors.textPrimary }]}>
-          {t("devicePermissions")}
-        </Text>
-        {opening && <ActivityIndicator color={colors.primary} />}
-      </Pressable>
+      {permissionRows.map(row => <DevicePermissionRow key={row.kind} {...row} />)}
       <AndroidCallAccessCard onlyWhenNeeded plain />
     </View>
   );
@@ -90,5 +85,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   icon: { width: 28 },
-  label: { flex: 1, fontSize: 15, fontWeight: "600" },
+  copy: { flex: 1, minWidth: 0, gap: 3 },
+  label: { fontSize: 15, fontWeight: "600" },
+  status: { fontSize: 12 },
+  retry: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });
