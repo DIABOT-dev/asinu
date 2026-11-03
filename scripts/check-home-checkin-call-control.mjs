@@ -58,6 +58,7 @@ function harness({
   save,
   load,
   fontSize = 15,
+  iconOnly = false,
 } = {}) {
   let cursor = 0;
   let focused = true;
@@ -250,7 +251,7 @@ function harness({
       nodes.push(node);
       visit(node.props?.children);
     };
-    visit(HomeCheckinCallControl({ userId }));
+    visit(HomeCheckinCallControl({ userId, iconOnly }));
     return nodes;
   };
   const effects = () => {
@@ -273,6 +274,7 @@ function harness({
     t: translations.checkinCall,
     tc: translations.common,
     toggle: () => render().find((node) => node.type === "Switch"),
+    icon: () => render().find((node) => node.type === "Button" && node.props.accessibilityLabel === translations.checkinCall('homeControl.title')),
     modal: () => render().find((node) => node.type === "AppModal"),
     text: () => text(h.modal()),
     button: (key, common = false) => {
@@ -760,6 +762,33 @@ assert.match(
   /<HomeCheckinCallControl key=\{profile\.id\} userId=\{String\(profile\.id\)\}/,
   "Home must mount account-scoped call controls"
 );
+await test("header icon confirms before enabling and never saves on first tap", async () => {
+  const h = harness({ iconOnly: true });
+  await h.settle();
+  assert.equal(h.icon().props.accessibilityState.selected, false);
+  h.icon().props.onPress();
+  assert.equal(h.modal().props.visible, true);
+  assert.deepEqual(h.calls.saves, []);
+  h.button('homeControl.turnOn').props.onPress();
+  h.modal().props.onDismiss();
+  await h.settle();
+  assert.equal(h.icon().props.accessibilityState.selected, true);
+  assert.deepEqual(h.calls.saves, [true]);
+  h.unmount();
+});
+await test("header icon retries a failed first load without changing the saved preference", async () => {
+  const h = harness({ iconOnly: true, status: new Error('Offline') });
+  await h.settle();
+  assert.equal(h.icon().props.disabled, false);
+  h.server.status = { callCenterEnabled: true };
+  h.icon().props.onPress();
+  await h.settle();
+  assert.equal(h.icon().props.disabled, false);
+  assert.deepEqual(h.calls.saves, []);
+  assert.equal(h.modal().props.visible, false);
+  h.unmount();
+});
+
 console.log(
   `Home check-in call control: ${checks} runtime regressions passed.`
 );

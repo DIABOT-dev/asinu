@@ -20,7 +20,7 @@ import { AndroidCallAccessCard } from '../features/checkin-call/AndroidCallAcces
 
 type Dialog = { kind: "confirm"; enabled: boolean } | { kind: "access" };
 
-export function HomeCheckinCallControl({ userId, compact = false }: { userId: string; compact?: boolean }) {
+export function HomeCheckinCallControl({ userId, compact = false, iconOnly = false }: { userId: string; compact?: boolean; iconOnly?: boolean }) {
   const router = useGuardedRouter();
   const { t } = useTranslation("checkinCall");
   const { t: tc } = useTranslation("common");
@@ -147,6 +147,7 @@ export function HomeCheckinCallControl({ userId, compact = false }: { userId: st
 
   const enabled = sameSession && allowed === true && settings?.enabled === true;
   const busy = loading || saving || loadFailed || allowed === null || !sameSession;
+  const iconDisabled = loading || saving || (!loadFailed && allowed === null) || !sameSession || !!dialog;
   const isConfirmOn = dialog?.kind === "confirm" && dialog.enabled;
   const warnNoContacts = isConfirmOn && noContacts;
   const dialogTitle = dialog?.kind === "access" ? t("accessRequiredTitle")
@@ -178,8 +179,17 @@ export function HomeCheckinCallControl({ userId, compact = false }: { userId: st
   ];
 
   return (
-    <View style={[styles.root, compact && styles.compactRoot]}>
-      <View style={styles.row}>
+    <View style={iconOnly ? undefined : [styles.root, compact && styles.compactRoot]}>
+      {iconOnly ? <Pressable
+        style={({ pressed }) => [styles.iconButton, pressed && styles.dimmed]}
+        accessibilityRole="button"
+        accessibilityLabel={t('homeControl.title')}
+        accessibilityState={{ disabled: iconDisabled, busy: loading || saving, selected: enabled }}
+        disabled={iconDisabled}
+        onPress={() => loadFailed ? void refresh() : openConfirmation(!enabled)}
+      >
+        <Ionicons name={enabled ? 'call' : 'call-outline'} size={30} color={enabled ? colors.primaryDark : colors.textSecondary} />
+      </Pressable> : <View style={styles.row}>
         <Ionicons name="call-outline" size={28} color={colors.primaryDark} />
         <View style={styles.copy}><Text style={styles.title}>{t(compact ? "homeControl.shortTitle" : "homeControl.title")}</Text></View>
         <Switch
@@ -192,8 +202,8 @@ export function HomeCheckinCallControl({ userId, compact = false }: { userId: st
           trackColor={{ false: colors.border, true: colors.primaryDark }}
           onValueChange={openConfirmation}
         />
-      </View>
-      {!loading && loadFailed && (
+      </View>}
+      {!iconOnly && !loading && loadFailed && (
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ disabled: saving }}
@@ -205,7 +215,7 @@ export function HomeCheckinCallControl({ userId, compact = false }: { userId: st
           <Ionicons name="refresh-outline" size={20} color={colors.primaryDark} />
         </Pressable>
       )}
-      {enabled && <AndroidCallAccessCard onlyWhenNeeded />}
+      {!iconOnly && enabled && <AndroidCallAccessCard onlyWhenNeeded />}
       <AppAlertModal
         queued
         visible={!!dialog}
@@ -224,6 +234,7 @@ export function HomeCheckinCallControl({ userId, compact = false }: { userId: st
         scrollable
         onDismiss={closeDialog}
       >
+        {iconOnly && isConfirmOn && <AndroidCallAccessCard onlyWhenNeeded />}
         {warnNoContacts ? (
           <View style={styles.warnCard} accessibilityLabel={t("noContactsWarning.title")}>
             <View style={styles.warnIconBadge}>
@@ -248,6 +259,7 @@ try {
 function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   return StyleSheet.create({
     root: { paddingVertical: spacing.md },
+    iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
     compactRoot: { paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, minHeight: 56, justifyContent: "center" },
     row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
     copy: { flex: 1, minWidth: 0 },

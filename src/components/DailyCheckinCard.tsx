@@ -121,7 +121,6 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
             <Text allowFontScaling style={styles.fineTitle}>{t('checkinFine')}</Text>
             <Text style={styles.sub}>{t('checkinFineSub')}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={28} color={colors.primary} />
         </View>
       </Pressable>
       </GuideTarget>
@@ -156,7 +155,6 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
           <Text style={styles.followTitle}>{t('checkinFollowTitle')}</Text>
           <Text style={styles.sub}>{followUpLabel}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#d97706" />
       </View>
     </Pressable>
   );
@@ -189,7 +187,6 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
           <Text allowFontScaling style={styles.instantTitle}>{t('checkinInstantTitle')}</Text>
           <Text style={styles.sub}>{t('checkinInstantSub')}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={28} color={colors.premiumDark} />
       </View>
     </Pressable>
     </GuideTarget>
