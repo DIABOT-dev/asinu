@@ -21,6 +21,7 @@ import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
 import { MissionsTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { useMissionActions } from '../../../src/features/missions/useMissionActions';
+import { MissionProgressBar } from '../../../src/features/missions/MissionProgressBar';
 import type { Mission } from '../../../src/features/missions/missions.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 
@@ -279,7 +280,14 @@ export default function MissionsScreen() {
                           </View>
                         </View>
 
-                        {/* Progress and status stay visible without a panel or underline. */}
+                        <MissionProgressBar
+                          title={item.title}
+                          progress={item.progress}
+                          goal={item.goal}
+                          completed={isCompleted}
+                        />
+
+                        {/* Progress count and status stay visible below the bar. */}
                         <View style={styles.statusRow}>
                           <Text style={styles.progressText}>
                             {item.progress}/{item.goal}
