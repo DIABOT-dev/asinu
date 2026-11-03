@@ -130,7 +130,6 @@ export function MedicationOverviewPanel({
   const caption = { color: colors.textSecondary },
     title = { color: colors.textPrimary },
     tint = { color: colors.primaryText };
-  const disabled = med.loading || med.busy || !med.data;
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <View style={s.chrome}>
@@ -157,20 +156,6 @@ export function MedicationOverviewPanel({
               {t("medicationTitle")}
             </Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("addSchedule")}
-            accessibilityState={{ disabled }}
-            disabled={disabled}
-            onPress={onAdd}
-            style={[
-              s.add,
-              { backgroundColor: colors.primaryText },
-              disabled && s.disabled,
-            ]}
-          >
-            <Ionicons name="add" size={25} color={colors.surface} />
-          </Pressable>
         </View>
         <View
           accessibilityRole="tablist"
@@ -488,6 +473,17 @@ export function MedicationOverviewPanel({
                     )}
                   </View>
                 ))}
+                {med.data.schedules.length > 0 && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("addSchedule")}
+                    disabled={med.busy || med.loading}
+                    onPress={onAdd}
+                    style={s.row}
+                  >
+                    <Text style={[s.title, tint]}>{t("addSchedule")}</Text>
+                  </Pressable>
+                )}
                 {!med.data.self && (
                   <View style={s.preference}>
                     <Text style={[s.caption, caption, s.copy]}>

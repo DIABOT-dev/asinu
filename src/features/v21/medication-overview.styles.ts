@@ -27,14 +27,6 @@ export const medicationStyles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  add: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
   tabs: {
     flexDirection: "row",
     borderRadius: 16,
