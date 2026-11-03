@@ -14,22 +14,23 @@ function harness({self=true}={}) {
   const server={fail:false,pending:null,aiConsent:false,photoError:null,scanError:null,pickerCanceled:false};
   class PhotoError extends Error { constructor(code){super(code);this.code=code;} }
   class ApiError extends Error {}
+  class NativeForm { constructor(){this.parts=[];} append(...args){this.parts.push(args);} }
   const data={self,conditions:[],flags:{scan:true},meals:{breakfast:'06:30',lunch:'11:30',dinner:'18:00',bedtime:'21:30'}};
   const t=key=>key;
   const deps={react,'react-native':{Platform:{OS:'ios'},Alert:{alert:(...args)=>calls.push(['alert',...args])}},
     'expo-router':{useLocalSearchParams:()=>({patientId:'1'}),useRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
     'expo-image-picker':{requestCameraPermissionsAsync:async()=>({granted:true}),requestMediaLibraryPermissionsAsync:async()=>({granted:true}),launchCameraAsync:async options=>{calls.push(['picker',options]);return {canceled:false,assets:[{uri:'fixture://medicine.jpg',mimeType:'image/jpeg'}]};},launchImageLibraryAsync:async options=>{calls.push(['library',options]);return server.pickerCanceled ? {canceled:true,assets:null} : {canceled:false,assets:[{uri:'ph://selected.heic',mimeType:'image/heic',base64:'/9j/export'}]};}},
-    'expo-crypto':{randomUUID},'react-i18next':{useTranslation:()=>({t})},'../../lib/aiDataConsent':{hasAiDataConsent:async()=>server.aiConsent},'../../lib/audio':{Audio:{}},
+    'expo-file-system':{File:class File {constructor(uri){this.uri=uri;this.name=uri.split('/').pop();this.type='audio/mp4';}async bytes(){return new Uint8Array([1,2,3]);}}},'expo-crypto':{randomUUID},'react-i18next':{useTranslation:()=>({t})},'../../lib/aiDataConsent':{hasAiDataConsent:async()=>server.aiConsent},'../../lib/audio':{Audio:{requestPermissionsAsync:async()=>({granted:true}),setAudioModeAsync:async()=>{},RecordingOptionsPresets:{HIGH_QUALITY:{}},Recording:{createAsync:async()=>({recording:{stopAndUnloadAsync:async()=>{},getURI:()=> 'file:///fixture/name.m4a'}})}}},
     '../../lib/apiClient':{ApiError},'../../observability/sentry':{reportError:(e,context)=>calls.push(['diagnostic',context.operation,e.name])},
     './medication-photo':{MedicationPhotoError:PhotoError,prepareMedicationPhoto:async()=>{if(server.photoError)throw new PhotoError(server.photoError);return {body:{photo:true},dispose:()=>calls.push(['dispose'])};}},
     '../../stores/toast.store':{useToastStore:{getState:()=>({show:(...args)=>toasts.push(args)})}},'./V21Layout':{v21Error:error=>errors.push(error)},
-    './v21.api':{v21Api:{overview:async()=>data,scan:async()=>{calls.push(['scan']);if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
+    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>data,scan:async()=>{calls.push(['scan']);if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
   };
   const module={exports:{}};
   const source=ts.transpileModule(fs.readFileSync('src/features/v21/useMedicationSetup.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   // Execute the production setup controller with isolated network/native adapters.
   // eslint-disable-next-line no-new-func
-  new Function('module','exports','require',source)(module,module.exports,key=>{assert.ok(key in deps,key);return deps[key];});
+  new Function('module','exports','require','FormData',source)(module,module.exports,key=>{assert.ok(key in deps,key);return deps[key];},NativeForm);
   const read=()=>{cursor=0;return module.exports.useMedicationSetup();};
   const settle=async()=>{read();effects.splice(0).forEach(fn=>fn());await flush();return read();};
   const toReview=async()=>{read().addManual();read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['after_breakfast']});read().next();read().next();await flush();return read();};
@@ -76,7 +77,7 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     assert.ok(!h.calls.some(x=>x[0]==='scan'));assert.equal(h.toasts.at(-1)[0],'medicationPhotoReadError');assert.equal(h.read().busy,false);assert.ok(h.calls.some(x=>x[0]==='diagnostic'&&x[1]==='photo_prepare'));
   });
   await test('native photo preparation owns the cache file, matches MIME to bytes and removes it after upload',async()=>{
-    const files=[];class File{constructor(_root,name){this.uri='file:///cache/'+name;this.exists=false;this.size=0;files.push(this);}write(value,options){this.value=value;this.options=options;this.exists=true;this.size=24;}delete(){this.exists=false;}}
+    const files=[];class File{constructor(_root,name){this.uri='file:///cache/'+name;this.name=name;this.type=name.endsWith('.png')?'image/png':'image/jpeg';this.exists=false;this.size=0;files.push(this);}write(value,options){this.value=value;this.options=options;this.exists=true;this.size=24;}delete(){this.exists=false;}}
     class Form{constructor(){this.parts=[];}append(...args){this.parts.push(args);}}
     const module={exports:{}};const source=ts.transpileModule(fs.readFileSync('src/features/v21/medication-photo.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
     const deps={'react-native':{Platform:{OS:'ios'}},'expo-file-system':{File,Paths:{cache:'file:///cache/'}},'expo-crypto':{randomUUID}};
@@ -101,6 +102,11 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     const h=harness();await h.settle();h.server.aiConsent=true;h.server.scanError=new Error('upload failed');await h.read().pick(false);
     assert.equal(h.calls.filter(x=>x[0]==='dispose').length,1);assert.equal(h.read().busy,false);assert.equal(h.read().step,1);
     assert.equal(h.errors.at(-1),h.server.scanError);assert.ok(h.calls.some(x=>x[0]==='diagnostic'&&x[1]==='photo_upload'));
+  });
+  await test('reading a medicine name uploads a File compatible with Expo 57 and still requires name confirmation',async()=>{
+    const h=harness();await h.settle();h.server.aiConsent=true;h.read().voice();await flush();assert.equal(h.read().listening,true);h.read().voice();await flush();
+    const form=h.calls.find(x=>x[0]==='transcribe')[2];assert.equal(form.parts[0][0],'audio');const file=form.parts[0][1];assert.equal(file.name,'name.m4a');assert.equal(typeof file.bytes,'function');
+    assert.equal(h.read().step,2);assert.equal(h.read().draft[0].display_name,'Tên đã đọc');assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.read().busy,false);
   });
   console.log(`Medication setup: ${count} runtime checks passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

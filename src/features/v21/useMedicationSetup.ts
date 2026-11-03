@@ -3,6 +3,7 @@ import { Alert, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { randomUUID } from "expo-crypto";
+import { File } from "expo-file-system";
 import { useTranslation } from "react-i18next";
 import { hasAiDataConsent } from "../../lib/aiDataConsent";
 import { Audio } from "../../lib/audio";
@@ -241,11 +242,7 @@ export function useMedicationSetup() {
           "name.webm"
         );
       } else
-        form.append("audio", {
-          uri,
-          name: "name.m4a",
-          type: "audio/m4a",
-        } as any);
+        form.append("audio", new File(uri));
       const r = await v21Api.transcribe(patient, form);
       setDraft((old) => [
         ...old,

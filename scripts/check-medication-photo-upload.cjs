@@ -20,9 +20,12 @@ function photoHarness(os = 'ios', options = {}) {
   class Form {
     constructor() { this.parts = []; }
     append(...args) { this.parts.push(args); }
+    *entries() { for (const [name, value] of this.parts) yield [name, value]; }
   }
   class File {
-    constructor(...parts) { this.uri = parts.join('/'); this.exists = false; files.push(this); }
+    constructor(...parts) { this.uri = parts.join('/'); this.name = parts.at(-1); this.type = this.name.endsWith('.png') ? 'image/png' : this.name.endsWith('.webp') ? 'image/webp' : 'image/jpeg'; this.exists = false; files.push(this); }
+    async bytes() { return new Uint8Array(this.buffer); }
+    async arrayBuffer() { return (await this.bytes()).buffer; }
     write(encoded, config) {
       assert.deepEqual(config, { encoding: 'base64' });
       this.buffer = Buffer.from(encoded, 'base64'); this.size = options.fileSize ?? this.buffer.length; this.exists = true;
@@ -34,7 +37,7 @@ function photoHarness(os = 'ios', options = {}) {
     'react-native': { Platform: { OS: os } }, 'expo-crypto': { randomUUID },
     'expo-file-system': { File, Paths: { cache: 'file:///cache' } },
   }, { FormData: Form, fetch: async uri => { requests.push(uri); return options.response; } });
-  return { ...loaded, files, requests };
+  return { ...loaded, files, requests, Form };
 }
 
 const jpeg = Buffer.from([255, 216, 255, 224, 0, 16, 0, 0, 0, 0, 0, 0]);
@@ -50,7 +53,7 @@ async function test(name, run) { await run(); checks++; console.log(`PASS ${name
       const asset = { uri: 'ph://original.heic', fileName: 'IMG_1234.HEIC', mimeType: 'image/heic', base64: jpeg.toString('base64') };
       const upload = await h.prepareMedicationPhoto(asset);
       const [field, part] = upload.body.parts[0];
-      assert.equal(field, 'image'); assert.equal(part.type, 'image/jpeg'); assert.equal(part.name, 'medicine.jpg');
+      assert.equal(field, 'image'); assert.equal(part.type, 'image/jpeg'); assert.match(part.name, /\.jpg$/);
       assert.notEqual(part.uri, asset.uri); assert.equal(part.uri, h.files[0].uri);
       assert.deepEqual(h.files[0].buffer, jpeg); assert.equal(h.files[0].exists, true);
       const second = await h.prepareMedicationPhoto(asset);
@@ -61,7 +64,7 @@ async function test(name, run) { await run(); checks++; console.log(`PASS ${name
       await test(`${os}: supported ${extension} bytes keep the correct MIME and extension`, async () => {
         const h = photoHarness(os);
         const upload = await h.prepareMedicationPhoto({ uri: 'content://selected', mimeType: 'image/jpeg', base64: buffer.toString('base64') });
-        assert.equal(upload.body.parts[0][1].type, mime); assert.equal(upload.body.parts[0][1].name, `medicine.${extension}`);
+        assert.equal(upload.body.parts[0][1].type, mime); assert.ok(upload.body.parts[0][1].name.endsWith('.' + extension));
         assert.deepEqual(h.files[0].buffer, buffer); upload.dispose();
       });
     }
@@ -113,6 +116,31 @@ async function test(name, run) { await run(); checks++; console.log(`PASS ${name
     await assert.rejects(h.prepareMedicationPhoto({ file: new Blob([]) }), { code: 'MED_LOCAL_PHOTO_UNREADABLE' });
     await assert.rejects(h.prepareMedicationPhoto({ file: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], { type: 'image/jpeg' }) }), { code: 'MED_LOCAL_PHOTO_TOO_LARGE' });
   });
+  const blobUtils = evaluate('node_modules/expo/src/utils/blobUtils.ts', {});
+  const expoMultipart = evaluate('node_modules/expo/src/winter/fetch/convertFormData.ts', {
+    '../../utils/blobUtils': blobUtils,
+  });
+  await test('Expo SDK 57 actual serializer reproduces the legacy URI failure before sending a request', async () => {
+    const legacy = { entries: () => [['image', { uri: 'file:///cache/medicine.jpg', type: 'image/jpeg', name: 'medicine.jpg' }]] };
+    await assert.rejects(expoMultipart.convertFormDataAsync(legacy), /Unsupported FormDataPart implementation/);
+  });
+  for (const os of ['ios', 'android']) {
+    await test(`${os}: actual Expo 57 request normalization produces valid multipart image bytes`, async () => {
+      const h = photoHarness(os);
+      const upload = await h.prepareMedicationPhoto({ uri: 'ph://original.heic', base64: jpeg.toString('base64') });
+      const expoRequest = evaluate('node_modules/expo/src/winter/fetch/RequestUtils.ts', {
+        './convertFormData': expoMultipart, '../../utils/blobUtils': blobUtils,
+      }, { FormData: h.Form });
+      const encoded = await expoRequest.normalizeBodyInitAsync(upload.body);
+      const headers = Object.fromEntries(encoded.overriddenHeaders);
+      assert.match(headers['Content-Type'], /^multipart\/form-data; boundary=/);
+      const parsed = await new Response(encoded.body, { headers }).formData();
+      const image = parsed.get('image');
+      assert.equal(image.type, 'image/jpeg'); assert.match(image.name, /\.jpg$/);
+      assert.deepEqual(Buffer.from(await image.arrayBuffer()), jpeg);
+      assert.equal(h.files[0].exists, true); upload.dispose(); assert.equal(h.files[0].exists, false);
+    });
+  }
   await test('upload errors are localized without exposing backend exception text', () => {
     const common = { t: key => `common:${key}` };
     const api = evaluate('src/lib/apiClient.ts', {

@@ -72,11 +72,9 @@ export async function prepareMedicationPhoto(
     if (file.size > MAX_BYTES)
       throw new MedicationPhotoError("MED_LOCAL_PHOTO_TOO_LARGE");
     const body = new FormData();
-    body.append("image", {
-      uri: file.uri,
-      name: `medicine.${format[0]}`,
-      type: format[1],
-    } as any);
+    // Expo SDK 57 uses expo/fetch by default. Its multipart encoder accepts
+    // File/Blob values, but rejects the legacy React Native { uri, type, name }.
+    body.append("image", file);
     return { body, dispose };
   } catch (error) {
     dispose();
