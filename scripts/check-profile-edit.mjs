@@ -38,7 +38,8 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   let cursor = 0;
   let pendingEffects = [];
   let needsRender = false;
-  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [] };
+  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [], fontSizes: [], languages: [] };
+  const preferences = { fontScale: 'normal', language };
   const profile = { id: 'profile-fixture', name: 'Demo', phone: '', age: 40, gender: 'Nam',
     heightCm: 170, weightKg: 70, bloodType, chronicDiseases: [], ...profileOverrides };
   const auth = { profile, logout: async () => {} };
@@ -120,8 +121,10 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/logs/logs.store': { useLogsStore: selector => selector({ fetchRecent: async () => {} }) },
     '../../../src/features/missions/missions.store': { useMissionsStore: selector => selector({ fetchMissions: async () => {} }) },
     '../../../src/features/subscription/planName': { localizedPlanName: () => 'Fixture plan' },
-    '../../../src/stores/font-size.store': { useFontSizeStore: () => ({ scale: 'normal', multiplier, setScale() {} }) },
-    '../../../src/stores/language.store': { useLanguageStore: () => ({ language, setLanguage() {} }) },
+    '../../../src/stores/font-size.store': { useFontSizeStore: () => ({ scale: preferences.fontScale, multiplier,
+      setScale(value) { preferences.fontScale = value; calls.fontSizes.push(value); } }) },
+    '../../../src/stores/language.store': { useLanguageStore: () => ({ language: preferences.language,
+      setLanguage(value) { preferences.language = value; calls.languages.push(value); } }) },
     '../../../src/hooks/useScaledTypography': { useScaledTypography: () => ({
       ...theme.typography,
       scaledSize: Object.fromEntries(Object.entries(theme.typography.size).map(([key, value]) => [key, Math.round(value * multiplier)])),
@@ -209,7 +212,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   };
   return { render, modal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
     openDiseasePicker, diseaseChoice, toggleDisease, customInput, addDiseaseButton, addDisease, cancel,
-    avatarButton, updateProfile, toggleSection, calls, t: translate('profile'), tc: translate('common') };
+    avatarButton, updateProfile, toggleSection, calls, t: translate('profile'), tc: translate('common'), ts: translate('settings') };
 }
 
 let checks = 0;
@@ -240,6 +243,38 @@ for (const language of ['vi', 'en']) {
       assert.ok(!hasRow(actionsClosed, 'reminderSchedule'));
       assert.ok(hasRow(actionsClosed, 'logEntry'));
       h.open(); assert.ok(h.modal());
+    });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: inline font and language choices save, collapse, and preserve the selection`, () => {
+      const h = harness({ language, isDark });
+      h.toggleSection(h.t('sectionSettings'));
+      const control = key => nodes(h.render()).find(node => node.props.accessibilityRole === 'button'
+        && node.props.accessibilityLabel === h.ts(key));
+      const groups = () => nodes(nodes(h.render()).find(node => node.type === 'ScrollView'))
+        .filter(node => node.props.accessibilityRole === 'radiogroup');
+      const options = () => nodes(groups()).filter(node => node.props.accessibilityRole === 'radio');
+      control('fontSize').props.onPress();
+      assert.equal(groups().length, 1);
+      assert.equal(options().length, 4);
+      assert.equal(options().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, h.ts('fontNormal'));
+      assert.equal(nodes(h.render()).filter(node => node.type === 'Modal' && node.props.visible).length, 0);
+      options().find(node => node.props.accessibilityLabel === h.ts('fontLarge')).props.onPress();
+      assert.deepEqual(h.calls.fontSizes, ['large']);
+      assert.equal(control('fontSize').props.accessibilityState.expanded, false);
+      control('fontSize').props.onPress();
+      assert.equal(options().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, h.ts('fontLarge'));
+      control('language').props.onPress();
+      assert.equal(groups().length, 1);
+      assert.equal(control('fontSize').props.accessibilityState.expanded, false);
+      assert.equal(options().length, 2);
+      const next = language === 'vi' ? 'en' : 'vi';
+      const nextLabel = h.ts(next === 'vi' ? 'languageVi' : 'languageEn');
+      options().find(node => node.props.accessibilityLabel === nextLabel).props.onPress();
+      assert.deepEqual(h.calls.languages, [next]);
+      assert.equal(control('language').props.accessibilityState.expanded, false);
+      control('language').props.onPress();
+      assert.equal(options().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, nextLabel);
+      control('language').props.onPress();
+      assert.equal(groups().length, 0);
     });
   }
   await test(`${language}: personal info expands read-only and opens the editor only through Edit`, async () => {

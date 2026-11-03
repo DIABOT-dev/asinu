@@ -1324,21 +1324,59 @@ export default function ProfileScreen() {
 
                   <TouchableOpacity
                     style={styles.actionCard}
-                    onPress={() => setShowFontPicker(true)}
+                    onPress={() => {
+                      setShowFontPicker((visible) => !visible);
+                      setShowLangPicker(false);
+                    }}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={ts("fontSize")}
+                    accessibilityState={{ expanded: showFontPicker }}
                   >
                     <View style={styles.rowIconWrap}>
                       <Ionicons name="text-outline" size={22} color="#0d9488" />
                     </View>
                     <Text style={styles.rowLabel}>{ts("fontSize")}</Text>
                     <Text style={styles.rowMeta}>{fontLabel}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    <Ionicons name={showFontPicker ? "chevron-up" : "chevron-down"} size={16} color="#94a3b8" />
                   </TouchableOpacity>
+                  {showFontPicker && (
+                    <View style={styles.pickerOptions} accessibilityRole="radiogroup" accessibilityLabel={ts("fontSize")}>
+                      {(["small", "normal", "large", "xlarge"] as FontSizeScale[]).map((size) => {
+                        const label = size === "small" ? ts("fontSmall")
+                          : size === "normal" ? ts("fontNormal")
+                          : size === "large" ? ts("fontLarge") : ts("fontXLarge");
+                        const active = fontScale === size;
+                        return (
+                          <Pressable
+                            key={size}
+                            style={({ pressed }) => [styles.pickerRow, pressed && { opacity: 0.65 }]}
+                            accessibilityRole="radio"
+                            accessibilityLabel={label}
+                            accessibilityState={{ checked: active }}
+                            onPress={() => {
+                              setFontScale(size);
+                              setShowFontPicker(false);
+                            }}
+                          >
+                            <Text style={[styles.pickerRowText, active && styles.pickerRowTextActive]}>{label}</Text>
+                            {active && <Ionicons name="checkmark" size={20} color={styles.pickerRowTextActive.color} />}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
 
                   <TouchableOpacity
                     style={styles.actionCard}
-                    onPress={() => setShowLangPicker(true)}
+                    onPress={() => {
+                      setShowLangPicker((visible) => !visible);
+                      setShowFontPicker(false);
+                    }}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={ts("language")}
+                    accessibilityState={{ expanded: showLangPicker }}
                   >
                     <View style={styles.rowIconWrap}>
                       <Ionicons
@@ -1349,8 +1387,32 @@ export default function ProfileScreen() {
                     </View>
                     <Text style={styles.rowLabel}>{ts("language")}</Text>
                     <Text style={styles.rowMeta}>{langLabel}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    <Ionicons name={showLangPicker ? "chevron-up" : "chevron-down"} size={16} color="#94a3b8" />
                   </TouchableOpacity>
+                  {showLangPicker && (
+                    <View style={styles.pickerOptions} accessibilityRole="radiogroup" accessibilityLabel={ts("language")}>
+                      {(["vi", "en"] as AppLanguage[]).map((lang) => {
+                        const active = language === lang;
+                        const label = lang === "vi" ? ts("languageVi") : ts("languageEn");
+                        return (
+                          <Pressable
+                            key={lang}
+                            style={({ pressed }) => [styles.pickerRow, pressed && { opacity: 0.65 }]}
+                            accessibilityRole="radio"
+                            accessibilityLabel={label}
+                            accessibilityState={{ checked: active }}
+                            onPress={() => {
+                              setLanguage(lang);
+                              setShowLangPicker(false);
+                            }}
+                          >
+                            <Text style={[styles.pickerRowText, active && styles.pickerRowTextActive]}>{label}</Text>
+                            {active && <Ionicons name="checkmark" size={20} color={styles.pickerRowTextActive.color} />}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
 
                 </View>
               )}
@@ -1549,25 +1611,21 @@ export default function ProfileScreen() {
                         />
                       </TouchableOpacity>
                     ) : null}
+                    <TouchableOpacity
+                      style={styles.actionCard}
+                      onPress={() => setShowDeleteModal(true)}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityLabel={ts("deleteAccountForever")}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                      </View>
+                      <Text style={[styles.rowLabel, styles.deleteAccountText]}>
+                        {ts("deleteAccountForever")}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-
-                  {/* Xóa tài khoản vĩnh viễn (Destructive Card) */}
-                  <TouchableOpacity
-                    style={styles.deleteAccountCard}
-                    onPress={() => setShowDeleteModal(true)}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={22}
-                      color="#ef4444"
-                      style={{ marginRight: 12 }}
-                    />
-                    <Text style={styles.deleteAccountText}>
-                      {ts("deleteAccountForever")}
-                    </Text>
-                  </TouchableOpacity>
                 </>
               )}
 
@@ -2232,118 +2290,6 @@ export default function ProfileScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ==================== FONT SIZE PICKER ==================== */}
-      <Modal
-        visible={showFontPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFontPicker(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowFontPicker(false)}
-        >
-          <Pressable style={styles.pickerModalCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.pickerModalTitle}>{ts("fontSize")}</Text>
-            <View
-              style={{ width: "100%", gap: spacing.sm, marginTop: spacing.md }}
-            >
-              {(["small", "normal", "large", "xlarge"] as FontSizeScale[]).map(
-                (size) => {
-                  const label =
-                    size === "small"
-                      ? ts("fontSmall")
-                      : size === "normal"
-                        ? ts("fontNormal")
-                        : size === "large"
-                          ? ts("fontLarge")
-                          : ts("fontXLarge");
-                  const active = fontScale === size;
-                  return (
-                    <Pressable
-                      key={size}
-                      style={[
-                        styles.pickerRow,
-                        active && styles.pickerRowActive,
-                      ]}
-                      onPress={() => {
-                        setFontScale(size);
-                        setShowFontPicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerRowText,
-                          active && styles.pickerRowTextActive,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                      {active ? (
-                        <Ionicons name="checkmark" size={20} color="#ffffff" />
-                      ) : null}
-                    </Pressable>
-                  );
-                },
-              )}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* ==================== LANGUAGE PICKER ==================== */}
-      <Modal
-        visible={showLangPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLangPicker(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowLangPicker(false)}
-        >
-          <Pressable style={styles.pickerModalCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.pickerModalTitle}>{ts("language")}</Text>
-            <View
-              style={{ width: "100%", gap: spacing.sm, marginTop: spacing.md }}
-            >
-              {(["vi", "en"] as AppLanguage[]).map((lang) => {
-                const active = language === lang;
-                return (
-                  <Pressable
-                    key={lang}
-                    style={[styles.pickerRow, active && styles.pickerRowActive]}
-                    onPress={() => {
-                      setLanguage(lang);
-                      setShowLangPicker(false);
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name="translate"
-                      size={20}
-                      color={active ? "#ffffff" : colors.textSecondary}
-                      style={{ marginRight: 8 }}
-                    />
-                    <Text
-                      style={[
-                        styles.pickerRowText,
-                        active && styles.pickerRowTextActive,
-                        { flex: 1 },
-                      ]}
-                    >
-                      {lang === "vi" ? ts("languageVi") : ts("languageEn")}
-                    </Text>
-                    {active ? (
-                      <Ionicons name="checkmark" size={20} color="#ffffff" />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       {/* ==================== LAZY MODALS ==================== */}
       {showDeleteModal && (
         <Suspense fallback={null}>
@@ -2760,20 +2706,9 @@ function createStyles(
       marginRight: 6,
     },
     // Destructive action in the System section
-    deleteAccountCard: {
-      marginHorizontal: 16,
-      marginTop: 12,
-      minHeight: 56,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      flexDirection: "row",
-      alignItems: "center",
-    },
     deleteAccountText: {
-      flex: 1,
-      fontSize: 15,
-      fontWeight: "700",
-      color: textPrimaryCol,
+      color: colors.danger,
+      fontWeight: "600",
     },
 
     // Logout Button
@@ -3341,45 +3276,28 @@ function createStyles(
       color: "#FFFFFF",
     },
 
-    // Pickers (Font size, Language)
-    pickerModalCard: {
-      backgroundColor: cardBg,
-      borderRadius: radius.xl,
-      borderWidth: 1,
-      borderColor: borderCol,
-      padding: spacing.xl,
-      width: "100%",
-      maxWidth: 360,
-      alignItems: "center",
-    },
-    pickerModalTitle: {
-      fontSize: typography.size.lg,
-      fontWeight: "800",
-      color: textPrimaryCol,
-      textAlign: "center",
+    // Inline choices (Font size, Language)
+    pickerOptions: {
+      marginLeft: 56,
+      marginRight: 16,
     },
     pickerRow: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderRadius: 12,
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderColor: borderCol,
-    },
-    pickerRowActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+      minHeight: 48,
+      paddingVertical: 10,
+      backgroundColor: "transparent",
+      gap: 8,
     },
     pickerRowText: {
       fontSize: 15,
-      fontWeight: "600",
+      fontWeight: "500",
       color: textPrimaryCol,
       flex: 1,
     },
     pickerRowTextActive: {
-      color: "#ffffff",
+      color: isDark ? "#6ee7b7" : colors.primaryDark,
+      fontWeight: "600",
     },
 
     // Logout Modal
