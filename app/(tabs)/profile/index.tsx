@@ -1369,7 +1369,6 @@ export default function ProfileScreen() {
                     activeOpacity={0.7}
                     accessibilityRole="button"
                     accessibilityLabel={ts("fontSize")}
-                    accessibilityState={{ expanded: showFontPicker }}
                   >
                     <View style={styles.rowIconWrap}>
                       <Ionicons name="text-outline" size={22} color="#0d9488" />
@@ -1387,7 +1386,6 @@ export default function ProfileScreen() {
                     activeOpacity={0.7}
                     accessibilityRole="button"
                     accessibilityLabel={ts("language")}
-                    accessibilityState={{ expanded: showLangPicker }}
                   >
                     <View style={styles.rowIconWrap}>
                       <Ionicons

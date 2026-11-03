@@ -170,6 +170,13 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
   ]) {
   await test(`${language}/${mode}/${os}: benefit checkmarks align with the first title line at system scale ${fontScale}, app scale ${multiplier}`, () => {
     theme.applyTheme(mode); const h = hooks(); const t = translate(language); let chosen = 0;
+    const preferenceModal = evaluate('src/features/profile/ProfilePreferenceModal.tsx', {
+      'react-native': native, '@expo/vector-icons': { Ionicons: 'Icon' },
+      'react-i18next': { useTranslation: () => ({ t }) },
+      'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+      '../../components/ScaledText': { ScaledText: 'Text' },
+      '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.colors, isDark: mode === 'dark' }) },
+    });
     const { inspection } = evaluate('app/subscription/index.tsx', {
       react: h.react, 'react-native': { ...native, Platform: { OS: os }, useWindowDimensions: () => ({ width: 320, fontScale }) },
       '@expo/vector-icons': { Ionicons: 'Icon' }, 'expo-image': { Image: 'Image' },
@@ -179,6 +186,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) },
       '../../src/components/ScaledText': { ScaledText: 'Text' }, '../../src/components/Screen': { Screen: 'Screen' },
       '../../src/components/ScreenHeaderButton': { ScreenBackButton: 'Back' }, '../../src/components/SubscriptionFAQ': { SubscriptionFAQ: 'FAQ' },
+      '../../src/features/profile/ProfilePreferenceModal': preferenceModal,
       '../../src/features/subscription/planName': { localizedPlanName },
       '../../src/features/subscription/components/SubscriptionScenarioComparison': { SubscriptionScenarioComparison: 'Comparison' },
       '../../src/features/care-circle/care-circle.api': { careCircleApi: {} }, '../../src/features/auth/auth.store': { useAuthStore: () => ({}) },
@@ -195,59 +203,85 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
     const freeFeatures = inspection.FREE_FEATURES.map(key => ({ text: t(key), description: t(`${key}Description`) }));
     const anTamFeatures = inspection.AN_TAM_FEATURES.map(key => ({ text: t(key), description: t(`${key}Description`) }));
     const renderPlans = () => h.render(inspection.PlanComparison.type, { freeFeatures, anTamFeatures, freeIsCurrent: true, onChoosePlan: () => { chosen++; }, t, styles: inspection.createStyles(theme.typography, mode === 'dark') });
-    const disclosure = (tree, key) => nodes(tree).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t(key));
+    const control = (tree, key) => nodes(tree).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t(key));
+    const dialog = tree => nodes(tree).find(node => node.type === preferenceModal.ProfilePreferenceModal);
     let tree = renderPlans();
-    assert.equal(style(tree.props.style).flexDirection, 'column');
+    assert.equal(style(tree.props.style).flexDirection, 'row');
+    assert.equal(nodes(tree).filter(node => node.type === 'Pressable').length, 2);
     for (const key of ['v2FreePlan', 'v2AnTamPlanName']) {
-      const header = disclosure(tree, key);
-      assert.equal(header.props.accessibilityState.expanded, false);
-      assert.ok(style(header.props.style).minHeight >= 56);
+      const button = control(tree, key);
+      assert.equal(button.props.accessibilityState?.expanded, undefined, 'A modal action is not a dropdown');
+      assert.ok(style(button.props.style).minHeight >= 56);
+      assert.equal(style(button.props.style).flex, 1);
+      assert.equal(style(button.props.style).minWidth, 0);
     }
-    assert.ok([...freeFeatures, ...anTamFeatures].every(item => !texts(tree).includes(item.text)), 'Benefits start collapsed');
-    assert.equal(disclosure(tree, 'iapChooseTitle'), undefined, 'Checkout only appears inside expanded An Tam');
-    disclosure(tree, 'v2FreePlan').props.onPress();
-    tree = renderPlans();
-    assert.ok(freeFeatures.every(item => texts(tree).includes(item.text)));
-    assert.ok(anTamFeatures.every(item => !texts(tree).includes(item.text)), 'Opening Free leaves An Tam closed');
-    disclosure(tree, 'v2AnTamPlanName').props.onPress();
-    tree = renderPlans();
-    assert.equal(disclosure(tree, 'v2FreePlan').props.accessibilityState.expanded, true);
-    assert.equal(disclosure(tree, 'v2AnTamPlanName').props.accessibilityState.expanded, true);
-    for (const item of [...freeFeatures, ...anTamFeatures]) {
-      assert.ok(texts(tree).includes(item.text)); assert.ok(texts(tree).includes(item.description));
+    assert.ok(!nodes(tree).some(node => node.type === 'Icon' && /chevron/.test(node.props.name)));
+    assert.ok([...freeFeatures, ...anTamFeatures].every(item => !texts(tree).includes(item.text)), 'Benefits are shown only inside a modal');
+    assert.equal(dialog(tree), undefined);
+    assert.equal(control(tree, 'iapChooseTitle'), undefined);
+    for (const premium of [false, true]) {
+      const key = premium ? 'v2AnTamPlanName' : 'v2FreePlan';
+      control(tree, key).props.onPress();
+      tree = renderPlans();
+      const details = dialog(tree);
+      assert.equal(details.props.visible, true);
+      assert.equal(details.props.title, t(key));
+      assert.equal(nodes(tree).filter(node => node.type === preferenceModal.ProfilePreferenceModal).length, 1);
+      const included = premium ? anTamFeatures : freeFeatures;
+      const omitted = premium ? freeFeatures : anTamFeatures;
+      for (const item of included) {
+        assert.ok(texts(details).includes(item.text)); assert.ok(texts(details).includes(item.description));
+      }
+      assert.ok(omitted.every(item => !texts(details).includes(item.text)), 'A plan modal cannot show the other plan benefits');
+      for (const label of nodes(tree).filter(node => node.type === 'Text')) {
+        assert.equal(label.props.allowFontScaling, true); assert.equal(label.props.numberOfLines, undefined);
+      }
+      const checkmarks = nodes(details).filter(node => node.type === 'View' && node.props.children?.type === 'Icon' && node.props.children.props.name === 'checkmark-circle');
+      assert.equal(checkmarks.length, 6);
+      const expectedLineHeight = Math.round(Math.round(17 * multiplier) * (os === 'android' ? 1.6 : 1.5)) * fontScale;
+      const expectedCheckSize = Math.round(Math.round(16 * multiplier) * fontScale);
+      for (const wrapper of checkmarks) {
+        const wrapperStyle = style(wrapper.props.style);
+        assert.equal(wrapperStyle.height, expectedLineHeight);
+        assert.equal(wrapperStyle.width, expectedCheckSize + 2);
+        assert.equal(wrapperStyle.marginTop, undefined);
+        assert.equal(wrapperStyle.justifyContent, 'center');
+        assert.equal(wrapperStyle.alignItems, 'center');
+        assert.equal(wrapperStyle.flexShrink, 0);
+        assert.equal(wrapperStyle.marginRight, 8);
+        const icon = wrapper.props.children;
+        assert.equal(icon.props.size, expectedCheckSize);
+        assert.equal(icon.props.allowFontScaling, false, 'Native text must not scale the icon twice');
+        assert.equal(style(icon.props.style).lineHeight, expectedCheckSize);
+        assert.equal(style(icon.props.style).includeFontPadding, false);
+        assert.equal(wrapper.props.importantForAccessibility, 'no-hide-descendants');
+      }
+      const nativeDialog = preferenceModal.ProfilePreferenceModal(details.props);
+      assert.equal(nativeDialog.type, 'Modal');
+      assert.equal(nativeDialog.props.transparent, true);
+      assert.ok(nodes(nativeDialog).some(node => node.type === 'ScrollView' && style(node.props.style).flexShrink === 1), 'Long benefits can scroll within the modal');
+      assert.ok(nodes(nativeDialog).some(node => node.props.accessibilityViewIsModal));
+      if (premium) {
+        assert.ok(texts(details).includes(t('v2AnTamFeature6Description')));
+        const button = control(tree, 'iapChooseTitle');
+        assert.ok(style(button.props.style).minHeight >= 56);
+        button.props.onPress(); button.props.onPress();
+        assert.equal(chosen, 1, 'Repeated selection opens the checkout route once');
+        assert.equal(dialog(renderPlans()), undefined, 'Choosing a plan first dismisses its detail modal');
+      } else {
+        assert.equal(control(tree, 'iapChooseTitle'), undefined);
+        nativeDialog.props.onRequestClose();
+        tree = renderPlans(); assert.equal(dialog(tree), undefined, 'The Android back action dismisses details');
+        control(tree, key).props.onPress();
+        tree = renderPlans();
+        const reopened = preferenceModal.ProfilePreferenceModal(dialog(tree).props);
+        nodes(reopened).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('close')).props.onPress();
+        tree = renderPlans(); assert.equal(dialog(tree), undefined, 'The backdrop dismisses details');
+        assert.equal(chosen, 0, 'Viewing Free never starts checkout');
+      }
+      tree = renderPlans();
     }
-    for (const text of nodes(tree).filter(node => node.type === 'Text')) {
-      assert.equal(text.props.allowFontScaling, true); assert.equal(text.props.numberOfLines, undefined);
-    }
-    const checkmarks = nodes(tree).filter(node => node.type === 'View' && node.props.children?.type === 'Icon' && node.props.children.props.name === 'checkmark-circle');
-    assert.equal(checkmarks.length, 12);
-    const expectedLineHeight = Math.round(Math.round(17 * multiplier) * (os === 'android' ? 1.6 : 1.5)) * fontScale;
-    const expectedCheckSize = Math.round(Math.round(16 * multiplier) * fontScale);
-    for (const wrapper of checkmarks) {
-      const wrapperStyle = style(wrapper.props.style);
-      assert.equal(wrapperStyle.height, expectedLineHeight);
-      assert.equal(wrapperStyle.width, expectedCheckSize + 2);
-      assert.equal(wrapperStyle.marginTop, undefined);
-      assert.equal(wrapperStyle.justifyContent, 'center');
-      assert.equal(wrapperStyle.alignItems, 'center');
-      assert.equal(wrapperStyle.flexShrink, 0);
-      assert.equal(wrapperStyle.marginRight, 8);
-      const icon = wrapper.props.children;
-      assert.equal(icon.props.size, expectedCheckSize);
-      assert.equal(icon.props.allowFontScaling, false, 'Native text must not scale the icon twice');
-      assert.equal(style(icon.props.style).lineHeight, expectedCheckSize);
-      assert.equal(style(icon.props.style).includeFontPadding, false);
-      assert.equal(wrapper.props.importantForAccessibility, 'no-hide-descendants');
-    }
-    const button = disclosure(tree, 'iapChooseTitle');
-    assert.ok(style(button.props.style).minHeight >= 56); button.props.onPress(); assert.equal(chosen, 1);
-    assert.ok(texts(tree).includes(t('v2AnTamFeature6Description')));
-    disclosure(tree, 'v2FreePlan').props.onPress();
-    tree = renderPlans();
-    assert.equal(disclosure(tree, 'v2FreePlan').props.accessibilityState.expanded, false);
-    assert.ok(freeFeatures.every(item => !texts(tree).includes(item.text)));
-    assert.ok(anTamFeatures.every(item => texts(tree).includes(item.text)), 'Each plan collapses independently');
-    assert.equal(chosen, 1, 'Expanding and collapsing never opens checkout');
+
   });
   }
 }

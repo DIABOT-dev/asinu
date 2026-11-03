@@ -375,6 +375,8 @@ for (const language of ['vi', 'en']) {
         .filter(node => node.props.accessibilityRole === 'radiogroup');
       const fontOptions = () => nodes(h.fontModal()).filter(node => node.props.accessibilityRole === 'radio');
       const languageOptions = () => nodes(h.languageModal()).filter(node => node.props.accessibilityRole === 'radio');
+      assert.equal(control('fontSize').props.accessibilityState?.expanded, undefined, 'Font size opens a modal rather than a dropdown');
+      assert.equal(control('language').props.accessibilityState?.expanded, undefined, 'Language opens a modal rather than a dropdown');
       control('fontSize').props.onPress();
       assert.equal(groups().length, 0, 'Font choices must not expand inside the profile page');
       assert.equal(h.fontModal().type, 'Modal');
@@ -398,7 +400,7 @@ for (const language of ['vi', 'en']) {
       assert.equal(h.languageModal().props.visible, true);
       assert.equal(h.languageModal().type, 'Modal');
       assert.deepEqual(nodes(h.languageModal()).filter(node => node.type === 'NativeText').map(node => node.props.children), ['🇻🇳', '🇬🇧']);
-      assert.equal(control('fontSize').props.accessibilityState.expanded, false);
+      assert.equal(h.fontModal().props.visible, false, 'Opening language does not stack another preference modal');
       assert.equal(languageOptions().length, 2);
       const next = language === 'vi' ? 'en' : 'vi';
       const nextLabel = h.ts(next === 'vi' ? 'languageVi' : 'languageEn');

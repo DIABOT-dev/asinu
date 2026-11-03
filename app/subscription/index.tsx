@@ -5,6 +5,7 @@ import React, {
   memo,
   useCallback,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -24,6 +25,7 @@ import { ScaledText as Text } from "../../src/components/ScaledText";
 import { Screen } from "../../src/components/Screen";
 import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { SubscriptionFAQ } from "../../src/components/SubscriptionFAQ";
+import { ProfilePreferenceModal } from "../../src/features/profile/ProfilePreferenceModal";
 import { localizedPlanName } from "../../src/features/subscription/planName";
 import { SubscriptionScenarioComparison } from "../../src/features/subscription/components/SubscriptionScenarioComparison";
 import type { PlanCode, SubscriptionStatus } from "../../src/features/subscription/subscription.types";
@@ -229,7 +231,14 @@ const PlanComparison = memo(function PlanComparison({
   styles,
 }: PlanComparisonProps) {
   const { fontScale } = useWindowDimensions();
-  const [expanded, setExpanded] = useState({ free: false, anTam: false });
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "anTam" | null>(null);
+  const activePlan = useRef<"free" | "anTam" | null>(null);
+  const premium = selectedPlan === "anTam";
+  const closeDetails = useCallback(() => {
+    activePlan.current = null;
+    setSelectedPlan(null);
+  }, []);
+  useFocusEffect(useCallback(() => closeDetails, [closeDetails]));
   const titleFontSize = useScaledFontSize(FEATURE_TITLE_FONT_SIZE);
   const checkFontSize = useScaledFontSize(FEATURE_CHECK_SIZE);
   // Match ScaledText's first line, not the height of the entire title/description.
@@ -255,86 +264,74 @@ const PlanComparison = memo(function PlanComparison({
 
   return (
     <View style={styles.comparisonRow}>
-      <View style={styles.freeCard}>
+      {(["free", "anTam"] as const).map((plan) => (
         <Pressable
+          key={plan}
           accessibilityRole="button"
-          accessibilityLabel={t("v2FreePlan")}
-          accessibilityState={{ expanded: expanded.free }}
-          onPress={() => setExpanded((value) => ({ ...value, free: !value.free }))}
-          style={({ pressed }) => [styles.planDisclosureHeader, pressed && styles.planDisclosurePressed]}
+          accessibilityLabel={t(plan === "free" ? "v2FreePlan" : "v2AnTamPlanName")}
+          onPress={() => { activePlan.current = plan; setSelectedPlan(plan); }}
+          style={({ pressed }) => [
+            styles.planChoice,
+            plan === "free" ? styles.freeChoice : styles.premiumChoice,
+            pressed && styles.planChoicePressed,
+          ]}
         >
-          <View style={styles.freeAvatar}>
-            <Image
-              accessible={false}
-              cachePolicy="memory-disk"
-              contentFit="contain"
-              source={PLAN_FREE_IMG}
-              style={styles.planBadgeImg}
-            />
-          </View>
-          <Text allowFontScaling style={[styles.freePlanTitle, styles.planDisclosureTitle]}>{t("v2FreePlan")}</Text>
-          <Ionicons name={expanded.free ? "chevron-up" : "chevron-down"} size={20} color={colors.textSecondary} />
+          <Image
+            accessible={false}
+            cachePolicy="memory-disk"
+            contentFit="contain"
+            source={plan === "free" ? PLAN_FREE_IMG : PLAN_ANTAM_IMG}
+            style={styles.planChoiceImage}
+          />
+          <Text allowFontScaling style={[
+            styles.planChoiceTitle,
+            plan === "free" ? styles.freePlanTitle : styles.premiumPlanTitle,
+          ]}>
+            {t(plan === "free" ? "v2FreePlan" : "v2AnTamPlanName")}
+          </Text>
         </Pressable>
-        {expanded.free && (
-          <View>
-            <View style={styles.planPriceWrap}>
-              <Text allowFontScaling style={styles.freePrice}>{t("freePrice")}</Text>
-              <Text allowFontScaling style={styles.perMonthText}>{t("freeForever")}</Text>
-            </View>
-            <Text allowFontScaling style={styles.planIntroduction}>{t("comparison.freeIntroduction")}</Text>
-            {renderFeatures(freeFeatures, false)}
-            <View style={styles.freeCTABox}>
-              <Text allowFontScaling style={styles.freeCTAText}>
-                {freeIsCurrent ? t("currentlyUsing") : t("v2FreeTitle")}
-              </Text>
-            </View>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.premiumCard}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("v2AnTamPlanName")}
-          accessibilityState={{ expanded: expanded.anTam }}
-          onPress={() => setExpanded((value) => ({ ...value, anTam: !value.anTam }))}
-          style={({ pressed }) => [styles.planDisclosureHeader, pressed && styles.planDisclosurePressed]}
+      ))}
+      {selectedPlan && (
+        <ProfilePreferenceModal
+          visible
+          title={t(premium ? "v2AnTamPlanName" : "v2FreePlan")}
+          onClose={closeDetails}
         >
-          <View style={styles.premiumAvatar}>
-            <Image
-              accessible={false}
-              cachePolicy="memory-disk"
-              contentFit="contain"
-              source={PLAN_ANTAM_IMG}
-              style={styles.planBadgeImg}
-            />
-          </View>
-          <Text allowFontScaling style={[styles.premiumPlanTitle, styles.planDisclosureTitle]}>{t("v2AnTamPlanName")}</Text>
-          <Ionicons name={expanded.anTam ? "chevron-up" : "chevron-down"} size={20} color={colors.textSecondary} />
-        </Pressable>
-        {expanded.anTam && (
           <View>
-            <View style={styles.popularBadge}>
+            {premium && <View style={styles.popularBadge}>
               <Text allowFontScaling style={styles.popularBadgeText}>{t("comparison.anTamBadge")}</Text>
-            </View>
+            </View>}
             <View style={styles.planPriceWrap}>
-              <Text allowFontScaling style={styles.planPeriodOptions}>
+              {premium ? <Text allowFontScaling style={styles.planPeriodOptions}>
                 {t("iapMonthly")} · {t("iapYearly")}
-              </Text>
+              </Text> : <>
+                <Text allowFontScaling style={styles.freePrice}>{t("freePrice")}</Text>
+                <Text allowFontScaling style={styles.perMonthText}>{t("freeForever")}</Text>
+              </>}
             </View>
-            <Text allowFontScaling style={styles.planIntroduction}>{t("comparison.anTamIntroduction")}</Text>
-            {renderFeatures(anTamFeatures, true)}
-            <Pressable
+            <Text allowFontScaling style={styles.planIntroduction}>
+              {t(premium ? "comparison.anTamIntroduction" : "comparison.freeIntroduction")}
+            </Text>
+            {renderFeatures(premium ? anTamFeatures : freeFeatures, premium)}
+            {premium ? <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("iapChooseTitle")}
-              onPress={onChoosePlan}
+              onPress={() => {
+                if (activePlan.current !== "anTam") return;
+                closeDetails();
+                onChoosePlan();
+              }}
               style={({ pressed }) => [styles.premiumCTABtn, { opacity: pressed ? 0.85 : 1 }]}
             >
               <Text allowFontScaling style={styles.premiumCTAText}>{t("iapChooseTitle")}</Text>
-            </Pressable>
+            </Pressable> : <View style={styles.freeCTABox}>
+              <Text allowFontScaling style={styles.freeCTAText}>
+                {freeIsCurrent ? t("currentlyUsing") : t("v2FreeTitle")}
+              </Text>
+            </View>}
           </View>
-        )}
-      </View>
+        </ProfilePreferenceModal>
+      )}
     </View>
   );
 });
@@ -1013,18 +1010,28 @@ function createStyles(
       marginTop: 2,
     },
     comparisonRow: {
-      flexDirection: "column",
-      gap: 8,
+      flexDirection: "row",
+      alignItems: "stretch",
+      gap: spacing.md,
       marginTop: 14,
     },
-    freeCard: {
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.xs,
+    planChoice: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 72,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.md,
+      borderRadius: radius.lg,
     },
-    premiumCard: {
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.xs,
-    },
+    freeChoice: { backgroundColor: colors.surfaceMuted },
+    premiumChoice: { backgroundColor: colors.primaryLight },
+    planChoiceImage: { width: 32, height: 32, flexShrink: 0 },
+    planChoiceTitle: { flexShrink: 1, minWidth: 0, textAlign: "center" },
+    planChoicePressed: { opacity: 0.65 },
     popularBadge: {
       backgroundColor: colors.primaryLight,
       borderColor: colors.primaryDark,
@@ -1037,28 +1044,6 @@ function createStyles(
       marginBottom: 8,
     },
     popularBadgeText: { color: colors.primaryText, fontSize: 13, fontWeight: "700", flexShrink: 1 },
-    planDisclosureHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      minHeight: 64,
-      paddingVertical: 8,
-    },
-    planDisclosureTitle: { flex: 1, minWidth: 0, textAlign: "left" },
-    planDisclosurePressed: { opacity: 0.65 },
-    freeAvatar: {
-      alignItems: "center",
-      height: 44,
-      justifyContent: "center",
-      width: 44,
-    },
-    premiumAvatar: {
-      alignItems: "center",
-      height: 44,
-      justifyContent: "center",
-      width: 44,
-    },
-    planBadgeImg: { height: 42, width: 42 },
     freePlanTitle: {
       color: isDark ? "#f8fafc" : "#0f172a",
       fontSize: 22,
