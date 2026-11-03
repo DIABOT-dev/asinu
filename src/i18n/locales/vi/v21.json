@@ -186,5 +186,14 @@
   "drawRules": "Thể lệ dự thưởng kỳ này",
   "scheduleInactive": "Lịch nhắc này không còn hoạt động.",
   "weekSkipped": "Uống không đều: đã bỏ qua {{count}} cữ thuốc.",
-  "taskProgressShort": "{{done}}/{{total}} việc"
+  "taskProgressShort": "{{done}}/{{total}} việc",
+  "medicationTodayTab": "Hôm nay",
+  "medicationSchedulesTab": "Lịch nhắc",
+  "medicationNoDoses": "Chưa có lần nhắc hôm nay",
+  "medicationEmptyTitle": "Chưa có lịch nhắc",
+  "medicationAnswerAction": "Trả lời",
+  "medicationScheduleActions": "Thao tác lịch {{time}}",
+  "medicationScheduleAt": "Lịch nhắc {{time}}",
+  "medicationPushOnly": "Chỉ gửi thông báo",
+  "medicationReviewConsent": "Xem lời mời"
 }

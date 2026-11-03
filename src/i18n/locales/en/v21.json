@@ -186,5 +186,14 @@
   "drawRules": "This draw's rules",
   "scheduleInactive": "This reminder is no longer active.",
   "weekSkipped": "Irregular adherence: {{count}} medicine doses skipped.",
-  "taskProgressShort": "{{done}}/{{total}} done"
+  "taskProgressShort": "{{done}}/{{total}} done",
+  "medicationTodayTab": "Today",
+  "medicationSchedulesTab": "Schedules",
+  "medicationNoDoses": "No reminders today",
+  "medicationEmptyTitle": "No schedules yet",
+  "medicationAnswerAction": "Answer",
+  "medicationScheduleActions": "Manage {{time}} reminder",
+  "medicationScheduleAt": "{{time}} reminder",
+  "medicationPushOnly": "Notification only",
+  "medicationReviewConsent": "Review invitation"
 }

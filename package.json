@@ -42,7 +42,7 @@
     "test:checkin-connection": "node scripts/check-livekit-signal-lifecycle.mjs",
     "test:checkin-audio": "node scripts/check-checkin-call-audio.mjs && node scripts/check-checkin-call-screen.mjs && node scripts/check-checkin-call-completion.mjs",
     "test:v21-pending": "node scripts/check-v21-pending.mjs",
-    "test:v21": "npm run test:v21-pending && node scripts/check-v21-medication-screen.mjs",
+    "test:v21": "npm run test:v21-pending && node scripts/check-v21-medication-screen.mjs && node scripts/check-medication-overview.cjs",
     "test:interactions": "node scripts/check-interactions.mjs && node scripts/check-navigation-stack.mjs",
     "test:guidance": "node scripts/check-guided-onboarding.mjs",
     "test:auth": "node scripts/check-auth-flows.mjs",
