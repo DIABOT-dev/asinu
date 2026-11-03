@@ -40,9 +40,6 @@ export function SubscriptionScenarioComparison() {
           <Text allowFontScaling style={styles.heading}>{t('comparison.title')}</Text>
           <Text allowFontScaling style={styles.headerSubtitle}>{t('comparison.headerSubtitle')}</Text>
         </View>
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.headerChevron}>
-          <Ionicons name="chevron-forward" size={20} color={colors.primaryText} />
-        </View>
       </Pressable>
     </View>
   );
@@ -112,7 +109,6 @@ function createStyles(colors: ReturnType<typeof useThemeColors>['colors']) {
     header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 },
     headerIcon: { width: 32, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1, minWidth: 0, gap: 2 },
-    headerChevron: { width: 24, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     pressed: { opacity: 0.85 },
     heading: { color: colors.textPrimary, fontSize: 18, fontWeight: '700' },
     headerSubtitle: { color: colors.textSecondary, fontSize: 15 },

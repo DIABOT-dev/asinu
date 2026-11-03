@@ -98,7 +98,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       assert.ok(texts(link).includes(h.t('comparison.title')));
       assert.ok(texts(link).includes(h.t('comparison.headerSubtitle')));
       assert.ok(style(link.props.style).minHeight >= 56);
-      assert.deepEqual(nodes(link).filter(node => node.type === 'Icon').map(node => node.props.name), ['git-compare-outline', 'chevron-forward']);
+      assert.deepEqual(nodes(link).filter(node => node.type === 'Icon').map(node => node.props.name), ['git-compare-outline']);
       assert.equal(nodes(entry).filter(node => node.props.testID?.startsWith('comparison-scenario-')).length, 0);
       link.props.onPress(); assert.deepEqual(h.navigations, ['/subscription/comparison']);
       const tree = h.renderContent();
