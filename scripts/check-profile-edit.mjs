@@ -103,6 +103,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../../src/components/Screen': { Screen: 'Screen' },
+    '../../../src/components/DeleteAccountModal': { __esModule: true, default: 'DeleteAccountModal' },
     '../../../src/components/GlobalToastHost': { ModalToastHost: 'ModalToastHost' },
     '../../../src/components/state/MainScreenSkeletons': { ProfileTabSkeleton: 'Skeleton' },
     '../../../src/features/auth/auth.api': { authApi: {
@@ -222,6 +223,20 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
+  await test(`${language}: delete confirmation appears on the first render after pressing the System action`, () => {
+    const h = harness({ language });
+    const expanded = h.toggleSection(h.t('sectionSystem'));
+    const button = nodes(expanded).find(node => node.props?.accessibilityLabel === h.ts('deleteAccountForever'));
+    assert.ok(button);
+    button.props.onPress();
+    const modal = nodes(h.render()).find(node => node.type === 'DeleteAccountModal');
+    assert.ok(modal, 'First press must show the confirmation without loading a lazy module');
+    assert.equal(modal.props.visible, true);
+    assert.equal(typeof modal.props.onConfirm, 'function');
+    modal.props.onClose();
+    assert.ok(!nodes(h.render()).some(node => node.type === 'DeleteAccountModal'));
+    assert.deepEqual(h.calls.saves, []);
+  });
   for (const isDark of [false, true]) {
     await test(`${language}/${isDark ? 'dark' : 'light'}: profile groups expand inline and independently without removing their actions`, async () => {
       const h = harness({ language, isDark });

@@ -50,6 +50,7 @@ import { ProfileMascotGreeting } from "../../../src/features/profile/ProfileMasc
 import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
 import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
 import { QrCameraPermissionRow } from "../../../src/features/care-circle/components/QrCameraPermissionRow";
+import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const CHECKIN_ACCESS_ART = require("../../../assets/images/subscription/checkin_access_shield.png");
@@ -59,9 +60,6 @@ const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
 const SHOW_CARE_BANNER = false;
 
-const DeleteAccountModal = React.lazy(
-  () => import("../../../src/components/DeleteAccountModal"),
-);
 const ChangePasswordModal = React.lazy(
   () => import("../../../src/components/ChangePasswordModal"),
 );
@@ -2302,15 +2300,12 @@ export default function ProfileScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ==================== LAZY MODALS ==================== */}
       {showDeleteModal && (
-        <Suspense fallback={null}>
-          <DeleteAccountModal
-            visible={showDeleteModal}
-            onClose={() => setShowDeleteModal(false)}
-            onConfirm={handleDeleteAccount}
-          />
-        </Suspense>
+        <DeleteAccountModal
+          visible={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDeleteAccount}
+        />
       )}
 
       {showChangePasswordModal && (
