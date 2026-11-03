@@ -15,7 +15,6 @@ export const medicationStyles = StyleSheet.create({
   heroIcon: {
     width: 42,
     height: 42,
-    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },

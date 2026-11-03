@@ -144,9 +144,7 @@ export function MedicationOverviewPanel({
             <Ionicons name="arrow-back" size={23} color={colors.textPrimary} />
           </Pressable>
           {!compact && (
-            <View
-              style={[s.heroIcon, { backgroundColor: colors.primaryLight }]}
-            >
+            <View style={s.heroIcon}>
               <MaterialCommunityIcons
                 name="pill"
                 size={27}
