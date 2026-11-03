@@ -21,8 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
-import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
-import { LogHeroBanner } from '../../src/components/LogHeroBanner';
+import { LogEntryHeader } from '../../src/components/LogEntryHeader';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
@@ -159,17 +158,11 @@ export default function InsulinLogScreen() {
             >
               {/* Back button */}
               <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
-                <View style={styles.navRow}>
-                  <ScreenBackButton onPress={handleBack} />
-                  <ScreenSaveButton onPress={handleSubmit} disabled={isSaving} />
-                </View>
-              </Animated.View>
-
-              {/* Hero banner */}
-              <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <LogHeroBanner
+                <LogEntryHeader
                   title={t('insulin')}
-                  description={t('insulinBannerDesc')}
+                  onBack={handleBack}
+                  onSave={handleSubmit}
+                  saving={isSaving}
                 />
               </Animated.View>
 
@@ -313,12 +306,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-    },
-    navRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: spacing.xs,
     },
     heroCard: {
       borderRadius: radius.xl,

@@ -23,9 +23,8 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
-import { ScreenBackButton, ScreenSaveButton } from '../../src/components/ScreenHeaderButton';
+import { LogEntryHeader } from '../../src/components/LogEntryHeader';
 import { Screen } from '../../src/components/Screen';
-import { LogHeroBanner } from '../../src/components/LogHeroBanner';
 import { TextInput } from '../../src/components/TextInput';
 import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
@@ -135,21 +134,11 @@ export default function WaterLogScreen() {
             >
               {/* Back button */}
               <Animated.View entering={FadeInDown.delay(0).duration(400).springify()}>
-                <View style={styles.navRow}>
-                  <ScreenBackButton onPress={handleBack} />
-                  <ScreenSaveButton onPress={handleSubmit} disabled={isSaving} />
-                </View>
-              </Animated.View>
-
-              {/* Hero banner */}
-              <Animated.View entering={FadeInDown.delay(60).duration(450).springify()}>
-                <LogHeroBanner
+                <LogEntryHeader
                   title={t('water')}
-                  description={
-                    todayTotalMl > 0
-                      ? t('waterTodayTotal', { ml: todayTotalMl })
-                      : t('waterBannerDesc')
-                  }
+                  onBack={handleBack}
+                  onSave={handleSubmit}
+                  saving={isSaving}
                 />
               </Animated.View>
 
@@ -157,6 +146,9 @@ export default function WaterLogScreen() {
               <Animated.View entering={FadeInDown.delay(140).duration(450).springify()}>
                 <View style={[styles.numberCard, volumeError ? styles.numberCardError : null]}>
                   <Text style={styles.numberLabel}>{t('volumeMl')}</Text>
+                  {todayTotalMl > 0 && (
+                    <Text style={styles.todayTotal}>{t('waterTodayTotal', { ml: todayTotalMl })}</Text>
+                  )}
                   <Animated.View style={[styles.bigInputRow, shakeStyle]}>
                     <RNTextInput
                       value={volume}
@@ -236,16 +228,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingHorizontal: spacing.lg,
       gap: spacing.md,
     },
+    todayTotal: {
+      color: colors.textSecondary,
+      fontSize: typography.size.sm,
+      textAlign: 'center',
+    },
     loadingContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-    },
-    navRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: spacing.xs,
     },
     heroCard: {
       borderRadius: radius.xl,
