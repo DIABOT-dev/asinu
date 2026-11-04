@@ -374,7 +374,11 @@ test('Native preview library is hidden in every build, including development', (
   visit(file); assert.ok(entry);
   let gatedEntry;
   for (let node = entry.parent; node; node = node.parent) {
-    if (ts.isJsxExpression(node) && node.expression && ts.isBinaryExpression(node.expression)) gatedEntry = node.expression;
+    if (ts.isJsxExpression(node) && node.expression && ts.isBinaryExpression(node.expression)
+      && node.expression.getText(file).includes('isCheckinUiGalleryEnabled')) {
+      gatedEntry = node.expression;
+      break;
+    }
   }
   assert.ok(gatedEntry, 'The profile preview entry must have a development gate');
   const source = `import React from 'react';
