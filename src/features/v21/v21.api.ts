@@ -73,6 +73,7 @@ export type MedSchedule = {
   pushOnly: boolean;
   revision: number;
   meal_anchor?: Anchor | null;
+  note?: string | null;
 };
 export type MedOverview = {
   patientId: number;
@@ -165,9 +166,11 @@ export const v21Api = {
     apiClient<{
       report: { taken: number; total: number; skipped: number; coins: number };
     }>(`/api/mobile/medication/weekly-report?patientId=${patient || ""}`),
-  overview: (patient?: number) =>
+  overview: (patient?: number, includePaused = false) =>
     apiClient<MedOverview>(
-      `/api/mobile/med-schedules?patientId=${patient || ""}`
+      `/api/mobile/med-schedules?patientId=${patient || ""}${
+        includePaused ? "&includePaused=true" : ""
+      }`
     ),
   setup: (patient: number, body: unknown) =>
     apiClient<{ pendingConsent: boolean; schedules: MedSchedule[] }>(

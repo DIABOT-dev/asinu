@@ -150,7 +150,7 @@ async function test(name, run) { await run(); checks++; console.log(`PASS ${name
     const messages = [];
     const layout = evaluate('src/features/v21/V21Layout.tsx', {
       'react/jsx-runtime': {}, 'react-native': { StyleSheet: { create: x => x } },
-      'react-native-safe-area-context': {}, 'expo-router': {}, '@expo/vector-icons': {},
+      'react-native-safe-area-context': {}, '../../hooks/useGuardedRouter': {}, '@expo/vector-icons': {},
       'react-i18next': {}, '../../components/Screen': {}, '../../components/ScaledText': {}, '../../hooks/useThemeColors': {},
       '../../lib/apiClient': api, '../../stores/toast.store': { useToastStore: { getState: () => ({ show: (...args) => messages.push(args) }) } },
     });
@@ -169,6 +169,23 @@ async function test(name, run) { await run(); checks++; console.log(`PASS ${name
     assert.deepEqual(messages.at(-1), ['common:errorRateLimited', 'error']);
     layout.v21Error(new Error('unknown device error'), t, 'medicationPhotoUploadError');
     assert.deepEqual(messages.at(-1), ['v21:medicationPhotoUploadError', 'error']);
+  });
+  for (const failedImage of ['preview', 'viewer']) await test(`${failedImage}: a failed photo has a readable fallback and the full viewer remains closable`, async () => {
+    let cursor=0;const slots=[];
+    const hooks={useState(initial){const i=cursor++;slots[i]??=initial;return [slots[i],v=>slots[i]=v];},useEffect:()=>{}};
+    const jsx=(type,props)=>({type,props});
+    const {MedicationPhotoPreview}=evaluate('src/features/v21/MedicationPhotoPreview.tsx',{
+      react:hooks,'react/jsx-runtime':{jsx,jsxs:jsx},'@expo/vector-icons':{Ionicons:'Icon'},
+      'react-native':{View:'View',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{create:x=>x},useWindowDimensions:()=>({height:800})},
+      'react-native-safe-area-context':{useSafeAreaInsets:()=>({top:0,bottom:0})},'react-i18next':{useTranslation:()=>({t:key=>key})},
+      '../../components/QueuedModal':{QueuedModal:'Modal'},'../../components/ScaledText':{ScaledText:'Text'},'../../hooks/useThemeColors':{useThemeColors:()=>({colors:{}})},
+    });
+    const read=()=>{cursor=0;return MedicationPhotoPreview({uri:'fixture://photo.jpg',label:'Photo'});};
+    const nodes=value=>!value||typeof value!=='object'?[]:Array.isArray(value)?value.flatMap(nodes):[value,...nodes(value.props?.children)];
+    let view=nodes(read());view.find(n=>n.type==='Pressable').props.onPress();view=nodes(read());
+    const images=view.filter(n=>n.type==='Image');images[failedImage==='preview'?0:1].props.onError();view=nodes(read());
+    assert.ok(view.some(n=>n.type==='Text'&&n.props.children==='medicationPhotoUnavailable'));
+    const modal=view.find(n=>n.type==='Modal');assert.equal(modal.props.visible,true);modal.props.onRequestClose();assert.equal(nodes(read()).find(n=>n.type==='Modal').props.visible,false);
   });
   console.log(`Medication photo upload: ${checks} runtime checks passed.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

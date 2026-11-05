@@ -60,6 +60,8 @@ export const medicationSetupStyles = StyleSheet.create({
   },
   label: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
   sectionTitle: { fontSize: 17, lineHeight: 25, fontWeight: "700" },
+  caption: { fontSize: 14, lineHeight: 21 },
+  printedName: { gap: 4 },
   section: { gap: 14, paddingTop: 8 },
   item: { gap: 14, paddingBottom: 12 },
   itemHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -110,6 +112,12 @@ export const medicationSetupStyles = StyleSheet.create({
   },
   review: { gap: 12, paddingVertical: 8 },
   reviewItems: { gap: 8, paddingLeft: 35 },
+  reviewItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 52,
+  },
   photo: { height: 120, width: "100%", borderRadius: 14 },
   status: { flexDirection: "row", alignItems: "center", gap: 10 },
   helpToggle: {

@@ -5,6 +5,7 @@ import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { getCoinJourney } from "./coin-progress";
 import { CoinRulesMascot } from "./CoinRulesMascot";
+import { HealthCoinIcon } from "./HealthCoinIcon";
 import type { CoinToday, CoinTask } from "./v21.api";
 
 const ICONS: Record<
@@ -37,6 +38,12 @@ export function HealthCoinJourney({
 
   return (
     <View style={styles.root}>
+      <View style={styles.balanceRow}>
+        <HealthCoinIcon size={26} />
+        <Text style={[styles.balanceText, ink]}>
+          {t("balance", { count: data.balance })}
+        </Text>
+      </View>
       <View style={styles.rulesRow}>
         <CoinRulesMascot />
         <Pressable
@@ -97,6 +104,15 @@ export function HealthCoinJourney({
                   total: task.target,
                 })}
               </Text>
+              <Text
+                style={[styles.taskProgress, { color: colors.primaryText }]}
+              >
+                {t("taskCoins", {
+                  count:
+                    data.tasks.find((item) => item.task_code === task.code)
+                      ?.coins ?? 0,
+                })}
+              </Text>
               <View
                 accessible
                 accessibilityRole="progressbar"
@@ -137,6 +153,19 @@ export function HealthCoinJourney({
 
 const styles = StyleSheet.create({
   root: { gap: 12 },
+  balanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  balanceText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: "600",
+  },
   emptyText: { fontSize: 15, lineHeight: 21 },
   taskHeader: {
     flexDirection: "row",

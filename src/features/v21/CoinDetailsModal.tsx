@@ -58,7 +58,7 @@ export function CoinDetailsPanel({
             {t("coinsTitle")}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {t("rules")}
+            {coins.data && t("balance", { count: coins.data.balance })}
           </Text>
         </View>
         <Pressable

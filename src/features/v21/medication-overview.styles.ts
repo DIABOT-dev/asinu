@@ -74,6 +74,15 @@ export const medicationStyles = StyleSheet.create({
   },
   list: { gap: 4 },
   schedule: { gap: 4, paddingVertical: 4 },
+  scheduleSwitch: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingLeft: 82,
+    paddingBottom: 8,
+  },
+  noteInput: { minHeight: 52, borderRadius: 14, padding: 14, fontSize: 16 },
   time: {
     minWidth: 70,
     fontSize: 23,

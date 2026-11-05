@@ -9,7 +9,7 @@ import {
   ScrollViewProps,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useGuardedRouter as useRouter } from "../../hooks/useGuardedRouter";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Screen } from "../../components/Screen";

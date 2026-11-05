@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../auth/auth.store";
 import { useToastStore } from "../../stores/toast.store";
 import { v21Error } from "./V21Layout";
+import { validMedicationNote } from "./medication-input";
 import {
   v21Api,
   type MedDose,
@@ -33,6 +34,9 @@ export function useMedicationOverview() {
   const [mode, setMode] = useState<"menu" | "edit" | "remove">("menu");
   const [time, setTime] = useState("");
   const [items, setItems] = useState<string[]>([]);
+  const [note, setNote] = useState("");
+  const patientScope = useRef(patient);
+  const visibleScope = useRef({ token, patient });
   const focused = useRef(false),
     version = useRef(0),
     reads = useRef(0);
@@ -41,8 +45,9 @@ export function useMedicationOverview() {
     (expected: number) =>
       focused.current &&
       version.current === expected &&
+      patientScope.current === patient &&
       useAuthStore.getState().token === token,
-    [token]
+    [token, patient]
   );
 
   const refresh = useCallback(async () => {
@@ -65,7 +70,7 @@ export function useMedicationOverview() {
         return;
       }
       const [overview, today, week] = await Promise.all([
-        v21Api.overview(id),
+        v21Api.overview(id, true),
         v21Api.doses(id),
         v21Api.weekly(id),
       ]);
@@ -85,7 +90,9 @@ export function useMedicationOverview() {
     useCallback(() => {
       focused.current = true;
       version.current++;
+      visibleScope.current = { token, patient };
       operation.current = null;
+      setPatients([]);
       setData(null);
       setDoses([]);
       setWeekly(null);
@@ -98,11 +105,12 @@ export function useMedicationOverview() {
         reads.current++;
         operation.current = null;
       };
-    }, [refresh])
+    }, [refresh, token, patient])
   );
 
+  const viewVersion = version.current;
   const mutate = async (work: () => Promise<unknown>, successKey: string) => {
-    const expected = version.current;
+    const expected = viewVersion;
     if (operation.current || !data || !current(expected)) return;
     const owner = {};
     operation.current = owner;
@@ -123,49 +131,78 @@ export function useMedicationOverview() {
     }
   };
   const openSchedule = (schedule: MedSchedule) => {
-    if (busy || loading || !data?.schedules.some((s) => s.id === schedule.id))
+    if (
+      !current(viewVersion) ||
+      busy ||
+      loading ||
+      !data?.schedules.some((s) => s.id === schedule.id)
+    )
       return;
     setSelected(schedule);
     setMode("menu");
     setTime(schedule.time_local.slice(0, 5));
     setItems(schedule.item_ids);
+    setNote(schedule.note || "");
   };
   const canSave =
+    current(viewVersion) &&
+    !busy &&
+    !loading &&
     !!selected &&
     !!items.length &&
     /^([01]\d|2[0-3]):[0-5]\d$/.test(time) &&
+    validMedicationNote(note) &&
     (time !== selected.time_local.slice(0, 5) ||
+      note.trim() !== (selected.note || "") ||
       JSON.stringify([...items].sort()) !==
         JSON.stringify([...selected.item_ids].sort()));
+  const visible =
+    !!token &&
+    current(viewVersion) &&
+    visibleScope.current.token === token &&
+    visibleScope.current.patient === patient;
   return {
     self,
-    patients,
-    patientId: data?.patientId,
-    data,
-    doses,
-    weekly,
-    loading,
-    failed,
+    patients: visible ? patients : [],
+    patientId: visible ? data?.patientId : undefined,
+    data: visible ? data : null,
+    doses: visible ? doses : [],
+    weekly: visible ? weekly : null,
+    loading: !visible || loading,
+    failed: visible && failed,
     busy,
-    selected,
+    selected: visible ? selected : null,
     mode,
-    setMode,
+    setMode: (value: Parameters<typeof setMode>[0]) => {
+      if (current(viewVersion)) setMode(value);
+    },
     time,
-    setTime,
+    setTime: (value: string) => {
+      if (current(viewVersion)) setTime(value);
+    },
     items,
+    note,
+    setNote: (value: string) => {
+      if (current(viewVersion)) setNote(value);
+    },
     canSave,
     refresh,
     openSchedule,
     selectPatient: (id: number) => {
-      if (!busy && id !== data?.patientId) setPatient(id);
+      if (current(viewVersion) && !busy && id !== data?.patientId) {
+        patientScope.current = id;
+        setPatient(id);
+      }
     },
     closeSchedule: () => {
-      if (!operation.current) setSelected(null);
+      if (current(viewVersion) && !operation.current) setSelected(null);
     },
-    toggleItem: (id: string) =>
-      setItems((old) =>
-        old.includes(id) ? old.filter((x) => x !== id) : [...old, id]
-      ),
+    toggleItem: (id: string) => {
+      if (current(viewVersion))
+        setItems((old) =>
+          old.includes(id) ? old.filter((x) => x !== id) : [...old, id]
+        );
+    },
     save: () => {
       if (canSave && selected && data && mode === "edit")
         return mutate(
@@ -173,9 +210,37 @@ export function useMedicationOverview() {
             v21Api.saveSchedule(data.patientId, selected.id, {
               time_local: time,
               item_ids: items,
+              note: note.trim(),
+              meal_anchor: selected.meal_anchor,
+              active: selected.active,
             }),
           "saved"
         );
+    },
+    setScheduleActive: (schedule: MedSchedule, active: boolean) => {
+      if (
+        busy ||
+        loading ||
+        !data ||
+        schedule.active === active ||
+        !data.schedules.some((s) => s.id === schedule.id)
+      )
+        return;
+      return mutate(
+        () =>
+          v21Api.saveSchedule(data.patientId, schedule.id, {
+            time_local: schedule.time_local.slice(0, 5),
+            item_ids: schedule.item_ids,
+            meal_anchor: schedule.meal_anchor,
+            note: schedule.note || "",
+            active,
+          }),
+        active && schedule.consent_state === "PENDING"
+          ? "scheduleAwaitingConsent"
+          : active
+          ? "scheduleResumed"
+          : "schedulePaused"
+      );
     },
     remove: () => {
       if (selected && data && mode === "remove")

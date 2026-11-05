@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert, Platform } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useGuardedRouter as useRouter } from "../../hooks/useGuardedRouter";
 import * as ImagePicker from "expo-image-picker";
 import { randomUUID } from "expo-crypto";
 import { File } from "expo-file-system";
@@ -11,18 +12,26 @@ import { useToastStore } from "../../stores/toast.store";
 import { v21Api, MedOverview, MedKind, Anchor, Meals } from "./v21.api";
 import { v21Error } from "./V21Layout";
 import { reportError } from "../../observability/sentry";
+import { useAuthStore } from "../auth/auth.store";
+import {
+  medicationTextHasNoDose,
+  validMedicationNote,
+} from "./medication-input";
 import {
   MedicationPhotoError,
   prepareMedicationPhoto,
   type MedicationPhotoUpload,
 } from "./medication-photo";
 export type MedicationDraft = {
+  clientId: string;
   display_name: string;
   printed_name?: string;
   kind: MedKind | null;
   source: "PHOTO_AI" | "CHIP" | "VOICE";
   confirmed: boolean;
   photo_media_id?: string;
+  photo_uri?: string;
+  timeHints?: string[];
   anchors: Anchor[];
 };
 export const medicationAnchors: Anchor[] = [
@@ -34,11 +43,9 @@ export const medicationAnchors: Anchor[] = [
 ];
 export const validMedicationTime = (s: string) =>
   /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
-export const medicationNameHasNoDose = (s: string) =>
-  !/(\d\s*(mg|mcg|µg|ml|iu|g|u|units?)\b|\d\s*(viên|tablets?|capsules?)\b)/iu.test(
-    s
-  );
+export const medicationNameHasNoDose = medicationTextHasNoDose;
 const blank = (): MedicationDraft => ({
+  clientId: randomUUID(),
   display_name: "",
   kind: "MEDICINE",
   source: "CHIP",
@@ -57,6 +64,29 @@ export function useMedicationSetup() {
     patient = Number(patientId),
     router = useRouter(),
     { t } = useTranslation("v21");
+  const token = useAuthStore((s) => s.token);
+  const user = String(useAuthStore((s) => s.profile?.id) ?? "");
+  const scopeKey = `${user}:${patient}`;
+  const generation = useRef(0),
+    focused = useRef(false),
+    owner = useRef<string | null>(null),
+    mealsLoaded = useRef(false);
+  const viewVersion = generation.current;
+  const current = useCallback(
+    (expected: number) => {
+      const auth = useAuthStore.getState();
+      return (
+        !!token &&
+        !!user &&
+        focused.current &&
+        generation.current === expected &&
+        owner.current === scopeKey &&
+        auth.token === token &&
+        String(auth.profile?.id ?? "") === user
+      );
+    },
+    [token, user, scopeKey]
+  );
   const [data, setData] = useState<MedOverview | null>(null),
     [step, setStep] = useState(1),
     [draft, setDraft] = useState<MedicationDraft[]>([]),
@@ -67,7 +97,13 @@ export function useMedicationSetup() {
       bedtime: "21:30",
     }),
     [slots, setSlots] = useState<
-      { time_local: string; meal_anchor: Anchor; item_indexes: number[] }[]
+      {
+        time_local: string;
+        meal_anchor: Anchor;
+        item_indexes: number[];
+        note?: string;
+        sourceKeys?: string[];
+      }[]
     >([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false),
@@ -83,35 +119,80 @@ export function useMedicationSetup() {
     >(null),
     recordTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedBody = useRef<string | null>(null);
-  const saving = useRef(false);
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      const d = await v21Api.overview(patient);
-      setData(d);
-      setMeals({
-        breakfast: d.meals.breakfast.slice(0, 5),
-        lunch: d.meals.lunch.slice(0, 5),
-        dinner: d.meals.dinner.slice(0, 5),
-        bedtime: d.meals.bedtime.slice(0, 5),
-      });
-    } catch (e) {
-      v21Error(e, t);
-    } finally {
-      setLoading(false);
-    }
-  }, [patient, t]);
-  useEffect(() => {
-    void reload();
-    return () => {
-      if (recordTimer.current) clearTimeout(recordTimer.current);
-      if (recording.current)
-        void recording.current.stopAndUnloadAsync().catch(() => {});
-    };
-  }, [reload]);
-  const update = (i: number, x: Partial<MedicationDraft>) =>
-    setDraft((old) => old.map((d, n) => (i === n ? { ...d, ...x } : d)));
+  const reviewInputs = useRef<string | null>(null);
+  const saving = useRef<object | null>(null);
+  const reload = useCallback(
+    async (expected = generation.current) => {
+      if (!current(expected)) return;
+      setLoading(true);
+      try {
+        const d = await v21Api.overview(patient);
+        if (!current(expected)) return;
+        setData(d);
+        if (!mealsLoaded.current)
+          setMeals({
+            breakfast: d.meals.breakfast.slice(0, 5),
+            lunch: d.meals.lunch.slice(0, 5),
+            dinner: d.meals.dinner.slice(0, 5),
+            bedtime: d.meals.bedtime.slice(0, 5),
+          });
+        mealsLoaded.current = true;
+      } catch (e) {
+        if (current(expected)) v21Error(e, t);
+      } finally {
+        if (current(expected)) setLoading(false);
+      }
+    },
+    [patient, t, current]
+  );
+  useFocusEffect(
+    useCallback(() => {
+      const changed = owner.current !== scopeKey;
+      owner.current = scopeKey;
+      focused.current = true;
+      generation.current++;
+      if (changed) {
+        setData(null);
+        setDraft([]);
+        setSlots([]);
+        setPhoto(null);
+        setStep(1);
+        setScanFailures(0);
+        mealsLoaded.current = false;
+        reviewInputs.current = null;
+        savedBody.current = null;
+        requestId.current = randomUUID();
+      }
+      saving.current = null;
+      pendingPhoto.current = null;
+      setBusy(false);
+      setConsent(false);
+      setListening(false);
+      void reload(generation.current);
+      return () => {
+        focused.current = false;
+        generation.current++;
+        pendingPhoto.current = null;
+        if (recordTimer.current) clearTimeout(recordTimer.current);
+        const rec = recording.current;
+        recording.current = null;
+        if (rec)
+          void rec
+            .stopAndUnloadAsync()
+            .then(() => {
+              if (!recording.current)
+                return Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+            })
+            .catch(() => {});
+      };
+    }, [reload, scopeKey])
+  );
+  const update = (i: number, x: Partial<MedicationDraft>) => {
+    if (current(viewVersion))
+      setDraft((old) => old.map((d, n) => (i === n ? { ...d, ...x } : d)));
+  };
   const leave = () => {
+    if (!current(viewVersion) || busy) return;
     if (step > 1 && !busy) {
       setStep((s) => s - 1);
       return;
@@ -122,22 +203,33 @@ export function useMedicationSetup() {
     }
     Alert.alert(t("discardTitle"), t("discardBody"), [
       { text: t("keepEditing"), style: "cancel" },
-      { text: t("leave"), style: "destructive", onPress: () => router.back() },
+      {
+        text: t("leave"),
+        style: "destructive",
+        onPress: () => {
+          if (current(viewVersion)) router.back();
+        },
+      },
     ]);
   };
   const withConsent = async (work: () => Promise<void>) => {
-    if (await hasAiDataConsent()) await work();
+    if (!current(viewVersion)) return;
+    const granted = await hasAiDataConsent();
+    if (!current(viewVersion)) return;
+    if (granted) await work();
     else {
       pendingPhoto.current = work;
       setConsent(true);
     }
   };
   const pick = async (camera: boolean) => {
-    if (busy) return;
+    const expected = viewVersion;
+    if (busy || !current(expected)) return;
     try {
       const permission = camera
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!current(expected)) return;
       if (!permission.granted) {
         useToastStore.getState().show(t("photoPermission"), "error");
         return;
@@ -151,6 +243,7 @@ export function useMedicationSetup() {
       const result = camera
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync(options);
+      if (!current(expected)) return;
       if (result.canceled) return;
       const asset = result.assets[0];
       if (!asset?.uri) {
@@ -159,13 +252,16 @@ export function useMedicationSetup() {
       }
       setPhoto(asset.uri);
       await withConsent(async () => {
+        if (!current(expected)) return;
         setBusy(true);
         let upload: MedicationPhotoUpload | null = null;
         let stage = "photo_prepare";
         try {
           upload = await prepareMedicationPhoto(asset);
+          if (!current(expected)) return;
           stage = "photo_upload";
           const scan = await v21Api.scan(patient, upload.body);
+          if (!current(expected)) return;
           if (!scan.readable || !scan.items.length) {
             setScanFailures((n) => n + 1);
             useToastStore
@@ -175,12 +271,17 @@ export function useMedicationSetup() {
           }
           setDraft(
             scan.items.map((item) => ({
+              clientId: randomUUID(),
               display_name: item.display_name || "",
               printed_name: item.printed_name,
               kind: item.kind,
               source: "PHOTO_AI",
               confirmed: false,
               photo_media_id: scan.mediaId,
+              photo_uri: asset.uri,
+              timeHints: item.suggested_slots.filter((a) =>
+                ["morning", "noon", "evening"].includes(a)
+              ),
               anchors: item.suggested_slots.filter((a): a is Anchor =>
                 medicationAnchors.includes(a as Anchor)
               ),
@@ -190,6 +291,7 @@ export function useMedicationSetup() {
           if (scan.partial)
             useToastStore.getState().show(t("partialScan"), "info");
         } catch (error) {
+          if (!current(expected)) return;
           reportError(error, {
             component: "medication_setup",
             operation: stage,
@@ -212,10 +314,11 @@ export function useMedicationSetup() {
           }
         } finally {
           upload?.dispose();
-          setBusy(false);
+          if (current(expected)) setBusy(false);
         }
       });
     } catch (error) {
+      if (!current(expected)) return;
       reportError(error, {
         component: "medication_setup",
         operation: "photo_picker",
@@ -224,6 +327,8 @@ export function useMedicationSetup() {
     }
   };
   const stopVoice = async () => {
+    const expected = viewVersion;
+    if (!current(expected)) return;
     if (!recording.current) return;
     const rec = recording.current;
     recording.current = null;
@@ -232,6 +337,7 @@ export function useMedicationSetup() {
     setBusy(true);
     try {
       await rec.stopAndUnloadAsync();
+      if (!current(expected)) return;
       const uri = rec.getURI();
       if (!uri) return;
       const form = new FormData();
@@ -241,31 +347,34 @@ export function useMedicationSetup() {
           await (await fetch(uri)).blob(),
           "name.webm"
         );
-      } else
-        form.append("audio", new File(uri));
+      } else form.append("audio", new File(uri));
       const r = await v21Api.transcribe(patient, form);
+      if (!current(expected)) return;
       setDraft((old) => [
         ...old,
         { ...blank(), display_name: r.text, source: "VOICE" },
       ]);
       setStep(2);
     } catch (e) {
-      v21Error(e, t);
+      if (current(expected)) v21Error(e, t);
     } finally {
-      setBusy(false);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(
-        () => {}
-      );
+      if (current(expected)) setBusy(false);
+      if (!recording.current)
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(
+          () => {}
+        );
     }
   };
   const voice = () =>
     void withConsent(async () => {
-      if (busy) return;
+      const expected = viewVersion;
+      if (busy || !current(expected)) return;
       if (listening) {
         await stopVoice();
         return;
       }
       const permission = await Audio.requestPermissionsAsync();
+      if (!current(expected)) return;
       if (!permission.granted) {
         useToastStore.getState().show(t("voicePermission"), "error");
         return;
@@ -275,14 +384,19 @@ export function useMedicationSetup() {
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
         });
+        if (!current(expected)) return;
         const r = await Audio.Recording.createAsync(
           Audio.RecordingOptionsPresets.HIGH_QUALITY
         );
+        if (!current(expected)) {
+          await r.recording.stopAndUnloadAsync();
+          return;
+        }
         recording.current = r.recording;
         setListening(true);
         recordTimer.current = setTimeout(() => void stopVoice(), 20000);
       } catch (e) {
-        v21Error(e, t);
+        if (current(expected)) v21Error(e, t);
       }
     });
   const review = () => {
@@ -294,9 +408,22 @@ export function useMedicationSetup() {
       useToastStore.getState().show(t("whenTake"), "error");
       return;
     }
+    const inputs = JSON.stringify({
+      meals,
+      items: draft.map((d) => ({ clientId: d.clientId, anchors: d.anchors })),
+    });
+    if (reviewInputs.current === inputs && slots.length) {
+      setStep(4);
+      return;
+    }
     const grouped = new Map<
       string,
-      { time_local: string; meal_anchor: Anchor; item_indexes: number[] }
+      {
+        time_local: string;
+        meal_anchor: Anchor;
+        item_indexes: number[];
+        sourceKeys: string[];
+      }
     >();
     draft.forEach((d, i) =>
       d.anchors.forEach((a) => {
@@ -314,8 +441,10 @@ export function useMedicationSetup() {
           time_local: time,
           meal_anchor: a,
           item_indexes: [],
+          sourceKeys: [],
         };
         if (!row.item_indexes.includes(i)) row.item_indexes.push(i);
+        row.sourceKeys.push(`${d.clientId || i}:${a}`);
         grouped.set(time, row);
       })
     );
@@ -323,17 +452,35 @@ export function useMedicationSetup() {
       useToastStore.getState().show(t("scheduleLimit"), "error");
       return;
     }
+    reviewInputs.current = inputs;
     setSlots(
-      [...grouped.values()].sort((a, b) =>
-        a.time_local.localeCompare(b.time_local)
-      )
+      [...grouped.values()]
+        .sort((a, b) => a.time_local.localeCompare(b.time_local))
+        .map((slot) => {
+          const note = [
+            ...new Set(
+              slots
+                .filter((old) =>
+                  old.sourceKeys?.some((key) => slot.sourceKeys.includes(key))
+                )
+                .map((old) => old.note?.trim())
+                .filter(Boolean)
+            ),
+          ].join("; ");
+          return { ...slot, ...(note ? { note } : {}) };
+        })
     );
     setStep(4);
   };
   const save = async () => {
-    if (busy || saving.current) return;
+    const expected = viewVersion;
+    if (busy || saving.current || !current(expected)) return;
     if (slots.some((s) => !validMedicationTime(s.time_local))) {
       useToastStore.getState().show(t("timeInvalid"), "error");
+      return;
+    }
+    if (slots.some((s) => !validMedicationNote(s.note || ""))) {
+      useToastStore.getState().show(t("medicationNoteInvalid"), "error");
       return;
     }
     const grouped = new Map<string, (typeof slots)[number]>();
@@ -344,6 +491,11 @@ export function useMedicationSetup() {
         existing
           ? {
               ...existing,
+              note: [
+                ...new Set(
+                  [existing.note?.trim(), s.note?.trim()].filter(Boolean)
+                ),
+              ].join("; "),
               item_indexes: [
                 ...new Set([...existing.item_indexes, ...s.item_indexes]),
               ],
@@ -351,34 +503,59 @@ export function useMedicationSetup() {
           : s
       );
     }
+    if ([...grouped.values()].some((s) => !validMedicationNote(s.note || ""))) {
+      useToastStore.getState().show(t("medicationNoteMergeInvalid"), "error");
+      return;
+    }
     const body = {
-      items: draft.map(({ anchors: _, ...d }) => ({ ...d, confirmed: true })),
+      items: draft.map(
+        ({
+          anchors: _,
+          clientId: _id,
+          photo_uri: _photo,
+          timeHints: _hints,
+          ...d
+        }) => ({
+          ...d,
+          confirmed: true,
+        })
+      ),
       meals,
-      slots: [...grouped.values()],
+      slots: [...grouped.values()].map(
+        ({ note, sourceKeys: _keys, ...slot }) => ({
+          ...slot,
+          ...(note?.trim() ? { note: note.trim() } : {}),
+        })
+      ),
     };
     const json = JSON.stringify(body);
     if (savedBody.current && savedBody.current !== json)
       requestId.current = randomUUID();
     savedBody.current = json;
-    saving.current = true;
+    const operation = {};
+    saving.current = operation;
     setBusy(true);
     try {
       const r = await v21Api.setup(patient, {
         request_id: requestId.current,
         ...body,
       });
+      if (!current(expected)) return;
       useToastStore
         .getState()
         .show(t(r.pendingConsent ? "consentSent" : "scheduleSaved"), "success");
       router.replace("/medication" as any);
     } catch (e) {
-      v21Error(e, t);
+      if (current(expected)) v21Error(e, t);
     } finally {
-      saving.current = false;
-      setBusy(false);
+      if (saving.current === operation) {
+        saving.current = null;
+        if (current(expected)) setBusy(false);
+      }
     }
   };
   const canContinue =
+    current(viewVersion) &&
     !!data &&
     !busy &&
     !listening &&
@@ -389,6 +566,7 @@ export function useMedicationSetup() {
             !!d.kind &&
             d.confirmed &&
             !!d.display_name.trim() &&
+            d.display_name.trim().length <= 30 &&
             medicationNameHasNoDose(d.display_name)
         )
       : step === 3
@@ -396,43 +574,67 @@ export function useMedicationSetup() {
         !!draft.length &&
         draft.every((d) => d.anchors.length > 0)
       : step === 4
-      ? !!slots.length && slots.every((s) => validMedicationTime(s.time_local))
+      ? !!slots.length &&
+        slots.every(
+          (s) =>
+            validMedicationTime(s.time_local) &&
+            validMedicationNote(s.note || "")
+        )
       : false);
+  const owned = !!token && !!user && owner.current === scopeKey;
   return {
-    data,
-    step,
-    draft,
+    data: owned ? data : null,
+    step: owned ? step : 1,
+    draft: owned ? draft : [],
     meals,
-    slots,
+    slots: owned ? slots : [],
     loading,
     busy,
-    photo,
+    photo: owned ? photo : null,
     scanFailures,
-    consent,
-    listening,
+    consent: owned ? consent : false,
+    listening: owned ? listening : false,
     reload,
     leave,
     pick,
     voice,
     update,
-    setDraft,
-    setMeals,
-    setSlots,
+    setDraft: (value: Parameters<typeof setDraft>[0]) => {
+      if (current(viewVersion)) setDraft(value);
+    },
+    setMeals: (value: Parameters<typeof setMeals>[0]) => {
+      if (current(viewVersion)) setMeals(value);
+    },
+    setSlots: (value: Parameters<typeof setSlots>[0]) => {
+      if (current(viewVersion)) setSlots(value);
+    },
     canContinue,
     addManual: () => {
+      if (!current(viewVersion)) return;
       if (!draft.length) setDraft([blank()]);
       setStep(2);
     },
     addItem: (name = "", supplement = false) => {
-      if (draft.length < 20)
-        setDraft((old) => [
-          ...old,
-          {
-            ...blank(),
-            display_name: name,
-            kind: supplement ? "SUPPLEMENT" : "MEDICINE",
-          },
-        ]);
+      if (!current(viewVersion)) return;
+      setDraft((old) => {
+        const item = {
+          ...blank(),
+          display_name: name,
+          kind: supplement ? ("SUPPLEMENT" as const) : ("MEDICINE" as const),
+        };
+        const empty = name
+          ? old.findIndex(
+              (d) =>
+                d.source === "CHIP" &&
+                !d.display_name.trim() &&
+                !d.confirmed &&
+                !d.printed_name
+            )
+          : -1;
+        if (empty >= 0)
+          return old.map((d, index) => (index === empty ? item : d));
+        return old.length < 20 ? [...old, item] : old;
+      });
     },
     next: () => {
       if (!canContinue) return;
@@ -441,10 +643,12 @@ export function useMedicationSetup() {
       else if (step === 4) void save();
     },
     declineAi: () => {
+      if (!current(viewVersion)) return;
       setConsent(false);
       pendingPhoto.current = null;
     },
     agreeAi: () => {
+      if (!current(viewVersion)) return;
       setConsent(false);
       const work = pendingPhoto.current;
       pendingPhoto.current = null;

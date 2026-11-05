@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Image, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
+import { useGuardedRouter as useRouter } from "../../../src/hooks/useGuardedRouter";
 import { randomUUID } from "expo-crypto";
 import {
   loadPendingAnswer,

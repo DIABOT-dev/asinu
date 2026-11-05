@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
+import { useGuardedRouter as useRouter } from "../../src/hooks/useGuardedRouter";
 import { useTranslation } from "react-i18next";
 import { v21Api, MedOverview } from "../../src/features/v21/v21.api";
 import {

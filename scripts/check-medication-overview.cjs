@@ -18,9 +18,9 @@ function harness() {
   const server = { fail: false, pending: null, late: null };
   const api = {
     flags: async () => { if (server.fail) throw Error('offline'); return { medication: true, patients: [{ id: 1, name: 'Tôi' }, { id: 2, name: 'Người thân' }] }; },
-    overview: async id => { calls.push(['read', id]); if (server.late && id === 1) return server.late; return overview(id); },
+    overview: async (id, includePaused) => { calls.push(['read', id, includePaused]); if (server.late && id === 1) return server.late; return overview(id); },
     doses: async () => ({ items: [] }), weekly: async () => ({ report: { taken: 2, total: 3, skipped: 1, coins: 10 } }),
-    saveSchedule: async (...args) => { calls.push(['save', ...args]); if (server.pending) await server.pending; },
+    saveSchedule: async (...args) => { calls.push(['save', ...args]); if (server.pending) await server.pending; if (server.writeFail) throw Error('offline'); Object.assign(schedule, args[2]); },
     remove: async (...args) => { calls.push(['remove', ...args]); },
     preferences: async (...args) => { calls.push(['preference', ...args]); },
   };
@@ -31,6 +31,9 @@ function harness() {
     './V21Layout': { v21Error: e => errors.push(e) }, './v21.api': { v21Api: api },
   };
   const module = { exports: {} };
+  const inputs = { exports: {} };
+  new Function('module', 'exports', ts.transpileModule(fs.readFileSync('src/features/v21/medication-input.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(inputs, inputs.exports);
+  deps['./medication-input'] = inputs.exports;
   const code = ts.transpileModule(fs.readFileSync('src/features/v21/useMedicationOverview.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   // Execute the production controller with isolated network/native adapters.
   // eslint-disable-next-line no-new-func
@@ -52,7 +55,7 @@ async function test(name, work) { await work(); count++; console.log('PASS ' + n
     h.read().setTime('28:99'); assert.equal(h.read().canSave, false);
     h.read().setTime('08:00'); h.read().toggleItem('item-1'); assert.equal(h.read().canSave, false);
     h.read().toggleItem('item-1'); await h.read().save();
-    assert.deepEqual(h.calls.find(x => x[0] === 'save'), ['save', 1, 'schedule-1', { time_local: '08:00', item_ids: ['item-1'] }]); h.blur();
+    assert.deepEqual(h.calls.find(x => x[0] === 'save'), ['save', 1, 'schedule-1', { time_local: '08:00', item_ids: ['item-1'], active: true, note: '', meal_anchor: undefined }]); h.blur();
   });
   await test('rapid save presses send one mutation and closing stays blocked while saving', async () => {
     const h = harness(); (await h.settle()).openSchedule(h.schedule); h.read().setMode('edit'); h.read().setTime('08:00');
@@ -78,6 +81,50 @@ async function test(name, work) { await work(); count++; console.log('PASS ' + n
   await test('account changes reject old edits before any mutation', async () => {
     const h = harness(); (await h.settle()).openSchedule(h.schedule); h.read().setMode('edit'); h.read().setTime('08:00');
     const old = h.read(); h.auth.token = 'account-b'; await old.save(); assert.ok(!h.calls.some(x => x[0] === 'save')); h.blur();
+  });
+  await test('paused schedules remain readable; toggling sends existing note and meal timing and reports success', async () => {
+    const h = harness(); h.schedule.note = 'Sau bữa ăn'; h.schedule.meal_anchor = 'after_breakfast';
+    await h.settle(); assert.equal(h.calls.find(x => x[0] === 'read')[2], true);
+    await h.read().setScheduleActive(h.schedule, false);
+    assert.equal(h.read().data.schedules[0].active, false);
+    assert.equal(h.calls.find(x => x[0] === 'save')[3].note, 'Sau bữa ăn');
+    assert.equal(h.calls.find(x => x[0] === 'save')[3].meal_anchor, 'after_breakfast');
+    assert.equal(h.toasts.at(-1)[0], 'schedulePaused');
+    await h.read().setScheduleActive(h.schedule, true);
+    assert.equal(h.schedule.active, true); assert.equal(h.toasts.at(-1)[0], 'scheduleResumed'); h.blur();
+  });
+  await test('editing only a note preserves a paused schedule and rejects dosage and excessive text', async () => {
+    const h = harness(); h.schedule.active = false; h.schedule.note = 'Sau ăn'; h.schedule.meal_anchor = 'after_breakfast';
+    (await h.settle()).openSchedule(h.schedule); h.read().setMode('edit');
+    h.read().setNote(' Sau ăn '); assert.equal(h.read().canSave, false);
+    for (const invalid of ['a'.repeat(61), 'uống 2 viên', '5 mg', 'dosage']) {
+      h.read().setNote(invalid); assert.equal(h.read().canSave, false); await h.read().save();
+    }
+    assert.equal(h.calls.filter(x => x[0] === 'save').length, 0);
+    h.read().setNote(' Sau bữa sáng '); assert.equal(h.read().canSave, true); await h.read().save();
+    assert.equal(h.schedule.note, 'Sau bữa sáng'); assert.equal(h.schedule.active, false); assert.equal(h.schedule.meal_anchor, 'after_breakfast'); h.blur();
+  });
+  await test('toggle failure leaves the accepted state unchanged and does not show success', async () => {
+    const h = harness(); await h.settle(); h.server.writeFail = true;
+    await h.read().setScheduleActive(h.schedule, false);
+    assert.equal(h.schedule.active, true); assert.equal(h.toasts.length, 0); assert.equal(h.errors.length, 1); assert.equal(h.read().busy, false); h.blur();
+  });
+  await test('rapid toggle presses cannot submit twice and a previous account cannot toggle', async () => {
+    const h = harness(); await h.settle(); const done = defer(); h.server.pending = done.promise;
+    const pending = h.read().setScheduleActive(h.schedule, false); await h.read().setScheduleActive(h.schedule, false);
+    assert.equal(h.calls.filter(x => x[0] === 'save').length, 1); done.resolve(); await pending;
+    const old = h.read(); h.auth.token = 'account-b'; await old.setScheduleActive(h.schedule, true);
+    assert.equal(h.calls.filter(x => x[0] === 'save').length, 1); h.blur();
+  });
+  for (const action of ['save', 'toggle', 'refresh']) await test(`old ${action} handlers cannot act on the previous person after switching patients`, async () => {
+    const h=harness();(await h.settle()).openSchedule(h.schedule);h.read().setMode('edit');h.read().setNote('Ghi chú mới');const old=h.read();
+    h.read().selectPatient(2);await h.settle();
+    if(action==='save')await old.save();else if(action==='toggle')await old.setScheduleActive(h.schedule,false);else await old.refresh();
+    assert.equal(h.calls.filter(x=>x[0]==='save').length,0);assert.equal(h.read().data.patientId,2);h.blur();
+  });
+  await test('a new account render immediately hides the previous account names, data and editor',async()=>{
+    const h=harness();(await h.settle()).openSchedule(h.schedule);h.auth.token='account-b';h.auth.profile.id=2;
+    assert.equal(h.read().data,null);assert.deepEqual(h.read().patients,[]);assert.equal(h.read().selected,null);h.blur();
   });
   console.log(`Medication overview: ${count} runtime checks passed.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

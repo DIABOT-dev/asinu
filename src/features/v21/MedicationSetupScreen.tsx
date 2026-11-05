@@ -26,6 +26,8 @@ import {
 } from "./useMedicationSetup";
 import type { MedKind, Meals } from "./v21.api";
 import { medicationSetupStyles as s } from "./medication-setup.styles";
+import { medicationQuickNames, validMedicationNote } from "./medication-input";
+import { MedicationPhotoPreview } from "./MedicationPhotoPreview";
 
 function Option({
   label,
@@ -174,20 +176,7 @@ export function MedicationSetupPanel({
   const title = { color: colors.textPrimary };
   const { data, step, draft, meals, slots, busy, listening } = setup;
   const disabled = busy || !data;
-  const quickNames = [
-    ...(/diabet|tiểu đường/i.test(JSON.stringify(data?.conditions))
-      ? ["medicine_diabetes"]
-      : []),
-    ...(/hypertension|huyết áp/i.test(JSON.stringify(data?.conditions))
-      ? ["medicine_pressure"]
-      : []),
-    ...(/cardio|heart|tim mạch/i.test(JSON.stringify(data?.conditions))
-      ? ["medicine_heart"]
-      : []),
-    "medicine_generic",
-    "supplement",
-    "medicine_other",
-  ];
+  const quickNames = medicationQuickNames(data?.conditions);
   return (
     <KeyboardAvoidingView
       style={[
@@ -342,6 +331,19 @@ export function MedicationSetupPanel({
             )}
             {step === 2 && (
               <>
+                {draft.some((item) => item.source === "PHOTO_AI") && (
+                  <View style={s.section}>
+                    <Text style={[s.helpText, title]}>
+                      {t("scanReviewNotice")}
+                    </Text>
+                    {setup.photo && (
+                      <MedicationPhotoPreview
+                        uri={setup.photo}
+                        label={t("medicationSourcePhoto")}
+                      />
+                    )}
+                  </View>
+                )}
                 {draft.map((item, index) => (
                   <View key={index} style={s.item}>
                     <View style={s.itemHeader}>
@@ -368,6 +370,18 @@ export function MedicationSetupPanel({
                         />
                       </Pressable>
                     </View>
+                    {item.source === "PHOTO_AI" && !!item.printed_name && (
+                      <View style={s.printedName}>
+                        <Text
+                          style={[s.caption, { color: colors.textSecondary }]}
+                        >
+                          {t("medicationPrintedName")}
+                        </Text>
+                        <Text selectable style={[s.label, title]}>
+                          {item.printed_name}
+                        </Text>
+                      </View>
+                    )}
                     <TextInput
                       accessibilityLabel={t("name")}
                       placeholder={t("setupNamePlaceholder")}
@@ -498,6 +512,17 @@ export function MedicationSetupPanel({
                     <Text style={[s.sectionTitle, title]}>
                       {item.display_name}
                     </Text>
+                    {!!item.timeHints?.length && (
+                      <Text
+                        style={[s.caption, { color: colors.textSecondary }]}
+                      >
+                        {t("medicationTimeHint", {
+                          times: item.timeHints
+                            .map((hint) => t(`medicationHint_${hint}`))
+                            .join(", "),
+                        })}
+                      </Text>
+                    )}
                     <View style={s.chips}>
                       {medicationAnchors.map((anchor) => (
                         <Chip
@@ -549,11 +574,65 @@ export function MedicationSetupPanel({
                     </View>
                     <View style={s.reviewItems}>
                       {slot.item_indexes.map((itemIndex) => (
-                        <Text key={itemIndex} style={[s.label, title]}>
-                          {draft[itemIndex]?.display_name}
-                        </Text>
+                        <View key={itemIndex} style={s.reviewItem}>
+                          {draft[itemIndex]?.photo_uri && (
+                            <MedicationPhotoPreview
+                              compact
+                              uri={draft[itemIndex].photo_uri!}
+                              label={draft[itemIndex].display_name}
+                            />
+                          )}
+                          <View style={s.flex}>
+                            <Text style={[s.label, title]}>
+                              {draft[itemIndex]?.display_name}
+                            </Text>
+                            <Text
+                              style={[
+                                s.caption,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              {t(draft[itemIndex]?.kind || "MEDICINE")}
+                            </Text>
+                          </View>
+                        </View>
                       ))}
                     </View>
+                    <Text style={[s.caption, { color: colors.textSecondary }]}>
+                      {t("medicationNoteLabel")}
+                    </Text>
+                    <TextInput
+                      accessibilityLabel={t("medicationNoteAt", {
+                        time: slot.time_local,
+                      })}
+                      placeholder={t("medicationNotePlaceholder")}
+                      placeholderTextColor={colors.textSecondary}
+                      value={slot.note || ""}
+                      maxLength={60}
+                      editable={!busy}
+                      onChangeText={(note) =>
+                        setup.setSlots((old) =>
+                          old.map((row, n) =>
+                            n === index ? { ...row, note } : row
+                          )
+                        )
+                      }
+                      style={[
+                        s.nameInput,
+                        {
+                          color: colors.textPrimary,
+                          backgroundColor: colors.surfaceMuted,
+                        },
+                      ]}
+                    />
+                    {!validMedicationNote(slot.note || "") && (
+                      <Text
+                        accessibilityRole="alert"
+                        style={[s.error, { color: colors.danger }]}
+                      >
+                        {t("medicationNoteInvalid")}
+                      </Text>
+                    )}
                     {(slot.time_local < "07:00" ||
                       slot.time_local >= "21:00") && (
                       <View style={s.status}>

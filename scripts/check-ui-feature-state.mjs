@@ -944,11 +944,11 @@ function journeyData() {
     weeklyDays: 1,
     serverDate: "2026-11-03",
     tasks: [
-      { task_code: "CHECKIN", done: 1, daily_limit: 1, weekly_limit: 0 },
-      { task_code: "MED_ANSWER", done: 0, daily_limit: 4, weekly_limit: 0 },
-      { task_code: "VITAL", done: 0, daily_limit: 2, weekly_limit: 0 },
-      { task_code: "GIFT_OPEN", done: 1, daily_limit: 1, weekly_limit: 0 },
-      { task_code: "WEEKLY", done: 0, daily_limit: 0, weekly_limit: 1 },
+      { task_code: "CHECKIN", coins: 10, done: 1, daily_limit: 1, weekly_limit: 0 },
+      { task_code: "MED_ANSWER", coins: 5, done: 0, daily_limit: 4, weekly_limit: 0 },
+      { task_code: "VITAL", coins: 5, done: 0, daily_limit: 2, weekly_limit: 0 },
+      { task_code: "GIFT_OPEN", coins: 2, done: 1, daily_limit: 1, weekly_limit: 0 },
+      { task_code: "WEEKLY", coins: 20, done: 0, daily_limit: 0, weekly_limit: 1 },
     ],
   };
 }
@@ -1061,6 +1061,7 @@ for (const language of ["vi", "en"]) {
             useThemeColors: () => ({ isDark: false, colors: {} }),
           },
           "./CoinRulesMascot": { CoinRulesMascot: "CoinRulesMascot" },
+          "./HealthCoinIcon": { HealthCoinIcon: "HealthCoinIcon" },
           "./coin-progress": { getCoinJourney },
         },
       );
@@ -1078,6 +1079,8 @@ for (const language of ["vi", "en"]) {
       assert.equal(progress[0].props.accessibilityValue.now, 1);
       assert.equal(progress.at(-1).props.accessibilityValue.now, 1);
       assert.equal(progress.at(-1).props.accessibilityValue.max, 5);
+      assert.ok(nodes.some((node) => node.props.children === t("balance", { count: 24 })));
+      for (const count of [10, 5, 2, 20]) assert.ok(nodes.some((node) => node.props.children === t("taskCoins", { count })));
       const details = nodes.find(
         (node) => node.props.accessibilityRole === "button",
       );
@@ -1123,7 +1126,8 @@ function coinDetailsHarness() {
   const data = () => ({ ...journeyData(), balance: server.balance });
   const { useHealthCoins } = evaluate("src/features/v21/useHealthCoins.ts", {
     react: r.hooks,
-    "expo-router": { ...r.router, useRouter: () => ({ push() {} }) },
+    "expo-router": r.router,
+    "../../hooks/useGuardedRouter": { useGuardedRouter: () => ({ push() {} }) },
     "react-i18next": { useTranslation: () => ({ t }) },
     "@react-native-async-storage/async-storage": { __esModule: true, default: {
       getItem: async key => server.pendingStorage ? await server.pendingStorage : storage.get(key) ?? null,

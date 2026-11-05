@@ -93,8 +93,8 @@ function harness({
     "react-native": { View: "View", Image: "Image" },
     "expo-router": {
       useLocalSearchParams: () => params,
-      useRouter: () => ({ replace: () => {} }),
     },
+    "../../../src/hooks/useGuardedRouter": { useGuardedRouter: () => ({ replace: () => {} }) },
     "expo-crypto": { randomUUID },
     "react-i18next": {
       useTranslation: () => ({ t: (key) => key, i18n: { language: "vi" } }),

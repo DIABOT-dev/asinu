@@ -29,6 +29,7 @@ import {
 } from "./useMedicationOverview";
 import { medicationStyles as s } from "./medication-overview.styles";
 import type { MedDose } from "./v21.api";
+import { validMedicationNote } from "./medication-input";
 
 type Tab = "today" | "schedules";
 type PanelProps = {
@@ -421,13 +422,24 @@ export function MedicationOverviewPanel({
                             .filter(Boolean)
                             .join(" · ")}
                         </Text>
-                        {schedule.consent_state !== "ACTIVE" && (
-                          <Text style={[s.title, tint]}>
-                            {t(
-                              schedule.consent_state === "PENDING"
-                                ? "pendingConsent"
-                                : schedule.consent_state
-                            )}
+                        {!schedule.active ? (
+                          <Text style={[s.caption, caption]}>
+                            {t("scheduleOff")}
+                          </Text>
+                        ) : (
+                          schedule.consent_state !== "ACTIVE" && (
+                            <Text style={[s.title, tint]}>
+                              {t(
+                                schedule.consent_state === "PENDING"
+                                  ? "pendingConsent"
+                                  : schedule.consent_state
+                              )}
+                            </Text>
+                          )
+                        )}
+                        {!!schedule.note && (
+                          <Text style={[s.caption, caption]}>
+                            {schedule.note}
                           </Text>
                         )}
                       </View>
@@ -450,6 +462,32 @@ export function MedicationOverviewPanel({
                         />
                       </Pressable>
                     </View>
+                    <View style={s.scheduleSwitch}>
+                      <Text style={[s.caption, title, s.copy]}>
+                        {t("medicationScheduleEnabled", {
+                          time: schedule.time_local.slice(0, 5),
+                        })}
+                      </Text>
+                      <Switch
+                        accessibilityLabel={t("medicationScheduleEnabled", {
+                          time: schedule.time_local.slice(0, 5),
+                        })}
+                        hitSlop={{ top: 8, bottom: 8, left: 0, right: 0 }}
+                        accessibilityState={{
+                          disabled: med.busy || med.loading,
+                        }}
+                        value={schedule.active}
+                        disabled={med.busy || med.loading}
+                        onValueChange={(value) =>
+                          void med.setScheduleActive(schedule, value)
+                        }
+                        trackColor={{
+                          false: colors.border,
+                          true: colors.primary,
+                        }}
+                        thumbColor={colors.surface}
+                      />
+                    </View>
                     {schedule.pushOnly && (
                       <View style={s.status}>
                         <Ionicons
@@ -462,15 +500,17 @@ export function MedicationOverviewPanel({
                         </Text>
                       </View>
                     )}
-                    {med.data?.self && schedule.consent_state === "PENDING" && (
-                      <View style={s.consent}>
-                        <Button
-                          quiet
-                          label={t("medicationReviewConsent")}
-                          onPress={() => onConsent(schedule.id)}
-                        />
-                      </View>
-                    )}
+                    {med.data?.self &&
+                      schedule.active &&
+                      schedule.consent_state === "PENDING" && (
+                        <View style={s.consent}>
+                          <Button
+                            quiet
+                            label={t("medicationReviewConsent")}
+                            onPress={() => onConsent(schedule.id)}
+                          />
+                        </View>
+                      )}
                   </View>
                 ))}
                 {med.data.schedules.length > 0 && (
@@ -622,6 +662,31 @@ export function MedicationScheduleSheet({
                     { backgroundColor: colors.primaryLight },
                   ]}
                 />
+                <Text style={[s.caption, caption]}>
+                  {t("medicationNoteLabel")}
+                </Text>
+                <TextInput
+                  accessibilityLabel={t("medicationNoteLabel")}
+                  placeholder={t("medicationNotePlaceholder")}
+                  placeholderTextColor={colors.textSecondary}
+                  value={med.note}
+                  onChangeText={med.setNote}
+                  maxLength={60}
+                  editable={!med.busy}
+                  style={[
+                    s.noteInput,
+                    title,
+                    { backgroundColor: colors.surfaceMuted },
+                  ]}
+                />
+                {!validMedicationNote(med.note) && (
+                  <Text
+                    accessibilityRole="alert"
+                    style={[s.caption, { color: colors.danger }]}
+                  >
+                    {t("medicationNoteInvalid")}
+                  </Text>
+                )}
                 {med.data?.items.map((item) => (
                   <Pressable
                     key={item.id}

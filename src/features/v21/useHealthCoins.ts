@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
+import { useGuardedRouter as useRouter } from "../../hooks/useGuardedRouter";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { randomUUID } from "expo-crypto";
 import { useTranslation } from "react-i18next";

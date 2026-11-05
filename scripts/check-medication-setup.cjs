@@ -9,24 +9,31 @@ function harness({self=true}={}) {
   const react={
     useState(initial){const i=cursor++;slots[i]??={value:initial};return [slots[i].value,v=>{slots[i].value=typeof v==='function'?v(slots[i].value):v;}];},
     useRef:initial=>memo(()=>({current:initial}),[]),useCallback:(fn,deps)=>memo(()=>fn,deps),
-    useEffect:(fn,deps)=>memo(()=>{effects.push(fn);},deps),
+    useEffect(fn,deps){const i=cursor++,old=slots[i];if(!old||deps.some((v,n)=>!Object.is(v,old.deps[n]))){slots[i]={deps};effects.push(()=>{old?.cleanup?.();slots[i].cleanup=fn();});}},
   };
-  const server={fail:false,pending:null,aiConsent:false,photoError:null,scanError:null,pickerCanceled:false};
+  const server={fail:false,pending:null,aiConsent:false,photoError:null,scanError:null,pickerCanceled:false,scanItems:null};
+  const auth={token:'setup-account-a',profile:{id:1}},route={patientId:'1'};
+  const useAuthStore=Object.assign(select=>select(auth),{getState:()=>auth});
   class PhotoError extends Error { constructor(code){super(code);this.code=code;} }
   class ApiError extends Error {}
   class NativeForm { constructor(){this.parts=[];} append(...args){this.parts.push(args);} }
   const data={self,conditions:[],flags:{scan:true},meals:{breakfast:'06:30',lunch:'11:30',dinner:'18:00',bedtime:'21:30'}};
   const t=key=>key;
   const deps={react,'react-native':{Platform:{OS:'ios'},Alert:{alert:(...args)=>calls.push(['alert',...args])}},
-    'expo-router':{useLocalSearchParams:()=>({patientId:'1'}),useRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
-    'expo-image-picker':{requestCameraPermissionsAsync:async()=>({granted:true}),requestMediaLibraryPermissionsAsync:async()=>({granted:true}),launchCameraAsync:async options=>{calls.push(['picker',options]);return {canceled:false,assets:[{uri:'fixture://medicine.jpg',mimeType:'image/jpeg'}]};},launchImageLibraryAsync:async options=>{calls.push(['library',options]);return server.pickerCanceled ? {canceled:true,assets:null} : {canceled:false,assets:[{uri:'ph://selected.heic',mimeType:'image/heic',base64:'/9j/export'}]};}},
+    'expo-router':{useLocalSearchParams:()=>route,useFocusEffect:fn=>react.useEffect(fn,[fn]),useRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
+    '../auth/auth.store':{useAuthStore},
+    '../../hooks/useGuardedRouter':{useGuardedRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
+    'expo-image-picker':{requestCameraPermissionsAsync:async()=>{if(server.permissionPending)await server.permissionPending;return {granted:true};},requestMediaLibraryPermissionsAsync:async()=>{if(server.permissionPending)await server.permissionPending;return {granted:true};},launchCameraAsync:async options=>{calls.push(['picker',options]);return {canceled:false,assets:[{uri:'fixture://medicine.jpg',mimeType:'image/jpeg'}]};},launchImageLibraryAsync:async options=>{calls.push(['library',options]);return server.pickerCanceled ? {canceled:true,assets:null} : {canceled:false,assets:[{uri:'ph://selected.heic',mimeType:'image/heic',base64:'/9j/export'}]};}},
     'expo-file-system':{File:class File {constructor(uri){this.uri=uri;this.name=uri.split('/').pop();this.type='audio/mp4';}async bytes(){return new Uint8Array([1,2,3]);}}},'expo-crypto':{randomUUID},'react-i18next':{useTranslation:()=>({t})},'../../lib/aiDataConsent':{hasAiDataConsent:async()=>server.aiConsent},'../../lib/audio':{Audio:{requestPermissionsAsync:async()=>({granted:true}),setAudioModeAsync:async()=>{},RecordingOptionsPresets:{HIGH_QUALITY:{}},Recording:{createAsync:async()=>({recording:{stopAndUnloadAsync:async()=>{},getURI:()=> 'file:///fixture/name.m4a'}})}}},
     '../../lib/apiClient':{ApiError},'../../observability/sentry':{reportError:(e,context)=>calls.push(['diagnostic',context.operation,e.name])},
     './medication-photo':{MedicationPhotoError:PhotoError,prepareMedicationPhoto:async()=>{if(server.photoError)throw new PhotoError(server.photoError);return {body:{photo:true},dispose:()=>calls.push(['dispose'])};}},
     '../../stores/toast.store':{useToastStore:{getState:()=>({show:(...args)=>toasts.push(args)})}},'./V21Layout':{v21Error:error=>errors.push(error)},
-    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>data,scan:async()=>{calls.push(['scan']);if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
+    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>data,scan:async()=>{calls.push(['scan']);if(server.scanPending)await server.scanPending;if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:server.scanItems||[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
   };
   const module={exports:{}};
+  const inputs={exports:{}};
+  new Function('module','exports',ts.transpileModule(fs.readFileSync('src/features/v21/medication-input.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(inputs,inputs.exports);
+  deps['./medication-input']=inputs.exports;
   const source=ts.transpileModule(fs.readFileSync('src/features/v21/useMedicationSetup.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   // Execute the production setup controller with isolated network/native adapters.
   // eslint-disable-next-line no-new-func
@@ -34,7 +41,7 @@ function harness({self=true}={}) {
   const read=()=>{cursor=0;return module.exports.useMedicationSetup();};
   const settle=async()=>{read();effects.splice(0).forEach(fn=>fn());await flush();return read();};
   const toReview=async()=>{read().addManual();read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['after_breakfast']});read().next();read().next();await flush();return read();};
-  return {read,settle,toReview,calls,toasts,errors,server,navigation};
+  return {read,settle,toReview,calls,toasts,errors,server,navigation,auth,route,blur:()=>slots.forEach(x=>x?.cleanup?.())};
 }
 let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+name);}
 (async()=>{
@@ -107,6 +114,80 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     const h=harness();await h.settle();h.server.aiConsent=true;h.read().voice();await flush();assert.equal(h.read().listening,true);h.read().voice();await flush();
     const form=h.calls.find(x=>x[0]==='transcribe')[2];assert.equal(form.parts[0][0],'audio');const file=form.parts[0][1];assert.equal(file.name,'name.m4a');assert.equal(typeof file.bytes,'function');
     assert.equal(h.read().step,2);assert.equal(h.read().draft[0].display_name,'Tên đã đọc');assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.read().busy,false);
+  });
+  await test('printed time-of-day hints survive OCR without inventing before/after-meal instructions', async()=>{
+    const h=harness();await h.settle();h.server.aiConsent=true;
+    h.server.scanItems=[{display_name:'Tên đã đọc',printed_name:'Tên in trên hộp',kind:'MEDICINE',suggested_slots:['morning','evening']}];
+    await h.read().pick(false);
+    assert.deepEqual(h.read().draft[0].timeHints,['morning','evening']);assert.deepEqual(h.read().draft[0].anchors,[]);
+    assert.equal(h.read().draft[0].printed_name,'Tên in trên hộp');assert.equal(h.read().draft[0].confirmed,false);
+    h.read().update(0,{confirmed:true});h.read().next();assert.equal(h.read().step,3);assert.equal(h.read().canContinue,false);
+    h.read().update(0,{anchors:['after_breakfast']});h.read().next();
+    h.read().setSlots(old=>old.map(s=>({...s,note:'Sau ăn'})));h.read().next();await flush();
+    const sent=h.calls.find(x=>x[0]==='setup')[2];
+    assert.equal(sent.slots[0].note,'Sau ăn');assert.equal(sent.items[0].printed_name,'Tên in trên hộp');
+    assert.equal(sent.items[0].timeHints,undefined);assert.equal(sent.items[0].photo_uri,undefined);assert.equal(sent.items[0].anchors,undefined);
+  });
+  await test('review notes survive going back and cannot contain dosage or exceed 60 characters',async()=>{
+    const h=harness();await h.settle();await h.toReview();
+    h.read().setSlots(old=>old.map(s=>({...s,time_local:'08:15',note:'Sau bữa ăn'})));h.read().leave();h.read().next();
+    assert.equal(h.read().slots[0].note,'Sau bữa ăn');assert.equal(h.read().slots[0].time_local,'08:15');
+    for(const note of ['a'.repeat(61),'2 viên','10 mg']){
+      h.read().setSlots(old=>old.map(s=>({...s,note})));assert.equal(h.read().canContinue,false);h.read().next();await flush();
+    }
+    assert.equal(h.calls.filter(x=>x[0]==='setup').length,0);
+  });
+  await test('manual cholesterol chips only use declared conditions and retain the no-condition fallback',async()=>{
+    const module={exports:{}};new Function('module','exports',ts.transpileModule(fs.readFileSync('src/features/v21/medication-input.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(module,module.exports);
+    assert.deepEqual(module.exports.medicationQuickNames([]),['medicine_generic','supplement','medicine_other']);
+    for(const condition of ['Mỡ máu cao','dyslipidemia','high_cholesterol']) assert.ok(module.exports.medicationQuickNames([condition]).includes('medicine_lipids'));
+    assert.ok(!module.exports.medicationQuickNames(['hypertension']).includes('medicine_lipids'));
+  });
+  await test('a manual quick choice fills the initial empty item without typing or leaving a hidden required blank',async()=>{
+    const h=harness();await h.settle();h.read().addManual();h.read().addItem('Thuốc mỡ máu');
+    assert.equal(h.read().draft.length,1);assert.equal(h.read().draft[0].display_name,'Thuốc mỡ máu');assert.equal(h.read().canContinue,false);
+    h.read().update(0,{confirmed:true});assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().step,3);
+  });
+  await test('old setup handlers cannot submit after an account change',async()=>{
+    const h=harness();await h.settle();await h.toReview();const old=h.read();h.auth.token='account-b';h.auth.profile.id=2;old.next();await flush();
+    assert.equal(h.calls.filter(x=>x[0]==='setup').length,0);h.blur();
+  });
+  await test('an accepted response from the previous account cannot navigate or display a success toast',async()=>{
+    const h=harness();await h.settle();await h.toReview();let finish;h.server.pending=new Promise(r=>finish=r);h.read().next();await flush();
+    h.auth.token='account-b';h.auth.profile.id=2;finish();await flush();assert.equal(h.navigation.length,0);assert.equal(h.toasts.length,0);h.blur();
+  });
+  await test('a previous save completing cannot release the new account save lock',async()=>{
+    const h=harness();await h.settle();await h.toReview();let oldDone,newDone;h.server.pending=new Promise(r=>oldDone=r);h.read().next();await flush();
+    h.auth.token='account-b';h.auth.profile.id=2;await h.settle();assert.equal(h.read().draft.length,0);await h.toReview();
+    h.server.pending=new Promise(r=>newDone=r);h.read().next();await flush();oldDone();await flush();
+    assert.equal(h.read().busy,true);assert.equal(h.navigation.length,0);h.read().next();await flush();assert.equal(h.calls.filter(x=>x[0]==='setup').length,2);
+    newDone();await flush();assert.equal(h.navigation.length,1);h.blur();
+  });
+  await test('a pending native photo permission cannot upload after leaving the screen',async()=>{
+    const h=harness();await h.settle();h.server.aiConsent=true;let finish;h.server.permissionPending=new Promise(r=>finish=r);
+    const pending=h.read().pick(false);await flush();h.blur();finish();await pending;assert.equal(h.calls.filter(x=>x[0]==='scan').length,0);
+  });
+  await test('an OCR response for the previous patient is discarded and its temporary file is cleaned',async()=>{
+    const h=harness();await h.settle();h.server.aiConsent=true;let finish;h.server.scanPending=new Promise(r=>finish=r);
+    const pending=h.read().pick(false);await flush();h.route.patientId='2';await h.settle();finish();await pending;
+    assert.equal(h.read().draft.length,0);assert.equal(h.read().photo,null);assert.equal(h.calls.filter(x=>x[0]==='dispose').length,1);h.blur();
+  });
+  await test('notes follow the dose identity rather than the clock when meal times swap',async()=>{
+    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Thuốc A',confirmed:true,anchors:['after_breakfast']});h.read().addItem('Thuốc B');h.read().update(1,{confirmed:true,anchors:['after_dinner']});
+    h.read().next();h.read().next();h.read().setSlots(old=>old.map(s=>({...s,note:s.meal_anchor==='after_breakfast'?'Ghi chú sáng':'Ghi chú tối'})));
+    h.read().leave();h.read().setMeals({...h.read().meals,breakfast:'18:00',dinner:'06:30'});h.read().next();
+    assert.deepEqual(Object.fromEntries(h.read().slots.map(s=>[s.meal_anchor,s.note])),{after_dinner:'Ghi chú tối',after_breakfast:'Ghi chú sáng'});h.blur();
+  });
+  await test('merging two times preserves both notes and UI identity fields never reach the API',async()=>{
+    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Thuốc A',confirmed:true,anchors:['after_breakfast']});h.read().addItem('Thuốc B');h.read().update(1,{confirmed:true,anchors:['after_dinner']});
+    h.read().next();h.read().next();h.read().setSlots(old=>old.map(s=>({...s,note:s.meal_anchor==='after_breakfast'?'Ghi chú sáng':'Ghi chú tối'})));
+    h.read().leave();h.read().setMeals({...h.read().meals,dinner:'06:30'});h.read().next();assert.equal(h.read().slots.length,1);
+    assert.equal(h.read().slots[0].note,'Ghi chú sáng; Ghi chú tối');h.read().next();await flush();const sent=h.calls.find(x=>x[0]==='setup')[2];
+    assert.equal(sent.items[0].clientId,undefined);assert.equal(sent.slots[0].sourceKeys,undefined);h.blur();
+  });
+  await test('removing the token hides the previous draft immediately even if the profile is not cleared yet',async()=>{
+    const h=harness();await h.settle();await h.toReview();h.auth.token=null;
+    assert.equal(h.read().data,null);assert.deepEqual(h.read().draft,[]);assert.equal(h.read().canContinue,false);h.blur();
   });
   console.log(`Medication setup: ${count} runtime checks passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});
