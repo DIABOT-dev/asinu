@@ -5,6 +5,7 @@ import { useAuthStore } from "../auth/auth.store";
 import { useToastStore } from "../../stores/toast.store";
 import { v21Error } from "./V21Layout";
 import { validMedicationNote } from "./medication-input";
+import { medicationDoseNeedsRefresh } from "./medication-dose-display";
 import {
   v21Api,
   type MedDose,
@@ -12,6 +13,9 @@ import {
   type MedSchedule,
   type Patient,
 } from "./v21.api";
+const medicationCalendar = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Ho_Chi_Minh",
+});
 
 export function useMedicationOverview() {
   const { t } = useTranslation("v21");
@@ -29,6 +33,29 @@ export function useMedicationOverview() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [todayLoading, setTodayLoading] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const serverOffset = useRef(0);
+  const lastDay = useRef("");
+  const latestDoses = useRef<MedDose[]>([]);
+  const doseReads = useRef(0);
+  const liveRead = useRef<object | null>(null);
+  const activePatient = useRef<number | null>(null);
+  const remindersActive = useRef(false);
+  const acceptToday = useCallback(
+    (value: { items: MedDose[]; serverTime?: string }) => {
+      const serverNow = Date.parse(value.serverTime || "");
+      serverOffset.current = Number.isFinite(serverNow)
+        ? serverNow - Date.now()
+        : 0;
+      const instant = Date.now() + serverOffset.current;
+      setNow(instant);
+      lastDay.current = medicationCalendar.format(new Date(instant));
+      latestDoses.current = value.items;
+      setDoses(value.items);
+      setTodayLoading(false);
+    },
+    [],
+  );
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<MedSchedule | null>(null);
@@ -69,25 +96,31 @@ export function useMedicationOverview() {
           setData(null);
           setDoses([]);
           setWeekly(null);
+          latestDoses.current = [];
+          activePatient.current = null;
           setFailed(false);
           return;
         }
+        activePatient.current = id;
         setTodayLoading(true);
         const overview = v21Api.overview(id, true).then((value) => {
           if (!valid()) return;
           setData(value);
+          remindersActive.current = value.remindersEnabled !== false;
           loaded.current = true;
           setLoading(false);
         });
+        const doseRead = ++doseReads.current;
         const today = v21Api.doses(id).then(
           (value) => {
-            if (!valid()) return;
-            setDoses(value.items);
+            if (!valid() || doseRead !== doseReads.current) return;
+            acceptToday(value);
             setTodayLoading(false);
           },
           (error) => {
-            if (valid()) {
+            if (valid() && doseRead === doseReads.current) {
               setDoses([]);
+              latestDoses.current = [];
               setTodayLoading(false);
             }
             throw error;
@@ -114,7 +147,7 @@ export function useMedicationOverview() {
         if (valid()) setLoading(false);
       }
     },
-    [current, patient],
+    [current, patient, acceptToday],
   );
 
   useFocusEffect(
@@ -126,24 +159,69 @@ export function useMedicationOverview() {
         visibleScope.current.patient !== patient;
       visibleScope.current = { token, patient };
       operation.current = null;
+      liveRead.current = null;
       if (changed) {
         loaded.current = false;
         setPatients([]);
         setData(null);
         setDoses([]);
+        latestDoses.current = [];
+        activePatient.current = null;
+        remindersActive.current = false;
         setWeekly(null);
         setTodayLoading(false);
       }
       setSelected(null);
       setBusy(false);
+      lastDay.current = medicationCalendar.format(
+        new Date(Date.now() + serverOffset.current),
+      );
+      const expected = version.current;
+      const timer = setInterval(() => {
+        if (!current(expected)) return;
+        const instant = Date.now() + serverOffset.current;
+        setNow(instant);
+        const nextDay = medicationCalendar.format(new Date(instant));
+        if (nextDay !== lastDay.current) {
+          lastDay.current = nextDay;
+          void refresh(true);
+          return;
+        }
+        const nearDose = latestDoses.current.some((dose) =>
+          medicationDoseNeedsRefresh(dose, instant),
+        );
+        if (
+          nearDose &&
+          remindersActive.current &&
+          activePatient.current &&
+          !liveRead.current &&
+          !operation.current
+        ) {
+          const owner = {},
+            read = ++doseReads.current;
+          liveRead.current = owner;
+          void v21Api
+            .doses(activePatient.current)
+            .then((value) => {
+              if (current(expected) && read === doseReads.current)
+                acceptToday(value);
+            })
+            .catch(() => {})
+            .finally(() => {
+              if (liveRead.current === owner) liveRead.current = null;
+            });
+        }
+      }, 15_000);
       void refresh(true);
       return () => {
+        clearInterval(timer);
         focused.current = false;
         version.current++;
         reads.current++;
+        doseReads.current++;
         operation.current = null;
       };
-    }, [refresh, token, patient]),
+    }, [refresh, token, patient, current, acceptToday]),
   );
 
   const viewVersion = version.current;
@@ -210,6 +288,7 @@ export function useMedicationOverview() {
     weekly: visible ? weekly : null,
     loading: !visible || loading,
     todayLoading: visible && todayLoading,
+    now,
     failed: visible && failed,
     busy,
     selected: visible ? selected : null,

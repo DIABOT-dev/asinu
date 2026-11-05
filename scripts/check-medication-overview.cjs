@@ -5,7 +5,8 @@ const ts = require('typescript');
 const flush = async () => { for (let n = 0; n < 30; n++) await Promise.resolve(); };
 const defer = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 function harness() {
-  const slots = []; let cursor = 0, effects = [], focusCallback;
+  const slots = [], timers=new Map(), clock={now:Date.now()}; let cursor = 0, effects = [], focusCallback;
+  class Clock extends Date { constructor(...args){super(...(args.length?args:[clock.now]));} static now(){return clock.now;} }
   const memo = (fn, deps) => { const i = cursor++, old = slots[i]; if (!old || deps.some((x, n) => !Object.is(x, old.deps[n]))) slots[i] = { value: fn(), deps }; return slots[i].value; };
   const react = {
     useState(initial) { const i = cursor++; slots[i] ??= { value: initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value; }]; },
@@ -20,7 +21,7 @@ function harness() {
   const api = {
     flags: async () => { if (server.fail) throw Error('offline'); return { medication: true, patients: [{ id: 1, name: 'Tôi' }, { id: 2, name: 'Người thân' }] }; },
     overview: async (id, includePaused) => { calls.push(['read', id, includePaused]); if (server.late && id === 1) return server.late; return {...overview(id),draft:server.draft,drafts:server.drafts}; },
-    doses: async () => {if(server.dosesPending)await server.dosesPending;if(server.dosesFail)throw Error('doses unavailable');return {items:server.doses||[]};}, weekly: async () => {if(server.weekPending)await server.weekPending;if(server.weekFail)throw Error('weekly unavailable');return { report: { taken: 2, total: 3, skipped: 1, coins: 10 } };},
+    doses: async () => {server.doseReadCount=(server.doseReadCount||0)+1;const value={items:server.doses||[],serverTime:server.serverTime};if(server.dosesPending)await server.dosesPending;if(server.dosesFail)throw Error('doses unavailable');return value;}, weekly: async () => {if(server.weekPending)await server.weekPending;if(server.weekFail)throw Error('weekly unavailable');return { report: { taken: 2, total: 3, skipped: 1, coins: 10 } };},
     saveSchedule: async (...args) => { calls.push(['save', ...args]); if (server.pending) await server.pending; if (server.writeFail) throw Error('offline'); Object.assign(schedule, args[2]); },
     remove: async (...args) => { calls.push(['remove', ...args]); },
     removeDraft: async (...args) => { calls.push(['removeDraft', ...args]); if(server.pending)await server.pending;if(server.writeFail)throw Error('offline');server.drafts=server.drafts?.filter(d=>d.id!==args[1]);server.draft=server.drafts?.[0]||null; },
@@ -36,13 +37,14 @@ function harness() {
   const inputs = { exports: {} };
   new Function('module', 'exports', ts.transpileModule(fs.readFileSync('src/features/v21/medication-input.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(inputs, inputs.exports);
   deps['./medication-input'] = inputs.exports;
+  const display={exports:{}};new Function('module','exports',ts.transpileModule(fs.readFileSync('src/features/v21/medication-dose-display.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(display,display.exports);deps['./medication-dose-display']=display.exports;
   const code = ts.transpileModule(fs.readFileSync('src/features/v21/useMedicationOverview.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   // Execute the production controller with isolated network/native adapters.
   // eslint-disable-next-line no-new-func
-  new Function('module', 'exports', 'require', code)(module, module.exports, key => { assert.ok(key in deps, key); return deps[key]; });
+  new Function('module', 'exports', 'require', 'setInterval', 'clearInterval', 'Date', code)(module, module.exports, key => { assert.ok(key in deps, key); return deps[key]; }, fn=>{const id=Symbol();timers.set(id,fn);return id;},id=>timers.delete(id),Clock);
   const read = () => { cursor = 0; return module.exports.useMedicationOverview(); };
   const settle = async () => { for (let n = 0; n < 3; n++) { read(); const work = effects; effects = []; work.forEach(fn => fn()); await flush(); } return read(); };
-  return { read, settle, calls, server, auth, toasts, errors, schedule, overview, refocus:()=>focusCallback(),blur: () => slots.forEach(x => x?.cleanup?.()) };
+  return { read, settle, calls, server, auth, toasts, errors, schedule, overview, clock, tick:async(ms=15000)=>{clock.now+=ms;for(const fn of timers.values())fn();await flush();}, refocus:()=>focusCallback(),blur: () => {slots.forEach(x => x?.cleanup?.());timers.clear();} };
 }
 let count = 0;
 async function test(name, work) { await work(); count++; console.log('PASS ' + name); }
@@ -169,6 +171,41 @@ async function test(name, work) { await work(); count++; console.log('PASS ' + n
     const h=harness(),oldWeek=defer();h.server.weekPending=oldWeek.promise;await h.settle();
     h.server.weekPending=null;h.read().selectPatient(2);await h.settle();const current=h.read().weekly;oldWeek.resolve();await flush();
     assert.equal(h.read().data.patientId,2);assert.equal(h.read().weekly,current);h.blur();
+  });
+  await test('upcoming is limited to five minutes and never replaces a real answered state',async()=>{
+    const m={exports:{}};new Function('module','exports',ts.transpileModule(fs.readFileSync('src/features/v21/medication-dose-display.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(m,m.exports);
+    const key=m.exports.medicationDoseStatusKey,now=Date.parse('2026-11-06T07:00:00+07:00');
+    const event=offset=>({state:'SCHEDULED',scheduled_at:new Date(now+offset).toISOString()});
+    assert.equal(key(event(300001),now),'medicationLater');assert.equal(key(event(300000),now),'SCHEDULED');
+    assert.equal(key(event(0),now),'medicationDueNow');assert.equal(key(event(-60001),now),'medicationOverdue');
+    assert.equal(key(event(1000),now,false),'medicationReminderPaused');assert.equal(key({state:'SCHEDULED',scheduled_at:'invalid'},now),'medicationPlanned');
+    for(const state of ['TAKEN','SKIPPED','OUT_OF_MEDS','UNCONFIRMED','CALLING','CANCELLED'])assert.equal(key({...event(1000),state},now),state);
+  });
+  await test('the visible clock advances without repeatedly fetching medication data',async()=>{
+    const h=harness();await h.settle();const before=h.read().now,reads=h.calls.filter(x=>x[0]==='read').length;
+    await h.tick();assert.equal(h.read().now,before+15000);assert.equal(h.calls.filter(x=>x[0]==='read').length,reads);h.blur();
+  });
+  await test('today refreshes once across Vietnamese midnight, independent of device timezone',async()=>{
+    const h=harness();h.clock.now=Date.parse('2026-11-06T23:59:50+07:00');await h.settle();const before=h.calls.filter(x=>x[0]==='read').length;
+    await h.tick();assert.equal(h.calls.filter(x=>x[0]==='read').length,before+1);await h.tick();assert.equal(h.calls.filter(x=>x[0]==='read').length,before+1);h.blur();
+  });
+  await test('dose labels use the server clock even if the device clock is wrong',async()=>{
+    const h=harness();h.clock.now=Date.parse('2020-01-01T00:00:00Z');h.server.serverTime='2026-11-06T07:00:00+07:00';await h.settle();
+    assert.equal(h.read().now,Date.parse(h.server.serverTime));await h.tick();assert.equal(h.read().now,Date.parse(h.server.serverTime)+15000);h.blur();
+  });
+  await test('only near or active reminders refresh statuses; far-future and completed doses do not refetch the page',async()=>{
+    const h=harness();h.clock.now=Date.parse('2026-11-06T07:00:00+07:00');h.server.doses=[{id:'live',state:'SCHEDULED',scheduled_at:'2026-11-06T08:00:00+07:00'}];await h.settle();
+    const before=h.server.doseReadCount,original=h.server.doses;
+    await h.tick(50*60000);assert.equal(h.server.doseReadCount,before);
+    h.server.doses=[{...original[0],state:'CALLING'}];await h.tick(5*60000);assert.equal(h.read().doses[0].state,'CALLING');assert.equal(h.server.doseReadCount,before+1);
+    h.server.doses=[{...original[0],state:'TAKEN'}];await h.tick();assert.equal(h.read().doses[0].state,'TAKEN');const done=h.server.doseReadCount;await h.tick();assert.equal(h.server.doseReadCount,done);
+    assert.equal(h.calls.filter(x=>x[0]==='read').length,1);h.blur();
+  });
+  await test('live status reads coalesce and cannot show a previous patient response',async()=>{
+    const h=harness();h.server.doses=[{id:'previous-dose',state:'CALLING',scheduled_at:new Date(h.clock.now).toISOString()}];await h.settle();
+    const delayed=defer(),before=h.server.doseReadCount;h.server.dosesPending=delayed.promise;await h.tick();await h.tick();
+    assert.equal(h.server.doseReadCount,before+1);h.server.dosesPending=null;h.server.doses=[];h.read().selectPatient(2);await h.settle();
+    delayed.resolve();await flush();assert.equal(h.read().data.patientId,2);assert.deepEqual(h.read().doses,[]);h.blur();
   });
   console.log(`Medication overview: ${count} runtime checks passed.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

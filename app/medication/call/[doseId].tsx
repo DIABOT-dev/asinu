@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Image, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useGuardedRouter as useRouter } from "../../../src/hooks/useGuardedRouter";
 import { randomUUID } from "expo-crypto";
@@ -18,14 +17,16 @@ import {
   Action,
   Heading,
   Note,
-  V21Layout,
-  v21Error,
-} from "../../../src/features/v21/V21Layout";
+  MedicationCallLayout,
+  MedicationItemsToggle,
+  MedicationDoseItem,
+} from "../../../src/features/v21/MedicationCallView";
+import { v21Error } from "../../../src/features/v21/V21Layout";
+import { medicationDoseStatusKey } from "../../../src/features/v21/medication-dose-display";
 import { useMedicationAudio } from "../../../src/features/v21/useMedicationAudio";
 import { acceptMedicationCallOnce } from "../../../src/features/v21/medication.accept";
 import { useAuthStore } from "../../../src/features/auth/auth.store";
 import { endVoipCall } from "../../../src/lib/voip";
-import { env } from "../../../src/lib/env";
 import { useToastStore } from "../../../src/stores/toast.store";
 export default function MedicationCall() {
   const { doseId, attemptId, nativeAnswered, quickButton } =
@@ -54,7 +55,7 @@ export default function MedicationCall() {
     doseId,
     nativeAnswered === "1" ? attemptId : undefined,
     data?.attempt?.deadline,
-    i18n.language
+    i18n.language,
   );
   const current = (revision: number, token: string | null) =>
     scope.current.active &&
@@ -135,7 +136,7 @@ export default function MedicationCall() {
               needsCheckin: r.needsCheckin,
               checkinDoseId: r.checkinDoseId,
             }
-          : d
+          : d,
       );
       // Another device may already have won, or the answer window may be over.
       // Speak only the result actually accepted by the server.
@@ -144,10 +145,10 @@ export default function MedicationCall() {
           r.event.state === "TAKEN"
             ? "taken"
             : r.event.state === "SKIPPED"
-            ? "skipped"
-            : r.event.state === "OUT_OF_MEDS"
-            ? "out"
-            : null;
+              ? "skipped"
+              : r.event.state === "OUT_OF_MEDS"
+                ? "out"
+                : null;
         if (phase) void audio.play(phase);
       }
     } catch (e) {
@@ -202,7 +203,7 @@ export default function MedicationCall() {
     try {
       await v21Api.checkin(
         result?.checkinDoseId || data?.checkinDoseId || doseId,
-        status
+        status,
       );
       if (!current(revision, token)) return;
       setDone(true);
@@ -215,7 +216,7 @@ export default function MedicationCall() {
               checkinDoseId: undefined,
               event: { ...d.event, checkin_pending: false },
             }
-          : d
+          : d,
       );
       if (attemptId) await endVoipCall(attemptId);
       useToastStore.getState().show(t("checkinSaved"), "success");
@@ -228,8 +229,33 @@ export default function MedicationCall() {
       }
     }
   };
+  const replayPhase = checkin
+    ? "checkin"
+    : data?.canAnswer && !result
+      ? "prompt"
+      : result && !result.answerWindowClosed
+        ? result.event.state === "TAKEN"
+          ? "taken"
+          : result.event.state === "SKIPPED"
+            ? "skipped"
+            : result.event.state === "OUT_OF_MEDS"
+              ? "out"
+              : undefined
+        : undefined;
   return (
-    <V21Layout title={t("callTitle")}>
+    <MedicationCallLayout
+      title={t("medicationReminderTitle")}
+      time={data?.event.time_local}
+      status={data ? t(medicationDoseStatusKey(data.event)) : t("loading")}
+      busy={busy}
+      onBack={() => router.replace("/medication")}
+      audioPhase={audio.state.phase}
+      audioEnabled={!!replayPhase}
+      onReplay={() => {
+        if (replayPhase) void audio.play(replayPhase);
+      }}
+      onStop={() => void audio.stop()}
+    >
       {!data && <Note>{t(failed ? "error" : "loading")}</Note>}
       {failed && (
         <Action secondary label={t("retry")} onPress={() => void refresh()} />
@@ -241,12 +267,16 @@ export default function MedicationCall() {
               result?.answerWindowClosed
                 ? "answerClosed"
                 : done
-                ? "recorded"
-                : checkin
-                ? "checkinQuestion"
-                : result
-                ? "recorded"
-                : "callIntro"
+                  ? "recorded"
+                  : checkin
+                    ? "checkinQuestion"
+                    : result
+                      ? "recorded"
+                      : data.canAnswer
+                        ? "medicationCallQuestion"
+                        : data.event.state === "SCHEDULED"
+                          ? "medicationScheduledTitle"
+                          : "medicationReminderEnded",
             )}
           </Heading>
           {checkin && !done ? (
@@ -255,6 +285,7 @@ export default function MedicationCall() {
                 <Action
                   key={status}
                   label={t(status)}
+                  secondary={status !== "fine"}
                   disabled={busy}
                   onPress={() => void health(status)}
                 />
@@ -264,60 +295,51 @@ export default function MedicationCall() {
             <>
               <Action
                 label={t("TAKEN")}
+                number={1}
                 disabled={busy}
                 onPress={() => void answer(1)}
               />
               <Action
                 secondary
                 label={t("SKIPPED")}
+                number={2}
                 disabled={busy}
                 onPress={() => void answer(2)}
               />
-              <Note>{t("skipExplained")}</Note>
               <Action
                 secondary
                 label={t("OUT_OF_MEDS")}
+                number={3}
                 disabled={busy}
                 onPress={() => void answer(3)}
               />
+              <Note>{t("skipExplained")}</Note>
             </>
           ) : (
             !done && (
               <Note>
-                {t(data.event.state)}
+                {t(medicationDoseStatusKey(data.event))}
                 {!data.canAnswer && !result
                   ? " · " +
                     t(
-                      data.event.state === "SCHEDULED"
+                      data.event.state === "SCHEDULED" &&
+                        Date.parse(data.event.scheduled_at) > Date.now()
                         ? "notDue"
-                        : "answerClosed"
+                        : "answerClosed",
                     )
                   : ""}
               </Note>
             )
           )}
-          <Action
-            secondary
-            label={t("viewItems")}
+          <MedicationItemsToggle
+            label={t(showItems ? "medicationItemsHide" : "viewItems")}
+            expanded={showItems}
+            disabled={busy}
             onPress={() => setShowItems((v) => !v)}
           />
           {showItems &&
             data.items.map((item) => (
-              <View key={item.id} style={{ gap: 8 }}>
-                <Heading>{item.display_name}</Heading>
-                <Note>{t(item.kind)}</Note>
-                {item.photoUrl && (
-                  <Image
-                    source={{
-                      uri: item.photoUrl.startsWith("/")
-                        ? env.apiBaseUrl + item.photoUrl
-                        : item.photoUrl,
-                    }}
-                    resizeMode="contain"
-                    style={{ width: "100%", height: 180, borderRadius: 18 }}
-                  />
-                )}
-              </View>
+              <MedicationDoseItem key={item.id} item={item} />
             ))}
           {(!data.canAnswer || result || done) && !checkin && (
             <Action
@@ -331,6 +353,6 @@ export default function MedicationCall() {
           )}
         </>
       )}
-    </V21Layout>
+    </MedicationCallLayout>
   );
 }

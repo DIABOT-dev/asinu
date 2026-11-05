@@ -77,7 +77,11 @@ export type MedPurposeCode =
   | "stomach";
 export type MedPurposeLookup = {
   status:
-    "matched" | "not_found" | "ambiguous" | "unavailable" | "not_applicable";
+    | "matched"
+    | "not_found"
+    | "ambiguous"
+    | "unavailable"
+    | "not_applicable";
   tags: MedPurposeCode[];
   productName?: string;
   source?: { name: string; url: string };
@@ -266,7 +270,7 @@ export const v21Api = {
       { method: "PUT", body: { problems_only } },
     ),
   doses: (patient?: number) =>
-    apiClient<{ items: MedDose[] }>(
+    apiClient<{ items: MedDose[]; serverTime?: string }>(
       `/api/mobile/med-doses/today?patientId=${patient || ""}`,
     ),
   dose: (id: string) =>

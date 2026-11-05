@@ -1,3 +1,4 @@
+/* eslint-disable no-new-func -- Execute trusted production modules with isolated native/network adapters. */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import React from "react";
@@ -16,6 +17,9 @@ const code = ts.transpileModule(
     },
   }
 ).outputText;
+const displayModule={exports:{}};
+new Function('module','exports',ts.transpileModule(fs.readFileSync('src/features/v21/medication-dose-display.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(displayModule,displayModule.exports);
+const display=displayModule.exports;
 const deferred = () => {
   let resolve;
   const promise = new Promise((r) => {
@@ -121,13 +125,14 @@ function harness({
         pending = null;
       },
     },
-    "../../../src/features/v21/V21Layout": {
-      V21Layout: "Layout",
+    "../../../src/features/v21/MedicationCallView": {
+      MedicationCallLayout: "Layout", MedicationItemsToggle: "Action", MedicationDoseItem: "DoseItem",
       Heading: "Heading",
       Note: "Note",
       Action: "Action",
-      v21Error: (e) => errors.push(e.message),
     },
+    "../../../src/features/v21/V21Layout": {v21Error: (e) => errors.push(e.message)},
+    "../../../src/features/v21/medication-dose-display": display,
     "../../../src/features/v21/useMedicationAudio": {
       useMedicationAudio: () => audioAdapter,
     },

@@ -34,6 +34,7 @@ import { validMedicationNote } from "./medication-input";
 import { MedicationPurposeTags } from "./MedicationPurposeTags";
 import { MedicationBackground } from "./MedicationBackground";
 import { MedicationDraftEntry } from "./MedicationDraftEntry";
+import { medicationDoseStatusKey } from "./medication-dose-display";
 
 type Tab = "today" | "schedules";
 type PanelProps = {
@@ -367,9 +368,16 @@ export function MedicationOverviewPanel({
                 )}
                 <View style={s.list}>
                   {med.doses.map((dose) => {
-                    const color = ["OUT_OF_MEDS", "UNCONFIRMED"].includes(
-                      dose.state,
-                    )
+                    const status = medicationDoseStatusKey(
+                      dose,
+                      med.now,
+                      med.data!.remindersEnabled !== false,
+                    );
+                    const color = [
+                      "OUT_OF_MEDS",
+                      "UNCONFIRMED",
+                      "medicationOverdue",
+                    ].includes(status)
                       ? isDark
                         ? "#f0c47a"
                         : "#996515"
@@ -391,7 +399,7 @@ export function MedicationOverviewPanel({
                             color={color}
                           />
                           <Text style={[s.title, { color }, s.copy]}>
-                            {t(dose.state)}
+                            {t(status)}
                           </Text>
                         </View>
                         {canAnswer && (
