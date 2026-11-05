@@ -85,6 +85,20 @@ function clock(value: string, offset: number) {
     .toString()
     .padStart(2, "0")}:${(n % 60).toString().padStart(2, "0")}`;
 }
+function medicationAnchorTime(anchor: Anchor, meals: Meals) {
+  switch (anchor) {
+    case "before_breakfast":
+      return clock(meals.breakfast, -30);
+    case "after_breakfast":
+      return clock(meals.breakfast, 30);
+    case "after_lunch":
+      return clock(meals.lunch, 30);
+    case "after_dinner":
+      return clock(meals.dinner, 30);
+    case "bedtime":
+      return meals.bedtime;
+  }
+}
 const draftItem = ({ photo_uri: _uri, ...item }: MedicationDraft) => ({
   ...item,
   ...(item.purposeLookup?.result
@@ -670,16 +684,7 @@ export function useMedicationSetup() {
     >();
     draft.forEach((d, i) =>
       d.anchors.forEach((a) => {
-        const time =
-          a === "before_breakfast"
-            ? clock(meals.breakfast, -30)
-            : a === "after_breakfast"
-              ? clock(meals.breakfast, 30)
-              : a === "after_lunch"
-                ? clock(meals.lunch, 30)
-                : a === "after_dinner"
-                  ? clock(meals.dinner, 30)
-                  : meals.bedtime;
+        const time = medicationAnchorTime(a, meals);
         const row = grouped.get(time) || {
           time_local: time,
           meal_anchor: a,
@@ -828,6 +833,23 @@ export function useMedicationSetup() {
       }
     }
   };
+  const anchorTimes = Object.values(meals).every(validMedicationTime)
+    ? (Object.fromEntries(
+        medicationAnchors.map((anchor) => [
+          anchor,
+          medicationAnchorTime(anchor, meals),
+        ]),
+      ) as Record<Anchor, string>)
+    : null;
+  const selectedTimeCount = anchorTimes
+    ? new Set(
+        draft.flatMap((item) =>
+          item.anchors.map((anchor) => anchorTimes[anchor]),
+        ),
+      ).size
+    : null;
+  const timingLimitExceeded =
+    selectedTimeCount !== null && selectedTimeCount > 4;
   const canContinue =
     current(viewVersion) &&
     !!data &&
@@ -847,6 +869,7 @@ export function useMedicationSetup() {
         )
       : step === 3
         ? Object.values(meals).every(validMedicationTime) &&
+          !timingLimitExceeded &&
           !!draft.length &&
           draft.every((d) => d.anchors.length > 0)
         : step === 4
@@ -863,6 +886,9 @@ export function useMedicationSetup() {
     step: owned ? step : 1,
     draft: owned ? draft : [],
     meals,
+    anchorTimes,
+    selectedTimeCount,
+    timingLimitExceeded,
     slots: owned ? slots : [],
     loading,
     draftStatus,

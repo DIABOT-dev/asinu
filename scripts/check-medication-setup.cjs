@@ -68,7 +68,26 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     assert.equal(h.read().slots.length,1);assert.deepEqual(h.read().slots[0].item_indexes,[0,1]);
   });
   await test('more than four distinct daily times cannot reach save',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['before_breakfast','after_breakfast','after_lunch','after_dinner','bedtime']});h.read().next();h.read().next();assert.equal(h.read().step,3);assert.equal(h.toasts.at(-1)[0],'scheduleLimit');assert.ok(!h.calls.some(x=>x[0]==='setup'));
+    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['before_breakfast','after_breakfast','after_lunch','after_dinner','bedtime']});h.read().next();
+    assert.equal(h.read().selectedTimeCount,5);assert.equal(h.read().timingLimitExceeded,true);assert.equal(h.read().canContinue,false);
+    h.read().next();assert.equal(h.read().step,3);assert.equal(h.toasts.length,0);assert.ok(!h.calls.some(x=>x[0]==='setup'));
+    h.read().update(0,{anchors:['after_breakfast','after_lunch','after_dinner','bedtime']});assert.equal(h.read().selectedTimeCount,4);assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().step,4);h.blur();
+  });
+  await test('the timing limit counts grouped clock times rather than the number of selected chips',async()=>{
+    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['before_breakfast','after_breakfast','after_lunch','after_dinner','bedtime']});
+    h.read().setMeals(old=>({...old,dinner:'21:00',bedtime:'21:30'}));h.read().next();
+    assert.equal(h.read().selectedTimeCount,4);assert.equal(h.read().timingLimitExceeded,false);assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().slots.length,4);h.blur();
+  });
+  await test('four routine fields generate five explicitly displayed anchor times using the same review calculation',async()=>{
+    const h=harness();await h.settle();h.read().setMeals(old=>({...old,bedtime:'00:00'}));
+    assert.deepEqual(h.read().anchorTimes,{before_breakfast:'06:00',after_breakfast:'07:00',after_lunch:'12:00',after_dinner:'18:30',bedtime:'00:00'});
+    h.read().addManual();h.read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['after_breakfast','after_lunch','after_dinner','bedtime']});h.read().next();h.read().next();
+    assert.deepEqual(h.read().slots.map(s=>s.time_local),['00:00','07:00','12:00','18:30']);h.blur();
+  });
+  await test('overlapping times for several medicines share the same timing count',async()=>{
+    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên một',confirmed:true,anchors:['after_breakfast','after_dinner']});h.read().addItem('Tên hai');h.read().update(1,{confirmed:true,anchors:['after_breakfast','after_dinner']});h.read().next();
+    assert.equal(h.read().selectedTimeCount,2);assert.equal(h.read().canContinue,true);
+    h.read().setMeals(old=>({...old,breakfast:'2:'}));assert.equal(h.read().selectedTimeCount,null);assert.equal(h.read().canContinue,false);h.blur();
   });
   await test('saving for a relative uses the existing consent path and sends confirmed items without UI-only anchors',async()=>{
     const h=harness({self:false});await h.settle();await h.toReview();h.read().next();await flush();

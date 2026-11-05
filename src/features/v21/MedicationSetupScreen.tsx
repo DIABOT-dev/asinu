@@ -658,6 +658,9 @@ export function MedicationSetupPanel({
                   ))}
                 </View>
                 <Help label={t("setupTimingHelp")}>{t("mealIntro")}</Help>
+                <Text style={[s.caption, { color: colors.textSecondary }]}>
+                  {t("setupTimingInstruction")}
+                </Text>
                 {draft.map((item, index) => (
                   <View key={index} style={s.section}>
                     <Text style={[s.sectionTitle, title]}>
@@ -678,9 +681,7 @@ export function MedicationSetupPanel({
                       {medicationAnchors.map((anchor) => (
                         <Chip
                           key={anchor}
-                          label={t(
-                            anchor === "bedtime" ? "anchor_bedtime" : anchor,
-                          )}
+                          label={`${t(anchor === "bedtime" ? "anchor_bedtime" : anchor)}${setup.anchorTimes ? `\n${setup.anchorTimes[anchor]}` : ""}`}
                           selected={item.anchors.includes(anchor)}
                           disabled={busy}
                           onPress={() =>
@@ -695,6 +696,33 @@ export function MedicationSetupPanel({
                     </View>
                   </View>
                 ))}
+                {setup.selectedTimeCount !== null && (
+                  <View style={{ gap: 6 }}>
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      style={[
+                        s.label,
+                        {
+                          color: setup.timingLimitExceeded
+                            ? colors.danger
+                            : colors.primaryText,
+                        },
+                      ]}
+                    >
+                      {t("setupSelectedTimes", {
+                        count: setup.selectedTimeCount,
+                      })}
+                    </Text>
+                    {setup.timingLimitExceeded && (
+                      <Text
+                        accessibilityRole="alert"
+                        style={[s.caption, { color: colors.danger }]}
+                      >
+                        {t("setupTooManyTimes")}
+                      </Text>
+                    )}
+                  </View>
+                )}
               </>
             )}
             {step === 4 && (
