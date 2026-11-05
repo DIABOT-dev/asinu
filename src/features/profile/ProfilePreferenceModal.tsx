@@ -29,7 +29,12 @@ export function ProfilePreferenceModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={[styles.root, { paddingTop: insets.top + 16 }]}>
+      <View
+        style={[
+          styles.root,
+          { paddingVertical: Math.max(insets.top, insets.bottom, 16) },
+        ]}
+      >
         <Pressable
           style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}
           accessibilityRole="button"
@@ -39,10 +44,9 @@ export function ProfilePreferenceModal({
         <View
           accessibilityViewIsModal
           style={[
-            styles.sheet,
+            styles.dialog,
             {
               backgroundColor: isDark ? "#142e29" : "#f1faf7",
-              paddingBottom: Math.max(insets.bottom, 16),
             },
           ]}
         >
@@ -89,16 +93,20 @@ export const preferenceStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: "flex-end" },
-  sheet: {
+  root: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  dialog: {
     width: "100%",
     maxWidth: 560,
     maxHeight: "85%",
     alignSelf: "center",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
     paddingHorizontal: 24,
     paddingTop: 12,
+    paddingBottom: 16,
   },
   header: {
     flexDirection: "row",
