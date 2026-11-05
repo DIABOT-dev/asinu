@@ -28,6 +28,10 @@ import type { MedKind, Meals } from "./v21.api";
 import { medicationSetupStyles as s } from "./medication-setup.styles";
 import { medicationQuickNames, validMedicationNote } from "./medication-input";
 import { MedicationPhotoPreview } from "./MedicationPhotoPreview";
+import {
+  MedicationPurposeReview,
+  MedicationPurposeTags,
+} from "./MedicationPurposeTags";
 
 function Option({
   label,
@@ -345,7 +349,7 @@ export function MedicationSetupPanel({
                   </View>
                 )}
                 {draft.map((item, index) => (
-                  <View key={index} style={s.item}>
+                  <View key={item.clientId} style={s.item}>
                     <View style={s.itemHeader}>
                       <Text style={[s.sectionTitle, title, s.flex]}>
                         {t("setupItemNumber", { number: index + 1 })}
@@ -426,14 +430,41 @@ export function MedicationSetupPanel({
                         />
                       ))}
                     </View>
+                    <MedicationPurposeReview
+                      item={item}
+                      disabled={busy}
+                      onRetry={() => setup.retryPurpose(index)}
+                      onToggle={(code) =>
+                        setup.update(index, {
+                          selectedPurposeCodes:
+                            item.selectedPurposeCodes?.includes(code)
+                              ? item.selectedPurposeCodes.filter(
+                                  (value) => value !== code
+                                )
+                              : [...(item.selectedPurposeCodes || []), code],
+                          confirmed: false,
+                        })
+                      }
+                    />
                     <Pressable
                       accessibilityRole="checkbox"
-                      accessibilityLabel={t("itemConfirmed")}
+                      accessibilityLabel={t(
+                        item.selectedPurposeCodes?.length
+                          ? "itemAndTagsConfirmed"
+                          : "itemConfirmed"
+                      )}
                       accessibilityState={{
                         checked: item.confirmed,
-                        disabled: busy,
+                        disabled:
+                          busy ||
+                          (item.kind === "MEDICINE" &&
+                            !item.purposeLookup?.result),
                       }}
-                      disabled={busy}
+                      disabled={
+                        busy ||
+                        (item.kind === "MEDICINE" &&
+                          !item.purposeLookup?.result)
+                      }
                       onPress={() =>
                         setup.update(index, { confirmed: !item.confirmed })
                       }
@@ -445,7 +476,11 @@ export function MedicationSetupPanel({
                         color={colors.primaryText}
                       />
                       <Text style={[s.label, title, s.flex]}>
-                        {t("itemConfirmed")}
+                        {t(
+                          item.selectedPurposeCodes?.length
+                            ? "itemAndTagsConfirmed"
+                            : "itemConfirmed"
+                        )}
                       </Text>
                     </Pressable>
                   </View>
@@ -582,10 +617,15 @@ export function MedicationSetupPanel({
                               label={draft[itemIndex].display_name}
                             />
                           )}
-                          <View style={s.flex}>
+                          <View style={[s.flex, { gap: 6 }]}>
                             <Text style={[s.label, title]}>
                               {draft[itemIndex]?.display_name}
                             </Text>
+                            <MedicationPurposeTags
+                              codes={
+                                draft[itemIndex]?.selectedPurposeCodes || []
+                              }
+                            />
                             <Text
                               style={[
                                 s.caption,

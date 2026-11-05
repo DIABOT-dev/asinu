@@ -194,6 +194,11 @@ export function v21Error(
   fallbackKey = "error",
 ) {
   const code = error instanceof ApiError ? error.code : undefined;
+  if (code === "MED_TAG_CONFIRMATION_EXPIRED" || code === "MED_TAG_CONFIRMATION_INVALID") {
+    useToastStore.getState().show(t("medicationPurposeReconfirm"), "error");
+    return;
+  }
+
   const photoKey = code === "UPLOAD_FILE_TOO_LARGE"
     ? "medicationPhotoTooLarge"
     : code === "IMAGE_TYPE_UNSUPPORTED"

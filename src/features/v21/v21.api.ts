@@ -43,6 +43,36 @@ export type CoinEntry = {
   reward_status?: string;
 };
 export type MedKind = "MEDICINE" | "SUPPLEMENT";
+export type MedPurposeCode =
+  | "fever_reduction"
+  | "pain_relief"
+  | "blood_pressure"
+  | "diabetes"
+  | "lipids"
+  | "antibiotic"
+  | "allergy"
+  | "cough"
+  | "stomach";
+export type MedPurposeLookup = {
+  status:
+    | "matched"
+    | "not_found"
+    | "ambiguous"
+    | "unavailable"
+    | "not_applicable";
+  tags: MedPurposeCode[];
+  productName?: string;
+  source?: { name: string; url: string };
+  checkedAt?: string;
+  token?: string;
+};
+export type MedPurposeTags = {
+  codes: MedPurposeCode[];
+  productName: string;
+  source: { name: string; url: string };
+  checkedAt: string;
+  confirmedAt: string;
+};
 export type Anchor =
   | "before_breakfast"
   | "after_breakfast"
@@ -63,6 +93,7 @@ export type MedItem = {
   source: "PHOTO_AI" | "CHIP" | "VOICE";
   photo_media_id?: string | null;
   photoUrl?: string | null;
+  purpose_tags?: MedPurposeTags | null;
 };
 export type MedSchedule = {
   id: string;
@@ -221,6 +252,11 @@ export const v21Api = {
     apiClient<ScanResult>(
       `/api/mobile/med-items/scan?patientId=${patient || ""}`,
       { method: "POST", body, timeoutMs: 60000 }
+    ),
+  lookupPurpose: (patient: number, name: string, kind: MedKind) =>
+    apiClient<MedPurposeLookup>(
+      `/api/mobile/med-items/lookup?patientId=${patient || ""}`,
+      { method: "POST", body: { name, kind }, timeoutMs: 12000 }
     ),
   transcribe: (patient: number, body: FormData) =>
     apiClient<{ text: string }>(

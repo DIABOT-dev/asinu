@@ -9,10 +9,20 @@ import { useTranslation } from "react-i18next";
 import { hasAiDataConsent } from "../../lib/aiDataConsent";
 import { Audio } from "../../lib/audio";
 import { useToastStore } from "../../stores/toast.store";
-import { v21Api, MedOverview, MedKind, Anchor, Meals } from "./v21.api";
+import {
+  v21Api,
+  MedOverview,
+  MedKind,
+  Anchor,
+  Meals,
+  type MedPurposeLookup,
+  type MedPurposeCode,
+} from "./v21.api";
+import { useMedicationPurposeLookup } from "./useMedicationPurposeLookup";
 import { v21Error } from "./V21Layout";
 import { reportError } from "../../observability/sentry";
 import { useAuthStore } from "../auth/auth.store";
+import { ApiError } from "../../lib/apiClient";
 import {
   medicationTextHasNoDose,
   validMedicationNote,
@@ -33,6 +43,13 @@ export type MedicationDraft = {
   photo_uri?: string;
   timeHints?: string[];
   anchors: Anchor[];
+  purposeLookup?: {
+    key: string;
+    loading: boolean;
+    version?: number;
+    result?: MedPurposeLookup;
+  };
+  selectedPurposeCodes?: MedPurposeCode[];
 };
 export const medicationAnchors: Anchor[] = [
   "before_breakfast",
@@ -121,6 +138,15 @@ export function useMedicationSetup() {
   const savedBody = useRef<string | null>(null);
   const reviewInputs = useRef<string | null>(null);
   const saving = useRef<object | null>(null);
+  const purposes = useMedicationPurposeLookup({
+    enabled: step === 2 && !busy && !!data,
+    patient,
+    scopeKey,
+    version: viewVersion,
+    current,
+    draft,
+    setDraft,
+  });
   const reload = useCallback(
     async (expected = generation.current) => {
       if (!current(expected)) return;
@@ -189,7 +215,26 @@ export function useMedicationSetup() {
   );
   const update = (i: number, x: Partial<MedicationDraft>) => {
     if (current(viewVersion))
-      setDraft((old) => old.map((d, n) => (i === n ? { ...d, ...x } : d)));
+      setDraft((old) =>
+        old.map((d, n) => {
+          if (i !== n) return d;
+          const identityChanged =
+            (x.display_name !== undefined &&
+              x.display_name !== d.display_name) ||
+            (x.kind !== undefined && x.kind !== d.kind);
+          return {
+            ...d,
+            ...x,
+            ...(identityChanged
+              ? {
+                  confirmed: x.confirmed === true,
+                  purposeLookup: undefined,
+                  selectedPurposeCodes: [],
+                }
+              : {}),
+          };
+        })
+      );
   };
   const leave = () => {
     if (!current(viewVersion) || busy) return;
@@ -514,10 +559,20 @@ export function useMedicationSetup() {
           clientId: _id,
           photo_uri: _photo,
           timeHints: _hints,
+          purposeLookup,
+          selectedPurposeCodes,
           ...d
         }) => ({
           ...d,
           confirmed: true,
+          ...(purposeLookup?.result?.token && selectedPurposeCodes?.length
+            ? {
+                tag_confirmation: {
+                  token: purposeLookup.result.token,
+                  codes: selectedPurposeCodes,
+                },
+              }
+            : {}),
         })
       ),
       meals,
@@ -546,7 +601,17 @@ export function useMedicationSetup() {
         .show(t(r.pendingConsent ? "consentSent" : "scheduleSaved"), "success");
       router.replace("/medication" as any);
     } catch (e) {
-      if (current(expected)) v21Error(e, t);
+      if (current(expected)) {
+        if (
+          e instanceof ApiError &&
+          (e.code === "MED_TAG_CONFIRMATION_EXPIRED" ||
+            e.code === "MED_TAG_CONFIRMATION_INVALID")
+        ) {
+          draft.forEach((item) => purposes.retry(item));
+          setStep(2);
+        }
+        v21Error(e, t);
+      }
     } finally {
       if (saving.current === operation) {
         saving.current = null;
@@ -559,12 +624,14 @@ export function useMedicationSetup() {
     !!data &&
     !busy &&
     !listening &&
+    !purposes.pending &&
     (step === 2
       ? !!draft.length &&
         draft.every(
           (d) =>
             !!d.kind &&
             d.confirmed &&
+            !d.purposeLookup?.loading &&
             !!d.display_name.trim() &&
             d.display_name.trim().length <= 30 &&
             medicationNameHasNoDose(d.display_name)
@@ -599,6 +666,9 @@ export function useMedicationSetup() {
     pick,
     voice,
     update,
+    retryPurpose: (index: number) => {
+      if (draft[index]) purposes.retry(draft[index]);
+    },
     setDraft: (value: Parameters<typeof setDraft>[0]) => {
       if (current(viewVersion)) setDraft(value);
     },

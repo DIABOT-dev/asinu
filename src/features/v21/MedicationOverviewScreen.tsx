@@ -30,6 +30,7 @@ import {
 import { medicationStyles as s } from "./medication-overview.styles";
 import type { MedDose } from "./v21.api";
 import { validMedicationNote } from "./medication-input";
+import { MedicationPurposeTags } from "./MedicationPurposeTags";
 
 type Tab = "today" | "schedules";
 type PanelProps = {
@@ -709,9 +710,12 @@ export function MedicationScheduleSheet({
                       size={23}
                       color={colors.primaryText}
                     />
-                    <Text style={[s.title, title, s.copy]}>
-                      {item.display_name}
-                    </Text>
+                    <View style={[s.copy, { gap: 6 }]}>
+                      <Text style={[s.title, title]}>{item.display_name}</Text>
+                      <MedicationPurposeTags
+                        codes={item.purpose_tags?.codes || []}
+                      />
+                    </View>
                   </Pressable>
                 ))}
                 <Button

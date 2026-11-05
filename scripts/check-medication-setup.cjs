@@ -27,8 +27,9 @@ function harness({self=true}={}) {
     'expo-file-system':{File:class File {constructor(uri){this.uri=uri;this.name=uri.split('/').pop();this.type='audio/mp4';}async bytes(){return new Uint8Array([1,2,3]);}}},'expo-crypto':{randomUUID},'react-i18next':{useTranslation:()=>({t})},'../../lib/aiDataConsent':{hasAiDataConsent:async()=>server.aiConsent},'../../lib/audio':{Audio:{requestPermissionsAsync:async()=>({granted:true}),setAudioModeAsync:async()=>{},RecordingOptionsPresets:{HIGH_QUALITY:{}},Recording:{createAsync:async()=>({recording:{stopAndUnloadAsync:async()=>{},getURI:()=> 'file:///fixture/name.m4a'}})}}},
     '../../lib/apiClient':{ApiError},'../../observability/sentry':{reportError:(e,context)=>calls.push(['diagnostic',context.operation,e.name])},
     './medication-photo':{MedicationPhotoError:PhotoError,prepareMedicationPhoto:async()=>{if(server.photoError)throw new PhotoError(server.photoError);return {body:{photo:true},dispose:()=>calls.push(['dispose'])};}},
+    './useMedicationPurposeLookup':{useMedicationPurposeLookup:()=>({pending:false,retry:()=>{}})},
     '../../stores/toast.store':{useToastStore:{getState:()=>({show:(...args)=>toasts.push(args)})}},'./V21Layout':{v21Error:error=>errors.push(error)},
-    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>data,scan:async()=>{calls.push(['scan']);if(server.scanPending)await server.scanPending;if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:server.scanItems||[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
+    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>data,scan:async()=>{calls.push(['scan']);if(server.scanPending)await server.scanPending;if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:server.scanItems||[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.setupError)throw server.setupError;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
   };
   const module={exports:{}};
   const inputs={exports:{}};
@@ -41,7 +42,7 @@ function harness({self=true}={}) {
   const read=()=>{cursor=0;return module.exports.useMedicationSetup();};
   const settle=async()=>{read();effects.splice(0).forEach(fn=>fn());await flush();return read();};
   const toReview=async()=>{read().addManual();read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['after_breakfast']});read().next();read().next();await flush();return read();};
-  return {read,settle,toReview,calls,toasts,errors,server,navigation,auth,route,blur:()=>slots.forEach(x=>x?.cleanup?.())};
+  return {read,settle,toReview,calls,toasts,errors,server,navigation,auth,route,makeApiError:code=>Object.assign(new ApiError('fixture'),{code}),blur:()=>slots.forEach(x=>x?.cleanup?.())};
 }
 let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+name);}
 (async()=>{
@@ -72,6 +73,17 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     const h=harness();await h.settle();await h.toReview();h.server.fail=true;h.read().next();await flush();h.read().next();await flush();
     const posts=()=>h.calls.filter(x=>x[0]==='setup');assert.equal(posts()[0][2].request_id,posts()[1][2].request_id);
     h.read().setSlots(old=>old.map(x=>({...x,time_local:'08:00'})));h.read().next();await flush();assert.notEqual(posts()[1][2].request_id,posts()[2][2].request_id);assert.equal(h.read().busy,false);
+  });
+  await test('only confirmed selected purpose tags reach setup; lookup UI state never reaches the API', async()=>{
+    const h=harness();await h.settle();await h.toReview();
+    h.read().update(0,{purposeLookup:{key:'fixture',loading:false,result:{status:'matched',token:'verified-token',tags:['fever_reduction','pain_relief']}},selectedPurposeCodes:['pain_relief'],confirmed:true});
+    h.read().next();await flush();const sent=h.calls.find(x=>x[0]==='setup')[2].items[0];
+    assert.deepEqual(sent.tag_confirmation,{token:'verified-token',codes:['pain_relief']});
+    assert.equal(sent.purposeLookup,undefined);assert.equal(sent.selectedPurposeCodes,undefined);
+  });
+  await test('an expired purpose confirmation returns to review instead of losing the schedule', async()=>{
+    const h=harness();await h.settle();await h.toReview();h.server.setupError=h.makeApiError('MED_TAG_CONFIRMATION_EXPIRED');
+    h.read().next();await flush();assert.equal(h.read().step,2);assert.equal(h.read().draft.length,1);assert.equal(h.read().busy,false);
   });
   await test('rapid final presses send only one pending save',async()=>{
     const h=harness();await h.settle();await h.toReview();let release;h.server.pending=new Promise(r=>{release=r;});const old=h.read();old.next();old.next();assert.equal(h.calls.filter(x=>x[0]==='setup').length,1);release();await flush();
