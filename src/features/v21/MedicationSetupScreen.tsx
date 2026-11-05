@@ -496,6 +496,9 @@ export function MedicationSetupPanel({
                         </Text>
                       </View>
                     )}
+                    <Text style={[s.caption, { color: colors.textSecondary }]}>
+                      {t("name")}
+                    </Text>
                     <TextInput
                       accessibilityLabel={t("name")}
                       placeholder={t("setupNamePlaceholder")}
@@ -526,6 +529,9 @@ export function MedicationSetupPanel({
                           {t("noDosage")}
                         </Text>
                       )}
+                    <Text style={[s.caption, { color: colors.textSecondary }]}>
+                      {t("medicationKindLabel")}
+                    </Text>
                     <View style={s.chips}>
                       {(["MEDICINE", "SUPPLEMENT"] as MedKind[]).map((kind) => (
                         <Chip

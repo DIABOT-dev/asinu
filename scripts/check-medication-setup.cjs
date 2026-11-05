@@ -286,6 +286,21 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     h.server.draft=latest;h.server.drafts=[latest,old];h.route.draftId=old.id;await h.settle();assert.equal(h.read().draft[0].display_name,'Đơn trước');
     h.read().update(0,{display_name:'Đơn trước đã sửa'});await h.read().retryDraft();assert.equal(h.calls.find(x=>x[0]==='draft')[2].id,old.id);h.blur();
   });
+  await test('a selected draft always opens its editable names and types even when saved at another step',async()=>{
+    for(const step of [1,2,3,4]){
+      const h=harness(),saved=savedDraft({step});h.server.draft=saved;h.route.draftId=saved.id;await h.settle();
+      assert.equal(h.read().step,2);assert.equal(h.read().draft[0].display_name,'Tên đã đọc trước');assert.equal(h.read().draft[0].kind,'MEDICINE');
+      assert.equal(h.calls.some(x=>x[0]==='scan'||x[0]==='setup'),false);h.blur();
+    }
+  });
+  await test('a legacy draft at the photo step cannot hide already entered medicine fields',async()=>{
+    const h=harness();h.server.draft=savedDraft({step:1});await h.settle();assert.equal(h.read().step,2);assert.equal(h.read().draft.length,1);h.blur();
+  });
+  await test('reviewing names and types preserves previously edited reminder times and notes',async()=>{
+    const h=harness(),saved=savedDraft();saved.snapshot.slots[0].time_local='08:15';h.server.draft=saved;h.route.draftId=saved.id;await h.settle();
+    h.read().update(0,{display_name:'Tên đã sửa'});h.read().update(0,{confirmed:true});h.read().next();assert.equal(h.read().step,3);h.read().next();
+    assert.equal(h.read().step,4);assert.equal(h.read().slots[0].time_local,'08:15');assert.equal(h.read().slots[0].note,'Sau ăn');h.blur();
+  });
   await test('discarding one draft resets to an independent blank editor without loading another draft',async()=>{
     const h=harness(),old=savedDraft(),other=savedDraft();h.server.drafts=[old,other];h.route.draftId=old.id;await h.settle();
     h.read().discardDraft();await h.calls.find(x=>x[0]==='alert')[3][1].onPress();

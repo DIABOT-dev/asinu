@@ -245,7 +245,21 @@ export function useMedicationSetup() {
             setPhoto(photoUrl(snapshot.photoMediaId) || null);
             setMeals(snapshot.meals);
             setSlots(snapshot.slots);
-            setStep(snapshot.step);
+            // A chosen draft opens its editable names/types. Existing items
+            // must also remain reachable when an old draft was left on step 1.
+            setStep(
+              snapshot.items.length && (draftId || snapshot.step === 1)
+                ? 2
+                : snapshot.step,
+            );
+            if (snapshot.slots.length)
+              reviewInputs.current = JSON.stringify({
+                meals: snapshot.meals,
+                items: snapshot.items.map((item) => ({
+                  clientId: item.clientId,
+                  anchors: item.anchors,
+                })),
+              });
             setDraftStatus("saved");
             mealsLoaded.current = true;
           }

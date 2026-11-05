@@ -66,9 +66,21 @@ export function MedicationDraftEntry({
           <Text style={[s.caption, { color: colors.textSecondary }]}>
             {t("draftItems", { count: draft.snapshot.items.length })}
           </Text>
-          {!!names && (
+          {draft.snapshot.items.slice(0, 2).map((item) => (
+            <View key={item.clientId} style={s.item}>
+              <Text style={[s.name, { color: colors.textPrimary }]}>
+                {item.display_name.trim() ||
+                  item.printed_name ||
+                  t("draftUntitledItem")}
+              </Text>
+              <Text style={[s.caption, { color: colors.textSecondary }]}>
+                {t(item.kind || "draftKindPending")}
+              </Text>
+            </View>
+          ))}
+          {draft.snapshot.items.length > 2 && (
             <Text style={[s.caption, { color: colors.textSecondary }]}>
-              {names}
+              {t("draftMoreItems", { count: draft.snapshot.items.length - 2 })}
             </Text>
           )}
           <Text style={[s.action, { color: colors.primaryText }]}>
@@ -116,6 +128,8 @@ const s = StyleSheet.create({
   image: { width: "100%", height: "100%" },
   copy: { flex: 1, minWidth: 0, gap: 4 },
   title: { fontSize: 16, lineHeight: 23, fontWeight: "700" },
+  item: { gap: 2, paddingTop: 4 },
+  name: { fontSize: 14, lineHeight: 21, fontWeight: "600" },
   caption: { fontSize: 13, lineHeight: 20 },
   action: { fontSize: 14, lineHeight: 21, fontWeight: "600" },
   remove: {
