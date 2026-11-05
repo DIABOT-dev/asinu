@@ -1409,8 +1409,20 @@ export default function ProfileScreen() {
                 ts("appPermissions"),
                 <Ionicons name="shield-checkmark-outline" size={18} color="#10b981" />,
               )}
-              {expandedSections.permissions && (
-                <View style={styles.cardsStack}>
+              {/* Preserve permission state between expands; only visibility changes. */}
+              <View
+                key={profile?.id ?? "signed-out"}
+                testID="profile-permission-controls"
+                style={[
+                  styles.cardsStack,
+                  !expandedSections.permissions && styles.collapsedSection,
+                ]}
+                accessibilityElementsHidden={!expandedSections.permissions}
+                importantForAccessibility={
+                  expandedSections.permissions ? "auto" : "no-hide-descendants"
+                }
+                pointerEvents={expandedSections.permissions ? "auto" : "none"}
+              >
                   {isDoctorFeaturesEnabled && <SpecialistSharingPermission />}
 
                   {/* Quyền dùng Asinu AI */}
@@ -1457,8 +1469,7 @@ export default function ProfileScreen() {
                       ios_backgroundColor="#d1d5db"
                     />
                   </View>
-                </View>
-              )}
+              </View>
             </Animated.View>
 
             {/* ==================== 03 BOTTOM: TRỢ GIÚP & THÔNG TIN ==================== */}
@@ -2628,6 +2639,7 @@ function createStyles(
       marginRight: 16,
       backgroundColor: "transparent",
     },
+    collapsedSection: { display: "none" },
     actionCard: {
       minHeight: 56,
       paddingVertical: 13,

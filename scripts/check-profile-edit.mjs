@@ -18,10 +18,12 @@ function evaluate(source, imports = {}) {
   }, false);
   return module.exports;
 }
-function nodes(tree) {
-  if (Array.isArray(tree)) return tree.flatMap(nodes);
+function nodes(tree, includeHidden = false) {
+  if (Array.isArray(tree)) return tree.flatMap(child => nodes(child, includeHidden));
   if (!tree || typeof tree !== 'object') return [];
-  return [tree, ...nodes(tree.props?.children)];
+  const styles = [tree.props?.style].flat(Infinity);
+  if (!includeHidden && styles.some(style => style?.display === 'none')) return [];
+  return [tree, ...nodes(tree.props?.children, includeHidden)];
 }
 function text(tree) {
   if (Array.isArray(tree)) return tree.map(text).join(' ');
@@ -365,6 +367,30 @@ for (const language of ['vi', 'en']) {
       assert.ok(!nodes(closed).some(node => node.type === 'ReminderSettingsEntry'));
       assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
       assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')));
+    });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: reopening permissions preserves mounted controls while collapsed rows are hidden and inaccessible`, () => {
+      const h = harness({ language, isDark, doctorEnabled: true });
+      const panel = tree => nodes(tree, true).find(node => node.props.testID === 'profile-permission-controls');
+      const first = panel(h.render());
+      assert.ok(first, 'Permission status can load before opening the dropdown');
+      const controlTypes = ['DevicePermissions', 'TaskReminderPermission', 'SpecialistSharingPermission'];
+      for (let cycle = 0; cycle < 5; cycle++) {
+        for (const expanded of [true, false]) {
+          const tree = h.toggleSection(h.ts('appPermissions'));
+          const current = panel(tree);
+          assert.ok(current, 'Closing the dropdown must not unmount permission controls');
+          assert.equal(current.props.key, first.props.key);
+          assert.equal(current.props.accessibilityElementsHidden, !expanded);
+          assert.equal(current.props.importantForAccessibility, expanded ? 'auto' : 'no-hide-descendants');
+          assert.equal(current.props.pointerEvents, expanded ? 'auto' : 'none');
+          for (const type of controlTypes) {
+            assert.equal(nodes(current, true).filter(node => node.type === type).length, 1, `${type} remains mounted`);
+            assert.equal(nodes(tree).filter(node => node.type === type).length, expanded ? 1 : 0, `${type} is only visible when expanded`);
+          }
+        }
+      }
+      h.updateProfile({ id: 'another-profile' });
+      assert.notEqual(panel(h.render()).props.key, first.props.key, 'Permission state must reset for another account');
     });
     await test(`${language}/${isDark ? 'dark' : 'light'}: font and language modals show previews, retain selections and dismiss without changes`, () => {
       const h = harness({ language, isDark });
