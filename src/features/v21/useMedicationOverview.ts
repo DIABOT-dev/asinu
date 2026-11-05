@@ -28,6 +28,7 @@ export function useMedicationOverview() {
     coins: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [todayLoading, setTodayLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<MedSchedule | null>(null);
@@ -71,19 +72,44 @@ export function useMedicationOverview() {
           setFailed(false);
           return;
         }
-        const [overview, today, week] = await Promise.all([
-          v21Api.overview(id, true),
-          v21Api.doses(id),
-          v21Api.weekly(id),
-        ]);
+        setTodayLoading(true);
+        const overview = v21Api.overview(id, true).then((value) => {
+          if (!valid()) return;
+          setData(value);
+          loaded.current = true;
+          setLoading(false);
+        });
+        const today = v21Api.doses(id).then(
+          (value) => {
+            if (!valid()) return;
+            setDoses(value.items);
+            setTodayLoading(false);
+          },
+          (error) => {
+            if (valid()) {
+              setDoses([]);
+              setTodayLoading(false);
+            }
+            throw error;
+          },
+        );
+        // Optional statistics must never hold back saved schedules or today's doses.
+        void v21Api.weekly(id).then(
+          (value) => {
+            if (valid()) setWeekly(value.report);
+          },
+          () => {
+            if (valid()) setWeekly(null);
+          },
+        );
+        const core = await Promise.allSettled([overview, today]);
         if (!valid()) return;
-        setData(overview);
-        setDoses(today.items);
-        setWeekly(week.report);
-        loaded.current = true;
-        setFailed(false);
+        setFailed(core.some((result) => result.status === "rejected"));
       } catch {
-        if (valid()) setFailed(true);
+        if (valid()) {
+          setFailed(true);
+          setTodayLoading(false);
+        }
       } finally {
         if (valid()) setLoading(false);
       }
@@ -106,6 +132,7 @@ export function useMedicationOverview() {
         setData(null);
         setDoses([]);
         setWeekly(null);
+        setTodayLoading(false);
       }
       setSelected(null);
       setBusy(false);
@@ -182,6 +209,7 @@ export function useMedicationOverview() {
     doses: visible ? doses : [],
     weekly: visible ? weekly : null,
     loading: !visible || loading,
+    todayLoading: visible && todayLoading,
     failed: visible && failed,
     busy,
     selected: visible ? selected : null,

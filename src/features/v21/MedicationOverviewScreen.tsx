@@ -356,7 +356,13 @@ export function MedicationOverviewPanel({
             )}
             {tab === "today" ? (
               <>
-                {!med.doses.length && !drafts.length && (
+                {med.todayLoading && !med.doses.length && (
+                  <ActivityIndicator
+                    accessibilityLabel={t("loading")}
+                    color={colors.primary}
+                  />
+                )}
+                {!med.todayLoading && !med.doses.length && !drafts.length && (
                   <Empty title={t("medicationNoDoses")}></Empty>
                 )}
                 <View style={s.list}>

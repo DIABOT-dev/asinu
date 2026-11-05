@@ -20,7 +20,7 @@ function harness() {
   const api = {
     flags: async () => { if (server.fail) throw Error('offline'); return { medication: true, patients: [{ id: 1, name: 'Tôi' }, { id: 2, name: 'Người thân' }] }; },
     overview: async (id, includePaused) => { calls.push(['read', id, includePaused]); if (server.late && id === 1) return server.late; return {...overview(id),draft:server.draft,drafts:server.drafts}; },
-    doses: async () => ({ items: [] }), weekly: async () => ({ report: { taken: 2, total: 3, skipped: 1, coins: 10 } }),
+    doses: async () => {if(server.dosesPending)await server.dosesPending;if(server.dosesFail)throw Error('doses unavailable');return {items:server.doses||[]};}, weekly: async () => {if(server.weekPending)await server.weekPending;if(server.weekFail)throw Error('weekly unavailable');return { report: { taken: 2, total: 3, skipped: 1, coins: 10 } };},
     saveSchedule: async (...args) => { calls.push(['save', ...args]); if (server.pending) await server.pending; if (server.writeFail) throw Error('offline'); Object.assign(schedule, args[2]); },
     remove: async (...args) => { calls.push(['remove', ...args]); },
     removeDraft: async (...args) => { calls.push(['removeDraft', ...args]); if(server.pending)await server.pending;if(server.writeFail)throw Error('offline');server.drafts=server.drafts?.filter(d=>d.id!==args[1]);server.draft=server.drafts?.[0]||null; },
@@ -154,6 +154,21 @@ async function test(name, work) { await work(); count++; console.log('PASS ' + n
     const h=harness();await h.settle();h.blur();h.refocus();
     assert.equal(h.read().loading,false);assert.equal(h.read().data.patientId,1);
     await h.settle();assert.equal(h.read().loading,false);h.blur();
+  });
+  await test('a slow or failed weekly report cannot delay saved schedules or today doses',async()=>{
+    const h=harness(),week=defer();h.server.weekPending=week.promise;h.server.doses=[{id:'dose-1'}];await h.settle();
+    assert.equal(h.read().data.patientId,1);assert.deepEqual(h.read().doses,[{id:'dose-1'}]);assert.equal(h.read().loading,false);assert.equal(h.read().failed,false);
+    h.server.weekFail=true;week.resolve();await flush();assert.equal(h.read().data.patientId,1);assert.equal(h.read().failed,false);assert.equal(h.read().weekly,null);h.blur();
+  });
+  await test('a slow today request never blocks the schedule list or invents an empty day',async()=>{
+    const h=harness(),today=defer();h.server.dosesPending=today.promise;h.server.doses=[{id:'dose-late'}];await h.settle();
+    assert.equal(h.read().data.schedules[0],h.schedule);assert.equal(h.read().loading,false);assert.equal(h.read().todayLoading,true);
+    today.resolve();await flush();assert.deepEqual(h.read().doses,[{id:'dose-late'}]);assert.equal(h.read().todayLoading,false);h.blur();
+  });
+  await test('late optional statistics are ignored after a patient or account changes',async()=>{
+    const h=harness(),oldWeek=defer();h.server.weekPending=oldWeek.promise;await h.settle();
+    h.server.weekPending=null;h.read().selectPatient(2);await h.settle();const current=h.read().weekly;oldWeek.resolve();await flush();
+    assert.equal(h.read().data.patientId,2);assert.equal(h.read().weekly,current);h.blur();
   });
   console.log(`Medication overview: ${count} runtime checks passed.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });
