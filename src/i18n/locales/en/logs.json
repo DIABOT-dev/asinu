@@ -52,6 +52,8 @@
   "ctxRandom": "Random",
 
   "bloodPressureValue": "Blood pressure reading",
+  "readingLevelReference": "About reading levels",
+  "readingLevelUnavailable": "Not enough information to assess",
   "bpStatus_low": "Low",
   "bpStatus_normal": "Normal",
   "bpStatus_elevated": "Elevated",

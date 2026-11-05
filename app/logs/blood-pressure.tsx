@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import Animated, {
   FadeInDown,
-  ZoomIn,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -29,6 +28,7 @@ import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
 import { VoiceLogButton } from '../../src/components/VoiceLogButton';
 import { VoiceParseResult } from '../../src/features/logs/voice.api';
+import { ReadingLevelIndicator } from '../../src/features/logs/ReadingLevelIndicator';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { authApi } from '../../src/features/auth/auth.api';
 import { logsApi } from '../../src/features/logs/logs.api';
@@ -55,6 +55,15 @@ function getBPStatus(key: NonNullable<ReturnType<typeof assessBloodPressure>['di
   if (key === 'stage1') return { key, color: '#f97316', bgColor: '#fff7ed', icon: 'alert-circle' };
   return { key, color: colors.danger, bgColor: '#fef2f2', icon: 'alert-circle' };
 }
+
+const BP_LEVELS = [
+  { key: 'low', color: '#D99A22' },
+  { key: 'normal', color: '#169B78' },
+  { key: 'elevated', color: '#DCAB32' },
+  { key: 'stage1', color: '#E88635' },
+  { key: 'stage2', color: '#DB5555' },
+  { key: 'severe', color: '#A92E42' },
+] as const;
 
 const CTX_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   morning: 'sunny-outline',
@@ -267,20 +276,15 @@ export default function BloodPressureLogScreen() {
 
                   {bpError ? (
                     <Text style={styles.errorText}>{bpError}</Text>
-                  ) : status ? (
-                    <Animated.View
-                      entering={ZoomIn.duration(300)}
-                      style={[styles.statusBadge, { backgroundColor: status.bgColor }]}
-                    >
-                      <Ionicons name={status.icon} size={16} color={status.color} />
-                      <Text style={[styles.statusText, { color: status.color }]}>
-                        {t(`bpStatus_${status.key}` as any) || status.key}
-                      </Text>
-                    </Animated.View>
                   ) : null}
-                  {assessment.valid && <Text style={[styles.bpReference, { color: colors.textSecondary }]}>
-                    {t(assessment.scope === 'under18' ? 'bpUnder18Reference' : assessment.scope === 'unknown_age' ? 'bpMissingAgeReference' : 'bpReadingReference')}
-                  </Text>}
+                  {assessment.valid && !bpError ? (
+                    <ReadingLevelIndicator
+                      levels={BP_LEVELS}
+                      activeKey={assessment.displayCategory}
+                      label={status ? t(`bpStatus_${status.key}` as any) : t('readingLevelUnavailable')}
+                      reference={t(assessment.scope === 'under18' ? 'bpUnder18Reference' : assessment.scope === 'unknown_age' ? 'bpMissingAgeReference' : 'bpReadingReference')}
+                    />
+                  ) : null}
                   {assessment.low && !assessment.repeatHigh && <Text style={[styles.bpReference, { color: colors.warning }]}>{t('bpLowReadingNote')}</Text>}
                   {assessment.repeatHigh && <View style={styles.bpHighGuidance}>
                     <Text style={[styles.bpHighTitle, { color: colors.danger }]}>{t('bpHighReadingTitle')}</Text>
@@ -469,19 +473,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, colors
       fontSize: typography.size.sm,
       color: colors.danger,
       fontWeight: '600',
-    },
-    statusBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: radius.full,
-      marginTop: spacing.xs,
-    },
-    statusText: {
-      fontSize: typography.size.sm,
-      fontWeight: '700',
     },
     sectionCard: {
       backgroundColor: 'transparent',

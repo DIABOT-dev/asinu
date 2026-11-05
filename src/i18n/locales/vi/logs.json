@@ -52,6 +52,8 @@
   "ctxRandom": "Ngẫu nhiên",
 
   "bloodPressureValue": "Chỉ số huyết áp",
+  "readingLevelReference": "Thông tin mức chỉ số",
+  "readingLevelUnavailable": "Chưa đủ thông tin đánh giá",
   "bpStatus_low": "Thấp",
   "bpStatus_normal": "Bình thường",
   "bpStatus_elevated": "Hơi cao",

@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import Animated, {
   FadeInDown,
-  ZoomIn,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -30,6 +29,7 @@ import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
 import { VoiceLogButton } from '../../src/components/VoiceLogButton';
 import { VoiceParseResult } from '../../src/features/logs/voice.api';
+import { ReadingLevelIndicator } from '../../src/features/logs/ReadingLevelIndicator';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
@@ -65,96 +65,12 @@ function getGlucoseStatus(val: number, ctx: string): GlucoseStatus {
   return               { key: 'high',      color: colors.danger,  bgColor: '#fef2f2',           icon: 'alert-circle' };
 }
 
-// ─── Range bar ────────────────────────────────────────────────────
-
-function RangeBar({ value, ctx }: { value: string; ctx: string }) {
-  const { t } = useTranslation('logs');
-  const [trackWidth, setTrackWidth] = useState(0);
-  const numVal = parseFloat(value) || 0;
-  const MIN = 40, MAX = 400, RANGE = MAX - MIN;
-  const clamped = Math.min(Math.max(numVal, MIN), MAX);
-  const pct = (clamped - MIN) / RANGE;
-  const pointerLeft = trackWidth * pct;
-
-  // zones differ by context
-  const zones = ctx === 'fasting'
-    ? [
-        { flex: 30,  bg: '#fecaca', label: '' },   // 40-70 low
-        { flex: 29,  bg: '#bbf7d0', label: '' },   // 70-99 normal
-        { flex: 26,  bg: '#fde68a', label: '' },   // 99-125 pre
-        { flex: 275, bg: '#fecaca', label: '' },   // 125-400 high
-      ]
-    : [
-        { flex: 30,  bg: '#fecaca', label: '' },   // 40-70 low
-        { flex: 70,  bg: '#bbf7d0', label: '' },   // 70-140 normal
-        { flex: 40,  bg: '#fde68a', label: '' },   // 140-180 elevated
-        { flex: 220, bg: '#fecaca', label: '' },   // 180-400 high
-      ];
-
-  return (
-    <View style={rangeStyles.wrap}>
-      <View
-        style={rangeStyles.track}
-        onLayout={e => setTrackWidth(e.nativeEvent.layout.width)}
-      >
-        {zones.map((z, i) => (
-          <View key={i} style={[rangeStyles.zone, { flex: z.flex, backgroundColor: z.bg }]} />
-        ))}
-        {numVal > 0 && trackWidth > 0 && (
-          <View style={[rangeStyles.pointer, { left: pointerLeft - 7 }]}>
-            <View style={rangeStyles.pointerInner} />
-          </View>
-        )}
-      </View>
-      <View style={rangeStyles.labelRow}>
-        <Text style={rangeStyles.labelLow}>{t('glucoseRangeLow')}</Text>
-        <Text style={rangeStyles.labelNormal}>{t('glucoseRangeNormal')}</Text>
-        <Text style={rangeStyles.labelHigh}>{t('glucoseRangeHigh')}</Text>
-      </View>
-    </View>
-  );
-}
-
-const rangeStyles = StyleSheet.create({
-  wrap: { gap: 6 },
-  track: {
-    height: 12,
-    borderRadius: radius.full,
-    flexDirection: 'row',
-    overflow: 'visible',
-  },
-  zone: { height: 12 },
-  pointer: {
-    position: 'absolute',
-    top: -4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.textPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  pointerInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.textPrimary,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  labelLow:    { fontSize: 11, color: colors.danger,  fontWeight: '600' },
-  labelNormal: { fontSize: 11, color: colors.emerald, fontWeight: '600' },
-  labelHigh:   { fontSize: 11, color: colors.danger,  fontWeight: '600' },
-});
+const glucoseLevels = (context: string) => [
+  { key: 'hypo', color: '#B64867' },
+  { key: 'normal', color: '#169B78' },
+  { key: context === 'fasting' ? 'prediabetes' : 'elevated', color: '#DCAB32' },
+  { key: 'high', color: '#DB5555' },
+];
 
 // ─── Context chip icons ───────────────────────────────────────────
 
@@ -333,27 +249,16 @@ export default function GlucoseLogScreen() {
 
                   {valueError ? (
                     <Text style={styles.errorText}>{valueError}</Text>
-                  ) : status ? (
-                    <Animated.View
-                      entering={ZoomIn.duration(300)}
-                      style={[styles.statusBadge, { backgroundColor: status.bgColor }]}
-                    >
-                      <Ionicons name={status.icon} size={16} color={status.color} />
-                      <Text style={[styles.statusText, { color: status.color }]}>
-                        {t(`glucoseStatus_${status.key}` as any) || status.key}
-                      </Text>
-                    </Animated.View>
+                  ) : null}
+                  {status && !valueError ? (
+                    <ReadingLevelIndicator
+                      levels={glucoseLevels(context)}
+                      activeKey={status.key}
+                      label={t(`glucoseStatus_${status.key}` as any)}
+                    />
                   ) : null}
                 </View>
               </Animated.View>
-
-              {/* Range bar */}
-              {numVal > 0 && (
-                <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.rangeCard}>
-                  <Text style={styles.sectionLabel}>{t('glucoseRange')}</Text>
-                  <RangeBar value={value} ctx={context} />
-                </Animated.View>
-              )}
 
               {/* Context chips */}
               <Animated.View entering={FadeInDown.delay(260).duration(400).springify()}>
@@ -505,25 +410,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: typography.size.sm,
       color: colors.danger,
       fontWeight: '600',
-    },
-    statusBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: radius.full,
-      marginTop: spacing.xs,
-    },
-    statusText: {
-      fontSize: typography.size.sm,
-      fontWeight: '700',
-    },
-    // Range bar card
-    rangeCard: {
-      backgroundColor: 'transparent',
-      paddingVertical: spacing.sm,
-      gap: spacing.sm,
     },
     // Section card
     sectionCard: {

@@ -171,6 +171,7 @@ function harness({
     "../../src/components/Screen": { Screen: "Screen" },
     "../../src/components/TextInput": { TextInput: "Field" },
     "../../src/components/VoiceLogButton": { VoiceLogButton: "VoiceInput" },
+    "../../src/features/logs/ReadingLevelIndicator": { ReadingLevelIndicator: "ReadingLevelIndicator" },
     "../../src/features/auth/auth.store": { useAuthStore: authStore },
     "../../src/features/auth/auth.api": {
       authApi: {
@@ -210,6 +211,7 @@ function harness({
     calls,
     t,
     render,
+    level: () => all().find((node) => node.type === "ReadingLevelIndicator"),
     async ready() {
       render();
       for (let i = 0; i < 8; i++) await Promise.resolve();
@@ -300,8 +302,10 @@ for (const language of ["vi", "en"]) {
       [200, 55, "severe"],
     ]) {
       h.input(sys, dia);
-      assert.ok(h.text().includes(h.t(`bpStatus_${expected}`)));
-      assert.ok(h.text().includes(h.t("bpReadingReference")));
+      assert.equal(h.level().props.label, h.t(`bpStatus_${expected}`));
+      assert.equal(h.level().props.activeKey, expected);
+      assert.equal(h.level().props.reference, h.t("bpReadingReference"));
+      assert.ok(!h.text().includes(h.t("bpReadingReference")), "Routine explanations belong behind the information button");
     }
     assert.ok(h.text().includes(h.t("bpHighReadingGuide")));
     assert.ok(h.emergency());
@@ -359,8 +363,9 @@ for (const language of ["vi", "en"]) {
       });
       await h.ready();
       h.input(118, 78);
-      assert.ok(h.text().includes(h.t(key)));
-      assert.ok(!h.text().includes(h.t("bpStatus_normal")));
+      assert.equal(h.level().props.reference, h.t(key));
+      assert.equal(h.level().props.activeKey, null);
+      assert.equal(h.level().props.label, h.t("readingLevelUnavailable"));
       await h.save();
       assert.equal(
         h.calls.writes.length,
@@ -375,7 +380,7 @@ await test("basic bootstrap profiles fetch age before classifying; a failed prof
   await h.ready();
   h.input(135, 85);
   assert.equal(h.calls.profiles, 1);
-  assert.ok(h.text().includes(h.t("bpStatus_stage1")));
+  assert.equal(h.level().props.activeKey, "stage1");
   const failed = harness({
     profile: { id: "owner" },
     fullProfile: async () => {
@@ -384,7 +389,7 @@ await test("basic bootstrap profiles fetch age before classifying; a failed prof
   });
   await failed.ready();
   failed.input(118, 78);
-  assert.ok(failed.text().includes(failed.t("bpMissingAgeReference")));
+  assert.equal(failed.level().props.reference, failed.t("bpMissingAgeReference"));
 });
 await test("rapid duplicate saves write once; stale completions cannot navigate another account", async () => {
   const pending = deferred();
@@ -414,6 +419,49 @@ await test("latest reading and profile from a previous account cannot populate t
   await h.ready();
   assert.deepEqual(h.values(), ["", ""]);
   h.input(118, 78);
-  assert.ok(h.text().includes(h.t("bpUnder18Reference")));
+  assert.equal(h.level().props.reference, h.t("bpUnder18Reference"));
 });
+
+for (const language of ["vi", "en"]) {
+  await test(`${language}: reading scale stays neutral without a category and opens its explanation on demand`, () => {
+    const h = hooks();
+    const logs = JSON.parse(read(`src/i18n/locales/${language}/logs.json`));
+    const common = JSON.parse(read(`src/i18n/locales/${language}/common.json`));
+    const { ReadingLevelIndicator } = evaluate("src/features/logs/ReadingLevelIndicator.tsx", {
+      react: h.react,
+      "react/jsx-runtime": { jsx, jsxs: jsx },
+      "react-native": {
+        View: "View", Pressable: "Pressable", ScrollView: "ScrollView", Modal: "Modal",
+        StyleSheet: { create: value => value, absoluteFill: {} },
+      },
+      "@expo/vector-icons": { Ionicons: "Icon" },
+      "react-i18next": { useTranslation: namespace => ({ t: key => (namespace === "logs" ? logs : common)[key] }) },
+      "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+      "../../components/ScaledText": { ScaledText: "Text" },
+      "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: theme.colors }) },
+    });
+    const props = {
+      levels: [{ key: "normal", color: "#169B78" }, { key: "high", color: "#DB5555" }],
+      activeKey: null,
+      label: logs.readingLevelUnavailable,
+      reference: logs.bpMissingAgeReference,
+    };
+    const render = () => nodes(h.render(() => ReadingLevelIndicator(props)));
+    const modal = () => render().find(node => node.type === "Modal");
+    assert.equal(modal().props.visible, false);
+    const scale = () => render().find(node => node.props.accessibilityRole === "image");
+    assert.equal(scale().props.accessibilityLabel, logs.readingLevelUnavailable);
+    assert.ok(!nodes(scale()).some(node => node.props.style?.[0]?.borderTopWidth), "No marker may suggest a normal category when age is missing");
+    assert.ok(!nodes(scale()).some(node => node.props.style?.[1]?.backgroundColor === "#169B78"));
+    render().find(node => node.props.accessibilityLabel === logs.readingLevelReference).props.onPress();
+    assert.equal(modal().props.visible, true);
+    assert.ok(nodes(modal()).some(node => node.type === "Text" && node.props.children === logs.bpMissingAgeReference));
+    modal().props.onRequestClose();
+    assert.equal(modal().props.visible, false);
+    props.activeKey = "high";
+    props.label = logs.glucoseStatus_high;
+    assert.equal(scale().props.accessibilityLabel, logs.glucoseStatus_high);
+    assert.equal(nodes(scale()).filter(node => node.props.style?.[0]?.borderTopWidth).length, 1);
+  });
+}
 console.log(`Blood pressure: ${checks} regression groups passed.`);
