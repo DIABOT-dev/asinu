@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useFocusEffect } from "expo-router";
 import React, {
   memo,
@@ -28,6 +29,7 @@ import { SubscriptionFAQ } from "../../src/components/SubscriptionFAQ";
 import { ProfilePreferenceModal } from "../../src/features/profile/ProfilePreferenceModal";
 import { localizedPlanName } from "../../src/features/subscription/planName";
 import { SubscriptionScenarioComparison } from "../../src/features/subscription/components/SubscriptionScenarioComparison";
+import { CarePlanBackground } from "../../src/features/subscription/components/CarePlanBackground";
 import type { PlanCode, SubscriptionStatus } from "../../src/features/subscription/subscription.types";
 import {
   careCircleApi,
@@ -158,6 +160,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
         ]}
       >
         <Image
+          accessible={false}
           cachePolicy="memory-disk"
           contentFit="contain"
           source={currentPlanImage}
@@ -169,7 +172,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
           <Text style={styles.currentPlanLabel}>{t("v2CurrentPlan")}</Text>
           {loading ? (
             <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
+          ) : status ? (
             <View
               style={[
                 styles.currentPlanBadge,
@@ -185,11 +188,11 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
                 {localizedPlanName(status?.planCode, t)}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
         {!loading && (
           <Text style={styles.currentPlanSub}>
-            {isAnTam
+            {!status ? t("v2LoadError") : isAnTam
               ? t("v2PaidMeta", {
                   used: status.protectedMemberCount,
                   limit: status.protectedMemberLimit,
@@ -217,6 +220,7 @@ type PlanComparisonProps = {
   freeFeatures: FeatureItem[];
   anTamFeatures: FeatureItem[];
   freeIsCurrent: boolean;
+  purchaseDisabled?: boolean;
   onChoosePlan: () => void;
   t: (key: string) => string;
   styles: ReturnType<typeof createStyles>;
@@ -226,11 +230,13 @@ const PlanComparison = memo(function PlanComparison({
   freeFeatures,
   anTamFeatures,
   freeIsCurrent,
+  purchaseDisabled = false,
   onChoosePlan,
   t,
   styles,
 }: PlanComparisonProps) {
-  const { fontScale } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
+  const { isDark } = useThemeColors();
   const [selectedPlan, setSelectedPlan] = useState<"free" | "anTam" | null>(null);
   const activePlan = useRef<"free" | "anTam" | null>(null);
   const premium = selectedPlan === "anTam";
@@ -241,6 +247,7 @@ const PlanComparison = memo(function PlanComparison({
   useFocusEffect(useCallback(() => closeDetails, [closeDetails]));
   const titleFontSize = useScaledFontSize(FEATURE_TITLE_FONT_SIZE);
   const checkFontSize = useScaledFontSize(FEATURE_CHECK_SIZE);
+  const stacked = width < 350 || (fontScale || 1) * titleFontSize / FEATURE_TITLE_FONT_SIZE > 1.2;
   // Match ScaledText's first line, not the height of the entire title/description.
   const titleLineHeight = Math.round(titleFontSize * (Platform.OS === "android" ? 1.6 : 1.5)) * (fontScale || 1);
   const checkSize = Math.round(checkFontSize * (fontScale || 1));
@@ -263,33 +270,70 @@ const PlanComparison = memo(function PlanComparison({
   );
 
   return (
-    <View style={styles.comparisonRow}>
+    <View style={[styles.comparisonRow, stacked && styles.comparisonStacked]}>
       {(["free", "anTam"] as const).map((plan) => (
-        <Pressable
+        <View
           key={plan}
-          accessibilityRole="button"
-          accessibilityLabel={t(plan === "free" ? "v2FreePlan" : "v2AnTamPlanName")}
-          onPress={() => { activePlan.current = plan; setSelectedPlan(plan); }}
-          style={({ pressed }) => [
+          style={[
             styles.planChoice,
             plan === "free" ? styles.freeChoice : styles.premiumChoice,
-            pressed && styles.planChoicePressed,
+            stacked && styles.planChoiceStacked,
           ]}
         >
-          <Image
-            accessible={false}
-            cachePolicy="memory-disk"
-            contentFit="contain"
-            source={plan === "free" ? PLAN_FREE_IMG : PLAN_ANTAM_IMG}
-            style={styles.planChoiceImage}
+          <LinearGradient
+            pointerEvents="none"
+            colors={plan === "free"
+              ? isDark ? ["#1b2d45", "#16263b"] : ["#f8fbff", "#edf4ff"]
+              : isDark ? ["#173b44", "#162c3a"] : ["#eefbfc", "#ddf4f7"]}
+            style={StyleSheet.absoluteFill}
           />
-          <Text allowFontScaling style={[
-            styles.planChoiceTitle,
-            plan === "free" ? styles.freePlanTitle : styles.premiumPlanTitle,
-          ]}>
-            {t(plan === "free" ? "v2FreePlan" : "v2AnTamPlanName")}
-          </Text>
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(plan === "free" ? "v2FreePlan" : "v2AnTamPlanName")}
+            accessibilityHint={t("v2ViewBenefits")}
+            onPress={() => { activePlan.current = plan; setSelectedPlan(plan); }}
+            style={({ pressed }) => [styles.planChoiceDetails, pressed && styles.planChoicePressed]}
+          >
+            <View style={styles.planArtwork}>
+              <Image
+                accessible={false}
+                cachePolicy="memory-disk"
+                contentFit="contain"
+                source={plan === "free" ? PLAN_FREE_IMG : PLAN_ANTAM_IMG}
+                style={[styles.planChoiceImage, plan === "anTam" && styles.premiumChoiceImage]}
+              />
+            </View>
+            <Text allowFontScaling style={[
+              styles.planChoiceTitle,
+              plan === "free" ? styles.freePlanTitle : styles.premiumPlanTitle,
+            ]}>
+              {t(plan === "free" ? "v2FreePlan" : "v2AnTamPlanName")}
+            </Text>
+            <Text allowFontScaling style={styles.planChoiceDescription}>
+              {t(plan === "free" ? "v2FreeOverview" : "v2AnTamOverview")}
+            </Text>
+          </Pressable>
+          {plan === "anTam" && freeIsCurrent ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("upgradeNow")}
+              accessibilityState={{ disabled: purchaseDisabled }}
+              disabled={purchaseDisabled}
+              onPress={onChoosePlan}
+              style={({ pressed }) => [styles.upgradeButton, pressed && styles.planChoicePressed, purchaseDisabled && styles.protectedHeaderButtonDisabled]}
+            >
+              <LinearGradient pointerEvents="none" colors={["#35a5b4", "#247a8d"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <Text allowFontScaling style={styles.upgradeButtonText}>{t("upgradeNow")}</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.planStatusPill}>
+              {!purchaseDisabled && (plan === "free" ? freeIsCurrent : !freeIsCurrent) && <Ionicons accessible={false} name="checkmark-circle" size={16} color={plan === "free" ? "#3674ce" : "#287d88"} />}
+              <Text allowFontScaling style={[styles.planStatusText, plan === "anTam" && styles.premiumPlanStatusText]}>
+                {t(purchaseDisabled || (plan === "free" && !freeIsCurrent) ? "v2ViewBenefits" : "currentlyUsing")}
+              </Text>
+            </View>
+          )}
+        </View>
       ))}
       {selectedPlan && (
         <ProfilePreferenceModal
@@ -316,6 +360,8 @@ const PlanComparison = memo(function PlanComparison({
             {premium ? <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("iapChooseTitle")}
+              accessibilityState={{ disabled: purchaseDisabled }}
+              disabled={purchaseDisabled}
               onPress={() => {
                 if (activePlan.current !== "anTam") return;
                 closeDetails();
@@ -513,11 +559,12 @@ export default function SubscriptionScreen() {
 
   return (
     <Screen>
+      <CarePlanBackground />
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + spacing.sm },
+          { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl },
         ]}
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews={Platform.OS === "android"}
@@ -525,7 +572,7 @@ export default function SubscriptionScreen() {
       >
         <Animated.View entering={FadeInDown.duration(280)}>
           <View style={styles.headerRow}>
-            <ScreenBackButton onPress={() => router.back()} />
+            <ScreenBackButton style={styles.backButton} iconColor={isDark ? "#dbeafe" : "#19325e"} onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/profile")} />
             <View style={styles.headerTextCol}>
               <Text numberOfLines={2} style={styles.headerTitle}>
                 {t("features.premiumTitle")}
@@ -554,7 +601,7 @@ export default function SubscriptionScreen() {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={27}
-                color={isDark ? "#6ee7b7" : "#047857"}
+                color={isDark ? "#8bdce3" : "#398ea5"}
               />
               {loading ? (
                 <ActivityIndicator
@@ -591,7 +638,8 @@ export default function SubscriptionScreen() {
           <PlanComparison
             anTamFeatures={anTamFeatures}
             freeFeatures={freeFeatures}
-            freeIsCurrent={!status?.isAnTam}
+            freeIsCurrent={status?.planCode === "free"}
+            purchaseDisabled={loading || !status}
             onChoosePlan={handleChoosePlan}
             styles={styles}
             t={t}
@@ -902,6 +950,9 @@ function createStyles(
     scrollContent: {
       paddingBottom: 90,
       paddingHorizontal: 16,
+      width: "100%",
+      maxWidth: 760,
+      alignSelf: "center",
     },
     headerRow: {
       alignItems: "center",
@@ -909,6 +960,13 @@ function createStyles(
       minHeight: 56,
       paddingBottom: 8,
       paddingTop: 6,
+      marginBottom: 38,
+    },
+    backButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: isDark ? "#1a3046" : "#f7fcff",
     },
     headerTextCol: {
       flex: 1,
@@ -917,8 +975,8 @@ function createStyles(
       paddingRight: 12,
     },
     headerTitle: {
-      color: isDark ? "#f8fafc" : "#0f172a",
-      fontSize: 22,
+      color: isDark ? "#edf5ff" : "#19325e",
+      fontSize: 24,
       fontWeight: "800",
       letterSpacing: -0.4,
       lineHeight: 28,
@@ -929,6 +987,8 @@ function createStyles(
       justifyContent: "center",
       width: 44,
       flexShrink: 0,
+      borderRadius: 22,
+      backgroundColor: isDark ? "#1a3947" : "#eafaff",
     },
     protectedHeaderButtonPressed: { opacity: 0.58 },
     protectedHeaderButtonDisabled: { opacity: 0.62 },
@@ -960,20 +1020,29 @@ function createStyles(
       alignItems: "center",
       flexDirection: "row",
       gap: 12,
-      marginTop: 4,
-      paddingVertical: 14,
+      padding: 16,
+      minHeight: 94,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: isDark ? "#2b4761" : "#d9eaff",
+      backgroundColor: isDark ? "#1b3048" : "#e5f1ff",
+      shadowColor: "#6b95c6",
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: isDark ? 0 : 0.06,
+      shadowRadius: 14,
     },
     currentAvatarWrap: {
       alignItems: "center",
-      borderRadius: 22,
-      height: 44,
+      borderRadius: 28,
+      backgroundColor: isDark ? "#233d51" : "#f4fdff",
+      height: 56,
       justifyContent: "center",
       overflow: "hidden",
-      width: 44,
+      width: 56,
     },
     currentPlanBadgeImg: {
-      height: 36,
-      width: 36,
+      height: 48,
+      width: 48,
     },
     currentPlanInfo: { flex: 1, minWidth: 0 },
     currentPlanTitleRow: {
@@ -984,53 +1053,69 @@ function createStyles(
       minWidth: 0,
     },
     currentPlanLabel: {
-      color: isDark ? "#f8fafc" : "#0f172a",
+      color: isDark ? "#edf5ff" : "#19325e",
       flexShrink: 1,
-      fontSize: 14.5,
+      fontSize: 17,
       fontWeight: "700",
       lineHeight: 20,
     },
     currentPlanBadge: {
-      backgroundColor: isDark ? "#1e293b" : "#ecfdf5",
+      backgroundColor: isDark ? "#244e3d" : "#d3f4df",
       borderRadius: 12,
       flexShrink: 0,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
     },
     currentPlanBadgeAnTam: {
-      backgroundColor: isDark ? "#451a03" : "#fff7ed",
+      backgroundColor: isDark ? "#184a54" : "#d2f0f0",
     },
-    currentPlanBadgeText: { color: "#059669", fontSize: 11, fontWeight: "700" },
-    currentPlanBadgeTextAnTam: { color: "#ea580c" },
+    currentPlanBadgeText: { color: isDark ? "#a7e3b9" : "#33734b", fontSize: 12, fontWeight: "700" },
+    currentPlanBadgeTextAnTam: { color: isDark ? "#a1e4e6" : "#267b85" },
     currentPlanSub: {
       color: isDark ? "#94a3b8" : "#64748b",
       flexShrink: 1,
-      fontSize: 12,
-      lineHeight: 17,
+      fontSize: 14,
+      lineHeight: 20,
       marginTop: 2,
     },
     comparisonRow: {
       flexDirection: "row",
       alignItems: "stretch",
-      gap: spacing.md,
-      marginTop: 14,
+      gap: 12,
+      marginTop: 24,
     },
+    comparisonStacked: { flexDirection: "column" },
     planChoice: {
       flex: 1,
       minWidth: 0,
-      minHeight: 72,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: spacing.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.md,
-      borderRadius: radius.lg,
+      overflow: "hidden",
+      borderWidth: 1.2,
+      padding: 14,
+      borderRadius: 22,
+      gap: 12,
     },
-    freeChoice: { backgroundColor: colors.surfaceMuted },
-    premiumChoice: { backgroundColor: colors.primaryLight },
-    planChoiceImage: { width: 32, height: 32, flexShrink: 0 },
+    planChoiceDetails: {
+      flexGrow: 1,
+      flexShrink: 0,
+      minWidth: 0,
+      minHeight: 190,
+      alignItems: "center",
+      paddingTop: 4,
+      gap: 6,
+    },
+    planChoiceStacked: { flex: 0, width: "100%" },
+    freeChoice: { borderColor: isDark ? "#365471" : "#ccdefb" },
+    premiumChoice: { borderColor: isDark ? "#4e95a0" : "#57b6c8" },
+    planArtwork: { width: "100%", height: 112, alignItems: "center", justifyContent: "center", marginBottom: 6 },
+    planChoiceImage: { width: 108, height: 96, maxWidth: "100%", flexShrink: 0 },
+    premiumChoiceImage: { width: 132, height: 112 },
     planChoiceTitle: { flexShrink: 1, minWidth: 0, textAlign: "center" },
+    planChoiceDescription: { color: isDark ? "#b6c9df" : "#52698c", fontSize: 14, textAlign: "center", lineHeight: 21 },
+    planStatusPill: { minHeight: 44, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: isDark ? "#46678d" : "#abc9f6", flexDirection: "row", gap: 5, alignItems: "center", justifyContent: "center" },
+    planStatusText: { color: isDark ? "#b1d1ff" : "#346fc2", fontSize: 12, fontWeight: "700", textAlign: "center", flexShrink: 1 },
+    premiumPlanStatusText: { color: isDark ? "#9cdddf" : "#287b86" },
+    upgradeButton: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 24, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+    upgradeButtonText: { color: "#f5fcff", fontWeight: "700", fontSize: 13, textAlign: "center" },
     planChoicePressed: { opacity: 0.65 },
     popularBadge: {
       backgroundColor: colors.primaryLight,
@@ -1045,13 +1130,13 @@ function createStyles(
     },
     popularBadgeText: { color: colors.primaryText, fontSize: 13, fontWeight: "700", flexShrink: 1 },
     freePlanTitle: {
-      color: isDark ? "#f8fafc" : "#0f172a",
+      color: isDark ? "#edf5ff" : "#19325e",
       fontSize: 22,
       fontWeight: "700",
       textAlign: "center",
     },
     premiumPlanTitle: {
-      color: "#ea580c",
+      color: isDark ? "#8bd4dc" : "#2c7e8b",
       fontSize: 22,
       fontWeight: "700",
       textAlign: "center",
@@ -1207,7 +1292,19 @@ function createStyles(
       fontWeight: "600",
       lineHeight: 18,
     },
-    faqWrapper: { marginTop: 16 },
+    faqWrapper: {
+      marginTop: 18,
+      paddingHorizontal: 16,
+      paddingVertical: 2,
+      borderRadius: 20,
+      backgroundColor: isDark ? "#1a2b40" : "#fbfdff",
+      borderWidth: 1,
+      borderColor: isDark ? "#273e58" : "#edf3fc",
+      shadowColor: "#7295ba",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0 : 0.05,
+      shadowRadius: 12,
+    },
     backdrop: {
       backgroundColor: "rgba(15,23,42,0.45)",
       bottom: 0,

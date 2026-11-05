@@ -34,7 +34,7 @@ export function SubscriptionScenarioComparison() {
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}
       >
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.headerIcon}>
-          <Ionicons name="git-compare-outline" size={26} color={colors.primaryText} />
+          <MaterialCommunityIcons name="stethoscope" size={30} color="#477dc4" />
         </View>
         <View style={styles.headerCopy}>
           <Text allowFontScaling style={styles.heading}>{t('comparison.title')}</Text>
@@ -105,13 +105,13 @@ export function SubscriptionComparisonContent() {
 
 function createStyles(colors: ReturnType<typeof useThemeColors>['colors']) {
   return StyleSheet.create({
-    root: { marginTop: spacing.md, marginBottom: spacing.lg, paddingVertical: spacing.lg },
+    root: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, shadowColor: '#7295ba', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12 },
     header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 },
     headerIcon: { width: 32, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1, minWidth: 0, gap: 2 },
     pressed: { opacity: 0.85 },
-    heading: { color: colors.textPrimary, fontSize: 18, fontWeight: '700' },
-    headerSubtitle: { color: colors.textSecondary, fontSize: 15 },
+    heading: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
+    headerSubtitle: { color: colors.textSecondary, fontSize: 14 },
     panel: { paddingTop: 22, paddingBottom: 12 },
     pageHeader: { minHeight: 82, paddingHorizontal: 8, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 14 },
     pageHeaderIcon: { width: 34, alignItems: 'center' },

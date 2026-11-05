@@ -205,7 +205,7 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
 
 const styles = StyleSheet.create({
   card: {
-    paddingVertical: spacing.md,
+    paddingVertical: 4,
   },
   header: {
     flexDirection: "row",
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#e2e8f0",
     marginBottom: spacing.xs,
-    minHeight: 60,
+    minHeight: 56,
   },
   headerCollapsed: {
     borderBottomWidth: 0,
@@ -229,23 +229,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   helpIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginHorizontal: 2,
+    backgroundColor: "#f2a83b",
     alignItems: "center",
     justifyContent: "center",
   },
   helpQuestionMark: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#ea580c",
+    color: "#fffaf0",
   },
   headerTextWrap: {
     flex: 1,
     minWidth: 0,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     letterSpacing: -0.3,
   },

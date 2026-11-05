@@ -98,7 +98,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       assert.ok(texts(link).includes(h.t('comparison.title')));
       assert.ok(texts(link).includes(h.t('comparison.headerSubtitle')));
       assert.ok(style(link.props.style).minHeight >= 56);
-      assert.deepEqual(nodes(link).filter(node => node.type === 'Icon').map(node => node.props.name), ['git-compare-outline']);
+      assert.deepEqual(nodes(link).filter(node => node.type === 'Icon').map(node => node.props.name), ['stethoscope']);
       assert.equal(nodes(entry).filter(node => node.props.testID?.startsWith('comparison-scenario-')).length, 0);
       link.props.onPress(); assert.deepEqual(h.navigations, ['/subscription/comparison']);
       const tree = h.renderContent();
@@ -169,7 +169,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
     { fontScale: 1, multiplier: 1.25 },
   ]) {
   await test(`${language}/${mode}/${os}: benefit checkmarks align with the first title line at system scale ${fontScale}, app scale ${multiplier}`, () => {
-    theme.applyTheme(mode); const h = hooks(); const t = translate(language); let chosen = 0;
+    theme.applyTheme(mode); const h = hooks(); const t = translate(language); let chosen = 0; let width = 393;
     const preferenceModal = evaluate('src/features/profile/ProfilePreferenceModal.tsx', {
       'react-native': native, '@expo/vector-icons': { Ionicons: 'Icon' },
       'react-i18next': { useTranslation: () => ({ t }) },
@@ -178,8 +178,9 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.colors, isDark: mode === 'dark' }) },
     });
     const { inspection } = evaluate('app/subscription/index.tsx', {
-      react: h.react, 'react-native': { ...native, Platform: { OS: os }, useWindowDimensions: () => ({ width: 320, fontScale }) },
+      react: h.react, 'react-native': { ...native, Platform: { OS: os }, useWindowDimensions: () => ({ width, fontScale }) },
       '@expo/vector-icons': { Ionicons: 'Icon' }, 'expo-image': { Image: 'Image' },
+      'expo-linear-gradient': { LinearGradient: 'Gradient' },
       'expo-router': { Stack: { Screen: 'StackScreen' }, useFocusEffect: () => {} },
       'react-native-reanimated': { __esModule: true, default: { View: 'AnimatedView' }, FadeInDown: {} },
       'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
@@ -189,6 +190,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       '../../src/features/profile/ProfilePreferenceModal': preferenceModal,
       '../../src/features/subscription/planName': { localizedPlanName },
       '../../src/features/subscription/components/SubscriptionScenarioComparison': { SubscriptionScenarioComparison: 'Comparison' },
+      '../../src/features/subscription/components/CarePlanBackground': { CarePlanBackground: 'Background' },
       '../../src/features/care-circle/care-circle.api': { careCircleApi: {} }, '../../src/features/auth/auth.store': { useAuthStore: () => ({}) },
       '../../src/hooks/useScaledTypography': {
         useScaledTypography: () => ({ size: theme.typography.size, scaledSize: { sm: Math.round(theme.typography.size.sm * multiplier) } }),
@@ -198,21 +200,30 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       '../../src/lib/apiClient': { apiClient: () => {}, getApiErrorMessage: () => {} },
       '../../src/stores/toast.store': { showToast: () => {} }, '../../src/styles': theme,
       '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({}) },
-    }, '\nexport const inspection = { PlanComparison, createStyles, FREE_FEATURES, AN_TAM_FEATURES };');
+    }, '\nexport const inspection = { PlanComparison, CurrentPlanCard, createStyles, FREE_FEATURES, AN_TAM_FEATURES };');
     assert.equal(inspection.FREE_FEATURES.length, 6); assert.equal(inspection.AN_TAM_FEATURES.length, 6);
     const freeFeatures = inspection.FREE_FEATURES.map(key => ({ text: t(key), description: t(`${key}Description`) }));
     const anTamFeatures = inspection.AN_TAM_FEATURES.map(key => ({ text: t(key), description: t(`${key}Description`) }));
-    const renderPlans = () => h.render(inspection.PlanComparison.type, { freeFeatures, anTamFeatures, freeIsCurrent: true, onChoosePlan: () => { chosen++; }, t, styles: inspection.createStyles(theme.typography, mode === 'dark') });
+    const renderPlans = (overrides = {}) => h.render(inspection.PlanComparison.type, { freeFeatures, anTamFeatures, freeIsCurrent: true, onChoosePlan: () => { chosen++; }, t, styles: inspection.createStyles(theme.typography, mode === 'dark'), ...overrides });
     const control = (tree, key) => nodes(tree).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t(key));
     const dialog = tree => nodes(tree).find(node => node.type === preferenceModal.ProfilePreferenceModal);
     let tree = renderPlans();
-    assert.equal(style(tree.props.style).flexDirection, 'row');
-    assert.equal(nodes(tree).filter(node => node.type === 'Pressable').length, 2);
+    const largeType = fontScale * Math.round(17 * multiplier) / 17 > 1.2;
+    assert.equal(style(tree.props.style).flexDirection, largeType ? 'column' : 'row');
+    width = 320;
+    assert.equal(style(renderPlans().props.style).flexDirection, 'column', 'Small phones preserve readable full-width plans');
+    width = 768;
+    assert.equal(style(renderPlans().props.style).flexDirection, largeType ? 'column' : 'row');
+    width = 393;
+    assert.equal(nodes(tree).filter(node => node.type === 'Pressable').length, 3);
+    assert.ok(texts(tree).includes(t('v2FreeOverview')));
+    assert.ok(texts(tree).includes(t('v2AnTamOverview')));
     for (const key of ['v2FreePlan', 'v2AnTamPlanName']) {
       const button = control(tree, key);
       assert.equal(button.props.accessibilityState?.expanded, undefined, 'A modal action is not a dropdown');
       assert.ok(style(button.props.style).minHeight >= 56);
-      assert.equal(style(button.props.style).flex, 1);
+      assert.equal(style(button.props.style).flexGrow, 1);
+      assert.equal(style(button.props.style).flexShrink, 0, 'Descriptions retain their natural height above the plan action');
       assert.equal(style(button.props.style).minWidth, 0);
     }
     assert.ok(!nodes(tree).some(node => node.type === 'Icon' && /chevron/.test(node.props.name)));
@@ -281,6 +292,20 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       }
       tree = renderPlans();
     }
+
+    const beforeUpgrade = chosen;
+    control(renderPlans(), 'upgradeNow').props.onPress();
+    assert.equal(chosen, beforeUpgrade + 1, 'Upgrade opens the separate plan chooser directly');
+    const disabledUpgrade = control(renderPlans({ purchaseDisabled: true }), 'upgradeNow');
+    assert.equal(disabledUpgrade.props.disabled, true);
+    assert.equal(disabledUpgrade.props.accessibilityState.disabled, true);
+    assert.equal(control(renderPlans({ freeIsCurrent: false }), 'upgradeNow'), undefined, 'An active An Tam plan is not presented as a Free plan');
+    assert.equal(texts(renderPlans({ freeIsCurrent: false, purchaseDisabled: true })).includes(t('currentlyUsing')), false, 'Unknown entitlements never display a guessed current plan');
+    const unavailable = h.render(inspection.CurrentPlanCard.type, {
+      status: null, loading: false, language, t, styles: inspection.createStyles(theme.typography, mode === 'dark'),
+    });
+    assert.ok(texts(unavailable).includes(t('v2LoadError')));
+    assert.equal(texts(unavailable).includes(t('v2FreeMeta')), false, 'A failed request is never described as a lifetime Free subscription');
 
   });
   }
