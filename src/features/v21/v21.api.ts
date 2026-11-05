@@ -1,4 +1,26 @@
 import { apiClient } from "../../lib/apiClient";
+import type { MedicationDraft } from "./useMedicationSetup";
+export type MedDraftSnapshot = {
+  version: 1;
+  step: number;
+  items: Omit<MedicationDraft, "photo_uri">[];
+  meals: Meals;
+  slots: {
+    time_local: string;
+    meal_anchor: Anchor;
+    item_indexes: number[];
+    note?: string;
+    sourceKeys?: string[];
+  }[];
+  photoMediaId: string | null;
+};
+export type MedSetupDraft = {
+  id: string;
+  revision: number;
+  updatedAt: string;
+  snapshot: MedDraftSnapshot;
+  photos: Record<string, string>;
+};
 export type Patient = { id: number; name: string };
 export type V21Flags = {
   medication: boolean;
@@ -55,11 +77,7 @@ export type MedPurposeCode =
   | "stomach";
 export type MedPurposeLookup = {
   status:
-    | "matched"
-    | "not_found"
-    | "ambiguous"
-    | "unavailable"
-    | "not_applicable";
+    "matched" | "not_found" | "ambiguous" | "unavailable" | "not_applicable";
   tags: MedPurposeCode[];
   productName?: string;
   source?: { name: string; url: string };
@@ -107,6 +125,7 @@ export type MedSchedule = {
   note?: string | null;
 };
 export type MedOverview = {
+  draft?: MedSetupDraft | null;
   patientId: number;
   items: MedItem[];
   schedules: MedSchedule[];
@@ -181,17 +200,17 @@ export const v21Api = {
   coins: () => apiClient<CoinToday>("/api/mobile/coins/today"),
   history: (before?: string) =>
     apiClient<{ items: CoinEntry[] }>(
-      `/api/mobile/coins/history?before=${encodeURIComponent(before || "")}`
+      `/api/mobile/coins/history?before=${encodeURIComponent(before || "")}`,
     ),
   rewards: () => apiClient<RewardCatalog>("/api/mobile/rewards"),
   redeem: (
     code: string,
     request_id: string,
-    payload: Record<string, unknown>
+    payload: Record<string, unknown>,
   ) =>
     apiClient<{ redemption: { id: string; status: string }; balance?: number }>(
       `/api/mobile/rewards/${encodeURIComponent(code)}/redeem`,
-      { method: "POST", body: { request_id, payload } }
+      { method: "POST", body: { request_id, payload } },
     ),
   weekly: (patient?: number) =>
     apiClient<{
@@ -201,66 +220,79 @@ export const v21Api = {
     apiClient<MedOverview>(
       `/api/mobile/med-schedules?patientId=${patient || ""}${
         includePaused ? "&includePaused=true" : ""
-      }`
+      }`,
+    ),
+  writeDraft: (
+    patient: number,
+    body: { id: string; revision: number; snapshot: MedDraftSnapshot },
+  ) =>
+    apiClient<{ id: string; revision: number }>(
+      `/api/mobile/medication/draft?patientId=${patient}`,
+      { method: "PUT", body },
+    ),
+  removeDraft: (patient: number, id: string, revision: number) =>
+    apiClient(
+      `/api/mobile/medication/draft/${encodeURIComponent(id)}?patientId=${patient}&revision=${revision}`,
+      { method: "DELETE" },
     ),
   setup: (patient: number, body: unknown) =>
     apiClient<{ pendingConsent: boolean; schedules: MedSchedule[] }>(
       `/api/mobile/medication/setup?patientId=${patient || ""}`,
-      { method: "POST", body, timeoutMs: 30000 }
+      { method: "POST", body, timeoutMs: 30000 },
     ),
   saveSchedule: (patient: number, id: string, body: unknown) =>
     apiClient(
       `/api/mobile/med-schedules/${encodeURIComponent(id)}?patientId=${
         patient || ""
       }`,
-      { method: "PUT", body }
+      { method: "PUT", body },
     ),
   remove: (patient: number, id: string) =>
     apiClient(
       `/api/mobile/med-schedules/${encodeURIComponent(id)}?patientId=${
         patient || ""
       }`,
-      { method: "DELETE" }
+      { method: "DELETE" },
     ),
   consent: (id: string, accept: boolean) =>
     apiClient(
       "/api/mobile/med-schedules/" + encodeURIComponent(id) + "/consent",
-      { method: "POST", body: { accept } }
+      { method: "POST", body: { accept } },
     ),
   preferences: (patient: number, problems_only: boolean) =>
     apiClient(
       `/api/mobile/medication/family-preferences?patientId=${patient || ""}`,
-      { method: "PUT", body: { problems_only } }
+      { method: "PUT", body: { problems_only } },
     ),
   doses: (patient?: number) =>
     apiClient<{ items: MedDose[] }>(
-      `/api/mobile/med-doses/today?patientId=${patient || ""}`
+      `/api/mobile/med-doses/today?patientId=${patient || ""}`,
     ),
   dose: (id: string) =>
     apiClient<MedDetail>("/api/mobile/med-doses/" + encodeURIComponent(id)),
   answer: (id: string, button: number, request_id: string) =>
     apiClient<MedAnswer>(
       "/api/mobile/med-doses/" + encodeURIComponent(id) + "/answer",
-      { method: "POST", body: { button, request_id } }
+      { method: "POST", body: { button, request_id } },
     ),
   checkin: (id: string, status: "fine" | "tired" | "very_tired") =>
     apiClient<{ checkinId: number }>(
       "/api/mobile/med-doses/" + encodeURIComponent(id) + "/checkin",
-      { method: "POST", body: { status } }
+      { method: "POST", body: { status } },
     ),
   scan: (patient: number, body: FormData) =>
     apiClient<ScanResult>(
       `/api/mobile/med-items/scan?patientId=${patient || ""}`,
-      { method: "POST", body, timeoutMs: 60000 }
+      { method: "POST", body, timeoutMs: 60000 },
     ),
   lookupPurpose: (patient: number, name: string, kind: MedKind) =>
     apiClient<MedPurposeLookup>(
       `/api/mobile/med-items/lookup?patientId=${patient || ""}`,
-      { method: "POST", body: { name, kind }, timeoutMs: 12000 }
+      { method: "POST", body: { name, kind }, timeoutMs: 12000 },
     ),
   transcribe: (patient: number, body: FormData) =>
     apiClient<{ text: string }>(
       `/api/mobile/med-items/transcribe?patientId=${patient || ""}`,
-      { method: "POST", body, timeoutMs: 45000 }
+      { method: "POST", body, timeoutMs: 45000 },
     ),
 };

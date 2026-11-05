@@ -47,7 +47,7 @@ export function useMedicationOverview() {
       version.current === expected &&
       patientScope.current === patient &&
       useAuthStore.getState().token === token,
-    [token, patient]
+    [token, patient],
   );
 
   const refresh = useCallback(async () => {
@@ -105,7 +105,7 @@ export function useMedicationOverview() {
         reads.current++;
         operation.current = null;
       };
-    }, [refresh, token, patient])
+    }, [refresh, token, patient]),
   );
 
   const viewVersion = version.current;
@@ -187,6 +187,14 @@ export function useMedicationOverview() {
     },
     canSave,
     refresh,
+    removeDraft: () => {
+      const draft = data?.draft;
+      if (draft && data)
+        return mutate(
+          () => v21Api.removeDraft(data.patientId, draft.id, draft.revision),
+          "draftDeleted",
+        );
+    },
     openSchedule,
     selectPatient: (id: number) => {
       if (current(viewVersion) && !busy && id !== data?.patientId) {
@@ -200,7 +208,7 @@ export function useMedicationOverview() {
     toggleItem: (id: string) => {
       if (current(viewVersion))
         setItems((old) =>
-          old.includes(id) ? old.filter((x) => x !== id) : [...old, id]
+          old.includes(id) ? old.filter((x) => x !== id) : [...old, id],
         );
     },
     save: () => {
@@ -214,7 +222,7 @@ export function useMedicationOverview() {
               meal_anchor: selected.meal_anchor,
               active: selected.active,
             }),
-          "saved"
+          "saved",
         );
     },
     setScheduleActive: (schedule: MedSchedule, active: boolean) => {
@@ -238,22 +246,22 @@ export function useMedicationOverview() {
         active && schedule.consent_state === "PENDING"
           ? "scheduleAwaitingConsent"
           : active
-          ? "scheduleResumed"
-          : "schedulePaused"
+            ? "scheduleResumed"
+            : "schedulePaused",
       );
     },
     remove: () => {
       if (selected && data && mode === "remove")
         return mutate(
           () => v21Api.remove(data.patientId, selected.id),
-          "saved"
+          "saved",
         );
     },
     setProblemsOnly: (value: boolean) => {
       if (data)
         return mutate(
           () => v21Api.preferences(data.patientId, value),
-          value ? "preferenceOn" : "preferenceOff"
+          value ? "preferenceOn" : "preferenceOff",
         );
     },
   };

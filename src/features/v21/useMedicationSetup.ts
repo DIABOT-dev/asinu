@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, AppState, Platform } from "react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useGuardedRouter as useRouter } from "../../hooks/useGuardedRouter";
 import * as ImagePicker from "expo-image-picker";
@@ -23,6 +23,12 @@ import { v21Error } from "./V21Layout";
 import { reportError } from "../../observability/sentry";
 import { useAuthStore } from "../auth/auth.store";
 import { ApiError } from "../../lib/apiClient";
+import { env } from "../../lib/env";
+import {
+  MedicationDraftSession,
+  type DraftStatus,
+} from "./medication-draft-session";
+import type { MedDraftSnapshot } from "./v21.api";
 import {
   medicationTextHasNoDose,
   validMedicationNote,
@@ -102,7 +108,7 @@ export function useMedicationSetup() {
         String(auth.profile?.id ?? "") === user
       );
     },
-    [token, user, scopeKey]
+    [token, user, scopeKey],
   );
   const [data, setData] = useState<MedOverview | null>(null),
     [step, setStep] = useState(1),
@@ -123,7 +129,13 @@ export function useMedicationSetup() {
       }[]
     >([]);
   const [loading, setLoading] = useState(true);
+  const [draftStatus, setDraftStatus] = useState<DraftStatus>("idle");
+  const [photoMediaId, setPhotoMediaId] = useState<string | null>(null);
+  const draftSession = useRef<MedicationDraftSession | null>(null);
+  const draftLoaded = useRef(false);
+  const draftCredential = useRef<string | null>(null);
   const [busy, setBusy] = useState(false),
+    [scanning, setScanning] = useState(false),
     [photo, setPhoto] = useState<string | null>(null),
     [scanFailures, setScanFailures] = useState(0),
     [consent, setConsent] = useState(false),
@@ -155,6 +167,43 @@ export function useMedicationSetup() {
         const d = await v21Api.overview(patient);
         if (!current(expected)) return;
         setData(d);
+        if (!draftLoaded.current) {
+          draftLoaded.current = true;
+          const owns = () =>
+            useAuthStore.getState().token === token &&
+            String(useAuthStore.getState().profile?.id ?? "") === user;
+          draftSession.current = new MedicationDraftSession(
+            patient,
+            owns,
+            (status) => {
+              if (current(generation.current)) setDraftStatus(status);
+            },
+            d.draft,
+          );
+          if (d.draft) {
+            const snapshot = d.draft.snapshot;
+            const photoUrl = (id?: string | null) =>
+              id && d.draft?.photos[id]
+                ? `${env.apiBaseUrl}${d.draft.photos[id]}`
+                : undefined;
+            setDraft(
+              snapshot.items.map((item) => ({
+                ...item,
+                photo_uri: photoUrl(item.photo_media_id),
+                purposeLookup: item.purposeLookup?.result
+                  ? { ...item.purposeLookup, loading: false }
+                  : undefined,
+              })),
+            );
+            setPhotoMediaId(snapshot.photoMediaId);
+            setPhoto(photoUrl(snapshot.photoMediaId) || null);
+            setMeals(snapshot.meals);
+            setSlots(snapshot.slots);
+            setStep(snapshot.step);
+            setDraftStatus("saved");
+            mealsLoaded.current = true;
+          }
+        }
         if (!mealsLoaded.current)
           setMeals({
             breakfast: d.meals.breakfast.slice(0, 5),
@@ -169,15 +218,21 @@ export function useMedicationSetup() {
         if (current(expected)) setLoading(false);
       }
     },
-    [patient, t, current]
+    [patient, t, current],
   );
   useFocusEffect(
     useCallback(() => {
-      const changed = owner.current !== scopeKey;
+      const changed =
+        owner.current !== scopeKey || draftCredential.current !== token;
+      draftCredential.current = token;
       owner.current = scopeKey;
       focused.current = true;
       generation.current++;
       if (changed) {
+        draftSession.current = null;
+        draftLoaded.current = false;
+        setDraftStatus("idle");
+        setPhotoMediaId(null);
         setData(null);
         setDraft([]);
         setSlots([]);
@@ -192,10 +247,12 @@ export function useMedicationSetup() {
       saving.current = null;
       pendingPhoto.current = null;
       setBusy(false);
+      setScanning(false);
       setConsent(false);
       setListening(false);
       void reload(generation.current);
       return () => {
+        void draftSession.current?.flush().catch(() => {});
         focused.current = false;
         generation.current++;
         pendingPhoto.current = null;
@@ -211,8 +268,60 @@ export function useMedicationSetup() {
             })
             .catch(() => {});
       };
-    }, [reload, scopeKey])
+    }, [reload, scopeKey]),
   );
+  const snapshot = (): MedDraftSnapshot | null => {
+    if (!draft.length && !photoMediaId) return null;
+    return {
+      version: 1,
+      step,
+      items: draft.map(({ photo_uri: _uri, ...item }) => item),
+      meals,
+      slots,
+      photoMediaId,
+    };
+  };
+  useEffect(() => {
+    if (!current(viewVersion) || !draftLoaded.current || loading || busy)
+      return;
+    const value = snapshot();
+    if (value) draftSession.current?.schedule(value);
+  }, [
+    step,
+    draft,
+    meals,
+    slots,
+    photoMediaId,
+    loading,
+    busy,
+    viewVersion,
+    current,
+  ]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active" || !current(viewVersion)) return;
+      const value = snapshot();
+      if (value) draftSession.current?.schedule(value);
+      void draftSession.current?.flush().catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [step, draft, meals, slots, photoMediaId, viewVersion, current]);
+  const exitDraft = async () => {
+    const expected = viewVersion;
+    if (!current(expected) || busy) return;
+    const value = snapshot();
+    if (value) draftSession.current?.schedule(value);
+    setBusy(true);
+    try {
+      await draftSession.current?.flush();
+      if (current(expected)) router.back();
+    } catch {
+      if (current(expected))
+        useToastStore.getState().show(t("draftSaveError"), "error");
+    } finally {
+      if (current(expected)) setBusy(false);
+    }
+  };
   const update = (i: number, x: Partial<MedicationDraft>) => {
     if (current(viewVersion))
       setDraft((old) =>
@@ -233,7 +342,7 @@ export function useMedicationSetup() {
                 }
               : {}),
           };
-        })
+        }),
       );
   };
   const leave = () => {
@@ -246,16 +355,7 @@ export function useMedicationSetup() {
       router.back();
       return;
     }
-    Alert.alert(t("discardTitle"), t("discardBody"), [
-      { text: t("keepEditing"), style: "cancel" },
-      {
-        text: t("leave"),
-        style: "destructive",
-        onPress: () => {
-          if (current(viewVersion)) router.back();
-        },
-      },
-    ]);
+    void exitDraft();
   };
   const withConsent = async (work: () => Promise<void>) => {
     if (!current(viewVersion)) return;
@@ -299,6 +399,7 @@ export function useMedicationSetup() {
       await withConsent(async () => {
         if (!current(expected)) return;
         setBusy(true);
+        setScanning(true);
         let upload: MedicationPhotoUpload | null = null;
         let stage = "photo_prepare";
         try {
@@ -307,6 +408,7 @@ export function useMedicationSetup() {
           stage = "photo_upload";
           const scan = await v21Api.scan(patient, upload.body);
           if (!current(expected)) return;
+          setPhotoMediaId(scan.mediaId);
           if (!scan.readable || !scan.items.length) {
             setScanFailures((n) => n + 1);
             useToastStore
@@ -314,25 +416,42 @@ export function useMedicationSetup() {
               .show(t(scanFailures ? "scanFallback" : "scanRetry"), "info");
             return;
           }
-          setDraft(
-            scan.items.map((item) => ({
-              clientId: randomUUID(),
-              display_name: item.display_name || "",
-              printed_name: item.printed_name,
-              kind: item.kind,
-              source: "PHOTO_AI",
-              confirmed: false,
-              photo_media_id: scan.mediaId,
-              photo_uri: asset.uri,
-              timeHints: item.suggested_slots.filter((a) =>
-                ["morning", "noon", "evening"].includes(a)
-              ),
-              anchors: item.suggested_slots.filter((a): a is Anchor =>
-                medicationAnchors.includes(a as Anchor)
-              ),
-            }))
-          );
+          const items: MedicationDraft[] = scan.items.map((item) => ({
+            clientId: randomUUID(),
+            display_name: item.display_name || "",
+            printed_name: item.printed_name,
+            kind: item.kind,
+            source: "PHOTO_AI",
+            confirmed: false,
+            photo_media_id: scan.mediaId,
+            photo_uri: asset.uri,
+            timeHints: item.suggested_slots.filter((a) =>
+              ["morning", "noon", "evening"].includes(a),
+            ),
+            anchors: item.suggested_slots.filter((a): a is Anchor =>
+              medicationAnchors.includes(a as Anchor),
+            ),
+          }));
+          setDraft(items);
           setStep(2);
+          const session = draftSession.current;
+          if (session) {
+            session.schedule({
+              version: 1,
+              step: 2,
+              items: items.map(({ photo_uri: _uri, ...item }) => item),
+              meals,
+              slots: [],
+              photoMediaId: scan.mediaId,
+            });
+            try {
+              await session.flush();
+            } catch {
+              if (current(expected))
+                useToastStore.getState().show(t("draftSaveError"), "error");
+            }
+          }
+          if (!current(expected)) return;
           if (scan.partial)
             useToastStore.getState().show(t("partialScan"), "info");
         } catch (error) {
@@ -349,17 +468,20 @@ export function useMedicationSetup() {
                   error.code === "MED_LOCAL_PHOTO_TOO_LARGE"
                     ? "medicationPhotoTooLarge"
                     : error.code === "MED_LOCAL_PHOTO_UNSUPPORTED"
-                    ? "scanPhotoUnsupported"
-                    : "medicationPhotoReadError"
+                      ? "scanPhotoUnsupported"
+                      : "medicationPhotoReadError",
                 ),
-                "error"
+                "error",
               );
           } else {
             v21Error(error, t, "medicationPhotoUploadError");
           }
         } finally {
           upload?.dispose();
-          if (current(expected)) setBusy(false);
+          if (current(expected)) {
+            setBusy(false);
+            setScanning(false);
+          }
         }
       });
     } catch (error) {
@@ -390,7 +512,7 @@ export function useMedicationSetup() {
         (form as any).append(
           "audio",
           await (await fetch(uri)).blob(),
-          "name.webm"
+          "name.webm",
         );
       } else form.append("audio", new File(uri));
       const r = await v21Api.transcribe(patient, form);
@@ -406,7 +528,7 @@ export function useMedicationSetup() {
       if (current(expected)) setBusy(false);
       if (!recording.current)
         await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(
-          () => {}
+          () => {},
         );
     }
   };
@@ -431,7 +553,7 @@ export function useMedicationSetup() {
         });
         if (!current(expected)) return;
         const r = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY
+          Audio.RecordingOptionsPresets.HIGH_QUALITY,
         );
         if (!current(expected)) {
           await r.recording.stopAndUnloadAsync();
@@ -476,12 +598,12 @@ export function useMedicationSetup() {
           a === "before_breakfast"
             ? clock(meals.breakfast, -30)
             : a === "after_breakfast"
-            ? clock(meals.breakfast, 30)
-            : a === "after_lunch"
-            ? clock(meals.lunch, 30)
-            : a === "after_dinner"
-            ? clock(meals.dinner, 30)
-            : meals.bedtime;
+              ? clock(meals.breakfast, 30)
+              : a === "after_lunch"
+                ? clock(meals.lunch, 30)
+                : a === "after_dinner"
+                  ? clock(meals.dinner, 30)
+                  : meals.bedtime;
         const row = grouped.get(time) || {
           time_local: time,
           meal_anchor: a,
@@ -491,7 +613,7 @@ export function useMedicationSetup() {
         if (!row.item_indexes.includes(i)) row.item_indexes.push(i);
         row.sourceKeys.push(`${d.clientId || i}:${a}`);
         grouped.set(time, row);
-      })
+      }),
     );
     if (grouped.size > 4) {
       useToastStore.getState().show(t("scheduleLimit"), "error");
@@ -506,14 +628,14 @@ export function useMedicationSetup() {
             ...new Set(
               slots
                 .filter((old) =>
-                  old.sourceKeys?.some((key) => slot.sourceKeys.includes(key))
+                  old.sourceKeys?.some((key) => slot.sourceKeys.includes(key)),
                 )
                 .map((old) => old.note?.trim())
-                .filter(Boolean)
+                .filter(Boolean),
             ),
           ].join("; ");
           return { ...slot, ...(note ? { note } : {}) };
-        })
+        }),
     );
     setStep(4);
   };
@@ -538,14 +660,14 @@ export function useMedicationSetup() {
               ...existing,
               note: [
                 ...new Set(
-                  [existing.note?.trim(), s.note?.trim()].filter(Boolean)
+                  [existing.note?.trim(), s.note?.trim()].filter(Boolean),
                 ),
               ].join("; "),
               item_indexes: [
                 ...new Set([...existing.item_indexes, ...s.item_indexes]),
               ],
             }
-          : s
+          : s,
       );
     }
     if ([...grouped.values()].some((s) => !validMedicationNote(s.note || ""))) {
@@ -573,14 +695,14 @@ export function useMedicationSetup() {
                 },
               }
             : {}),
-        })
+        }),
       ),
       meals,
       slots: [...grouped.values()].map(
         ({ note, sourceKeys: _keys, ...slot }) => ({
           ...slot,
           ...(note?.trim() ? { note: note.trim() } : {}),
-        })
+        }),
       ),
     };
     const json = JSON.stringify(body);
@@ -591,11 +713,22 @@ export function useMedicationSetup() {
     saving.current = operation;
     setBusy(true);
     try {
+      const value = snapshot();
+      if (value) draftSession.current?.schedule(value);
+      await draftSession.current?.flush();
+      if (!current(expected)) return;
       const r = await v21Api.setup(patient, {
         request_id: requestId.current,
+        ...(draftSession.current?.revision
+          ? {
+              draft_id: draftSession.current.id,
+              draft_revision: draftSession.current.revision,
+            }
+          : {}),
         ...body,
       });
       if (!current(expected)) return;
+      draftSession.current?.complete();
       useToastStore
         .getState()
         .show(t(r.pendingConsent ? "consentSent" : "scheduleSaved"), "success");
@@ -634,20 +767,20 @@ export function useMedicationSetup() {
             !d.purposeLookup?.loading &&
             !!d.display_name.trim() &&
             d.display_name.trim().length <= 30 &&
-            medicationNameHasNoDose(d.display_name)
+            medicationNameHasNoDose(d.display_name),
         )
       : step === 3
-      ? Object.values(meals).every(validMedicationTime) &&
-        !!draft.length &&
-        draft.every((d) => d.anchors.length > 0)
-      : step === 4
-      ? !!slots.length &&
-        slots.every(
-          (s) =>
-            validMedicationTime(s.time_local) &&
-            validMedicationNote(s.note || "")
-        )
-      : false);
+        ? Object.values(meals).every(validMedicationTime) &&
+          !!draft.length &&
+          draft.every((d) => d.anchors.length > 0)
+        : step === 4
+          ? !!slots.length &&
+            slots.every(
+              (s) =>
+                validMedicationTime(s.time_local) &&
+                validMedicationNote(s.note || ""),
+            )
+          : false);
   const owned = !!token && !!user && owner.current === scopeKey;
   return {
     data: owned ? data : null,
@@ -656,7 +789,46 @@ export function useMedicationSetup() {
     meals,
     slots: owned ? slots : [],
     loading,
+    draftStatus,
+    exitDraft,
+    discardDraft: () => {
+      if (!current(viewVersion) || busy || listening) return;
+      const expected = viewVersion;
+      Alert.alert(t("deleteDraftTitle"), t("deleteDraftBody"), [
+        { text: t("cancel"), style: "cancel" },
+        {
+          text: t("deleteDraft"),
+          style: "destructive",
+          onPress: async () => {
+            if (!current(expected)) return;
+            setBusy(true);
+            try {
+              await draftSession.current?.remove();
+              if (!current(expected)) return;
+              draftSession.current = null;
+              draftLoaded.current = false;
+              setDraft([]);
+              setSlots([]);
+              setPhoto(null);
+              setPhotoMediaId(null);
+              setScanFailures(0);
+              setStep(1);
+              reviewInputs.current = null;
+              savedBody.current = null;
+              requestId.current = randomUUID();
+              await reload(expected);
+              useToastStore.getState().show(t("draftDeleted"), "success");
+            } catch (error) {
+              if (current(expected)) v21Error(error, t, "draftDeleteError");
+            } finally {
+              if (current(expected)) setBusy(false);
+            }
+          },
+        },
+      ]);
+    },
     busy,
+    scanning: current(viewVersion) && scanning,
     photo: owned ? photo : null,
     scanFailures,
     consent: owned ? consent : false,
@@ -698,7 +870,7 @@ export function useMedicationSetup() {
                 d.source === "CHIP" &&
                 !d.display_name.trim() &&
                 !d.confirmed &&
-                !d.printed_name
+                !d.printed_name,
             )
           : -1;
         if (empty >= 0)

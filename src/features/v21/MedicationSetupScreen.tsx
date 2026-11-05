@@ -28,6 +28,8 @@ import type { MedKind, Meals } from "./v21.api";
 import { medicationSetupStyles as s } from "./medication-setup.styles";
 import { medicationQuickNames, validMedicationNote } from "./medication-input";
 import { MedicationPhotoPreview } from "./MedicationPhotoPreview";
+import { MedicationScanOverlay } from "./MedicationScanOverlay";
+import { MedicationBackground } from "./MedicationBackground";
 import {
   MedicationPurposeReview,
   MedicationPurposeTags,
@@ -189,7 +191,14 @@ export function MedicationSetupPanel({
       ]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={s.chrome}>
+      <MedicationBackground />
+      <View
+        style={s.chrome}
+        accessibilityElementsHidden={setup.scanning}
+        importantForAccessibility={
+          setup.scanning ? "no-hide-descendants" : "auto"
+        }
+      >
         <View style={s.header}>
           <Pressable
             accessibilityRole="button"
@@ -203,6 +212,19 @@ export function MedicationSetupPanel({
           <Text accessibilityRole="header" style={[s.heading, title, s.flex]}>
             {t("setupTitle")}
           </Text>
+          {(draft.length > 0 || setup.photo) && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("saveDraftAndLeave")}
+              disabled={busy || listening}
+              onPress={() => void setup.exitDraft()}
+              style={s.laterButton}
+            >
+              <Text style={[s.laterText, { color: colors.primaryText }]}>
+                {t("saveDraftAndLeave")}
+              </Text>
+            </Pressable>
+          )}
         </View>
         <View
           accessibilityRole="progressbar"
@@ -263,6 +285,10 @@ export function MedicationSetupPanel({
         </View>
       </View>
       <ScrollView
+        accessibilityElementsHidden={setup.scanning}
+        importantForAccessibility={
+          setup.scanning ? "no-hide-descendants" : "auto"
+        }
         key={step}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -272,6 +298,70 @@ export function MedicationSetupPanel({
         <Text accessibilityRole="header" style={[s.stepTitle, title]}>
           {t(`setupStage${step}`)}
         </Text>
+        {setup.draftStatus !== "idle" && (
+          <View style={s.draftStatus}>
+            <Ionicons
+              name={
+                setup.draftStatus === "error"
+                  ? "cloud-offline-outline"
+                  : setup.draftStatus === "saved"
+                    ? "cloud-done-outline"
+                    : "cloud-upload-outline"
+              }
+              size={18}
+              color={
+                setup.draftStatus === "error"
+                  ? colors.danger
+                  : colors.primaryText
+              }
+            />
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[
+                s.caption,
+                s.flex,
+                {
+                  color:
+                    setup.draftStatus === "error"
+                      ? colors.danger
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              {t(
+                setup.draftStatus === "error"
+                  ? "draftSaveError"
+                  : setup.draftStatus === "saved"
+                    ? "draftSaved"
+                    : "draftSaving",
+              )}
+            </Text>
+          </View>
+        )}
+        {(draft.length > 0 || setup.photo) && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("deleteDraft")}
+            disabled={busy || listening}
+            onPress={setup.discardDraft}
+            style={{
+              minHeight: 44,
+              alignSelf: "flex-end",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Ionicons
+              name="trash-outline"
+              size={18}
+              color={colors.textSecondary}
+            />
+            <Text style={[s.caption, { color: colors.textSecondary }]}>
+              {t("deleteDraft")}
+            </Text>
+          </Pressable>
+        )}
         {!data ? (
           <View style={s.empty}>
             {setup.loading ? (
@@ -323,11 +413,11 @@ export function MedicationSetupPanel({
                   disabled={disabled}
                   onPress={setup.voice}
                 />
-                {(busy || listening) && (
+                {!setup.scanning && (busy || listening) && (
                   <View style={s.status}>
                     <ActivityIndicator color={colors.primary} />
                     <Text style={[s.label, title, s.flex]}>
-                      {t(listening ? "voiceListening" : "scanBusy")}
+                      {t(listening ? "voiceListening" : "loading")}
                     </Text>
                   </View>
                 )}
@@ -361,9 +451,11 @@ export function MedicationSetupPanel({
                         })}
                         disabled={busy}
                         onPress={() =>
-                          setup.setDraft((old) =>
-                            old.filter((_, n) => n !== index)
-                          )
+                          draft.length === 1
+                            ? setup.discardDraft()
+                            : setup.setDraft((old) =>
+                                old.filter((_, n) => n !== index),
+                              )
                         }
                         style={s.iconButton}
                       >
@@ -439,7 +531,7 @@ export function MedicationSetupPanel({
                           selectedPurposeCodes:
                             item.selectedPurposeCodes?.includes(code)
                               ? item.selectedPurposeCodes.filter(
-                                  (value) => value !== code
+                                  (value) => value !== code,
                                 )
                               : [...(item.selectedPurposeCodes || []), code],
                           confirmed: false,
@@ -451,7 +543,7 @@ export function MedicationSetupPanel({
                       accessibilityLabel={t(
                         item.selectedPurposeCodes?.length
                           ? "itemAndTagsConfirmed"
-                          : "itemConfirmed"
+                          : "itemConfirmed",
                       )}
                       accessibilityState={{
                         checked: item.confirmed,
@@ -479,7 +571,7 @@ export function MedicationSetupPanel({
                         {t(
                           item.selectedPurposeCodes?.length
                             ? "itemAndTagsConfirmed"
-                            : "itemConfirmed"
+                            : "itemConfirmed",
                         )}
                       </Text>
                     </Pressable>
@@ -521,10 +613,10 @@ export function MedicationSetupPanel({
                           meal === "bedtime"
                             ? "moon-outline"
                             : meal === "breakfast"
-                            ? "sunny-outline"
-                            : meal === "lunch"
-                            ? "restaurant-outline"
-                            : "partly-sunny-outline"
+                              ? "sunny-outline"
+                              : meal === "lunch"
+                                ? "restaurant-outline"
+                                : "partly-sunny-outline"
                         }
                         size={22}
                         color={colors.primaryText}
@@ -563,7 +655,7 @@ export function MedicationSetupPanel({
                         <Chip
                           key={anchor}
                           label={t(
-                            anchor === "bedtime" ? "anchor_bedtime" : anchor
+                            anchor === "bedtime" ? "anchor_bedtime" : anchor,
                           )}
                           selected={item.anchors.includes(anchor)}
                           disabled={busy}
@@ -601,8 +693,8 @@ export function MedicationSetupPanel({
                         onChange={(value) =>
                           setup.setSlots((old) =>
                             old.map((s, n) =>
-                              n === index ? { ...s, time_local: value } : s
-                            )
+                              n === index ? { ...s, time_local: value } : s,
+                            ),
                           )
                         }
                       />
@@ -653,8 +745,8 @@ export function MedicationSetupPanel({
                       onChangeText={(note) =>
                         setup.setSlots((old) =>
                           old.map((row, n) =>
-                            n === index ? { ...row, note } : row
-                          )
+                            n === index ? { ...row, note } : row,
+                          ),
                         )
                       }
                       style={[
@@ -696,6 +788,10 @@ export function MedicationSetupPanel({
       </ScrollView>
       {step > 1 && data && (
         <View
+          accessibilityElementsHidden={setup.scanning}
+          importantForAccessibility={
+            setup.scanning ? "no-hide-descendants" : "auto"
+          }
           style={[
             s.footer,
             {
@@ -707,7 +803,7 @@ export function MedicationSetupPanel({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(
-              step === 4 ? (data.self ? "save" : "sendConsent") : "next"
+              step === 4 ? (data.self ? "save" : "sendConsent") : "next",
             )}
             accessibilityState={{ disabled: !setup.canContinue, busy }}
             disabled={!setup.canContinue}
@@ -725,6 +821,7 @@ export function MedicationSetupPanel({
           </Pressable>
         </View>
       )}
+      <MedicationScanOverlay visible={setup.scanning} />
       <AiDataConsentModal
         visible={setup.consent}
         onDecline={setup.declineAi}

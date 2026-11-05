@@ -4,14 +4,14 @@ const ts = require('typescript');
 const { randomUUID } = require('node:crypto');
 const flush = async () => { for (let n=0;n<30;n++) await Promise.resolve(); };
 function harness({self=true}={}) {
-  let cursor=0; const slots=[],effects=[],calls=[],toasts=[],errors=[],navigation=[];
+  let cursor=0; const slots=[],effects=[],calls=[],toasts=[],errors=[],navigation=[],appStates=new Set();
   const memo=(fn,deps)=>{const i=cursor++,old=slots[i];if(!old||deps.some((v,n)=>!Object.is(v,old.deps[n])))slots[i]={value:fn(),deps};return slots[i].value;};
   const react={
     useState(initial){const i=cursor++;slots[i]??={value:initial};return [slots[i].value,v=>{slots[i].value=typeof v==='function'?v(slots[i].value):v;}];},
     useRef:initial=>memo(()=>({current:initial}),[]),useCallback:(fn,deps)=>memo(()=>fn,deps),
     useEffect(fn,deps){const i=cursor++,old=slots[i];if(!old||deps.some((v,n)=>!Object.is(v,old.deps[n]))){slots[i]={deps};effects.push(()=>{old?.cleanup?.();slots[i].cleanup=fn();});}},
   };
-  const server={fail:false,pending:null,aiConsent:false,photoError:null,scanError:null,pickerCanceled:false,scanItems:null};
+  const server={fail:false,pending:null,aiConsent:false,draft:null,photoError:null,scanError:null,pickerCanceled:false,scanItems:null};
   const auth={token:'setup-account-a',profile:{id:1}},route={patientId:'1'};
   const useAuthStore=Object.assign(select=>select(auth),{getState:()=>auth});
   class PhotoError extends Error { constructor(code){super(code);this.code=code;} }
@@ -19,7 +19,7 @@ function harness({self=true}={}) {
   class NativeForm { constructor(){this.parts=[];} append(...args){this.parts.push(args);} }
   const data={self,conditions:[],flags:{scan:true},meals:{breakfast:'06:30',lunch:'11:30',dinner:'18:00',bedtime:'21:30'}};
   const t=key=>key;
-  const deps={react,'react-native':{Platform:{OS:'ios'},Alert:{alert:(...args)=>calls.push(['alert',...args])}},
+  const deps={react,'react-native':{Platform:{OS:'ios'},AppState:{addEventListener:(_event,fn)=>{appStates.add(fn);return {remove:()=>appStates.delete(fn)};}},Alert:{alert:(...args)=>calls.push(['alert',...args])}},
     'expo-router':{useLocalSearchParams:()=>route,useFocusEffect:fn=>react.useEffect(fn,[fn]),useRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
     '../auth/auth.store':{useAuthStore},
     '../../hooks/useGuardedRouter':{useGuardedRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
@@ -29,8 +29,10 @@ function harness({self=true}={}) {
     './medication-photo':{MedicationPhotoError:PhotoError,prepareMedicationPhoto:async()=>{if(server.photoError)throw new PhotoError(server.photoError);return {body:{photo:true},dispose:()=>calls.push(['dispose'])};}},
     './useMedicationPurposeLookup':{useMedicationPurposeLookup:()=>({pending:false,retry:()=>{}})},
     '../../stores/toast.store':{useToastStore:{getState:()=>({show:(...args)=>toasts.push(args)})}},'./V21Layout':{v21Error:error=>errors.push(error)},
-    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>data,scan:async()=>{calls.push(['scan']);if(server.scanPending)await server.scanPending;if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:server.scanItems||[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.setupError)throw server.setupError;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
+    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>({...data,draft:server.draft}),writeDraft:async(id,body)=>{calls.push(['draft',id,body]);if(server.draftPending)await server.draftPending;if(server.draftFail)throw Error('draft offline');return {id:body.id,revision:body.revision+1};},removeDraft:async(...args)=>{calls.push(['removeDraft',...args]);server.draft=null;},scan:async()=>{calls.push(['scan']);if(server.scanPending)await server.scanPending;if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:server.scanItems||[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.setupError)throw server.setupError;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
   };
+  deps['../../lib/env']={env:{apiBaseUrl:'https://local.test'}};
+  const draftModule={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync('src/features/v21/medication-draft-session.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(draftModule,draftModule.exports,k=>deps[k]);deps['./medication-draft-session']=draftModule.exports;
   const module={exports:{}};
   const inputs={exports:{}};
   new Function('module','exports',ts.transpileModule(fs.readFileSync('src/features/v21/medication-input.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(inputs,inputs.exports);
@@ -42,7 +44,7 @@ function harness({self=true}={}) {
   const read=()=>{cursor=0;return module.exports.useMedicationSetup();};
   const settle=async()=>{read();effects.splice(0).forEach(fn=>fn());await flush();return read();};
   const toReview=async()=>{read().addManual();read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['after_breakfast']});read().next();read().next();await flush();return read();};
-  return {read,settle,toReview,calls,toasts,errors,server,navigation,auth,route,makeApiError:code=>Object.assign(new ApiError('fixture'),{code}),blur:()=>slots.forEach(x=>x?.cleanup?.())};
+  return {read,settle,toReview,calls,toasts,errors,server,navigation,auth,route,background:()=>appStates.forEach(fn=>fn('background')),makeApiError:code=>Object.assign(new ApiError('fixture'),{code}),blur:()=>slots.forEach(x=>x?.cleanup?.())};
 }
 let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+name);}
 (async()=>{
@@ -86,7 +88,7 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     h.read().next();await flush();assert.equal(h.read().step,2);assert.equal(h.read().draft.length,1);assert.equal(h.read().busy,false);
   });
   await test('rapid final presses send only one pending save',async()=>{
-    const h=harness();await h.settle();await h.toReview();let release;h.server.pending=new Promise(r=>{release=r;});const old=h.read();old.next();old.next();assert.equal(h.calls.filter(x=>x[0]==='setup').length,1);release();await flush();
+    const h=harness();await h.settle();await h.toReview();let release;h.server.pending=new Promise(r=>{release=r;});const old=h.read();old.next();old.next();await flush();assert.equal(h.calls.filter(x=>x[0]==='setup').length,1);release();await flush();
   });
   await test('photo reading waits for AI consent; extracted names still need confirmation',async()=>{
     const h=harness();await h.settle();await h.read().pick(true);assert.equal(h.read().consent,true);assert.ok(!h.calls.some(x=>x[0]==='scan'));h.read().agreeAi();await flush();assert.equal(h.read().step,2);assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.read().canContinue,false);assert.equal(h.calls.find(x=>x[0]==='picker')[1].base64,true);assert.equal(h.calls.filter(x=>x[0]==='dispose').length,1);
@@ -200,6 +202,63 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
   await test('removing the token hides the previous draft immediately even if the profile is not cleared yet',async()=>{
     const h=harness();await h.settle();await h.toReview();h.auth.token=null;
     assert.equal(h.read().data,null);assert.deepEqual(h.read().draft,[]);assert.equal(h.read().canContinue,false);h.blur();
+  });
+  await test('the centered scan overlay follows the actual pending photo request and closes on success',async()=>{
+    const h=harness();await h.settle();h.server.aiConsent=true;let release;
+    h.server.scanPending=new Promise(r=>{release=r;});
+    const pending=h.read().pick(false);await flush();
+    assert.equal(h.read().scanning,true);assert.equal(h.read().canContinue,false);
+    release();await pending;assert.equal(h.read().scanning,false);assert.equal(h.read().step,2);
+    assert.equal(h.read().draft[0].confirmed,false);h.blur();
+  });
+  await test('scan overlay never claims success for failed or unreadable photos and does not show for consent or voice',async()=>{
+    const consent=harness();await consent.settle();await consent.read().pick(false);
+    assert.equal(consent.read().consent,true);assert.equal(consent.read().scanning,false);consent.blur();
+    for(const outcome of ['error','unreadable']){
+      const h=harness();await h.settle();h.server.aiConsent=true;
+      if(outcome==='error')h.server.scanError=new Error('offline');else h.server.scanItems=[];
+      await h.read().pick(false);assert.equal(h.read().scanning,false);assert.equal(h.read().step,1);h.blur();
+    }
+    const voice=harness();await voice.settle();voice.server.aiConsent=true;voice.read().voice();await flush();
+    assert.equal(voice.read().listening,true);assert.equal(voice.read().scanning,false);voice.blur();
+  });
+  await test('an old scan cannot keep the overlay open across accounts or close a new account scan',async()=>{
+    const h=harness();await h.settle();h.server.aiConsent=true;let releaseOld,releaseNew;
+    h.server.scanPending=new Promise(r=>{releaseOld=r;});const old=h.read().pick(false);await flush();
+    assert.equal(h.read().scanning,true);h.auth.token='setup-account-b';h.auth.profile.id=2;h.route.patientId='2';
+    assert.equal(h.read().scanning,false);await h.settle();
+    h.server.scanPending=new Promise(r=>{releaseNew=r;});const next=h.read().pick(false);await flush();
+    assert.equal(h.read().scanning,true);releaseOld();await old;assert.equal(h.read().scanning,true);
+    h.blur();assert.equal(h.read().scanning,false);releaseNew();await next;assert.equal(h.read().scanning,false);
+  });
+  const savedDraft=(overrides={})=>({id:randomUUID(),revision:3,updatedAt:new Date().toISOString(),photos:{'photo-1':'/api/mobile/med-media/photo-1?token=signed'},snapshot:{version:1,step:4,items:[{clientId:randomUUID(),display_name:'Tên đã đọc trước',printed_name:'Tên in trên hộp',kind:'MEDICINE',source:'PHOTO_AI',confirmed:true,anchors:['after_breakfast'],photo_media_id:'photo-1'}],meals:{breakfast:'07:00',lunch:'11:30',dinner:'18:00',bedtime:'21:30'},slots:[{time_local:'07:30',meal_anchor:'after_breakfast',item_indexes:[0],note:'Sau ăn'}],photoMediaId:'photo-1',...overrides}});
+  await test('restoring a saved photo draft keeps names, image, meals, notes and wizard step without scanning again',async()=>{
+    const h=harness();h.server.draft=savedDraft();await h.settle();
+    assert.equal(h.read().step,4);assert.equal(h.read().draft[0].display_name,'Tên đã đọc trước');assert.match(h.read().draft[0].photo_uri,/^https:\/\/local.test\/api\/mobile\/med-media\//);
+    assert.equal(h.read().slots[0].note,'Sau ăn');assert.equal(h.read().meals.breakfast,'07:00');assert.equal(h.calls.some(x=>x[0]==='scan'),false);h.blur();
+  });
+  await test('leaving explicitly flushes edited draft before navigation and never uploads the photo again',async()=>{
+    const h=harness();h.server.draft=savedDraft();await h.settle();h.read().update(0,{display_name:'Tên vừa chỉnh'});
+    await h.read().exitDraft();const sent=h.calls.find(x=>x[0]==='draft')[2];assert.equal(sent.snapshot.items[0].display_name,'Tên vừa chỉnh');assert.equal(sent.snapshot.items[0].photo_uri,undefined);
+    assert.equal(h.calls.some(x=>x[0]==='scan'),false);assert.deepEqual(h.navigation,['back']);h.blur();
+  });
+  await test('a failed draft flush retains the editor and blocks a false saved exit, then can be retried',async()=>{
+    const h=harness();h.server.draft=savedDraft();await h.settle();h.read().update(0,{display_name:'Tên cần giữ'});h.server.draftFail=true;
+    await h.read().exitDraft();assert.deepEqual(h.navigation,[]);assert.equal(h.read().draftStatus,'error');assert.equal(h.read().draft[0].display_name,'Tên cần giữ');
+    h.server.draftFail=false;await h.read().exitDraft();assert.deepEqual(h.navigation,['back']);h.blur();
+  });
+  await test('discarding a restored draft requires confirmation and clears it without deleting saved schedules',async()=>{
+    const h=harness();h.server.draft=savedDraft();await h.settle();h.read().discardDraft();assert.ok(!h.calls.some(x=>x[0]==='removeDraft'));
+    await h.calls.find(x=>x[0]==='alert')[3][1].onPress();assert.equal(h.calls.filter(x=>x[0]==='removeDraft').length,1);assert.equal(h.read().step,1);assert.deepEqual(h.read().draft,[]);h.blur();
+  });
+  await test('an account switch during a pending draft flush cannot submit the old setup under the new account',async()=>{
+    const h=harness();await h.settle();await h.toReview();let release;h.server.draftPending=new Promise(r=>{release=r;});h.read().next();await flush();
+    assert.equal(h.calls.some(x=>x[0]==='draft'),true);h.auth.token='new-owner';h.auth.profile.id=2;h.route.patientId='2';await h.settle();release();await flush();
+    assert.equal(h.calls.some(x=>x[0]==='setup'),false);h.blur();
+  });
+  await test('backgrounding the app flushes the latest edit before the autosave debounce',async()=>{
+    const h=harness();h.server.draft=savedDraft();await h.settle();h.read().update(0,{display_name:'Tên cần giữ khi đóng app'});await h.settle();h.background();await flush();
+    assert.equal(h.calls.find(x=>x[0]==='draft')[2].snapshot.items[0].display_name,'Tên cần giữ khi đóng app');h.blur();
   });
   console.log(`Medication setup: ${count} runtime checks passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

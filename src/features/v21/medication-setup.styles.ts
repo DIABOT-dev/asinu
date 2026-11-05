@@ -1,6 +1,15 @@
 import { StyleSheet } from "react-native";
 export const medicationSetupStyles = StyleSheet.create({
   root: { flex: 1 },
+  laterButton: {
+    minWidth: 68,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  laterText: { fontSize: 14, fontWeight: "600" },
+  draftStatus: { flexDirection: "row", alignItems: "center", gap: 8 },
   chrome: { width: "100%", maxWidth: 600, alignSelf: "center" },
   header: {
     flexDirection: "row",

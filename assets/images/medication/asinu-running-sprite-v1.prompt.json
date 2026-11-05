@@ -1,0 +1,14 @@
+{
+  "tool": "built-in image_gen",
+  "createdAt": "2026-11-05",
+  "use": "Medication photo reading loading sticker",
+  "reference": "assets/images/care-circle/asinu-pointing-qr-v1.png",
+  "output": "asinu-running-sprite-v1.png",
+  "columns": 2,
+  "rows": 2,
+  "width": 1254,
+  "height": 1254,
+  "frameMilliseconds": 150,
+  "transparent": true,
+  "prompt": "Use case: stylized-concept. Asset type: transparent PNG sprite sheet for a healthcare mobile app loading sticker. Input image 1 is an IDENTITY AND RENDERING STYLE REFERENCE ONLY, not the desired pose. Create a NEW dedicated Asinu RUNNING animation asset, not pointing. Deliver ONE precisely aligned 2-by-2 sprite sheet on a 1024-by-1024 transparent canvas, exactly four equal 512-by-512 cells. Each cell contains the SAME recognizable cute glossy 3D turquoise teardrop mascot, same huge expressive eyes, same olive pith helmet with red badge and yellow star as the reference. Full body visible, same size, same camera and lighting, centered at the same anchor with generous transparent margins in every cell. The mascot is jogging toward the right in a three-quarter view, looking forward along its running direction, cheerful, leaning slightly forward, BOTH elbows bent in a natural running pump with loosely closed mitten hands. Absolutely NO pointing fingers, NO outstretched pointing arm, NO standing pose. Four consecutive phases of one believable running cycle: top-left right leg forward/left leg back, top-right passing phase, bottom-left left leg forward/right leg back, bottom-right passing phase. Hands and feet change naturally between phases, torso, hat, face identity and size remain consistent. Keep the uncluttered warm approachable healthcare feel; a small off-white badge with a turquoise heart on the torso is fine. Soft polished studio 3D rendering matching the reference. Background is genuinely alpha-transparent everywhere outside each character; no opaque background, no scenery, no floor plane, no cast shadow, no grid lines, no borders, no captions, no words, no numbers, no watermark, no progress bars, no medical objects held in hands. Do not repeat the pointing gesture in the reference. Keep every limb and helmet completely inside its own cell and maintain exact equal cell alignment so frames can be cropped in code."
+}

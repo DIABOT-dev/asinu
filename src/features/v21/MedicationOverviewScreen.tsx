@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
@@ -31,6 +32,8 @@ import { medicationStyles as s } from "./medication-overview.styles";
 import type { MedDose } from "./v21.api";
 import { validMedicationNote } from "./medication-input";
 import { MedicationPurposeTags } from "./MedicationPurposeTags";
+import { MedicationBackground } from "./MedicationBackground";
+import { MedicationDraftEntry } from "./MedicationDraftEntry";
 
 type Tab = "today" | "schedules";
 type PanelProps = {
@@ -82,8 +85,8 @@ function Button({
           backgroundColor: quiet
             ? colors.primaryLight
             : danger
-            ? colors.danger
-            : colors.primaryText,
+              ? colors.danger
+              : colors.primaryText,
         },
         (disabled || busy || pressed) && s.disabled,
       ]}
@@ -134,6 +137,7 @@ export function MedicationOverviewPanel({
     tint = { color: colors.primaryText };
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
+      <MedicationBackground />
       <View style={s.chrome}>
         <View style={s.header}>
           <Pressable
@@ -170,7 +174,7 @@ export function MedicationOverviewPanel({
               accessibilityLabel={t(
                 key === "today"
                   ? "medicationTodayTab"
-                  : "medicationSchedulesTab"
+                  : "medicationSchedulesTab",
               )}
               accessibilityState={{ selected: tab === key }}
               onPress={() => onTabChange(key)}
@@ -193,7 +197,7 @@ export function MedicationOverviewPanel({
                 {t(
                   key === "today"
                     ? "medicationTodayTab"
-                    : "medicationSchedulesTab"
+                    : "medicationSchedulesTab",
                 )}
               </Text>
             </Pressable>
@@ -297,13 +301,30 @@ export function MedicationOverviewPanel({
                 med.loading
                   ? "loading"
                   : med.failed
-                  ? "error"
-                  : "featureUnavailable"
+                    ? "error"
+                    : "featureUnavailable",
               )}
             </Text>
           </View>
         ) : (
           <>
+            {med.data.draft && (
+              <MedicationDraftEntry
+                draft={med.data.draft}
+                onContinue={onAdd}
+                disabled={med.busy}
+                onDelete={() =>
+                  Alert.alert(t("deleteDraftTitle"), t("deleteDraftBody"), [
+                    { text: t("cancel"), style: "cancel" },
+                    {
+                      text: t("deleteDraft"),
+                      style: "destructive",
+                      onPress: () => void med.removeDraft(),
+                    },
+                  ])
+                }
+              />
+            )}
             {med.data.remindersEnabled === false && (
               <View
                 style={[s.notice, { backgroundColor: colors.primaryLight }]}
@@ -320,20 +341,20 @@ export function MedicationOverviewPanel({
             )}
             {tab === "today" ? (
               <>
-                {!med.doses.length && (
+                {!med.doses.length && !med.data.draft && (
                   <Empty title={t("medicationNoDoses")}></Empty>
                 )}
                 <View style={s.list}>
                   {med.doses.map((dose) => {
                     const color = ["OUT_OF_MEDS", "UNCONFIRMED"].includes(
-                      dose.state
+                      dose.state,
                     )
                       ? isDark
                         ? "#f0c47a"
                         : "#996515"
                       : ["TAKEN", "CALLING"].includes(dose.state)
-                      ? colors.primaryText
-                      : colors.textSecondary;
+                        ? colors.primaryText
+                        : colors.textSecondary;
                     const canAnswer =
                       med.data!.self &&
                       ["CALLING", "UNCONFIRMED"].includes(dose.state);
@@ -356,7 +377,7 @@ export function MedicationOverviewPanel({
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={`${t(
-                              "medicationAnswerAction"
+                              "medicationAnswerAction",
                             )} ${dose.time_local.slice(0, 5)}`}
                             disabled={med.busy}
                             onPress={() => onAnswer(dose.id)}
@@ -374,7 +395,7 @@ export function MedicationOverviewPanel({
                     );
                   })}
                 </View>
-                {!med.data.schedules.length && (
+                {!med.data.schedules.length && !med.data.draft && (
                   <Button label={t("addSchedule")} onPress={onAdd} />
                 )}
                 {med.weekly && med.weekly.total > 0 && (
@@ -401,7 +422,7 @@ export function MedicationOverviewPanel({
               </>
             ) : (
               <>
-                {!med.data.schedules.length && (
+                {!med.data.schedules.length && !med.data.draft && (
                   <Empty title={t("medicationEmptyTitle")}>
                     <Button label={t("addSchedule")} onPress={onAdd} />
                   </Empty>
@@ -418,7 +439,7 @@ export function MedicationOverviewPanel({
                             .map(
                               (id) =>
                                 med.data!.items.find((item) => item.id === id)
-                                  ?.display_name
+                                  ?.display_name,
                             )
                             .filter(Boolean)
                             .join(" · ")}
@@ -433,7 +454,7 @@ export function MedicationOverviewPanel({
                               {t(
                                 schedule.consent_state === "PENDING"
                                   ? "pendingConsent"
-                                  : schedule.consent_state
+                                  : schedule.consent_state,
                               )}
                             </Text>
                           )
@@ -596,9 +617,9 @@ export function MedicationScheduleSheet({
                 med.mode === "edit"
                   ? "editSchedule"
                   : med.mode === "remove"
-                  ? "removeSchedule"
-                  : "medicationScheduleAt",
-                { time: med.selected?.time_local.slice(0, 5) }
+                    ? "removeSchedule"
+                    : "medicationScheduleAt",
+                { time: med.selected?.time_local.slice(0, 5) },
               )}
             </Text>
             <Pressable
