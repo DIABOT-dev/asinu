@@ -330,12 +330,30 @@ export function MedicationSetupPanel({
             >
               {t(
                 setup.draftStatus === "error"
-                  ? "draftSaveError"
+                  ? setup.draftErrorKey
                   : setup.draftStatus === "saved"
                     ? "draftSaved"
                     : "draftSaving",
               )}
             </Text>
+            {setup.draftStatus === "error" && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("retry")}
+                accessibilityState={{ disabled: busy || listening }}
+                disabled={busy || listening}
+                onPress={() => void setup.retryDraft()}
+                style={{
+                  minHeight: 44,
+                  justifyContent: "center",
+                  paddingHorizontal: 8,
+                }}
+              >
+                <Text style={[s.label, { color: colors.primaryText }]}>
+                  {t("retry")}
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
         {(draft.length > 0 || setup.photo) && (

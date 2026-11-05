@@ -41,6 +41,7 @@ export function useMedicationOverview() {
     version = useRef(0),
     reads = useRef(0);
   const operation = useRef<object | null>(null);
+  const loaded = useRef(false);
   const current = useCallback(
     (expected: number) =>
       focused.current &&
@@ -50,55 +51,65 @@ export function useMedicationOverview() {
     [token, patient],
   );
 
-  const refresh = useCallback(async () => {
-    const expected = version.current,
-      read = ++reads.current;
-    const valid = () => current(expected) && read === reads.current;
-    setLoading(true);
-    try {
-      const flags = await v21Api.flags();
-      if (!valid()) return;
-      setPatients(flags.patients);
-      const id =
-        flags.patients.find((p) => Number(p.id) === Number(patient))?.id ||
-        flags.patients[0]?.id;
-      if (!id || !flags.medication) {
-        setData(null);
-        setDoses([]);
-        setWeekly(null);
+  const refresh = useCallback(
+    async (background = false) => {
+      const expected = version.current,
+        read = ++reads.current;
+      const valid = () => current(expected) && read === reads.current;
+      if (!background || !loaded.current) setLoading(true);
+      try {
+        const flags = await v21Api.flags();
+        if (!valid()) return;
+        setPatients(flags.patients);
+        const id =
+          flags.patients.find((p) => Number(p.id) === Number(patient))?.id ||
+          flags.patients[0]?.id;
+        if (!id || !flags.medication) {
+          setData(null);
+          setDoses([]);
+          setWeekly(null);
+          setFailed(false);
+          return;
+        }
+        const [overview, today, week] = await Promise.all([
+          v21Api.overview(id, true),
+          v21Api.doses(id),
+          v21Api.weekly(id),
+        ]);
+        if (!valid()) return;
+        setData(overview);
+        setDoses(today.items);
+        setWeekly(week.report);
+        loaded.current = true;
         setFailed(false);
-        return;
+      } catch {
+        if (valid()) setFailed(true);
+      } finally {
+        if (valid()) setLoading(false);
       }
-      const [overview, today, week] = await Promise.all([
-        v21Api.overview(id, true),
-        v21Api.doses(id),
-        v21Api.weekly(id),
-      ]);
-      if (!valid()) return;
-      setData(overview);
-      setDoses(today.items);
-      setWeekly(week.report);
-      setFailed(false);
-    } catch {
-      if (valid()) setFailed(true);
-    } finally {
-      if (valid()) setLoading(false);
-    }
-  }, [current, patient]);
+    },
+    [current, patient],
+  );
 
   useFocusEffect(
     useCallback(() => {
       focused.current = true;
       version.current++;
+      const changed =
+        visibleScope.current.token !== token ||
+        visibleScope.current.patient !== patient;
       visibleScope.current = { token, patient };
       operation.current = null;
-      setPatients([]);
-      setData(null);
-      setDoses([]);
-      setWeekly(null);
+      if (changed) {
+        loaded.current = false;
+        setPatients([]);
+        setData(null);
+        setDoses([]);
+        setWeekly(null);
+      }
       setSelected(null);
       setBusy(false);
-      void refresh();
+      void refresh(true);
       return () => {
         focused.current = false;
         version.current++;
@@ -109,20 +120,22 @@ export function useMedicationOverview() {
   );
 
   const viewVersion = version.current;
-  const mutate = async (work: () => Promise<unknown>, successKey: string) => {
+  const mutate = async (work: () => Promise<unknown>, successKey?: string) => {
     const expected = viewVersion;
-    if (operation.current || !data || !current(expected)) return;
+    if (operation.current || !data || !current(expected)) return false;
     const owner = {};
     operation.current = owner;
     setBusy(true);
     try {
       await work();
-      if (!current(expected)) return;
+      if (!current(expected)) return false;
       setSelected(null);
-      useToastStore.getState().show(t(successKey), "success");
-      await refresh();
+      if (successKey) useToastStore.getState().show(t(successKey), "success");
+      await refresh(true);
+      return current(expected);
     } catch (error) {
       if (current(expected)) v21Error(error, t);
+      return false;
     } finally {
       if (operation.current === owner) {
         operation.current = null;
@@ -187,8 +200,9 @@ export function useMedicationOverview() {
     },
     canSave,
     refresh,
-    removeDraft: () => {
-      const draft = data?.draft;
+    removeDraft: (id?: string) => {
+      const drafts = data?.drafts || (data?.draft ? [data.draft] : []);
+      const draft = id ? drafts.find((d) => d.id === id) : drafts[0];
       if (draft && data)
         return mutate(
           () => v21Api.removeDraft(data.patientId, draft.id, draft.revision),

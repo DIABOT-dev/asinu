@@ -2,7 +2,7 @@ import { randomUUID } from "expo-crypto";
 import { v21Api, type MedDraftSnapshot, type MedSetupDraft } from "./v21.api";
 export type DraftStatus = "idle" | "saving" | "saved" | "error";
 
-/** One serialized writer per account/patient; deleted drafts never revive. */
+/** One serialized writer per draft; deleted drafts never revive. */
 export class MedicationDraftSession {
   id: string;
   revision: number;
@@ -15,7 +15,7 @@ export class MedicationDraftSession {
   constructor(
     private patient: number,
     private owns: () => boolean,
-    private status: (status: DraftStatus) => void,
+    private status: (status: DraftStatus, error?: unknown) => void,
     initial?: MedSetupDraft | null,
   ) {
     this.id = initial?.id || randomUUID();
@@ -60,7 +60,7 @@ export class MedicationDraftSession {
     try {
       await this.pending;
     } catch (error) {
-      this.status("error");
+      this.status("error", error);
       throw error;
     } finally {
       this.pending = null;

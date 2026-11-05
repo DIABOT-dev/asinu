@@ -42,6 +42,7 @@ type PanelProps = {
   onTabChange: (tab: Tab) => void;
   onBack: () => void;
   onAdd: () => void;
+  onContinue: (draftId: string) => void;
   onConsent: (id: string) => void;
   onAnswer: (id: string) => void;
 };
@@ -119,6 +120,7 @@ export function MedicationOverviewPanel({
   onTabChange,
   onBack,
   onAdd,
+  onContinue,
   onConsent,
   onAnswer,
 }: PanelProps) {
@@ -135,6 +137,7 @@ export function MedicationOverviewPanel({
   const caption = { color: colors.textSecondary },
     title = { color: colors.textPrimary },
     tint = { color: colors.primaryText };
+  const drafts = med.data?.drafts || (med.data?.draft ? [med.data.draft] : []);
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <MedicationBackground />
@@ -308,22 +311,34 @@ export function MedicationOverviewPanel({
           </View>
         ) : (
           <>
-            {med.data.draft && (
-              <MedicationDraftEntry
-                draft={med.data.draft}
-                onContinue={onAdd}
-                disabled={med.busy}
-                onDelete={() =>
-                  Alert.alert(t("deleteDraftTitle"), t("deleteDraftBody"), [
-                    { text: t("cancel"), style: "cancel" },
-                    {
-                      text: t("deleteDraft"),
-                      style: "destructive",
-                      onPress: () => void med.removeDraft(),
-                    },
-                  ])
-                }
-              />
+            {drafts.length > 0 && (
+              <View style={{ gap: 16 }}>
+                <Button
+                  quiet
+                  label={t("newMedicationSetup")}
+                  disabled={med.loading}
+                  busy={med.busy}
+                  onPress={onAdd}
+                />
+                {drafts.map((draft) => (
+                  <MedicationDraftEntry
+                    key={draft.id}
+                    draft={draft}
+                    onContinue={() => onContinue(draft.id)}
+                    disabled={med.busy || med.loading}
+                    onDelete={() =>
+                      Alert.alert(t("deleteDraftTitle"), t("deleteDraftBody"), [
+                        { text: t("cancel"), style: "cancel" },
+                        {
+                          text: t("deleteDraft"),
+                          style: "destructive",
+                          onPress: () => void med.removeDraft(draft.id),
+                        },
+                      ])
+                    }
+                  />
+                ))}
+              </View>
             )}
             {med.data.remindersEnabled === false && (
               <View
@@ -341,7 +356,7 @@ export function MedicationOverviewPanel({
             )}
             {tab === "today" ? (
               <>
-                {!med.doses.length && !med.data.draft && (
+                {!med.doses.length && !drafts.length && (
                   <Empty title={t("medicationNoDoses")}></Empty>
                 )}
                 <View style={s.list}>
@@ -395,7 +410,7 @@ export function MedicationOverviewPanel({
                     );
                   })}
                 </View>
-                {!med.data.schedules.length && !med.data.draft && (
+                {!med.data.schedules.length && !drafts.length && (
                   <Button label={t("addSchedule")} onPress={onAdd} />
                 )}
                 {med.weekly && med.weekly.total > 0 && (
@@ -422,7 +437,7 @@ export function MedicationOverviewPanel({
               </>
             ) : (
               <>
-                {!med.data.schedules.length && !med.data.draft && (
+                {!med.data.schedules.length && !drafts.length && (
                   <Empty title={t("medicationEmptyTitle")}>
                     <Button label={t("addSchedule")} onPress={onAdd} />
                   </Empty>
@@ -535,7 +550,7 @@ export function MedicationOverviewPanel({
                       )}
                   </View>
                 ))}
-                {med.data.schedules.length > 0 && (
+                {med.data.schedules.length > 0 && !drafts.length && (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t("addSchedule")}
@@ -803,7 +818,14 @@ export default function MedicationOverviewScreen() {
           if (med.data && !med.busy)
             router.push({
               pathname: "/medication/setup",
-              params: { patientId: med.data.patientId },
+              params: { patientId: med.data.patientId, newPlan: "1" },
+            });
+        }}
+        onContinue={(draftId) => {
+          if (med.data && !med.busy)
+            router.push({
+              pathname: "/medication/setup",
+              params: { patientId: med.data.patientId, draftId },
             });
         }}
         onConsent={(scheduleId) =>

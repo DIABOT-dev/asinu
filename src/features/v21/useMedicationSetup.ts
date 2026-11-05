@@ -18,7 +18,10 @@ import {
   type MedPurposeLookup,
   type MedPurposeCode,
 } from "./v21.api";
-import { useMedicationPurposeLookup } from "./useMedicationPurposeLookup";
+import {
+  useMedicationPurposeLookup,
+  validatedMedicationPurposeResult,
+} from "./useMedicationPurposeLookup";
 import { v21Error } from "./V21Layout";
 import { reportError } from "../../observability/sentry";
 import { useAuthStore } from "../auth/auth.store";
@@ -28,7 +31,7 @@ import {
   MedicationDraftSession,
   type DraftStatus,
 } from "./medication-draft-session";
-import type { MedDraftSnapshot } from "./v21.api";
+import type { MedDraftSnapshot, MedSetupDraft } from "./v21.api";
 import {
   medicationTextHasNoDose,
   validMedicationNote,
@@ -82,14 +85,31 @@ function clock(value: string, offset: number) {
     .toString()
     .padStart(2, "0")}:${(n % 60).toString().padStart(2, "0")}`;
 }
+const draftItem = ({ photo_uri: _uri, ...item }: MedicationDraft) => ({
+  ...item,
+  ...(item.purposeLookup?.result
+    ? {
+        purposeLookup: {
+          ...item.purposeLookup,
+          result: validatedMedicationPurposeResult(item.purposeLookup.result),
+        },
+      }
+    : {}),
+});
 export function useMedicationSetup() {
-  const { patientId } = useLocalSearchParams<{ patientId: string }>(),
+  const { patientId, draftId, newPlan } = useLocalSearchParams<{
+      patientId: string;
+      draftId?: string;
+      newPlan?: string;
+    }>(),
     patient = Number(patientId),
     router = useRouter(),
     { t } = useTranslation("v21");
   const token = useAuthStore((s) => s.token);
   const user = String(useAuthStore((s) => s.profile?.id) ?? "");
-  const scopeKey = `${user}:${patient}`;
+  const scopeKey = `${user}:${patient}:${draftId || (newPlan === "1" ? "new" : "latest")}`;
+  const translate = useRef(t);
+  translate.current = t;
   const generation = useRef(0),
     focused = useRef(false),
     owner = useRef<string | null>(null),
@@ -130,6 +150,7 @@ export function useMedicationSetup() {
     >([]);
   const [loading, setLoading] = useState(true);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>("idle");
+  const [draftErrorKey, setDraftErrorKey] = useState("draftSaveError");
   const [photoMediaId, setPhotoMediaId] = useState<string | null>(null);
   const draftSession = useRef<MedicationDraftSession | null>(null);
   const draftLoaded = useRef(false);
@@ -159,32 +180,57 @@ export function useMedicationSetup() {
     draft,
     setDraft,
   });
+  const createDraftSession = useCallback(
+    (initial?: MedSetupDraft | null) =>
+      new MedicationDraftSession(
+        patient,
+        () =>
+          useAuthStore.getState().token === token &&
+          String(useAuthStore.getState().profile?.id ?? "") === user,
+        (status, error) => {
+          if (current(generation.current)) {
+            setDraftStatus(status);
+            setDraftErrorKey(
+              error instanceof ApiError && error.code === "MED_DRAFT_CHANGED"
+                ? "draftConflict"
+                : "draftSaveError",
+            );
+          }
+          if (error)
+            reportError(error, {
+              component: "medication_setup",
+              operation: "draft_save",
+            });
+        },
+        initial,
+      ),
+    [patient, token, user, current],
+  );
   const reload = useCallback(
-    async (expected = generation.current) => {
+    async (expected = generation.current, background = false) => {
       if (!current(expected)) return;
-      setLoading(true);
+      if (!background || !draftLoaded.current) setLoading(true);
       try {
         const d = await v21Api.overview(patient);
         if (!current(expected)) return;
+        const resumed = draftId
+          ? (d.drafts || (d.draft ? [d.draft] : [])).find(
+              (x) => x.id === draftId,
+            )
+          : newPlan === "1"
+            ? null
+            : d.draft;
+        if (draftId && !resumed && !draftLoaded.current)
+          throw new ApiError("", 409, { code: "MED_DRAFT_CHANGED" });
         setData(d);
         if (!draftLoaded.current) {
           draftLoaded.current = true;
-          const owns = () =>
-            useAuthStore.getState().token === token &&
-            String(useAuthStore.getState().profile?.id ?? "") === user;
-          draftSession.current = new MedicationDraftSession(
-            patient,
-            owns,
-            (status) => {
-              if (current(generation.current)) setDraftStatus(status);
-            },
-            d.draft,
-          );
-          if (d.draft) {
-            const snapshot = d.draft.snapshot;
+          draftSession.current = createDraftSession(resumed);
+          if (resumed) {
+            const snapshot = resumed.snapshot;
             const photoUrl = (id?: string | null) =>
-              id && d.draft?.photos[id]
-                ? `${env.apiBaseUrl}${d.draft.photos[id]}`
+              id && resumed.photos[id]
+                ? `${env.apiBaseUrl}${resumed.photos[id]}`
                 : undefined;
             setDraft(
               snapshot.items.map((item) => ({
@@ -213,12 +259,12 @@ export function useMedicationSetup() {
           });
         mealsLoaded.current = true;
       } catch (e) {
-        if (current(expected)) v21Error(e, t);
+        if (current(expected)) v21Error(e, translate.current);
       } finally {
         if (current(expected)) setLoading(false);
       }
     },
-    [patient, t, current],
+    [patient, draftId, newPlan, current, createDraftSession],
   );
   useFocusEffect(
     useCallback(() => {
@@ -250,7 +296,7 @@ export function useMedicationSetup() {
       setScanning(false);
       setConsent(false);
       setListening(false);
-      void reload(generation.current);
+      void reload(generation.current, !changed);
       return () => {
         void draftSession.current?.flush().catch(() => {});
         focused.current = false;
@@ -275,7 +321,7 @@ export function useMedicationSetup() {
     return {
       version: 1,
       step,
-      items: draft.map(({ photo_uri: _uri, ...item }) => item),
+      items: draft.map(draftItem),
       meals,
       slots,
       photoMediaId,
@@ -318,6 +364,21 @@ export function useMedicationSetup() {
     } catch {
       if (current(expected))
         useToastStore.getState().show(t("draftSaveError"), "error");
+    } finally {
+      if (current(expected)) setBusy(false);
+    }
+  };
+  const retryDraft = async () => {
+    const expected = viewVersion;
+    if (!current(expected) || busy || listening) return;
+    const value = snapshot();
+    if (!value) return;
+    draftSession.current?.schedule(value);
+    setBusy(true);
+    try {
+      await draftSession.current?.flush();
+    } catch {
+      // Keep all edits and the retry action visible; the session records the error.
     } finally {
       if (current(expected)) setBusy(false);
     }
@@ -433,13 +494,14 @@ export function useMedicationSetup() {
             ),
           }));
           setDraft(items);
+          setSlots([]);
           setStep(2);
           const session = draftSession.current;
           if (session) {
             session.schedule({
               version: 1,
               step: 2,
-              items: items.map(({ photo_uri: _uri, ...item }) => item),
+              items: items.map(draftItem),
               meals,
               slots: [],
               photoMediaId: scan.mediaId,
@@ -790,6 +852,8 @@ export function useMedicationSetup() {
     slots: owned ? slots : [],
     loading,
     draftStatus,
+    draftErrorKey,
+    retryDraft,
     exitDraft,
     discardDraft: () => {
       if (!current(viewVersion) || busy || listening) return;
@@ -805,8 +869,8 @@ export function useMedicationSetup() {
             try {
               await draftSession.current?.remove();
               if (!current(expected)) return;
-              draftSession.current = null;
-              draftLoaded.current = false;
+              draftSession.current = createDraftSession();
+              draftLoaded.current = true;
               setDraft([]);
               setSlots([]);
               setPhoto(null);
@@ -816,7 +880,11 @@ export function useMedicationSetup() {
               reviewInputs.current = null;
               savedBody.current = null;
               requestId.current = randomUUID();
-              await reload(expected);
+              if (draftId || newPlan !== "1")
+                router.replace({
+                  pathname: "/medication/setup",
+                  params: { patientId: patient, newPlan: "1" },
+                });
               useToastStore.getState().show(t("draftDeleted"), "success");
             } catch (error) {
               if (current(expected)) v21Error(error, t, "draftDeleteError");

@@ -126,6 +126,7 @@ export type MedSchedule = {
 };
 export type MedOverview = {
   draft?: MedSetupDraft | null;
+  drafts?: MedSetupDraft[];
   patientId: number;
   items: MedItem[];
   schedules: MedSchedule[];

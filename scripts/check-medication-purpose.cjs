@@ -1,3 +1,4 @@
+/* eslint-disable no-new-func -- Execute trusted production modules with isolated native/network adapters. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const ts = require('typescript');
@@ -41,6 +42,14 @@ async function test(label, run) { await run(); checks++; console.log('PASS ' + l
     const h = harness(); assert.equal(h.render().pending, true); assert.equal(h.calls.length, 0);
     await h.settle(); assert.equal(h.calls.length, 1); assert.deepEqual(h.props.draft[0].selectedPurposeCodes, ['fever_reduction', 'pain_relief']);
     assert.equal(h.props.draft[0].confirmed, false); assert.equal(h.render().pending, false);
+  });
+  await test('successful HTTP lookup metadata is not copied into the strict medication draft', async () => {
+    const h = harness();
+    const expected = structuredClone(h.server.result);
+    h.server.result = { ok: true, ...h.server.result, requestId: 'transport-only', source: { ...h.server.result.source, transport: true } };
+    await h.settle();
+    assert.deepEqual(h.props.draft[0].purposeLookup.result, expected);
+    assert.equal(h.props.draft[0].confirmed, false);
   });
   await test('a late result cannot tag a different medicine or a removed item', async () => {
     const h = harness(), old = deferred(); h.server.pending = old.promise; h.render(); h.runTimers(); h.rename('Another medicine');

@@ -28,11 +28,17 @@ export function MedicationDraftEntry({
     media && draft.photos[media]
       ? `${env.apiBaseUrl}${draft.photos[media]}`
       : null;
+  const names = draft.snapshot.items
+    .map((item) => item.display_name.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" · ");
   return (
     <View style={[s.row, { borderColor: colors.border }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("continueDraft")}
+        accessibilityLabel={`${t("continueDraft")}${names ? `: ${names}` : ""}`}
+        accessibilityState={{ disabled }}
         disabled={disabled}
         onPress={onContinue}
         style={s.main}
@@ -60,6 +66,11 @@ export function MedicationDraftEntry({
           <Text style={[s.caption, { color: colors.textSecondary }]}>
             {t("draftItems", { count: draft.snapshot.items.length })}
           </Text>
+          {!!names && (
+            <Text style={[s.caption, { color: colors.textSecondary }]}>
+              {names}
+            </Text>
+          )}
           <Text style={[s.action, { color: colors.primaryText }]}>
             {t("continueDraft")}
           </Text>
@@ -67,7 +78,8 @@ export function MedicationDraftEntry({
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("deleteDraft")}
+        accessibilityLabel={`${t("deleteDraft")}${names ? `: ${names}` : ""}`}
+        accessibilityState={{ disabled }}
         disabled={disabled}
         onPress={onDelete}
         style={s.remove}

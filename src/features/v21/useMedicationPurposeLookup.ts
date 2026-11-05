@@ -3,7 +3,9 @@ import type { Dispatch, SetStateAction } from "react";
 import type { MedicationDraft } from "./useMedicationSetup";
 import { v21Api, type MedPurposeLookup } from "./v21.api";
 
-function validatedResult(value: MedPurposeLookup): MedPurposeLookup {
+export function validatedMedicationPurposeResult(
+  value: MedPurposeLookup,
+): MedPurposeLookup {
   const unavailable: MedPurposeLookup = { status: "unavailable", tags: [] };
   const codes = new Set([
     "fever_reduction",
@@ -50,11 +52,24 @@ function validatedResult(value: MedPurposeLookup): MedPurposeLookup {
       return unavailable;
     }
   } else if (value.tags.length) return unavailable;
-  return { ...value, tags: [...new Set(value.tags)] };
+  // The HTTP response also has transport fields such as `ok`. Keep only the
+  // domain fields accepted by the encrypted draft schema, including in source.
+  return {
+    status: value.status,
+    tags: [...new Set(value.tags)],
+    ...(value.productName !== undefined
+      ? { productName: value.productName }
+      : {}),
+    ...(value.source
+      ? { source: { name: value.source.name, url: value.source.url } }
+      : {}),
+    ...(value.checkedAt !== undefined ? { checkedAt: value.checkedAt } : {}),
+    ...(value.token !== undefined ? { token: value.token } : {}),
+  };
 }
 
 export const medicationPurposeKey = (
-  item: Pick<MedicationDraft, "display_name" | "kind">
+  item: Pick<MedicationDraft, "display_name" | "kind">,
 ) =>
   `${item.kind}:${item.display_name
     .trim()
@@ -102,7 +117,7 @@ export function useMedicationPurposeLookup({
           if (!request) {
             request = v21Api
               .lookupPurpose(patient, name, "MEDICINE")
-              .then(validatedResult)
+              .then(validatedMedicationPurposeResult)
               .catch(() => ({ status: "unavailable" as const, tags: [] }));
             if (cache.current.size >= 60)
               cache.current.delete(cache.current.keys().next().value!);
@@ -115,8 +130,8 @@ export function useMedicationPurposeLookup({
                   next.clientId === item.clientId &&
                   medicationPurposeKey(next) === key
                     ? { ...next, ...change }
-                    : next
-                )
+                    : next,
+                ),
               );
           };
           update({
@@ -128,9 +143,9 @@ export function useMedicationPurposeLookup({
               purposeLookup: { key, loading: false, version, result },
               selectedPurposeCodes: result.tags,
               ...(result.tags.length ? { confirmed: false } : {}),
-            })
+            }),
           );
-        }, 450)
+        }, 450),
       );
     }
     return () => timers.forEach(clearTimeout);
@@ -142,7 +157,7 @@ export function useMedicationPurposeLookup({
         (item) =>
           item.kind === "MEDICINE" &&
           item.display_name.trim().length >= 2 &&
-          (!item.purposeLookup?.result || item.purposeLookup.loading)
+          (!item.purposeLookup?.result || item.purposeLookup.loading),
       ),
     retry: (item: MedicationDraft) => {
       if (!current(version)) return;
@@ -156,8 +171,8 @@ export function useMedicationPurposeLookup({
                 selectedPurposeCodes: [],
                 confirmed: false,
               }
-            : next
-        )
+            : next,
+        ),
       );
     },
   };

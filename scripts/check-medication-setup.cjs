@@ -1,10 +1,11 @@
+/* eslint-disable no-new-func -- Execute trusted production modules with isolated native/network adapters. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const ts = require('typescript');
 const { randomUUID } = require('node:crypto');
 const flush = async () => { for (let n=0;n<30;n++) await Promise.resolve(); };
 function harness({self=true}={}) {
-  let cursor=0; const slots=[],effects=[],calls=[],toasts=[],errors=[],navigation=[],appStates=new Set();
+  let cursor=0,focusCallback; const slots=[],effects=[],calls=[],toasts=[],errors=[],navigation=[],appStates=new Set();
   const memo=(fn,deps)=>{const i=cursor++,old=slots[i];if(!old||deps.some((v,n)=>!Object.is(v,old.deps[n])))slots[i]={value:fn(),deps};return slots[i].value;};
   const react={
     useState(initial){const i=cursor++;slots[i]??={value:initial};return [slots[i].value,v=>{slots[i].value=typeof v==='function'?v(slots[i].value):v;}];},
@@ -20,18 +21,20 @@ function harness({self=true}={}) {
   const data={self,conditions:[],flags:{scan:true},meals:{breakfast:'06:30',lunch:'11:30',dinner:'18:00',bedtime:'21:30'}};
   const t=key=>key;
   const deps={react,'react-native':{Platform:{OS:'ios'},AppState:{addEventListener:(_event,fn)=>{appStates.add(fn);return {remove:()=>appStates.delete(fn)};}},Alert:{alert:(...args)=>calls.push(['alert',...args])}},
-    'expo-router':{useLocalSearchParams:()=>route,useFocusEffect:fn=>react.useEffect(fn,[fn]),useRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
+    'expo-router':{useLocalSearchParams:()=>route,useFocusEffect:fn=>{focusCallback=fn;return react.useEffect(fn,[fn]);},useRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
     '../auth/auth.store':{useAuthStore},
     '../../hooks/useGuardedRouter':{useGuardedRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
     'expo-image-picker':{requestCameraPermissionsAsync:async()=>{if(server.permissionPending)await server.permissionPending;return {granted:true};},requestMediaLibraryPermissionsAsync:async()=>{if(server.permissionPending)await server.permissionPending;return {granted:true};},launchCameraAsync:async options=>{calls.push(['picker',options]);return {canceled:false,assets:[{uri:'fixture://medicine.jpg',mimeType:'image/jpeg'}]};},launchImageLibraryAsync:async options=>{calls.push(['library',options]);return server.pickerCanceled ? {canceled:true,assets:null} : {canceled:false,assets:[{uri:'ph://selected.heic',mimeType:'image/heic',base64:'/9j/export'}]};}},
-    'expo-file-system':{File:class File {constructor(uri){this.uri=uri;this.name=uri.split('/').pop();this.type='audio/mp4';}async bytes(){return new Uint8Array([1,2,3]);}}},'expo-crypto':{randomUUID},'react-i18next':{useTranslation:()=>({t})},'../../lib/aiDataConsent':{hasAiDataConsent:async()=>server.aiConsent},'../../lib/audio':{Audio:{requestPermissionsAsync:async()=>({granted:true}),setAudioModeAsync:async()=>{},RecordingOptionsPresets:{HIGH_QUALITY:{}},Recording:{createAsync:async()=>({recording:{stopAndUnloadAsync:async()=>{},getURI:()=> 'file:///fixture/name.m4a'}})}}},
+    'expo-file-system':{File:class File {constructor(uri){this.uri=uri;this.name=uri.split('/').pop();this.type='audio/mp4';}async bytes(){return new Uint8Array([1,2,3]);}}},'expo-crypto':{randomUUID},'react-i18next':{useTranslation:()=>({t:server.unstableTranslations?(key=>key):t})},'../../lib/aiDataConsent':{hasAiDataConsent:async()=>server.aiConsent},'../../lib/audio':{Audio:{requestPermissionsAsync:async()=>({granted:true}),setAudioModeAsync:async()=>{},RecordingOptionsPresets:{HIGH_QUALITY:{}},Recording:{createAsync:async()=>({recording:{stopAndUnloadAsync:async()=>{},getURI:()=> 'file:///fixture/name.m4a'}})}}},
     '../../lib/apiClient':{ApiError},'../../observability/sentry':{reportError:(e,context)=>calls.push(['diagnostic',context.operation,e.name])},
     './medication-photo':{MedicationPhotoError:PhotoError,prepareMedicationPhoto:async()=>{if(server.photoError)throw new PhotoError(server.photoError);return {body:{photo:true},dispose:()=>calls.push(['dispose'])};}},
     './useMedicationPurposeLookup':{useMedicationPurposeLookup:()=>({pending:false,retry:()=>{}})},
     '../../stores/toast.store':{useToastStore:{getState:()=>({show:(...args)=>toasts.push(args)})}},'./V21Layout':{v21Error:error=>errors.push(error)},
-    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>({...data,draft:server.draft}),writeDraft:async(id,body)=>{calls.push(['draft',id,body]);if(server.draftPending)await server.draftPending;if(server.draftFail)throw Error('draft offline');return {id:body.id,revision:body.revision+1};},removeDraft:async(...args)=>{calls.push(['removeDraft',...args]);server.draft=null;},scan:async()=>{calls.push(['scan']);if(server.scanPending)await server.scanPending;if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:server.scanItems||[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.setupError)throw server.setupError;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
+    './v21.api':{v21Api:{transcribe:async(id,body)=>{calls.push(['transcribe',id,body]);return {text:'Tên đã đọc'};},overview:async()=>{server.overviewReads=(server.overviewReads||0)+1;return {...data,draft:server.draft,drafts:server.drafts};},writeDraft:async(id,body)=>{calls.push(['draft',id,body]);if(server.draftPending)await server.draftPending;if(server.draftFail)throw Error('draft offline');server.validateDraft?.(body);return {id:body.id,revision:body.revision+1};},removeDraft:async(...args)=>{calls.push(['removeDraft',...args]);server.draft=null;},scan:async()=>{calls.push(['scan']);if(server.scanPending)await server.scanPending;if(server.scanError)throw server.scanError;return {readable:true,mediaId:'photo-1',items:server.scanItems||[{display_name:'Tên đọc từ ảnh',kind:'MEDICINE',suggested_slots:[]}]};},setup:async(id,body)=>{calls.push(['setup',id,body]);if(server.pending)await server.pending;if(server.setupError)throw server.setupError;if(server.fail)throw Error('offline');return {pendingConsent:!self};}}},
   };
   deps['../../lib/env']={env:{apiBaseUrl:'https://local.test'}};
+  const purposeModule={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync('src/features/v21/useMedicationPurposeLookup.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(purposeModule,purposeModule.exports,k=>deps[k]);
+  deps['./useMedicationPurposeLookup'].validatedMedicationPurposeResult=purposeModule.exports.validatedMedicationPurposeResult;
   const draftModule={exports:{}};new Function('module','exports','require',ts.transpileModule(fs.readFileSync('src/features/v21/medication-draft-session.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(draftModule,draftModule.exports,k=>deps[k]);deps['./medication-draft-session']=draftModule.exports;
   const module={exports:{}};
   const inputs={exports:{}};
@@ -44,7 +47,7 @@ function harness({self=true}={}) {
   const read=()=>{cursor=0;return module.exports.useMedicationSetup();};
   const settle=async()=>{read();effects.splice(0).forEach(fn=>fn());await flush();return read();};
   const toReview=async()=>{read().addManual();read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['after_breakfast']});read().next();read().next();await flush();return read();};
-  return {read,settle,toReview,calls,toasts,errors,server,navigation,auth,route,background:()=>appStates.forEach(fn=>fn('background')),makeApiError:code=>Object.assign(new ApiError('fixture'),{code}),blur:()=>slots.forEach(x=>x?.cleanup?.())};
+  return {read,settle,toReview,calls,toasts,errors,server,navigation,auth,route,refocus:()=>focusCallback(),background:()=>appStates.forEach(fn=>fn('background')),makeApiError:code=>Object.assign(new ApiError('fixture'),{code}),blur:()=>slots.forEach(x=>x?.cleanup?.())};
 }
 let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+name);}
 (async()=>{
@@ -247,6 +250,18 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     await h.read().exitDraft();assert.deepEqual(h.navigation,[]);assert.equal(h.read().draftStatus,'error');assert.equal(h.read().draft[0].display_name,'Tên cần giữ');
     h.server.draftFail=false;await h.read().exitDraft();assert.deepEqual(h.navigation,['back']);h.blur();
   });
+  await test('a retry saves the current edit without leaving the screen or repeating recognition',async()=>{
+    const h=harness();h.server.draft=savedDraft();await h.settle();h.read().update(0,{display_name:'Hapacol 650'});h.server.draftFail=true;
+    await h.read().retryDraft();assert.equal(h.read().draftStatus,'error');assert.deepEqual(h.navigation,[]);
+    h.server.draftFail=false;await h.read().retryDraft();assert.equal(h.read().draftStatus,'saved');assert.deepEqual(h.navigation,[]);
+    assert.equal(h.calls.some(x=>x[0]==='scan'),false);h.blur();
+  });
+  await test('old lookup HTTP metadata in memory cannot prevent the current draft from saving',async()=>{
+    const h=harness();h.server.draft=savedDraft();await h.settle();
+    h.read().update(0,{purposeLookup:{key:'MEDICINE:hapacol 650',loading:false,result:{ok:true,status:'matched',tags:['pain_relief'],productName:'Hapacol 650',token:'verified-token',source:{name:'DHG',url:'https://dhgpharma.com.vn',ok:true}}}});
+    await h.read().retryDraft();const result=h.calls.find(x=>x[0]==='draft')[2].snapshot.items[0].purposeLookup.result;
+    assert.equal(result.ok,undefined);assert.equal(result.source.ok,undefined);assert.equal(result.token,'verified-token');assert.equal(h.read().draftStatus,'saved');h.blur();
+  });
   await test('discarding a restored draft requires confirmation and clears it without deleting saved schedules',async()=>{
     const h=harness();h.server.draft=savedDraft();await h.settle();h.read().discardDraft();assert.ok(!h.calls.some(x=>x[0]==='removeDraft'));
     await h.calls.find(x=>x[0]==='alert')[3][1].onPress();assert.equal(h.calls.filter(x=>x[0]==='removeDraft').length,1);assert.equal(h.read().step,1);assert.deepEqual(h.read().draft,[]);h.blur();
@@ -259,6 +274,34 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
   await test('backgrounding the app flushes the latest edit before the autosave debounce',async()=>{
     const h=harness();h.server.draft=savedDraft();await h.settle();h.read().update(0,{display_name:'Tên cần giữ khi đóng app'});await h.settle();h.background();await flush();
     assert.equal(h.calls.find(x=>x[0]==='draft')[2].snapshot.items[0].display_name,'Tên cần giữ khi đóng app');h.blur();
+  });
+  await test('creating a new plan starts empty and never deletes or resumes another unfinished draft',async()=>{
+    const h=harness();h.server.draft=savedDraft();h.server.drafts=[h.server.draft];h.route.newPlan='1';await h.settle();
+    assert.equal(h.read().step,1);assert.deepEqual(h.read().draft,[]);h.read().addManual();h.read().update(0,{display_name:'Đơn mới'});
+    await h.read().retryDraft();const sent=h.calls.find(x=>x[0]==='draft')[2];assert.notEqual(sent.id,h.server.draft.id);
+    assert.equal(h.server.draft.snapshot.items[0].display_name,'Tên đã đọc trước');assert.equal(h.calls.some(x=>x[0]==='removeDraft'),false);h.blur();
+  });
+  await test('opening a chosen older draft resumes its own names and revision instead of the newest draft',async()=>{
+    const h=harness(),old=savedDraft(),latest=savedDraft();old.snapshot.items[0].display_name='Đơn trước';
+    h.server.draft=latest;h.server.drafts=[latest,old];h.route.draftId=old.id;await h.settle();assert.equal(h.read().draft[0].display_name,'Đơn trước');
+    h.read().update(0,{display_name:'Đơn trước đã sửa'});await h.read().retryDraft();assert.equal(h.calls.find(x=>x[0]==='draft')[2].id,old.id);h.blur();
+  });
+  await test('discarding one draft resets to an independent blank editor without loading another draft',async()=>{
+    const h=harness(),old=savedDraft(),other=savedDraft();h.server.drafts=[old,other];h.route.draftId=old.id;await h.settle();
+    h.read().discardDraft();await h.calls.find(x=>x[0]==='alert')[3][1].onPress();
+    assert.deepEqual(h.read().draft,[]);assert.equal(h.read().step,1);assert.equal(h.server.overviewReads,1);
+    h.read().addManual();h.read().update(0,{display_name:'Đơn riêng mới'});await h.read().retryDraft();assert.notEqual(h.calls.find(x=>x[0]==='draft')[2].id,old.id);
+    assert.equal(h.calls.filter(x=>x[0]==='removeDraft').length,1);h.blur();
+  });
+  await test('translation function changes and ordinary edits cannot repeatedly fetch the setup page',async()=>{
+    const h=harness();h.server.unstableTranslations=true;await h.settle();h.read().addManual();
+    for(let n=0;n<12;n++){h.read().update(0,{display_name:'Tên '+n});await h.settle();}
+    assert.equal(h.server.overviewReads,1);assert.equal(h.read().loading,false);h.blur();
+  });
+  await test('refocusing setup keeps entered names visible during a background refresh',async()=>{
+    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên cần giữ'});h.blur();h.refocus();
+    assert.equal(h.read().loading,false);assert.equal(h.read().draft[0].display_name,'Tên cần giữ');await h.settle();
+    assert.equal(h.read().draft[0].display_name,'Tên cần giữ');h.blur();
   });
   console.log(`Medication setup: ${count} runtime checks passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});
