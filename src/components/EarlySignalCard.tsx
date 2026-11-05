@@ -139,7 +139,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
   );
   const summary = showsCurrentAttention
     ? t("earlyCurrentAttention", { count: currentSignalLabels.length })
-    : assessment?.summary ?? t("earlyEmpty");
+    : assessment?.summary;
   const visibleSignals = useMemo(
     () =>
       Array.from(
@@ -211,7 +211,11 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${t("earlyTitle")}. ${t(view.labelKey)}. ${summary}`}
+          accessibilityLabel={[
+            t("earlyTitle"),
+            canOpenDetails && t(view.labelKey),
+            summary,
+          ].filter(Boolean).join(". ")}
           style={[styles.cardHeader, compact && styles.compactHeader]}
           onPress={() => (canOpenDetails ? setOpen(true) : evaluate())}
           disabled={evaluating}
@@ -226,15 +230,17 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
           <View style={styles.copy}>
             <View style={styles.titleRow}>
               <Text style={styles.title}>{t("earlyTitle")}</Text>
-              {!compact && canOpenDetails && (
+              {canOpenDetails && (
                 <Text style={[styles.level, { color: view.color }]}>
                   {t(view.labelKey)}
                 </Text>
               )}
             </View>
-            <Text style={[styles.body, compact && styles.compactBody]} numberOfLines={compact ? undefined : canOpenDetails ? 2 : 3}>
-              {compact ? (canOpenDetails ? t(view.labelKey) : t("earlyOpen")) : summary}
-            </Text>
+            {!compact && !!summary && (
+              <Text style={styles.body} numberOfLines={2}>
+                {summary}
+              </Text>
+            )}
           </View>
           {loading || evaluating ? (
             <ActivityIndicator color={colors.primary} />
@@ -277,13 +283,14 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
             </View>
             <View style={styles.copy}>
               <Text style={styles.sheetTitle}>{t("earlyTitle")}</Text>
-              <Text style={[styles.sheetLevel, { color: view.color }]}>
-                {t(view.labelKey)}
-              </Text>
+              {canOpenDetails && (
+                <Text style={[styles.sheetLevel, { color: view.color }]}>
+                  {t(view.labelKey)}
+                </Text>
+              )}
             </View>
           </View>
 
-          {modalOnly && <Text style={styles.body}>{t('earlyEmpty')}</Text>}
           {modalOnly && loading && <ActivityIndicator color={colors.primary} />}
           {modalOnly && loadFailed && <Pressable onPress={load} accessibilityRole="button">
             <Text style={styles.body}>{t('earlyErrorBody')} {t('earlyRetry')}</Text>
@@ -305,7 +312,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
             </View>
           ) : (
             <>
-              {(!modalOnly || canOpenDetails) && <Text style={styles.summary}>{summary}</Text>}
+              {!!summary && <Text style={styles.summary}>{summary}</Text>}
               {!!visibleSignals.length && (
                 <View style={styles.signalsBox}>
                   <Text style={styles.boxLabel}>{t("earlyFound")}</Text>
@@ -331,9 +338,9 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
           {modalOnly && !assessment && !loading && <Pressable accessibilityRole="button" onPress={evaluate} disabled={evaluating} style={styles.evaluateButton}>
             {evaluating ? <ActivityIndicator color={colors.primary} /> : <Text style={styles.evaluateText}>{t('earlyEvaluate')}</Text>}
           </Pressable>}
-          <Text style={styles.disclaimer}>
-            {assessment?.disclaimer ?? t("earlyDisclaimer")}
-          </Text>
+          {!!assessment?.disclaimer && (
+            <Text style={styles.disclaimer}>{assessment.disclaimer}</Text>
+          )}
           <Pressable style={styles.closeButton} onPress={close}>
             <Text style={styles.closeText}>{t("earlyUnderstood")}</Text>
           </Pressable>
@@ -364,7 +371,6 @@ const styles = StyleSheet.create({
   },
   compactHeader: { minHeight: 52, gap: 12 },
   compactIcon: { width: 28, height: 32, borderRadius: 0 },
-  compactBody: { marginTop: 0, fontSize: 15 },
   card: {
     minHeight: 104,
     padding: spacing.md,
@@ -400,7 +406,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: colors.textPrimary,
   },
-  level: { fontSize: typography.size.xxs, fontWeight: "900" },
+  level: { fontSize: typography.size.sm, fontWeight: "900" },
   body: {
     marginTop: 5,
     fontSize: typography.size.xs,

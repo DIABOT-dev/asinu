@@ -88,7 +88,7 @@
   "earlyErrorBody": "Asinu chưa thể đọc dữ liệu sức khỏe lúc này. Vui lòng thử lại sau.",
   "earlyTitle": "Tín hiệu sớm",
   "earlyEmpty": "Asinu đọc lại chuỗi check-in, triệu chứng và chỉ số trong 7–30 ngày để tìm điều đáng chú ý.",
-  "earlyCurrentAttention": "Asinu ghi nhận {{count}} dấu hiệu hiện tại cần xem lại. Bấm để xem chi tiết.",
+  "earlyCurrentAttention": "Asinu ghi nhận {{count}} dấu hiệu hiện tại cần xem lại.",
   "earlyFactorEmergency": "Bạn đã kích hoạt hỗ trợ khẩn cấp trong lần check-in hôm nay.",
   "earlyFactorTriageEmergency": "Kết quả check-in có dấu hiệu cần hỗ trợ khẩn cấp.",
   "earlyFactorTriageHigh": "Kết quả check-in có dấu hiệu cần được chú ý sớm.",

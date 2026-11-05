@@ -88,7 +88,7 @@
   "earlyErrorBody": "Asinu cannot read your health data right now. Please try again later.",
   "earlyTitle": "Early Signals",
   "earlyEmpty": "Asinu reviews 7–30 days of check-ins, symptoms and readings to find notable patterns.",
-  "earlyCurrentAttention": "Asinu found {{count}} current health signs that need review. Tap for details.",
+  "earlyCurrentAttention": "Asinu found {{count}} current health signs that need review.",
   "earlyFactorEmergency": "You activated emergency support during today's check-in.",
   "earlyFactorTriageEmergency": "Your check-in found signs that may need emergency support.",
   "earlyFactorTriageHigh": "Your check-in found signs that need prompt attention.",
