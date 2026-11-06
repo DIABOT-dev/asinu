@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { Stack, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
@@ -41,16 +41,13 @@ export default function LogsIndexScreen() {
   const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
 
   const fetchLogs = useLogsStore((s) => s.fetchRecent);
-  const status    = useLogsStore((s) => s.status);
   const logs      = useLogsStore((s) => s.recent);
 
-  useEffect(() => {
-    if (status === 'idle') {
-      const c = new AbortController();
-      fetchLogs(c.signal);
-      return () => c.abort();
-    }
-  }, [status, fetchLogs]);
+  useFocusEffect(useCallback(() => {
+    const controller = new AbortController();
+    void fetchLogs(controller.signal);
+    return () => controller.abort();
+  }, [fetchLogs]));
 
   const quickMetrics = useMemo(() => {
     const todayStart = new Date();

@@ -76,8 +76,6 @@ import { ModalToastHost } from "../../../src/components/GlobalToastHost";
 import { authApi, type UpdateProfilePayload } from "../../../src/features/auth/auth.api";
 import { showToast, setPendingToast } from "../../../src/stores/toast.store";
 import { useAuthStore, type Profile } from "../../../src/features/auth/auth.store";
-import { useLogsStore } from "../../../src/features/logs/logs.store";
-import { useMissionsStore } from "../../../src/features/missions/missions.store";
 import { localizedPlanName } from "../../../src/features/subscription/planName";
 import {
   useFontSizeStore,
@@ -218,9 +216,6 @@ export default function ProfileScreen() {
     () => createStyles(scaledTypography, isDark),
     [scaledTypography, isDark],
   );
-
-  const fetchLogs = useLogsStore((state) => state.fetchRecent);
-  const fetchMissions = useMissionsStore((state) => state.fetchMissions);
 
   const logout = useAuthStore((state) => state.logout);
   const { scale: fontScale, setScale: setFontScale } = useFontSizeStore();
@@ -461,25 +456,15 @@ export default function ProfileScreen() {
     Boolean(profile),
   );
 
-  // Fetch subscription status
-  useEffect(() => {
-    apiClient<SubStatus>("/api/subscriptions/status")
-      .then(setSubStatus)
-      .catch(() => {});
-  }, []);
-
-  // Fetch full profile + data on focus (throttled)
+  // Refresh the profile and plan actually displayed on this screen.
   const lastFetchRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
       const now = Date.now();
       if (now - lastFetchRef.current < 3000) return;
       lastFetchRef.current = now;
-      const controller = new AbortController();
       let cancelled = false;
       if (!profileReadyRef.current) setProfileReady(false);
-      fetchLogs(controller.signal);
-      fetchMissions(controller.signal);
       apiClient<SubStatus>("/api/subscriptions/status")
         .then((status) => {
           if (!cancelled) setSubStatus(status);
@@ -501,7 +486,6 @@ export default function ProfileScreen() {
         });
       return () => {
         cancelled = true;
-        controller.abort();
         if (!profileReadyRef.current) {
           profileReadyRef.current = true;
           setProfileReady(true);
@@ -515,10 +499,7 @@ export default function ProfileScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     lastFetchRef.current = 0;
-    const controller = new AbortController();
     await Promise.all([
-      fetchLogs(controller.signal),
-      fetchMissions(controller.signal),
       authApi
         .fetchProfile()
         .then((p) => {

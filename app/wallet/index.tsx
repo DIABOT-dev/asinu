@@ -259,10 +259,10 @@ export default function WalletScreen() {
   const styles = useMemo(() => createStyles(scaledTypography, insets.top), [scaledTypography, insets.top, isDark]);
 
   const mountedRef = useRef(true);
-  const [balance, setBalance] = useState<string>('500000');
+  const [balance, setBalance] = useState<string | null>(null);
   const [amount, setAmount] = useState('50000');
   const [qr, setQr] = useState<QRData | null>(null);
-  const [loadingBalance, setLoadingBalance] = useState(false);
+  const [loadingBalance, setLoadingBalance] = useState(true);
   const [creatingQR, setCreatingQR] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
@@ -443,8 +443,12 @@ export default function WalletScreen() {
     if (getPaymentDisplayStatus(payment, now) !== 'pending') return;
     setHistoryNowMs(now);
     setSelectedPayment(payment);
-    startModalPolling(payment.order_code);
-  }, [startModalPolling]);
+    // The main QR already updates this payment and the modal reads the same history.
+    if (modalPollRef.current) clearInterval(modalPollRef.current);
+    if (qr?.order_code !== payment.order_code || pollStatus !== 'polling') {
+      startModalPolling(payment.order_code);
+    }
+  }, [qr?.order_code, pollStatus, startModalPolling]);
 
   const handleCloseQrModal = useCallback(() => {
     setSelectedPayment(null);
@@ -561,6 +565,8 @@ export default function WalletScreen() {
                 <View style={{ marginTop: 8 }}>
                   <ActivityIndicator size="small" color="#059669" />
                 </View>
+              ) : balance === null ? (
+                <ScaledText style={styles.balanceLabel}>{t('loadError')}</ScaledText>
               ) : (
                 <View style={styles.balanceRow}>
                   <ScaledText style={styles.balanceValue}>{formatVND(balance, i18n.language)}</ScaledText>

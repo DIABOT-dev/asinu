@@ -483,8 +483,14 @@ export default function HomeScreen() {
     hasRefreshError,
     isOffline,
     refreshAll
-  } = useHomeViewModel();
+  } = useHomeViewModel({
+    logs: SHOW_HOME_BELOW_TREE,
+    missions: SHOW_HOME_MISSIONS,
+    tree: SHOW_HOME_BELOW_TREE,
+  });
   const profile = useAuthStore((state) => state.profile);
+  const sessionToken = useAuthStore((state) => state.token);
+  const profileId = profile?.id;
   const guideScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
   const unreadCount = useNotificationStore(s => s.unreadCount);
@@ -506,18 +512,19 @@ export default function HomeScreen() {
     }, [refreshAll])
   );
 
-  // Fetch notifications on mount and periodically - only when logged in
-  useEffect(() => {
-    if (!profile) return;
-
-    fetchFromBackend();
-    const interval = setInterval(fetchFromBackend, 30000);
-    // Re-fetch immediately when app comes to foreground
+  // The home tab remains mounted behind other screens. Poll only while visible.
+  useFocusEffect(useCallback(() => {
+    if (!profileId || !sessionToken) return;
+    const refresh = () => {
+      if (AppState.currentState === 'active') void fetchFromBackend();
+    };
+    refresh();
+    const interval = setInterval(refresh, 30000);
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') fetchFromBackend();
+      if (state === 'active') refresh();
     });
     return () => { clearInterval(interval); sub.remove(); };
-  }, [fetchFromBackend, profile]);
+  }, [fetchFromBackend, profileId, sessionToken]));
 
   // Navigate to checkin — check session trước, hiện modal nếu đã done
   const [showAlreadyDoneModal, setShowAlreadyDoneModal] = useState(false);
@@ -614,9 +621,14 @@ export default function HomeScreen() {
   const visibleHealthFeedItems = healthFeedItems.filter(item => !hiddenFeedIds.has(String(item.id)));
 
   const refreshHealthFeed = useCallback(async () => {
-    if (!profile) return;
+    if (!profileId || !sessionToken) return;
+    const ownsSession = () => {
+      const current = useAuthStore.getState();
+      return current.profile?.id === profileId && current.token === sessionToken;
+    };
 
     const visible = await getHealthFeedPreference();
+    if (!ownsSession()) return;
     setHealthFeedVisible(visible);
     if (!visible) {
       setHealthFeedEnabled(false);
@@ -625,6 +637,7 @@ export default function HomeScreen() {
     }
 
     const response = await healthFeedApi<any>('/feed');
+    if (!ownsSession()) return;
     if (response.ok && response.enabled) {
       setHealthFeedEnabled(true);
       setHealthFeedItems(response.feed || []);
@@ -632,26 +645,20 @@ export default function HomeScreen() {
     }
 
     setHealthFeedEnabled(false);
-  }, [healthFeedApi, profile]);
+  }, [healthFeedApi, profileId, sessionToken]);
 
   useFocusEffect(
     useCallback(() => {
       refreshHealthFeed().catch(() => {});
-    }, [refreshHealthFeed])
-  );
-
-  useEffect(
-    () =>
-      subscribeRealtimeRefresh('healthFeed', () => {
+      return subscribeRealtimeRefresh('healthFeed', () => {
         refreshHealthFeed().catch(() => {});
-      }),
-    [refreshHealthFeed],
+      });
+    }, [refreshHealthFeed]),
   );
 
   const handleOpenNotifications = useCallback(() => {
-    void fetchFromBackend();
     router.push('/notifications');
-  }, [fetchFromBackend, router]);
+  }, [router]);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {

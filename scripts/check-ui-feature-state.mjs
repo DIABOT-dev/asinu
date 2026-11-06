@@ -5,9 +5,9 @@ import ts from "typescript";
 const flush = async () => {
   for (let i = 0; i < 30; i++) await Promise.resolve();
 };
-function evaluate(file, adapters) {
+function evaluate(file, adapters, globals = {}, source = fs.readFileSync(file, "utf8")) {
   const module = { exports: {} };
-  const code = ts.transpileModule(fs.readFileSync(file, "utf8"), {
+  const code = ts.transpileModule(source, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
       target: ts.ScriptTarget.ES2022,
@@ -16,7 +16,7 @@ function evaluate(file, adapters) {
   }).outputText;
   // Execute local feature modules with controlled native dependencies.
   // eslint-disable-next-line no-new-func
-  new Function("module", "exports", "require", code)(
+  new Function("module", "exports", "require", ...Object.keys(globals), code)(
     module,
     module.exports,
     (id) => {
@@ -27,6 +27,7 @@ function evaluate(file, adapters) {
       assert.ok(id in adapters, `Missing hook adapter ${id}`);
       return adapters[id];
     },
+    ...Object.values(globals),
   );
   return module.exports;
 }
@@ -66,13 +67,25 @@ function runtime() {
       return memo(() => ({ current: initial }), []);
     },
     useCallback: (fn, deps) => memo(() => fn, deps),
+    useMemo: (fn, deps) => memo(fn, deps),
+    useEffect(callback, deps) {
+      const index = cursor++;
+      const previous = slots[index];
+      if (!previous || !deps || deps.some((value, i) => !Object.is(value, previous.deps?.[i]))) {
+        slots[index] = { kind: 'effect', deps };
+        pending.push(() => {
+          previous?.cleanup?.();
+          slots[index].cleanup = callback();
+        });
+      }
+    },
   };
   const router = {
     useFocusEffect(callback) {
       const index = cursor++;
       const previous = slots[index];
       if (!previous || previous.callback !== callback) {
-        slots[index] = { callback };
+        slots[index] = { kind: 'focus', callback };
         pending.push(() => {
           previous?.cleanup?.();
           if (focused) slots[index].cleanup = callback();
@@ -98,6 +111,7 @@ function runtime() {
     blur() {
       focused = false;
       slots.forEach((slot) => {
+        if (slot.kind !== 'focus') return;
         slot.cleanup?.();
         slot.cleanup = null;
       });
@@ -1450,5 +1464,264 @@ for (const leave of ["blur", "account"]) {
     finish(); await pending; assert.deepEqual(h.calls.writes, []); h.blur();
   });
 }
+
+// Execute the real screen effects with only their native/UI surroundings removed.
+// This lets request counts and cleanup be tested without duplicating their logic.
+function screenLifecycle(file, select, globals, setup = '', returns = '{}') {
+  const source = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const component = source.statements.find(node => ts.isFunctionDeclaration(node)
+    && node.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.DefaultKeyword));
+  assert.ok(component?.body, `Missing screen component in ${file}`);
+  const statements = component.body.statements.filter(node => select(node.getText(source), node)).map(node => node.getText(source));
+  assert.ok(statements.length, `No lifecycle selected in ${file}`);
+  return evaluate(file, {}, globals, `export function run() { ${setup}\n${statements.join('\n')}\nreturn ${returns}; }`).run;
+}
+function controlledApp() {
+  let id = 0;
+  const timers = new Map();
+  const listeners = new Set();
+  const AppState = { currentState: 'active', addEventListener(_event, listener) {
+    listeners.add(listener); return { remove: () => listeners.delete(listener) };
+  } };
+  return {
+    AppState, timers,
+    setInterval(fn, ms) { const key = ++id; timers.set(key, { fn, ms }); return key; },
+    clearInterval(key) { timers.delete(key); },
+    tick(ms) { for (const { fn, ms: delay } of [...timers.values()]) if (delay === ms) fn(); },
+    state(value) { AppState.currentState = value; for (const fn of listeners) fn(value); },
+  };
+}
+const deferred = () => {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+};
+
+await test('profile focus and mount together request subscription status exactly once', async () => {
+  const r = runtime(); const calls = []; let clock = 10000;
+  const run = screenLifecycle('app/(tabs)/profile/index.tsx', text =>
+    /^use(?:Focus)?Effect\(/.test(text) && text.includes('/api/subscriptions/status'), {
+    ...r.hooks, ...r.router, Date: { now: () => clock }, lastFetchRef: { current: 0 },
+    profileReadyRef: { current: false }, setProfileReady() {}, setSubStatus() {},
+    fetchLogs: async () => { calls.push('unused-logs'); }, fetchMissions: async () => { calls.push('unused-missions'); },
+    apiClient: async path => { calls.push(path); return {}; },
+    authApi: { fetchProfile: async () => null }, useAuthStore: { setState() {} },
+  });
+  await r.settle(run); await r.settle(run);
+  assert.deepEqual(calls, ['/api/subscriptions/status']);
+  r.blur(); clock += 4000; r.focus(); await flush();
+  assert.equal(calls.length, 2, 'returning to profile still refreshes plan expiry'); r.blur();
+});
+
+await test('missions mount and focus share one load, and loading status does not cancel it', async () => {
+  const r = runtime(); const signals = [];
+  const store = { missions: [], status: 'idle', isStale: false, errorState: 'none',
+    fetchMissions: async signal => { signals.push(signal); store.status = 'loading'; } };
+  const { useMissionActions } = evaluate('src/features/missions/useMissionActions.ts', {
+    react: r.hooks, './missions.store': { useMissionsStore: select => select(store) },
+  });
+  const run = screenLifecycle('app/(tabs)/missions/index.tsx', text =>
+    text.startsWith('useFocusEffect(') && text.includes('fetchMissions'), {
+    ...r.hooks, ...r.router, useMissionActions, lastFetchRef: { current: 0 },
+  }, 'const { fetchMissions } = useMissionActions();');
+  await r.settle(run); await r.settle(run);
+  assert.equal(signals.length, 1); assert.equal(signals[0].aborted, false);
+  r.blur(); assert.equal(signals[0].aborted, true);
+});
+
+await test('log refresh survives idle-to-loading rerenders and refreshes after returning from log entry', async () => {
+  const r = runtime(); const signals = [];
+  const store = { status: 'idle', fetchLogs: async signal => { signals.push(signal); store.status = 'loading'; } };
+  const run = screenLifecycle('app/logs/index.tsx', text =>
+    /^use(?:Focus)?Effect\(/.test(text) && text.includes('fetchLogs'), {
+    ...r.hooks, ...r.router, store,
+  }, 'const { status, fetchLogs } = store;');
+  await r.settle(run); await r.settle(run);
+  assert.equal(signals.length, 1); assert.equal(signals[0].aborted, false);
+  r.blur(); assert.equal(signals[0].aborted, true);
+  r.focus(); await flush(); assert.equal(signals.length, 2); r.blur();
+});
+
+function homePollingHarness() {
+  const r = runtime(); const app = controlledApp(); let calls = 0;
+  const auth = { profile: { id: 'alice' }, token: 'alice-session' };
+  const run = screenLifecycle('app/(tabs)/home/index.tsx', text =>
+    /^use(?:Focus)?Effect\(/.test(text) && text.includes('AppState.addEventListener'), {
+    ...r.hooks, ...r.router, ...app, auth, fetchFromBackend: async () => { calls++; },
+  }, 'const profile = auth.profile; const profileId = profile?.id; const sessionToken = auth.token;');
+  return { ...r, app, auth, run, calls: () => calls };
+}
+await test('home notification polling pauses offscreen and in background, then refreshes on foreground', async () => {
+  const h = homePollingHarness(); await h.settle(h.run); assert.equal(h.calls(), 1);
+  h.app.tick(30000); assert.equal(h.calls(), 2);
+  h.app.state('background'); h.app.tick(30000); assert.equal(h.calls(), 2);
+  h.app.state('active'); assert.equal(h.calls(), 3);
+  h.blur(); h.app.tick(30000); h.app.state('active'); assert.equal(h.calls(), 3);
+  assert.equal(h.app.timers.size, 0); h.focus(); assert.equal(h.calls(), 4); h.blur();
+});
+await test('a profile object refresh does not restart home notification requests', async () => {
+  const h = homePollingHarness(); await h.settle(h.run);
+  h.auth.profile = { ...h.auth.profile, name: 'updated' }; await h.settle(h.run);
+  assert.equal(h.calls(), 1); h.auth.token = 'renewed-session'; await h.settle(h.run);
+  assert.equal(h.calls(), 2); h.blur();
+});
+await test('opening notifications leaves its screen as the sole owner of the first read', () => {
+  let reads = 0; const routes = [];
+  const run = screenLifecycle('app/(tabs)/home/index.tsx', text => text.startsWith('const handleOpenNotifications ='), {
+    useCallback: fn => fn, fetchFromBackend: () => { reads++; }, router: { push: path => routes.push(path) },
+  }, '', 'handleOpenNotifications');
+  run()(); assert.deepEqual(routes, ['/notifications']); assert.equal(reads, 0);
+});
+
+await test('home feed depends on account identity and ignores a late response from another session', async () => {
+  const r = runtime(); const auth = { profile: { id: 'alice' }, token: 'alice-session' };
+  const waiting = deferred(); const items = []; let reads = 0;
+  const run = screenLifecycle('app/(tabs)/home/index.tsx', text => text.startsWith('const refreshHealthFeed ='), {
+    ...r.hooks, auth, useAuthStore: { getState: () => auth }, getHealthFeedPreference: async () => true,
+    healthFeedApi: async () => { reads++; return waiting.promise; },
+    setHealthFeedVisible() {}, setHealthFeedEnabled() {}, setHealthFeedItems: value => items.push(value),
+  }, 'const profile = auth.profile; const profileId = profile?.id; const sessionToken = auth.token;', 'refreshHealthFeed');
+  const first = r.render(run); const pending = first(); await flush();
+  auth.profile = { ...auth.profile, name: 'new name' }; assert.equal(r.render(run), first);
+  assert.equal(reads, 1); auth.token = 'bob-session'; auth.profile = { id: 'bob' };
+  waiting.resolve({ ok: true, enabled: true, feed: ['private-alice'] }); await pending;
+  assert.deepEqual(items, []); r.blur();
+});
+
+function preferenceApiHarness() {
+  const calls = []; const pending = []; let token = 'alice-session'; let listener = () => {};
+  const api = evaluate('src/features/notifications/notifications.api.ts', {
+    '../../lib/apiClient': { apiClient: (path, options) => {
+      const waiting = deferred(); calls.push({ path, method: options?.method ?? 'GET' }); pending.push(waiting); return waiting.promise;
+    } },
+    '../../lib/tokenStore': { tokenStore: { getToken: () => token } },
+    '../../lib/device-permission-events': { notifyTaskReminderPreferenceChanged: () => listener() },
+  });
+  return { api, calls, pending, setToken: value => { token = value; }, onSave: fn => { listener = fn; } };
+}
+await test('home feed realtime updates unsubscribe on blur and load fresh data on return', async () => {
+  const r = runtime(); const listeners = new Set(); let reads = 0;
+  const run = screenLifecycle('app/(tabs)/home/index.tsx', text =>
+    /^use(?:Focus)?Effect\(/.test(text) && (text.includes('subscribeRealtimeRefresh') || text.includes('refreshHealthFeed().catch')), {
+    ...r.hooks, ...r.router, refreshHealthFeed: async () => { reads++; },
+    subscribeRealtimeRefresh: (_topic, fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+  });
+  await r.settle(run); assert.equal(reads, 1);
+  listeners.forEach(fn => fn()); await flush(); assert.equal(reads, 2);
+  r.blur(); listeners.forEach(fn => fn()); await flush(); assert.equal(reads, 2);
+  assert.equal(listeners.size, 0); r.focus(); await flush(); assert.equal(reads, 3); r.blur();
+});
+await test('permission rows share a simultaneous read without retaining a completed consent response', async () => {
+  const h = preferenceApiHarness(); const reads = Array.from({ length: 3 }, () => h.api.getNotificationPreferences());
+  assert.equal(h.calls.length, 1); h.pending[0].resolve({ ok: true, reminders_enabled: false });
+  assert.ok((await Promise.all(reads)).every(value => value.reminders_enabled === false));
+  const fresh = h.api.getNotificationPreferences(); assert.equal(h.calls.length, 2);
+  h.pending[1].resolve({ ok: true, reminders_enabled: true }); assert.equal((await fresh).reminders_enabled, true);
+});
+await test('a failed preference read can retry and is never shared with a different session', async () => {
+  const h = preferenceApiHarness(); const first = h.api.getNotificationPreferences();
+  h.setToken('bob-session'); const second = h.api.getNotificationPreferences(); assert.equal(h.calls.length, 2);
+  h.pending[0].resolve({ ok: true, reminders_enabled: true }); await first;
+  const shared = h.api.getNotificationPreferences(); assert.equal(h.calls.length, 2, 'old finally cannot evict the new request');
+  const failed = Promise.allSettled([second, shared]); h.pending[1].reject(new Error('offline'));
+  assert.ok((await failed).every(result => result.status === 'rejected'));
+  const retry = h.api.getNotificationPreferences(); assert.equal(h.calls.length, 3);
+  h.pending[2].resolve({ ok: true }); await retry;
+});
+await test('saving preferences invalidates reads both before the write and before change listeners refresh', async () => {
+  const h = preferenceApiHarness(); const before = h.api.getNotificationPreferences();
+  const saved = h.api.updateNotificationPreferences({ reminders_enabled: true });
+  const during = h.api.getNotificationPreferences(); let after;
+  assert.equal(h.calls.length, 3); h.onSave(() => { after = h.api.getNotificationPreferences(); });
+  h.pending[1].resolve({ ok: true, reminders_enabled: true }); await saved;
+  assert.equal(h.calls.length, 4); h.pending[3].resolve({ ok: true, reminders_enabled: true });
+  assert.equal((await after).reminders_enabled, true);
+  h.pending[0].resolve({ ok: true, reminders_enabled: false }); h.pending[2].resolve({ ok: true, reminders_enabled: false });
+  await Promise.all([before, during]);
+});
+
+function homeTasksHarness() {
+  const r = runtime(); const app = controlledApp(); const actions = new Set();
+  const auth = { profile: { id: 'alice' }, token: 'alice-session' };
+  const server = { pending: null, error: null, flags: { coins: true, patients: [] }, done: 0 };
+  const calls = { flags: 0, coins: 0 }; class ApiError extends Error { constructor(code) { super('API error'); this.statusCode = code; } }
+  const { V21HomeCard } = evaluate('src/features/v21/V21HomeCard.tsx', {
+    react: r.hooks, 'expo-router': r.router, 'react-native': { ...app, Pressable: 'Pressable', View: 'View' },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push() {} }) },
+    '@expo/vector-icons': { MaterialCommunityIcons: 'Icon' },
+    'react-i18next': { useTranslation: () => ({ t: (key, values) => `${key}:${values?.done ?? ''}` }) },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../auth/auth.store': { useAuthStore: select => select(auth) },
+    '../../lib/health-action-events': { subscribeHealthAction: fn => { actions.add(fn); return () => actions.delete(fn); } },
+    '../../lib/apiClient': { ApiError },
+    './v21.api': { v21Api: {
+      flags: async () => { calls.flags++; if (server.error) throw server.error; return server.pending ?? server.flags; },
+      coins: async () => { calls.coins++; return { tasks: [{ task_code: 'CHECKIN', daily_limit: 1, done: server.done }] }; },
+    } },
+  }, { setInterval: app.setInterval, clearInterval: app.clearInterval });
+  const read = () => V21HomeCard();
+  return { ...r, app, auth, server, calls, ApiError, read, action: () => actions.forEach(fn => fn()), settle: () => r.settle(read) };
+}
+await test('home tasks poll only while visible and active, without refetching when translation rerenders', async () => {
+  const h = homeTasksHarness(); await h.settle(); await h.settle(); assert.equal(h.calls.flags, 1);
+  h.app.state('background'); h.app.tick(15000); await flush(); assert.equal(h.calls.flags, 1);
+  h.app.state('active'); await flush(); assert.equal(h.calls.flags, 2);
+  h.blur(); h.action(); h.app.tick(15000); h.app.state('active'); await flush();
+  assert.equal(h.calls.flags, 2); assert.equal(h.app.timers.size, 0);
+});
+await test('home tasks merge overlapping polls but queue a fresh read after a health action', async () => {
+  const h = homeTasksHarness(); const waiting = deferred(); h.server.pending = waiting.promise;
+  await h.settle(); h.app.tick(15000); h.app.tick(15000); h.action(); h.action(); await flush();
+  assert.equal(h.calls.flags, 1); h.server.pending = null; h.server.done = 1; waiting.resolve(h.server.flags); await flush();
+  assert.equal(h.calls.flags, 2); assert.equal(h.calls.coins, 2);
+  assert.ok(JSON.stringify(h.render(h.read)).includes('taskProgress:1')); h.blur();
+});
+await test('home task icons survive a temporary failure but hide on access revocation or a server flag', async () => {
+  const h = homeTasksHarness(); await h.settle(); assert.notEqual(h.render(h.read), null);
+  h.server.error = new Error('offline'); h.app.tick(15000); await flush(); assert.notEqual(h.render(h.read), null);
+  h.server.error = new h.ApiError(403); h.app.tick(15000); await flush(); assert.equal(h.render(h.read), null);
+  h.server.error = null; h.server.flags = { coins: false, patients: [] }; h.app.tick(15000); await flush();
+  assert.equal(h.render(h.read), null); h.blur();
+});
+await test('a home task response arriving after blur cannot show a previous session', async () => {
+  const h = homeTasksHarness(); const waiting = deferred(); h.server.pending = waiting.promise;
+  await h.settle(); h.blur(); h.auth.profile = { id: 'bob' }; h.auth.token = 'bob-session';
+  waiting.resolve(h.server.flags); await flush(); assert.equal(h.render(h.read), null);
+  assert.equal(h.calls.coins, 0);
+});
+await test('home tasks do not start the next API request when backgrounded during a flag read', async () => {
+  const h = homeTasksHarness(); const waiting = deferred(); h.server.pending = waiting.promise;
+  await h.settle(); h.app.state('background'); waiting.resolve(h.server.flags); await flush();
+  assert.equal(h.calls.coins, 0); h.server.pending = null;
+  h.app.state('active'); await flush(); assert.equal(h.calls.coins, 1); h.blur();
+});
+
+await test('opening the currently polled wallet QR reuses its refresh; another order starts its own', () => {
+  const r = runtime(); const state = { qr: { order_code: 'current' }, pollStatus: 'polling' };
+  const polled = []; const selected = []; const cleared = [];
+  const run = screenLifecycle('app/wallet/index.tsx', text => text.startsWith('const handleOpenPendingPayment ='), {
+    ...r.hooks, state, getPaymentDisplayStatus: payment => payment.status,
+    setHistoryNowMs() {}, setSelectedPayment: payment => selected.push(payment),
+    startModalPolling: code => polled.push(code), modalPollRef: { current: 11 }, clearInterval: id => cleared.push(id),
+  }, 'const { qr, pollStatus } = state;', 'handleOpenPendingPayment');
+  r.render(run)({ order_code: 'current', status: 'pending' }); assert.deepEqual(polled, []);
+  r.render(run)({ order_code: 'older', status: 'pending' }); assert.deepEqual(polled, ['older']);
+  state.pollStatus = 'idle'; r.render(run)({ order_code: 'current', status: 'pending' });
+  assert.deepEqual(polled, ['older', 'current']); assert.equal(selected.length, 3);
+  r.render(run)({ order_code: 'expired', status: 'expired' }); assert.equal(selected.length, 3);
+  assert.deepEqual(cleared, [11, 11, 11]);
+});
+await test('wallet has no fabricated initial balance and retains the last confirmed balance on refresh failure', async () => {
+  const r = runtime(); let waiting = deferred();
+  const run = screenLifecycle('app/wallet/index.tsx', text => /^(const \[balance,|const \[loadingBalance,|const fetchBalance =)/.test(text), {
+    ...r.hooks, apiClient: () => waiting.promise,
+  }, '', '{ balance, loadingBalance, fetchBalance }');
+  assert.equal(r.render(run).balance, null); assert.equal(r.render(run).loadingBalance, true);
+  let pending = r.render(run).fetchBalance(); waiting.resolve({ ok: true, balance: '12' }); await pending;
+  assert.equal(r.render(run).balance, '12'); assert.equal(r.render(run).loadingBalance, false);
+  waiting = deferred(); pending = r.render(run).fetchBalance(); waiting.reject(new Error('offline')); await pending;
+  assert.equal(r.render(run).balance, '12');
+});
 
 console.log(`UI feature state: ${checks} runtime checks passed.`);

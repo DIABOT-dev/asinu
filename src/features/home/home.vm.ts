@@ -64,7 +64,9 @@ const createGlucoseTrendFromLogs = (logs: LogEntry[]): TreeHistoryPoint[] => {
   return days;
 };
 
-export const useHomeViewModel = () => {
+type HomeDataSections = { logs?: boolean; missions?: boolean; tree?: boolean };
+
+export const useHomeViewModel = ({ logs: loadLogs = true, missions: loadMissions = true, tree: loadTree = true }: HomeDataSections = {}) => {
   const [healthScore, setHealthScore] = useState<HealthScoreData | null>(null);
 
   const logs = useLogsStore((state) => state.recent);
@@ -139,34 +141,38 @@ export const useHomeViewModel = () => {
 
   const refreshAll = useCallback(() => {
     const controller = new AbortController();
-    fetchLogs(controller.signal);
-    fetchMissions(controller.signal);
-    fetchTree(controller.signal);
+    if (loadLogs) fetchLogs(controller.signal);
+    if (loadMissions) fetchMissions(controller.signal);
+    if (loadTree) fetchTree(controller.signal);
     fetchHealthScore();
     return () => controller.abort();
-  }, [fetchLogs, fetchMissions, fetchTree, fetchHealthScore]);
+  }, [fetchLogs, fetchMissions, fetchTree, fetchHealthScore, loadLogs, loadMissions, loadTree]);
 
   // A failed section does not prove the device lost Internet access. Keep its
   // retry banner, and reserve the modal for failure across all Home data sources.
   // Include no-data failures so a first launch without a cache can still retry.
-  const refreshErrors = [logsError, missionsError, treeError];
+  const refreshErrors = [
+    ...(loadLogs ? [logsError] : []),
+    ...(loadMissions ? [missionsError] : []),
+    ...(loadTree ? [treeError] : []),
+  ];
   const hasRefreshError = refreshErrors.some(error => error === 'remote-failed' || error === 'no-data');
-  const isOffline = refreshErrors.every(error => error === 'remote-failed' || error === 'no-data');
+  const isOffline = refreshErrors.length > 0 && refreshErrors.every(error => error === 'remote-failed' || error === 'no-data');
 
   return {
-    logs,
-    missions: missions.slice(0, 3),
-    treeSummary,
-    treeHistory,
+    logs: loadLogs ? logs : [],
+    missions: loadMissions ? missions.slice(0, 3) : [],
+    treeSummary: loadTree ? treeSummary : null,
+    treeHistory: loadTree ? treeHistory : [],
     glucoseTrendData,
     quickMetrics,
     healthScore,
-    logsStatus,
-    missionsStatus,
-    treeStatus,
-    logsError,
-    missionsError,
-    treeError,
+    logsStatus: loadLogs ? logsStatus : 'success',
+    missionsStatus: loadMissions ? missionsStatus : 'success',
+    treeStatus: loadTree ? treeStatus : 'success',
+    logsError: loadLogs ? logsError : 'none',
+    missionsError: loadMissions ? missionsError : 'none',
+    treeError: loadTree ? treeError : 'none',
     hasRefreshError,
     isOffline,
     refreshAll

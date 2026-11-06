@@ -29,6 +29,8 @@ function harness(errors) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const module = { exports: {} };
+  // Execute the actual view model against controlled stores and API adapters.
+  // eslint-disable-next-line no-new-func
   new Function('module', 'exports', 'require', code)(module, module.exports, name => {
     assert.ok(Object.hasOwn(imports, name), `Unexpected Home dependency: ${name}`);
     return imports[name];
@@ -63,6 +65,34 @@ test('a successful retry clears the error UI and refreshes every existing source
   assert.ok(h.calls.slice(0, 3).every(call => call.signal === h.calls[0].signal));
   cleanup();
   assert.equal(h.calls[0].signal.aborted, true);
+});
+test('hidden home sections do not fetch unused logs, missions or tree data', () => {
+  const h = harness(['remote-failed', 'no-data', 'remote-failed']);
+  const view = h.render({ logs: false, missions: false, tree: false });
+  view.refreshAll();
+  assert.deepEqual(h.calls.map(call => call.name), ['health-score']);
+  assert.equal(view.hasRefreshError, false);
+  assert.equal(view.isOffline, false);
+  assert.deepEqual([view.logsStatus, view.missionsStatus, view.treeStatus], ['success', 'success', 'success']);
+  assert.deepEqual([view.logsError, view.missionsError, view.treeError], ['none', 'none', 'none']);
+});
+test('only visible sections contribute requests and refresh errors', () => {
+  const h = harness(['remote-failed', 'none', 'no-data']);
+  const view = h.render({ logs: false, missions: true, tree: false });
+  assert.equal(view.hasRefreshError, false); assert.equal(view.isOffline, false);
+  view.refreshAll(); assert.deepEqual(h.calls.map(call => call.name), ['missions', 'health-score']);
+});
+test('a failing visible section remains retryable while hidden section errors are ignored', () => {
+  const h = harness(['none', 'no-data', 'none']);
+  const view = h.render({ logs: false, missions: true, tree: false });
+  assert.equal(view.hasRefreshError, true); assert.equal(view.isOffline, true);
+  view.refreshAll(); assert.equal(h.render({ logs: false, missions: true, tree: false }).hasRefreshError, false);
+});
+test('re-enabling home sections restores their requests', () => {
+  const h = harness(['none', 'none', 'none']);
+  h.render({ logs: false, missions: false, tree: false }).refreshAll();
+  h.calls.length = 0; h.render({ logs: true, missions: true, tree: true }).refreshAll();
+  assert.deepEqual(h.calls.map(call => call.name), ['logs', 'missions', 'tree', 'health-score']);
 });
 test('Home uses the partial-error banner separately from the connection modal', () => {
   const source = fs.readFileSync('app/(tabs)/home/index.tsx', 'utf8');

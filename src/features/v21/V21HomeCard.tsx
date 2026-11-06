@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Pressable, View } from "react-native";
+import { AppState, Pressable, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useGuardedRouter as useRouter } from "../../hooks/useGuardedRouter";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -9,45 +9,69 @@ import { useThemeColors } from "../../hooks/useThemeColors";
 import { useAuthStore } from "../auth/auth.store";
 import { subscribeHealthAction } from "../../lib/health-action-events";
 import { v21Api, CoinToday, V21Flags } from "./v21.api";
+import { ApiError } from "../../lib/apiClient";
 
 export function V21HomeCard({ iconOnly = false }: { iconOnly?: boolean } = {}) {
   const { t } = useTranslation("v21"),
     { colors } = useThemeColors(),
     router = useRouter();
   const user = useAuthStore((s) => s.profile?.id);
+  const token = useAuthStore((s) => s.token);
   const [owner, setOwner] = useState<string | null>(null);
   const [flags, setFlags] = useState<V21Flags | null>(null),
     [today, setToday] = useState<CoinToday | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      if (!user || !token) return;
       let active = true;
-      let timer: ReturnType<typeof setInterval> | undefined;
-      const refresh = async () => {
+      let inFlight = false;
+      let refreshQueued = false;
+      const refresh = async (afterAction = false) => {
+        if (!active || AppState.currentState !== 'active') return;
+        if (inFlight) {
+          // An action needs a fresh read after any read already in progress.
+          if (afterAction) refreshQueued = true;
+          return;
+        }
+        inFlight = true;
         try {
           const f = await v21Api.flags();
-          if (!active) return;
+          if (!active || AppState.currentState !== 'active') return;
           setFlags(f);
           setOwner(String(user));
           if (!f.coins) return;
           const data = await v21Api.coins();
           if (!active) return;
           setToday(data);
-        } catch {
-          if (active) setFlags(null);
+        } catch (error) {
+          if (active && error instanceof ApiError && [401, 403, 404].includes(error.statusCode)) {
+            setFlags(null);
+            setToday(null);
+          }
+        } finally {
+          inFlight = false;
+          if (active && refreshQueued) {
+            refreshQueued = false;
+            void refresh();
+          }
         }
       };
-      const unsubscribe = subscribeHealthAction(() => void refresh());
+      const unsubscribe = subscribeHealthAction(() => void refresh(true));
       void refresh();
-      timer = setInterval(() => {
+      const timer = setInterval(() => {
         void refresh();
       }, 15000);
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') void refresh(true);
+      });
       return () => {
         active = false;
         unsubscribe();
-        if (timer) clearInterval(timer);
+        clearInterval(timer);
+        subscription.remove();
       };
-    }, [user, t])
+    }, [user, token])
   );
   if (owner !== String(user)) return null;
   if (!flags?.coins && !flags?.patients?.length) return null;
