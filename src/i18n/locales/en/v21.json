@@ -61,7 +61,7 @@
   "next": "Continue",
   "close": "Close",
   "balance": "You have {{count}} coins",
-  "coinsEarned": "You earned {{count}} coins 🌿",
+  "coinsEarned": "You earned {{count}} coins",
   "tasksTitle": "Today's activities",
   "taskProgress": "{{done}}/{{total}} activities completed today",
   "coinsTitle": "Health coins",

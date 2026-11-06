@@ -61,7 +61,7 @@
   "next": "Tiếp tục",
   "close": "Đóng",
   "balance": "Bạn có {{count}} xu",
-  "coinsEarned": "Bạn vừa nhận {{count}} xu 🌿",
+  "coinsEarned": "Bạn vừa nhận {{count}} xu",
   "tasksTitle": "Việc hôm nay",
   "taskProgress": "Đã hoàn thành {{done}}/{{total}} việc hôm nay",
   "coinsTitle": "Xu sức khoẻ",

@@ -6,6 +6,7 @@ import { useAuthStore } from "../auth/auth.store";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { subscribeHealthAction } from "../../lib/health-action-events";
 import { v21Api } from "./v21.api";
+import { HealthCoinIcon } from "./HealthCoinIcon";
 export function CoinEarnedHost() {
   const token = useAuthStore((s) => s.token),
     user = useAuthStore((s) => s.profile?.id),
@@ -89,12 +90,14 @@ export function CoinEarnedHost() {
         },
       ]}
     >
+      <HealthCoinIcon size={30} />
       <Text
         style={{
           fontSize: 21,
           fontWeight: "700",
           textAlign: "center",
           color: colors.surface,
+          flexShrink: 1,
         }}
       >
         {t("coinsEarned", { count: earned })}
@@ -108,6 +111,9 @@ const styles = StyleSheet.create({
     top: 66,
     alignSelf: "center",
     maxWidth: "90%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     paddingHorizontal: 22,
     paddingVertical: 18,
     borderRadius: 22,
