@@ -1724,4 +1724,284 @@ await test('wallet has no fabricated initial balance and retains the last confir
   assert.equal(r.render(run).balance, '12');
 });
 
+function inboxHarness() {
+  const r = runtime();
+  const theme = evaluate("src/styles/theme.ts", {});
+  const calls = {
+    reads: 0,
+    marked: [],
+    routes: [],
+    all: 0,
+    removed: [],
+    alerts: [],
+    clear: 0,
+    pages: [],
+  };
+  const store = {
+    notifications: [
+      {
+        id: "checkin",
+        type: "morning_checkin",
+        title: "Check-in reminder",
+        body: "Full reminder text",
+        timestamp: new Date(),
+        read: false,
+        data: { route: "/checkin" },
+      },
+      {
+        id: "general",
+        type: "general",
+        title: "Account update",
+        body: "Full account update",
+        timestamp: new Date(),
+        read: true,
+      },
+    ],
+    unreadCount: 1,
+    loading: false,
+    loadingMore: false,
+    hasMore: true,
+    page: 1,
+    error: null,
+    fetchFromBackend: async (options) => {
+      calls.reads++;
+      if (options) calls.pages.push(options);
+    },
+    markAsRead: async (id) => {
+      calls.marked.push(id);
+      store.notifications = store.notifications.map((item) =>
+        item.id === id ? { ...item, read: true } : item,
+      );
+      store.unreadCount = 0;
+      return true;
+    },
+    markAllAsRead: async () => {
+      calls.all++;
+      store.unreadCount = 0;
+      return true;
+    },
+    removeNotification: async (id) => {
+      calls.removed.push(id);
+      return true;
+    },
+    clearAll: async () => {
+      calls.clear++;
+      return true;
+    },
+  };
+  const { NotificationsPage } = evaluate(
+    "src/components/NotificationsPage.tsx",
+    {
+      react: r.hooks,
+      "expo-router": r.router,
+      "@/hooks/useGuardedRouter": {
+        useGuardedRouter: () => ({
+          back() {},
+          push: (route) => calls.routes.push(route),
+        }),
+      },
+      "react-i18next": {
+        useTranslation: (namespace) => ({
+          t: (key, args = {}) => {
+            const copy = JSON.parse(
+              fs.readFileSync(`src/i18n/locales/vi/${namespace}.json`, "utf8"),
+            );
+            return String(copy[key] ?? key).replace(
+              /\{\{(\w+)\}\}/g,
+              (_, name) => String(args[name] ?? ""),
+            );
+          },
+          i18n: { language: "vi" },
+        }),
+      },
+      "react-native": {
+        ...Object.fromEntries(
+          [
+            "View",
+            "Pressable",
+            "FlatList",
+            "ScrollView",
+            "RefreshControl",
+            "ActivityIndicator",
+          ].map((name) => [name, name]),
+        ),
+        StyleSheet: { create: (styles) => styles },
+      },
+      "react-native-safe-area-context": {
+        useSafeAreaInsets: () => ({ top: 44, bottom: 24 }),
+      },
+      "@expo/vector-icons": { Ionicons: "Icon" },
+      "./ScaledText": { ScaledText: "Text" },
+      "./NotificationIcon": { NotificationIcon: "NotificationIcon" },
+      "./state/Skeleton": { SkeletonBlock: "Skeleton" },
+      "./Screen": { Screen: "Screen" },
+      "./ScreenHeaderButton": { ScreenBackButton: "Back" },
+      "./AppAlertModal": {
+        AppAlertModal: "Alert",
+        useAppAlert: () => ({
+          alertState: {},
+          dismissAlert() {},
+          showAlert: (...args) => calls.alerts.push(args),
+        }),
+      },
+      "../hooks/useScaledTypography": {
+        useScaledTypography: () => theme.typography,
+      },
+      "../hooks/useThemeColors": {
+        useThemeColors: () => ({ colors: theme.lightColors, isDark: false }),
+      },
+      "../styles": theme,
+      "../stores/notification.store": {
+        useNotificationStore: (select) => select(store),
+      },
+      "../stores/toast.store": { showToast() {} },
+      "../lib/notifications": {
+        routeFromNotificationData: (data) => data.route ?? null,
+      },
+    },
+  );
+  const read = () => r.render(NotificationsPage);
+  const list = () =>
+    journeyNodes(read()).find((node) => node.type === "FlatList").props;
+  const row = (id) => {
+    const props = list();
+    const item = props.data.find((item) => item.notification?.id === id);
+    return journeyNodes(props.renderItem({ item })).find(
+      (node) => node.type === "Pressable",
+    );
+  };
+  return {
+    ...r,
+    store,
+    calls,
+    read,
+    list,
+    row,
+    settle: () => r.settle(NotificationsPage),
+  };
+}
+await test("the restyled inbox reads once on focus and still opens and marks the chosen notification", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  await h.settle();
+  assert.equal(h.calls.reads, 1);
+  const row = h.row("checkin");
+  assert.ok(row.props.accessibilityLabel.includes("Chưa đọc"));
+  row.props.onPress();
+  await flush();
+  assert.deepEqual(h.calls.marked, ["checkin"]);
+  assert.deepEqual(h.calls.routes, ["/checkin"]);
+  h.row("checkin").props.onPress();
+  await flush();
+  assert.deepEqual(h.calls.marked, ["checkin"]);
+  h.blur();
+});
+await test("inbox item actions do not open or mark a notification and deletion still requires confirmation", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  let stopped = false;
+  const button = journeyNodes(h.row("checkin")).find(
+    (node) => node.props.accessibilityLabel === "Thao tác khác",
+  );
+  button.props.onPress({
+    stopPropagation: () => {
+      stopped = true;
+    },
+  });
+  assert.equal(stopped, true);
+  assert.deepEqual(h.calls.marked, []);
+  assert.deepEqual(h.calls.routes, []);
+  const props = h.list();
+  const item = props.data.find((item) => item.notification?.id === "checkin");
+  const nodes = journeyNodes(props.renderItem({ item }));
+  const remove = nodes.find(
+    (node) =>
+      node.type === "Pressable" &&
+      journeyNodes(node).some((child) => child.props.children === "Xóa"),
+  );
+  remove.props.onPress();
+  assert.deepEqual(h.calls.removed, []);
+  assert.equal(h.calls.alerts.length, 1);
+  const actions = h.calls.alerts[0][2];
+  actions.find((action) => action.style === "destructive").onPress();
+  await flush();
+  assert.deepEqual(h.calls.removed, ["checkin"]);
+  h.blur();
+});
+await test("the visible read-all shortcut marks notifications without deleting history", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  const button = journeyNodes(h.read()).find(
+    (node) =>
+      node.type === "Pressable" &&
+      node.props.accessibilityLabel === "Đánh dấu tất cả đã đọc",
+  );
+  assert.equal(button.props.disabled, false);
+  button.props.onPress();
+  await flush();
+  assert.equal(h.calls.all, 1);
+  assert.equal(h.calls.clear, 0);
+  const disabled = journeyNodes(h.read()).find(
+    (node) => node.props.accessibilityLabel === "Đánh dấu tất cả đã đọc",
+  );
+  assert.equal(disabled.props.disabled, true);
+  h.blur();
+});
+await test("the inbox retains filtering, expansion, pagination and honest loading/error states", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  h.row("general").props.onPress();
+  assert.equal(h.row("general").props.accessibilityState.expanded, true);
+  assert.equal(
+    journeyNodes(h.row("general")).find(
+      (node) => node.props.children === "Full account update",
+    ).props.numberOfLines,
+    undefined,
+  );
+  h.row("general").props.onPress();
+  assert.equal(h.row("general").props.accessibilityState.expanded, false);
+  assert.deepEqual(h.calls.routes, []);
+  assert.deepEqual(h.calls.marked, []);
+  const reminder = journeyNodes(h.read()).find(
+    (node) =>
+      node.type === "Pressable" &&
+      journeyNodes(node).some((child) => child.props.children === "Nhắc nhở"),
+  );
+  reminder.props.onPress();
+  assert.deepEqual(
+    h
+      .list()
+      .data.filter((item) => item.kind === "notification")
+      .map((item) => item.notification.id),
+    ["checkin"],
+  );
+  h.list().onEndReached();
+  await flush();
+  assert.deepEqual(h.calls.pages, [{ page: 2, append: true }]);
+  h.store.loadingMore = true;
+  h.list().onEndReached();
+  assert.equal(h.calls.pages.length, 1);
+  h.store.notifications = [];
+  h.store.loading = true;
+  h.store.unreadCount = 0;
+  assert.ok(
+    journeyNodes(h.list().ListEmptyComponent).some(
+      (node) => node.props.accessibilityState?.busy,
+    ),
+  );
+  h.store.loading = false;
+  h.store.error = "offline";
+  assert.ok(
+    journeyNodes(h.list().ListEmptyComponent).some(
+      (node) => node.props.children === "Chưa tải được thông báo",
+    ),
+  );
+  assert.ok(
+    !journeyNodes(h.read()).some(
+      (node) => node.props.children === "Đã đọc tất cả",
+    ),
+  );
+  h.blur();
+});
+
 console.log(`UI feature state: ${checks} runtime checks passed.`);
