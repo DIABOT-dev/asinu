@@ -137,7 +137,15 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: doctorEnabled, isCheckinUiGalleryEnabled: false },
     '../../../src/features/app-update/app-update.store': { useAppUpdateStore: Object.assign(selector => selector({ checking: false }), { getState: () => ({ check: async () => ({ status: 'current' }) }) }) },
     '../../../src/features/profile/ProfileMascotGreeting': { ProfileMascotGreeting: 'MascotGreeting' },
-    '../../../src/features/profile/ProfileOceanWave': { ProfileOceanWave: 'OceanBackground' },
+    '../../../src/features/profile/ProfileHealthcareBackground': {
+      ProfileHealthcareBackground: () => evaluate(read('src/features/profile/ProfileHealthcareBackground.tsx'), {
+        react: {},
+        'react-native': { View: 'View', StyleSheet: { create: styles => styles, absoluteFill: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } } },
+        'expo-linear-gradient': { LinearGradient: 'LinearGradient' },
+        'react-native-svg': { __esModule: true, default: 'Svg', Path: 'Path' },
+        '../../hooks/useThemeColors': { useThemeColors: () => ({ isDark }) },
+      }).ProfileHealthcareBackground(),
+    },
     '../../../src/features/profile/FontSizePickerModal': { FontSizePickerModal: 'FontSizePickerModal' },
     '../../../src/features/profile/LanguagePickerModal': { LanguagePickerModal: 'LanguagePickerModal' },
     '../../../src/features/profile/ProfileDevicePermissions': { ProfileDevicePermissions: 'DevicePermissions' },
@@ -246,15 +254,16 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
-  await test(`${language}: ocean fills the screen background rather than a region behind the mascot`, () => {
+  await test(`${language}: healthcare backdrop stays behind content without blocking profile controls`, () => {
     const tree = harness({ language }).render();
     const screen = nodes(tree).find(node => node.type === 'Screen');
     const backdrop = screen.props.children[0];
-    assert.ok(nodes(backdrop).some(node => node.type === 'OceanBackground'));
-    assert.equal(backdrop.props.pointerEvents, 'none');
-    assert.equal(backdrop.props.accessibilityElementsHidden, true);
+    const background = backdrop.type();
+    assert.equal(background.props.pointerEvents, 'none');
+    assert.equal(background.props.accessibilityElementsHidden, true);
+    assert.equal(background.props.importantForAccessibility, 'no-hide-descendants');
     const scroll = nodes(tree).find(node => node.type === 'ScrollView');
-    assert.ok(!nodes(scroll).some(node => node.type === 'OceanBackground'));
+    assert.ok(!nodes(scroll).some(node => node.type === backdrop.type));
   });
   await test(`${language}: account deletion is under Account and its confirmation opens on the first press`, () => {
     const h = harness({ language });

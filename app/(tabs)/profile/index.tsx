@@ -46,7 +46,7 @@ import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
 import { ProfileMascotGreeting } from "../../../src/features/profile/ProfileMascotGreeting";
-import { ProfileOceanWave } from "../../../src/features/profile/ProfileOceanWave";
+import { ProfileHealthcareBackground } from "../../../src/features/profile/ProfileHealthcareBackground";
 import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
 import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
 import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
@@ -770,24 +770,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <View
-        style={[StyleSheet.absoluteFill, styles.profileBackgroundBase]}
-        pointerEvents="none"
-        accessible={false}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-      >
-        <ProfileOceanWave />
-        <LinearGradient
-          colors={isDark
-            ? ["rgba(15,23,42,0.96)", "rgba(15,23,42,0.93)", "rgba(15,23,42,0.86)", "rgba(15,23,42,0.72)"]
-            : ["rgba(250,253,252,0.96)", "rgba(250,253,252,0.90)", "rgba(250,253,252,0.78)", "rgba(250,253,252,0.45)"]}
-          locations={[0, 0.3, 0.65, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
+      <ProfileHealthcareBackground />
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={handleRefresh}
@@ -2387,9 +2370,6 @@ function createStyles(
     container: {
       flexGrow: 1,
       backgroundColor: "transparent",
-    },
-    profileBackgroundBase: {
-      backgroundColor: isDark ? "#0f172a" : "#ffffff",
     },
     profileFooter: {
       flexGrow: 1,
