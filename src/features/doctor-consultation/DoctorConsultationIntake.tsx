@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../components/ScaledText';
@@ -8,26 +8,57 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useScaledFontSize } from '../../hooks/useScaledTypography';
 import { radius, spacing } from '../../styles/theme';
 
-type Onset = 'today' | 'two_to_seven_days' | 'over_one_week' | 'ongoing';
-type Progression = 'improving' | 'stable' | 'worsening';
-type Severity = 'mild' | 'moderate' | 'severe';
+import type { ConsultationScreening, ScreeningAnswer, ScreeningQuestion } from './useConsultationScreening';
+
 type Choice<T extends string> = {
   value: T;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap | 1 | 2 | 3;
 };
-
 type IntakeProps = {
-  symptomOnset: Onset | '';
-  progression: Progression | '';
-  severity: Severity | '';
   summary: string;
-  onSymptomOnsetChange: (value: Onset) => void;
-  onProgressionChange: (value: Progression) => void;
-  onSeverityChange: (value: Severity) => void;
+  answerCount: number;
+  screening: ConsultationScreening;
   onSummaryChange: (value: string) => void;
   onContinue: () => void;
 };
+
+export function toggleScreeningChoice(values: string[], value: string, multiSelect: boolean) {
+  if (values.includes(value)) {return values.filter(item => item !== value);}
+  if (!multiSelect || ['none', 'unsure'].includes(value)) {return [value];}
+  return [...values.filter(item => !['none', 'unsure'].includes(item)), value];
+}
+
+function ImpactLevelIcon({ level }: { level: 1 | 2 | 3 }) {
+  const { colors, isDark } = useThemeColors();
+  const color =
+    level === 1
+      ? colors.primaryText
+      : level === 2
+        ? isDark
+          ? colors.warning
+          : colors.premiumDark
+        : colors.danger;
+
+  return (
+    <View accessible={false} style={styles.impactIcon}>
+      {[8, 15, 22].map((height, index) => (
+        <View
+          key={height}
+          style={[
+            styles.impactBar,
+            {
+              height,
+              backgroundColor: index < level ? color : 'transparent',
+              borderColor: index < level ? color : colors.textSecondary,
+              opacity: index < level ? 1 : 0.3,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
 
 function ChoiceGroup<T extends string>({
   number,
@@ -36,12 +67,14 @@ function ChoiceGroup<T extends string>({
   value,
   onChange,
   layout = 'rows',
+  multiSelect = false,
 }: {
   number: string;
   title: string;
   choices: Choice<T>[];
-  value: T | '';
-  onChange: (value: T) => void;
+  value: string[];
+  onChange: (value: string[]) => void;
+  multiSelect?: boolean;
   layout?: 'rows' | 'grid' | 'scale';
 }) {
   const { colors } = useThemeColors();
@@ -66,20 +99,20 @@ function ChoiceGroup<T extends string>({
         </Text>
       </View>
       <View
-        accessibilityRole="radiogroup"
+        accessibilityRole={multiSelect ? undefined : 'radiogroup'}
         accessibilityLabel={title}
         style={[styles.choices, layout !== 'rows' && styles.choicesHorizontal]}
       >
         {choices.map((choice) => {
-          const selected = choice.value === value;
+          const selected = value.includes(choice.value);
           const tile = layout !== 'rows';
           return (
             <Pressable
               key={choice.value}
-              accessibilityRole="radio"
+              accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
               accessibilityLabel={choice.label}
               accessibilityState={{ checked: selected }}
-              onPress={() => onChange(choice.value)}
+              onPress={() => onChange(toggleScreeningChoice(value, choice.value, multiSelect))}
               style={({ pressed }) => [
                 styles.choice,
                 tile && styles.choiceTile,
@@ -95,12 +128,16 @@ function ChoiceGroup<T extends string>({
               ]}
             >
               <View style={[styles.choiceIcon, tile && styles.choiceTileIcon]}>
-                <Ionicons
-                  accessible={false}
-                  name={choice.icon}
-                  size={22}
-                  color={selected ? colors.primaryText : colors.textSecondary}
-                />
+                {typeof choice.icon === 'number' ? (
+                  <ImpactLevelIcon level={choice.icon} />
+                ) : (
+                  <Ionicons
+                    accessible={false}
+                    name={choice.icon}
+                    size={22}
+                    color={selected ? colors.primaryText : colors.textSecondary}
+                  />
+                )}
               </View>
               <Text
                 style={[
@@ -117,6 +154,7 @@ function ChoiceGroup<T extends string>({
               <View
                 style={[
                   styles.radio,
+                  multiSelect && { borderRadius: 4 },
                   tile && styles.tileRadio,
                   {
                     borderColor: selected
@@ -145,152 +183,159 @@ function ChoiceGroup<T extends string>({
   );
 }
 
-export function DoctorConsultationIntake(props: IntakeProps) {
+const choiceIcons: Record<string, Choice<string>['icon']> = {
+  today: 'today-outline', two_to_seven_days: 'calendar-outline',
+  over_one_week: 'calendar-number-outline', ongoing: 'time-outline',
+  improving: 'trending-down-outline', stable: 'remove-outline', worsening: 'trending-up-outline',
+  mild: 1, moderate: 2, severe: 3, none: 'checkmark-circle-outline', unsure: 'help-circle-outline',
+};
+
+function ConsultationQuestion({ question, busy, onAnswer, onBack }: {
+  question: ScreeningQuestion;
+  busy: boolean;
+  onAnswer: (answer: ScreeningAnswer) => void;
+  onBack: () => void;
+}) {
   const { t } = useTranslation('home');
-  const { colors, isDark } = useThemeColors();
+  const { colors } = useThemeColors();
   const { width } = useWindowDimensions();
   const largeText = useScaledFontSize(16) > 20;
-  const compact = width < 360 || largeText;
-  const severityRows = width < 375 || largeText;
-  const onsets: Choice<Onset>[] = [
-    {
-      value: 'today',
-      label: t('doctorConsultationOnset_today'),
-      icon: 'today-outline',
-    },
-    {
-      value: 'two_to_seven_days',
-      label: t('doctorConsultationOnset_two_to_seven_days'),
-      icon: 'calendar-outline',
-    },
-    {
-      value: 'over_one_week',
-      label: t('doctorConsultationOnset_over_one_week'),
-      icon: 'calendar-number-outline',
-    },
-    {
-      value: 'ongoing',
-      label: t('doctorConsultationOnset_ongoing'),
-      icon: 'time-outline',
-    },
-  ];
-  const progressions: Choice<Progression>[] = [
-    {
-      value: 'improving',
-      label: t('doctorConsultationProgression_improving'),
-      icon: 'trending-down-outline',
-    },
-    {
-      value: 'stable',
-      label: t('doctorConsultationProgression_stable'),
-      icon: 'remove-outline',
-    },
-    {
-      value: 'worsening',
-      label: t('doctorConsultationProgression_worsening'),
-      icon: 'trending-up-outline',
-    },
-  ];
-  const severities: Choice<Severity>[] = [
-    {
-      value: 'mild',
-      label: t('doctorConsultationSeverity_mild'),
-      icon: 'ellipse-outline',
-    },
-    {
-      value: 'moderate',
-      label: t('doctorConsultationSeverity_moderate'),
-      icon: 'remove-circle-outline',
-    },
-    {
-      value: 'severe',
-      label: t('doctorConsultationSeverity_severe'),
-      icon: 'ellipse',
-    },
-  ];
+  const [values, setValues] = useState<string[]>([]);
+  const [text, setText] = useState('');
+  const layout = question.step === 'impact' && width >= 375 && !largeText ? 'scale'
+    : question.step === 'onset' && width >= 360 && !largeText ? 'grid' : 'rows';
+  const choices = question.options.map(item => ({
+    ...item, icon: choiceIcons[item.value] || (question.step === 'red_flags' ? 'alert-circle-outline' : 'add-outline'),
+  }));
+  const valid = values.length > 0 || text.trim().length > 0;
+  return (
+    <View style={styles.screening}>
+      <ChoiceGroup
+        number={String(['red_flags', 'associated', 'onset', 'progression', 'impact'].indexOf(question.step) + 1).padStart(2, '0')}
+        title={question.title} choices={choices} value={values} multiSelect={question.multiSelect}
+        onChange={next => {
+          setValues(next);
+          if (next.some(value => ['none', 'unsure'].includes(value))) {setText('');}
+        }} layout={layout}
+      />
+      {question.allowFreeText && (
+        <TextInput
+          accessibilityLabel={t('doctorScreeningOther')} placeholder={t('doctorScreeningOther')}
+          placeholderTextColor={colors.textSecondary} value={text} maxLength={500}
+          onChangeText={value => {
+            setText(value);
+            if (value.trim()) {setValues(previous => previous.filter(item => !['none', 'unsure'].includes(item)));}
+          }}
+          style={[styles.detailInput, { color: colors.textPrimary, borderColor: colors.border }]}
+        />
+      )}
+      <Pressable accessibilityRole="button" disabled={busy || !valid}
+        accessibilityState={{ disabled: busy || !valid }}
+        onPress={() => onAnswer({ step: question.step, values, text: text.trim() })}
+        style={[styles.continueButton, { backgroundColor: colors.primaryText, opacity: busy || !valid ? 0.5 : 1 }]}>
+        <Text style={[styles.continueLabel, { color: colors.surface }]}>{t('common:continue')}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={onBack} style={styles.textButton}>
+        <Text style={{ color: colors.primaryText }}>{t('common:back')}</Text>
+      </Pressable>
+    </View>
+  );
+}
 
+export function DoctorConsultationIntake(props: IntakeProps) {
+  const { t } = useTranslation('home');
+  const { colors } = useThemeColors();
+  const { screening } = props;
+  const result = screening.result;
+  const showDescription = !result && !screening.busy && !screening.error;
+  const ready = result?.status === 'ready' && result.suitable_for_remote_care;
   return (
     <View style={styles.layout}>
-      <View style={styles.screening}>
-        <ChoiceGroup
-          number="01"
-          title={t('doctorConsultationOnsetLabel')}
-          choices={onsets}
-          value={props.symptomOnset}
-          onChange={props.onSymptomOnsetChange}
-          layout={compact ? 'rows' : 'grid'}
-        />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <ChoiceGroup
-          number="02"
-          title={t('doctorConsultationProgressionLabel')}
-          choices={progressions}
-          value={props.progression}
-          onChange={props.onProgressionChange}
-        />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <ChoiceGroup
-          number="03"
-          title={t('doctorConsultationSeverityLabel')}
-          choices={severities}
-          value={props.severity}
-          onChange={props.onSeverityChange}
-          layout={severityRows ? 'rows' : 'scale'}
-        />
-      </View>
-
       <View style={styles.summary}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.questionTitle, { color: colors.textPrimary }]}
-        >
+        <Text accessibilityRole="header" style={[styles.questionTitle, { color: colors.textPrimary }]}>
           {t('doctorConsultationSummaryLabel')}
         </Text>
-        <TextInput
-          accessibilityLabel={t('doctorConsultationSummaryLabel')}
-          multiline
-          textAlignVertical="top"
-          value={props.summary}
-          onChangeText={props.onSummaryChange}
-          placeholder={t('doctorConsultationSummaryPlaceholder')}
-          placeholderTextColor={colors.textSecondary}
-          style={[
-            styles.summaryInput,
-            {
-              backgroundColor: 'transparent',
-              color: colors.textPrimary,
-              borderColor: colors.border,
-            },
-          ]}
-        />
+        {showDescription ? (
+          <>
+            <Text style={[styles.helper, { color: colors.textSecondary }]}>{t('doctorScreeningDescriptionHint')}</Text>
+            <TextInput
+              accessibilityLabel={t('doctorConsultationSummaryLabel')} multiline textAlignVertical="top"
+              value={props.summary} onChangeText={props.onSummaryChange} maxLength={3000}
+              placeholder={t('doctorConsultationSummaryPlaceholder')} placeholderTextColor={colors.textSecondary}
+              style={[styles.summaryInput, { color: colors.textPrimary, borderColor: colors.border }]}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={[styles.helper, { color: colors.textPrimary }]}>{props.summary}</Text>
+            <Pressable accessibilityRole="button" onPress={screening.reset} style={styles.textButton}>
+              <Text style={{ color: colors.primaryText }}>{t('doctorScreeningEditProblem')}</Text>
+            </Pressable>
+          </>
+        )}
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('common:continue')}
-        onPress={props.onContinue}
-        style={({ pressed }) => [
-          styles.continueButton,
-          {
-            backgroundColor: isDark ? colors.primary : colors.primaryText,
-            opacity: pressed ? 0.8 : 1,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.continueLabel,
-            { color: isDark ? colors.background : colors.surface },
-          ]}
-        >
-          {t('common:continue')}
-        </Text>
-        <Ionicons
-          accessible={false}
-          name="arrow-forward"
-          size={20}
-          color={isDark ? colors.background : colors.surface}
-        />
-      </Pressable>
+      {screening.busy && <ActivityIndicator accessibilityLabel={t('doctorScreeningChecking')} color={colors.primaryText} />}
+      {screening.error && (
+        <View style={styles.summary}>
+          <Text accessibilityRole="alert" style={[styles.helper, { color: colors.danger }]}>{t('doctorScreeningError')}</Text>
+          <Pressable accessibilityRole="button" onPress={screening.check} style={styles.textButton}>
+            <Text style={{ color: colors.primaryText }}>{t('common:retry')}</Text>
+          </Pressable>
+        </View>
+      )}
+      {showDescription && (
+        <Pressable accessibilityRole="button" disabled={!props.summary.trim()}
+          accessibilityState={{ disabled: !props.summary.trim() }}
+          onPress={screening.check}
+          style={[styles.continueButton, { backgroundColor: colors.primaryText, opacity: props.summary.trim() ? 1 : 0.5 }]}>
+          <Text style={[styles.continueLabel, { color: colors.surface }]}>{t('doctorScreeningStart')}</Text>
+          <Ionicons accessible={false} name="arrow-forward" size={20} color={colors.surface} />
+        </Pressable>
+      )}
+      {result?.question && !screening.busy && (
+        <ConsultationQuestion key={result.question.step} question={result.question} busy={screening.busy}
+          onAnswer={screening.answer}
+          onBack={() => { if (props.answerCount) {screening.back();} else {screening.reset();} }} />
+      )}
+      {result?.isDone && !screening.busy && (
+        <View style={styles.screening}>
+          <View style={styles.resultHeading}>
+            <Ionicons accessible={false} name={ready ? 'clipboard-outline' : 'alert-circle-outline'}
+              size={24} color={ready ? colors.primaryText : colors.danger} />
+            <Text accessibilityRole="header" style={[styles.questionTitle, { color: colors.textPrimary }]}>
+              {t(ready ? 'doctorScreeningRecorded' : 'doctorScreeningNeedsAttention')}
+            </Text>
+          </View>
+          <Text accessibilityRole={ready ? undefined : 'alert'} style={[styles.helper, { color: ready ? colors.textSecondary : colors.danger }]}>
+            {result.message}
+          </Text>
+          <Text style={[styles.questionTitle, { color: colors.textPrimary }]}>{t(`doctorScreeningRisk_${result.risk_level}`)}</Text>
+          {result.recorded_answers.map(answer => (
+            <View key={answer.step} style={styles.summary}>
+              <Text style={[styles.helper, { color: colors.textSecondary }]}>{answer.question}</Text>
+              <Text style={[styles.helper, { color: colors.textPrimary }]}>{answer.answers.join('; ')}</Text>
+            </View>
+          ))}
+          {ready && (
+            <Pressable accessibilityRole="button" onPress={props.onContinue}
+              style={[styles.continueButton, { backgroundColor: colors.primaryText }]}>
+              <Text style={[styles.continueLabel, { color: colors.surface }]}>{t('doctorScreeningChooseExpert')}</Text>
+              <Ionicons accessible={false} name="arrow-forward" size={20} color={colors.surface} />
+            </Pressable>
+          )}
+          {result.status === 'emergency' && (
+            <Pressable accessibilityRole="button" onPress={() => Linking.openURL('tel:115')}
+              style={[styles.continueButton, { backgroundColor: colors.danger }]}>
+              <Text style={[styles.continueLabel, { color: colors.surface }]}>{t('checkinCallEmergency')}</Text>
+            </Pressable>
+          )}
+          {props.answerCount > 0 && (
+            <Pressable accessibilityRole="button" onPress={screening.back} style={styles.textButton}>
+              <Text style={{ color: colors.primaryText }}>{t('doctorScreeningReviewAnswers')}</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -298,6 +343,10 @@ export function DoctorConsultationIntake(props: IntakeProps) {
 const styles = StyleSheet.create({
   layout: { gap: spacing.xl },
   screening: { gap: spacing.xl },
+  helper: { fontSize: 15, lineHeight: 23 },
+  detailInput: { borderBottomWidth: 1, minHeight: 48, paddingVertical: spacing.md, fontSize: 16 },
+  textButton: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  resultHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   questionGroup: { gap: spacing.md },
   questionHeading: {
     flexDirection: 'row',
@@ -343,6 +392,15 @@ const styles = StyleSheet.create({
   choiceScale: { flexBasis: '27%', flexGrow: 1, minWidth: 0 },
   choiceIcon: { width: 24, alignItems: 'center', justifyContent: 'center' },
   choiceTileIcon: { marginBottom: spacing.xs },
+  impactIcon: {
+    width: 24,
+    height: 24,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  impactBar: { width: 5, borderWidth: 1.5, borderRadius: 1.5 },
   choiceLabel: { flex: 1, fontSize: 16, lineHeight: 24 },
   choiceTileLabel: { flex: 0, alignSelf: 'stretch' },
   radio: {
@@ -373,5 +431,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.md,
   },
-  continueLabel: { fontSize: 17, lineHeight: 24, fontWeight: '700' },
+  continueLabel: { flexShrink: 1, fontSize: 17, lineHeight: 24, fontWeight: '700' },
 });

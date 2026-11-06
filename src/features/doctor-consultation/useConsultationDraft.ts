@@ -3,20 +3,18 @@ import {
   createHealthStoreStorage,
   healthStoreSession,
 } from '../../lib/healthStoreSession';
+import type { ScreeningAnswer } from './useConsultationScreening';
 
 type ConditionDraft = {
   summary: string;
-  symptomOnset:
-    '' | 'today' | 'two_to_seven_days' | 'over_one_week' | 'ongoing';
-  progression: '' | 'improving' | 'stable' | 'worsening';
-  severity: '' | 'mild' | 'moderate' | 'severe';
+  answers: ScreeningAnswer[];
+  locale: '' | 'vi' | 'en';
 };
 
 const empty: ConditionDraft = {
   summary: '',
-  symptomOnset: '',
-  progression: '',
-  severity: '',
+  answers: [],
+  locale: '',
 };
 const storage = createHealthStoreStorage('consultation_condition_draft_v1');
 const lifetime = 24 * 60 * 60 * 1000;
@@ -25,7 +23,7 @@ function restore(raw: string | null): ConditionDraft {
   try {
     const value = JSON.parse(raw || 'null');
     if (
-      value?.version !== 1 ||
+      ![1, 2].includes(value?.version) ||
       !Number.isFinite(value.expiresAt) ||
       value.expiresAt <= Date.now()
     ) {
@@ -33,23 +31,12 @@ function restore(raw: string | null): ConditionDraft {
     }
     return {
       summary: typeof value.summary === 'string' ? value.summary : '',
-      symptomOnset: [
-        '',
-        'today',
-        'two_to_seven_days',
-        'over_one_week',
-        'ongoing',
-      ].includes(value.symptomOnset)
-        ? value.symptomOnset
-        : '',
-      progression: ['', 'improving', 'stable', 'worsening'].includes(
-        value.progression,
-      )
-        ? value.progression
-        : '',
-      severity: ['', 'mild', 'moderate', 'severe'].includes(value.severity)
-        ? value.severity
-        : '',
+      locale: ['vi', 'en'].includes(value.locale) ? value.locale : '',
+      answers: value.version === 2 && Array.isArray(value.answers)
+        && value.answers.length <= 5 && value.answers.every((answer: ScreeningAnswer) =>
+          answer && ['red_flags', 'associated', 'onset', 'progression', 'impact'].includes(answer.step)
+          && Array.isArray(answer.values) && answer.values.every(item => typeof item === 'string')
+          && typeof answer.text === 'string') ? value.answers : [],
     };
   } catch {
     return empty;
@@ -79,7 +66,7 @@ export function useConsultationDraft(owner: string | null) {
           const values = restore(raw);
           if (
             raw &&
-            !Object.values(values).some(Boolean) &&
+            !values.summary && !values.answers.length &&
             healthStoreSession.capture().owner === owner
           ) {
             storage.removeItem('').catch(() => {});
@@ -107,7 +94,11 @@ export function useConsultationDraft(owner: string | null) {
       }
       const next = {
         ...latest.current,
-        values: { ...latest.current.values, [key]: value },
+        values: {
+          ...latest.current.values,
+          ...(key === 'summary' || (key === 'locale' && value !== latest.current.values.locale) ? { answers: [] } : {}),
+          [key]: value,
+        },
       };
       latest.current = next;
       setState(next);
@@ -116,12 +107,12 @@ export function useConsultationDraft(owner: string | null) {
       }
       // Enqueue in the input event itself: Back can unmount before effects run.
       // The shared adapter serializes reads/writes/deletion and rejects stale sessions.
-      const operation = Object.values(next.values).some(Boolean)
+      const operation = next.values.summary || next.values.answers.length
         ? storage.setItem(
             '',
             JSON.stringify({
               ...next.values,
-              version: 1,
+              version: 2,
               expiresAt: Date.now() + lifetime,
             }),
           )

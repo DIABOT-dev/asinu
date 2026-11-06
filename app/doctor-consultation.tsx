@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { DoctorConsultationIntake } from "../src/features/doctor-consultation/DoctorConsultationIntake";
 import { useConsultationDraft } from "../src/features/doctor-consultation/useConsultationDraft";
+import { useConsultationScreening } from "../src/features/doctor-consultation/useConsultationScreening";
 import { useConsultationDirectory, type DoctorRecommendation, type DoctorSpecialty } from "../src/features/doctor-consultation/useConsultationDirectory";
 import { runNativePermission } from "../src/lib/native-permissions";
 import { Stack } from "expo-router";
@@ -121,7 +122,18 @@ export default function DoctorConsultationScreen() {
 
   // Form State
   const conditionDraft = useConsultationDraft(profile?.id ?? null);
-  const { summary, symptomOnset, progression, severity } = conditionDraft.values;
+  const { summary, answers: savedAnswers, locale: savedLocale } = conditionDraft.values;
+  const screeningLocale = i18n.language.startsWith('en') ? 'en' : 'vi';
+  const answers = savedLocale === screeningLocale ? savedAnswers : [];
+  const screening = useConsultationScreening({
+    owner: profile?.id ?? null, ready: conditionDraft.ready, summary, answers,
+    locale: screeningLocale, onAnswersChange: value => {
+      conditionDraft.update('locale', screeningLocale);
+      conditionDraft.update('answers', value);
+    },
+  });
+  const { symptom_onset: symptomOnset, progression, severity } = screening.result?.intake ?? {};
+  const screeningReady = screening.result?.status === 'ready' && screening.result.suitable_for_remote_care;
   const directory = useConsultationDirectory();
   const {
     recommendations, preferredDoctorId, specialties, selectedSpecialty, estimatedWaitMinutes,
@@ -151,6 +163,14 @@ export default function DoctorConsultationScreen() {
     ratingCount: 0,
   });
   const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentStep > 1 && !screeningReady && !screening.busy) {
+      setCurrentStep(1);
+      setConsentAccepted(false);
+      setEmergencyConfirmed(false);
+    }
+  }, [currentStep, screeningReady, screening.busy]);
 
   const submissionTaskIdRef = useRef<string | null>(null);
   const submissionAttachmentMessageIdRef = useRef<string | null>(null);
@@ -253,6 +273,7 @@ export default function DoctorConsultationScreen() {
       !symptomOnset ||
       !progression ||
       !severity ||
+      !screeningReady ||
       !emergencyConfirmed ||
       isSubmitting
     ) {
@@ -285,6 +306,8 @@ export default function DoctorConsultationScreen() {
               progression,
               severity,
               emergency_confirmation: true,
+              screening_answers: answers,
+              screening_locale: screeningLocale,
             },
             consent_version: profile?.consentVersion || "v1.0.0",
             preferred_doctor_id: preferredDoctorId,
@@ -339,6 +362,11 @@ export default function DoctorConsultationScreen() {
         await loadTasks();
       }
     } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error
+        && error.code === 'CONSULTATION_SCREENING_REQUIRED') {
+        setCurrentStep(1);
+        void screening.check();
+      }
       showToast(
         getApiErrorMessage(error, t, "doctorConsultationError"),
         "error"
@@ -366,12 +394,17 @@ export default function DoctorConsultationScreen() {
     } else if (currentStep === 2) {
       setCurrentStep(1);
     } else {
+      if (screening.result || screening.busy || screening.error) {
+        if (answers.length) void screening.back();
+        else screening.reset();
+        return;
+      }
       router.back();
     }
   };
 
   const handleStep1Next = () => {
-    if (!symptomOnset || !progression || !severity) {
+    if (!screeningReady || !symptomOnset || !progression || !severity) {
       showToast(t("doctorConsultationScreeningRequired"), "error");
       return;
     }
@@ -721,14 +754,14 @@ export default function DoctorConsultationScreen() {
           )}
           {currentStep === 1 && conditionDraft.ready && (
             <DoctorConsultationIntake
-              symptomOnset={symptomOnset}
-              progression={progression}
-              severity={severity}
               summary={summary}
-              onSymptomOnsetChange={(value) => conditionDraft.update("symptomOnset", value)}
-              onProgressionChange={(value) => conditionDraft.update("progression", value)}
-              onSeverityChange={(value) => conditionDraft.update("severity", value)}
-              onSummaryChange={(value) => conditionDraft.update("summary", value)}
+              answerCount={answers.length}
+              screening={screening}
+              onSummaryChange={(value) => {
+                conditionDraft.update("summary", value);
+                setConsentAccepted(false);
+                setEmergencyConfirmed(false);
+              }}
               onContinue={handleStep1Next}
             />
           )}
