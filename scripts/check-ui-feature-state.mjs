@@ -1727,6 +1727,24 @@ await test('wallet has no fabricated initial balance and retains the last confir
 function inboxHarness() {
   const r = runtime();
   const theme = evaluate("src/styles/theme.ts", {});
+  const backListeners = new Set();
+  const native = {
+    page: { x: 12, y: 24, width: 393, height: 800 },
+    header: { x: 340, y: 82, width: 44, height: 44 },
+    item: { x: 340, y: 320, width: 44, height: 44 },
+    defer: false,
+    pending: [],
+  };
+  const host = (kind) => ({
+    measureInWindow(callback) {
+      const finish = () => {
+        const { x, y, width, height } = native[kind];
+        callback(x, y, width, height);
+      };
+      if (native.defer) native.pending.push(finish);
+      else finish();
+    },
+  });
   const calls = {
     reads: 0,
     marked: [],
@@ -1825,7 +1843,22 @@ function inboxHarness() {
             "ActivityIndicator",
           ].map((name) => [name, name]),
         ),
-        StyleSheet: { create: (styles) => styles },
+        StyleSheet: {
+          create: (styles) => styles,
+          absoluteFillObject: {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          },
+        },
+        BackHandler: {
+          addEventListener: (_event, listener) => {
+            backListeners.add(listener);
+            return { remove: () => backListeners.delete(listener) };
+          },
+        },
       },
       "react-native-safe-area-context": {
         useSafeAreaInsets: () => ({ top: 44, bottom: 24 }),
@@ -1860,13 +1893,24 @@ function inboxHarness() {
       },
     },
   );
-  const read = () => r.render(NotificationsPage);
+  const mountRefs = (tree, row = false) => {
+    for (const node of journeyNodes(tree)) {
+      const ref = node.props.ref;
+      if (typeof ref === "function") ref(host("item"));
+      else if (ref && typeof ref === "object")
+        ref.current = host(
+          row ? "item" : node.props.collapsable === false ? "page" : "header",
+        );
+    }
+    return tree;
+  };
+  const read = () => mountRefs(r.render(NotificationsPage));
   const list = () =>
     journeyNodes(read()).find((node) => node.type === "FlatList").props;
   const row = (id) => {
     const props = list();
     const item = props.data.find((item) => item.notification?.id === id);
-    return journeyNodes(props.renderItem({ item })).find(
+    return journeyNodes(mountRefs(props.renderItem({ item }), true)).find(
       (node) => node.type === "Pressable",
     );
   };
@@ -1877,7 +1921,17 @@ function inboxHarness() {
     read,
     list,
     row,
-    settle: () => r.settle(NotificationsPage),
+    native,
+    back: () => [...backListeners].at(-1)?.(),
+    resolveMeasurements: () => {
+      while (native.pending.length) native.pending.shift()();
+    },
+    settle: async () => {
+      await r.settle(NotificationsPage);
+      return read();
+    },
+    panel: () =>
+      journeyNodes(read()).find((node) => node.props.accessibilityViewIsModal),
   };
 }
 await test("the restyled inbox reads once on focus and still opens and marks the chosen notification", async () => {
@@ -1911,9 +1965,7 @@ await test("inbox item actions do not open or mark a notification and deletion s
   assert.equal(stopped, true);
   assert.deepEqual(h.calls.marked, []);
   assert.deepEqual(h.calls.routes, []);
-  const props = h.list();
-  const item = props.data.find((item) => item.notification?.id === "checkin");
-  const nodes = journeyNodes(props.renderItem({ item }));
+  const nodes = journeyNodes(h.read());
   const remove = nodes.find(
     (node) =>
       node.type === "Pressable" &&
@@ -1938,20 +1990,26 @@ await test("the inbox omits the read-all summary and shortcut while its overflow
       ),
     );
   };
-  const openActions = () => journeyNodes(h.read()).find(
-    (node) =>
-      node.type === "Pressable" &&
-      node.props.accessibilityLabel === "Thao tác khác",
-  ).props.onPress();
-  const markAllButton = () => journeyNodes(h.read()).find(
-    (node) =>
-      node.type === "Pressable" &&
-      journeyNodes(node).some(
-        (child) => child.props.children === "Đánh dấu tất cả đã đọc",
-      ),
-  );
+  const openActions = () =>
+    journeyNodes(h.read())
+      .find(
+        (node) =>
+          node.type === "Pressable" &&
+          node.props.accessibilityLabel === "Thao tác khác",
+      )
+      .props.onPress();
+  const markAllButton = () =>
+    journeyNodes(h.read()).find(
+      (node) =>
+        node.type === "Pressable" &&
+        journeyNodes(node).some(
+          (child) => child.props.children === "Đánh dấu tất cả đã đọc",
+        ),
+    );
   assertRemovedLabels();
-  assert.ok(journeyNodes(h.read()).some((node) => node.props.children === "1 chưa đọc"));
+  assert.ok(
+    journeyNodes(h.read()).some((node) => node.props.children === "1 chưa đọc"),
+  );
   assert.equal(markAllButton(), undefined);
   openActions();
   const button = markAllButton();
@@ -1961,7 +2019,11 @@ await test("the inbox omits the read-all summary and shortcut while its overflow
   assert.equal(h.calls.all, 1);
   assert.equal(h.calls.clear, 0);
   assertRemovedLabels();
-  assert.ok(!journeyNodes(h.read()).some((node) => node.props.children === "0 chưa đọc"));
+  assert.ok(
+    !journeyNodes(h.read()).some(
+      (node) => node.props.children === "0 chưa đọc",
+    ),
+  );
   assert.equal(markAllButton(), undefined);
   openActions();
   assert.equal(markAllButton().props.disabled, true);
@@ -2021,6 +2083,111 @@ await test("the inbox retains filtering, expansion, pagination and honest loadin
       (node) => node.props.children === "Đã đọc tất cả",
     ),
   );
+  h.blur();
+});
+
+const menuStyle = (node) =>
+  Object.assign({}, ...[node.props.style].flat(Infinity).filter(Boolean));
+const headerMenuButton = (h) =>
+  journeyNodes(h.read()).find(
+    (node) =>
+      node.type === "Pressable" &&
+      node.props.accessibilityLabel === "Thao tác khác",
+  );
+await test("notification menus float outside the list and dismiss without reading or navigating", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  const data = h.list().data.map((item) => item.key);
+  headerMenuButton(h).props.onPress();
+  const panel = h.panel();
+  assert.ok(panel);
+  panel.props.onLayout({ nativeEvent: { layout: { height: 112 } } });
+  assert.equal(menuStyle(h.panel()).position, "absolute");
+  assert.deepEqual(
+    h.list().data.map((item) => item.key),
+    data,
+  );
+  assert.equal(headerMenuButton(h).props.accessibilityState.expanded, true);
+  assert.ok(
+    !journeyNodes(
+      h
+        .list()
+        .renderItem({
+          item: h
+            .list()
+            .data.find((item) => item.notification?.id === "checkin"),
+        }),
+    ).some((node) => node.props.accessibilityViewIsModal),
+  );
+  journeyNodes(h.read())
+    .find(
+      (node) =>
+        node.type === "Pressable" && node.props.accessibilityLabel === "Đóng",
+    )
+    .props.onPress();
+  assert.equal(h.panel(), undefined);
+  assert.equal(h.calls.reads, 1);
+  assert.deepEqual(h.calls.marked, []);
+  assert.deepEqual(h.calls.routes, []);
+  h.blur();
+});
+await test("notification menus near the bottom flip above the trigger and fit narrow screens with large text", async () => {
+  const h = inboxHarness();
+  h.native.page.width = 320;
+  h.native.page.height = 568;
+  h.native.item = { x: 272, y: 494, width: 44, height: 44 };
+  await h.settle();
+  journeyNodes(h.row("checkin"))
+    .find((node) => node.props.accessibilityLabel === "Thao tác khác")
+    .props.onPress({ stopPropagation() {} });
+  h.panel().props.onLayout({ nativeEvent: { layout: { height: 240 } } });
+  const style = menuStyle(h.panel());
+  assert.ok(style.left >= 0 && style.left + style.width <= h.native.page.width);
+  assert.ok(style.top >= 44 && style.top + 240 <= h.native.page.height - 24);
+  assert.ok(style.top + 240 <= h.native.item.y - h.native.page.y);
+  journeyNodes(h.read())
+    .find((node) => node.props.collapsable === false)
+    .props.onLayout();
+  assert.equal(
+    h.panel(),
+    undefined,
+    "changing the screen layout closes an outdated anchor",
+  );
+  h.blur();
+});
+await test("a delayed menu measurement cannot reopen a blurred notification screen", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  h.native.defer = true;
+  headerMenuButton(h).props.onPress();
+  assert.ok(h.native.pending.length);
+  h.blur();
+  h.resolveMeasurements();
+  assert.equal(h.panel(), undefined);
+  assert.deepEqual(h.calls.marked, []);
+  assert.deepEqual(h.calls.routes, []);
+});
+await test("Android Back closes only the notification menu, and removing its target restores the page", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  headerMenuButton(h).props.onPress();
+  await h.settle();
+  assert.equal(h.back(), true);
+  assert.equal(h.panel(), undefined);
+  assert.deepEqual(h.calls.routes, []);
+  journeyNodes(h.row("checkin"))
+    .find((node) => node.props.accessibilityLabel === "Thao tác khác")
+    .props.onPress({ stopPropagation() {} });
+  assert.ok(h.panel());
+  h.store.notifications = [];
+  await h.settle();
+  assert.equal(h.panel(), undefined);
+  assert.ok(
+    !journeyNodes(h.read()).some(
+      (node) => node.props.importantForAccessibility === "no-hide-descendants",
+    ),
+  );
+  assert.equal(h.calls.reads, 1);
   h.blur();
 });
 

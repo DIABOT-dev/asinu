@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   Pressable,
   RefreshControl,
@@ -28,6 +29,13 @@ import { useThemeColors } from '../hooks/useThemeColors';
 import type { Notification } from './NotificationBell';
 
 type FilterKey = 'all' | 'reminder' | 'health' | 'activity' | 'system';
+
+type OpenMenu = {
+  scope: 'all' | 'item';
+  notificationId?: string;
+  anchor: { x: number; y: number; width: number; height: number };
+  container: { width: number; height: number };
+};
 
 type NotificationListItem =
   | { kind: 'header'; key: string; title: string }
@@ -131,8 +139,53 @@ export function NotificationsPage() {
   const clearAll = useNotificationStore((state) => state.clearAll);
 
   const [filter, setFilter] = useState<FilterKey>('all');
-  const [showActions, setShowActions] = useState(false);
-  const [openItemActions, setOpenItemActions] = useState<string | null>(null);
+  const [menu, setMenu] = useState<OpenMenu | null>(null);
+  const [menuHeight, setMenuHeight] = useState(0);
+  const pageRef = useRef<View>(null);
+  const headerActionsRef = useRef<View>(null);
+  const itemActionsRefs = useRef(new Map<string, View>());
+  const menuRequest = useRef(0);
+  const closeMenu = useCallback(() => {
+    menuRequest.current++;
+    setMenu(null);
+  }, []);
+  const openMenu = useCallback(
+    (
+      scope: OpenMenu['scope'],
+      target: View | null,
+      notificationId?: string,
+    ) => {
+      if (menu?.scope === scope && menu.notificationId === notificationId) {
+        closeMenu();
+        return;
+      }
+      closeMenu();
+      if (!target) return;
+      const request = menuRequest.current;
+      target.measureInWindow((x, y, width, height) => {
+        pageRef.current?.measureInWindow(
+          (pageX, pageY, pageWidth, pageHeight) => {
+            if (
+              request !== menuRequest.current ||
+              width <= 0 ||
+              height <= 0 ||
+              pageWidth <= 0 ||
+              pageHeight <= 0
+            )
+              return;
+            setMenuHeight(0);
+            setMenu({
+              scope,
+              notificationId,
+              anchor: { x: x - pageX, y: y - pageY, width, height },
+              container: { width: pageWidth, height: pageHeight },
+            });
+          },
+        );
+      });
+    },
+    [closeMenu, menu],
+  );
   const [expandedNotificationId, setExpandedNotificationId] = useState<
     string | null
   >(null);
@@ -141,8 +194,26 @@ export function NotificationsPage() {
   useFocusEffect(
     useCallback(() => {
       void fetchFromBackend();
-    }, [fetchFromBackend]),
+      return closeMenu;
+    }, [closeMenu, fetchFromBackend]),
   );
+
+  useEffect(() => {
+    if (!menu) return;
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        closeMenu();
+        return true;
+      },
+    );
+    return () => subscription.remove();
+  }, [closeMenu, menu]);
+
+  useEffect(() => {
+    // Fresh list data can move an item while its native measurement is pending.
+    closeMenu();
+  }, [closeMenu, notifications]);
 
   const filteredNotifications = useMemo(() => {
     const result =
@@ -219,12 +290,12 @@ export function NotificationsPage() {
   );
 
   const handleMarkAll = useCallback(() => {
-    setShowActions(false);
+    closeMenu();
     void runAction(markAllAsRead, 'allNotificationsMarkedRead');
-  }, [markAllAsRead, runAction]);
+  }, [closeMenu, markAllAsRead, runAction]);
 
   const confirmDeleteAll = useCallback(() => {
-    setShowActions(false);
+    closeMenu();
     showAlert(
       t('deleteAllNotifTitle'),
       t('deleteAllNotifMsg'),
@@ -238,7 +309,7 @@ export function NotificationsPage() {
       ],
       { name: 'delete-outline', color: colors.danger },
     );
-  }, [clearAll, colors.danger, runAction, showAlert, t]);
+  }, [clearAll, closeMenu, colors.danger, runAction, showAlert, t]);
 
   const confirmDeleteOne = useCallback(
     (notification: Notification) => {
@@ -265,7 +336,7 @@ export function NotificationsPage() {
 
   const handleNotificationPress = useCallback(
     (notification: Notification) => {
-      setOpenItemActions(null);
+      closeMenu();
       if (!notification.read) {
         // Opening a notification marks it as read silently; toast chỉ dành cho thao tác trong menu.
         void markAsRead(notification.id);
@@ -284,14 +355,15 @@ export function NotificationsPage() {
         );
       }
     },
-    [markAsRead, router],
+    [closeMenu, markAsRead, router],
   );
 
   const handleRefresh = useCallback(async () => {
+    closeMenu();
     setRefreshing(true);
     await fetchFromBackend();
     setRefreshing(false);
-  }, [fetchFromBackend]);
+  }, [closeMenu, fetchFromBackend]);
 
   const handleEndReached = useCallback(() => {
     if (!hasMore || loadingMore || loading || listItems.length === 0) return;
@@ -346,15 +418,23 @@ export function NotificationsPage() {
                 {notification.title}
               </Text>
               <Pressable
+                ref={(node) => {
+                  if (node) itemActionsRefs.current.set(notification.id, node);
+                  else itemActionsRefs.current.delete(notification.id);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={t('notificationMoreActions')}
                 accessibilityState={{
-                  expanded: openItemActions === notification.id,
+                  expanded:
+                    menu?.scope === 'item' &&
+                    menu.notificationId === notification.id,
                 }}
                 onPress={(event) => {
                   event.stopPropagation();
-                  setOpenItemActions((current) =>
-                    current === notification.id ? null : notification.id,
+                  openMenu(
+                    'item',
+                    itemActionsRefs.current.get(notification.id) ?? null,
+                    notification.id,
                   );
                 }}
                 style={({ pressed }) => [
@@ -398,285 +478,372 @@ export function NotificationsPage() {
             </View>
           </View>
         </Pressable>
-        {openItemActions === notification.id && (
-          <View style={styles.itemActionsMenu}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={notification.read}
-              onPress={() => {
-                setOpenItemActions(null);
-                if (!notification.read)
-                  void runAction(
-                    () => markAsRead(notification.id),
-                    'notificationMarkedRead',
-                  );
-              }}
-              style={({ pressed }) => [
-                styles.itemAction,
-                notification.read && styles.disabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={20}
-                color={
-                  notification.read ? colors.textSecondary : colors.primary
-                }
-              />
-              <Text
-                style={[
-                  styles.itemActionText,
-                  notification.read && styles.disabledText,
-                ]}
-              >
-                {tLogs('markAsRead')}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setOpenItemActions(null);
-                confirmDeleteOne(notification);
-              }}
-              style={({ pressed }) => [
-                styles.itemAction,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons name="trash-outline" size={20} color={colors.danger} />
-              <Text style={[styles.itemActionText, { color: colors.danger }]}>
-                {t('delete')}
-              </Text>
-            </Pressable>
-          </View>
-        )}
       </View>
     );
   };
 
+  const selectedNotification =
+    menu?.scope === 'item'
+      ? notifications.find(
+          (notification) => notification.id === menu.notificationId,
+        )
+      : null;
+  const visibleMenu =
+    menu && (menu.scope === 'all' || selectedNotification) ? menu : null;
+  const menuWidth = visibleMenu
+    ? Math.min(280, visibleMenu.container.width - spacing.lg * 2)
+    : 0;
+  const minMenuTop = insets.top + spacing.sm;
+  const menuBottom = visibleMenu
+    ? visibleMenu.container.height - insets.bottom - spacing.sm
+    : 0;
+  const maxMenuHeight = Math.max(0, menuBottom - minMenuTop);
+  const measuredMenuHeight = Math.min(menuHeight || 112, maxMenuHeight);
+  const menuLeft = visibleMenu
+    ? Math.max(
+        spacing.lg,
+        Math.min(
+          visibleMenu.anchor.x + visibleMenu.anchor.width - menuWidth,
+          visibleMenu.container.width - menuWidth - spacing.lg,
+        ),
+      )
+    : 0;
+  const menuBelow = visibleMenu
+    ? visibleMenu.anchor.y + visibleMenu.anchor.height + spacing.xs
+    : 0;
+  const menuTop = visibleMenu
+    ? Math.max(
+        minMenuTop,
+        Math.min(
+          menuBelow + measuredMenuHeight <= menuBottom
+            ? menuBelow
+            : visibleMenu.anchor.y - measuredMenuHeight - spacing.xs,
+          menuBottom - measuredMenuHeight,
+        ),
+      )
+    : 0;
+  const menuActions =
+    menu?.scope === 'all'
+      ? [
+          {
+            key: 'read-all',
+            label: t('markAllNotificationsRead'),
+            icon: 'checkmark-done-outline' as const,
+            disabled: unreadCount === 0,
+            destructive: false,
+            onPress: handleMarkAll,
+          },
+          {
+            key: 'delete-all',
+            label: t('deleteAllNotifTitle'),
+            icon: 'trash-outline' as const,
+            disabled: notifications.length === 0,
+            destructive: true,
+            onPress: confirmDeleteAll,
+          },
+        ]
+      : selectedNotification
+        ? [
+            {
+              key: 'read',
+              label: tLogs('markAsRead'),
+              icon: 'checkmark-circle-outline' as const,
+              disabled: selectedNotification.read,
+              destructive: false,
+              onPress: () => {
+                closeMenu();
+                void runAction(
+                  () => markAsRead(selectedNotification.id),
+                  'notificationMarkedRead',
+                );
+              },
+            },
+            {
+              key: 'delete',
+              label: t('delete'),
+              icon: 'trash-outline' as const,
+              disabled: false,
+              destructive: true,
+              onPress: () => {
+                closeMenu();
+                confirmDeleteOne(selectedNotification);
+              },
+            },
+          ]
+        : [];
+
   return (
     <>
       <Screen>
-        <View style={[styles.page, { paddingTop: insets.top + spacing.sm }]}>
-          <View style={styles.header}>
-            <ScreenBackButton
-              onPress={() => router.back()}
-              accessibilityLabel={t('back')}
-              style={styles.headerAction}
-            />
-            <Text
-              style={styles.headerTitle}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.6}
-            >
-              {tLogs('notifications')}
-            </Text>
-            <View style={styles.headerActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('notificationMoreActions')}
-                accessibilityState={{ expanded: showActions }}
-                onPress={() => setShowActions((visible) => !visible)}
-                style={({ pressed }) => [
-                  styles.headerAction,
-                  pressed && styles.pressed,
-                ]}
+        <View
+          ref={pageRef}
+          collapsable={false}
+          style={styles.page}
+          onLayout={closeMenu}
+        >
+          <View
+            style={[
+              styles.pageContent,
+              { paddingTop: insets.top + spacing.sm },
+            ]}
+            accessibilityElementsHidden={Boolean(visibleMenu)}
+            importantForAccessibility={
+              visibleMenu ? 'no-hide-descendants' : 'auto'
+            }
+          >
+            <View style={styles.header}>
+              <ScreenBackButton
+                onPress={() => router.back()}
+                accessibilityLabel={t('back')}
+                style={styles.headerAction}
+              />
+              <Text
+                style={styles.headerTitle}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
               >
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={24}
-                  color={colors.textPrimary}
-                />
-              </Pressable>
-            </View>
-          </View>
-
-          {unreadCount > 0 && notifications.length > 0 && (
-            <View style={styles.inboxSummary}>
-              <Text style={styles.summaryText}>
-                {t('notificationUnreadCount', { count: unreadCount })}
+                {tLogs('notifications')}
               </Text>
-            </View>
-          )}
-
-          {showActions && (
-            <View style={styles.actionsMenu}>
-              <Pressable
-                disabled={unreadCount === 0}
-                onPress={handleMarkAll}
-                style={styles.menuItem}
-              >
-                <Ionicons
-                  name="checkmark-done-outline"
-                  size={19}
-                  color={colors.primary}
-                />
-                <Text
-                  style={[
-                    styles.menuText,
-                    unreadCount === 0 && styles.disabledText,
+              <View style={styles.headerActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('notificationMoreActions')}
+                  ref={headerActionsRef}
+                  accessibilityState={{ expanded: menu?.scope === 'all' }}
+                  onPress={() => openMenu('all', headerActionsRef.current)}
+                  style={({ pressed }) => [
+                    styles.headerAction,
+                    pressed && styles.pressed,
                   ]}
                 >
-                  {t('markAllNotificationsRead')}
-                </Text>
-              </Pressable>
-              <Pressable
-                disabled={notifications.length === 0}
-                onPress={confirmDeleteAll}
-                style={styles.menuItem}
-              >
-                <Ionicons
-                  name="trash-outline"
-                  size={19}
-                  color={colors.danger}
-                />
-                <Text
-                  style={[
-                    styles.menuText,
-                    notifications.length === 0 && styles.disabledText,
-                  ]}
-                >
-                  {t('deleteAllNotifTitle')}
-                </Text>
-              </Pressable>
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={24}
+                    color={colors.textPrimary}
+                  />
+                </Pressable>
+              </View>
             </View>
-          )}
 
-          <View style={styles.filterRow}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterContent}
-            >
-              {FILTERS.map((item) => {
-                const active = item.key === filter;
-                return (
-                  <Pressable
-                    key={item.key}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => setFilter(item.key)}
-                    style={({ pressed }) => [
-                      styles.filterChip,
-                      active && styles.filterChipActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.filterText,
-                        active && styles.filterTextActive,
+            {unreadCount > 0 && notifications.length > 0 && (
+              <View style={styles.inboxSummary}>
+                <Text style={styles.summaryText}>
+                  {t('notificationUnreadCount', { count: unreadCount })}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.filterRow}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterContent}
+              >
+                {FILTERS.map((item) => {
+                  const active = item.key === filter;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => {
+                        closeMenu();
+                        setFilter(item.key);
+                      }}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        active && styles.filterChipActive,
+                        pressed && styles.pressed,
                       ]}
                     >
-                      {t(item.labelKey)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+                      <Text
+                        style={[
+                          styles.filterText,
+                          active && styles.filterTextActive,
+                        ]}
+                      >
+                        {t(item.labelKey)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
 
-          <FlatList<NotificationListItem>
-            data={listItems}
-            keyExtractor={(item) => item.key}
-            renderItem={({ item }) =>
-              item.kind === 'header' ? (
-                <Text style={styles.groupTitle}>{item.title}</Text>
-              ) : (
-                renderNotification(item.notification)
-              )
-            }
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={10}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                tintColor={colors.primary}
-              />
-            }
-            onEndReached={handleEndReached}
-            onEndReachedThreshold={0.3}
-            ListEmptyComponent={
-              loading && notifications.length === 0 ? (
-                <View
-                  accessibilityLabel={t('loading')}
-                  accessibilityState={{ busy: true }}
-                >
-                  {[0, 1, 2, 3].map((index) => (
-                    <View key={index} style={styles.loadingRow}>
-                      <SkeletonBlock width={50} height={50} borderRadius={17} />
-                      <View style={styles.loadingCopy}>
-                        <SkeletonBlock
-                          width="76%"
-                          height={16}
-                          borderRadius={6}
-                        />
-                        <SkeletonBlock
-                          width="96%"
-                          height={12}
-                          borderRadius={5}
-                        />
-                        <SkeletonBlock
-                          width="64%"
-                          height={12}
-                          borderRadius={5}
-                        />
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              ) : error && notifications.length === 0 ? (
-                <View style={styles.stateContainer}>
-                  <Ionicons
-                    name="cloud-offline-outline"
-                    size={38}
-                    color={colors.textSecondary}
-                  />
-                  <Text style={styles.stateTitle}>
-                    {t('notificationLoadFailed')}
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => void fetchFromBackend()}
-                    style={styles.retryButton}
+            <FlatList<NotificationListItem>
+              data={listItems}
+              keyExtractor={(item) => item.key}
+              renderItem={({ item }) =>
+                item.kind === 'header' ? (
+                  <Text style={styles.groupTitle}>{item.title}</Text>
+                ) : (
+                  renderNotification(item.notification)
+                )
+              }
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={colors.primary}
+                />
+              }
+              onScrollBeginDrag={closeMenu}
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.3}
+              ListEmptyComponent={
+                loading && notifications.length === 0 ? (
+                  <View
+                    accessibilityLabel={t('loading')}
+                    accessibilityState={{ busy: true }}
                   >
-                    <Text style={styles.retryText}>{t('retry')}</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <View style={styles.stateContainer}>
-                  <View style={styles.emptyIcon}>
-                    <NotificationIcon type="general" size={38} />
+                    {[0, 1, 2, 3].map((index) => (
+                      <View key={index} style={styles.loadingRow}>
+                        <SkeletonBlock
+                          width={50}
+                          height={50}
+                          borderRadius={17}
+                        />
+                        <View style={styles.loadingCopy}>
+                          <SkeletonBlock
+                            width="76%"
+                            height={16}
+                            borderRadius={6}
+                          />
+                          <SkeletonBlock
+                            width="96%"
+                            height={12}
+                            borderRadius={5}
+                          />
+                          <SkeletonBlock
+                            width="64%"
+                            height={12}
+                            borderRadius={5}
+                          />
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                  <Text style={styles.stateTitle}>
-                    {filter === 'all'
-                      ? tLogs('noNotifications')
-                      : t('notificationFilterEmpty')}
-                  </Text>
-                  <Text style={styles.stateText}>
-                    {t('notificationEmptyHint')}
-                  </Text>
-                </View>
-              )
-            }
-            ListFooterComponent={
-              loadingMore ? (
-                <View style={styles.footerLoader}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.footerText}>{t('loading')}</Text>
-                </View>
-              ) : (
-                <View style={{ height: insets.bottom + spacing.xl }} />
-              )
-            }
-          />
+                ) : error && notifications.length === 0 ? (
+                  <View style={styles.stateContainer}>
+                    <Ionicons
+                      name="cloud-offline-outline"
+                      size={38}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={styles.stateTitle}>
+                      {t('notificationLoadFailed')}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => void fetchFromBackend()}
+                      style={styles.retryButton}
+                    >
+                      <Text style={styles.retryText}>{t('retry')}</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.stateContainer}>
+                    <View style={styles.emptyIcon}>
+                      <NotificationIcon type="general" size={38} />
+                    </View>
+                    <Text style={styles.stateTitle}>
+                      {filter === 'all'
+                        ? tLogs('noNotifications')
+                        : t('notificationFilterEmpty')}
+                    </Text>
+                    <Text style={styles.stateText}>
+                      {t('notificationEmptyHint')}
+                    </Text>
+                  </View>
+                )
+              }
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={styles.footerLoader}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.footerText}>{t('loading')}</Text>
+                  </View>
+                ) : (
+                  <View style={{ height: insets.bottom + spacing.xl }} />
+                )
+              }
+            />
+          </View>
+          {visibleMenu && (
+            <View
+              style={styles.menuLayer}
+              pointerEvents="box-none"
+              onAccessibilityEscape={closeMenu}
+            >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('close')}
+                onPress={closeMenu}
+                style={styles.menuBackdrop}
+              />
+              <View
+                accessibilityViewIsModal
+                onLayout={(event) =>
+                  setMenuHeight(event.nativeEvent.layout.height)
+                }
+                style={[
+                  styles.floatingMenu,
+                  {
+                    left: menuLeft,
+                    top: menuTop,
+                    width: menuWidth,
+                    maxHeight: maxMenuHeight,
+                    opacity: menuHeight ? 1 : 0,
+                  },
+                ]}
+              >
+                <ScrollView style={styles.menuScroll} bounces={false}>
+                  {menuActions.map((action) => (
+                    <Pressable
+                      key={action.key}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: action.disabled }}
+                      disabled={action.disabled}
+                      onPress={action.onPress}
+                      style={({ pressed }) => [
+                        styles.menuItem,
+                        action.disabled && styles.disabled,
+                        pressed && styles.menuItemPressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name={action.icon}
+                        size={20}
+                        color={
+                          action.disabled
+                            ? colors.textSecondary
+                            : action.destructive
+                              ? colors.danger
+                              : colors.primaryText
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.menuText,
+                          action.destructive && { color: colors.danger },
+                          action.disabled && styles.disabledText,
+                        ]}
+                      >
+                        {action.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          )}
         </View>
       </Screen>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
@@ -690,6 +857,7 @@ function createStyles(
 ) {
   return StyleSheet.create({
     page: { flex: 1 },
+    pageContent: { flex: 1 },
     header: {
       minHeight: 58,
       paddingHorizontal: spacing.lg,
@@ -717,26 +885,38 @@ function createStyles(
       justifyContent: 'center',
       backgroundColor: 'transparent',
     },
-    actionsMenu: {
-      alignSelf: 'flex-end',
-      maxWidth: '90%',
-      marginRight: spacing.lg,
-      marginTop: spacing.xs,
+    menuLayer: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      zIndex: 100,
+    },
+    menuBackdrop: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    },
+    floatingMenu: {
+      position: 'absolute',
       paddingVertical: spacing.xs,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 12,
+      borderRadius: 16,
       shadowColor: colors.textPrimary,
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 3,
-      zIndex: 2,
+      shadowOpacity: 0.12,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: 8,
     },
+    menuScroll: { flexGrow: 0, flexShrink: 1 },
+    menuItemPressed: { backgroundColor: colors.surfaceMuted },
     menuItem: {
-      minWidth: 210,
-      minHeight: 44,
+      minHeight: 48,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       flexDirection: 'row',
@@ -860,36 +1040,6 @@ function createStyles(
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'transparent',
-    },
-    itemActionsMenu: {
-      alignSelf: 'flex-end',
-      minWidth: 220,
-      maxWidth: '100%',
-      marginTop: spacing.xs,
-      paddingVertical: spacing.xs,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      shadowColor: colors.textPrimary,
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 3,
-      zIndex: 3,
-    },
-    itemAction: {
-      minHeight: 44,
-      paddingHorizontal: spacing.md,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    itemActionText: {
-      color: colors.textPrimary,
-      fontSize: scaledTypography.size.sm,
-      fontWeight: '600',
-      flexShrink: 1,
     },
     loadingRow: {
       padding: spacing.lg,
