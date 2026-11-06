@@ -248,6 +248,15 @@ const notificationsSource = read('src/lib/notifications.ts');
 const notificationsAst = ts.createSourceFile('notifications.ts', notificationsSource, ts.ScriptTarget.Latest, true);
 const routeFunction = notificationsAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'routeFromNotificationData');
 const { routeFromNotificationData } = evaluate(routeFunction.getText(notificationsAst));
+test('a family card push opens its own redemption and malformed links stay in coins', () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  assert.deepEqual(routeFromNotificationData({ type: 'coin_card', redemptionId: id }), {
+    pathname: '/coins/card/[cardId]', params: { cardId: id },
+  });
+  for (const redemptionId of [null, '../elsewhere', {}, 'invalid'])
+    assert.equal(routeFromNotificationData({ type: 'coin_card', redemptionId }), '/coins');
+  assert.equal(routeFromNotificationData({ type: 'coin_earned' }), '/coins');
+});
 test('actual foreground push and notification-tap callbacks cannot duplicate the native call route', () => {
   assert.ok(incomingHandler && routeHandler);
   const h = harness();

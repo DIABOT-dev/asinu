@@ -122,6 +122,32 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
   });
 }
 
+for (const queued of [false, true]) {
+  await test(`locked menu actions cannot dismiss, queue or run a callback (queued=${queued})`, () => {
+    const h = hooks(); const tc = translate('vi', 'common'); let actions = 0, dismissals = 0;
+    const { AppAlertModal } = evaluate('src/components/AppAlertModal.tsx', {
+      react: h.react, 'react-native': native, '@expo/vector-icons': icons,
+      './ScaledText': { ScaledText: 'Text' }, './QueuedModal': { QueuedModal: 'QueuedModal' },
+      '../hooks/useScaledTypography': { useScaledTypography: () => theme.typography }, '../styles': theme,
+      '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) },
+      'react-i18next': { useTranslation: () => ({ t: tc }) },
+      'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+    });
+    const tree = h.render(AppAlertModal, { visible: true, queued, layout: 'actions', title: 'Options',
+      onDismiss: () => { dismissals++; }, buttons: [
+        { text: 'Locked profile', icon: 'lock-outline', disabled: true, onPress: () => { actions++; } },
+        { text: tc('cancel'), style: 'cancel' },
+      ],
+    });
+    const locked = nodes(tree).find(node => node.props.accessibilityLabel === 'Locked profile');
+    assert.equal(locked.props.disabled, true); assert.equal(locked.props.accessibilityState.disabled, true);
+    assert.ok(nodes(locked).some(node => node.props.name === 'lock-outline'));
+    assert.equal(nodes(locked).some(node => node.props.name === 'chevron-right'), false);
+    locked.props.onPress(); assert.equal(dismissals, 0); assert.equal(actions, 0);
+    tree.props.onDismiss(); assert.equal(actions, 0, 'A blocked callback is never deferred until dismissal');
+  });
+}
+
 for (const language of ['vi', 'en']) {
   const t = translate(language, 'subscription');
   const { localizedPlanName } = evaluate('src/features/subscription/planName.ts', {});
@@ -497,6 +523,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
     const header = tree => nodes(tree).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('faqTitle'));
     const questions = tree => nodes(tree).filter(node => node.type?.type?.name === 'FAQItem');
     let tree = render(); assert.equal(header(tree).props.accessibilityState.expanded, false); assert.equal(questions(tree).length, 0);
+    assert.ok(!nodes(header(tree)).some(node => node.type === 'Text' && node.props.children === t('faqTapHint')), 'The compact FAQ does not repeat a tap instruction');
     const headerStyle = style(header(tree).props.style({ pressed: false }));
     assert.ok(headerStyle.minHeight >= 56); assert.equal(headerStyle.height, undefined);
     for (const text of nodes(header(tree)).filter(node => node.type === 'Text'

@@ -9,17 +9,18 @@ import { AppState, FlatList, Image, Modal, Platform, Pressable, ScrollView, Styl
 import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, useAnimatedScrollHandler, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
-import { Avatar } from '../../../src/components/Avatar';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HomeCheckinCallControl } from '../../../src/components/HomeCheckinCallControl';
 import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
 import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
+import { V21HomeCard } from '../../../src/features/v21/V21HomeCard';
 import { HomeGiftCard } from '../../../src/features/checkin-rewards/HomeGiftCard';
+import { HealthFeedThumbnail } from '../../../src/features/health-feed/HealthFeedThumbnail';
 import { apiClient } from '../../../src/lib/apiClient';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
-import * as Haptics from 'expo-haptics';
+import { HomeHealthFeedCarousel } from '../../../src/features/health-feed/HomeHealthFeedCarousel';
+import { useHealthFeedDismissals } from '../../../src/features/health-feed/useHealthFeedDismissals';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { NotificationBell } from '../../../src/components/NotificationBell';
 import { NoInternetModal } from '../../../src/components/NoInternetModal';
@@ -37,10 +38,10 @@ import { LogEntry } from '../../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useInitialLoadingGate } from '../../../src/hooks/useInitialLoadingGate';
 import { useNotificationStore } from '../../../src/stores/notification.store';
-import { showToast, useToastStore } from '../../../src/stores/toast.store';
+import { useToastStore } from '../../../src/stores/toast.store';
 import { getHealthFeedPreference } from '../../../src/stores/health-feed-preference';
 import { subscribeRealtimeRefresh } from '../../../src/lib/realtimeSync';
-import { brandColors, categoryColors, colors, iconColors, radius, spacing } from '../../../src/styles';
+import { brandColors, categoryColors, colors, getBottomTabBarHeight, iconColors, radius, spacing } from '../../../src/styles';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import type { Mission } from '../../../src/features/missions/missions.store';
 import React from 'react';
@@ -460,6 +461,8 @@ export default function HomeScreen() {
   const { t } = useTranslation('home');
   const { t: tc } = useTranslation('common');
   const fetchFlags = useFlagsStore((s) => s.fetchFlags);
+  const { t: tt } = useTranslation('tree');
+  const [showEarlySignal, setShowEarlySignal] = useState(false);
   // Refresh check-in and Care Circle flags whenever the home screen is focused.
   useFocusEffect(useCallback(() => { fetchFlags().catch(() => {}); }, [fetchFlags]));
   const router = useRouter();
@@ -477,10 +480,17 @@ export default function HomeScreen() {
     logsError,
     missionsError,
     treeError,
+    hasRefreshError,
     isOffline,
     refreshAll
-  } = useHomeViewModel();
+  } = useHomeViewModel({
+    logs: SHOW_HOME_BELOW_TREE,
+    missions: SHOW_HOME_MISSIONS,
+    tree: SHOW_HOME_BELOW_TREE,
+  });
   const profile = useAuthStore((state) => state.profile);
+  const sessionToken = useAuthStore((state) => state.token);
+  const profileId = profile?.id;
   const guideScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
   const unreadCount = useNotificationStore(s => s.unreadCount);
@@ -489,7 +499,7 @@ export default function HomeScreen() {
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
-  const padTop = insets.top + spacing.lg;
+  const padTop = insets.top + (profile ? spacing.sm + 44 + spacing.md : spacing.lg);
 
   // Re-fetch when screen focuses, but throttle to avoid jank on quick tab switches
   const lastFetchRef = useRef(0);
@@ -502,33 +512,19 @@ export default function HomeScreen() {
     }, [refreshAll])
   );
 
-  // Fetch notifications on mount and periodically - only when logged in
-  useEffect(() => {
-    if (!profile) return;
-
-    fetchFromBackend();
-    const interval = setInterval(fetchFromBackend, 30000);
-    // Re-fetch immediately when app comes to foreground
+  // The home tab remains mounted behind other screens. Poll only while visible.
+  useFocusEffect(useCallback(() => {
+    if (!profileId || !sessionToken) return;
+    const refresh = () => {
+      if (AppState.currentState === 'active') void fetchFromBackend();
+    };
+    refresh();
+    const interval = setInterval(refresh, 30000);
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') fetchFromBackend();
+      if (state === 'active') refresh();
     });
     return () => { clearInterval(interval); sub.remove(); };
-  }, [fetchFromBackend, profile]);
-
-  // Check if user has checked in today — re-check every time screen focuses
-  const [showCheckinBanner, setShowCheckinBanner] = useState(false);
-  const [todaySession, setTodaySession] = useState<any>(null);
-  useFocusEffect(
-    useCallback(() => {
-      if (!profile) return;
-      checkinApi.getToday()
-        .then(res => {
-          setTodaySession(res.session || null);
-          setShowCheckinBanner(!res.session);
-        })
-        .catch(() => {});
-    }, [profile])
-  );
+  }, [fetchFromBackend, profileId, sessionToken]));
 
   // Navigate to checkin — check session trước, hiện modal nếu đã done
   const [showAlreadyDoneModal, setShowAlreadyDoneModal] = useState(false);
@@ -621,11 +617,18 @@ export default function HomeScreen() {
   const [healthFeedEnabled, setHealthFeedEnabled] = useState(false);
   const [healthFeedVisible, setHealthFeedVisible] = useState(true);
   const [healthFeedItems, setHealthFeedItems] = useState<any[]>([]);
+  const { hiddenIds: hiddenFeedIds } = useHealthFeedDismissals();
+  const visibleHealthFeedItems = healthFeedItems.filter(item => !hiddenFeedIds.has(String(item.id)));
 
   const refreshHealthFeed = useCallback(async () => {
-    if (!profile) return;
+    if (!profileId || !sessionToken) return;
+    const ownsSession = () => {
+      const current = useAuthStore.getState();
+      return current.profile?.id === profileId && current.token === sessionToken;
+    };
 
     const visible = await getHealthFeedPreference();
+    if (!ownsSession()) return;
     setHealthFeedVisible(visible);
     if (!visible) {
       setHealthFeedEnabled(false);
@@ -634,6 +637,7 @@ export default function HomeScreen() {
     }
 
     const response = await healthFeedApi<any>('/feed');
+    if (!ownsSession()) return;
     if (response.ok && response.enabled) {
       setHealthFeedEnabled(true);
       setHealthFeedItems(response.feed || []);
@@ -641,26 +645,20 @@ export default function HomeScreen() {
     }
 
     setHealthFeedEnabled(false);
-  }, [healthFeedApi, profile]);
+  }, [healthFeedApi, profileId, sessionToken]);
 
   useFocusEffect(
     useCallback(() => {
       refreshHealthFeed().catch(() => {});
-    }, [refreshHealthFeed])
-  );
-
-  useEffect(
-    () =>
-      subscribeRealtimeRefresh('healthFeed', () => {
+      return subscribeRealtimeRefresh('healthFeed', () => {
         refreshHealthFeed().catch(() => {});
-      }),
-    [refreshHealthFeed],
+      });
+    }, [refreshHealthFeed]),
   );
 
   const handleOpenNotifications = useCallback(() => {
-    void fetchFromBackend();
     router.push('/notifications');
-  }, [fetchFromBackend, router]);
+  }, [router]);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -694,44 +692,16 @@ export default function HomeScreen() {
           {healthFeedEnabled && (
             <GuideTarget step="home.suggestions">
               <Pressable accessibilityRole="button" onPress={() => router.push('/feed' as any)} hitSlop={12}>
-                <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: healthFeedItems.length })}</Text>
+                <Text style={styles.healthFeedSeeAllText}>{t('healthFeedSeeAll', { count: visibleHealthFeedItems.length })}</Text>
               </Pressable>
             </GuideTarget>
           )}
         </View>
 
-        {healthFeedItems.length > 0 ? (
-          <View style={styles.healthFeedList}>
-            {healthFeedItems.slice(0, 2).map((item) => {
+        {visibleHealthFeedItems.length > 0 ? (
+          <HomeHealthFeedCarousel items={visibleHealthFeedItems} renderItem={(item) => {
               const isRead = !!item.read_at;
               const isWarning = item.severity_level === 'warning' || item.priority >= 100;
-
-              const getIcon = (type: string) => {
-                switch (type) {
-                  case 'checklist':
-                    return <MaterialCommunityIcons name="clipboard-check-outline" size={22} color={iconColors.primary} />;
-                  case 'warning':
-                    return <MaterialCommunityIcons name="alert-circle-outline" size={22} color={iconColors.danger} />;
-                  case 'family_note':
-                    return <MaterialCommunityIcons name="account-group-outline" size={22} color={iconColors.orange} />;
-                  case 'weekly_summary':
-                    return <MaterialCommunityIcons name="chart-line" size={22} color={iconColors.indigo} />;
-                  default:
-                    return <MaterialCommunityIcons name="book-open-variant" size={22} color={iconColors.cyan} />;
-                }
-              };
-
-              const handleHomeDismiss = async (itemId: string) => {
-                try {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  await healthFeedApi(`/feed/${itemId}/dismiss`, { method: 'POST' });
-                  setHealthFeedItems(prev => prev.filter(i => i.id !== itemId));
-                  showToast(tc('feedDismissed'), 'success');
-                } catch (err) {
-                  console.error('[Home Health Feed] Failed to dismiss:', err);
-                  showToast(tc('feedActionFailed'), 'error');
-                }
-              };
 
               const handleHomePress = async (i: any) => {
                 try {
@@ -747,25 +717,7 @@ export default function HomeScreen() {
                 router.push(`/feed/${i.content_id}` as any);
               };
 
-              const renderRightAction = () => (
-                <Pressable
-                  style={styles.healthFeedDismissBtn}
-                  onPress={() => handleHomeDismiss(item.id)}
-                >
-                  <Ionicons name="eye-off-outline" size={20} color={colors.danger} />
-                </Pressable>
-              );
-
               return (
-                <Swipeable
-                  key={item.id}
-                  renderRightActions={renderRightAction}
-                  onSwipeableOpen={(direction) => {
-                    if (direction === 'right') {
-                      handleHomeDismiss(item.id);
-                    }
-                  }}
-                >
                   <Pressable
                     style={[
                       styles.healthFeedCard,
@@ -776,27 +728,22 @@ export default function HomeScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`${item.title}. ${item.message}`}
                   >
-                    <View style={styles.healthFeedIconWrapper}>
-                      {getIcon(item.feed_type)}
-                    </View>
+                    <HealthFeedThumbnail item={item} style={styles.healthFeedThumbnail} />
 
                     <View style={styles.healthFeedCardContent}>
-                      <Text style={[styles.healthFeedCardTitle, isRead && styles.healthFeedCardTitleRead]} numberOfLines={1}>
+                      <Text style={[styles.healthFeedCardTitle, isRead && styles.healthFeedCardTitleRead]}>
                         {item.title}
                       </Text>
-                      <Text style={[styles.healthFeedCardMessage, isRead && styles.healthFeedCardMessageRead]} numberOfLines={1}>
+                      <Text style={[styles.healthFeedCardMessage, isRead && styles.healthFeedCardMessageRead]} numberOfLines={2}>
                         {item.message}
                       </Text>
                     </View>
 
                     {isWarning && !isRead && <View style={styles.healthFeedWarningDot} />}
 
-                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} style={styles.healthFeedChevron} />
                   </Pressable>
-                </Swipeable>
               );
-            })}
-          </View>
+            }} />
         ) : (
           <View style={styles.healthFeedEmptyCard}>
             <Image
@@ -824,6 +771,41 @@ export default function HomeScreen() {
         locations={[0, 0.2, 0.45, 1]}
         style={StyleSheet.absoluteFill}
       />
+      {/* Header Graphic (White Cross on LEFT, Leaf Petals + Animated EKG Pulse Line on RIGHT) */}
+      <View style={{ position: 'absolute', top: insets.top, right: 0, width: 240, height: 200 }} pointerEvents="none">
+        <Svg height="200" width="240" style={{ position: 'absolute', top: 0, right: 0 }}>
+          <Defs>
+            <SvgGradient id="leafTint" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.18" />
+              <Stop offset="100%" stopColor="#0d9488" stopOpacity="0.04" />
+            </SvgGradient>
+          </Defs>
+
+          {/* Leaf Petals fanning towards top right */}
+          <Path
+            d="M 170 120 C 170 70, 210 20, 240 10 C 225 50, 210 90, 170 120 Z"
+            fill="url(#leafTint)"
+          />
+          <Path
+            d="M 160 130 C 180 90, 225 55, 240 50 C 215 80, 190 115, 160 130 Z"
+            fill="url(#leafTint)"
+          />
+          <Path
+            d="M 155 140 C 190 110, 235 90, 240 95 C 205 120, 175 140, 155 140 Z"
+            fill="url(#leafTint)"
+          />
+
+          {/* Solid White Medical Cross (+) — Positioned on the LEFT of the heartbeat line */}
+          <G transform="translate(72, 28)">
+            <Rect x="0" y="21" width="58" height="20" rx="7" fill="#ffffff" fillOpacity="0.88" />
+            <Rect x="19" y="0" width="20" height="58" rx="7" fill="#ffffff" fillOpacity="0.88" />
+          </G>
+        </Svg>
+
+        {/* Animated EKG / Pulse line — Gently pulsing on the RIGHT of the (+) cross */}
+        <AnimatedHeartbeatPulse />
+      </View>
+
       {/* Modal: Đã check-in rồi */}
       <Modal visible={showAlreadyDoneModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowAlreadyDoneModal(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setShowAlreadyDoneModal(false)}>
@@ -838,7 +820,7 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {isOffline ? <OfflineBanner onRetry={() => { refreshAll(); }} /> : null}
+      {hasRefreshError ? <OfflineBanner onRetry={() => { refreshAll(); }} /> : null}
       <NoInternetModal
         visible={Boolean(isOffline && !offlineModalDismissed)}
         onClose={() => setOfflineModalDismissed(true)}
@@ -851,24 +833,23 @@ export default function HomeScreen() {
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
         <View style={[styles.headerActions, { top: insets.top + spacing.sm }]}>
+          <V21HomeCard iconOnly />
+          <HomeCheckinCallControl key={profile.id} userId={String(profile.id)} iconOnly />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={tt('earlyTitle')}
+            style={({ pressed }) => [styles.headerIcon, pressed && styles.headerActionPressed]}
+            onPress={() => setShowEarlySignal(true)}
+          >
+            <MaterialCommunityIcons name="radar" size={30} color={healthScore?.factors.length ? colors.warning : colors.primaryText} />
+          </Pressable>
           <NotificationBell
             unreadCount={unreadCount}
             onOpen={handleOpenNotifications}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={tc('tabProfile')}
-            style={({ pressed }) => [styles.profileButton, pressed && styles.headerActionPressed]}
-            onPress={() => router.replace('/(tabs)/profile')}
-          >
-            <Avatar
-              name={profile.name || tc('tabProfile')}
-              imageUrl={profile.avatarUrl}
-              size={44}
-            />
-          </Pressable>
         </View>
       )}
+      {showEarlySignal && <EarlySignalCard healthScore={healthScore} modalOnly onClose={() => setShowEarlySignal(false)} />}
 
       {!showInitialSkeleton && noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
       {!showInitialSkeleton && !hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
@@ -879,90 +860,20 @@ export default function HomeScreen() {
         scrollEventThrottle={32}
         refreshing={refreshing || loading}
         onRefresh={handleRefresh}
-        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: insets.bottom + 96 }]}
+        contentContainerStyle={[styles.container, { paddingTop: padTop, paddingBottom: getBottomTabBarHeight(insets.bottom) + spacing.lg }]}
         showsVerticalScrollIndicator={false}
       >
         {showInitialSkeleton ? (
           <HomeTabSkeleton />
         ) : (
         <>
-        {/* Hero Banner */}
-        <Animated.View entering={FadeIn.delay(0).duration(400)}>
-        <View style={styles.heroBanner}>
-          {/* Header Graphic (White Cross on LEFT, Leaf Petals + Animated EKG Pulse Line on RIGHT) */}
-          <View style={{ position: 'absolute', top: -20, right: -spacing.lg, width: 240, height: 200 }} pointerEvents="none">
-            <Svg height="200" width="240" style={{ position: 'absolute', top: 0, right: 0 }}>
-              <Defs>
-                <SvgGradient id="leafTint" x1="0" y1="0" x2="1" y2="1">
-                  <Stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.18" />
-                  <Stop offset="100%" stopColor="#0d9488" stopOpacity="0.04" />
-                </SvgGradient>
-              </Defs>
-
-              {/* Leaf Petals fanning towards top right */}
-              <Path
-                d="M 170 120 C 170 70, 210 20, 240 10 C 225 50, 210 90, 170 120 Z"
-                fill="url(#leafTint)"
-              />
-              <Path
-                d="M 160 130 C 180 90, 225 55, 240 50 C 215 80, 190 115, 160 130 Z"
-                fill="url(#leafTint)"
-              />
-              <Path
-                d="M 155 140 C 190 110, 235 90, 240 95 C 205 120, 175 140, 155 140 Z"
-                fill="url(#leafTint)"
-              />
-
-              {/* Solid White Medical Cross (+) — Positioned on the LEFT of the heartbeat line */}
-              <G transform="translate(72, 28)">
-                <Rect x="0" y="21" width="58" height="20" rx="7" fill="#ffffff" fillOpacity="0.88" />
-                <Rect x="19" y="0" width="20" height="58" rx="7" fill="#ffffff" fillOpacity="0.88" />
-              </G>
-            </Svg>
-
-            {/* Animated EKG / Pulse line — Gently pulsing on the RIGHT of the (+) cross */}
-            <AnimatedHeartbeatPulse />
-          </View>
-
-          <View style={styles.heroContent}>
-            <Text style={styles.heroGreeting}>{t('greeting')}</Text>
-            <Text style={styles.heroName}>{profile?.name || t('defaultName')}</Text>
-            <Text style={styles.heroSummary}>{t('heroSummary')}</Text>
-          </View>
-        </View>
-        </Animated.View>
-
-        {/* Check-in reminder banner */}
-        {showCheckinBanner && (
-          <Animated.View entering={FadeIn.delay(100).duration(300)}>
-            <Pressable
-              style={styles.checkinBanner}
-              onPress={() => { setShowCheckinBanner(false); goToCheckin(); }}
-            >
-              <MaterialCommunityIcons name="emoticon-happy-outline" size={22} color={colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.checkinBannerText}>{t('checkinReminder')}</Text>
-              </View>
-              <Pressable hitSlop={12} onPress={() => setShowCheckinBanner(false)}>
-                <MaterialCommunityIcons name="close" size={18} color={colors.textSecondary} />
-              </Pressable>
-            </Pressable>
-          </Animated.View>
-        )}
-
         {/* Immediate and quick-positive check-ins share the former metrics position. */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
           <View style={styles.checkinStack}>
             <DailyCheckinCard />
             <InstantCheckinCard />
-            <HomeGiftCard />
-            {profile?.id && <HomeCheckinCallControl key={profile.id} userId={String(profile.id)} />}
+            <HomeGiftCard headless />
           </View>
-        </Animated.View>
-
-        {/* Tín hiệu sớm là tính năng miễn phí khi người dùng chủ động xem. */}
-        <Animated.View entering={FadeIn.delay(130).duration(350)}>
-          <EarlySignalCard healthScore={healthScore} />
         </Animated.View>
 
         {renderHealthFeedBlock()}
@@ -1228,7 +1139,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   container: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
-    gap: spacing.xl
+    gap: spacing.md
   },
   checkinStack: {
     gap: spacing.sm,
@@ -1241,59 +1152,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: spacing.sm,
   },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  headerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerActionPressed: {
     opacity: 0.78,
-  },
-  checkinBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#e6faf8',
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  checkinBannerText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: '#0f766e',
-  },
-  heroBanner: {
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    position: 'relative',
-    overflow: 'visible',
-  },
-  heroContent: {
-    flex: 1,
-  },
-  heroGreeting: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
-  },
-  heroName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0d9488',
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  heroSummary: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
   },
   heroSettingsBtn: {
     borderRadius: 12,
@@ -1787,39 +1654,31 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     gap: spacing.sm,
   },
   healthFeedCard: {
-    minHeight: 80,
+    minHeight: 128,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    ...brightCardSurface,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
     marginBottom: 2,
   },
   healthFeedCardRead: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'transparent',
   },
   healthFeedCardWarning: {
-    backgroundColor: '#fffaf8',
+    backgroundColor: 'transparent',
   },
-  healthFeedIconWrapper: {
-    width: 32,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
+  healthFeedThumbnail: {
+    width: 88,
+    height: 104,
+    borderRadius: 12,
+    marginRight: 12,
   },
   healthFeedCardContent: {
     flex: 1,
     justifyContent: 'center',
   },
   healthFeedCardTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 4,
@@ -1828,11 +1687,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontWeight: '600',
   },
   healthFeedCardMessage: {
-    fontSize: 12,
+    fontSize: 15,
     color: colors.textSecondary,
   },
   healthFeedCardMessageRead: {
-    fontStyle: 'italic',
+    color: colors.textSecondary,
   },
   healthFeedWarningDot: {
     width: 8,
@@ -1844,25 +1703,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
   healthFeedChevron: {
     marginLeft: spacing.xs,
   },
-  healthFeedDismissBtn: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 60,
-    borderRadius: 16,
-    height: 80,
-    marginLeft: 10,
-  },
   healthFeedEmptyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    padding: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    ...brightCardSurface,
+    paddingVertical: spacing.md,
+    backgroundColor: 'transparent',
     minHeight: 90,
   },
   healthFeedEmptyMascot: {
@@ -1875,15 +1720,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     justifyContent: 'center',
   },
   healthFeedEmptyTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.primary,
     marginBottom: 2,
   },
   healthFeedEmptyMessage: {
-    fontSize: 12,
+    fontSize: 16,
     color: colors.textSecondary,
-    lineHeight: 16,
+    lineHeight: 24,
   },
 });
 }

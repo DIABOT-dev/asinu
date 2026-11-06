@@ -64,8 +64,7 @@ export function DoctorIvrEntry({
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: pressed ? colors.primaryLight : colors.surface,
-          borderColor: colors.border,
+          backgroundColor: pressed ? colors.primaryLight : 'transparent',
         },
       ]}
     >
@@ -90,10 +89,8 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: spacing.lg,
     marginVertical: spacing.sm,
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
     minHeight: 80,
-    borderWidth: 1,
-    borderRadius: radius.xl,
     flexDirection: "row",
     gap: 12,
     alignItems: "center",

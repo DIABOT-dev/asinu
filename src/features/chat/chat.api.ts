@@ -1,3 +1,4 @@
+import { monitoredFetch } from '../../observability/sentry';
 import i18n from '../../i18n';
 import { ApiError, apiClient } from '../../lib/apiClient';
 import { env } from '../../lib/env';
@@ -80,7 +81,7 @@ export const chatApi = {
     const formData = new FormData();
     formData.append('audio', { uri, type: 'audio/m4a', name: 'voice.m4a' } as any);
 
-    const response = await fetch(`${env.apiBaseUrl}/api/mobile/chat/transcribe`, {
+    const response = await monitoredFetch(`${env.apiBaseUrl}/api/mobile/chat/transcribe`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

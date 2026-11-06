@@ -1,17 +1,22 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
-    StyleSheet,
-    View
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScaledTypography } from '../hooks/useScaledTypography';
 import { ScaledText as Text } from './ScaledText';
 import { ScaledTextInput as TextInput } from './ScaledTextInput';
-import { colors, spacing } from '../styles';
+import { colors, lightColors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 
 type DeleteAccountModalProps = {
@@ -20,140 +25,213 @@ type DeleteAccountModalProps = {
   onConfirm: () => Promise<void>;
 };
 
-export default function DeleteAccountModal({ visible, onClose, onConfirm }: DeleteAccountModalProps) {
+const details = [
+  {
+    icon: 'clock-outline',
+    titleKey: 'deleteWarningTitle1',
+    bodyKey: 'deleteWarning1',
+    warning: true,
+  },
+  {
+    icon: 'database-outline',
+    titleKey: 'deleteWarningTitle2',
+    bodyKey: 'deleteWarning2',
+  },
+  {
+    icon: 'shield-check-outline',
+    titleKey: 'deleteWarningTitle3',
+    bodyKey: 'deleteWarning3',
+  },
+  {
+    icon: 'file-document-outline',
+    titleKey: 'deleteWarningTitle4',
+    bodyKey: 'deleteWarning4',
+  },
+] as const;
+const normalizeConfirmation = (value: string) =>
+  value.normalize('NFC').trim().toUpperCase();
+
+export default function DeleteAccountModal({
+  visible,
+  onClose,
+  onConfirm,
+}: DeleteAccountModalProps) {
   const [inputValue, setInputValue] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-  const scaledTypography = useScaledTypography();
+  const [error, setError] = useState(false);
+  const inFlight = useRef(false);
+  const latestInput = useRef('');
+  const typography = useScaledTypography();
   const { isDark } = useThemeColors();
-  const styles = useMemo(() => StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: colors.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.xl,
-    },
-    modalContent: {
-      backgroundColor: colors.surface,
-      borderRadius: 24,
-      padding: spacing.xl,
-      width: '100%',
-      maxWidth: 400,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    iconContainer: {
-      alignItems: 'center',
-      marginBottom: spacing.lg,
-    },
-    title: {
-      fontWeight: '800',
-      textAlign: 'center',
-      color: colors.danger,
-      marginBottom: spacing.md,
-    },
-    warningText: {
-      fontWeight: '700',
-      textAlign: 'center',
-      color: colors.textPrimary,
-      marginBottom: spacing.lg,
-    },
-    warningBox: {
-      backgroundColor: colors.danger + '08',
-      padding: spacing.md,
-      borderRadius: 12,
-      marginBottom: spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.danger + '30',
-    },
-    warningItem: {
-      color: colors.textSecondary,
-      marginBottom: spacing.xs,
-      lineHeight: 22,
-    },
-    confirmSection: {
-      marginBottom: spacing.lg,
-    },
-    confirmLabel: {
-      color: colors.textPrimary,
-      marginBottom: spacing.sm,
-      fontWeight: '600',
-    },
-    confirmWord: {
-      fontWeight: '800',
-      color: colors.danger,
-    },
-    input: {
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      borderRadius: 12,
-      padding: spacing.md,
-      backgroundColor: colors.background,
-      color: colors.textPrimary,
-      fontWeight: '600',
-    },
-    buttonContainer: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    button: {
-      flex: 1,
-      padding: spacing.md,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 48,
-    },
-    cancelButton: {
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-    },
-    deleteButton: {
-      backgroundColor: colors.danger + '12',
-      borderWidth: 1,
-      borderColor: colors.danger + '35',
-    },
-    buttonDisabled: {
-      opacity: 0.4,
-    },
-    buttonText: {
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    deleteButtonText: {
-      color: colors.danger,
-    },
-  }), [isDark]);
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation('settings');
   const { t: tc } = useTranslation('common');
+  const word = t('deleteConfirmWord');
+  const valid =
+    normalizeConfirmation(inputValue) === normalizeConfirmation(word);
 
-  const CONFIRMATION_WORD = t('deleteConfirmWord');
+  useEffect(() => {
+    if (!visible) {
+      latestInput.current = '';
+      setInputValue('');
+      setError(false);
+    }
+  }, [visible]);
 
   const handleConfirm = async () => {
-    if (inputValue.trim().toUpperCase() !== CONFIRMATION_WORD) {
-      return;
-    }
-
+    if (
+      !visible ||
+      normalizeConfirmation(latestInput.current) !== normalizeConfirmation(word) ||
+      inFlight.current
+    ) return;
+    inFlight.current = true;
     setIsDeleting(true);
+    setError(false);
     try {
       await onConfirm();
+      latestInput.current = '';
       setInputValue('');
-    } catch (error) {
-
+    } catch {
+      setError(true);
     } finally {
+      inFlight.current = false;
       setIsDeleting(false);
     }
   };
-
   const handleClose = () => {
-    if (!isDeleting) {
-      setInputValue('');
-      onClose();
-    }
+    if (inFlight.current) return;
+    latestInput.current = '';
+    setInputValue('');
+    setError(false);
+    onClose();
   };
-
-  const isConfirmEnabled = inputValue.trim().toUpperCase() === CONFIRMATION_WORD && !isDeleting;
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        keyboard: { flex: 1 },
+        overlay: {
+          flex: 1,
+          backgroundColor: colors.overlay,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: spacing.lg,
+        },
+        card: {
+          width: '100%',
+          maxWidth: 440,
+          maxHeight: '96%',
+          borderRadius: radius.xxl,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          overflow: 'hidden',
+        },
+        scroll: { flexShrink: 1 },
+        body: {
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.xl,
+          paddingBottom: spacing.sm,
+        },
+        icon: { alignSelf: 'center', marginBottom: spacing.md },
+        title: {
+          fontSize: typography.size.lg + 2,
+          lineHeight: 32,
+          fontWeight: '800',
+          width: '100%',
+          maxWidth: 300,
+          alignSelf: 'center',
+          color: colors.textPrimary,
+          textAlign: 'center',
+          marginBottom: spacing.md,
+        },
+        lead: {
+          fontSize: typography.size.sm,
+          lineHeight: 23,
+          textAlign: 'center',
+          color: colors.textSecondary,
+          marginBottom: spacing.lg,
+        },
+        detail: {
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: spacing.md,
+          paddingVertical: spacing.sm,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+        detailIcon: { width: 28, marginTop: 3 },
+        detailCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+        detailTitle: {
+          fontSize: typography.size.sm + 1,
+          lineHeight: 23,
+          fontWeight: '700',
+          color: colors.textPrimary,
+        },
+        detailBody: {
+          fontSize: typography.size.sm - 1,
+          lineHeight: 21,
+          color: colors.textSecondary,
+        },
+        footer: {
+          paddingHorizontal: spacing.xl,
+          paddingBottom: spacing.xl,
+          paddingTop: spacing.md,
+          gap: spacing.md,
+        },
+        confirmLabel: {
+          fontSize: typography.size.sm,
+          lineHeight: 22,
+          fontWeight: '600',
+          color: colors.textPrimary,
+        },
+        input: {
+          minHeight: 56,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          backgroundColor: colors.background,
+          color: colors.textPrimary,
+          fontSize: 16,
+          fontWeight: '600',
+        },
+        buttons: { flexDirection: 'row', gap: spacing.sm },
+        button: {
+          flex: 1,
+          minWidth: 0,
+          minHeight: 56,
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.lg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        },
+        cancel: {
+          backgroundColor: colors.surfaceMuted,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        remove: { backgroundColor: lightColors.danger },
+        disabled: { opacity: 0.45 },
+        pressed: { opacity: 0.8 },
+        buttonText: {
+          fontSize: 16,
+          lineHeight: 24,
+          fontWeight: '700',
+          textAlign: 'center',
+          color: colors.textPrimary,
+        },
+        removeText: { color: lightColors.surface },
+        error: {
+          color: colors.danger,
+          fontSize: typography.size.sm - 1,
+          lineHeight: 21,
+        },
+      }),
+    [isDark, typography]
+  );
 
   return (
     <Modal
@@ -162,95 +240,144 @@ export default function DeleteAccountModal({ visible, onClose, onConfirm }: Dele
       animationType="fade"
       onRequestClose={handleClose}
     >
-      <Pressable 
-        style={styles.overlay} 
-        onPress={handleClose}
+      <KeyboardAvoidingView
+        style={styles.keyboard}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Pressable 
-          style={styles.modalContent}
-          onPress={(e) => e.stopPropagation()}
+        <Pressable
+          style={[
+            styles.overlay,
+            {
+              paddingTop: insets.top + spacing.sm,
+              paddingBottom: insets.bottom + spacing.sm,
+            },
+          ]}
+          onPress={handleClose}
         >
-          {/* Icon cảnh báo */}
-          <View style={styles.iconContainer}>
-            <MaterialCommunityIcons 
-              name="alert-circle" 
-              size={64} 
-              color={colors.danger} 
-            />
-          </View>
-
-          {/* Tiêu đề */}
-          <Text style={[styles.title, { fontSize: scaledTypography.size.xl }]}>
-            {t('deleteAccountConfirm')}
-          </Text>
-
-          {/* Nội dung cảnh báo */}
-          <Text style={[styles.warningText, { fontSize: scaledTypography.size.md }]}>
-            {t('deleteAccountWarning')}
-          </Text>
-          
-          <View style={styles.warningBox}>
-            <Text style={[styles.warningItem, { fontSize: scaledTypography.size.sm }]}>
-              • {t('deleteWarning1')}
-            </Text>
-            <Text style={[styles.warningItem, { fontSize: scaledTypography.size.sm }]}>
-              • {t('deleteWarning2')}
-            </Text>
-            <Text style={[styles.warningItem, { fontSize: scaledTypography.size.sm }]}>
-              • {t('deleteWarning3')}
-            </Text>
-            <Text style={[styles.warningItem, { fontSize: scaledTypography.size.sm }]}>
-              • {t('deleteWarning4')}
-            </Text>
-          </View>
-
-          {/* Input xác nhận */}
-          <View style={styles.confirmSection}>
-            <Text style={[styles.confirmLabel, { fontSize: scaledTypography.size.sm }]}>
-              {t('deleteConfirmPrompt', { word: CONFIRMATION_WORD })}
-            </Text>
-            <TextInput
-              style={[styles.input, { fontSize: 18 }]}
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder={t('deleteConfirmPlaceholder', { word: CONFIRMATION_WORD })}
-              autoCapitalize="characters"
-              editable={!isDeleting}
-            />
-          </View>
-
-          {/* Buttons */}
-          <View style={styles.buttonContainer}>
-            <Pressable
-              style={[styles.button, styles.cancelButton]}
-              onPress={handleClose}
-              disabled={isDeleting}
+          <Pressable
+            accessibilityViewIsModal
+            style={styles.card}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.body}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
             >
-              <Text style={[styles.buttonText, { fontSize: scaledTypography.size.md }]}>
-                {tc('cancel')}
+              <MaterialCommunityIcons
+                name="trash-can-outline"
+                size={40}
+                color={colors.danger}
+                style={styles.icon}
+                accessible={false}
+              />
+              <Text accessibilityRole="header" style={styles.title}>
+                {t('deleteAccountConfirm')}
               </Text>
-            </Pressable>
-
-            <Pressable
-              style={[
-                styles.button, 
-                styles.deleteButton,
-                !isConfirmEnabled && styles.buttonDisabled
-              ]}
-              onPress={handleConfirm}
-              disabled={!isConfirmEnabled}
-            >
-              {isDeleting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={[styles.buttonText, styles.deleteButtonText, { fontSize: scaledTypography.size.md }]}>
-                  {t('deleteAccount')}
+              <Text style={styles.lead}>{t('deleteAccountWarning')}</Text>
+              {details.map((item) => (
+                <View key={item.titleKey} style={styles.detail}>
+                  <MaterialCommunityIcons
+                    name={item.icon}
+                    size={27}
+                    style={styles.detailIcon}
+                    color={
+                      'warning' in item
+                        ? colors.premiumDark
+                        : colors.primaryText
+                    }
+                    accessible={false}
+                  />
+                  <View style={styles.detailCopy}>
+                    <Text style={styles.detailTitle}>{t(item.titleKey)}</Text>
+                    <Text style={styles.detailBody}>{t(item.bodyKey)}</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <View style={styles.footer}>
+              <Text style={styles.confirmLabel}>
+                {t('deleteConfirmPrompt', { word })}
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={inputValue}
+                onChangeText={(value) => {
+                  latestInput.current = value;
+                  setInputValue(value);
+                  setError(false);
+                }}
+                accessibilityLabel={t('deleteConfirmPrompt', { word })}
+                placeholder={t('deleteConfirmPlaceholder', { word })}
+                placeholderTextColor={colors.textSecondary}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                spellCheck={false}
+                autoComplete="off"
+                editable={!isDeleting}
+                returnKeyType="done"
+              />
+              {error ? (
+                <Text accessibilityRole="alert" style={styles.error}>
+                  {t('deleteErrorGeneric')}
                 </Text>
-              )}
-            </Pressable>
-          </View>
+              ) : null}
+              <View style={styles.buttons}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={tc('cancel')}
+                  accessibilityState={{ disabled: isDeleting }}
+                  onPress={handleClose}
+                  disabled={isDeleting}
+                  style={({ pressed }) => [
+                    styles.button,
+                    styles.cancel,
+                    pressed && styles.pressed,
+                    isDeleting && styles.disabled,
+                  ]}
+                >
+                  <Text style={styles.buttonText}>{tc('cancel')}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('deleteAccount')}
+                  accessibilityState={{
+                    disabled: !valid || isDeleting,
+                    busy: isDeleting,
+                  }}
+                  onPress={handleConfirm}
+                  disabled={!valid || isDeleting}
+                  style={({ pressed }) => [
+                    styles.button,
+                    styles.remove,
+                    (!valid || isDeleting) && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={[lightColors.danger, '#b91c1c']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  {isDeleting ? (
+                    <ActivityIndicator
+                      accessibilityLabel={t('deleteProcessing')}
+                      color={lightColors.surface}
+                    />
+                  ) : (
+                    <Text style={[styles.buttonText, styles.removeText]}>
+                      {t('deleteAccount')}
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

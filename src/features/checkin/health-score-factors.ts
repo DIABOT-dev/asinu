@@ -16,5 +16,8 @@ export const HEALTH_SCORE_FACTORS: Record<string, HealthScoreFactor> = {
   glucose_very_low: { labelKey: 'healthFactorGlucoseVeryLow', icon: 'water', color: '#dc2626' },
   systolic_high: { labelKey: 'healthFactorSystolicHigh', icon: 'heart-outline', color: '#d97706' },
   systolic_very_high: { labelKey: 'healthFactorSystolicVeryHigh', icon: 'heart', color: '#dc2626' },
+  diastolic_high: { labelKey: 'healthFactorDiastolicHigh', icon: 'heart-outline', color: '#d97706' },
+  diastolic_very_high: { labelKey: 'healthFactorDiastolicVeryHigh', icon: 'heart', color: '#dc2626' },
+  blood_pressure_low: { labelKey: 'healthFactorBloodPressureLow', icon: 'heart-outline', color: '#d97706' },
   emergency_triggered: { labelKey: 'healthFactorEmergencyTriggered', icon: 'warning-outline', color: '#dc2626' },
 };

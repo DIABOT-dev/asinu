@@ -66,6 +66,8 @@ final class Handler {
   var audioConfigurations = 0
   var ringTimers = 0
   var callTimers: [UUID] = []
+  var medicationMonitors: [UUID] = []
+  func monitorMedication(uuid: UUID, capability: String, until: Date) { medicationMonitors.append(uuid) }
   func configureAudioSession() { audioConfigurations += 1 }
   func scheduleRingTimeout(uuid: UUID, attemptId: String, seconds: Int) { ringTimers += 1 }
   func scheduleCallTimeout(uuid: UUID) { callTimers.append(uuid) }
@@ -95,6 +97,7 @@ test("a genuine call reports synchronously and completes only after CallKit") {
   h.reportIncoming(payload: payload) { done += 1 }
   assert(h.provider.reports.count == 1 && done == 0 && h.ringTimers == 0)
   assert(h.callTimers == [h.uuidByAttempt["attempt"]!])
+  assert(h.medicationMonitors.isEmpty)
   assert(h.provider.configuration.ringtoneSound == "asinu_incoming.caf")
   assert(h.provider.updates.last?.hasVideo == true)
   h.provider.finish()
@@ -177,6 +180,29 @@ test("CallKit rejecting a genuine incoming call removes pending state") {
   let h = Handler(); var done = 0; h.reportIncoming(payload: payload) { done += 1 }
   h.provider.finish(NSError(domain: "CallKit", code: 1))
   assert(done == 1 && h.callsByUUID.isEmpty && h.uuidByAttempt.isEmpty && h.ringTimers == 0)
+}
+test("medication starts a read-only status monitor without exposing its capability") {
+  let h=Handler();var med=payload;med["callType"]="medication";med["medDoseId"]="episode";med["statusCapability"]="read-only-fixture"
+  h.reportIncoming(payload:med) {};h.provider.finish()
+  let uuid=h.uuidByAttempt["attempt"]!
+  assert(h.medicationMonitors == [uuid])
+  assert(h.callsByUUID[uuid]?["callType"] == "medication")
+  assert(h.callsByUUID[uuid]?["medDoseId"] == "episode")
+  assert(h.callsByUUID[uuid]?["statusCapability"] == nil)
+}
+test("a check-in call preempts a medication reminder") {
+  let h=Handler();var med=payload;med["callType"]="medication";med["attemptId"]="medication"
+  h.reportIncoming(payload:med) {};h.provider.finish();let previous=h.uuidByAttempt["medication"]!
+  h.reportIncoming(payload:payload) {};h.provider.finish()
+  assert(h.uuidByAttempt["medication"] == nil && h.provider.ended.contains(previous))
+  assert(h.uuidByAttempt["attempt"] != nil && h.callsByUUID.count == 1)
+}
+test("a medication reminder cannot interrupt a check-in call") {
+  let h=Handler();h.reportIncoming(payload:payload) {};h.provider.finish();let original=h.uuidByAttempt["attempt"]!
+  var med=payload;med["callType"]="medication";med["attemptId"]="medication"
+  h.reportIncoming(payload:med) {};h.provider.finish()
+  assert(h.callsByUUID.count == 1 && h.uuidByAttempt["attempt"] == original)
+  assert(h.medicationMonitors.isEmpty && !h.provider.ended.contains(original))
 }
 print("PushKit lifecycle: \\(checks) Swift runtime regression checks passed.")
 `;

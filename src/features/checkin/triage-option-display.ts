@@ -5,7 +5,11 @@ type TriageOptionIcon = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 // Presentation only: labels and icons never change the answer sent to the API.
 export function formatTriageOptionLabel(value: string): string {
-  return value.trim().normalize('NFC').replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
+  // Keep the observable warning sign visible; a suspected diagnosis is an
+  // internal annotation, while the original value still goes to the API.
+  return value.trim().normalize('NFC')
+    .replace(/\s*\(nghi suy tim\)/giu, '')
+    .replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
 }
 
 const ICON_RULES: Array<[RegExp, TriageOptionIcon]> = [

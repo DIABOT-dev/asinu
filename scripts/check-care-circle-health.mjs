@@ -112,6 +112,7 @@ function harness({ language = 'vi', loadReport, subjectName = 'Parent', multipli
   const palette = { textPrimary: '#123456', textSecondary: '#456789', primary: '#008877', primaryDark: '#006655' };
   const typography = { size: { xxs: 12, xs: 14, sm: 16, md: 18, lg: 22 }, scaledSize: { sm: 16 * multiplier } };
   const selfCalls = [];
+  const props = { loadReport, subjectName };
   const { HealthJournalCalendar } = evaluate(read('src/components/HealthJournalCalendar.tsx'), {
     react: { __esModule: true, default: hooks, ...hooks },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', Modal: 'Modal', ActivityIndicator: 'ActivityIndicator', StyleSheet: { create: value => value, absoluteFill: {} } },
@@ -127,7 +128,7 @@ function harness({ language = 'vi', loadReport, subjectName = 'Parent', multipli
   }, FixedDate);
   const render = () => {
     cursor = 0;
-    const tree = HealthJournalCalendar({ loadReport, subjectName });
+    const tree = HealthJournalCalendar(props);
     const nodes = [];
     const visit = node => {
       if (!node || typeof node !== 'object') return;
@@ -137,12 +138,82 @@ function harness({ language = 'vi', loadReport, subjectName = 'Parent', multipli
     visit(tree);
     return nodes;
   };
-  return { render, selfCalls, t: translate('tree'), tc: translate('careCircle'),
+  return { render, props, selfCalls, t: translate('tree'), tc: translate('careCircle'),
     effects: () => { const next = pending; pending = []; next.forEach(effect => effect()); },
     unmount: () => slots.forEach(slot => slot?.cleanup?.()),
   };
 }
 const text = nodes => nodes.filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
+const checkinDay = (nodes, h) => nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === h.t('journalDayAccessibility', { day: 2, status: h.t('journalStatusFine') }));
+for (const language of ['vi', 'en']) {
+  await test(`${language}: initial loading reserves the calendar grid without calling days missing or showing empty summaries`, async () => {
+    let finish;
+    const h = harness({ language, loadReport: () => new Promise(resolve => { finish = resolve; }) });
+    const first = h.render();
+    assert.equal(first.filter(node => node.props?.testID === 'journal-day-loading').length, 31);
+    assert.equal(first.some(node => node.type === 'Pressable' && node.props.accessibilityLabel?.includes(h.t('journalStatusMissing'))), false);
+    assert.equal(text(first).includes(h.t('journalNoCheckin')), false);
+    assert.equal(text(first).includes(h.t('journalNoEntries')), false);
+    h.effects(); finish(report); await flush();
+    assert.ok(checkinDay(h.render(), h)); h.unmount();
+  });
+}
+await test('background calendar refresh preserves the loaded days and the open day sheet until fresh data arrives', async () => {
+  let finish, refreshing = false;
+  const h = harness({ loadReport: () => refreshing ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(report) });
+  h.render(); h.effects(); await flush();
+  checkinDay(h.render(), h).props.onPress();
+  refreshing = true; h.props.refreshKey = 1;
+  assert.ok(checkinDay(h.render(), h)); h.effects();
+  let nodes = h.render();
+  assert.ok(checkinDay(nodes, h));
+  assert.equal(nodes.find(node => node.type === 'Modal').props.visible, true);
+  assert.equal(nodes.filter(node => node.props?.testID === 'journal-day-loading').length, 0);
+  finish({ ...report, sessions: [{ ...report.sessions[0], summary: 'Fresh fixture detail' }] });
+  await flush(); nodes = h.render();
+  assert.ok(text(nodes).includes('Fresh fixture detail'));
+  assert.equal(nodes.find(node => node.type === 'Modal').props.visible, true); h.unmount();
+});
+await test('a failed background update keeps existing entries with an honest retry notice', async () => {
+  let failure;
+  const h = harness({ loadReport: () => failure ? Promise.reject(failure) : Promise.resolve(report) });
+  h.render(); h.effects(); await flush();
+  failure = new Error('fixture offline'); h.props.refreshKey = 1;
+  h.render(); h.effects(); await flush();
+  let nodes = h.render(); assert.ok(checkinDay(nodes, h));
+  assert.ok(text(nodes).includes(h.t('journalRefreshError')));
+  assert.equal(text(nodes).includes(h.t('journalNoCheckin')), false);
+  failure = null;
+  nodes.find(node => node.type === 'Pressable' && text(flattenElements(node)).includes(h.t('journalRetry'))).props.onPress();
+  h.render(); h.effects(); await flush(); nodes = h.render();
+  assert.ok(checkinDay(nodes, h)); assert.equal(text(nodes).includes(h.t('journalRefreshError')), false); h.unmount();
+});
+for (const status of [401, 403, 404]) {
+  await test(`${status}: access loss clears cached calendar data and the open day sheet`, async () => {
+    let denied = false;
+    const h = harness({ loadReport: () => denied ? Promise.reject(new ApiError(status)) : Promise.resolve(report) });
+    h.render(); h.effects(); await flush(); checkinDay(h.render(), h).props.onPress();
+    denied = true; h.props.refreshKey = 1;
+    h.render(); h.effects(); await flush(); const nodes = h.render();
+    assert.equal(checkinDay(nodes, h), undefined);
+    assert.ok(text(nodes).includes(h.tc('healthAccessRequired')));
+    assert.equal(text(nodes).includes(h.t('journalNoCheckin')), false);
+    assert.equal(nodes.find(node => node.type === 'Modal').props.visible, false); h.unmount();
+  });
+}
+await test('changing the calendar patient hides previous data before effects and rejects a late previous-patient response', async () => {
+  let finish, refreshing = false;
+  const h = harness({ loadReport: () => refreshing ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(report) });
+  h.render(); h.effects(); await flush();
+  refreshing = true; h.props.refreshKey = 1; h.render(); h.effects();
+  h.props.loadReport = () => Promise.resolve({ ...report, checkinDays: 0, sessions: [], statusDistribution: {} });
+  let nodes = h.render();
+  assert.equal(checkinDay(nodes, h), undefined);
+  assert.equal(nodes.filter(node => node.props?.testID === 'journal-day-loading').length, 31);
+  h.effects(); await flush(); finish(report); await flush(); nodes = h.render();
+  assert.equal(checkinDay(nodes, h), undefined);
+  assert.ok(text(nodes).includes(h.t('journalNoEntries'))); h.unmount();
+});
 for (const language of ['vi', 'en']) {
   await test(`${language}: the member calendar calls only the member API and opens day details`, async () => {
     const calls = [];
@@ -204,72 +275,59 @@ await test('the original personal calendar retains its own report API', async ()
   const h = harness({ subjectName: '' }); h.render(); h.effects(); await flush();
   assert.deepEqual(h.selfCalls, [['month', '2026-10']]); h.unmount();
 });
+function flattenElements(tree) {
+  if (Array.isArray(tree)) return tree.flatMap(flattenElements);
+  if (!tree || typeof tree !== 'object') return [];
+  return [tree, ...flattenElements(tree.props?.children)];
+}
 const flatten = style => Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean).map(flatten)) : style ?? {};
 for (const language of ['vi', 'en']) {
-  await test(`${language}: QR actions keep aligned icon frames, readable text and both navigation callbacks`, () => {
-    const catalog = JSON.parse(read(`src/i18n/locales/${language}/careCircle.json`));
-    for (const [width, multiplier, expectedDirection] of [
-      [320, 1, 'column'], [375, 1, 'row'], [390, 1, 'row'], [430, 1, 'row'],
-      [390, 1.25, 'column'], [320, 1.25, 'column'], [768, 2, 'row'],
-    ]) {
+  await test(`${language}: connection QR is visible immediately, with a save action and retry on failure`, () => {
+    const catalogs = Object.fromEntries(['careCircle', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${language}/${ns}.json`))]));
+    for (const width of [320, 375, 390, 768]) {
       for (const isDark of [false, true]) {
-        const palette = { surface: isDark ? '#1a1d27' : '#ffffff', border: '#abcabc', primaryDark: '#087F73', textPrimary: '#123456', textSecondary: '#456789' };
-        const { CareCircleQrActions } = evaluate(`import React from 'react';\n${read('src/features/care-circle/components/CareCircleQrActions.tsx')}`, {
+        const palette = { primaryDark: '#087F73', primaryText: '#087F73', textPrimary: '#123456', textSecondary: '#456789' };
+        let current = { qr: { value: 'asinu-lite://care-circle/scan?token=owner' }, loading: false, error: '', loadCode: () => clicked.push('retry') };
+        const { CareCircleQrActions } = evaluate(read('src/features/care-circle/components/CareCircleQrActions.tsx'), {
           react: React,
           '@expo/vector-icons': { Ionicons: 'Icon' },
-          'react-i18next': { useTranslation: () => ({ t: key => { assert.equal(typeof catalog[key], 'string'); return catalog[key]; } }) },
-          'react-native': { View: 'View', Pressable: 'Pressable', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width }) },
+          'react-i18next': { useTranslation: ns => ({ t: key => { assert.equal(typeof catalogs[ns][key], 'string'); return catalogs[ns][key]; } }) },
+          'react-native': { View: 'View', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width }) },
+          'react-native-qrcode-svg': { __esModule: true, default: 'QRCode' },
           '../../../components/ScaledText': { ScaledText: 'Text' },
-          '../../../hooks/useScaledTypography': { useScaledTypography: () => ({ size: { sm: 15 }, scaledSize: { sm: Math.round(15 * multiplier) } }) },
-          '../../../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette }) },
+          '../../../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark }) },
           '../../../styles': { spacing: { sm: 8, md: 12, lg: 16 } },
+          '../../auth/auth.store': { useAuthStore: selector => selector({ profile: { name: 'Owner' } }) },
+          '../useCareCircleQr': { useCareCircleQr: () => current },
+          '../useSaveCareCircleQr': { useSaveCareCircleQr: () => ({ image: { current: null }, saving: false, save: () => clicked.push('save'), alertState: {}, dismissAlert: () => {} }) },
+          '../../../components/AppAlertModal': { AppAlertModal: 'AppAlertModal' },
         });
         const clicked = [];
-        const row = CareCircleQrActions({ onShowQr: () => clicked.push('show'), onScanQr: () => clicked.push('scan') });
-        const rowStyle = flatten(row.props.style);
-        assert.equal(rowStyle.flexDirection, expectedDirection, `${width}px / ${multiplier}x`);
-        assert.equal(rowStyle.alignItems, 'stretch');
-        const buttons = row.props.children;
-        assert.equal(buttons.length, 2);
-        const normalStyles = buttons.map(button => flatten(button.props.style({ pressed: false })));
-        assert.deepEqual(normalStyles[0], normalStyles[1]);
-        const copyStyles = [];
-        buttons.forEach((button, index) => {
-          assert.equal(button.props.accessibilityRole, 'button');
-          assert.equal(button.props.accessibilityLabel, catalog[index ? 'scanQr' : 'myQrTitle']);
-          assert.equal(button.props.accessibilityHint, catalog[index ? 'scanQrShortHint' : 'myQrShortHint']);
-          const buttonStyle = normalStyles[index];
-          assert.ok(buttonStyle.minHeight >= 44);
-          assert.equal(buttonStyle.height, undefined, 'Text must be allowed to grow');
-          assert.equal(buttonStyle.backgroundColor, palette.surface);
-          assert.equal(buttonStyle.flex, expectedDirection === 'row' ? 1 : 0);
-          const [icon, copy] = button.props.children;
-          assert.equal(icon.props.style.width, 32);
-          assert.equal(icon.props.style.flexShrink, 0);
-          assert.equal(icon.props.style.alignItems, 'center');
-          assert.equal(icon.props.style.justifyContent, 'center');
-          assert.equal(icon.props.importantForAccessibility, 'no-hide-descendants');
-          assert.equal(icon.props.children.props.size, 28);
-          assert.equal(icon.props.children.props.name, index ? 'scan-outline' : 'qr-code-outline');
-          assert.equal(copy.props.style.minWidth, 0);
-          assert.equal(copy.props.style.alignSelf, 'stretch');
-          assert.equal(copy.props.style.justifyContent, 'center');
-          const copyNodes = React.Children.toArray(copy.props.children);
-          copyStyles.push(copyNodes.map(textNode => flatten(textNode.props.style)));
-          copyNodes.forEach(textNode => {
-            assert.equal(textNode.props.numberOfLines, undefined, 'Do not truncate QR labels');
-            assert.equal(textNode.props.adjustsFontSizeToFit, undefined, 'Do not shrink labels');
-          });
-          assert.ok(copyStyles[index][0].fontSize >= 14);
-          assert.equal(flatten(button.props.style({ pressed: true })).opacity, 0.8);
-          button.props.onPress();
-        });
-        assert.deepEqual(copyStyles[0], copyStyles[1], 'Both cards use the same text metrics');
-        assert.deepEqual(clicked, ['show', 'scan']);
+        const render = () => flattenElements(CareCircleQrActions());
+        let rendered = render();
+        const qr = rendered.find(node => node.type === 'QRCode');
+        assert.equal(qr.props.value, current.qr.value);
+        assert.ok(qr.props.size >= 248 && qr.props.size + qr.props.quietZone * 2 <= width - 32);
+        assert.equal(qr.props.backgroundColor, '#ffffff');
+        assert.equal(qr.props.color, '#0f172a');
+        assert.equal(rendered.filter(node => node.type === 'Pressable').length, 1, 'The only QR action is saving; scanning belongs in the screen header');
+        assert.ok(rendered.some(node => node.type === 'Text' && node.props.children === catalogs.careCircle.myQrTitle));
+        rendered.find(node => node.props?.accessibilityLabel === catalogs.careCircle.qrSaveToPhotos).props.onPress();
+        assert.deepEqual(clicked.splice(0), ['save']);
+        assert.equal(rendered.some(node => node.type === 'Text' && ['QR', catalogs.careCircle.myQrDescription, catalogs.careCircle.headerSubtitle].includes(node.props.children)), false);
+        for (const label of rendered.filter(node => node.type === 'Text')) assert.equal(label.props.numberOfLines, undefined);
+        current = { ...current, qr: null, error: 'offline' }; rendered = render();
+        assert.equal(rendered.some(node => node.type === 'QRCode'), false);
+        const retry = rendered.find(node => node.type === 'Pressable' && flattenElements(node).some(child => child.type === 'Text' && child.props.children === catalogs.common.retry));
+        retry.props.onPress(); assert.deepEqual(clicked, ['retry']);
+        current = { ...current, loading: true }; rendered = render();
+        assert.ok(rendered.some(node => node.type === 'Spinner'));
+        assert.equal(rendered.some(node => node.type === 'QRCode'), false);
       }
     }
   });
 }
+
 await test('global green plus launcher renders nothing and has no hidden interaction or API effects', () => {
   const { AsinuEmergencyFAB } = evaluate(read('asinu-brain-extension/ui/AsinuEmergencyFAB.tsx'), {});
   assert.equal(AsinuEmergencyFAB({ onInteraction: () => assert.fail('Hidden launcher must not interact') }), null);

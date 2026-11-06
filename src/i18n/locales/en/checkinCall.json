@@ -95,6 +95,7 @@
   "active": "Active",
   "inactive": "Off",
   "homeControl": {
+    "shortTitle": "Check-in calls",
     "title": "Check-in reminder calls",
     "unknown": "Status is not available yet",
     "offSummary": "Automatic check-in reminder calls are off. You can still check in manually in the app.",

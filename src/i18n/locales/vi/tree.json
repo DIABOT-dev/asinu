@@ -1,5 +1,6 @@
 {
   "healthTree": "Cây sức khỏe",
+  "checkinHistory": "Lịch sử check-in",
   "summaryFromLogs": "Tổng hợp từ dữ liệu bạn ghi log",
   "summaryFromCheckins": "Từ check-in hôm nay và số đo gần nhất",
   "statusBasis": "Cây sức khỏe dựa trên dữ liệu nào?",
@@ -57,6 +58,9 @@
   "journalNoCheckin": "Chưa có check-in trong tháng này",
   "journalNoCheckinHint": "Mỗi lần check-in sẽ được hiển thị trên lịch để bạn dễ theo dõi.",
   "journalLoadError": "Chưa thể tải nhật ký sức khỏe.",
+  "journalLoading": "Đang tải lịch check-in…",
+  "journalUpdating": "Đang cập nhật lịch check-in…",
+  "journalRefreshError": "Chưa cập nhật được lịch. Các ghi nhận đã tải vẫn được giữ lại.",
   "journalRetry": "Thử lại",
   "journalStatusFine": "Ổn",
   "journalStatusTired": "Hơi mệt",
@@ -87,7 +91,7 @@
   "earlyErrorBody": "Asinu chưa thể đọc dữ liệu sức khỏe lúc này. Vui lòng thử lại sau.",
   "earlyTitle": "Tín hiệu sớm",
   "earlyEmpty": "Asinu đọc lại chuỗi check-in, triệu chứng và chỉ số trong 7–30 ngày để tìm điều đáng chú ý.",
-  "earlyCurrentAttention": "Asinu ghi nhận {{count}} dấu hiệu hiện tại cần xem lại. Bấm để xem chi tiết.",
+  "earlyCurrentAttention": "Asinu ghi nhận {{count}} dấu hiệu hiện tại cần xem lại.",
   "earlyFactorEmergency": "Bạn đã kích hoạt hỗ trợ khẩn cấp trong lần check-in hôm nay.",
   "earlyFactorTriageEmergency": "Kết quả check-in có dấu hiệu cần hỗ trợ khẩn cấp.",
   "earlyFactorTriageHigh": "Kết quả check-in có dấu hiệu cần được chú ý sớm.",
@@ -112,5 +116,6 @@
   "earlyFor": "Tín hiệu sớm: {{name}}",
   "earlyCallPerson": "Gọi cho {{name}}",
   "earlyConsult": "Tham vấn chuyên gia",
-  "earlyRetry": "Thử lại"
+  "earlyRetry": "Thử lại",
+  "earlyOpen": "Xem sức khỏe gần đây"
 }

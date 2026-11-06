@@ -21,6 +21,7 @@ import { StateEmpty } from '../../../src/components/state/StateEmpty';
 import { StateError } from '../../../src/components/state/StateError';
 import { MissionsTabSkeleton } from '../../../src/components/state/MainScreenSkeletons';
 import { useMissionActions } from '../../../src/features/missions/useMissionActions';
+import { MissionProgressBar } from '../../../src/features/missions/MissionProgressBar';
 import type { Mission } from '../../../src/features/missions/missions.store';
 import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
 
@@ -48,7 +49,6 @@ const MISSION_CONFIG: Record<
     order: number;
     badgeBg: string;
     badgeColor: string;
-    art: any;
     defaultGoal: number;
     titleKey: string;
     descKey: string;
@@ -58,7 +58,6 @@ const MISSION_CONFIG: Record<
     order: 1,
     badgeBg: '#dcfce7',
     badgeColor: '#059669',
-    art: require('../../../assets/images/missions/mission_checkin_art.png'),
     defaultGoal: 1,
     titleKey: 'dailyCheckIn',
     descKey: 'dailyCheckInDesc',
@@ -67,7 +66,6 @@ const MISSION_CONFIG: Record<
     order: 2,
     badgeBg: '#ffe4e6',
     badgeColor: '#f43f5e',
-    art: require('../../../assets/images/missions/mission_bp_art.png'),
     defaultGoal: 2,
     titleKey: 'measureBP',
     descKey: 'measureBPDesc',
@@ -76,7 +74,6 @@ const MISSION_CONFIG: Record<
     order: 3,
     badgeBg: '#ede9fe',
     badgeColor: '#6366f1',
-    art: require('../../../assets/images/missions/mission_glucose_art.png'),
     defaultGoal: 2,
     titleKey: 'measureGlucose',
     descKey: 'measureGlucoseDesc',
@@ -85,7 +82,6 @@ const MISSION_CONFIG: Record<
     order: 4,
     badgeBg: '#e0f2fe',
     badgeColor: '#0284c7',
-    art: require('../../../assets/images/missions/mission_water_art.png'),
     defaultGoal: 4,
     titleKey: 'waterIntake',
     descKey: 'waterIntakeDesc',
@@ -94,7 +90,6 @@ const MISSION_CONFIG: Record<
     order: 5,
     badgeBg: '#fef3c7',
     badgeColor: '#d97706',
-    art: require('../../../assets/images/missions/mission_weight_art.png'),
     defaultGoal: 1,
     titleKey: 'weightMission',
     descKey: 'weightMissionDesc',
@@ -211,7 +206,6 @@ export default function MissionsScreen() {
               />
               <View style={styles.headerTitleWrap}>
                 <Text style={styles.headerTitle}>{t('missionList')}</Text>
-                <Text style={styles.headerSubtitle}>{t('missionListSubtitle')}</Text>
               </View>
             </View>
           </Animated.View>
@@ -222,9 +216,8 @@ export default function MissionsScreen() {
             <>
               {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
 
-              {/* Cards List */}
+              {/* Missions sit directly on the screen background. */}
               {orderedMissions.map((item, index) => {
-                const progressRatio = item.goal > 0 ? item.progress / item.goal : 0;
                 const isCompleted = item.status === 'completed' || item.progress >= item.goal;
                 const isInProgress = item.progress > 0 && !isCompleted;
 
@@ -245,13 +238,6 @@ export default function MissionsScreen() {
                         }
                       }}
                     >
-                      {/* Background Artwork */}
-                      <Image
-                        source={item.config.art}
-                        style={styles.cardBgArt}
-                        resizeMode="contain"
-                      />
-
                       {/* Top-Right Info Button */}
                       <Pressable
                         style={styles.infoBtn}
@@ -291,41 +277,23 @@ export default function MissionsScreen() {
                           </View>
                           <View style={styles.cardTitleWrap}>
                             <Text style={styles.cardTitle}>{item.title}</Text>
-                            <Text style={styles.cardSubtitle}>{item.description}</Text>
                           </View>
                         </View>
 
-                        {/* Progress Bar Row */}
-                        <View style={styles.progressRow}>
-                          <View style={styles.progressTrack}>
-                            <View
-                              style={[
-                                styles.progressFill,
-                                {
-                                  width: `${Math.min(progressRatio * 100, 100)}%`,
-                                  backgroundColor: isCompleted
-                                    ? '#00897b'
-                                    : item.config.badgeColor,
-                                },
-                              ]}
-                            />
-                          </View>
+                        <MissionProgressBar
+                          title={item.title}
+                          progress={item.progress}
+                          goal={item.goal}
+                          completed={isCompleted}
+                        />
+
+                        {/* Progress count and status stay visible below the bar. */}
+                        <View style={styles.statusRow}>
                           <Text style={styles.progressText}>
                             {item.progress}/{item.goal}
                           </Text>
-                        </View>
-
-                        {/* Status Badge */}
-                        <View style={styles.statusRow}>
                           <View
-                            style={[
-                              styles.statusPill,
-                              isCompleted
-                                ? styles.statusPillCompleted
-                                : isInProgress
-                                ? styles.statusPillActive
-                                : styles.statusPillNotStarted,
-                            ]}
+                            style={styles.statusPill}
                           >
                             <Ionicons
                               name={
@@ -454,42 +422,17 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       color: '#0f3e36',
       letterSpacing: -0.3,
     },
-    headerSubtitle: {
-      fontSize: 13,
-      color: '#476861',
-      lineHeight: 18,
-      marginTop: 4,
-      fontWeight: '500',
-    },
 
-    // Card
+    // Mission rows
     card: {
-      backgroundColor: '#ffffff',
-      borderRadius: 22,
+      backgroundColor: 'transparent',
       paddingVertical: 16,
-      paddingHorizontal: 16,
-      borderWidth: 1,
-      borderColor: '#eef5f2',
+      paddingHorizontal: 8,
       position: 'relative',
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOpacity: 0.035,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 2,
-    },
-    cardBgArt: {
-      position: 'absolute',
-      right: 0,
-      top: 0,
-      bottom: 0,
-      width: 170,
-      height: '100%',
-      pointerEvents: 'none',
     },
     infoBtn: {
       position: 'absolute',
-      right: 14,
+      right: 8,
       top: 14,
       zIndex: 6,
     },
@@ -500,7 +443,7 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      paddingRight: 80,
+      paddingRight: 32,
     },
     badgeCircle: {
       width: 40,
@@ -522,31 +465,6 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       fontWeight: '700',
       color: '#0f172a',
     },
-    cardSubtitle: {
-      fontSize: 12.5,
-      color: '#64748b',
-      lineHeight: 16,
-    },
-
-    // Progress Bar
-    progressRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      marginTop: 14,
-      paddingRight: 60,
-    },
-    progressTrack: {
-      flex: 1,
-      height: 6.5,
-      backgroundColor: '#e2e8f0',
-      borderRadius: 999,
-      overflow: 'hidden',
-    },
-    progressFill: {
-      height: '100%',
-      borderRadius: 999,
-    },
     progressText: {
       fontSize: 13,
       fontWeight: '700',
@@ -559,30 +477,13 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
     statusRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 12,
+      justifyContent: 'space-between',
+      marginTop: 10,
     },
     statusPill: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      paddingHorizontal: 10,
-      paddingVertical: 4.5,
-      borderRadius: 999,
-    },
-    statusPillNotStarted: {
-      backgroundColor: '#f8fafc',
-      borderWidth: 1,
-      borderColor: '#e2e8f0',
-    },
-    statusPillActive: {
-      backgroundColor: '#fefce8',
-      borderWidth: 1,
-      borderColor: '#fef08a',
-    },
-    statusPillCompleted: {
-      backgroundColor: '#f0fdf4',
-      borderWidth: 1,
-      borderColor: '#bbf7d0',
     },
     statusText: {
       fontSize: 12,

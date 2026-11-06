@@ -45,7 +45,7 @@ function createModal(mode) {
   }).AppAlertModal;
 }
 
-function screenHarness(language, mode, initialSharing) {
+function screenHarness(language, mode) {
   const AppAlertModal = createModal(mode);
   const catalog = JSON.parse(fs.readFileSync(`src/i18n/locales/${language}/settings.json`, 'utf8'));
   const t = (key, values = {}) => catalog[key] || values.defaultValue || key;
@@ -80,7 +80,7 @@ function screenHarness(language, mode, initialSharing) {
       apiClient: async (path, options) => {
         calls.push({ path, options });
         assert.equal(options, undefined, 'Opening a modal must not submit a privacy change');
-        return { ok: true, data: { sharing_enabled: initialSharing, details_anonymized: false, items: [] } };
+        return { ok: true, data: { items: [] } };
       },
     },
   }).default;
@@ -108,12 +108,10 @@ function screenHarness(language, mode, initialSharing) {
 async function main() {
   let checks = 0;
   for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
-    for (const action of ['grant_consent', 'withdraw_consent', 'anonymize', 'delete']) {
-      const h = screenHarness(language, mode, action !== 'grant_consent');
+    for (const action of ['delete']) {
+      const h = screenHarness(language, mode);
       const initial = await h.mount();
-      if (action === 'delete') initial.button('privacyAction_delete').props.onPress();
-      else if (action === 'anonymize') initial.toggle('privacyAction_anonymize').props.onValueChange(true);
-      else initial.toggle('privacySharingTitle').props.onValueChange(action === 'grant_consent');
+      initial.button('privacyAction_delete').props.onPress();
       const props = h.render().modal.props;
       assert.equal(props.visible, true);
       const tree = h.AppAlertModal(props), all = nodes(tree);
@@ -125,21 +123,20 @@ async function main() {
       assert.equal(iconStyle.borderWidth, undefined);
       assert.equal(iconStyle.borderColor, undefined);
       const icon = nodes(iconWrap).find(node => node.type === 'Icon');
-      const destructive = action === 'delete' || action === 'anonymize';
-      assert.equal(icon.props.color, destructive ? theme.colors.danger : theme.colors.primary);
+      assert.equal(icon.props.color, theme.colors.danger);
+      const warning = all.find(node => node.props.accessibilityRole === 'alert');
+      assert.ok(warning);
+      const texts = nodes(warning).filter(node => node.type === 'Text');
+      assert.equal(texts.length, 2);
+      assert.ok(style(texts[0].props.style).fontWeight >= 600);
+      assert.ok(contrast(theme.colors.surface, style(texts[0].props.style).color) >= 4.5);
       const buttons = all.filter(node => node.type === 'Pressable' && node.props.accessibilityRole === 'button');
       assert.equal(buttons.length, 2);
       const confirmStyle = style(buttons[0].props.style({ pressed: false }));
       const confirmText = nodes(buttons[0]).find(node => node.type === 'Text');
-      if (action === 'grant_consent') {
-        assert.equal(confirmStyle.backgroundColor, theme.colors.primary);
-        assert.equal(style(confirmText.props.style).color, theme.lightColors.textPrimary);
-        assert.ok(contrast(confirmStyle.backgroundColor, style(confirmText.props.style).color) >= 4.5);
-      } else {
-        assert.equal(confirmStyle.backgroundColor, theme.colors.danger + (mode === 'dark' ? '20' : '12'));
-        assert.equal(confirmStyle.borderColor, theme.colors.danger + '35');
-        assert.equal(style(confirmText.props.style).color, theme.iconColors.danger);
-      }
+      assert.equal(confirmStyle.backgroundColor, theme.colors.danger + (mode === 'dark' ? '20' : '12'));
+      assert.equal(confirmStyle.borderColor, theme.colors.danger + '35');
+      assert.equal(style(confirmText.props.style).color, theme.iconColors.danger);
       assert.equal(style(buttons[1].props.style({ pressed: false })).backgroundColor, theme.colors.surfaceMuted);
       assert.equal(h.calls.filter(call => call.options).length, 0);
       props.onDismiss();
@@ -147,6 +144,33 @@ async function main() {
       console.log(`PASS ${language}/${mode}: ${action} has a bare icon and scoped semantic colors`);
       checks++;
     }
+  }
+  for (const mode of ['light', 'dark']) for (const language of ['vi', 'en']) {
+    const AppAlertModal = createModal(mode);
+    const copy = JSON.parse(fs.readFileSync(`src/i18n/locales/${language}/profile.json`, 'utf8'));
+    let dismissals = 0, upgrades = 0;
+    const tree = AppAlertModal({ queued: true, visible: true, appearance: 'access',
+      heroImage: { uri: 'checkin_access_shield.png' }, primaryButtonBackground: { type: 'Gradient', props: {} },
+      title: copy.premiumFeatureLockedTitle, message: copy.checkinCallLockedDesc,
+      buttons: [{ text: language === 'vi' ? 'Để sau' : 'Later', style: 'cancel' },
+        { text: copy.chooseAnTam, variant: 'primary', onPress: () => { upgrades++; } }],
+      onDismiss: () => { dismissals++; } });
+    const all = nodes(tree), art = all.find(node => node.type === 'Image');
+    assert.ok(art); assert.equal(art.props.accessible, false);
+    const buttons = all.filter(node => node.type === 'Pressable' && node.props.accessibilityRole === 'button');
+    assert.equal(buttons.length, 2);
+    const label = nodes(buttons[1]).find(node => node.type === 'Text');
+    assert.ok(style(label.props.style).fontSize >= 16);
+    assert.ok(contrast('#00847d', style(label.props.style).color) >= 4.5);
+    assert.ok(buttons.every(node => style(node.props.style({ pressed: false })).minHeight >= 56));
+    const row = all.find(node => node.type === 'View' && style(node.props.style).flexDirection === 'row'
+      && nodes(node).filter(child => buttons.includes(child)).length === 2);
+    assert.ok(row);
+    buttons[1].props.onPress(); buttons[1].props.onPress();
+    assert.equal(dismissals, 1); assert.equal(upgrades, 0);
+    tree.props.onDismiss(); tree.props.onDismiss();
+    assert.equal(upgrades, 1, 'The paywall opens once, after native modal dismissal');
+    console.log(`PASS ${language}/${mode}: illustrated access modal preserves deferred upgrade navigation`); checks++;
   }
   for (const mode of ['light', 'dark']) {
     const AppAlertModal = createModal(mode);

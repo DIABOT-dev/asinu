@@ -53,7 +53,6 @@ function harness(language = 'vi', initial = {}) {
     '../src/components/ScaledText': { ScaledText: 'Text' },
     '../src/components/ScreenHeaderButton': { ScreenBackButton: 'Back' },
     '../src/components/AppAlertModal': { AppAlertModal: 'Alert' },
-    '../src/features/auth/auth.store': { useAuthStore: selector => selector({ profile: { consentVersion: 'v2' } }) },
     '../src/hooks/useGuardedRouter': { useGuardedRouter: () => ({ canGoBack: () => false, back: () => navigation.push('back'), replace: route => navigation.push(route) }) },
     '../src/hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors }) },
     '../src/lib/env': { env: { doctorTenantId: 'clinic-demo' } },
@@ -91,9 +90,6 @@ function harness(language = 'vi', initial = {}) {
     return {
       nodes,
       button: key => nodes.find(node => (node.type === 'Pressable' || node.type === 'Back') && node.props.accessibilityLabel === t(key)),
-      toggle: key => nodes.find(node => node.type === 'Switch' && node.props.accessibilityLabel === t(key)),
-      anonymizeRow: nodes.find(node => node.type === 'Pressable' &&
-        node.props.children?.some?.(child => child?.type === 'Switch' && child.props.accessibilityLabel === t('privacyAction_anonymize'))),
       alert: nodes.find(node => node.type === 'Alert'),
     };
   }
@@ -157,28 +153,16 @@ async function main() {
   let checks = 0;
   const test = async (label, run) => { await run(); checks++; console.log(`PASS ${label}`); };
   for (const language of ['vi', 'en']) {
-    await test(`${language}: four separate cards, two switches, no confirmation input`, async () => {
+    await test(`${language}: data tools only show export, delete and history without an intro, sharing, anonymization or a delete chevron`, async () => {
       const h = harness(language), v = await h.mount();
-      assert.equal(v.nodes.filter(node => node.type === 'View' && node.props.style?.overflow === 'hidden').length, 4);
-      assert.equal(v.nodes.filter(node => node.type === 'Switch').length, 2);
-      assert.equal(v.nodes.some(node => node.type === 'TextInput'), false);
+      for (const key of ['privacyAction_export', 'privacyAction_delete', 'privacyHistoryTitle']) assert.ok(v.button(key));
+      assert.equal(v.nodes.filter(node => node.type === 'Switch').length, 0);
+      for (const key of ['privacyCenterDescription', 'privacySharingTitle', 'privacyAction_anonymize']) {
+        assert.equal(v.nodes.some(node => node.type === 'Text' && node.props.children === h.t(key)), false);
+      }
+      assert.equal(v.nodes.some(node => node.type === 'Icon' && node.props.name === 'chevron-forward'), false);
       assert.equal(h.posts().length, 0);
     });
-    for (const [initial, action] of [[true, 'withdraw_consent'], [false, 'grant_consent']]) {
-      await test(`${language}: sharing ${initial ? 'off' : 'on'} waits for the modal and backend`, async () => {
-        const h = harness(language, { sharing_enabled: initial });
-        (await h.mount()).toggle('privacySharingTitle').props.onValueChange(!initial);
-        const opened = h.render();
-        assert.equal(opened.alert.props.visible, true);
-        assert.equal(opened.toggle('privacySharingTitle').props.value, initial);
-        assert.equal(h.posts().length, 0);
-        await h.confirm(opened);
-        const saved = await h.settle();
-        assert.equal(h.posts()[0].options.body.action, action);
-        if (action === 'grant_consent') assert.equal(h.posts()[0].options.body.consent_version, 'v2');
-        assert.equal(saved.toggle('privacySharingTitle').props.value, !initial);
-      });
-    }
     await test(`${language}: cancelling a deletion never sends a request`, async () => {
       const h = harness(language);
       (await h.mount()).button('privacyAction_delete').props.onPress();
@@ -189,93 +173,72 @@ async function main() {
       assert.equal(h.posts().length, 0);
       assert.equal(h.render().alert.props.visible, false);
     });
-    await test(`${language}: deletion runs only after pressing Delete in the modal`, async () => {
+    await test(`${language}: deletion runs only after pressing Delete and refreshes the history`, async () => {
       const h = harness(language);
       (await h.mount()).button('privacyAction_delete').props.onPress();
       assert.equal(h.posts().length, 0);
       await h.confirm(h.render());
       assert.equal(h.posts().length, 1);
       assert.equal(h.posts()[0].options.body.action, 'delete');
+      assert.equal(h.posts()[0].options.body.confirmation, 'CONFIRM_DOCTOR_DATA_REQUEST');
+      assert.ok(h.calls.at(-1).options === undefined, 'History reloads after deletion');
     });
-    await test(`${language}: the anonymization switch opens a modal before processing`, async () => {
+    await test(`${language}: delete warns about cancelled conversations before any data change`, async () => {
       const h = harness(language);
-      (await h.mount()).toggle('privacyAction_anonymize').props.onValueChange(true);
-      assert.equal(h.posts().length, 0);
-      await h.confirm(h.render());
-      const saved = await h.settle();
-      assert.equal(h.posts()[0].options.body.action, 'anonymize');
-      assert.equal(saved.toggle('privacyAction_anonymize').props.value, true);
-      assert.equal(saved.toggle('privacyAction_anonymize').props.disabled, true);
-      assert.equal(saved.anonymizeRow.props.disabled, true);
-    });
-    await test(`${language}: tapping the whole anonymization card opens confirmation without changing data`, async () => {
-      const h = harness(language), initial = await h.mount();
-      initial.anonymizeRow.props.onPress();
-      const view = h.render();
-      assert.equal(view.alert.props.visible, true);
-      assert.equal(view.toggle('privacyAction_anonymize').props.value, false);
-      assert.equal(h.posts().length, 0);
-      view.alert.props.onDismiss();
-      assert.equal(h.render().alert.props.visible, false);
+      (await h.mount()).button('privacyAction_delete').props.onPress();
+      const opened = h.render();
+      const text = opened.nodes.filter(node => node.type === 'Text').map(node => node.props.children);
+      for (const key of ['privacyCancellationWarningTitle', 'privacyCancellationWarningBody', 'privacyConfirmBody_delete']) assert.ok(text.includes(h.t(key)));
+      assert.ok(opened.nodes.some(node => node.props.accessibilityRole === 'alert'));
       assert.equal(h.posts().length, 0);
     });
-    await test(`${language}: loading and failed status explain why anonymization is disabled; retry restores it`, async () => {
-      const h = harness(language);
-      h.rejectStatus(true);
-      const before = h.render();
-      assert.equal(before.anonymizeRow.props.disabled, true);
-      assert.ok(before.nodes.some(node => node.type === 'ActivityIndicator' && node.props.accessibilityLabel === h.t('privacySettingsLoading')));
-      const failed = await h.mount();
-      assert.equal(failed.toggle('privacyAction_anonymize').props.disabled, true);
-      assert.ok(failed.nodes.some(node => node.type === 'Text' && node.props.children === h.t('privacySettingsError')));
-      failed.anonymizeRow.props.onPress();
-      assert.equal(h.render().alert.props.visible, false);
-      assert.equal(h.posts().length, 0);
-      h.rejectStatus(false);
-      await failed.button('privacyRetry').props.onPress();
-      const restored = await h.settle();
-      assert.equal(restored.anonymizeRow.props.disabled, false);
-      restored.anonymizeRow.props.onPress();
-      assert.equal(h.render().alert.props.visible, true);
-    });
-    await test(`${language}: missing anonymization status is not mistaken for an unprotected account`, async () => {
-      const h = harness(language, { details_anonymized: undefined });
-      const view = await h.mount();
-      assert.equal(view.anonymizeRow.props.disabled, true);
-      view.anonymizeRow.props.onPress();
-      assert.equal(h.render().alert.props.visible, false);
-      assert.equal(h.posts().length, 0);
-      assert.ok(view.button('privacyRetry'));
-    });
-    await test(`${language}: failed anonymization keeps the switch off and reports an error`, async () => {
-      const h = harness(language); h.reject();
-      (await h.mount()).anonymizeRow.props.onPress();
-      await h.confirm(h.render());
-      const view = await h.settle();
-      assert.equal(h.posts()[0].options.body.action, 'anonymize');
-      assert.equal(view.toggle('privacyAction_anonymize').props.value, false);
-      assert.equal(view.anonymizeRow.props.disabled, false);
-      assert.equal(h.toasts.at(-1)[1], 'error');
-    });
-    await test(`${language}: export shares the actual API result`, async () => {
+    await test(`${language}: export shares the actual API result and never requests deletion`, async () => {
       const h = harness(language);
       (await h.mount()).button('privacyAction_export').props.onPress();
       await h.settle();
+      assert.equal(h.posts().length, 1);
       assert.equal(h.posts()[0].options.body.action, 'export');
       assert.equal(JSON.parse(h.shares[0].message).test_export, 'records');
     });
-    await test(`${language}: a failed update preserves the previous switch and reports failure`, async () => {
-      const h = harness(language); h.reject();
-      (await h.mount()).toggle('privacySharingTitle').props.onValueChange(false);
-      await h.confirm(h.render());
-      assert.equal((await h.settle()).toggle('privacySharingTitle').props.value, true);
-      assert.equal(h.toasts.at(-1)[1], 'error');
+    await test(`${language}: failed export and deletion report an error and release busy state`, async () => {
+      for (const action of ['export', 'delete']) {
+        const h = harness(language); h.reject();
+        (await h.mount()).button(`privacyAction_${action}`).props.onPress();
+        if (action === 'delete') await h.confirm(h.render());
+        const view = await h.settle();
+        assert.equal(h.posts()[0].options.body.action, action);
+        assert.equal(h.toasts.at(-1)[1], 'error');
+        assert.equal(view.button(`privacyAction_${action}`).props.disabled, false);
+        assert.equal(h.shares.length, 0);
+      }
+    });
+    await test(`${language}: history stays collapsed until requested and displays actual server records`, async () => {
+      const h = harness(language, { items: [{ id: 'receipt-1', action: 'export', status: 'completed', created_at: '2026-11-03T02:00:00Z' }] });
+      const initial = await h.mount();
+      assert.equal(initial.button('privacyHistoryTitle').props.accessibilityState.expanded, false);
+      assert.equal(initial.nodes.some(node => node.type === 'Text' && node.props.children === h.t('privacyStatus_completed')), false);
+      initial.button('privacyHistoryTitle').props.onPress();
+      assert.ok(h.render().nodes.some(node => node.type === 'Text' && node.props.children === h.t('privacyStatus_completed')));
+      assert.equal(h.posts().length, 0);
+    });
+    await test(`${language}: unavailable history can be retried without requiring sharing or anonymization flags`, async () => {
+      const h = harness(language, { sharing_enabled: undefined, details_anonymized: undefined });
+      h.rejectStatus(true);
+      const failed = await h.mount();
+      assert.ok(failed.button('privacyRetry'));
+      h.rejectStatus(false);
+      await failed.button('privacyRetry').props.onPress();
+      const restored = await h.settle();
+      assert.equal(restored.button('privacyRetry'), undefined);
+      restored.button('privacyHistoryTitle').props.onPress();
+      assert.ok(h.render().nodes.some(node => node.type === 'Text' && node.props.children === h.t('privacyHistoryEmpty')));
+      assert.equal(h.posts().length, 0);
     });
   }
   await test('duplicate modal actions cannot send a second pending request', async () => {
     const h = harness(); let release;
     h.hold(new Promise(resolve => { release = resolve; }));
-    (await h.mount()).toggle('privacySharingTitle').props.onValueChange(false);
+    (await h.mount()).button('privacyAction_delete').props.onPress();
     const modal = h.render().alert.props;
     const first = modal.buttons[0].onPress();
     await modal.buttons[0].onPress();
@@ -289,7 +252,7 @@ async function main() {
   await test('real queued confirmation waits for native dismissal, survives re-render and submits once', async () => {
     const h = harness(); let release;
     h.hold(new Promise(resolve => { release = resolve; }));
-    (await h.mount()).anonymizeRow.props.onPress();
+    (await h.mount()).button('privacyAction_delete').props.onPress();
     const alert = queuedAlert(h);
     alert.render();
     const presentation = alert.queue.getSnapshot().active.presentation;
@@ -302,22 +265,21 @@ async function main() {
     alert.queue.didDismiss(presentation);
     alert.queue.didDismiss(presentation);
     assert.equal(h.posts().length, 1);
-    assert.equal(h.posts()[0].options.body.action, 'anonymize');
+    assert.equal(h.posts()[0].options.body.action, 'delete');
     const pending = h.render();
-    assert.equal(pending.anonymizeRow.props.disabled, true);
-    assert.equal(pending.toggle('privacyAction_anonymize').props.accessibilityState.busy, true);
-    assert.ok(pending.nodes.some(node => node.type === 'ActivityIndicator' && node.props.accessibilityLabel === h.t('privacyAnonymizing')));
-    pending.anonymizeRow.props.onPress();
+    assert.equal(pending.button('privacyAction_delete').props.disabled, true);
+    assert.equal(pending.button('privacyAction_delete').props.accessibilityState.busy, true);
+    assert.ok(pending.nodes.some(node => node.type === 'ActivityIndicator' && node.props.accessibilityLabel === h.t('privacyAction_delete')));
+    pending.button('privacyAction_delete').props.onPress();
     assert.equal(h.posts().length, 1);
     release();
     const saved = await h.settle();
-    assert.equal(saved.toggle('privacyAction_anonymize').props.value, true);
-    assert.equal(saved.anonymizeRow.props.disabled, true);
+    assert.equal(saved.button('privacyAction_delete').props.disabled, false);
     assert.equal(alert.queue.getSnapshot().active, null);
   });
-  await test('real queued Cancel never submits anonymization and releases its native presenter', async () => {
+  await test('real queued Cancel never submits deletion and releases its native presenter', async () => {
     const h = harness();
-    (await h.mount()).anonymizeRow.props.onPress();
+    (await h.mount()).button('privacyAction_delete').props.onPress();
     const alert = queuedAlert(h); alert.render();
     const presentation = alert.queue.getSnapshot().active.presentation;
     alert.queue.didShow(presentation);

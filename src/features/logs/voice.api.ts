@@ -1,3 +1,4 @@
+import { monitoredFetch } from '../../observability/sentry';
 import { env } from '../../lib/env';
 import { tokenStore } from '../../lib/tokenStore';
 import i18n from '../../i18n';
@@ -50,7 +51,7 @@ export async function voiceParseLogs(
   } as any);
   formData.append('log_type', logType);
 
-  const response = await fetch(`${env.apiBaseUrl}/api/logs/voice-parse`, {
+  const response = await monitoredFetch(`${env.apiBaseUrl}/api/logs/voice-parse`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

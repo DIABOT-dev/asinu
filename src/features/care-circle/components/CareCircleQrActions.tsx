@@ -1,92 +1,70 @@
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { ScaledText as Text } from '../../../components/ScaledText';
-import { useScaledTypography } from '../../../hooks/useScaledTypography';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { spacing } from '../../../styles';
+import { AppAlertModal } from '../../../components/AppAlertModal';
+import { useCareCircleQr } from '../useCareCircleQr';
+import { useSaveCareCircleQr } from '../useSaveCareCircleQr';
 
-type Props = {
-  onShowQr: () => void;
-  onScanQr: () => void;
-};
-
-export function CareCircleQrActions({ onShowQr, onScanQr }: Props) {
+export function CareCircleQrActions() {
   const { t } = useTranslation('careCircle');
+  const { t: tc } = useTranslation('common');
   const { colors } = useThemeColors();
   const { width } = useWindowDimensions();
-  const typography = useScaledTypography();
-  const textScale = typography.scaledSize.sm / typography.size.sm;
-  // Reserve space for padding, the icon and a readable label before using columns.
-  const minimumCardWidth = 64 + 100 * textScale;
-  const stacked = width - spacing.lg * 2 < minimumCardWidth * 2 + spacing.sm;
-  const actions = [
-    { id: 'show-qr', title: t('myQrTitle'), hint: t('myQrShortHint'), icon: 'qr-code-outline' as const, onPress: onShowQr },
-    { id: 'scan-qr', title: t('scanQr'), hint: t('scanQrShortHint'), icon: 'scan-outline' as const, onPress: onScanQr },
-  ];
+  const { qr, loading, error, loadCode } = useCareCircleQr();
+  const { image, saving, save, alertState, dismissAlert } = useSaveCareCircleQr(qr?.value);
+  const codeSize = Math.min(304, Math.max(144, width - spacing.lg * 2 - 32));
 
   return (
-    <View style={[styles.row, stacked && styles.stackedRow]}>
-      {actions.map(action => (
-        <Pressable
-          key={action.id}
-          accessibilityRole="button"
-          accessibilityLabel={action.title}
-          accessibilityHint={action.hint}
-          onPress={action.onPress}
-          style={({ pressed }) => [
-            styles.action,
-            stacked && styles.stackedAction,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            pressed && styles.pressed,
-          ]}
-        >
-          <View style={styles.icon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            <Ionicons name={action.icon} size={28} color={colors.primaryDark} />
+    <View style={styles.section}>
+      <Text accessibilityRole="header" style={[styles.name, { color: colors.textPrimary }]}>{t('myQrTitle')}</Text>
+      <View style={[styles.codeFrame, !loading && qr && styles.qrCodeFrame]} accessible accessibilityLabel={t('qrIdentityHint')}>
+        {loading ? (
+          <View style={[styles.placeholder, { width: codeSize + 32, minHeight: codeSize + 32 }]}>
+            <ActivityIndicator size="large" color={colors.primaryDark} />
+            <Text style={[styles.message, { color: colors.textSecondary }]}>{t('qrCreating')}</Text>
           </View>
-          <View style={styles.copy}>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>{action.title}</Text>
+        ) : qr ? (
+          <QRCode value={qr.value} getRef={(ref) => { image.current = ref; }} size={codeSize} quietZone={16} color="#0f172a" backgroundColor="#ffffff" />
+        ) : (
+          <View style={[styles.placeholder, { width: codeSize + 32, minHeight: codeSize + 32 }]}>
+            <Ionicons name="qr-code-outline" size={36} color={colors.textSecondary} />
+            <Text style={[styles.message, { color: colors.textSecondary }]}>{error || t('qrUnavailableTitle')}</Text>
+            <Pressable accessibilityRole="button" onPress={() => void loadCode()} style={styles.retry}>
+              <Text style={[styles.retryText, { color: colors.primaryText }]}>{tc('retry')}</Text>
+            </Pressable>
           </View>
-        </Pressable>
-      ))}
+        )}
+      </View>
+      {!loading && qr && <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('qrSaveToPhotos')}
+        accessibilityState={{ disabled: saving, busy: saving }}
+        disabled={saving}
+        onPress={() => void save()}
+        style={({ pressed }) => [styles.save, { opacity: pressed || saving ? 0.65 : 1 }]}
+      >
+        {saving ? <ActivityIndicator color={colors.primaryDark} /> : <Ionicons name="download-outline" size={22} color={colors.primaryDark} />}
+        <Text style={[styles.retryText, { color: colors.primaryText }]}>{t(saving ? 'qrSaving' : 'qrSaveToPhotos')}</Text>
+      </Pressable>}
+      <AppAlertModal {...alertState} onDismiss={dismissAlert} queued />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-    marginHorizontal: spacing.lg,
-  },
-  stackedRow: { flexDirection: 'column' },
-  action: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 74,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 18,
-    borderWidth: 1,
-  },
-  stackedAction: { flex: 0, width: '100%' },
-  pressed: { opacity: 0.8 },
-  icon: {
-    width: 32,
-    alignSelf: 'stretch',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  copy: {
-    flex: 1,
-    minWidth: 0,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  title: { fontSize: 14, fontWeight: '800', lineHeight: 21 },
+  section: { marginHorizontal: spacing.lg, marginBottom: spacing.lg, alignItems: 'center', gap: 12 },
+  name: { fontSize: 18, fontWeight: '600', textAlign: 'center' },
+  // The light quiet zone is part of the code, preserving scanner contrast in both themes.
+  codeFrame: { alignItems: 'center', justifyContent: 'center', borderRadius: 16, overflow: 'hidden' },
+  qrCodeFrame: { backgroundColor: '#ffffff' },
+  placeholder: { alignItems: 'center', justifyContent: 'center', gap: 12, padding: 16 },
+  message: { fontSize: 16, textAlign: 'center' },
+  retry: { minHeight: 48, minWidth: 100, alignItems: 'center', justifyContent: 'center' },
+  retryText: { fontSize: 18, fontWeight: '600' },
+  save: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 16 },
 });

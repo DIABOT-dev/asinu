@@ -1,657 +1,294 @@
-import { runNativePermission } from '../../../lib/native-permissions';
-import { Ionicons } from '@expo/vector-icons';
-import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Linking from 'expo-linking';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenBackButton } from '../../../components/ScreenHeaderButton';
-import { ScaledText as Text } from '../../../components/ScaledText';
-import { useGuardedRouter as useRouter } from '../../../hooks/useGuardedRouter';
-import { useScaledTypography } from '../../../hooks/useScaledTypography';
-import { useThemeColors } from '../../../hooks/useThemeColors';
-import { getApiErrorMessage } from '../../../lib/apiClient';
-import { radius, spacing } from '../../../styles';
-import { careCircleApi } from '../care-circle.api';
+import { Ionicons } from "@expo/vector-icons";
+import { CameraView } from "expo-camera";
+import { Stack, useLocalSearchParams } from "expo-router";
+import React, { useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScaledText as Text } from "../../../components/ScaledText";
+import { useGuardedRouter as useRouter } from "../../../hooks/useGuardedRouter";
+import { spacing } from "../../../styles";
+import { useCareCircleScanner } from "../useCareCircleScanner";
+import { useQrCameraPermission } from "../useQrCameraPermission";
 
-function tokenFromQr(value: string) {
-  const trimmed = value.trim();
-  try {
-    const parsed = Linking.parse(trimmed);
-    const token = parsed.queryParams?.token;
-    if (typeof token === 'string' && token.length >= 32) {
-      return token;
-    }
-  } catch {}
-  return /^[A-Za-z0-9_-]{32,256}$/.test(trimmed) ? trimmed : null;
-}
-
-function CareCircleScanScreen() {
-  const { t } = useTranslation('careCircle');
-  const { t: tc } = useTranslation('common');
+export default function CareCircleScanScreen() {
+  const { t } = useTranslation("careCircle");
+  const { t: tc } = useTranslation("common");
   const router = useRouter();
   const params = useLocalSearchParams<{ token?: string | string[] }>();
-  const inboundToken = Array.isArray(params.token) ? params.token[0] : params.token;
-  const inboundHandled = useRef(false);
+  const inboundToken = Array.isArray(params.token)
+    ? params.token[0]
+    : params.token;
   const insets = useSafeAreaInsets();
-  const typography = useScaledTypography();
-  const { isDark } = useThemeColors();
-  const styles = useMemo(() => createStyles(typography, isDark), [typography, isDark]);
-  const [permission, requestPermission] = useCameraPermissions();
+  const { permission, pending, change } = useQrCameraPermission(!inboundToken);
   const [torch, setTorch] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [error, setError] = useState('');
-
-  const openToken = useCallback(async (token: string) => {
-    setScanning(true);
-    setError('');
-    try {
-      await careCircleApi.previewQrToken(token);
-      router.replace({ pathname: '/care-circle/invite', params: { qrToken: token } } as never);
-    } catch (err) {
-      setError(getApiErrorMessage(err, t, 'qrPreviewError'));
-    }
-  }, [router, t]);
-
-  const scan = useCallback(async ({ data }: BarcodeScanningResult) => {
-    if (scanning) {
-      return;
-    }
-    const token = tokenFromQr(data);
-    if (!token) {
-      setError(t('qrInvalidFormat'));
-      setScanning(true);
-      return;
-    }
-    await openToken(token);
-  }, [openToken, scanning, t]);
-
-  useEffect(() => {
-    if (!inboundToken || inboundHandled.current) {
-      return;
-    }
-    inboundHandled.current = true;
-    openToken(inboundToken).catch(() => {});
-  }, [inboundToken, openToken]);
-
-  const retry = () => {
-    setError('');
-    setScanning(false);
-  };
-
-  if (inboundToken) {
-    return (
-      <View style={styles.permissionScreen}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <LinearGradient
-          colors={
-            isDark
-              ? ['#071a18', '#0c2824', '#071a18']
-              : ['#f0fbf8', '#f8fdfb', '#eef9f5']
-          }
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.permissionHeader, { paddingTop: insets.top + spacing.xs }]}>
-          <ScreenBackButton onPress={() => router.back()} />
-          <Text style={styles.permissionHeaderTitle}>{t('scanQrTitle')}</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.permissionContentScroll}>
-          <View style={styles.permissionCard}>
-            {error ? (
-              <>
-                <View style={styles.errorIconBadge}>
-                  <Ionicons name="alert-circle-outline" size={42} color="#EF4444" />
-                </View>
-                <Text style={styles.permissionTitle}>{t('qrCannotUse')}</Text>
-                <Text style={styles.permissionBody}>{error}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('scanAgain')}
-                  onPress={() => router.replace('/care-circle/scan' as never)}
-                  style={({ pressed }) => [styles.actionButtonWrap, pressed && styles.pressed]}
-                >
-                  <LinearGradient
-                    colors={['#087F73', '#059669']}
-                    end={{ x: 1, y: 0 }}
-                    start={{ x: 0, y: 0 }}
-                    style={styles.permissionButton}
-                  >
-                    <Ionicons name="scan" size={20} color="#F7FFFD" />
-                    <Text style={styles.permissionButtonText}>{t('scanAgain')}</Text>
-                  </LinearGradient>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <ActivityIndicator size="large" color="#087F73" />
-                <Text style={[styles.permissionTitle, { marginTop: spacing.md }]}>{t('qrChecking')}</Text>
-              </>
-            )}
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  if (!permission) {
-    return (
-      <View style={styles.permissionLoadingScreen}>
-        <LinearGradient
-          colors={
-            isDark
-              ? ['#071a18', '#0c2824', '#071a18']
-              : ['#f0fbf8', '#f8fdfb', '#eef9f5']
-          }
-          style={StyleSheet.absoluteFill}
-        />
-        <ActivityIndicator size="large" color="#087F73" />
-      </View>
-    );
-  }
-
-  if (!permission.granted) {
-    const canAskAgain = permission.canAskAgain;
-
-    return (
-      <View style={styles.permissionScreen}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <LinearGradient
-          colors={
-            isDark
-              ? ['#071a18', '#0c2824', '#071a18']
-              : ['#f0fbf8', '#f8fdfb', '#eef9f5']
-          }
-          style={StyleSheet.absoluteFill}
-        />
-
-        {/* Decorative background elements */}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <Image
-            source={require('../../../../assets/images/care-circle/header_cross_leaves_left.png')}
-            style={styles.bgDecoTopLeft}
-            resizeMode="contain"
-          />
-          <Image
-            source={require('../../../../assets/images/care-circle/scan_header_heart_ecg.png')}
-            style={styles.bgDecoTopRight}
-            resizeMode="contain"
-          />
-          <Image
-            source={require('../../../../assets/images/care-circle/scan_bottom_leaves.png')}
-            style={styles.bgDecoBottom}
-            resizeMode="cover"
-          />
-        </View>
-
-        {/* Header Bar */}
-        <View style={[styles.permissionHeader, { paddingTop: insets.top + spacing.xs }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={tc('back')}
-            hitSlop={12}
-            onPress={() => router.back()}
-            style={({ pressed }) => [styles.headerNavButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="arrow-back" size={24} color={isDark ? '#5EEAD4' : '#0D766E'} />
-          </Pressable>
-          <View style={styles.permissionHeaderTextWrap}>
-            <Text style={styles.permissionHeaderTitle}>{t('cameraPermissionHeaderTitle')}</Text>
-            <Text style={styles.permissionHeaderSubtitle}>{t('cameraPermissionHeaderSubtitle')}</Text>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        {/* Scrollable Content */}
-        <ScrollView
-          bounces={false}
-          contentContainerStyle={styles.permissionScrollContent}
-          showsVerticalScrollIndicator={false}
-          style={styles.permissionScroll}
-        >
-          {/* Family photo hero banner behind the card */}
-          <View pointerEvents="none" style={styles.heroBannerWrap}>
-            <Image
-              source={require('../../../../assets/images/care-circle/camera_permission_family_hero.png')}
-              style={styles.heroBannerImage}
-              resizeMode="cover"
-            />
-          </View>
-
-          {/* Main White Card */}
-          <View style={styles.permissionCard}>
-            {/* Minimalist Camera Icon */}
-            <View style={styles.cameraIconCircle}>
-              <Ionicons
-                name="camera-outline"
-                size={32}
-                color={isDark ? '#2DD4BF' : '#0D9488'}
-              />
-            </View>
-
-            {/* Title & Body */}
-            <Text style={styles.permissionTitle}>{t('cameraPermissionTitle')}</Text>
-            <Text style={styles.permissionBody}>
-              {canAskAgain
-                ? t('cameraPermissionDescription')
-                : t('cameraPermissionNeedSettings')}
-            </Text>
-
-            {/* Feature 1 */}
-            <View style={styles.featureCard}>
-              <View style={styles.featureIconWrap}>
-                <Ionicons
-                  name="qr-code-outline"
-                  size={22}
-                  color={isDark ? '#2DD4BF' : '#0D9488'}
-                />
-              </View>
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureTitle}>{t('cameraPermissionFeature1')}</Text>
-                <Text style={styles.featureDesc}>{t('cameraPermissionFeatureDesc1')}</Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={isDark ? '#52525B' : '#94A3B8'}
-              />
-            </View>
-
-            {/* Feature 2 */}
-            <View style={styles.featureCard}>
-              <View style={styles.featureIconWrap}>
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={22}
-                  color={isDark ? '#2DD4BF' : '#0D9488'}
-                />
-              </View>
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureTitle}>{t('cameraPermissionFeature2')}</Text>
-                <Text style={styles.featureDesc}>{t('cameraPermissionFeatureDesc2')}</Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={isDark ? '#52525B' : '#94A3B8'}
-              />
-            </View>
-
-            {/* Primary Action Button */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={canAskAgain ? t('allowCamera') : t('openSettings')}
-              onPress={() => {
-                if (canAskAgain) {
-                  runNativePermission(() => requestPermission(), { key: 'camera' }).catch(() => {});
-                } else {
-                  runNativePermission(() => Linking.openSettings(), { key: 'app-settings', settings: true }).catch(() => {});
-                }
-              }}
-              style={({ pressed }) => [styles.actionButtonWrap, pressed && styles.pressed]}
-            >
-              <LinearGradient
-                colors={['#0D9488', '#0F766E']}
-                end={{ x: 1, y: 0 }}
-                start={{ x: 0, y: 0 }}
-                style={styles.permissionButton}
-              >
-                <Ionicons
-                  name={canAskAgain ? 'camera' : 'settings-outline'}
-                  size={20}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.permissionButtonText}>
-                  {canAskAgain ? t('allowCamera') : t('openSettings')}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-
-            {/* Secondary Action Button */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('cameraPermissionLater')}
-              onPress={() => router.back()}
-              style={({ pressed }) => [styles.laterButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.laterButtonText}>{t('cameraPermissionLater')}</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
+  const { scanning, pickingImage, error, scan, pickImage, retry } =
+    useCareCircleScanner(inboundToken);
+  const cameraAvailable = permission?.granted && !inboundToken;
 
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <CameraView
-        active
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        enableTorch={torch}
-        facing="back"
-        onBarcodeScanned={scanning ? undefined : scan}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.scrimTop} />
-      <View style={styles.scrimBottom} />
-
-      <View style={[styles.cameraHeader, { paddingTop: insets.top + spacing.xs }]}>
+      {cameraAvailable && (
+        <CameraView
+          active={!pickingImage}
+          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+          enableTorch={torch}
+          facing="back"
+          onBarcodeScanned={scanning ? undefined : scan}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+      <View style={styles.scrimTop} pointerEvents="none" />
+      <View style={styles.scrimBottom} pointerEvents="none" />
+      <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={tc('back')}
+          accessibilityLabel={tc("back")}
           hitSlop={8}
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.cameraBackButton, pressed && styles.pressed]}
+          style={styles.iconButton}
         >
-          <Ionicons name="arrow-back" size={22} color="#F7FFFD" />
+          <Ionicons name="arrow-back" size={22} color="#f0fdfa" />
         </Pressable>
-        <Text style={styles.cameraTitle}>{t('scanQrTitle')}</Text>
+        <Text style={styles.title}>{t("scanQrTitle")}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={torch ? t('turnOffFlash') : t('turnOnFlash')}
+          accessibilityLabel={torch ? t("turnOffFlash") : t("turnOnFlash")}
+          disabled={!cameraAvailable}
           onPress={() => setTorch((value) => !value)}
-          style={({ pressed }) => [styles.torchButton, pressed && styles.pressed]}
+          style={styles.iconButton}
         >
-          <Ionicons name={torch ? 'flash' : 'flash-off'} size={22} color={torch ? '#53E4D1' : '#F7FFFD'} />
+          <Ionicons
+            name={torch ? "flash" : "flash-off"}
+            size={22}
+            color={torch ? "#53e4d1" : "#f0fdfa"}
+          />
         </Pressable>
       </View>
 
-      <View pointerEvents="none" style={styles.scanArea}>
-        <View style={styles.viewfinder}>
-          <View style={[styles.corner, styles.cornerTopLeft]} />
-          <View style={[styles.corner, styles.cornerTopRight]} />
-          <View style={[styles.corner, styles.cornerBottomLeft]} />
-          <View style={[styles.corner, styles.cornerBottomRight]} />
-          {scanning && !error ? (
-            <View style={styles.scanningOverlay}>
-              <ActivityIndicator size="large" color="#53E4D1" />
-              <Text style={styles.scanningText}>{t('qrChecking')}</Text>
-            </View>
-          ) : null}
-        </View>
+      <View
+        style={styles.scanArea}
+        pointerEvents={cameraAvailable ? "none" : "auto"}
+      >
+        {inboundToken ? (
+          !error && (
+            <>
+              <ActivityIndicator size="large" color="#53e4d1" />
+              <Text style={styles.message}>{t("qrChecking")}</Text>
+            </>
+          )
+        ) : cameraAvailable ? (
+          <View style={styles.viewfinder}>
+            <View style={[styles.corner, styles.topLeft]} />
+            <View style={[styles.corner, styles.topRight]} />
+            <View style={[styles.corner, styles.bottomLeft]} />
+            <View style={[styles.corner, styles.bottomRight]} />
+            {scanning && !error && (
+              <ActivityIndicator size="large" color="#53e4d1" />
+            )}
+          </View>
+        ) : !permission || pending ? (
+          <ActivityIndicator size="large" color="#53e4d1" />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(
+              permission.canAskAgain ? "allowCamera" : "openSettings"
+            )}
+            onPress={() => void change(true)}
+            style={styles.action}
+          >
+            <Ionicons name="camera-outline" size={24} color="#b9f4ea" />
+            <Text style={styles.message}>
+              {t(permission.canAskAgain ? "allowCamera" : "openSettings")}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
-      <View style={[styles.instructionPanel, { paddingBottom: insets.bottom + spacing.lg }]}>
+      <View
+        style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}
+      >
         {error ? (
           <>
-            <Ionicons name="alert-circle-outline" size={30} color="#FECACA" />
-            <Text style={styles.errorTitle}>{t('qrCannotUse')}</Text>
-            <Text style={styles.errorBody}>{error}</Text>
+            <Text style={styles.error}>{error}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t('scanAgain')}
-              onPress={retry}
-              style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
+              accessibilityLabel={t("scanAgain")}
+              onPress={() =>
+                inboundToken ? router.replace("/care-circle/scan") : retry()
+              }
+              style={styles.action}
             >
-              <Ionicons name="scan" size={20} color="#073B36" />
-              <Text style={styles.retryText}>{t('scanAgain')}</Text>
+              <Text style={styles.message}>{t("scanAgain")}</Text>
             </Pressable>
           </>
-        ) : (
-          <>
-            <Text style={styles.instructionTitle}>{t('placeQrInFrame')}</Text>
-            <Text style={styles.instructionBody}>{t('scanQrDescription')}</Text>
-          </>
+        ) : !inboundToken && cameraAvailable ? (
+          <Text style={styles.instruction}>{t("placeQrInFrame")}</Text>
+        ) : null}
+        {!inboundToken && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("qrChoosePhoto")}
+            accessibilityState={{
+              disabled: scanning && !error,
+              busy: pickingImage,
+            }}
+            disabled={scanning && !error}
+            onPress={() => void pickImage()}
+            style={({ pressed }) => [
+              styles.photoButton,
+              pressed && { opacity: 0.65 },
+            ]}
+          >
+            {pickingImage ? (
+              <ActivityIndicator color="#f0fdfa" />
+            ) : (
+              <Ionicons name="images-outline" size={24} color="#f0fdfa" />
+            )}
+            <Text style={styles.photoText}>
+              {t(pickingImage ? "qrReadingPhoto" : "qrChoosePhoto")}
+            </Text>
+          </Pressable>
         )}
       </View>
     </View>
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark: boolean) {
-  return StyleSheet.create({
-    screen: { backgroundColor: '#071A18', flex: 1 },
-    permissionScreen: {
-      backgroundColor: isDark ? '#071a18' : '#F4FBF9',
-      flex: 1,
-    },
-    permissionLoadingScreen: {
-      alignItems: 'center',
-      backgroundColor: isDark ? '#071a18' : '#F4FBF9',
-      flex: 1,
-      justifyContent: 'center',
-    },
-    permissionHeader: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      minHeight: 56,
-      paddingHorizontal: spacing.lg,
-      zIndex: 2,
-    },
-    permissionHeaderTextWrap: {
-      alignItems: 'center',
-      flex: 1,
-      justifyContent: 'center',
-    },
-    permissionHeaderTitle: {
-      color: isDark ? '#f8fafc' : '#0F172A',
-      fontSize: typography.size.lg,
-      fontWeight: '800',
-      textAlign: 'center',
-    },
-    permissionHeaderSubtitle: {
-      color: isDark ? '#94a3b8' : '#0D766E',
-      fontSize: typography.size.xs,
-      fontWeight: '500',
-      marginTop: 2,
-      textAlign: 'center',
-    },
-    headerSpacer: { width: 44 },
-    headerNavButton: {
-      alignItems: 'center',
-      height: 44,
-      justifyContent: 'center',
-      width: 44,
-    },
-    bgDecoTopLeft: {
-      height: 176,
-      left: 0,
-      opacity: isDark ? 0.4 : 0.85,
-      position: 'absolute',
-      top: 0,
-      width: 130,
-    },
-    bgDecoTopRight: {
-      height: 100,
-      opacity: isDark ? 0.45 : 0.95,
-      position: 'absolute',
-      right: 0,
-      top: 36,
-      width: 135,
-    },
-    bgDecoBottom: {
-      bottom: 0,
-      height: 80,
-      left: 0,
-      opacity: isDark ? 0.5 : 0.9,
-      position: 'absolute',
-      right: 0,
-      width: '100%',
-    },
-    heroBannerWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: -24,
-      marginTop: spacing.xs,
-      overflow: 'hidden',
-      width: '100%',
-      zIndex: 1,
-    },
-    heroBannerImage: {
-      aspectRatio: 1024 / 360,
-      width: '100%',
-    },
-    permissionScroll: {
-      flex: 1,
-    },
-    permissionScrollContent: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-    },
-    permissionContentScroll: {
-      alignItems: 'center',
-      flex: 1,
-      justifyContent: 'center',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.lg,
-    },
-    permissionCard: {
-      alignSelf: 'center',
-      backgroundColor: isDark ? '#0d2522' : '#ffffff',
-      borderColor: isDark ? 'rgba(44, 199, 181, 0.2)' : '#E2E8F0',
-      borderRadius: 28,
-      borderWidth: 1,
-      maxWidth: 420,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.xl,
-      shadowColor: '#087F73',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: isDark ? 0.3 : 0.06,
-      shadowRadius: 18,
-      elevation: 4,
-      width: '100%',
-      zIndex: 2,
-    },
-    cameraIconCircle: {
-      alignItems: 'center',
-      alignSelf: 'center',
-      borderRadius: 32,
-      height: 64,
-      justifyContent: 'center',
-      marginBottom: spacing.sm,
-      width: 64,
-    },
-    cameraHeroArt: {
-      alignSelf: 'center',
-      height: 114,
-      marginBottom: spacing.md,
-      width: 220,
-    },
-    permissionTitle: {
-      color: isDark ? '#f8fafc' : '#0F172A',
-      fontSize: typography.size.xl,
-      fontWeight: '800',
-      marginTop: spacing.xs,
-      textAlign: 'center',
-    },
-    permissionBody: {
-      alignSelf: 'center',
-      color: isDark ? '#94a3b8' : '#64748B',
-      fontSize: typography.size.sm,
-      lineHeight: 20,
-      marginBottom: spacing.lg,
-      marginTop: spacing.xs,
-      maxWidth: 320,
-      textAlign: 'center',
-    },
-    featureCard: {
-      alignItems: 'center',
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#FFFFFF',
-      borderColor: isDark ? 'rgba(44, 199, 181, 0.2)' : '#E2E8F0',
-      borderRadius: 16,
-      borderWidth: 1,
-      flexDirection: 'row',
-      gap: 14,
-      marginBottom: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      width: '100%',
-    },
-    featureIconWrap: {
-      alignItems: 'center',
-      borderRadius: 12,
-      height: 38,
-      justifyContent: 'center',
-      width: 38,
-    },
-    featureTextWrap: {
-      flex: 1,
-    },
-    featureTitle: {
-      color: isDark ? '#f8fafc' : '#0F172A',
-      fontSize: typography.size.sm,
-      fontWeight: '700',
-    },
-    featureDesc: {
-      color: isDark ? '#94a3b8' : '#64748B',
-      fontSize: typography.size.xs,
-      lineHeight: 18,
-      marginTop: 2,
-    },
-    actionButtonWrap: {
-      borderRadius: radius.full,
-      marginTop: spacing.sm,
-      overflow: 'hidden',
-      width: '100%',
-    },
-    permissionButton: {
-      alignItems: 'center',
-      borderRadius: radius.full,
-      flexDirection: 'row',
-      gap: spacing.sm,
-      justifyContent: 'center',
-      minHeight: 52,
-      paddingHorizontal: spacing.xl,
-      width: '100%',
-    },
-    permissionButtonText: {
-      color: '#FFFFFF',
-      fontSize: typography.size.md,
-      fontWeight: '700',
-    },
-    laterButton: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: spacing.sm,
-      minHeight: 40,
-      paddingHorizontal: spacing.md,
-    },
-    laterButtonText: {
-      color: isDark ? '#5EEAD4' : '#0D9488',
-      fontSize: typography.size.sm,
-      fontWeight: '700',
-    },
-    errorIconBadge: {
-      alignItems: 'center',
-      borderRadius: 36,
-      height: 72,
-      justifyContent: 'center',
-      marginBottom: spacing.md,
-      width: 72,
-    },
-    scrimTop: { backgroundColor: 'rgba(4, 20, 18, 0.58)', height: '24%', left: 0, position: 'absolute', right: 0, top: 0 },
-    scrimBottom: { backgroundColor: 'rgba(4, 20, 18, 0.72)', bottom: 0, height: '32%', left: 0, position: 'absolute', right: 0 },
-    cameraHeader: { alignItems: 'center', flexDirection: 'row', left: 0, paddingHorizontal: spacing.lg, position: 'absolute', right: 0, top: 0 },
-    cameraBackButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
-    cameraTitle: { color: '#F7FFFD', flex: 1, fontSize: typography.size.lg, fontWeight: '800', textAlign: 'center' },
-    torchButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
-    scanArea: { alignItems: 'center', bottom: '28%', justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: '20%' },
-    viewfinder: { height: 264, position: 'relative', width: 264 },
-    corner: { borderColor: '#53E4D1', height: 46, position: 'absolute', width: 46 },
-    cornerTopLeft: { borderLeftWidth: 5, borderTopLeftRadius: 18, borderTopWidth: 5, left: 0, top: 0 },
-    cornerTopRight: { borderRightWidth: 5, borderTopRightRadius: 18, borderTopWidth: 5, right: 0, top: 0 },
-    cornerBottomLeft: { borderBottomLeftRadius: 18, borderBottomWidth: 5, borderLeftWidth: 5, bottom: 0, left: 0 },
-    cornerBottomRight: { borderBottomRightRadius: 18, borderBottomWidth: 5, borderRightWidth: 5, bottom: 0, right: 0 },
-    scanningOverlay: { alignItems: 'center', backgroundColor: 'rgba(7, 26, 24, 0.82)', borderRadius: 22, bottom: 12, justifyContent: 'center', left: 12, position: 'absolute', right: 12, top: 12 },
-    scanningText: { color: '#F7FFFD', fontSize: typography.size.sm, fontWeight: '700', marginTop: spacing.sm },
-    instructionPanel: { alignItems: 'center', bottom: 0, left: 0, paddingHorizontal: spacing.xl, position: 'absolute', right: 0 },
-    instructionTitle: { color: '#F7FFFD', fontSize: typography.size.lg, fontWeight: '900', textAlign: 'center' },
-    instructionBody: { color: '#C9DBD8', fontSize: typography.size.sm, lineHeight: 21, marginTop: spacing.xs, maxWidth: 330, textAlign: 'center' },
-    errorTitle: { color: '#F7FFFD', fontSize: typography.size.md, fontWeight: '900', marginTop: spacing.sm },
-    errorBody: { color: '#FECACA', fontSize: typography.size.sm, lineHeight: 20, marginTop: 4, textAlign: 'center' },
-    retryButton: { alignItems: 'center', backgroundColor: '#B9F4EA', borderRadius: radius.full, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: spacing.md, minHeight: 46, paddingHorizontal: spacing.lg },
-    retryText: { color: '#073B36', fontSize: typography.size.sm, fontWeight: '800' },
-    pressed: { opacity: 0.82 },
-  });
-}
-
-// Keep the route export explicit so Expo Router's require context always
-// receives a module object with a stable `default` field.
-export default CareCircleScanScreen;
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: "#071a18" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  title: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#f0fdfa",
+    textAlign: "center",
+  },
+  iconButton: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scrimTop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "20%",
+    backgroundColor: "rgba(4,20,18,0.55)",
+  },
+  scrimBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "28%",
+    backgroundColor: "rgba(4,20,18,0.7)",
+  },
+  scanArea: {
+    position: "absolute",
+    top: "22%",
+    bottom: "28%",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewfinder: {
+    width: 264,
+    height: 264,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  corner: {
+    position: "absolute",
+    width: 46,
+    height: 46,
+    borderColor: "#53e4d1",
+  },
+  topLeft: {
+    left: 0,
+    top: 0,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 18,
+  },
+  topRight: {
+    right: 0,
+    top: 0,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 18,
+  },
+  bottomLeft: {
+    left: 0,
+    bottom: 0,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 18,
+  },
+  bottomRight: {
+    right: 0,
+    bottom: 0,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 18,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    gap: 8,
+  },
+  instruction: {
+    color: "#f0fdfa",
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  action: {
+    minHeight: 56,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  message: {
+    color: "#b9f4ea",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  error: { color: "#fecaca", fontSize: 16, textAlign: "center" },
+  photoButton: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  photoText: {
+    color: "#f0fdfa",
+    fontSize: 18,
+    fontWeight: "700",
+    flexShrink: 1,
+    textAlign: "center",
+  },
+});

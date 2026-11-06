@@ -7,6 +7,10 @@ const source = read('app/care-circle/qr.tsx');
 const file = ts.createSourceFile('qr.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const component = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'CareCircleQrScreen');
 assert.ok(component);
+const hookSource = read('src/features/care-circle/useCareCircleQr.ts');
+const hookFile = ts.createSourceFile('useCareCircleQr.ts', hookSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+const qrHook = hookFile.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'useCareCircleQr');
+assert.ok(qrHook);
 const jsx = (type, props) => ({ type, props });
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
   : [tree, ...nodes(tree.props?.children)];
@@ -51,6 +55,8 @@ function harness(language, options = {}) {
     useTranslation: ns => ({ t: translators[ns] }), useSafeAreaInsets: () => ({ top: 59, bottom: 34 }),
     useWindowDimensions: () => ({ width: 393 }), useScaledTypography: () => ({}),
     useThemeColors: () => ({ colors: { primary: '#08b8a2' }, isDark: false }), createStyles: () => ({}),
+    AppAlertModal: 'AppAlertModal',
+    useSaveCareCircleQr: () => ({ image: { current: null }, saving: false, save: () => {}, alertState: {}, dismissAlert: () => {} }),
     useAuthStore, useProfileStore: select => select({ profile: null }),
     useRouter: () => ({ back: () => calls.routes.push('back'), push: route => calls.routes.push(route) }),
     authApi: { fetchProfile: options.profileLoad ?? (async () => null) },
@@ -58,7 +64,7 @@ function harness(language, options = {}) {
     getApiErrorMessage: (_error, t, fallback) => t(fallback),
   };
   const module = { exports: {} };
-  const compiled = ts.transpileModule(`${component.getText(file)}\nmodule.exports = CareCircleQrScreen;`, {
+  const compiled = ts.transpileModule(`${qrHook.getText(hookFile)}\n${component.getText(file)}\nmodule.exports = CareCircleQrScreen;`, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   // eslint-disable-next-line no-new-func
@@ -81,7 +87,7 @@ for (const language of ['vi', 'en']) {
     assert.equal(nodes(tree).find(node => node.type === 'QRCode')?.props.value, h.code.value);
     assert.equal(h.calls.loads, 1);
     assert.equal(nodes(tree).some(node => node.type === 'Pressable' && nodes(node).some(child => child.props?.name === 'reload')), false);
-    assert.doesNotMatch(source, /setInterval|secondsUntil|formatRemaining|expiresAt|qrExpires|qrExpired|qrRefresh/);
+    assert.doesNotMatch(source + hookSource, /setInterval|secondsUntil|formatRemaining|expiresAt|qrExpires|qrExpired|qrRefresh/);
     await h.settle(); assert.equal(h.calls.loads, 1);
     const scan = nodes(tree).find(node => node.props?.accessibilityLabel === JSON.parse(read(`src/i18n/locales/${language}/careCircle.json`)).scanSomeoneQr);
     scan.props.onPress(); assert.deepEqual(h.calls.routes, ['/care-circle/scan']);

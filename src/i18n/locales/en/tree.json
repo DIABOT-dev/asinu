@@ -1,5 +1,6 @@
 {
   "healthTree": "Health Tree",
+  "checkinHistory": "Check-in history",
   "summaryFromLogs": "Summary from your logged data",
   "summaryFromCheckins": "From today's check-in and your latest readings",
   "statusBasis": "What is the health tree based on?",
@@ -57,6 +58,9 @@
   "journalNoCheckin": "No check-ins this month",
   "journalNoCheckinHint": "Each check-in will appear on the calendar so you can track changes over time.",
   "journalLoadError": "Unable to load your health journal.",
+  "journalLoading": "Loading your check-in calendar…",
+  "journalUpdating": "Updating your check-in calendar…",
+  "journalRefreshError": "Unable to update the calendar. Your previously loaded entries are still shown.",
   "journalRetry": "Try again",
   "journalStatusFine": "Well",
   "journalStatusTired": "A little tired",
@@ -87,7 +91,7 @@
   "earlyErrorBody": "Asinu cannot read your health data right now. Please try again later.",
   "earlyTitle": "Early Signals",
   "earlyEmpty": "Asinu reviews 7–30 days of check-ins, symptoms and readings to find notable patterns.",
-  "earlyCurrentAttention": "Asinu found {{count}} current health signs that need review. Tap for details.",
+  "earlyCurrentAttention": "Asinu found {{count}} current health signs that need review.",
   "earlyFactorEmergency": "You activated emergency support during today's check-in.",
   "earlyFactorTriageEmergency": "Your check-in found signs that may need emergency support.",
   "earlyFactorTriageHigh": "Your check-in found signs that need prompt attention.",
@@ -112,5 +116,6 @@
   "earlyFor": "Early Signals: {{name}}",
   "earlyCallPerson": "Call {{name}}",
   "earlyConsult": "Consult specialist",
-  "earlyRetry": "Try again"
+  "earlyRetry": "Try again",
+  "earlyOpen": "View your recent health"
 }

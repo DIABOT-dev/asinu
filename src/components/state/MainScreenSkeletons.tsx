@@ -56,47 +56,27 @@ function LoadingStatus() {
 export function HomeTabSkeleton() {
   return (
     <>
-      <LoadingStatus />
-      <View style={styles.homeHero}>
-        <SkeletonBlock width="34%" height={18} color={onPrimary} />
-        <SkeletonBlock width="58%" height={24} color={onPrimary} />
-        <SkeletonBlock width="78%" height={16} color={onPrimarySoft} />
-      </View>
-
-      <MetricPairSkeleton />
-
-      <SkeletonCard style={styles.tallCard}>
-        <View style={styles.centered}>
-          <SkeletonBlock width={92} height={92} borderRadius={46} />
-          <SkeletonBlock width="42%" height={16} />
-          <SkeletonBlock width="70%" height={11} />
-        </View>
-      </SkeletonCard>
-
-      <SkeletonSectionTitle width="46%" />
-      {[0, 1, 2].map((item) => (
-        <RowCardSkeleton key={item} right />
-      ))}
-
-      <SkeletonSectionTitle width="38%" />
-      <View style={styles.treeGrid}>
-        <SkeletonCard style={styles.treeMain}>
-          <View style={styles.centered}>
-            <SkeletonBlock width={104} height={104} borderRadius={52} />
-            <SkeletonBlock width="68%" height={12} />
+      {[0, 1].map((item) => (
+        <SkeletonCard key={item} style={{ minHeight: 184, justifyContent: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <SkeletonBlock width={48} height={48} borderRadius={24} />
+            <View style={{ flex: 1, gap: 10 }}>
+              <SkeletonBlock width="58%" height={28} />
+              <SkeletonBlock width="90%" height={14} />
+            </View>
           </View>
         </SkeletonCard>
-        <View style={{ flex: 1, gap: spacing.md }}>
-          <SkeletonCard style={styles.smallStat}><SkeletonBlock width="76%" height={42} /></SkeletonCard>
-          <SkeletonCard style={styles.smallStat}><SkeletonBlock width="64%" height={42} /></SkeletonCard>
-        </View>
-      </View>
-
-      <SkeletonSectionTitle width="44%" />
-      <SkeletonCard style={{ height: 220 }}>
-        <SkeletonBlock width="100%" height={160} borderRadius={radius.lg} />
-        <SkeletonBlock width="48%" height={12} />
+      ))}
+      <SkeletonCard style={{ gap: 8 }}>
+        {[0, 1, 2].map((item) => (
+          <View key={item} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <SkeletonBlock width={28} height={28} borderRadius={14} />
+            <SkeletonBlock width="60%" height={18} />
+          </View>
+        ))}
       </SkeletonCard>
+      <SkeletonSectionTitle width="46%" />
+      <RowCardSkeleton right />
     </>
   );
 }
@@ -148,48 +128,19 @@ export function ProfileTabSkeleton() {
 export function MissionsTabSkeleton() {
   return (
     <>
-      <LinearGradient
-        colors={['#6366f1', '#8b5cf6']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.missionsHero}
-      >
-        <SkeletonBlock width={36} height={36} borderRadius={18} color={onPrimary} />
-        <SkeletonBlock width="54%" height={26} color={onPrimary} />
-        <SkeletonBlock width="70%" height={14} color={onPrimarySoft} />
-      </LinearGradient>
-
-      <View style={styles.twoColumn}>
-        {[0, 1].map((item) => (
-          <SkeletonCard key={item} style={styles.statCard}>
-            <SkeletonBlock width={22} height={22} borderRadius={11} />
-            <SkeletonBlock width="36%" height={28} />
-            <SkeletonBlock width="64%" height={12} />
-          </SkeletonCard>
-        ))}
-      </View>
-
-      <SkeletonCard>
-        <SkeletonBlock width="48%" height={16} />
-        <SkeletonBlock width="92%" height={12} />
-        <SkeletonBlock width="78%" height={12} />
-        <SkeletonBlock width="84%" height={12} />
-      </SkeletonCard>
-
-      <SkeletonSectionTitle width="46%" />
-      {[0, 1, 2, 3].map((item) => (
-        <SkeletonCard key={item}>
+      {[0, 1, 2, 3, 4].map((item) => (
+        <View key={item} style={styles.missionSkeletonRow}>
           <View style={styles.cardHeader}>
-            <SkeletonBlock width={32} height={32} borderRadius={10} />
-            <SkeletonBlock width="66%" height={18} />
+            <SkeletonBlock width={40} height={40} borderRadius={20} />
+            <View style={styles.missionSkeletonText}>
+              <SkeletonBlock width="66%" height={18} />
+            </View>
           </View>
-          <SkeletonBlock width="88%" height={10} />
-          <View style={styles.progressRow}>
-            <SkeletonBlock width="78%" height={10} borderRadius={999} />
-            <SkeletonBlock width={42} height={14} />
+          <View style={styles.missionSkeletonStatus}>
+            <SkeletonBlock width={36} height={14} />
+            <SkeletonBlock width={96} height={14} />
           </View>
-          <SkeletonBlock width={96} height={26} borderRadius={13} />
-        </SkeletonCard>
+        </View>
       ))}
     </>
   );
@@ -249,20 +200,6 @@ export function CareCircleTabSkeleton() {
   return (
     <>
       <LoadingStatus />
-      <SkeletonCard style={styles.careHero}>
-        <View style={styles.centered}>
-          <SkeletonBlock width={40} height={40} borderRadius={20} />
-          <SkeletonBlock width="48%" height={24} />
-          <SkeletonBlock width="74%" height={14} />
-        </View>
-      </SkeletonCard>
-
-      <View style={styles.careSection}>
-        {[0, 1, 2].map((item) => (
-          <RowCardSkeleton key={item} lines={1} right />
-        ))}
-      </View>
-
       <View style={styles.careSection}>
         <SkeletonBlock width="100%" height={54} borderRadius={radius.lg} color={colors.primaryLight} />
       </View>
@@ -280,40 +217,26 @@ export function CareCircleTabSkeleton() {
 export function ReminderConfigSkeleton() {
   return (
     <>
-      <SkeletonCard style={styles.reminderHero}>
-        <SkeletonBlock width={28} height={28} borderRadius={14} />
+      <View style={styles.reminderRow}>
+        <SkeletonBlock width={52} height={40} borderRadius={12} />
         <View style={{ flex: 1, gap: 8 }}>
           <SkeletonBlock width="62%" height={20} />
           <SkeletonBlock width="92%" height={12} />
         </View>
-      </SkeletonCard>
-
-      <RowCardSkeleton lines={2} right />
+        <SkeletonBlock width={48} height={28} borderRadius={14} />
+      </View>
 
       {[0, 1, 2].map((item) => (
-        <SkeletonCard key={item}>
-          <View style={styles.cardHeader}>
-            <SkeletonBlock width={24} height={24} borderRadius={12} />
-            <View style={{ flex: 1, gap: 8 }}>
-              <SkeletonBlock width="42%" height={16} />
-              <SkeletonBlock width="72%" height={10} />
-            </View>
-          </View>
-          <View style={styles.progressRow}>
+        <View key={item} style={styles.reminderRow}>
+          <SkeletonBlock width={52} height={40} borderRadius={12} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <SkeletonBlock width="48%" height={18} />
+            <SkeletonBlock width="90%" height={12} />
             <SkeletonBlock width={92} height={28} borderRadius={14} />
-            <SkeletonBlock width={78} height={22} borderRadius={11} />
-            <SkeletonBlock width={32} height={32} borderRadius={12} style={{ marginLeft: 'auto' }} />
           </View>
-        </SkeletonCard>
-      ))}
-
-      <SkeletonCard style={styles.infoSkeleton}>
-        <SkeletonBlock width={18} height={18} borderRadius={9} />
-        <View style={{ flex: 1, gap: 8 }}>
-          <SkeletonBlock width="86%" height={11} />
-          <SkeletonBlock width="64%" height={11} />
+          <SkeletonBlock width={32} height={32} borderRadius={12} />
         </View>
-      </SkeletonCard>
+      ))}
     </>
   );
 }
@@ -331,12 +254,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
   },
-  homeHero: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.sm,
-  },
   profileHero: {
     borderRadius: radius.xl,
     padding: spacing.xl,
@@ -347,11 +264,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  missionsHero: {
-    borderRadius: radius.xl,
-    padding: spacing.xl,
+  missionSkeletonRow: {
+    paddingHorizontal: 8,
+    paddingVertical: 16,
+    gap: spacing.md,
+  },
+  missionSkeletonText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  missionSkeletonStatus: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
   },
   treeHeader: {
     flexDirection: 'row',
@@ -444,14 +369,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
-  reminderHero: {
+  reminderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fffbeb',
-  },
-  infoSkeleton: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primaryLight,
+    minHeight: 96,
+    paddingVertical: 16,
+    gap: 14,
   },
 });

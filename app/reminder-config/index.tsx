@@ -12,27 +12,17 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   KeyboardAvoidingView,
   Platform,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ReminderConfigSkeleton } from '../../src/components/state/MainScreenSkeletons';
-import { authApi } from '../../src/features/auth/auth.api';
 import { showToast } from '../../src/stores/toast.store';
-import {
-  getNotificationPreferences,
-  updateNotificationPreferences,
-  type NotificationPreferences,
-} from '../../src/features/notifications/notifications.api';
-import {
-  checkNotificationPermission,
-  getExpoPushToken,
-  requestNotificationPermissions,
-} from '../../src/lib/notifications';
+import { updateNotificationPreferences } from '../../src/features/notifications/notifications.api';
+import { useReminderConfigPreferences } from '../../src/features/profile/useReminderConfigPreferences';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
@@ -46,7 +36,6 @@ const SLOT_META: Array<{
   iconColor: string;
   defaultTime: string;
   hourRange: [number, number];
-  bgArt: any;
 }> = [
   {
     slot: 'morning',
@@ -55,7 +44,6 @@ const SLOT_META: Array<{
     iconColor: '#f59e0b',
     defaultTime: '08:00',
     hourRange: [5, 11],
-    bgArt: require('../../assets/images/reminders/morning_bg_art.png'),
   },
   {
     slot: 'afternoon',
@@ -64,7 +52,6 @@ const SLOT_META: Array<{
     iconColor: '#ea580c',
     defaultTime: '14:00',
     hourRange: [11, 17],
-    bgArt: require('../../assets/images/reminders/afternoon_bg_art.png'),
   },
   {
     slot: 'evening',
@@ -73,7 +60,6 @@ const SLOT_META: Array<{
     iconColor: '#7c3aed',
     defaultTime: '21:00',
     hourRange: [17, 23],
-    bgArt: require('../../assets/images/reminders/evening_bg_art.png'),
   },
 ];
 
@@ -375,10 +361,8 @@ export default function ReminderConfigScreen() {
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography, isDark]);
 
-  const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { prefs, setPrefs, loading, notificationPermissionGranted } = useReminderConfigPreferences();
   const [saving, setSaving] = useState(false);
-  const [notificationPermissionGranted, setNotificationPermissionGranted] = useState(false);
 
   // Time picker state
   const [pickerSlot, setPickerSlot] = useState<TimeSlot | null>(null);
@@ -386,25 +370,8 @@ export default function ReminderConfigScreen() {
   const remindersEnabled = Boolean(prefs?.reminders_enabled && notificationPermissionGranted);
 
   useEffect(() => {
-    let mounted = true;
-
-    Promise.all([
-      getNotificationPreferences(),
-      checkNotificationPermission(),
-    ])
-      .then(([loadedPrefs, granted]) => {
-        if (!mounted) return;
-        setPrefs(loadedPrefs);
-        setNotificationPermissionGranted(granted);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => { mounted = false; };
-  }, []);
-
+    if (!remindersEnabled) setPickerSlot(null);
+  }, [remindersEnabled]);
   const getTimeForSlot = (slot: TimeSlot): string | null => {
     if (!prefs) return null;
     return (prefs as any)[`${slot}_time`] ?? null;
@@ -420,7 +387,7 @@ export default function ReminderConfigScreen() {
   };
 
   const handleTimeConfirm = useCallback(async (time: string) => {
-    if (!prefs || !pickerSlot || saving) {
+    if (!prefs || !pickerSlot || saving || !remindersEnabled) {
       return;
     }
     const previousTime = prefs[`effective_${pickerSlot}_time`] ?? SLOT_META.find(meta => meta.slot === pickerSlot)!.defaultTime;
@@ -446,10 +413,10 @@ export default function ReminderConfigScreen() {
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs, pickerSlot, saving, t]);
+  }, [prefs, pickerSlot, saving, remindersEnabled, t]);
 
   const handleResetToAuto = useCallback(async (slot: TimeSlot) => {
-    if (!prefs || saving || prefs[`${slot}_time`] === null) {
+    if (!prefs || saving || !remindersEnabled || prefs[`${slot}_time`] === null) {
       return;
     }
     const field = `${slot}_time`;
@@ -470,7 +437,7 @@ export default function ReminderConfigScreen() {
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs, saving, t]);
+  }, [prefs, saving, remindersEnabled, t]);
 
   const handlePickerCancel = useCallback(() => {
     setPickerSlot(null);
@@ -480,52 +447,6 @@ export default function ReminderConfigScreen() {
     if (pickerSlot) handleResetToAuto(pickerSlot);
     setPickerSlot(null);
   }, [pickerSlot, handleResetToAuto]);
-
-  const ensureNotificationAccess = useCallback(async () => {
-    const granted = notificationPermissionGranted || await requestNotificationPermissions();
-    setNotificationPermissionGranted(granted);
-
-    if (!granted) {
-      showToast(t('notificationPermDesc'), 'info');
-      return false;
-    }
-
-    const pushToken = await getExpoPushToken();
-    if (pushToken) {
-      authApi.updatePushToken(pushToken).catch(() => {});
-    }
-
-    return true;
-  }, [notificationPermissionGranted, t]);
-
-  const handleToggleReminders = useCallback(async (enabled: boolean) => {
-    if (!prefs) return;
-
-    const previous = prefs;
-    setSaving(true);
-
-    if (enabled) {
-      const granted = await ensureNotificationAccess();
-      if (!granted) {
-        setPrefs({ ...previous, reminders_enabled: false });
-        updateNotificationPreferences({ reminders_enabled: false }).catch(() => {});
-        setSaving(false);
-        return;
-      }
-    }
-
-    setPrefs({ ...previous, reminders_enabled: enabled });
-    try {
-      const result = await updateNotificationPreferences({ reminders_enabled: enabled });
-      setPrefs(result);
-      showToast(t('scheduleSaved'), 'success');
-    } catch {
-      setPrefs(previous);
-      showToast(t('scheduleSaveError'), 'error');
-    }
-    setSaving(false);
-  }, [ensureNotificationAccess, prefs, t]);
-
   return (
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -552,7 +473,7 @@ export default function ReminderConfigScreen() {
 
       {/* Time Picker */}
       <TimePickerModal
-        visible={!!pickerSlot}
+        visible={!!pickerSlot && remindersEnabled}
         initialTime={pickerSlot ? getEffectiveTime(pickerSlot) : '08:00'}
         isAuto={pickerSlot ? isAutoTime(pickerSlot) : true}
         saving={saving}
@@ -577,47 +498,11 @@ export default function ReminderConfigScreen() {
             contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]}
             showsVerticalScrollIndicator={false}
           >
-            {/* Hero Banner Card */}
-            <Animated.View entering={FadeIn.duration(400)}>
-              <View style={styles.heroCard}>
-                <Image
-                  source={require('../../assets/images/reminders/hero_bell.png')}
-                  style={styles.heroBellImg}
-                  resizeMode="contain"
-                />
-                <View style={styles.heroTextWrap}>
-                  <Text style={styles.heroTitle}>{t('scheduleTitle')}</Text>
-                  <Text style={styles.heroSubtitle}>{t('scheduleHint')}</Text>
-                </View>
-                <Image
-                  source={require('../../assets/images/reminders/hero_deco.png')}
-                  style={styles.heroDecoArt}
-                  resizeMode="contain"
-                />
-              </View>
-            </Animated.View>
+            {!remindersEnabled && <Text style={{ fontSize: 14, color: colors.textSecondary }}>
+              {t(!prefs ? 'taskRemindersStatusUnavailable' : !notificationPermissionGranted ? 'enableNotificationsFirst' : 'enableTaskRemindersFirst')}
+            </Text>}
 
-            {/* Reminders Toggle ("Nhắc nhiệm vụ" - WITHOUT > arrow) */}
-            <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-              <View style={styles.toggleCard}>
-                <View style={styles.toggleBellWrap}>
-                  <Ionicons name="notifications" size={26} color="#00897b" />
-                </View>
-                <View style={styles.toggleTextWrap}>
-                  <Text style={styles.toggleTitle}>{t('taskReminders')}</Text>
-                  <Text style={styles.toggleDesc}>{t('taskRemindersDesc')}</Text>
-                </View>
-                <Switch
-                  value={remindersEnabled}
-                  onValueChange={handleToggleReminders}
-                  disabled={saving}
-                  trackColor={{ false: '#cbd5e1', true: '#00897b' }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-            </Animated.View>
-
-            {/* Schedule Cards */}
+            {/* Morning, afternoon and evening rows. */}
             {SLOT_META.map((meta, idx) => {
               const disabled = !remindersEnabled || saving;
               const effectiveTime = getEffectiveTime(meta.slot);
@@ -626,17 +511,13 @@ export default function ReminderConfigScreen() {
               return (
                 <Animated.View key={meta.slot} entering={FadeInDown.delay(200 + idx * 80).duration(400)}>
                   <Pressable
-                    style={[styles.scheduleCard, disabled && { opacity: 0.55 }]}
+                    style={[styles.scheduleRow, disabled && { opacity: 0.55 }]}
                     onPress={() => !disabled && setPickerSlot(meta.slot)}
                     disabled={disabled}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t(meta.labelKey)}: ${effectiveTime}`}
+                    accessibilityState={{ disabled }}
                   >
-                    {/* Background Illustration */}
-                    <Image
-                      source={meta.bgArt}
-                      style={styles.cardBgArt}
-                      resizeMode="contain"
-                    />
-
                     <View style={styles.cardMainRow}>
                       {/* Left circular icon */}
                       <View style={styles.slotIconCircle}>
@@ -697,18 +578,6 @@ export default function ReminderConfigScreen() {
               );
             })}
 
-            {/* Bottom Info Card */}
-            <Animated.View entering={FadeInDown.delay(500).duration(400)}>
-              <View style={styles.bottomInfoCard}>
-                <Ionicons name="information-circle-outline" size={20} color="#00897b" />
-                <Text style={styles.bottomInfoText}>{t('scheduleHint')}</Text>
-                <Image
-                  source={require('../../assets/images/reminders/hero_deco.png')}
-                  style={styles.bottomInfoDeco}
-                  resizeMode="contain"
-                />
-              </View>
-            </Animated.View>
           </ScrollView>
 
         </View>
@@ -766,114 +635,10 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       gap: 14,
     },
 
-    // Hero
-    heroCard: {
-      backgroundColor: '#eaf8f3',
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: '#cceee2',
-      paddingVertical: 18,
-      paddingHorizontal: 18,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      position: 'relative',
-      overflow: 'hidden',
-    },
-    heroBellImg: {
-      width: 56,
-      height: 68,
-      zIndex: 2,
-    },
-    heroTextWrap: {
-      flex: 1,
-      zIndex: 2,
-      paddingRight: 10,
-    },
-    heroTitle: {
-      fontSize: 18,
-      fontWeight: '800',
-      color: '#0f3e36',
-    },
-    heroSubtitle: {
-      fontSize: 13,
-      color: '#475569',
-      lineHeight: 18,
-      marginTop: 4,
-    },
-    heroDecoArt: {
-      position: 'absolute',
-      right: 0,
-      bottom: 0,
-      width: 80,
-      height: 60,
-      opacity: 0.7,
-      pointerEvents: 'none',
-    },
-
-    // Toggle Card
-    toggleCard: {
-      backgroundColor: '#ffffff',
-      borderRadius: 22,
+    scheduleRow: {
+      backgroundColor: 'transparent',
+      minHeight: 96,
       paddingVertical: 16,
-      paddingHorizontal: 18,
-      borderWidth: 1,
-      borderColor: '#eef5f2',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      shadowColor: '#000',
-      shadowOpacity: 0.03,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 2,
-    },
-    toggleBellWrap: {
-      width: 38,
-      height: 38,
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-    },
-    toggleTextWrap: {
-      flex: 1,
-    },
-    toggleTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: '#0f3e36',
-    },
-    toggleDesc: {
-      fontSize: 13,
-      color: '#64748b',
-      marginTop: 2,
-    },
-
-    // Schedule Card
-    scheduleCard: {
-      backgroundColor: '#ffffff',
-      borderRadius: 22,
-      paddingVertical: 16,
-      paddingHorizontal: 16,
-      borderWidth: 1,
-      borderColor: '#eef5f2',
-      position: 'relative',
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 2,
-    },
-    cardBgArt: {
-      position: 'absolute',
-      right: 48,
-      top: 0,
-      bottom: 0,
-      width: 125,
-      height: '100%',
-      opacity: 0.9,
-      pointerEvents: 'none',
     },
     cardMainRow: {
       flexDirection: 'row',
@@ -893,17 +658,18 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       gap: 3,
     },
     slotTitle: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '700',
       color: '#0f3e36',
     },
     slotDesc: {
-      fontSize: 12.5,
+      fontSize: 14,
       color: '#64748b',
-      lineHeight: 16,
+      lineHeight: 20,
     },
     pillsRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       gap: 8,
       marginTop: 4,
@@ -939,38 +705,6 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-
-    // Bottom Info
-    bottomInfoCard: {
-      backgroundColor: '#eaf7f2',
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: '#cceee2',
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      position: 'relative',
-      overflow: 'hidden',
-      marginTop: 2,
-    },
-    bottomInfoText: {
-      fontSize: 12.5,
-      color: '#475569',
-      flex: 1,
-      lineHeight: 18,
-      zIndex: 2,
-    },
-    bottomInfoDeco: {
-      position: 'absolute',
-      right: 0,
-      bottom: 0,
-      width: 70,
-      height: 50,
-      opacity: 0.5,
-      pointerEvents: 'none',
     },
 
   });

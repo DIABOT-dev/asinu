@@ -95,6 +95,7 @@
   "active": "Đang hoạt động",
   "inactive": "Đã tắt",
   "homeControl": {
+    "shortTitle": "Cuộc gọi check-in",
     "title": "Cuộc gọi nhắc check-in",
     "unknown": "Chưa xác định trạng thái",
     "offSummary": "Không gọi nhắc check-in tự động. Bạn vẫn có thể tự check-in trên app.",

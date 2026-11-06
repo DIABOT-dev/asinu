@@ -51,6 +51,15 @@ export interface TriageResult {
   summary?: string;
   severity?: TriageSeverity;
   recommendation?: string;
+  conclusionVersion?: 2;
+  personalMessage?: string;
+  explanation?: string;
+  todo?: string[];
+  seeDoctorWhen?: string[];
+  disclaimer?: string;
+  closeMessage?: string;
+  followUpHours?: number;
+  speechText?: string;
   needsDoctor?: boolean;
   needsFamilyAlert?: boolean;
   // Server actually attempted to alert family (severity=high). Used by FE
@@ -85,6 +94,14 @@ export type TriageSummaryView = {
   severity: 'low' | 'medium' | 'high' | string;
   recommendation: string;
   needsDoctor: boolean;
+  conclusionVersion?: 2;
+  personalMessage?: string;
+  explanation?: string;
+  todo?: string[];
+  seeDoctorWhen?: string[];
+  disclaimer?: string;
+  closeMessage?: string;
+  followUpHours?: number;
   _progress?: { text: string; templateId: string };
   familyAlertResult?: TriageResult['familyAlertResult'];
   // Pass-through of the backend FIX #4 caregiver fields so the done screen

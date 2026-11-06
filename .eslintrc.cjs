@@ -14,7 +14,12 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['scripts/check-app-update.mjs', 'scripts/check-notification-sounds.mjs', 'scripts/check-doctor-ui-hidden.mjs', 'scripts/check-api-contract.mjs', 'scripts/check-profile-edit.mjs', 'scripts/check-care-circle-health.mjs', 'scripts/check-edit-save-state.mjs', 'scripts/check-checkin-call-settings.mjs', 'scripts/check-connection-actions-and-restore.mjs', 'scripts/check-subscription-comparison.mjs', 'scripts/check-health-tree-status.mjs', 'scripts/check-doctor-privacy.cjs', 'scripts/check-privacy-modal-visuals.cjs'],
+      files: ['scripts/check-health-feed-dismissals.mjs', 'scripts/check-ui-feature-state.mjs', 'scripts/check-home-connectivity.mjs', 'scripts/check-blood-pressure.mjs', 'scripts/check-typewriter-text.cjs', 'scripts/check-medication-photo-upload.cjs', 'scripts/check-medication-purpose.cjs', 'scripts/check-v21-medication-screen.mjs'],
+      parser: 'espree',
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    },
+    {
+      files: ['scripts/check-app-update.mjs', 'scripts/check-notification-sounds.mjs', 'scripts/check-doctor-ui-hidden.mjs', 'scripts/check-api-contract.mjs', 'scripts/check-profile-edit.mjs', 'scripts/check-care-circle-health.mjs', 'scripts/check-edit-save-state.mjs', 'scripts/check-checkin-call-settings.mjs', 'scripts/check-connection-actions-and-restore.mjs', 'scripts/check-subscription-comparison.mjs', 'scripts/check-health-tree-status.mjs', 'scripts/check-doctor-privacy.cjs', 'scripts/check-privacy-modal-visuals.cjs', 'scripts/check-specialist-sharing.cjs', 'scripts/check-medication-overview.cjs', 'scripts/check-medication-setup.cjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },

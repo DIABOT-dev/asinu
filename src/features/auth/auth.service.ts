@@ -24,6 +24,15 @@ export type ZeroOtpResponse = {
 
 const AUTH_TIMEOUT_MS = 30000;
 
+export class SocialAuthCancelledError extends Error {
+  readonly code = 'SOCIAL_AUTH_CANCELLED';
+
+  constructor() {
+    super(i18n.t('loginCancelled', { ns: 'auth' }));
+    this.name = 'SocialAuthCancelledError';
+  }
+}
+
 const createZeroOtpError = (message: string) =>
   Object.assign(new Error(message), {
     code: 'ZERO_OTP_UNAVAILABLE'
@@ -42,7 +51,7 @@ export const authService = {
       const oauthResult = await authenticateWithProvider(payload.provider as OAuthProvider);
       
       if (oauthResult.type === 'cancel') {
-        throw new Error(i18n.t('loginCancelled', { ns: 'auth' }));
+        throw new SocialAuthCancelledError();
       }
       
       if (oauthResult.type === 'error') {

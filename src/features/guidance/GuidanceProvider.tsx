@@ -80,6 +80,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   const profile = useAuthStore(state => state.profile);
   const token = useAuthStore(state => state.token);
   const hydrated = useAuthStore(state => state.hydrated);
+  const authLoading = useAuthStore(state => state.loading);
   const account = profile?.id ? String(profile.id) : null;
   const { progress: accountProgress, ready: loaded, account: loadedAccount, load, refresh, update, acknowledge, setWelcomeOpen } = useGuidanceStore();
   const ready = loaded && loadedAccount === account;
@@ -114,10 +115,10 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Read-aloud is automatic now that its settings switch is hidden. Restore
     // accounts that disabled the old switch, without changing tour progress.
-    if (ready && hydrated && token && account && profile?.onboardingCompleted === true && accountProgress.readAloud === false) {
+    if (ready && hydrated && !authLoading && token && account && profile?.onboardingCompleted === true && accountProgress.readAloud === false) {
       update({ readAloud: true });
     }
-  }, [account, accountProgress.readAloud, hydrated, profile?.onboardingCompleted, ready, token, update]);
+  }, [account, accountProgress.readAloud, authLoading, hydrated, profile?.onboardingCompleted, ready, token, update]);
   useEffect(() => {
     const state = AppState.addEventListener('change', value => {
       setForeground(value === 'active');
@@ -131,7 +132,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
 
   // Guidance follows sign-in AND the health-profile onboarding, never either
   // form. Requiring this account's progress also prevents stale account tours.
-  const eligible = hydrated && Boolean(token) && Boolean(account) && profile?.onboardingCompleted === true && (ready || practicing) && !suspended && (!dismissedForVisit || practicing);
+  const eligible = hydrated && !authLoading && Boolean(token) && Boolean(account) && profile?.onboardingCompleted === true && (ready || practicing) && !suspended && (!dismissedForVisit || practicing);
   const welcomeRoute = path === '/home' || path === '/care-circle';
   const guideRoute = welcomeRoute || checkinGuide || path === '/care-circle/invite';
   const welcome = eligible && welcomeRoute && (!progress.welcomeSeen

@@ -1,6 +1,7 @@
 import i18n from '../../i18n';
 import { BloodPressureLogPayload, GlucoseLogPayload, InsulinLogPayload, MealLogPayload, MedicationLogPayload, WaterLogPayload, WeightLogPayload } from './logs.api';
 import { isHalfStepNumber } from './logs.service';
+import { validateBloodPressure } from '../../lib/blood-pressure';
 
 const t = (key: string) => i18n.t(key, { ns: 'logs' });
 
@@ -26,15 +27,12 @@ export const validateBloodPressurePayload = (
   tags: string[],
   notes?: string
 ): ValidationResult<BloodPressureLogPayload> => {
-  const sys = requireNumber(systolic);
-  const dia = requireNumber(diastolic);
-  if (sys === null || dia === null) {
-    return { ok: false, errors: { bp: t('errBpNumbers') } };
+  const result = validateBloodPressure(systolic, diastolic);
+  if (!result.ok) {
+    const key = result.error === 'numbers' ? 'errBpNumbers' : result.error === 'order' ? 'errBpOrder' : 'errBpRange';
+    return { ok: false, errors: { bp: t(key) } };
   }
-  if (sys < 70 || sys > 250 || dia < 40 || dia > 150 || dia >= sys) {
-    return { ok: false, errors: { bp: t('errBpRange') } };
-  }
-  return { ok: true, value: { systolic: sys, diastolic: dia, tags, notes } };
+  return { ok: true, value: { systolic: result.systolic, diastolic: result.diastolic, tags, notes } };
 };
 
 export const validateMedicationPayload = (

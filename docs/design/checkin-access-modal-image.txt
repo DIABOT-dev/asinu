@@ -1,0 +1,7 @@
+Asset: assets/images/subscription/checkin_access_shield.png
+Tool: built-in image_gen, transparent background enabled.
+Reference: user-provided access modal screenshot, shield illustration only.
+Text, buttons, mint corner decorations and gradient CTA are rendered in code.
+
+Final prompt:
+Use case: stylized-concept. Asset type: transparent hero illustration for a Vietnamese healthcare app access/upgrade modal. Reference image: match ONLY the soft turquoise shield, white closed padlock, pale mint circular halo and two small rounded medical plus symbols in the attached reference. Generate a NEW polished bitmap illustration in that same soft, friendly 3D style, with a turquoise-to-teal rounded shield facing directly forward, a smooth white closed padlock centered on its face, subtle soft shading, pale mint concentric halo behind, and a small mint plus on each side at slightly different heights. Center the complete composition, occupy roughly 85 percent of the square canvas with compact balanced margins. White/mint highlights, teal lower shield, soft faint shadow below. Real transparent alpha background outside the illustration, including around the halo; preserve translucent soft glow. NO words, NO Vietnamese text, NO numbers, NO buttons, NO panel/card rectangle, NO border, NO screenshot, NO watermark, NO ECG line, no logo. The result must be an isolated illustration ready to place above live text and buttons in a mobile modal.

@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useFocusEffect } from "expo-router";
 import React, {
   memo,
   useCallback,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -24,8 +26,10 @@ import { ScaledText as Text } from "../../src/components/ScaledText";
 import { Screen } from "../../src/components/Screen";
 import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { SubscriptionFAQ } from "../../src/components/SubscriptionFAQ";
+import { ProfilePreferenceModal } from "../../src/features/profile/ProfilePreferenceModal";
 import { localizedPlanName } from "../../src/features/subscription/planName";
 import { SubscriptionScenarioComparison } from "../../src/features/subscription/components/SubscriptionScenarioComparison";
+import { CarePlanBackground } from "../../src/features/subscription/components/CarePlanBackground";
 import type { PlanCode, SubscriptionStatus } from "../../src/features/subscription/subscription.types";
 import {
   careCircleApi,
@@ -39,8 +43,6 @@ import { showToast } from "../../src/stores/toast.store";
 import { colors, radius, spacing } from "../../src/styles";
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 
-const CROWN_HERO = require("../../assets/images/subscription/crown_hero.png");
-const LEAVES_LEFT = require("../../assets/images/subscription/header_leaves_left.png");
 const PLAN_FREE_IMG = require("../../assets/images/subscription/plan_free.png");
 const PLAN_ANTAM_IMG = require("../../assets/images/subscription/plan_antam.png");
 const PLAN_ANTAM_2_IMG = require("../../assets/images/subscription/plan_antam_2.png");
@@ -158,6 +160,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
         ]}
       >
         <Image
+          accessible={false}
           cachePolicy="memory-disk"
           contentFit="contain"
           source={currentPlanImage}
@@ -169,7 +172,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
           <Text style={styles.currentPlanLabel}>{t("v2CurrentPlan")}</Text>
           {loading ? (
             <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
+          ) : status ? (
             <View
               style={[
                 styles.currentPlanBadge,
@@ -185,11 +188,11 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
                 {localizedPlanName(status?.planCode, t)}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
         {!loading && (
           <Text style={styles.currentPlanSub}>
-            {isAnTam
+            {!status ? t("v2LoadError") : isAnTam
               ? t("v2PaidMeta", {
                   used: status.protectedMemberCount,
                   limit: status.protectedMemberLimit,
@@ -217,6 +220,7 @@ type PlanComparisonProps = {
   freeFeatures: FeatureItem[];
   anTamFeatures: FeatureItem[];
   freeIsCurrent: boolean;
+  purchaseDisabled?: boolean;
   onChoosePlan: () => void;
   t: (key: string) => string;
   styles: ReturnType<typeof createStyles>;
@@ -226,103 +230,154 @@ const PlanComparison = memo(function PlanComparison({
   freeFeatures,
   anTamFeatures,
   freeIsCurrent,
+  purchaseDisabled = false,
   onChoosePlan,
   t,
   styles,
 }: PlanComparisonProps) {
   const { width, fontScale } = useWindowDimensions();
-  const { size, scaledSize } = useScaledTypography();
-  const textScale = (fontScale || 1) * scaledSize.sm / size.sm;
-  const stacked = width < 768 || textScale > 1.15;
+  const { isDark } = useThemeColors();
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "anTam" | null>(null);
+  const activePlan = useRef<"free" | "anTam" | null>(null);
+  const premium = selectedPlan === "anTam";
+  const closeDetails = useCallback(() => {
+    activePlan.current = null;
+    setSelectedPlan(null);
+  }, []);
+  useFocusEffect(useCallback(() => closeDetails, [closeDetails]));
   const titleFontSize = useScaledFontSize(FEATURE_TITLE_FONT_SIZE);
   const checkFontSize = useScaledFontSize(FEATURE_CHECK_SIZE);
+  const stacked = width < 350 || (fontScale || 1) * titleFontSize / FEATURE_TITLE_FONT_SIZE > 1.2;
   // Match ScaledText's first line, not the height of the entire title/description.
   const titleLineHeight = Math.round(titleFontSize * (Platform.OS === "android" ? 1.6 : 1.5)) * (fontScale || 1);
   const checkSize = Math.round(checkFontSize * (fontScale || 1));
   const featureIconStyle = { height: titleLineHeight, width: checkSize + 2 };
   const checkStyle = { lineHeight: checkSize, includeFontPadding: false };
+  const renderFeatures = (items: FeatureItem[], premium: boolean) => (
+    <View style={styles.featureList}>
+      {items.map((item) => (
+        <View key={item.text} style={styles.comparisonFeatureRow}>
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.featureIconWrap, featureIconStyle]}>
+            <Ionicons allowFontScaling={false} name="checkmark-circle" size={checkSize} color={premium ? "#ea580c" : "#059669"} style={checkStyle} />
+          </View>
+          <View style={styles.featureCopy}>
+            <Text allowFontScaling style={premium ? styles.premiumFeatureText : styles.featureText}>{item.text}</Text>
+            <Text allowFontScaling style={styles.featureDescription}>{item.description}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
 
   return (
-    <View style={[styles.comparisonRow, stacked && styles.comparisonStack]}>
-      <View style={[styles.freeCard, stacked && styles.stackedPlanCard]}>
-        <View style={styles.planCardHeader}>
-          <View style={styles.freeAvatar}>
-            <Image
-              cachePolicy="memory-disk"
-              contentFit="contain"
-              source={PLAN_FREE_IMG}
-              style={styles.planBadgeImg}
-            />
-          </View>
-          <Text allowFontScaling accessibilityRole="header" style={styles.freePlanTitle}>{t("v2FreePlan")}</Text>
-          <View style={styles.planPriceWrap}>
-            <Text allowFontScaling style={styles.freePrice}>{t("freePrice")}</Text>
-            <Text allowFontScaling style={styles.perMonthText}>{t("freeForever")}</Text>
-          </View>
-        </View>
-        <Text allowFontScaling style={styles.planIntroduction}>{t("comparison.freeIntroduction")}</Text>
-        <View style={styles.featureList}>
-          {freeFeatures.map((item) => (
-            <View key={item.text} style={styles.comparisonFeatureRow}>
-              <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.featureIconWrap, featureIconStyle]}>
-                <Ionicons allowFontScaling={false} name="checkmark-circle" size={checkSize} color="#059669" style={checkStyle} />
-              </View>
-              <View style={styles.featureCopy}>
-                <Text allowFontScaling style={styles.featureText}>{item.text}</Text>
-                <Text allowFontScaling style={styles.featureDescription}>{item.description}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-        <View style={styles.freeCTABox}>
-          <Text allowFontScaling style={styles.freeCTAText}>
-            {freeIsCurrent ? t("currentlyUsing") : t("v2FreeTitle")}
-          </Text>
-        </View>
-      </View>
-
-      <View style={[styles.premiumCard, stacked && styles.stackedPlanCard]}>
-        <View style={styles.popularBadge}>
-          <Text allowFontScaling style={styles.popularBadgeText}>{t("comparison.anTamBadge")}</Text>
-        </View>
-        <View style={styles.planCardHeader}>
-          <View style={styles.premiumAvatar}>
-            <Image
-              cachePolicy="memory-disk"
-              contentFit="contain"
-              source={PLAN_ANTAM_IMG}
-              style={styles.planBadgeImg}
-            />
-          </View>
-          <Text allowFontScaling accessibilityRole="header" style={styles.premiumPlanTitle}>{t("v2AnTamPlanName")}</Text>
-          <View style={styles.planPriceWrap}>
-            <Text allowFontScaling style={styles.planPeriodOptions}>
-              {t("iapMonthly")} · {t("iapYearly")}
-            </Text>
-          </View>
-        </View>
-        <Text allowFontScaling style={styles.planIntroduction}>{t("comparison.anTamIntroduction")}</Text>
-        <View style={styles.featureList}>
-          {anTamFeatures.map((item) => (
-            <View key={item.text} style={styles.comparisonFeatureRow}>
-              <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.featureIconWrap, featureIconStyle]}>
-                <Ionicons allowFontScaling={false} name="checkmark-circle" size={checkSize} color="#ea580c" style={checkStyle} />
-              </View>
-              <View style={styles.featureCopy}>
-                <Text allowFontScaling style={styles.premiumFeatureText}>{item.text}</Text>
-                <Text allowFontScaling style={styles.featureDescription}>{item.description}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onChoosePlan}
-          style={({ pressed }) => [styles.premiumCTABtn, { opacity: pressed ? 0.85 : 1 }]}
+    <View style={[styles.comparisonRow, stacked && styles.comparisonStacked]}>
+      {(["free", "anTam"] as const).map((plan) => (
+        <View
+          key={plan}
+          style={[
+            styles.planChoice,
+            plan === "free" ? styles.freeChoice : styles.premiumChoice,
+            stacked && styles.planChoiceStacked,
+          ]}
         >
-          <Text allowFontScaling style={styles.premiumCTAText}>{t("iapChooseTitle")}</Text>
-        </Pressable>
-      </View>
+          <LinearGradient
+            pointerEvents="none"
+            colors={plan === "free"
+              ? isDark ? ["#1b2d45", "#16263b"] : ["#f8fbff", "#edf4ff"]
+              : isDark ? ["#173b44", "#162c3a"] : ["#eefbfc", "#ddf4f7"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(plan === "free" ? "v2FreePlan" : "v2AnTamPlanName")}
+            accessibilityHint={t("v2ViewBenefits")}
+            onPress={() => { activePlan.current = plan; setSelectedPlan(plan); }}
+            style={({ pressed }) => [styles.planChoiceDetails, pressed && styles.planChoicePressed]}
+          >
+            <View style={styles.planArtwork}>
+              <Image
+                accessible={false}
+                cachePolicy="memory-disk"
+                contentFit="contain"
+                source={plan === "free" ? PLAN_FREE_IMG : PLAN_ANTAM_IMG}
+                style={[styles.planChoiceImage, plan === "anTam" && styles.premiumChoiceImage]}
+              />
+            </View>
+            <Text allowFontScaling style={[
+              styles.planChoiceTitle,
+              plan === "free" ? styles.freePlanTitle : styles.premiumPlanTitle,
+            ]}>
+              {t(plan === "free" ? "v2FreePlan" : "v2AnTamPlanName")}
+            </Text>
+            <Text allowFontScaling style={styles.planChoiceDescription}>
+              {t(plan === "free" ? "v2FreeOverview" : "v2AnTamOverview")}
+            </Text>
+          </Pressable>
+          {plan === "anTam" && freeIsCurrent ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("upgradeNow")}
+              accessibilityState={{ disabled: purchaseDisabled }}
+              disabled={purchaseDisabled}
+              onPress={onChoosePlan}
+              style={({ pressed }) => [styles.upgradeButton, pressed && styles.planChoicePressed, purchaseDisabled && styles.protectedHeaderButtonDisabled]}
+            >
+              <LinearGradient pointerEvents="none" colors={["#35a5b4", "#247a8d"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <Text allowFontScaling style={styles.upgradeButtonText}>{t("upgradeNow")}</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.planStatusPill}>
+              {!purchaseDisabled && (plan === "free" ? freeIsCurrent : !freeIsCurrent) && <Ionicons accessible={false} name="checkmark-circle" size={16} color={plan === "free" ? "#3674ce" : "#287d88"} />}
+              <Text allowFontScaling style={[styles.planStatusText, plan === "anTam" && styles.premiumPlanStatusText]}>
+                {t(purchaseDisabled || (plan === "free" && !freeIsCurrent) ? "v2ViewBenefits" : "currentlyUsing")}
+              </Text>
+            </View>
+          )}
+        </View>
+      ))}
+      {selectedPlan && (
+        <ProfilePreferenceModal
+          visible
+          title={t(premium ? "v2AnTamPlanName" : "v2FreePlan")}
+          onClose={closeDetails}
+        >
+          <View>
+            {premium && <View style={styles.popularBadge}>
+              <Text allowFontScaling style={styles.popularBadgeText}>{t("comparison.anTamBadge")}</Text>
+            </View>}
+            <View style={styles.planPriceWrap}>
+              {premium ? <Text allowFontScaling style={styles.planPeriodOptions}>
+                {t("iapMonthly")} · {t("iapYearly")}
+              </Text> : <>
+                <Text allowFontScaling style={styles.freePrice}>{t("freePrice")}</Text>
+                <Text allowFontScaling style={styles.perMonthText}>{t("freeForever")}</Text>
+              </>}
+            </View>
+            <Text allowFontScaling style={styles.planIntroduction}>
+              {t(premium ? "comparison.anTamIntroduction" : "comparison.freeIntroduction")}
+            </Text>
+            {renderFeatures(premium ? anTamFeatures : freeFeatures, premium)}
+            {premium ? <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("iapChooseTitle")}
+              accessibilityState={{ disabled: purchaseDisabled }}
+              disabled={purchaseDisabled}
+              onPress={() => {
+                if (activePlan.current !== "anTam") return;
+                closeDetails();
+                onChoosePlan();
+              }}
+              style={({ pressed }) => [styles.premiumCTABtn, { opacity: pressed ? 0.85 : 1 }]}
+            >
+              <Text allowFontScaling style={styles.premiumCTAText}>{t("iapChooseTitle")}</Text>
+            </Pressable> : <View style={styles.freeCTABox}>
+              <Text allowFontScaling style={styles.freeCTAText}>
+                {freeIsCurrent ? t("currentlyUsing") : t("v2FreeTitle")}
+              </Text>
+            </View>}
+          </View>
+        </ProfilePreferenceModal>
+      )}
     </View>
   );
 });
@@ -504,11 +559,12 @@ export default function SubscriptionScreen() {
 
   return (
     <Screen>
+      <CarePlanBackground />
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + spacing.sm },
+          { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl },
         ]}
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews={Platform.OS === "android"}
@@ -516,22 +572,10 @@ export default function SubscriptionScreen() {
       >
         <Animated.View entering={FadeInDown.duration(280)}>
           <View style={styles.headerRow}>
-            <View pointerEvents="none" style={styles.leavesLeftWrap}>
-              <Image
-                cachePolicy="memory-disk"
-                contentFit="contain"
-                priority="high"
-                source={LEAVES_LEFT}
-                style={styles.leavesLeftImg}
-              />
-            </View>
-            <ScreenBackButton onPress={() => router.back()} />
+            <ScreenBackButton style={styles.backButton} iconColor={isDark ? "#dbeafe" : "#19325e"} onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/profile")} />
             <View style={styles.headerTextCol}>
               <Text numberOfLines={2} style={styles.headerTitle}>
                 {t("features.premiumTitle")}
-              </Text>
-              <Text numberOfLines={2} style={styles.headerSubtitle}>
-                {t("v2HeroTitle")}
               </Text>
             </View>
             <Pressable
@@ -557,7 +601,7 @@ export default function SubscriptionScreen() {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={27}
-                color={isDark ? "#6ee7b7" : "#047857"}
+                color={isDark ? "#8bdce3" : "#398ea5"}
               />
               {loading ? (
                 <ActivityIndicator
@@ -573,15 +617,6 @@ export default function SubscriptionScreen() {
                 </View>
               )}
             </Pressable>
-            <View pointerEvents="none" style={styles.crownArtWrap}>
-              <Image
-                cachePolicy="memory-disk"
-                contentFit="contain"
-                priority="high"
-                source={CROWN_HERO}
-                style={styles.crownHeroImg}
-              />
-            </View>
           </View>
 
           <CurrentPlanCard
@@ -603,7 +638,8 @@ export default function SubscriptionScreen() {
           <PlanComparison
             anTamFeatures={anTamFeatures}
             freeFeatures={freeFeatures}
-            freeIsCurrent={!status?.isAnTam}
+            freeIsCurrent={status?.planCode === "free"}
+            purchaseDisabled={loading || !status}
             onChoosePlan={handleChoosePlan}
             styles={styles}
             t={t}
@@ -779,13 +815,7 @@ export default function SubscriptionScreen() {
                             />
                           )}
                         </Pressable>
-                      ) : (
-                        <Ionicons
-                          name="chevron-forward"
-                          size={20}
-                          color={isDark ? "#94a3b8" : "#64748b"}
-                        />
-                      )}
+                      ) : null}
                     </Pressable>
                   );
                 })}
@@ -819,11 +849,6 @@ export default function SubscriptionScreen() {
                     {t("v2FreeHintSubtitle")}
                   </Text>
                 </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={isDark ? "#94a3b8" : "#64748b"}
-                />
               </Pressable>
             ) : canManageProtectedMembers ? (
               <View style={styles.addProtectedSection}>
@@ -925,54 +950,45 @@ function createStyles(
     scrollContent: {
       paddingBottom: 90,
       paddingHorizontal: 16,
+      width: "100%",
+      maxWidth: 760,
+      alignSelf: "center",
     },
     headerRow: {
       alignItems: "center",
       flexDirection: "row",
-      minHeight: 112,
+      minHeight: 56,
       paddingBottom: 8,
       paddingTop: 6,
-      position: "relative",
+      marginBottom: 38,
     },
-    leavesLeftWrap: {
-      height: 85,
-      left: -14,
-      position: "absolute",
-      top: -8,
-      width: 140,
-      zIndex: 0,
+    backButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: isDark ? "#1a3046" : "#f7fcff",
     },
-    leavesLeftImg: { height: "100%", width: "100%" },
     headerTextCol: {
       flex: 1,
       justifyContent: "center",
       paddingLeft: 10,
-      paddingRight: 142,
-      zIndex: 1,
+      paddingRight: 12,
     },
     headerTitle: {
-      color: isDark ? "#f8fafc" : "#0f172a",
-      fontSize: 22,
+      color: isDark ? "#edf5ff" : "#19325e",
+      fontSize: 24,
       fontWeight: "800",
       letterSpacing: -0.4,
       lineHeight: 28,
-    },
-    headerSubtitle: {
-      color: isDark ? "#94a3b8" : "#047857",
-      fontSize: 12,
-      fontWeight: "500",
-      lineHeight: 17,
-      marginTop: 2,
     },
     protectedHeaderButton: {
       alignItems: "center",
       height: 44,
       justifyContent: "center",
-      position: "absolute",
-      right: 0,
-      top: 0,
       width: 44,
-      zIndex: 4,
+      flexShrink: 0,
+      borderRadius: 22,
+      backgroundColor: isDark ? "#1a3947" : "#eafaff",
     },
     protectedHeaderButtonPressed: { opacity: 0.58 },
     protectedHeaderButtonDisabled: { opacity: 0.62 },
@@ -1000,37 +1016,33 @@ function createStyles(
       fontWeight: "800",
       lineHeight: 13,
     },
-    crownArtWrap: {
-      height: 78,
-      position: "absolute",
-      right: 5,
-      top: 28,
-      width: 132,
-      zIndex: 1,
-    },
-    crownHeroImg: { height: "100%", width: "100%" },
     currentPlanCard: {
       alignItems: "center",
-      backgroundColor: isDark ? colors.surface : "#fffdfa",
-      borderColor: isDark ? colors.border : "#e2e8f0",
-      borderRadius: 18,
-      borderWidth: 1,
       flexDirection: "row",
       gap: 12,
-      marginTop: 4,
-      padding: 14,
+      padding: 16,
+      minHeight: 94,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: isDark ? "#2b4761" : "#d9eaff",
+      backgroundColor: isDark ? "#1b3048" : "#e5f1ff",
+      shadowColor: "#6b95c6",
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: isDark ? 0 : 0.06,
+      shadowRadius: 14,
     },
     currentAvatarWrap: {
       alignItems: "center",
-      borderRadius: 22,
-      height: 44,
+      borderRadius: 28,
+      backgroundColor: isDark ? "#233d51" : "#f4fdff",
+      height: 56,
       justifyContent: "center",
       overflow: "hidden",
-      width: 44,
+      width: 56,
     },
     currentPlanBadgeImg: {
-      height: 36,
-      width: 36,
+      height: 48,
+      width: 48,
     },
     currentPlanInfo: { flex: 1, minWidth: 0 },
     currentPlanTitleRow: {
@@ -1041,58 +1053,70 @@ function createStyles(
       minWidth: 0,
     },
     currentPlanLabel: {
-      color: isDark ? "#f8fafc" : "#0f172a",
+      color: isDark ? "#edf5ff" : "#19325e",
       flexShrink: 1,
-      fontSize: 14.5,
+      fontSize: 17,
       fontWeight: "700",
       lineHeight: 20,
     },
     currentPlanBadge: {
-      backgroundColor: isDark ? "#1e293b" : "#ecfdf5",
+      backgroundColor: isDark ? "#244e3d" : "#d3f4df",
       borderRadius: 12,
       flexShrink: 0,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
     },
     currentPlanBadgeAnTam: {
-      backgroundColor: isDark ? "#451a03" : "#fff7ed",
+      backgroundColor: isDark ? "#184a54" : "#d2f0f0",
     },
-    currentPlanBadgeText: { color: "#059669", fontSize: 11, fontWeight: "700" },
-    currentPlanBadgeTextAnTam: { color: "#ea580c" },
+    currentPlanBadgeText: { color: isDark ? "#a7e3b9" : "#33734b", fontSize: 12, fontWeight: "700" },
+    currentPlanBadgeTextAnTam: { color: isDark ? "#a1e4e6" : "#267b85" },
     currentPlanSub: {
       color: isDark ? "#94a3b8" : "#64748b",
       flexShrink: 1,
-      fontSize: 12,
-      lineHeight: 17,
+      fontSize: 14,
+      lineHeight: 20,
       marginTop: 2,
     },
     comparisonRow: {
-      alignItems: "stretch",
       flexDirection: "row",
+      alignItems: "stretch",
       gap: 12,
-      marginTop: 14,
+      marginTop: 24,
     },
-    comparisonStack: { flexDirection: "column" },
-    stackedPlanCard: { flexGrow: 0, flexShrink: 0, flexBasis: "auto" },
-    freeCard: {
-      backgroundColor: isDark ? colors.surface : "#fffdfa",
-      borderColor: isDark ? colors.border : "#e2e8f0",
-      borderRadius: 20,
-      borderWidth: 1,
+    comparisonStacked: { flexDirection: "column" },
+    planChoice: {
       flex: 1,
-      justifyContent: "space-between",
-      padding: 20,
+      minWidth: 0,
+      overflow: "hidden",
+      borderWidth: 1.2,
+      padding: 14,
+      borderRadius: 22,
+      gap: 12,
     },
-    premiumCard: {
-      backgroundColor: isDark ? "#1c1917" : "#fffbf5",
-      borderColor: "#f59e0b",
-      borderRadius: 20,
-      borderWidth: 1.5,
-      flex: 1,
-      justifyContent: "space-between",
-      padding: 20,
-      position: "relative",
+    planChoiceDetails: {
+      flexGrow: 1,
+      flexShrink: 0,
+      minWidth: 0,
+      minHeight: 190,
+      alignItems: "center",
+      paddingTop: 4,
+      gap: 6,
     },
+    planChoiceStacked: { flex: 0, width: "100%" },
+    freeChoice: { borderColor: isDark ? "#365471" : "#ccdefb" },
+    premiumChoice: { borderColor: isDark ? "#4e95a0" : "#57b6c8" },
+    planArtwork: { width: "100%", height: 112, alignItems: "center", justifyContent: "center", marginBottom: 6 },
+    planChoiceImage: { width: 108, height: 96, maxWidth: "100%", flexShrink: 0 },
+    premiumChoiceImage: { width: 132, height: 112 },
+    planChoiceTitle: { flexShrink: 1, minWidth: 0, textAlign: "center" },
+    planChoiceDescription: { color: isDark ? "#b6c9df" : "#52698c", fontSize: 14, textAlign: "center", lineHeight: 21 },
+    planStatusPill: { minHeight: 44, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: isDark ? "#46678d" : "#abc9f6", flexDirection: "row", gap: 5, alignItems: "center", justifyContent: "center" },
+    planStatusText: { color: isDark ? "#b1d1ff" : "#346fc2", fontSize: 12, fontWeight: "700", textAlign: "center", flexShrink: 1 },
+    premiumPlanStatusText: { color: isDark ? "#9cdddf" : "#287b86" },
+    upgradeButton: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 24, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+    upgradeButtonText: { color: "#f5fcff", fontWeight: "700", fontSize: 13, textAlign: "center" },
+    planChoicePressed: { opacity: 0.65 },
     popularBadge: {
       backgroundColor: colors.primaryLight,
       borderColor: colors.primaryDark,
@@ -1105,39 +1129,14 @@ function createStyles(
       marginBottom: 8,
     },
     popularBadgeText: { color: colors.primaryText, fontSize: 13, fontWeight: "700", flexShrink: 1 },
-    planCardHeader: {
-      alignItems: "center",
-      justifyContent: "flex-start",
-      minHeight: 136,
-      paddingBottom: 4,
-      paddingTop: 4,
-    },
-    freeAvatar: {
-      alignItems: "center",
-      height: 60,
-      justifyContent: "center",
-      marginBottom: 6,
-      width: 60,
-    },
-    premiumAvatar: {
-      alignItems: "center",
-      height: 60,
-      justifyContent: "center",
-      marginBottom: 6,
-      width: 60,
-    },
-    planBadgeImg: {
-      height: 58,
-      width: 58,
-    },
     freePlanTitle: {
-      color: isDark ? "#f8fafc" : "#0f172a",
+      color: isDark ? "#edf5ff" : "#19325e",
       fontSize: 22,
       fontWeight: "700",
       textAlign: "center",
     },
     premiumPlanTitle: {
-      color: "#ea580c",
+      color: isDark ? "#8bd4dc" : "#2c7e8b",
       fontSize: 22,
       fontWeight: "700",
       textAlign: "center",
@@ -1293,7 +1292,19 @@ function createStyles(
       fontWeight: "600",
       lineHeight: 18,
     },
-    faqWrapper: { marginTop: 16 },
+    faqWrapper: {
+      marginTop: 18,
+      paddingHorizontal: 16,
+      paddingVertical: 2,
+      borderRadius: 20,
+      backgroundColor: isDark ? "#1a2b40" : "#fbfdff",
+      borderWidth: 1,
+      borderColor: isDark ? "#273e58" : "#edf3fc",
+      shadowColor: "#7295ba",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0 : 0.05,
+      shadowRadius: 12,
+    },
     backdrop: {
       backgroundColor: "rgba(15,23,42,0.45)",
       bottom: 0,

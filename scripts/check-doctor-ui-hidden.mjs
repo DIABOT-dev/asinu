@@ -41,13 +41,13 @@ function doctorTarget(value) {
     /^https?:\/\/(?:dr|doctor)\.asinu\.(?:vn|top)(?:[/:?#]|$)/iu.test(value)
   );
 }
-function hasVisibilityGuard(node, tree) {
+function hasVisibilityGuard(node, tree, flag = "isDoctorFeaturesEnabled") {
   const positive = (expression) => {
     if (ts.isParenthesizedExpression(expression)) {
       return positive(expression.expression);
     }
     if (ts.isIdentifier(expression)) {
-      return expression.text === "isDoctorFeaturesEnabled";
+      return expression.text === flag;
     }
     return (
       ts.isBinaryExpression(expression) &&
@@ -80,7 +80,7 @@ function hasVisibilityGuard(node, tree) {
         }
         if (
           !ts.isIfStatement(statement) ||
-          statement.expression.getText(tree) !== "!isDoctorFeaturesEnabled"
+          statement.expression.getText(tree) !== "!" + flag
         ) {
           continue;
         }
@@ -231,7 +231,7 @@ await test("all scanned code/configuration files parse, so syntax cannot silentl
   }
 });
 
-await test("Dr.Asinu opens in local development while staging and production stay hidden", () => {
+await test("legacy IVR opens only in local development; AC-5 consultation opens in all builds", () => {
   const environments = [
     { env: "local", developmentVisible: true },
     { env: "dev", developmentVisible: true },
@@ -254,6 +254,7 @@ await test("Dr.Asinu opens in local development while staging and production sta
         dev === true && developmentVisible,
         `Dr.Asinu visibility for environment=${env}, runtimeDevelopment=${dev}`
       );
+      assert.equal(flags.isExpertConsultationEnabled, true, 'AC-5 consultation remains available in store/staging');
     }
   }
 });
@@ -321,13 +322,15 @@ assert.ok(
   doctorRoutes.length >= 6,
   "Dedicated Dr.Asinu routes were not discovered"
 );
-function filteredRoutes(enabled) {
+const consultationRoutes = new Set(['doctor-consultation', 'doctor-consultation/[taskId]', 'doctor-consultation-history', 'privacy-center']);
+function filteredRoutes(enabled, consultationEnabled = true) {
   const { layout } = evaluate(
     `export const layout = (${stack.getText(root)});`,
     {},
     {
       Stack: Object.assign(() => null, { Screen, Protected: Group }),
       isDoctorFeaturesEnabled: enabled,
+      isExpertConsultationEnabled: consultationEnabled,
       screenOptions: {},
       legalScreenOptions: {},
     }
@@ -339,15 +342,17 @@ function filteredRoutes(enabled) {
   });
   return filterScreenChildren(mapped.children);
 }
-await test("the actual Expo navigator excludes all Doctor screens, preventing deep links and restored consultation routes", () => {
+await test("the actual Expo navigator keeps consultation available while excluding IVR/interview screens", () => {
   const result = filteredRoutes(false);
   assert.deepEqual(
     [...result.protectedScreens].sort(),
-    [...doctorRoutes].sort()
+    doctorRoutes.filter((route) => !consultationRoutes.has(route)).sort()
   );
   assert.ok(
-    result.screens.every((screen) => !doctorRoutes.includes(screen.name))
+    result.screens.every((screen) => !doctorRoutes.includes(screen.name) || consultationRoutes.has(screen.name))
   );
+  for (const route of consultationRoutes) assert.ok(result.screens.some((screen) => screen.name === route), route);
+  assert.deepEqual([...filteredRoutes(false, false).protectedScreens].sort(), [...doctorRoutes].sort());
   for (const route of [
     "checkin",
     "checkin-call/[episodeId]",
@@ -463,8 +468,10 @@ await test("every navigation call, href and Dr.Asinu API action across the entir
       if (doctorApi || values.some(doctorTarget)) {
         const line =
           tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1;
+        const destinations = doctorApi ? resolve(node.arguments[0]) : values;
+        const consultationOnly = destinations.every((value) => /^\/(?:doctor-consultation(?:[/?#-]|$)|privacy-center(?:[/?#]|$))|^\/api\/doctor\/(?:tasks(?:[/?#]|$)|specialists(?:[/?#]|$)|specialty-options(?:[/?#]|$))/.test(value));
         assert.ok(
-          hasVisibilityGuard(node, tree),
+          hasVisibilityGuard(node, tree) || (consultationOnly && hasVisibilityGuard(node, tree, 'isExpertConsultationEnabled')),
           `Dr.Asinu action is not hidden: ${file}:${line}`
         );
         audit.doctorActions.push({
@@ -541,7 +548,7 @@ await test("Dr.Asinu UI components are never mounted from an unguarded screen el
   assert.ok(doctorComponents.has("DoctorConnectButton"));
 });
 
-const flags = { isDoctorFeaturesEnabled: false };
+const flags = { isDoctorFeaturesEnabled: false, isExpertConsultationEnabled: false };
 const categories = [],
   removed = [];
 const { routeFromNotificationData, registerNotificationCategories } = evaluate(
@@ -620,7 +627,7 @@ await test("old specialist notifications cannot reopen hidden screens; check-in/
     "/checkin-call/[episodeId]"
   );
 });
-await test("native doctor quick replies are removed; health alert actions remain registered", async () => {
+await test("consultation kill-switch removes its quick replies; health alert actions remain registered", async () => {
   await registerNotificationCategories();
   assert.ok(removed.includes("doctor_message"));
   assert.ok(!categories.some((category) => category.id === "doctor_message"));
@@ -638,7 +645,7 @@ await test("a previously registered quick reply cannot send a consultation messa
   let sent = 0;
   // eslint-disable-next-line no-new-func
   new Function(
-    "isDoctorFeaturesEnabled",
+    "isExpertConsultationEnabled",
     "apiClient",
     "data",
     "response",
@@ -703,8 +710,9 @@ await test("an IVR invitation cannot appear from cached state or start polling w
   );
   assert.equal(requests, 0);
 });
-await test("restoring the flag preserves doctor thread routing and native quick replies", async () => {
-  flags.isDoctorFeaturesEnabled = true;
+await test("consultation can receive messages and quick replies while IVR stays disabled", async () => {
+  flags.isExpertConsultationEnabled = true;
+  assert.equal(flags.isDoctorFeaturesEnabled, false);
   assert.equal(
     routeFromNotificationData({ type: "doctor_message", task_id: "task-1" })
       .pathname,
@@ -718,7 +726,8 @@ await test("restoring the flag preserves doctor thread routing and native quick 
         category.actions[0].identifier === "REPLY_DOCTOR_MESSAGE"
     )
   );
-  flags.isDoctorFeaturesEnabled = false;
+  assert.equal(routeFromNotificationData({ type: 'doctor_ivr_call', callType: 'doctor_ivr', episodeId: 'fixture' }), '/(tabs)/home');
+  flags.isExpertConsultationEnabled = false;
 });
 
 console.log(`Dr.Asinu UI visibility: ${checks} checks passed.`);

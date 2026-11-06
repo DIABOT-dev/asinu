@@ -18,10 +18,12 @@ function evaluate(source, imports = {}) {
   }, false);
   return module.exports;
 }
-function nodes(tree) {
-  if (Array.isArray(tree)) return tree.flatMap(nodes);
+function nodes(tree, includeHidden = false) {
+  if (Array.isArray(tree)) return tree.flatMap(child => nodes(child, includeHidden));
   if (!tree || typeof tree !== 'object') return [];
-  return [tree, ...nodes(tree.props?.children)];
+  const styles = [tree.props?.style].flat(Infinity);
+  if (!includeHidden && styles.some(style => style?.display === 'none')) return [];
+  return [tree, ...nodes(tree.props?.children, includeHidden)];
 }
 function text(tree) {
   if (Array.isArray(tree)) return tree.map(text).join(' ');
@@ -33,12 +35,13 @@ class ApiError extends Error {
   constructor(statusCode) { super('Fixture API failure'); this.statusCode = statusCode; }
 }
 
-function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, profile: profileOverrides = {} } = {}) {
+function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {} } = {}) {
   const slots = [];
   let cursor = 0;
   let pendingEffects = [];
   let needsRender = false;
-  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0 };
+  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [], fontSizes: [], languages: [] };
+  const preferences = { fontScale: 'normal', language };
   const profile = { id: 'profile-fixture', name: 'Demo', phone: '', age: 40, gender: 'Nam',
     heightCm: 170, weightKg: 70, bloodType, chronicDiseases: [], ...profileOverrides };
   const auth = { profile, logout: async () => {} };
@@ -95,13 +98,14 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     'react-i18next': { useTranslation: ns => ({ t: translate(ns), i18n: { language } }) },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     'expo-linear-gradient': { LinearGradient: 'LinearGradient' },
-    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ push() {}, replace() {}, back() {} }) },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => calls.routes.push(route), replace() {}, back() {} }) },
     '../../../src/components/AppAlertModal': { AppAlertModal: 'AppAlertModal', useAppAlert: () => ({ alertState: { visible: false }, showAlert() {}, dismissAlert() {} }) },
     '../../../src/components/AiDataConsentModal': { AiDataConsentModal: 'AiDataConsentModal', hasAiDataConsent: async () => false, revokeAiDataConsent: async () => {} },
     '../../../src/components/ScaledTextInput': { ScaledTextInput: 'TextInput' },
     '../../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../../src/components/Screen': { Screen: 'Screen' },
+    '../../../src/components/DeleteAccountModal': { __esModule: true, default: 'DeleteAccountModal' },
     '../../../src/components/GlobalToastHost': { ModalToastHost: 'ModalToastHost' },
     '../../../src/components/state/MainScreenSkeletons': { ProfileTabSkeleton: 'Skeleton' },
     '../../../src/features/auth/auth.api': { authApi: {
@@ -120,19 +124,46 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/logs/logs.store': { useLogsStore: selector => selector({ fetchRecent: async () => {} }) },
     '../../../src/features/missions/missions.store': { useMissionsStore: selector => selector({ fetchMissions: async () => {} }) },
     '../../../src/features/subscription/planName': { localizedPlanName: () => 'Fixture plan' },
-    '../../../src/stores/font-size.store': { useFontSizeStore: () => ({ scale: 'normal', multiplier, setScale() {} }) },
-    '../../../src/stores/language.store': { useLanguageStore: () => ({ language, setLanguage() {} }) },
-    '../../../src/hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
+    '../../../src/stores/font-size.store': { useFontSizeStore: () => ({ scale: preferences.fontScale, multiplier,
+      setScale(value) { preferences.fontScale = value; calls.fontSizes.push(value); } }) },
+    '../../../src/stores/language.store': { useLanguageStore: () => ({ language: preferences.language,
+      setLanguage(value) { preferences.language = value; calls.languages.push(value); } }) },
+    '../../../src/hooks/useScaledTypography': { useScaledTypography: () => ({
+      ...theme.typography,
+      scaledSize: Object.fromEntries(Object.entries(theme.typography.size).map(([key, value]) => [key, Math.round(value * multiplier)])),
+    }) },
     '../../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: () => false },
     '../../../src/lib/apiClient': { ApiError, apiClient: async () => ({}), getApiErrorMessage: (_error, t, key) => t(key) },
-    '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: false, isCheckinUiGalleryEnabled: false },
+    '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: doctorEnabled, isCheckinUiGalleryEnabled: false },
     '../../../src/features/app-update/app-update.store': { useAppUpdateStore: Object.assign(selector => selector({ checking: false }), { getState: () => ({ check: async () => ({ status: 'current' }) }) }) },
+    '../../../src/features/profile/ProfileMascotGreeting': { ProfileMascotGreeting: 'MascotGreeting' },
+    '../../../src/features/profile/FontSizePickerModal': { FontSizePickerModal: 'FontSizePickerModal' },
+    '../../../src/features/profile/LanguagePickerModal': { LanguagePickerModal: 'LanguagePickerModal' },
+    '../../../src/features/profile/ProfileDevicePermissions': { ProfileDevicePermissions: 'DevicePermissions' },
+    '../../../src/features/profile/TaskReminderPermission': { TaskReminderPermission: 'TaskReminderPermission' },
+    '../../../src/features/profile/SpecialistSharingPermission': { SpecialistSharingPermission: 'SpecialistSharingPermission' },
+    '../../../src/features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: 'ReminderSettingsEntry' },
+    '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => ({ enabled: true, balance: 12, earnedToday: 10 }) },
+    '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
+    '../../../src/features/care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
     '../../../src/lib/native-permissions': { runNativePermission: operation => operation() },
     '../../../src/styles': theme,
     '../../../src/hooks/useThemeColors': { useThemeColors: () => ({ isDark }) },
     '../../../src/stores/health-feed-preference': { getHealthFeedPreference: async () => true, setHealthFeedPreference: async enabled => enabled },
   };
   const { default: ProfileScreen } = evaluate(read('app/(tabs)/profile/index.tsx'), imports);
+  const preferenceImports = {
+    'react-native': { ...imports['react-native'], Text: 'NativeText' },
+    '@expo/vector-icons': imports['@expo/vector-icons'],
+    'react-i18next': imports['react-i18next'],
+    'react-native-safe-area-context': imports['react-native-safe-area-context'],
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ isDark, colors: isDark ? theme.darkColors : theme.lightColors }) },
+  };
+  const preference = evaluate(read('src/features/profile/ProfilePreferenceModal.tsx'), preferenceImports);
+  const pickerImports = { ...preferenceImports, './ProfilePreferenceModal': preference };
+  const { FontSizePickerModal } = evaluate(read('src/features/profile/FontSizePickerModal.tsx'), pickerImports);
+  const { LanguagePickerModal } = evaluate(read('src/features/profile/LanguagePickerModal.tsx'), pickerImports);
   const render = () => {
     let tree;
     let renders = 0;
@@ -151,6 +182,8 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     return tree;
   };
   const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible && text(node).includes(translate('profile')('editProfileTitle')));
+  const fontModal = () => preference.ProfilePreferenceModal(FontSizePickerModal(nodes(render()).find(node => node.type === 'FontSizePickerModal').props).props);
+  const languageModal = () => preference.ProfilePreferenceModal(LanguagePickerModal(nodes(render()).find(node => node.type === 'LanguagePickerModal').props).props);
   const saveButton = () => nodes(modal()).find(node => node.type === 'Pressable' && node.props.onPress?.name === 'handleSaveProfile');
   const input = (field = 'name') => {
     const inputs = nodes(modal()).filter(node => node.type === 'TextInput');
@@ -163,7 +196,10 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   const bloodValue = () => bloodField().props.accessibilityValue.text;
   const bloodChoices = () => {
     if (!bloodField().props.accessibilityState.expanded) bloodField().props.onPress();
-    return nodes(modal()).filter(node => node.props.accessibilityRole === 'radio');
+    const group = nodes(modal()).find(node => node.props.accessibilityRole === 'radiogroup'
+      && node.props.accessibilityLabel === translate('profile')('bloodType'));
+    assert.ok(group, 'Blood type choices must have their own labelled group');
+    return nodes(group).filter(node => node.props.accessibilityRole === 'radio');
   };
   const selectBloodType = value => {
     const option = bloodChoices().find(node => node.props.accessibilityLabel === (value || translate('profile')('bloodTypeUnknown')));
@@ -187,37 +223,244 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   const avatarButton = () => nodes(modal()).find(node => node.type === 'Pressable' && text(node).trim() === translate('profile')('uploadPhoto'));
   const updateProfile = update => { auth.profile = { ...auth.profile, ...update }; };
   const open = () => {
+    const header = nodes(render()).find(node => node.props.accessibilityRole === 'button'
+      && node.props.accessibilityLabel === translate('profile')('personalInfo'));
+    assert.ok(header, 'Personal-info dropdown must exist');
+    if (!header.props.accessibilityState.expanded) header.props.onPress();
     const edit = nodes(render()).find(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && node.props.onPress?.name === 'handleEditProfile');
     assert.ok(edit, 'Profile edit button must exist'); edit.props.onPress(); assert.ok(modal());
   };
-  return { render, modal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
+  const toggleSection = title => {
+    const header = nodes(render()).find(node => node.props.accessibilityRole === 'button'
+      && node.props.accessibilityLabel === title && 'expanded' in (node.props.accessibilityState || {}));
+    assert.ok(header, `Profile section ${title} must be expandable`);
+    header.props.onPress();
+    return render();
+  };
+  return { render, modal, fontModal, languageModal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
     openDiseasePicker, diseaseChoice, toggleDisease, customInput, addDiseaseButton, addDisease, cancel,
-    avatarButton, updateProfile, calls, t: translate('profile'), tc: translate('common') };
+    avatarButton, updateProfile, toggleSection, calls, t: translate('profile'), tc: translate('common'), ts: translate('settings') };
 }
 
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
+  await test(`${language}: account deletion is under Account and its confirmation opens on the first press`, () => {
+    const h = harness({ language });
+    const expanded = h.toggleSection(h.t('sectionAccount'));
+    const button = nodes(expanded).find(node => node.props?.accessibilityLabel === h.ts('deleteAccountForever'));
+    assert.ok(button);
+    button.props.onPress();
+    const modal = nodes(h.render()).find(node => node.type === 'DeleteAccountModal');
+    assert.ok(modal, 'First press must show the confirmation without loading a lazy module');
+    assert.equal(modal.props.visible, true);
+    assert.equal(typeof modal.props.onConfirm, 'function');
+    modal.props.onClose();
+    assert.ok(!nodes(h.render()).some(node => node.type === 'DeleteAccountModal'));
+    assert.deepEqual(h.calls.saves, []);
+  });
   for (const isDark of [false, true]) {
-    await test(`${language}/${isDark ? 'dark' : 'light'}: the care promotion banner is hidden without removing profile actions`, async () => {
+    await test(`${language}/${isDark ? 'dark' : 'light'}: profile groups expand inline and independently without removing their actions`, async () => {
       const h = harness({ language, isDark });
       const tree = h.render();
       const all = nodes(tree);
       assert.ok(!all.some(node => node.type === 'Text' && [h.t('careBannerTitle'), h.t('careBannerSubtitle')].includes(node.props.children)));
-      assert.ok(all.some(node => node.type === 'Text' && node.props.children === h.t('sectionActions')));
-      assert.ok(all.some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t('reminderSchedule')));
+      const mainContent = all.find(node => node.type === 'ScrollView');
+      const headings = nodes(mainContent).filter(node => node.props.accessibilityRole === 'button' && 'expanded' in (node.props.accessibilityState || {})).map(node => node.props.accessibilityLabel);
+      assert.deepEqual(headings, [h.t('personalInfo'), h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.t('sectionSettings'), h.ts('appPermissions'), h.t('sectionSystem')]);
+      const hasRow = (tree, key) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t(key));
+      assert.equal(all.filter(node => node.type === 'TouchableOpacity' && node.props.accessibilityState?.expanded === false).length, 7);
+      assert.ok(!nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')), 'Personal details stay hidden until expanded');
+      assert.ok(!hasRow(tree, 'reminderSchedule'));
+      assert.ok(!hasRow(tree, 'logEntry'));
+      const healthOpen = h.toggleSection(h.t('sectionHealth'));
+      assert.ok(hasRow(healthOpen, 'logEntry'));
+      assert.ok(!hasRow(healthOpen, 'missions'));
+      assert.ok(!hasRow(healthOpen, 'dailyGifts'));
+      const bothOpen = h.toggleSection(h.t('sectionRewards'));
+      assert.ok(!hasRow(bothOpen, 'reminderSchedule'));
+      assert.ok(hasRow(bothOpen, 'logEntry'));
+      assert.ok(hasRow(bothOpen, 'missions'));
+      assert.ok(hasRow(bothOpen, 'healthCoins'));
+      const giftEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('dailyGifts'));
+      assert.equal(giftEntries.length, 1, 'Daily gifts have their own profile entry');
+      const collectionEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('giftCollection'));
+      assert.equal(collectionEntries.length, 1, 'The gift collection has a separate profile entry');
+      giftEntries[0].props.onPress();
+      collectionEntries[0].props.onPress();
+      assert.deepEqual(h.calls.routes, ['/checkin-rewards', '/checkin-rewards/history']);
+      const rewardsClosed = h.toggleSection(h.t('sectionRewards'));
+      assert.ok(!hasRow(rewardsClosed, 'missions'));
+      assert.ok(!hasRow(rewardsClosed, 'dailyGifts'));
+      assert.ok(!hasRow(rewardsClosed, 'giftCollection'));
+      assert.ok(hasRow(rewardsClosed, 'logEntry'));
       h.open(); assert.ok(h.modal());
     });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: care, account security and support each contain the appropriate actions`, () => {
+      const h = harness({ language, isDark, doctorEnabled: true, profile: { hasPassword: true } });
+      const hasLabel = (tree, label) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === label);
+      const settings = h.toggleSection(h.t('sectionSettings'));
+      assert.ok(!hasLabel(settings, h.ts('doctorConsultation')));
+      assert.ok(!hasLabel(settings, h.ts('doctorConsultationHistory')));
+      const health = h.toggleSection(h.t('sectionHealth'));
+      assert.ok(hasLabel(health, h.ts('doctorConsultation')));
+      assert.ok(hasLabel(health, h.ts('doctorConsultationHistory')));
+      assert.ok(!hasLabel(health, h.ts('specialistSharing')));
+      assert.ok(hasLabel(health, h.ts('privacyCenterTitle')));
+      const privacyEntry = nodes(health).find(node => node.props.accessibilityLabel === h.ts('privacyCenterTitle'));
+      assert.ok(privacyEntry, 'Consultation data tools belong to Health care');
+      privacyEntry.props.onPress();
+      assert.deepEqual(h.calls.routes, ['/privacy-center']);
+      const permissions = h.toggleSection(h.ts('appPermissions'));
+      assert.equal(nodes(permissions).filter(node => node.type === 'SpecialistSharingPermission').length, 1, 'App permissions contains the inline specialist sharing control');
+      assert.ok(!nodes(permissions).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && node.props.accessibilityLabel === h.ts('specialistSharing')), 'Specialist sharing is a switch rather than navigation to consultation data tools');
+      const help = h.toggleSection(h.t('sectionSystem'));
+      assert.ok(hasLabel(help, h.ts('helpSupport')));
+      assert.ok(hasLabel(help, h.ts('termsOfService')));
+      assert.ok(!hasLabel(help, h.t('changePassword')));
+      assert.ok(!hasLabel(help, h.ts('deleteAccountForever')));
+      const account = h.toggleSection(h.t('sectionAccount'));
+      assert.ok(hasLabel(account, h.t('subscription')));
+      assert.ok(hasLabel(account, h.t('wallet')));
+      assert.ok(hasLabel(account, h.t('changePassword')));
+      assert.ok(hasLabel(account, h.ts('deleteAccountForever')));
+      assert.ok(!hasLabel(account, h.t('healthCoins')));
+      const expandedRewards = h.toggleSection(h.t('sectionRewards'));
+      assert.ok(!nodes(expandedRewards).some(node => node.type === 'Icon' && ['chevron-forward', 'chevron-right'].includes(node.props.name)), 'Actions without an inline dropdown do not show a right arrow');
+      for (const section of [h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.ts('appPermissions'), h.t('sectionSystem')]) {
+        const header = nodes(expandedRewards).find(node => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === section && node.props.accessibilityState?.expanded);
+        assert.ok(header, `Expanded section ${section} remains available`);
+        assert.ok(nodes(header).some(node => node.type === 'Icon' && node.props.name === 'chevron-up'), 'Dropdowns keep their expand/collapse indicator');
+      }
+    });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: permission controls share their own section instead of Settings or System`, () => {
+      const h = harness({ language, isDark });
+      const deviceControls = tree => nodes(tree).filter(node => node.type === 'DevicePermissions');
+      const taskReminderControls = tree => nodes(tree).filter(node => node.type === 'TaskReminderPermission');
+      const reminderControls = tree => nodes(tree).filter(node => node.type === 'ReminderSettingsEntry');
+      assert.equal(deviceControls(h.render()).length, 0);
+      assert.equal(taskReminderControls(h.render()).length, 0);
+      const settingsOpen = h.toggleSection(h.t('sectionSettings'));
+      assert.equal(deviceControls(settingsOpen).length, 0);
+      assert.equal(taskReminderControls(settingsOpen).length, 0, 'Reminder permission is separate from reminder time settings');
+      assert.equal(reminderControls(settingsOpen).length, 1, 'Reminder times belong to app settings');
+      assert.equal(reminderControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
+      assert.equal(deviceControls(h.toggleSection(h.t('sectionSystem'))).length, 0);
+      const health = h.toggleSection(h.t('sectionHealth'));
+      assert.equal(taskReminderControls(health).length, 0);
+      assert.ok(!nodes(health).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
+      assert.equal(nodes(health).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')).length, 0, 'AI consent is grouped with permissions');
+      h.toggleSection(h.t('sectionHealth'));
+      const expanded = h.toggleSection(h.ts('appPermissions'));
+      assert.equal(deviceControls(expanded).length, 1);
+      assert.equal(taskReminderControls(expanded).length, 1, 'Task reminders can be enabled from App permissions');
+      assert.equal(reminderControls(expanded).length, 0, 'Permissions grant access without duplicating reminder settings');
+      assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')).length, 1);
+      const aiSwitches = nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings'));
+      assert.equal(aiSwitches.length, 1, 'AI consent is grouped with device and data access permissions');
+      assert.ok(!nodes(expanded).some(node => node.props.accessibilityLabel === h.ts('specialistSharing')), 'Specialist sharing follows the existing feature flag');
+      aiSwitches[0].props.onValueChange(true);
+      assert.equal(nodes(h.render()).find(node => node.type === 'AiDataConsentModal').props.visible, true, 'Allowing AI still requires its explicit consent dialog');
+      const closed = h.toggleSection(h.ts('appPermissions'));
+      assert.equal(deviceControls(closed).length, 0);
+      assert.equal(taskReminderControls(closed).length, 0);
+      assert.ok(!nodes(closed).some(node => node.type === 'ReminderSettingsEntry'));
+      assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
+      assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')));
+    });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: reopening permissions preserves mounted controls while collapsed rows are hidden and inaccessible`, () => {
+      const h = harness({ language, isDark, doctorEnabled: true });
+      const panel = tree => nodes(tree, true).find(node => node.props.testID === 'profile-permission-controls');
+      const first = panel(h.render());
+      assert.ok(first, 'Permission status can load before opening the dropdown');
+      const controlTypes = ['DevicePermissions', 'TaskReminderPermission', 'SpecialistSharingPermission'];
+      for (let cycle = 0; cycle < 5; cycle++) {
+        for (const expanded of [true, false]) {
+          const tree = h.toggleSection(h.ts('appPermissions'));
+          const current = panel(tree);
+          assert.ok(current, 'Closing the dropdown must not unmount permission controls');
+          assert.equal(current.props.key, first.props.key);
+          assert.equal(current.props.accessibilityElementsHidden, !expanded);
+          assert.equal(current.props.importantForAccessibility, expanded ? 'auto' : 'no-hide-descendants');
+          assert.equal(current.props.pointerEvents, expanded ? 'auto' : 'none');
+          for (const type of controlTypes) {
+            assert.equal(nodes(current, true).filter(node => node.type === type).length, 1, `${type} remains mounted`);
+            assert.equal(nodes(tree).filter(node => node.type === type).length, expanded ? 1 : 0, `${type} is only visible when expanded`);
+          }
+        }
+      }
+      h.updateProfile({ id: 'another-profile' });
+      assert.notEqual(panel(h.render()).props.key, first.props.key, 'Permission state must reset for another account');
+    });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: font and language modals show previews, retain selections and dismiss without changes`, () => {
+      const h = harness({ language, isDark });
+      h.toggleSection(h.t('sectionSettings'));
+      const control = key => nodes(h.render()).find(node => node.props.accessibilityRole === 'button'
+        && node.props.accessibilityLabel === h.ts(key));
+      const groups = () => nodes(nodes(h.render()).find(node => node.type === 'ScrollView'))
+        .filter(node => node.props.accessibilityRole === 'radiogroup');
+      const fontOptions = () => nodes(h.fontModal()).filter(node => node.props.accessibilityRole === 'radio');
+      const languageOptions = () => nodes(h.languageModal()).filter(node => node.props.accessibilityRole === 'radio');
+      assert.equal(control('fontSize').props.accessibilityState?.expanded, undefined, 'Font size opens a modal rather than a dropdown');
+      assert.equal(control('language').props.accessibilityState?.expanded, undefined, 'Language opens a modal rather than a dropdown');
+      control('fontSize').props.onPress();
+      assert.equal(groups().length, 0, 'Font choices must not expand inside the profile page');
+      assert.equal(h.fontModal().type, 'Modal');
+      assert.equal(h.fontModal().props.visible, true);
+      assert.equal(fontOptions().length, 4);
+      const previews = nodes(h.fontModal()).filter(node => node.type === 'NativeText' && node.props.children === h.ts('fontPreview'));
+      assert.deepEqual(previews.map(node => Object.assign({}, ...node.props.style).fontSize), [14, 16, 18, 20]);
+      assert.ok(previews.every(node => node.props.allowFontScaling === false), 'A preview must use its target size rather than multiplying the current scale again');
+      assert.equal(fontOptions().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, h.ts('fontNormal'));
+      assert.equal(nodes(h.render()).filter(node => node.type === 'Modal' && node.props.visible).length, 0);
+      fontOptions().find(node => node.props.accessibilityLabel === h.ts('fontLarge')).props.onPress();
+      assert.deepEqual(h.calls.fontSizes, ['large']);
+      assert.equal(h.fontModal().props.visible, false);
+      control('fontSize').props.onPress();
+      assert.equal(fontOptions().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, h.ts('fontLarge'));
+      h.fontModal().props.onRequestClose();
+      assert.equal(h.fontModal().props.visible, false);
+      assert.deepEqual(h.calls.fontSizes, ['large'], 'Dismissing the modal must not change the preference');
+      control('language').props.onPress();
+      assert.equal(groups().length, 0);
+      assert.equal(h.languageModal().props.visible, true);
+      assert.equal(h.languageModal().type, 'Modal');
+      assert.deepEqual(nodes(h.languageModal()).filter(node => node.type === 'NativeText').map(node => node.props.children), ['🇻🇳', '🇬🇧']);
+      assert.equal(h.fontModal().props.visible, false, 'Opening language does not stack another preference modal');
+      assert.equal(languageOptions().length, 2);
+      const next = language === 'vi' ? 'en' : 'vi';
+      const nextLabel = h.ts(next === 'vi' ? 'languageVi' : 'languageEn');
+      languageOptions().find(node => node.props.accessibilityLabel === nextLabel).props.onPress();
+      assert.deepEqual(h.calls.languages, [next]);
+      assert.equal(h.languageModal().props.visible, false);
+      control('language').props.onPress();
+      assert.equal(languageOptions().find(node => node.props.accessibilityState.checked).props.accessibilityLabel, nextLabel);
+      h.languageModal().props.onRequestClose();
+      assert.equal(h.languageModal().props.visible, false);
+      assert.deepEqual(h.calls.languages, [next]);
+      assert.equal(groups().length, 0);
+    });
   }
-  await test(`${language}: profile editing remains only in the personal-info header, not the actions list`, async () => {
+  await test(`${language}: personal info expands read-only and opens the editor only through Edit`, async () => {
     const h = harness({ language });
+    assert.ok(!nodes(h.render()).some(node => node.props.onPress?.name === 'handleEditProfile'));
+    h.toggleSection(h.t('personalInfo'));
+    assert.equal(h.modal(), undefined, 'Expanding personal details must not open an editor');
+    const mainContent = nodes(h.render()).find(node => node.type === 'ScrollView');
+    assert.ok(nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')));
+    assert.ok(!nodes(mainContent).some(node => node.type === 'TextInput'), 'Inline details cannot be edited');
+    assert.equal(h.calls.saves.length, 0);
+    assert.equal(h.calls.uploads.length, 0);
+    h.toggleSection(h.t('personalInfo'));
+    assert.ok(!nodes(h.render()).some(node => node.props.onPress?.name === 'handleEditProfile'));
+    h.toggleSection(h.t('personalInfo'));
+    h.toggleSection(h.t('sectionHealth'));
     const controls = nodes(h.render()).filter(node => ['Pressable', 'TouchableOpacity'].includes(node.type));
     const editors = controls.filter(node => node.props.onPress?.name === 'handleEditProfile');
     assert.equal(editors.length, 1, 'Exactly one profile edit entry must remain');
-    assert.equal(editors[0].props.accessibilityLabel, h.t('edit'));
+    assert.equal(editors[0].props.accessibilityLabel, h.t('editProfile'));
     assert.equal(text(editors[0]).trim(), h.t('edit'));
-    assert.ok(!controls.some(node => text(node).trim() === h.t('editProfile')), 'The duplicate actions card must be removed');
-    assert.ok(controls.some(node => text(node).trim() === h.t('reminderSchedule')), 'Other actions must remain');
+    assert.ok(controls.some(node => node.props.accessibilityLabel?.startsWith(h.t('checkinCall'))), 'Other actions must remain');
     editors[0].props.onPress(); assert.ok(h.modal());
   });
   await test(`${language}: opening an unchanged profile leaves Save muted, accessible, and unable to submit`, async () => {
@@ -258,7 +501,7 @@ for (const language of ['vi', 'en']) {
   });
   await test(`${language}: blood type is selection only, with accessible choices and no extra subtitles`, async () => {
     const h = harness({ language, multiplier: 1.6 }); h.open();
-    for (const key of ['editProfileSubtitle', 'basicInfoSubtitle', 'healthInfoSubtitle', 'bloodTypeExample']) {
+    for (const key of ['editProfileSubtitle', 'basicInfoSubtitle', 'healthInfo', 'healthInfoSubtitle', 'bloodTypeExample']) {
       assert.ok(!text(h.modal()).includes(h.t(key)), `${key} must not add tiny helper copy`);
     }
     assert.ok(!nodes(h.modal()).some(node => node.type === 'TextInput' && node.props.accessibilityLabel === h.t('bloodType')));

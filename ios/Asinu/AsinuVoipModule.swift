@@ -3,9 +3,20 @@ import React
 
 @objc(AsinuVoipModule)
 final class AsinuVoipModule: RCTEventEmitter {
+  @objc(configure:resolver:rejecter:)
+  func configure(_ apiBaseUrl: String, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    guard let url=URL(string:apiBaseUrl),url.user==nil,url.password==nil,url.query==nil,url.fragment==nil else {resolve(false);return}
+    #if DEBUG
+    let allowed = url.scheme=="https" || url.scheme=="http"
+    #else
+    let allowed = url.scheme=="https"
+    #endif
+    if allowed {UserDefaults.standard.set(apiBaseUrl,forKey:"asinu.medication.apiBaseUrl")}
+    resolve(allowed)
+  }
   @objc(getCapabilities:rejecter:)
   func getCapabilities(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
-    resolve(["doctorIvr": true])
+    resolve(["doctorIvr": true, "medCall": true])
   }
   @objc(finishCallHandoff:resolver:rejecter:)
   func finishCallHandoff(_ attemptId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {

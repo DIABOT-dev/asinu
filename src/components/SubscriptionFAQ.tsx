@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   LayoutAnimation,
@@ -149,19 +149,8 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
     setOpenIndex((prev) => (prev === idx ? null : idx));
   }, []);
 
-  const cardStyle = useMemo(
-    () => [
-      styles.card,
-      {
-        backgroundColor: colors.surface,
-        borderColor: isDark ? colors.border : "#e2e8f0",
-      },
-    ],
-    [colors.surface, colors.border, isDark]
-  );
-
   return (
-    <View style={cardStyle}>
+    <View style={styles.card}>
       {/* Header */}
       <Pressable
         accessibilityHint={t(expanded ? "faqCollapseHint" : "faqTapHint")}
@@ -179,9 +168,11 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
             <Text allowFontScaling style={[styles.headerTitle, { color: colors.textPrimary }]}>
               {t("faqTitle")}
             </Text>
-            <Text allowFontScaling style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              {t(expanded ? "faqSubtitle" : "faqTapHint")}
-            </Text>
+            {expanded && (
+              <Text allowFontScaling style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                {t("faqSubtitle")}
+              </Text>
+            )}
           </View>
         </View>
         <Ionicons
@@ -214,9 +205,7 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: spacing.md,
+    paddingVertical: 4,
   },
   header: {
     flexDirection: "row",
@@ -226,7 +215,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#e2e8f0",
     marginBottom: spacing.xs,
-    minHeight: 60,
+    minHeight: 56,
   },
   headerCollapsed: {
     borderBottomWidth: 0,
@@ -240,23 +229,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   helpIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginHorizontal: 2,
+    backgroundColor: "#f2a83b",
     alignItems: "center",
     justifyContent: "center",
   },
   helpQuestionMark: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#ea580c",
+    color: "#fffaf0",
   },
   headerTextWrap: {
     flex: 1,
     minWidth: 0,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     letterSpacing: -0.3,
   },

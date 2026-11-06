@@ -1,3 +1,5 @@
+import { notifyHealthAction } from './health-action-events';
+import { monitoredFetch, reportError, markTelemetryHandled } from '../observability/sentry';
 import i18n from '../i18n';
 import { env } from './env';
 import { logError, logWarn } from './logger';
@@ -63,7 +65,7 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: nu
   }
 
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
+    const response = await monitoredFetch(url, { ...options, signal: controller.signal });
     clearTimeout(timeout);
     return response;
   } catch (error) {
@@ -202,7 +204,14 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
         return {} as T;
       }
 
-      return (await response.json()) as T;
+      const body = await response.json();
+      if (body && typeof body === 'object' && body.ok === false) {
+        const error = new Error('Unexpected unsuccessful API response');
+        error.name = 'ApiResponseContractError';
+        reportError(error, { component: 'api', operation: 'response_contract', route: path, method, status_code: response.status });
+      }
+      if(body?.ok!==false)notifyHealthAction(path,method);
+      return body as T;
     } catch (error) {
       const userFacingError = isRequestTimeout(error)
         ? createUserFacingTimeoutError()
@@ -212,6 +221,9 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
       lastError = userFacingError;
       const aborted = isAbortError(error);
       const timedOut = isRequestTimeout(error);
+      if (error instanceof SyntaxError) reportError(error, { component: 'api', operation: 'response_contract', route: path, method });
+      if (timedOut) reportError(error, { component: 'api', operation: 'timeout', route: path, method });
+      markTelemetryHandled(userFacingError);
       
       // Don't log AbortError - it's expected when request is cancelled
       if (!aborted && !timedOut) {

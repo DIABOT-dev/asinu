@@ -41,7 +41,7 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
   override fun onHostPause() { CheckinCallAudioPlayer.stopAll() }
   override fun onHostDestroy() { CheckinCallAudioPlayer.stopAll() }
   @ReactMethod fun getCapabilities(promise: Promise) {
-    promise.resolve(Arguments.createMap().apply { putBoolean("doctorIvr", true) })
+    promise.resolve(Arguments.createMap().apply { putBoolean("doctorIvr", true); putBoolean("medCall", true) })
   }
   @ReactMethod fun finishCallHandoff(id: String, promise: Promise) {
     CheckinTelecom.onMain {
@@ -65,7 +65,7 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
     val data = CheckinCallStore.pending(context)
     if (data == null) { promise.resolve(null); return }
     val result = Arguments.createMap()
-    listOf("episodeId", "attemptId", "callType", "kind", "severity", "lang").forEach { result.putString(it, data.optString(it)) }
+    listOf("episodeId", "attemptId", "callType", "medDoseId", "medConsentId", "kind", "severity", "lang").forEach { result.putString(it, data.optString(it)) }
     promise.resolve(result)
   }
   @ReactMethod fun consumePendingCall(promise: Promise) = getPendingCall(promise)
@@ -75,7 +75,7 @@ class AsinuCheckinCallModule(private val context: ReactApplicationContext) : Rea
       val data = CheckinCallStore.ringing(context, id)
         ?: CheckinCallStore.pending(context)?.takeIf { it.optString("attemptId") == id } ?: continue
       calls.pushMap(Arguments.createMap().apply {
-        listOf("episodeId", "attemptId", "callType", "kind", "severity", "lang").forEach { putString(it, data.optString(it)) }
+        listOf("episodeId", "attemptId", "callType", "medDoseId", "medConsentId", "kind", "severity", "lang").forEach { putString(it, data.optString(it)) }
       })
     }
     promise.resolve(calls)

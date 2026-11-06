@@ -41,7 +41,7 @@ export function NotificationBell({ unreadCount, onOpen }: NotificationBellProps)
     >
       <Ionicons
         name={unreadCount > 0 ? 'notifications' : 'notifications-outline'}
-        size={28}
+        size={30}
         color={unreadCount > 0 ? colors.primary : colors.textPrimary}
       />
       {unreadCount > 0 && (
@@ -59,9 +59,9 @@ function createStyles(colors: ReturnType<typeof useThemeColors>['colors']) {
   return StyleSheet.create({
     bellButton: {
       position: 'relative',
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       alignItems: 'center',
       justifyContent: 'center',
     },

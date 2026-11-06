@@ -1,4 +1,6 @@
 import { apiClient } from '../../lib/apiClient';
+import { notifyTaskReminderPreferenceChanged } from '../../lib/device-permission-events';
+import { tokenStore } from '../../lib/tokenStore';
 
 export interface NotificationData {
   id: number;
@@ -102,8 +104,19 @@ export interface NotificationPreferences {
   error?: string;
 }
 
+let preferenceRead: { token: string | null; request: Promise<NotificationPreferences> } | null = null;
+
 export async function getNotificationPreferences(): Promise<NotificationPreferences> {
-  return apiClient<NotificationPreferences>('/api/notifications/preferences');
+  const token = tokenStore.getToken();
+  if (preferenceRead?.token === token) return preferenceRead.request;
+  // Permission rows mounted together share only the pending read, never cached consent.
+  const read = { token, request: apiClient<NotificationPreferences>('/api/notifications/preferences') };
+  preferenceRead = read;
+  try {
+    return await read.request;
+  } finally {
+    if (preferenceRead === read) preferenceRead = null;
+  }
 }
 
 export async function updateNotificationPreferences(prefs: {
@@ -116,8 +129,19 @@ export async function updateNotificationPreferences(prefs: {
   reminders_enabled?: boolean;
   health_feed_enabled?: boolean;
 }): Promise<NotificationPreferences> {
-  return apiClient<NotificationPreferences>('/api/notifications/preferences', {
-    method: 'PUT',
-    body: prefs,
-  });
+  // A read started before a save must not satisfy the refresh after that save.
+  preferenceRead = null;
+  let response: NotificationPreferences;
+  try {
+    response = await apiClient<NotificationPreferences>('/api/notifications/preferences', {
+      method: 'PUT',
+      body: prefs,
+    });
+  } finally {
+    preferenceRead = null;
+  }
+  if (response.ok && typeof prefs.reminders_enabled === 'boolean') {
+    notifyTaskReminderPreferenceChanged();
+  }
+  return response;
 }

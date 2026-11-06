@@ -1,3 +1,4 @@
+import { monitoredFetch } from '../../observability/sentry';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { getLocales } from 'expo-localization';
 import { Linking, NativeEventEmitter, NativeModules, Platform } from 'react-native';
@@ -79,7 +80,7 @@ export async function checkStoreUpdate(): Promise<StoreUpdateCheck> {
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
     // Query the device storefront; don't advertise a release unavailable there.
-    const response = await fetch(`https://itunes.apple.com/lookup?id=${APP_STORE_ID}&country=${encodeURIComponent(country)}`, { signal: controller.signal });
+    const response = await monitoredFetch(`https://itunes.apple.com/lookup?id=${APP_STORE_ID}&country=${encodeURIComponent(country)}`, { signal: controller.signal });
     if (!response.ok) {return { status: 'unavailable' };}
     return appleUpdate(await response.json(), nativeApplicationVersion, String(Platform.Version));
   } finally { clearTimeout(timer); }

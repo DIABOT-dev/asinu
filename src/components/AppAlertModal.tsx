@@ -20,6 +20,8 @@ export type AlertButton = {
   style?: 'default' | 'cancel' | 'destructive';
   variant?: 'primary' | 'outline' | 'text' | 'destructive';
   icon?: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  disabled?: boolean;
+  accessibilityHint?: string;
   onPress?: () => void | Promise<void>;
 };
 
@@ -30,6 +32,13 @@ export type AlertIcon = {
 };
 
 type AlertLayout = 'alert' | 'actions';
+type AlertAppearance = 'default' | 'access';
+type AlertOptions = {
+  layout?: AlertLayout;
+  appearance?: AlertAppearance;
+  heroImage?: ComponentProps<typeof Image>['source'];
+  primaryButtonBackground?: React.ReactNode;
+};
 
 type Props = {
   visible: boolean;
@@ -49,7 +58,7 @@ type Props = {
   children?: React.ReactNode;
   layout?: AlertLayout;
   primaryButtonColors?: { background: string; foreground: string };
-};
+} & AlertOptions;
 
 export function AppAlertModal({
   visible,
@@ -69,6 +78,9 @@ export function AppAlertModal({
   children,
   layout = 'alert',
   primaryButtonColors,
+  appearance = 'default',
+  heroImage,
+  primaryButtonBackground,
 }: Props) {
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
@@ -82,10 +94,15 @@ export function AppAlertModal({
   const resolvedButtons: AlertButton[] =
     buttons && buttons.length > 0 ? buttons : [{ text: t('ok'), style: 'default' }];
   const actionList = layout === 'actions';
-  const boundedContent = scrollable || actionList;
+  const accessAppearance = appearance === 'access';
+  const boundedContent = scrollable || actionList || accessAppearance;
   const verticalButtons = actionList || stackButtons || resolvedButtons.length > 2;
   const content = (
     <View style={headerImage ? styles.contentWithHeader : undefined}>
+      {accessAppearance && heroImage ? (
+        <SafeImage source={heroImage} resizeMode="contain" style={styles.accessHero}
+          accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+      ) : null}
       <Text
         accessibilityRole="header"
         style={[
@@ -93,6 +110,7 @@ export function AppAlertModal({
           titleAlign === 'left' && styles.titleLeft,
           headerImage && styles.titleWithHeader,
           actionList && styles.actionTitle,
+          accessAppearance && styles.accessTitle,
         ]}
       >
         {title}
@@ -104,6 +122,7 @@ export function AppAlertModal({
             messageAlign === 'left' && styles.messageLeft,
             headerImage && styles.messageWithHeader,
             actionList && styles.actionMessage,
+            accessAppearance && styles.accessMessage,
           ]}
         >
           {message}
@@ -114,6 +133,7 @@ export function AppAlertModal({
   );
 
   const handlePress = (btn: AlertButton) => {
+    if (btn.disabled) return;
     if (queued) {
       if (closingRef.current) return;
       closingRef.current = true;
@@ -136,11 +156,12 @@ export function AppAlertModal({
       verticalButtons && { flexDirection: 'column' },
       headerImage && styles.buttonRowWithHeader,
       actionList && styles.actionList,
+      accessAppearance && styles.accessButtonRow,
     ]}>
       {resolvedButtons.map((btn, i) => {
         const isCancel = btn.style === 'cancel';
         const isDestructive = btn.variant === 'destructive' || (!btn.variant && btn.style === 'destructive');
-        const tint = actionList
+        const tint = btn.disabled ? colors.textSecondary : actionList
           ? isDestructive ? colors.danger : isCancel ? colors.textSecondary : colors.primaryText
           : btn.variant === 'primary' ? primaryButtonColors?.foreground ?? '#ffffff'
           : btn.variant === 'outline' ? '#466d82'
@@ -151,6 +172,9 @@ export function AppAlertModal({
             key={i}
             accessibilityRole="button"
             accessibilityLabel={btn.text}
+            accessibilityHint={btn.accessibilityHint}
+            accessibilityState={{ disabled: !!btn.disabled }}
+            disabled={btn.disabled}
             style={({ pressed }) => [
               styles.button,
               verticalButtons ? { width: '100%', minHeight: 48, justifyContent: 'center' } : { flex: 1 },
@@ -162,10 +186,14 @@ export function AppAlertModal({
               isDestructive && styles.buttonDestructive,
               !btn.variant && !isCancel && !isDestructive && styles.buttonDefault,
               actionList && styles.actionButton,
-              pressed && { opacity: 0.8 },
+              accessAppearance && styles.accessButton,
+              accessAppearance && isCancel && styles.accessCancel,
+              btn.disabled && { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+              pressed && !btn.disabled && { opacity: 0.8 },
             ]}
             onPress={() => handlePress(btn)}
           >
+            {accessAppearance && btn.variant === 'primary' ? primaryButtonBackground : null}
             {actionList && btn.icon ? (
               <View style={styles.actionIcon} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                 <MaterialCommunityIcons name={btn.icon} size={25} color={tint} />
@@ -181,12 +209,14 @@ export function AppAlertModal({
               isDestructive && styles.buttonTextDestructive,
               actionList && styles.actionButtonText,
               actionList && { color: tint },
+              accessAppearance && styles.accessButtonText,
+              btn.disabled && { color: colors.textSecondary },
             ]}>
               {!actionList && btn.icon ? <MaterialCommunityIcons name={btn.icon} size={18} color={tint} /> : null}
               {!actionList && btn.icon ? '  ' : null}
               {btn.text}
             </Text>
-            {actionList && !isCancel ? (
+            {actionList && !isCancel && !btn.disabled ? (
               <MaterialCommunityIcons name="chevron-right" size={23} color={tint} />
             ) : null}
           </Pressable>
@@ -207,9 +237,16 @@ export function AppAlertModal({
             boundedContent && { maxHeight: '85%' },
             headerImage && styles.cardWithHeader,
             actionList && styles.actionCard,
+            accessAppearance && styles.accessCard,
           ]}
           onPress={(e) => e.stopPropagation()}
         >
+          {accessAppearance ? (
+            <View style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+              <View style={styles.accessWashLeft} />
+              <View style={styles.accessWashRight} />
+            </View>
+          ) : null}
           {actionList ? <View style={styles.actionHandle} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" /> : null}
           {headerImage ? (
             <View style={styles.headerImageWrap}>
@@ -238,7 +275,7 @@ export function AppAlertModal({
             </Pressable>
           ) : null}
 
-          {icon && !headerImage ? (
+          {icon && !headerImage && !(accessAppearance && heroImage) ? (
             <View style={icon.background === 'none' ? styles.iconStandalone : styles.iconWrap}>
               <MaterialCommunityIcons name={icon.name} size={30} color={icon.color ?? colors.primary} />
             </View>
@@ -265,10 +302,15 @@ export function useAppAlert() {
     buttons: [] as AlertButton[],
     icon: undefined as AlertIcon | undefined,
     layout: 'alert' as AlertLayout,
+    appearance: 'default' as AlertAppearance,
+    heroImage: undefined as AlertOptions['heroImage'],
+    primaryButtonBackground: undefined as React.ReactNode,
   });
 
-  const showAlert = (title: string, message?: string, buttons?: AlertButton[], icon?: AlertIcon, options?: { layout?: AlertLayout }) => {
-    setState({ visible: true, title, message: message ?? '', buttons: buttons ?? [], icon, layout: options?.layout ?? 'alert' });
+  const showAlert = (title: string, message?: string, buttons?: AlertButton[], icon?: AlertIcon, options?: AlertOptions) => {
+    setState({ visible: true, title, message: message ?? '', buttons: buttons ?? [], icon,
+      layout: options?.layout ?? 'alert', appearance: options?.appearance ?? 'default',
+      heroImage: options?.heroImage, primaryButtonBackground: options?.primaryButtonBackground });
   };
 
   const dismissAlert = () => setState(prev => ({ ...prev, visible: false }));
@@ -294,6 +336,16 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: '100%',
       maxWidth: 340,
     },
+    accessCard: { maxWidth: 420, borderRadius: radius.xxl + spacing.sm, overflow: 'hidden', padding: spacing.xl, borderColor: colors.primaryLight },
+    accessWashLeft: { position: 'absolute', top: -160, left: -140, width: 260, height: 280, borderRadius: radius.full, backgroundColor: colors.primaryLight, opacity: 0.5 },
+    accessWashRight: { position: 'absolute', top: -140, right: -170, width: 260, height: 280, borderRadius: radius.full, backgroundColor: colors.primaryLight, opacity: 0.5 },
+    accessHero: { width: 180, height: 136, alignSelf: 'center', marginBottom: spacing.lg },
+    accessTitle: { fontSize: typography.size.lg, fontWeight: '700', lineHeight: 32, marginBottom: spacing.lg },
+    accessMessage: { fontSize: typography.size.sm + 2, lineHeight: 26, marginBottom: spacing.xl },
+    accessButtonRow: { gap: spacing.sm, marginTop: spacing.sm },
+    accessButton: { minHeight: 56, minWidth: 0, paddingHorizontal: spacing.sm, borderRadius: radius.xl, overflow: 'hidden' },
+    accessCancel: { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+    accessButtonText: { fontSize: typography.size.sm + 1, lineHeight: 24, fontWeight: '700', zIndex: 1 },
     actionCard: {
       maxWidth: 380,
       borderRadius: radius.xxl,

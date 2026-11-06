@@ -84,7 +84,7 @@ const handlers = [
     "  private func configureAudioSession()",
     "  private func scheduleCallTimeout("
   ),
-  method("  private func scheduleCallTimeout(", "  private func removeCall("),
+  method("  private func scheduleCallTimeout(", "  private func monitorMedication("),
   method("  private func removeCall(", "  private func scheduleRingTimeout("),
 ].join("\n");
 const swift = `
@@ -153,6 +153,7 @@ final class Handler {
   var endedAttempts: [String: Date] = [:]
   var answerActionsByUUID: [UUID: CXAnswerCallAction] = [:]
   var answerTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
+  var medicationMonitors: [UUID: DispatchWorkItem] = [:]
   var responseTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
   var responseDeadlinesByUUID: [UUID: String] = [:]
   var callTimeoutsByUUID: [UUID: DispatchWorkItem] = [:]
@@ -447,6 +448,11 @@ check("CallKit reset retires every call and timer without resuming guidance") {
   assert(action.failed && timeout.isCancelled && !h.audioSessionActive)
   assert(h.callsByUUID.isEmpty && h.callTimeoutsByUUID.isEmpty && h.callDeadlinesByUUID.isEmpty)
   assert(h.answerTimeoutsByUUID.isEmpty && h.responseTimeoutsByUUID.isEmpty && h.pendingCall() == nil)
+}
+check("ending a call also cancels its read-only medication monitor") {
+  let h=Handler();let uuid=h.seed();let monitor=DispatchWorkItem {}
+  h.medicationMonitors[uuid]=monitor;h.endCall(attemptId:"attempt")
+  assert(monitor.isCancelled && h.medicationMonitors.isEmpty)
 }
 print("Native CallKit handoff and timeout: \\(checks) runtime checks passed")
 `;

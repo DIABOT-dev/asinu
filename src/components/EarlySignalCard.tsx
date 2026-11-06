@@ -6,6 +6,7 @@ import {
   Linking,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
@@ -22,6 +23,10 @@ import { colors, radius, spacing, typography } from "../styles";
 type Props = {
   refreshKey?: number;
   healthScore?: HealthScoreData | null;
+  compact?: boolean;
+  plain?: boolean;
+  modalOnly?: boolean;
+  onClose?: () => void;
 };
 
 const presentation = {
@@ -48,7 +53,7 @@ const attentionPresentation = {
   icon: "alert-circle-outline" as const,
 };
 
-export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
+export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false, plain = false, modalOnly = false, onClose }: Props) {
   const { t } = useTranslation("tree");
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [assessment, setAssessment] = useState<EarlySignalAssessment | null>(
@@ -56,14 +61,17 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
   );
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(modalOnly);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const close = () => { setOpen(false); onClose?.(); };
 
   const load = useCallback(() => {
     setLoading(true);
+    setLoadFailed(false);
     earlySignalApi
       .latest()
       .then(setAssessment)
-      .catch(() => {})
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -131,7 +139,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
   );
   const summary = showsCurrentAttention
     ? t("earlyCurrentAttention", { count: currentSignalLabels.length })
-    : assessment?.summary ?? t("earlyEmpty");
+    : assessment?.summary;
   const visibleSignals = useMemo(
     () =>
       Array.from(
@@ -144,10 +152,10 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
   );
   const canOpenDetails = Boolean(assessment || showsCurrentAttention);
 
-  if (assessment?.is_red_flag) {
+  if (assessment?.is_red_flag && !modalOnly) {
     return (
       <>
-        <View style={styles.emergencyCard} accessibilityRole="alert">
+        <View style={[styles.emergencyCard, plain && styles.plain]} accessibilityRole="alert">
           <View style={styles.emergencyHeading}>
             <Ionicons name="warning-outline" size={28} color="#b91c1c" />
             <Text style={styles.redFlagTitle}>{t("earlyRedFlagTitle")}</Text>
@@ -189,81 +197,104 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
 
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${t("earlyTitle")}. ${t(view.labelKey)}. ${summary}`}
+      {!modalOnly && <View
+        testID="early-signal-card"
         style={[
           styles.card,
           canOpenDetails && {
             borderColor: view.color + "26",
             backgroundColor: view.color + "08",
           },
+          compact && styles.compactCard,
+          plain && styles.plain,
         ]}
-        onPress={() => (canOpenDetails ? setOpen(true) : evaluate())}
-        disabled={evaluating}
       >
-        <View style={styles.icon}>
-          <MaterialCommunityIcons
-            name="radar"
-            size={27}
-            color={view.color}
-          />
-        </View>
-        <View style={styles.copy}>
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>{t("earlyTitle")}</Text>
-            {canOpenDetails && (
-              <Text style={[styles.level, { color: view.color }]}>
-                {t(view.labelKey)}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={[
+            t("earlyTitle"),
+            canOpenDetails && t(view.labelKey),
+            summary,
+          ].filter(Boolean).join(". ")}
+          style={[styles.cardHeader, compact && styles.compactHeader]}
+          onPress={() => (canOpenDetails ? setOpen(true) : evaluate())}
+          disabled={evaluating}
+        >
+          <View style={[styles.icon, compact && styles.compactIcon]}>
+            <MaterialCommunityIcons
+              name="radar"
+              size={27}
+              color={view.color}
+            />
+          </View>
+          <View style={styles.copy}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{t("earlyTitle")}</Text>
+              {canOpenDetails && (
+                <Text style={[styles.level, { color: view.color }]}>
+                  {t(view.labelKey)}
+                </Text>
+              )}
+            </View>
+            {!compact && !!summary && (
+              <Text style={styles.body} numberOfLines={2}>
+                {summary}
               </Text>
             )}
           </View>
-          <Text style={styles.body} numberOfLines={canOpenDetails ? 2 : 3}>
-            {summary}
-          </Text>
-        </View>
-        {loading || evaluating ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : (
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.textSecondary}
-          />
-        )}
-      </Pressable>
-
-      {!assessment && !loading && (
-        <Pressable
-          style={styles.evaluateButton}
-          onPress={evaluate}
-          disabled={evaluating}
-        >
-          <Text style={styles.evaluateText}>{t("earlyEvaluate")}</Text>
+          {loading || evaluating ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : !plain ? (
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          ) : null}
         </Pressable>
-      )}
+
+        {!compact && !assessment && !loading && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("earlyEvaluate")}
+            testID="early-signal-evaluate"
+            style={styles.evaluateButton}
+            onPress={evaluate}
+            disabled={evaluating}
+          >
+            <Text allowFontScaling style={styles.evaluateText}>{t("earlyEvaluate")}</Text>
+          </Pressable>
+        )}
+      </View>}
 
       <Modal
-        visible={open && canOpenDetails}
+        visible={open && (modalOnly || canOpenDetails)}
         transparent
         animationType="slide"
-        onRequestClose={() => setOpen(false)}
+        onRequestClose={close}
       >
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
+        <Pressable style={styles.backdrop} onPress={close} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
+          <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.sheetTitleRow}>
             <View style={styles.sheetIcon}>
               <Ionicons name={view.icon} size={27} color={view.color} />
             </View>
             <View style={styles.copy}>
               <Text style={styles.sheetTitle}>{t("earlyTitle")}</Text>
-              <Text style={[styles.sheetLevel, { color: view.color }]}>
-                {t(view.labelKey)}
-              </Text>
+              {canOpenDetails && (
+                <Text style={[styles.sheetLevel, { color: view.color }]}>
+                  {t(view.labelKey)}
+                </Text>
+              )}
             </View>
           </View>
 
+          {modalOnly && loading && <ActivityIndicator color={colors.primary} />}
+          {modalOnly && loadFailed && <Pressable onPress={load} accessibilityRole="button">
+            <Text style={styles.body}>{t('earlyErrorBody')} {t('earlyRetry')}</Text>
+          </Pressable>}
           {assessment?.is_red_flag ? (
             <View style={styles.redFlagBox}>
               <Text style={styles.redFlagTitle}>{t("earlyRedFlagTitle")}</Text>
@@ -281,7 +312,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
             </View>
           ) : (
             <>
-              <Text style={styles.summary}>{summary}</Text>
+              {!!summary && <Text style={styles.summary}>{summary}</Text>}
               {!!visibleSignals.length && (
                 <View style={styles.signalsBox}>
                   <Text style={styles.boxLabel}>{t("earlyFound")}</Text>
@@ -304,12 +335,16 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
               )}
             </>
           )}
-          <Text style={styles.disclaimer}>
-            {assessment?.disclaimer ?? t("earlyDisclaimer")}
-          </Text>
-          <Pressable style={styles.closeButton} onPress={() => setOpen(false)}>
+          {modalOnly && !assessment && !loading && <Pressable accessibilityRole="button" onPress={evaluate} disabled={evaluating} style={styles.evaluateButton}>
+            {evaluating ? <ActivityIndicator color={colors.primary} /> : <Text style={styles.evaluateText}>{t('earlyEvaluate')}</Text>}
+          </Pressable>}
+          {!!assessment?.disclaimer && (
+            <Text style={styles.disclaimer}>{assessment.disclaimer}</Text>
+          )}
+          <Pressable style={styles.closeButton} onPress={close}>
             <Text style={styles.closeText}>{t("earlyUnderstood")}</Text>
           </Pressable>
+          </ScrollView>
         </View>
       </Modal>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
@@ -318,6 +353,24 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null }: Props) {
 }
 
 const styles = StyleSheet.create({
+  plain: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingHorizontal: 0,
+  },
+  compactCard: {
+    minHeight: 68,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: "transparent",
+  },
+  compactHeader: { minHeight: 52, gap: 12 },
+  compactIcon: { width: 28, height: 32, borderRadius: 0 },
   card: {
     minHeight: 104,
     padding: spacing.md,
@@ -325,9 +378,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+    minHeight: 56,
   },
   icon: {
     width: 46,
@@ -336,19 +392,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  copy: { flex: 1 },
+  copy: { flex: 1, minWidth: 0 },
   titleRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     alignItems: "center",
     gap: spacing.sm,
   },
   title: {
+    flexShrink: 1,
     fontSize: typography.size.md,
     fontWeight: "900",
     color: colors.textPrimary,
   },
-  level: { fontSize: typography.size.xxs, fontWeight: "900" },
+  level: { fontSize: typography.size.sm, fontWeight: "900" },
   body: {
     marginTop: 5,
     fontSize: typography.size.xs,
@@ -356,9 +414,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   evaluateButton: {
-    marginTop: -8,
-    alignSelf: "flex-start",
-    marginLeft: 62,
+    marginTop: spacing.sm,
+    alignSelf: "stretch",
+    marginLeft: 58,
+    minHeight: 56,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 7,
     backgroundColor: colors.primaryLight,
@@ -367,7 +428,8 @@ const styles = StyleSheet.create({
   evaluateText: {
     fontSize: typography.size.xs,
     fontWeight: "800",
-    color: colors.primaryDark,
+    color: colors.primaryText,
+    textAlign: "center",
   },
   backdrop: {
     position: "absolute",
@@ -378,6 +440,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15,23,42,0.45)",
   },
   sheet: {
+    maxHeight: '88%',
     position: "absolute",
     left: 0,
     right: 0,

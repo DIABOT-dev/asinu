@@ -353,13 +353,13 @@ for (const lang of ['vi', 'en']) test(`${lang}: all 40 previews stay read-only a
     assert.equal(restricted.props.href, '/(tabs)/profile');
   }
 });
-test('Native preview library and profile entry are available only in development', () => {
+test('Native preview library is hidden in every build, including development', () => {
   const previousEnvironment = process.env.EXPO_PUBLIC_APP_ENV;
   try {
     for (const runtime of [false, true]) for (const environment of ['dev', 'staging', 'prod']) {
       process.env.EXPO_PUBLIC_APP_ENV = environment;
       assert.equal(evaluate(read('src/lib/appEnv.ts'), {}, runtime).isCheckinUiGalleryEnabled,
-        runtime && environment === 'dev');
+        false);
     }
   } finally {
     if (previousEnvironment === undefined) delete process.env.EXPO_PUBLIC_APP_ENV;
@@ -374,7 +374,11 @@ test('Native preview library and profile entry are available only in development
   visit(file); assert.ok(entry);
   let gatedEntry;
   for (let node = entry.parent; node; node = node.parent) {
-    if (ts.isJsxExpression(node) && node.expression && ts.isBinaryExpression(node.expression)) gatedEntry = node.expression;
+    if (ts.isJsxExpression(node) && node.expression && ts.isBinaryExpression(node.expression)
+      && node.expression.getText(file).includes('isCheckinUiGalleryEnabled')) {
+      gatedEntry = node.expression;
+      break;
+    }
   }
   assert.ok(gatedEntry, 'The profile preview entry must have a development gate');
   const source = `import React from 'react';

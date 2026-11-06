@@ -180,6 +180,19 @@ export const spacing = {
   xxxl: 36,
 };
 
+export const bottomTabBar = {
+  contentHeight: 48,
+  iconSize: 32,
+  minimumBottomPadding: 8,
+  verticalPadding: 4,
+  horizontalInset: 12,
+  maxWidth: 480,
+};
+// Reserve both the floating bar and the space beneath it.
+export const getBottomTabBarHeight = (bottomInset: number) =>
+  bottomTabBar.contentHeight + bottomTabBar.verticalPadding * 2 + 2
+  + Math.max(bottomInset, bottomTabBar.minimumBottomPadding);
+
 // ── Radius ────────────────────────────────────────────
 export const radius = {
   sm: 8,

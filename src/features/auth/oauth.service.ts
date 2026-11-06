@@ -1,3 +1,4 @@
+import { monitoredFetch } from '../../observability/sentry';
 /**
  * OAuth Service
  * Handles real OAuth authentication flows for Google, Apple, and Zalo
@@ -122,7 +123,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
       const code = url.searchParams.get('code');
       if (!code) return { type: 'error', error: t('noAccessToken') };
 
-      const exchangeResponse = await fetch(`${apiBase}/api/auth/oauth/exchange`, {
+      const exchangeResponse = await monitoredFetch(`${apiBase}/api/auth/oauth/exchange`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, code_verifier: codeVerifier }),
@@ -182,7 +183,7 @@ export async function authenticateWithGoogle(): Promise<OAuthResult> {
     const accessToken = tokenResponse.accessToken;
     const idToken = tokenResponse.idToken;
 
-    const profileResponse = await fetch(GOOGLE_CONFIG.userInfoEndpoint, {
+    const profileResponse = await monitoredFetch(GOOGLE_CONFIG.userInfoEndpoint, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     const profile = await profileResponse.json();
@@ -257,14 +258,15 @@ export async function authenticateWithApple(): Promise<OAuthResult> {
         sub: credential.user
       }
     };
-  } catch (error: any) {
-    if (error.code === 'ERR_CANCELED') {
+  } catch (error: unknown) {
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+    if (code === 'ERR_REQUEST_CANCELED' || code === 'ERR_CANCELED') {
       return { type: 'cancel' };
     }
 
     return {
       type: 'error',
-      error: error.message || t('appleAuthFailed')
+      error: t('appleAuthFailed')
     };
   }
 }
@@ -319,7 +321,7 @@ async function authenticateWithZaloNativeAndroid(): Promise<OAuthResult> {
     throw new Error('zalo_native_no_access_token');
   }
 
-  const profileRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
+  const profileRes = await monitoredFetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
     headers: { access_token: accessToken },
   });
   const profileJson = await profileRes.json();
@@ -367,7 +369,7 @@ export async function authenticateWithZalo(): Promise<OAuthResult> {
       const accessToken: string = (data as any).accessToken;
       if (!accessToken) return { type: 'error', error: t('authFailed') };
 
-      const profileRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
+      const profileRes = await monitoredFetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
         headers: { access_token: accessToken },
       });
       const profileJson = await profileRes.json();
@@ -443,7 +445,7 @@ export async function authenticateWithFacebook(): Promise<OAuthResult> {
       return { type: 'error', error: t('authFailed') };
     }
 
-    const res = await fetch(`${apiBase}/api/auth/facebook/token`, {
+    const res = await monitoredFetch(`${apiBase}/api/auth/facebook/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ access_token: fbAccessToken }),

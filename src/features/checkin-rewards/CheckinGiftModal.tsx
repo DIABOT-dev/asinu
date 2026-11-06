@@ -98,7 +98,7 @@ export function CheckinGiftModal({
   const [selected, setSelected] = useState<number | null>(initialReceipt?.box ?? null);
   const [phase, setPhase] = useState<'choosing' | 'opening' | 'reward' | 'complete'>(initialReceipt ? 'complete' : 'choosing');
   const busy = phase === 'opening';
-  const othersOpened = phase === 'reward' || phase === 'complete';
+  const othersOpened = phase === 'complete';
   const [receipt, setReceipt] = useState<CheckinGiftReceipt | null>(initialReceipt);
   const [error, setError] = useState(false);
   const [presented, setPresented] = useState(false);
@@ -159,7 +159,7 @@ export function CheckinGiftModal({
   }, [visible]);
 
   useEffect(() => {
-    if (!visible || !presented || phase !== 'reward' || !receipt?.id || otherOpeningStarted.current) {return;}
+    if (!visible || !presented || phase !== 'complete' || !receipt?.id || otherOpeningStarted.current) {return;}
     otherOpeningStarted.current = true;
     if (reduceMotion.current) {
       otherOpening.setValue(1);
@@ -180,8 +180,8 @@ export function CheckinGiftModal({
   useEffect(() => {
     setCloseSeconds(AUTO_CLOSE_SECONDS);
     closeRequested.current = false;
-    // Keep the full fortune above the already revealed grid for five visible
-    // seconds, then collapse only that upper section. The grid stays open.
+    // Show only the received gift for five visible seconds. Returning to the
+    // grid starts the other boxes' opening; no prizes are revealed behind it.
     if (!visible || !presented || readOnly || phase !== 'reward' || !receipt?.id) {return;}
     let remaining = AUTO_CLOSE_SECONDS;
     const advance = () => {
@@ -593,7 +593,7 @@ export function CheckinGiftModal({
           </View>
         )}
 
-        <View
+        {phase !== 'reward' && <View
           style={styles.grid}
           testID={othersOpened ? 'gift-result-grid' : 'gift-chooser-grid'}
           onLayout={(event) => setGridTop(event.nativeEvent.layout.y)}
@@ -620,7 +620,7 @@ export function CheckinGiftModal({
                   </View>
                   <View testID={`gift-box-art-${box}`}>
                     <Image testID="gift-received-photo" source={rewardPhoto(receipt.kind)}
-                      style={{ width: phase === 'reward' ? Math.min(boxWidth * 0.78, 64) : boxWidth * 0.78, height: phase === 'reward' ? Math.min(boxWidth * 0.78, 64) : boxWidth * 0.78 }} contentFit="contain" accessible={false} />
+                      style={{ width: boxWidth * 0.78, height: boxWidth * 0.78 }} contentFit="contain" accessible={false} />
                   </View>
                   <Text style={[styles.slotLabel, { color: ink }]}>{categoryLabel}</Text>
                 </View>
@@ -646,7 +646,7 @@ export function CheckinGiftModal({
                     }}
                   >
                     <Image testID={`gift-other-photo-${otherReward.key}`} source={rewardPhotos[otherReward.key]}
-                      style={{ width: phase === 'reward' ? Math.min(boxWidth * 0.76, 64) : boxWidth * 0.76, height: phase === 'reward' ? Math.min(boxWidth * 0.76, 64) : boxWidth * 0.76 }} contentFit="contain" accessible={false} />
+                      style={{ width: boxWidth * 0.76, height: boxWidth * 0.76 }} contentFit="contain" accessible={false} />
                     <Text style={[styles.slotLabel, { color: subInk }]}>{t(otherReward.labelKey)}</Text>
                   </Animated.View>
                   <Animated.View
@@ -691,7 +691,7 @@ export function CheckinGiftModal({
               </Pressable>
             );
           })}
-        </View>
+        </View>}
 
         {phase === 'complete' && (receipt?.kind === 'ticket' || receipt?.kind === 'coupon') && fortuneContent}
 

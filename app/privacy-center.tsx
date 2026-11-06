@@ -8,14 +8,12 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Switch,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../src/components/ScaledText";
 import { ScreenBackButton } from "../src/components/ScreenHeaderButton";
 import { AppAlertModal } from "../src/components/AppAlertModal";
-import { useAuthStore } from "../src/features/auth/auth.store";
 import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { apiClient, getApiErrorMessage } from "../src/lib/apiClient";
@@ -51,37 +49,20 @@ const createRequestId = () => {
     }
   );
 };
-const actions: Array<{
-  action: PrivacyAction;
-  icon: keyof typeof Ionicons.glyphMap;
-  destructive?: boolean;
-}> = [
-  { action: "export", icon: "download-outline" },
-  { action: "withdraw_consent", icon: "hand-left-outline" },
-  { action: "anonymize", icon: "eye-off-outline", destructive: true },
-  { action: "delete", icon: "trash-outline", destructive: true },
-];
 
 export default function PrivacyCenterScreen() {
   const router = useGuardedRouter();
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation("settings");
   const { colors } = useThemeColors();
-  const consentVersion = useAuthStore((state) => state.profile?.consentVersion);
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [busy, setBusy] = useState<PrivacyAction | null>(null);
   const submitting = useRef(false);
-  const [selectedAction, setSelectedAction] = useState<PrivacyAction | null>(
-    null
-  );
+  const [selectedAction, setSelectedAction] = useState<"delete" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(true);
   const [receiptsError, setReceiptsError] = useState(false);
-  const [sharingEnabled, setSharingEnabled] = useState<boolean | null>(null);
-  const [detailsAnonymized, setDetailsAnonymized] = useState<boolean | null>(
-    null
-  );
 
   const loadReceipts = useCallback(async () => {
     setReceiptsLoading(true);
@@ -91,24 +72,16 @@ export default function PrivacyCenterScreen() {
         ok: boolean;
         data?: {
           items: Receipt[];
-          sharing_enabled: boolean;
-          details_anonymized: boolean;
         };
       }>(
         `/api/doctor/privacy?tenant_id=${encodeURIComponent(
           env.doctorTenantId
         )}`
       );
-      if (
-        !response.ok ||
-        typeof response.data?.sharing_enabled !== "boolean" ||
-        typeof response.data?.details_anonymized !== "boolean"
-      ) {
+      if (!response.ok || !Array.isArray(response.data?.items)) {
         throw new Error("Doctor privacy status is unavailable");
       }
       setReceipts(response.data?.items ?? []);
-      setSharingEnabled(response.data.sharing_enabled);
-      setDetailsAnonymized(response.data.details_anonymized === true);
     } catch {
       setReceiptsError(true);
     } finally {
@@ -119,7 +92,7 @@ export default function PrivacyCenterScreen() {
     void loadReceipts();
   }, [loadReceipts]);
 
-  const submit = async (action: PrivacyAction) => {
+  const submit = async (action: "export" | "delete") => {
     if (submitting.current) return;
     // Opening an option never sends a request that changes the patient's data.
     if (action !== "export" && selectedAction !== action) return;
@@ -134,9 +107,6 @@ export default function PrivacyCenterScreen() {
         body: {
           tenant_id: env.doctorTenantId,
           action,
-          ...(action === "grant_consent"
-            ? { consent_version: consentVersion || "v1.0.0" }
-            : {}),
           request_id: createRequestId(),
           confirmation: "CONFIRM_DOCTOR_DATA_REQUEST",
           reason: "Patient self-service request from ASINU mobile",
@@ -145,9 +115,6 @@ export default function PrivacyCenterScreen() {
       if (!response.ok || response.data?.action !== action) {
         throw new Error(t("privacyRequestError"));
       }
-      if (action !== "export") setSharingEnabled(action === "grant_consent");
-      if (action === "anonymize" || action === "delete")
-        setDetailsAnonymized(true);
       setSelectedAction(null);
       await loadReceipts();
       if (action === "export") {
@@ -175,59 +142,11 @@ export default function PrivacyCenterScreen() {
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)/profile");
   };
-  const switchDisabled =
-    busy !== null ||
-    receiptsLoading ||
-    receiptsError ||
-    sharingEnabled === null;
   const dialogAction = selectedAction;
-  const anonymizeDisabled =
-    busy !== null ||
-    receiptsLoading ||
-    receiptsError ||
-    detailsAnonymized === null ||
-    detailsAnonymized === true ||
-    !!dialogAction;
-  const openAnonymizeConfirmation = () => {
-    if (anonymizeDisabled || submitting.current) return;
-    setSelectedAction("anonymize");
+  const openDeleteConfirmation = () => {
+    if (busy !== null || submitting.current || dialogAction) return;
+    setSelectedAction("delete");
   };
-
-  const renderAction = (item: (typeof actions)[number], last = false) => (
-    <Pressable
-      key={item.action}
-      accessibilityRole="button"
-      accessibilityLabel={t(`privacyAction_${item.action}`)}
-      accessibilityHint={t(`privacyDescription_${item.action}`)}
-      accessibilityState={{ disabled: busy !== null }}
-      disabled={busy !== null}
-      onPress={() => {
-        if (!submitting.current) setSelectedAction(item.action);
-      }}
-      style={({ pressed }) => [
-        styles.actionRow,
-        !last && styles.separator,
-        pressed && styles.pressed,
-        busy !== null && styles.disabled,
-      ]}
-    >
-      <Ionicons
-        name={item.icon}
-        size={24}
-        color={colors.danger}
-        style={styles.actionIcon}
-      />
-      <View style={styles.copy}>
-        <Text style={[styles.actionTitle, styles.dangerText]}>
-          {t(`privacyAction_${item.action}`)}
-        </Text>
-        <Text style={styles.actionDescription}>
-          {t(`privacyDescription_${item.action}`)}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-    </Pressable>
-  );
 
   return (
     <View style={styles.screen}>
@@ -252,44 +171,6 @@ export default function PrivacyCenterScreen() {
           <Text accessibilityRole="header" style={styles.title}>
             {t("privacyCenterTitle")}
           </Text>
-        </View>
-        <Text style={styles.lead}>{t("privacyCenterDescription")}</Text>
-        <View style={styles.actionList}>
-          <View style={[styles.actionRow, styles.controlRow]}>
-            <View style={styles.copy}>
-              <Text style={styles.actionTitle}>{t("privacySharingTitle")}</Text>
-              <Text style={styles.actionDescription}>
-                {t("privacySharingDescription")}
-              </Text>
-            </View>
-            <Switch
-              accessibilityLabel={t("privacySharingTitle")}
-              accessibilityState={{
-                checked: sharingEnabled === true,
-                disabled: switchDisabled || !!dialogAction,
-                busy:
-                  receiptsLoading ||
-                  busy === "grant_consent" ||
-                  busy === "withdraw_consent",
-              }}
-              disabled={switchDisabled || !!dialogAction}
-              value={sharingEnabled === true}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              ios_backgroundColor={colors.border}
-              onValueChange={(enabled) => {
-                if (
-                  switchDisabled ||
-                  submitting.current ||
-                  dialogAction ||
-                  enabled === sharingEnabled
-                )
-                  return;
-                setSelectedAction(
-                  enabled ? "grant_consent" : "withdraw_consent"
-                );
-              }}
-            />
-          </View>
         </View>
         <View style={styles.actionList}>
           <View style={[styles.actionRow, styles.controlRow]}>
@@ -331,68 +212,40 @@ export default function PrivacyCenterScreen() {
             </Pressable>
           </View>
         </View>
-        <View style={styles.actionList}>
-          <Pressable
-            accessible={false}
-            disabled={anonymizeDisabled}
-            onPress={openAnonymizeConfirmation}
-            style={({ pressed }) => [
-              styles.actionRow,
-              styles.controlRow,
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.copy}>
-              <Text style={styles.actionTitle}>
-                {t("privacyAction_anonymize")}
-              </Text>
-              <Text style={styles.actionDescription}>
-                {t(
-                  busy === "anonymize"
-                    ? "privacyAnonymizing"
-                    : receiptsLoading
-                    ? "privacySettingsLoading"
-                    : receiptsError
-                    ? "privacySettingsError"
-                    : detailsAnonymized
-                    ? "privacyAnonymizedDescription"
-                    : "privacyDescription_anonymize"
-                )}
-              </Text>
-            </View>
-            {receiptsLoading || busy === "anonymize" ? (
-              <ActivityIndicator
-                accessibilityLabel={t(
-                  busy === "anonymize"
-                    ? "privacyAnonymizing"
-                    : "privacySettingsLoading"
-                )}
-                color={colors.primaryText}
-              />
-            ) : null}
-            <Switch
-              accessibilityLabel={t("privacyAction_anonymize")}
-              accessibilityHint={t(
-                detailsAnonymized
-                  ? "privacyAnonymizedDescription"
-                  : "privacyDescription_anonymize"
-              )}
-              accessibilityState={{
-                checked: detailsAnonymized === true,
-                disabled: anonymizeDisabled,
-                busy: receiptsLoading || busy === "anonymize",
-              }}
-              value={detailsAnonymized === true}
-              disabled={anonymizeDisabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              ios_backgroundColor={colors.border}
-              onValueChange={(enabled) => {
-                if (enabled) openAnonymizeConfirmation();
-              }}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("privacyAction_delete")}
+          accessibilityHint={t("privacyDescription_delete")}
+          accessibilityState={{ disabled: busy !== null, busy: busy === "delete" }}
+          disabled={busy !== null}
+          onPress={openDeleteConfirmation}
+          style={({ pressed }) => [
+            styles.actionRow,
+            pressed && styles.pressed,
+            busy !== null && styles.disabled,
+          ]}
+        >
+          <Ionicons
+            name="trash-outline"
+            size={24}
+            color={colors.danger}
+            style={styles.actionIcon}
+          />
+          <View style={styles.copy}>
+            <Text style={[styles.actionTitle, styles.dangerText]}>
+              {t("privacyAction_delete")}
+            </Text>
+            <Text style={styles.actionDescription}>
+              {t("privacyDescription_delete")}
+            </Text>
+          </View>
+          {busy === "delete" && (
+            <ActivityIndicator
+              accessibilityLabel={t("privacyAction_delete")}
+              color={colors.danger}
             />
-          </Pressable>
-        </View>
-        <View style={styles.actionList}>{renderAction(actions[3], true)}</View>
+          )}
+        </Pressable>
         {receiptsError ? (
           <View style={styles.loadError}>
             <Text style={styles.empty}>{t("privacySettingsError")}</Text>
@@ -506,17 +359,11 @@ export default function PrivacyCenterScreen() {
         queued
         visible={!!dialogAction}
         title={dialogAction ? t(`privacyConfirmTitle_${dialogAction}`) : ""}
-        message={dialogAction ? t(`privacyConfirmBody_${dialogAction}`) : ""}
+        message=""
         icon={{
           background: "none",
-          name:
-            selectedAction === "delete"
-              ? "trash-can-outline"
-              : "shield-check-outline",
-          color:
-            selectedAction === "delete" || selectedAction === "anonymize"
-              ? colors.danger
-              : colors.primary,
+          name: "trash-can-outline",
+          color: colors.danger,
         }}
         primaryButtonColors={{
           background: colors.primary,
@@ -530,17 +377,30 @@ export default function PrivacyCenterScreen() {
             ? [
                 {
                   text: t(`privacyConfirmButton_${dialogAction}`),
-                  variant:
-                    dialogAction === "grant_consent"
-                      ? "primary"
-                      : "destructive",
+                  variant: "destructive",
                   onPress: () => submit(dialogAction),
                 },
                 { text: t("privacyCancel"), style: "cancel" },
               ]
             : []
         }
-      />
+      >
+        {dialogAction ? (
+          <View style={styles.confirmationDetails}>
+            <View style={styles.cancellationWarning} accessibilityRole="alert">
+              <Text style={styles.cancellationWarningTitle}>
+                {t("privacyCancellationWarningTitle")}
+              </Text>
+              <Text style={styles.cancellationWarningBody}>
+                {t("privacyCancellationWarningBody")}
+              </Text>
+            </View>
+            <Text style={styles.confirmationBody}>
+              {t(`privacyConfirmBody_${dialogAction}`)}
+            </Text>
+          </View>
+        ) : null}
+      </AppAlertModal>
     </View>
   );
 }
@@ -567,23 +427,43 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "700",
       lineHeight: 32,
     },
-    lead: { color: colors.textSecondary, fontSize: 15, lineHeight: 23 },
     actionList: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      overflow: "hidden",
-      backgroundColor: colors.surface,
+      backgroundColor: 'transparent',
     },
     actionRow: {
       flexDirection: "row",
       alignItems: "flex-start",
       gap: spacing.md,
-      padding: spacing.lg,
+      paddingVertical: spacing.lg,
       minHeight: 88,
     },
     actionIcon: { marginTop: 3 },
     controlRow: { alignItems: "center" },
+    confirmationDetails: { gap: spacing.md, marginTop: spacing.md },
+    cancellationWarning: {
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.danger + "45",
+      borderRadius: radius.md,
+      backgroundColor: colors.danger + "12",
+    },
+    cancellationWarningTitle: {
+      color: colors.textPrimary,
+      fontSize: 17,
+      fontWeight: "700",
+      lineHeight: 25,
+    },
+    cancellationWarningBody: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      lineHeight: 23,
+    },
+    confirmationBody: {
+      color: colors.textSecondary,
+      fontSize: 15,
+      lineHeight: 23,
+    },
     exportButton: {
       minWidth: 56,
       minHeight: 48,
@@ -598,10 +478,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "600",
     },
     loadError: { gap: spacing.xs },
-    separator: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
     copy: { flex: 1, minWidth: 0, gap: spacing.xs },
     actionTitle: {
       color: colors.textPrimary,
@@ -635,8 +511,6 @@ const createStyles = (colors: ThemeColors) =>
       minHeight: 48,
     },
     historyToggle: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
       paddingTop: spacing.xl,
     },
     history: { gap: spacing.sm, paddingTop: spacing.sm },
@@ -648,8 +522,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     receipt: {
       paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
     },
     receiptAction: {
       flex: 1,

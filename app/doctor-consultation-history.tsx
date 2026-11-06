@@ -18,7 +18,7 @@ import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useGuardedRouter as useRouter } from "../src/hooks/useGuardedRouter";
 import { apiClient } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
-import { radius, spacing, typography } from "../src/styles";
+import { spacing, typography } from "../src/styles";
 
 type ConsultationTask = {
   tenant_id?: string;
@@ -359,12 +359,8 @@ function createStyles(colors: ReturnType<typeof useThemeColors>["colors"]) {
     listContent: { paddingHorizontal: 16, gap: 10 },
     taskCard: {
       alignItems: "center",
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: radius.lg,
-      borderWidth: 1,
       gap: spacing.md,
-      padding: spacing.lg,
+      paddingVertical: spacing.lg,
     },
     taskContent: {
       flexDirection: "row",

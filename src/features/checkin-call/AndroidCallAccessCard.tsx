@@ -9,7 +9,7 @@ import { requestAndroidCallAccess } from '../../lib/android-call-access';
 import { showToast } from '../../stores/toast.store';
 
 /** OS permissions are separate from the saved schedule; never block saving. */
-export function AndroidCallAccessCard({ onlyWhenNeeded = false }: { onlyWhenNeeded?: boolean } = {}) {
+export function AndroidCallAccessCard({ onlyWhenNeeded = false, plain = false }: { onlyWhenNeeded?: boolean; plain?: boolean } = {}) {
   const { t } = useTranslation('checkinCall');
   const { colors } = useThemeColors();
   const [access, setAccess] = useState<AndroidCallPermissions | null>(null);
@@ -42,7 +42,7 @@ export function AndroidCallAccessCard({ onlyWhenNeeded = false }: { onlyWhenNeed
   const ready = access.notifications && access.fullScreen && access.channels;
   if (ready && onlyWhenNeeded) return null;
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, plain && styles.plain]}>
       <View style={styles.heading}>
         <Ionicons name={ready ? 'shield-checkmark-outline' : 'notifications-outline'} size={24} color={colors.primaryDark} />
         <Text style={[styles.title, { color: colors.textPrimary }]}>{t(ready ? 'androidAccess.ready' : 'androidAccess.title')}</Text>
@@ -61,6 +61,7 @@ export function AndroidCallAccessCard({ onlyWhenNeeded = false }: { onlyWhenNeed
 }
 
 const styles = StyleSheet.create({
+  plain: { backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, marginTop: 0 },
   card: { borderWidth: 1, borderRadius: 20, padding: 16, gap: 10, marginTop: 12 },
   heading: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   title: { flex: 1, fontSize: 17, lineHeight: 25, fontWeight: '700' },

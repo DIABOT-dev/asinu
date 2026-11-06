@@ -3,6 +3,8 @@ import * as Localization from 'expo-localization';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+import enV21 from './locales/en/v21.json';
+import viV21 from './locales/vi/v21.json';
 import enAuth from './locales/en/auth.json';
 import enCareCircle from './locales/en/careCircle.json';
 import enChat from './locales/en/chat.json';
@@ -38,6 +40,7 @@ const LANGUAGE_STORAGE_KEY = '@app/language';
 
 const resources = {
   vi: {
+    v21: viV21,
     common: viCommon,
     home: viHome,
     profile: viProfile,
@@ -55,6 +58,7 @@ const resources = {
     wallet: viWallet,
   },
   en: {
+    v21: enV21,
     common: enCommon,
     home: enHome,
     profile: enProfile,
@@ -95,6 +99,7 @@ const initI18n = async () => {
     fallbackLng: 'vi',
     defaultNS: 'common',
     ns: [
+      'v21',
       'common',
       'home',
       'profile',

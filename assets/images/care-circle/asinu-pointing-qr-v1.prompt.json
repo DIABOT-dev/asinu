@@ -1,0 +1,7 @@
+{
+  "tool": "built-in image_gen",
+  "intent": "edit",
+  "reference": "assets/asinu_chat_sticker.png",
+  "output": "assets/images/care-circle/asinu-pointing-qr-v1.png",
+  "prompt": "Use case: precise-object-edit.\nAsset type: transparent mascot sticker for the family QR scanner header in the Asinu mobile app.\nInput image is the edit target. Preserve the exact recognizable Asinu character: friendly glossy teal/turquoise round body, big sparkling eyes, smiling open mouth, short legs, little hands, olive Vietnamese pith helmet with red circular badge and yellow star. Keep the same polished 3D cartoon rendering, colors, proportions, and identity.\nChange only the gesture and gaze: the character's arm on the viewer's RIGHT extends clearly toward the RIGHT, with an unmistakable single extended index finger pointing right and slightly DOWN toward a scan button that will be placed beside it in the app. The other fingers are curled naturally, not waving. The eyes look toward the right-hand target. Mouth stays open in a friendly speaking smile.\nFull body, centered, no cropped helmet/fingers/feet; compact square framing with small transparent margins, clear silhouette and enough detail at 96px display. Output one isolated character only, with genuine alpha transparency. No text, no speech balloon, no QR code, no button, no background, no scene, no shadow plate, no watermark. The app will draw the speech balloon and text separately."
+}

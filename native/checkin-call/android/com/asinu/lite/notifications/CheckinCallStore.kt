@@ -46,12 +46,21 @@ object CheckinCallStore {
     if (end <= System.currentTimeMillis()) return false
     val existing = prefs.getString("ring:$id", null)
     if (existing != null) return false // repeated delivery must not replay the ringtone
+    val otherCalls = prefs.all.filterKeys { it.startsWith("ring:") || it == "pending" }.values
+      .mapNotNull { value -> runCatching { JSONObject(value as? String ?: "") }.getOrNull() }
+      .filter { it.optLong("expiresAt") > System.currentTimeMillis() && it.optString("attemptId") != id }
+    if (data["callType"] == "medication") {
+      if (otherCalls.any { it.optString("callType") != "medication" }) return false
+    } else {
+      otherCalls.filter { it.optString("callType") == "medication" }.forEach { end(context, it.optString("attemptId")) }
+    }
     prune(context)
     val stored = JSONObject()
-    listOf("episodeId", "attemptId", "callType", "kind", "severity", "lang", "declineCapability").forEach { key ->
+    listOf("episodeId", "attemptId", "callType", "medDoseId", "medConsentId", "kind", "severity", "lang", "declineCapability", "statusCapability").forEach { key ->
       data[key]?.let { stored.put(key, it) }
     }
     prefs.edit().putString("ring:$id", stored.put("expiresAt", end).toString()).commit()
+    if(data["callType"]=="medication")MedicationCallMonitor.start(context.applicationContext,id)
     return true
   }
 
@@ -122,7 +131,7 @@ object CheckinCallStore {
     val context = reactContext ?: return
     if (!context.hasActiveReactInstance()) return
     val value = Arguments.createMap()
-    listOf("episodeId", "attemptId", "callType", "kind", "severity", "lang", "endReason").forEach { value.putString(it, data.optString(it)) }
+    listOf("episodeId", "attemptId", "callType", "medDoseId", "medConsentId", "kind", "severity", "lang", "endReason").forEach { value.putString(it, data.optString(it)) }
     // Never send the decline credential into React/analytics/logging.
     runCatching { context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit(name, value) }
   }

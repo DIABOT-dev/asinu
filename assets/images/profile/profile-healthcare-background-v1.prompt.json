@@ -1,0 +1,14 @@
+{
+  "mode": "built-in image_gen",
+  "purpose": "Decorative background behind the personal profile screen",
+  "asset": "profile-healthcare-background-v1.webp",
+  "dimensions": {
+    "width": 1024,
+    "height": 1536
+  },
+  "encoding": {
+    "format": "webp",
+    "quality": 83
+  },
+  "prompt": "Use case: stylized-concept.\nAsset type: one production-ready raster wallpaper behind the personal profile/settings page of the existing Asinu mobile health app, portrait aspect ratio 2:3.\nPrimary request: a calm, beautiful healthcare background that feels consistent with Asinu's pale mint, teal, and warm off-white interface. This is a background image only, not a screen design.\nComposition: very spacious, luminous, almost empty center and middle 70 percent for real app content. A few softly rendered healthcare objects live partially cropped at the outer edges: a frosted mint medical plus near the top right, a fine translucent stethoscope curve near the lower left, and one small protective medical shield near the bottom right. A handful of subtle out-of-focus botanical leaves blend into these corners. No scattering of repeated icons. The upper and lower edges have soft mint-cyan depth, with a smooth seamless transition into a pale off-white center. All decorative objects are low contrast, atmospheric and soft-edged, readable only as a quiet backdrop, never a focal illustration.\nStyle: refined 3D still life with matte ceramic and frosted translucent materials, gentle diffused morning daylight, soft botanical shadows, no glossy toy-like rendering, no harsh shadows. Friendly, reassuring, natural and uncluttered, appropriate for older people reading large text.\nPalette: pale jade, whisper mint, subtle cyan, warm off-white; restrained teal detail. Full bleed rectangular opaque image.\nText: none. Absolutely no words, letters, numbers, logos, watermarks, slogans, people, faces, app controls, cards, phone frames, user interfaces, borders, or layout mockups. Do not draw any text."
+}

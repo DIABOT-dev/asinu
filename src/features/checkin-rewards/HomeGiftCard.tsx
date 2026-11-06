@@ -7,32 +7,32 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../components/ScaledText';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useAuthStore } from '../auth/auth.store';
 import { type GiftToday } from './checkin-gifts.api';
 import { CheckinGiftFlow } from './CheckinGiftFlow';
 import { canReplayCheckinGift, loadCheckinGiftDay } from './checkin-gift-replay';
+import { takeCheckinGiftOnHome } from './checkin-gift-handoff';
 
-const cloverArt = require('../../../assets/images/rewards/daily_clover.png');
 const heroArt = require('../../../assets/images/rewards/daily_gift_hero.png');
-const chestArt = require('../../../assets/images/rewards/daily_chest.png');
 
-export function HomeGiftCard() {
+export function HomeGiftCard({ headless = false }: { headless?: boolean } = {}) {
   const account = useAuthStore((s) => s.profile?.id);
   return account ? (
-    <AccountCard key={String(account)} account={String(account)} />
+    <AccountCard key={String(account)} account={String(account)} headless={headless} />
   ) : null;
 }
 
-function AccountCard({ account }: { account: string }) {
+function AccountCard({ account, headless }: { account: string; headless: boolean }) {
   const { t } = useTranslation('home');
+  const { t: tc } = useTranslation('common');
   const { colors, isDark = false } = useThemeColors();
-  const router = useGuardedRouter();
   const focused = useRef(false);
   const automaticallyOffered = useRef<string | null>(null);
   const loadGeneration = useRef(0);
   const [day, setDay] = useState<GiftToday | null>(null);
   const [open, setOpen] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reload, setReload] = useState(0);
   const replayOpening = canReplayCheckinGift(account);
 
   const acceptDay = useCallback((result: GiftToday) => {
@@ -49,6 +49,7 @@ function AccountCard({ account }: { account: string }) {
       focused.current = true;
       const load = () => {
         const request = ++loadGeneration.current;
+        setLoadFailed(false);
         return loadCheckinGiftDay(account, true)
           .then((result) => {
             if (
@@ -57,17 +58,24 @@ function AccountCard({ account }: { account: string }) {
               String(useAuthStore.getState().profile?.id) === account
             ) {
               acceptDay(result);
+              const afterResult = result.gift && takeCheckinGiftOnHome(account, result.gift.id);
               if (
-                result.offerOnAppOpen &&
                 result.gift &&
-                automaticallyOffered.current !== result.gift.id
+                !result.gift.openedAt &&
+                (afterResult || (result.offerOnAppOpen && automaticallyOffered.current !== result.gift.id))
               ) {
                 automaticallyOffered.current = result.gift.id;
                 setOpen(true);
               }
             }
           })
-          .catch(() => {});
+          .catch(() => {
+            if (
+              live &&
+              request === loadGeneration.current &&
+              String(useAuthStore.getState().profile?.id) === account
+            ) setLoadFailed(true);
+          });
       };
       void load();
       const subscription = AppState.addEventListener('change', (state) => {
@@ -80,35 +88,83 @@ function AccountCard({ account }: { account: string }) {
         subscription.remove();
         setOpen(false);
       };
-    }, [account, acceptDay])
+    }, [account, acceptDay, reload])
   );
 
-  if (!day?.enabled) return null;
+  if (!day?.enabled) {
+    if (headless) return null;
+    return (
+      <View style={styles.outerStack}>
+        <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary }}>
+          {tc(loadFailed ? 'cannotLoadData' : day ? 'noData' : 'loading')}
+        </Text>
+        {loadFailed && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={tc('retry')}
+            onPress={() => setReload((current) => current + 1)}
+            style={styles.fallbackAction}
+          >
+            <Text style={{ color: colors.primaryText }}>{tc('retry')}</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  }
 
   const isDarkMode = Boolean(isDark);
   const containerBg = isDarkMode ? 'rgba(20, 184, 166, 0.12)' : '#e8f7f4';
   const streakBg = isDarkMode ? 'rgba(20, 184, 166, 0.25)' : '#cbf0e8';
   const streakBorderColor = isDarkMode ? 'rgba(20, 184, 166, 0.4)' : 'rgba(255, 255, 255, 0.7)';
   const accentColor = isDarkMode ? '#2dd4bf' : '#0d9488';
-  const arrowBg = isDarkMode ? 'rgba(20, 184, 166, 0.18)' : '#e8f7f4';
 
   // Subtle gradient: gentle luminance step without heavy saturation or waves
   const buttonGradientColors = isDarkMode
     ? (['#14b8a6', '#0f766e'] as const)
     : (['#3bd3be', '#1ca492'] as const);
 
+  const giftFlow = open ? (
+    <CheckinGiftFlow
+      reviewExisting
+      status={day.checkinStatus || undefined}
+      familyAlerted={day.familyAlerted}
+      onOpened={(gift) => {
+        if (
+          !focused.current ||
+          String(useAuthStore.getState().profile?.id) !== account
+        ) return;
+        // A completed open is newer than any pending Home refresh.
+        loadGeneration.current++;
+        automaticallyOffered.current = gift.id;
+        setDay((current) =>
+          current?.gift?.id === gift.id
+            ? { ...current, gift, offerOnAppOpen: false }
+            : current
+        );
+      }}
+      onClose={() => {
+        setOpen(false);
+        const request = ++loadGeneration.current;
+        loadCheckinGiftDay(account, true)
+          .then((result) => {
+            if (
+              focused.current &&
+              request === loadGeneration.current &&
+              String(useAuthStore.getState().profile?.id) === account
+            )
+              acceptDay(result);
+          })
+          .catch(() => {});
+      }}
+    />
+  ) : null;
+
+  if (headless) return giftFlow;
+
   return (
     <View style={styles.outerStack}>
-      {/* Thẻ Lộc mỗi ngày */}
-      <View
-        style={[
-          styles.mainCard,
-          {
-            backgroundColor: colors.surface,
-            borderColor: isDarkMode ? colors.border : '#edf4f3',
-          },
-        ]}
-      >
+      {/* Lộc mỗi ngày */}
+      <View style={styles.dailySection}>
         {/* Floating 3D Gift Box Hero Art ở góc trên bên phải */}
         <Image
           source={heroArt}
@@ -117,24 +173,8 @@ function AccountCard({ account }: { account: string }) {
           accessible={false}
         />
 
-        {/* Header: Cỏ 4 lá + Tiêu đề + Phụ đề */}
+        {/* Daily message beside the gift illustration. The page owns its title. */}
         <View style={styles.headerArea}>
-          <View style={styles.titleRow}>
-            <Image
-              source={cloverArt}
-              style={styles.cloverIcon}
-              contentFit="contain"
-              accessible={false}
-            />
-            <Text
-              style={[
-                styles.titleText,
-                { color: colors.textPrimary },
-              ]}
-            >
-              {t('checkinGift.dailyTitle')}
-            </Text>
-          </View>
           <Text
             style={[
               styles.subtitleText,
@@ -247,9 +287,6 @@ function AccountCard({ account }: { account: string }) {
               <Text style={styles.actionButtonText}>
                 {t(replayOpening ? 'checkinGift.replay' : day.gift.openedAt ? 'checkinGift.review' : 'checkinGift.choose')}
               </Text>
-              <View style={styles.chevronCircle}>
-                <Ionicons name="chevron-forward" size={18} color="#ffffff" />
-              </View>
             </LinearGradient>
           </Pressable>
         )}
@@ -264,96 +301,28 @@ function AccountCard({ account }: { account: string }) {
         )}
       </View>
 
-      {/* Thẻ Kho lộc */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('checkinGift.collection')}
-        onPress={() => router.push('/checkin-rewards/history')}
-        style={[
-          styles.collectionCard,
-          {
-            backgroundColor: colors.surface,
-            borderColor: isDarkMode ? colors.border : '#edf4f3',
-          },
-        ]}
-      >
-        <View style={styles.collectionLeft}>
-          <Image
-            source={chestArt}
-            style={styles.chestIcon}
-            contentFit="contain"
-            accessible={false}
-          />
-          <Text
-            style={[
-              styles.collectionText,
-              { color: colors.textPrimary },
-            ]}
-          >
-            {t('checkinGift.collection')}
-          </Text>
-        </View>
-        <View style={[styles.collectionArrowCircle, { backgroundColor: arrowBg }]}>
-          <Ionicons name="chevron-forward" size={18} color="#0d9488" />
-        </View>
-      </Pressable>
-
-      {open && (
-        <CheckinGiftFlow
-          reviewExisting
-          status={day.checkinStatus || undefined}
-          familyAlerted={day.familyAlerted}
-          onOpened={(gift) => {
-            if (
-              !focused.current ||
-              String(useAuthStore.getState().profile?.id) !== account
-            ) return;
-            // A completed open is newer than any pending Home refresh.
-            loadGeneration.current++;
-            automaticallyOffered.current = gift.id;
-            setDay((current) =>
-              current?.gift?.id === gift.id
-                ? { ...current, gift, offerOnAppOpen: false }
-                : current
-            );
-          }}
-          onClose={() => {
-            setOpen(false);
-            const request = ++loadGeneration.current;
-            loadCheckinGiftDay(account, true)
-              .then((result) => {
-                if (
-                  focused.current &&
-                  request === loadGeneration.current &&
-                  String(useAuthStore.getState().profile?.id) === account
-                )
-                  acceptDay(result);
-              })
-              .catch(() => {});
-          }}
-        />
-      )}
+      {giftFlow}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fallbackAction: {
+    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
   outerStack: {
     gap: 12,
   },
-  mainCard: {
-    borderRadius: 24,
-    paddingHorizontal: 16,
+  dailySection: {
     paddingTop: 18,
     paddingBottom: 18,
-    borderWidth: 1,
-    overflow: 'hidden',
     position: 'relative',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
   },
   heroArt: {
     position: 'absolute',
@@ -366,20 +335,8 @@ const styles = StyleSheet.create({
   headerArea: {
     zIndex: 1,
     maxWidth: '66%',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cloverIcon: {
-    width: 32,
-    height: 32,
-  },
-  titleText: {
-    fontSize: 23,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    minHeight: 96,
+    justifyContent: 'center',
   },
   subtitleText: {
     fontSize: 14,
@@ -520,14 +477,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'left',
   },
-  chevronCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(15, 118, 110, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   afterCheckinBox: {
     marginTop: 16,
     borderRadius: 16,
@@ -541,39 +490,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     flex: 1,
-  },
-  collectionCard: {
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  collectionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  chestIcon: {
-    width: 44,
-    height: 44,
-  },
-  collectionText: {
-    fontSize: 19,
-    fontWeight: '800',
-  },
-  collectionArrowCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

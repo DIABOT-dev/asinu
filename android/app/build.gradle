@@ -82,6 +82,12 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+apply from: new File(["node", "--print", "require('path').dirname(require.resolve('@sentry/react-native/package.json'))"].execute(null, rootDir).text.trim(), "sentry.gradle.kts")
+
+// Builds remain possible before Sentry management credentials are provisioned.
+// With credentials present an upload failure still fails the build.
+project.ext.shouldSentryAutoUploadGeneral = { -> return !!System.getenv("SENTRY_AUTH_TOKEN") }
+
 android {
     sourceSets { main.java.srcDir("../../native/app-update/android") }
     ndkVersion rootProject.ext.ndkVersion

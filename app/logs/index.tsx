@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { Stack, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
@@ -11,8 +11,6 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Screen } from '../../src/components/Screen';
 import { useLogsStore, type LogEntry } from '../../src/features/logs/logs.store';
@@ -29,7 +27,6 @@ type LogCardItem = {
   unit: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   iconColor: string;
-  banner: any;
 };
 
 // Tạm ẩn Thuốc và Insulin khỏi màn Ghi nhật ký; giữ nguyên dữ liệu và màn nhập riêng.
@@ -44,16 +41,13 @@ export default function LogsIndexScreen() {
   const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
 
   const fetchLogs = useLogsStore((s) => s.fetchRecent);
-  const status    = useLogsStore((s) => s.status);
   const logs      = useLogsStore((s) => s.recent);
 
-  useEffect(() => {
-    if (status === 'idle') {
-      const c = new AbortController();
-      fetchLogs(c.signal);
-      return () => c.abort();
-    }
-  }, [status, fetchLogs]);
+  useFocusEffect(useCallback(() => {
+    const controller = new AbortController();
+    void fetchLogs(controller.signal);
+    return () => controller.abort();
+  }, [fetchLogs]));
 
   const quickMetrics = useMemo(() => {
     const todayStart = new Date();
@@ -99,7 +93,6 @@ export default function LogsIndexScreen() {
       unit: 'mg/dL',
       icon: 'water',
       iconColor: '#E11D48',
-      banner: require('../../assets/images/logs/banner_glucose.png'),
     },
     {
       key: 'bloodPressure',
@@ -109,7 +102,6 @@ export default function LogsIndexScreen() {
       unit: 'mmHg',
       icon: 'heart-pulse',
       iconColor: '#E11D48',
-      banner: require('../../assets/images/logs/banner_bp.png'),
     },
     {
       key: 'water',
@@ -119,7 +111,6 @@ export default function LogsIndexScreen() {
       unit: 'ml',
       icon: 'cup-water',
       iconColor: '#0284C7',
-      banner: require('../../assets/images/logs/banner_water.png'),
     },
     {
       key: 'weight',
@@ -129,7 +120,6 @@ export default function LogsIndexScreen() {
       unit: 'kg',
       icon: 'scale-bathroom',
       iconColor: '#7C3AED',
-      banner: require('../../assets/images/logs/banner_weight.png'),
     },
     {
       key: 'medication',
@@ -139,7 +129,6 @@ export default function LogsIndexScreen() {
       unit: t('doseUnit'),
       icon: 'pill',
       iconColor: '#059669',
-      banner: require('../../assets/images/logs/banner_medication.png'),
     },
     {
       key: 'meal',
@@ -149,7 +138,6 @@ export default function LogsIndexScreen() {
       unit: t('mealUnit'),
       icon: 'food-apple',
       iconColor: '#D97706',
-      banner: require('../../assets/images/logs/banner_meal.png'),
     },
     {
       key: 'insulin',
@@ -159,7 +147,6 @@ export default function LogsIndexScreen() {
       unit: t('insulinUnit'),
       icon: 'needle',
       iconColor: '#4F46E5',
-      banner: require('../../assets/images/logs/banner_insulin.png'),
     },
   ], [quickMetrics, t]);
 
@@ -177,13 +164,12 @@ export default function LogsIndexScreen() {
               <ScreenBackButton onPress={() => router.back()} />
               <View style={styles.headerText}>
                 <Text style={styles.headerTitle}>{t('logTitle')}</Text>
-                <Text style={styles.headerSub}>{t('logSubtitle')}</Text>
               </View>
             </View>
           </Animated.View>
 
-          {/* Cards Grid — All 7 categories in clean 3D card layout */}
-          <View style={styles.grid}>
+          {/* Log categories sit directly on the screen background. */}
+          <View style={styles.list}>
             {LOG_CARDS.filter((card) => !HIDDEN_LOG_CARD_KEYS.has(card.key)).map((card, i) => (
               <Animated.View
                 key={card.key}
@@ -191,41 +177,17 @@ export default function LogsIndexScreen() {
               >
                 <Pressable
                   onPress={() => router.push(card.route as any)}
-                  style={({ pressed }) => [styles.metricCard, pressed && styles.cardPressed]}
+                  style={({ pressed }) => [styles.metricRow, pressed && styles.rowPressed]}
                   accessibilityRole="button"
                   accessibilityLabel={`${card.title}: ${card.value} ${card.unit}`}
                 >
-                  {/* 3D Crystal Banner Background */}
-                  <Image
-                    source={card.banner}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    transition={150}
-                  />
-
-                  {/* Dark mode overlay */}
-                  {isDark && (
-                    <LinearGradient
-                      colors={['rgba(15, 23, 42, 0.90)', 'rgba(15, 23, 42, 0.45)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={StyleSheet.absoluteFill}
-                    />
-                  )}
-
-                  {/* Card Content Column */}
-                  <View style={styles.metricCardContent}>
-                    <View style={styles.metricHeaderRow}>
-                      <View style={styles.metricIconCircle}>
-                        <MaterialCommunityIcons name={card.icon} size={20} color={card.iconColor} />
-                      </View>
-                      <Text style={styles.metricTitle}>{card.title}</Text>
-                    </View>
-
-                    <View style={styles.metricValueRow}>
-                      <Text style={styles.metricValue}>{card.value}</Text>
-                      <Text style={styles.metricUnit}>{card.unit}</Text>
-                    </View>
+                  <View style={styles.metricIcon}>
+                    <MaterialCommunityIcons name={card.icon} size={24} color={card.iconColor} />
+                  </View>
+                  <Text style={styles.metricTitle}>{card.title}</Text>
+                  <View style={styles.metricValueColumn}>
+                    <Text style={styles.metricValue}>{card.value}</Text>
+                    <Text style={styles.metricUnit}>{card.unit}</Text>
                   </View>
                 </Pressable>
               </Animated.View>
@@ -264,71 +226,48 @@ function createStyles(
       color: colors.textPrimary,
       letterSpacing: -0.3,
     },
-    headerSub: {
-      fontSize: typography.size.sm,
-      color: colors.textSecondary,
-      marginTop: 2,
+    list: {
+      gap: spacing.xs,
     },
-    // Grid
-    grid: {
-      gap: 16,
-    },
-    metricCard: {
-      height: 144,
-      borderRadius: 24,
-      backgroundColor: '#FFFFFF',
-      borderWidth: 1.5,
-      borderColor: isDark ? '#263044' : '#EEF2F5',
-      overflow: 'hidden',
-      paddingHorizontal: 20,
-      paddingVertical: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.25 : 0.04,
-      shadowRadius: 10,
-      elevation: 2,
-    },
-    cardPressed: {
-      opacity: 0.9,
-      transform: [{ scale: 0.985 }],
-    },
-    metricCardContent: {
-      zIndex: 2,
-      maxWidth: '60%',
-      flex: 1,
-      justifyContent: 'space-between',
-    },
-    metricHeaderRow: {
+    metricRow: {
+      minHeight: 76,
       flexDirection: 'row',
       alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: 'transparent',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.md,
     },
-    metricIconCircle: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+    rowPressed: {
+      opacity: 0.65,
+    },
+    metricIcon: {
+      width: 36,
+      height: 36,
       alignItems: 'center',
       justifyContent: 'center',
     },
     metricTitle: {
+      flex: 1,
       fontSize: 18,
       fontWeight: '600',
       color: isDark ? '#F8FAFC' : '#0F172A',
-      marginLeft: 12,
     },
-    metricValueRow: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
+    metricValueColumn: {
+      maxWidth: '40%',
+      alignItems: 'flex-end',
     },
     metricValue: {
-      fontSize: 28,
-      fontWeight: '800',
+      fontSize: 20,
+      fontWeight: '700',
       color: isDark ? '#F8FAFC' : '#0F172A',
+      textAlign: 'right',
     },
     metricUnit: {
-      fontSize: 16,
+      fontSize: 13,
       fontWeight: '500',
       color: isDark ? '#94A3B8' : '#64748B',
-      marginLeft: 8,
+      textAlign: 'right',
     },
   });
 }

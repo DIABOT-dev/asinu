@@ -77,10 +77,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
   },
   sourceRowPressed: {
     opacity: 0.7,
