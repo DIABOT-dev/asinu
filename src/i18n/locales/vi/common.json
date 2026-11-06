@@ -429,8 +429,6 @@
   },
   "notificationUnread": "Chưa đọc",
   "notificationUnreadCount": "{{count}} chưa đọc",
-  "notificationAllRead": "Đã đọc tất cả",
-  "notificationReadAll": "Đọc tất cả",
   "notificationLoadFailed": "Chưa tải được thông báo",
   "notificationFilterEmpty": "Chưa có thông báo trong mục này",
   "notificationEmptyHint": "Nhắc nhở sức khỏe và tin từ gia đình sẽ xuất hiện ở đây."

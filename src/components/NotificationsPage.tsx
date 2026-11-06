@@ -493,38 +493,13 @@ export function NotificationsPage() {
             </View>
           </View>
 
-          <View style={styles.inboxSummary}>
-            {loading && notifications.length === 0 ? (
-              <SkeletonBlock width={108} height={16} borderRadius={8} />
-            ) : error && notifications.length === 0 ? (
-              <View />
-            ) : (
+          {unreadCount > 0 && notifications.length > 0 && (
+            <View style={styles.inboxSummary}>
               <Text style={styles.summaryText}>
-                {unreadCount > 0
-                  ? t('notificationUnreadCount', { count: unreadCount })
-                  : t('notificationAllRead')}
+                {t('notificationUnreadCount', { count: unreadCount })}
               </Text>
-            )}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('markAllNotificationsRead')}
-              accessibilityState={{ disabled: unreadCount === 0 }}
-              disabled={unreadCount === 0}
-              onPress={handleMarkAll}
-              style={({ pressed }) => [
-                styles.readAllButton,
-                unreadCount === 0 && styles.disabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons
-                name="checkmark-done-outline"
-                size={18}
-                color={colors.primaryText}
-              />
-              <Text style={styles.readAllText}>{t('notificationReadAll')}</Text>
-            </Pressable>
-          </View>
+            </View>
+          )}
 
           {showActions && (
             <View style={styles.actionsMenu}>
@@ -778,30 +753,12 @@ function createStyles(
       minHeight: 52,
       marginTop: spacing.sm,
       paddingHorizontal: spacing.xl,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.sm,
+      justifyContent: 'center',
     },
     summaryText: {
-      flex: 1,
       color: colors.textSecondary,
       fontSize: scaledTypography.size.sm,
       fontWeight: '500',
-    },
-    readAllButton: {
-      minHeight: 44,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: spacing.xs,
-      maxWidth: '55%',
-    },
-    readAllText: {
-      color: colors.primaryText,
-      fontSize: scaledTypography.size.sm,
-      fontWeight: '700',
-      flexShrink: 1,
     },
     filterRow: { marginTop: spacing.xs },
     filterContent: {

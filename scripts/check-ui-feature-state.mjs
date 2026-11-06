@@ -1928,23 +1928,43 @@ await test("inbox item actions do not open or mark a notification and deletion s
   assert.deepEqual(h.calls.removed, ["checkin"]);
   h.blur();
 });
-await test("the visible read-all shortcut marks notifications without deleting history", async () => {
+await test("the inbox omits the read-all summary and shortcut while its overflow action still marks all read", async () => {
   const h = inboxHarness();
   await h.settle();
-  const button = journeyNodes(h.read()).find(
+  const assertRemovedLabels = () => {
+    assert.ok(
+      !journeyNodes(h.read()).some((node) =>
+        ["Đã đọc tất cả", "Đọc tất cả"].includes(node.props.children),
+      ),
+    );
+  };
+  const openActions = () => journeyNodes(h.read()).find(
     (node) =>
       node.type === "Pressable" &&
-      node.props.accessibilityLabel === "Đánh dấu tất cả đã đọc",
+      node.props.accessibilityLabel === "Thao tác khác",
+  ).props.onPress();
+  const markAllButton = () => journeyNodes(h.read()).find(
+    (node) =>
+      node.type === "Pressable" &&
+      journeyNodes(node).some(
+        (child) => child.props.children === "Đánh dấu tất cả đã đọc",
+      ),
   );
+  assertRemovedLabels();
+  assert.ok(journeyNodes(h.read()).some((node) => node.props.children === "1 chưa đọc"));
+  assert.equal(markAllButton(), undefined);
+  openActions();
+  const button = markAllButton();
   assert.equal(button.props.disabled, false);
   button.props.onPress();
   await flush();
   assert.equal(h.calls.all, 1);
   assert.equal(h.calls.clear, 0);
-  const disabled = journeyNodes(h.read()).find(
-    (node) => node.props.accessibilityLabel === "Đánh dấu tất cả đã đọc",
-  );
-  assert.equal(disabled.props.disabled, true);
+  assertRemovedLabels();
+  assert.ok(!journeyNodes(h.read()).some((node) => node.props.children === "0 chưa đọc"));
+  assert.equal(markAllButton(), undefined);
+  openActions();
+  assert.equal(markAllButton().props.disabled, true);
   h.blur();
 });
 await test("the inbox retains filtering, expansion, pagination and honest loading/error states", async () => {
