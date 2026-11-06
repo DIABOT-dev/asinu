@@ -47,6 +47,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
 import { ProfileMascotGreeting } from "../../../src/features/profile/ProfileMascotGreeting";
 import { ProfileHealthcareBackground } from "../../../src/features/profile/ProfileHealthcareBackground";
+import { PlanDetailsModal } from "../../../src/features/subscription/components/PlanDetailsModal";
 import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
 import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
 import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
@@ -717,21 +718,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const planBenefits = useMemo(() => {
-    if (subStatus?.isAnTam) {
-      return [
-        { icon: "check-circle", text: t("antamBenefitCall") },
-        { icon: "check-circle", text: t("antamBenefitSignal") },
-        { icon: "check-circle", text: t("antamBenefitFamily") },
-      ];
-    }
-    return [
-      { icon: "check", text: t("freeBenefitHistory") },
-      { icon: "check", text: t("freeBenefitVoice") },
-      { icon: "check", text: t("freeBenefitSignal") },
-    ];
-  }, [subStatus?.isAnTam, t]);
-
   const hasCheckinCallAccess =
     subStatus?.callCenterEnabled ?? subStatus?.isAnTam ?? false;
 
@@ -822,6 +808,11 @@ export default function ProfileScreen() {
                     style={styles.planBadge}
                     onPress={() => setShowPlanInfoModal(true)}
                     activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={tSubscription("v2CurrentPlan")}
+                    accessibilityHint={tSubscription("v2ViewBenefits")}
+                    accessibilityState={{ disabled: !subStatus }}
+                    disabled={!subStatus}
                   >
                     <FontAwesome5
                       name="crown"
@@ -1590,80 +1581,19 @@ export default function ProfileScreen() {
         )}
       </RippleRefreshScrollView>
 
-      {/* ==================== PLAN INFO MODAL ==================== */}
-      <Modal
-        visible={showPlanInfoModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowPlanInfoModal(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowPlanInfoModal(false)}
-        >
-          <Pressable style={styles.planInfoCard} onPress={(event) => event.stopPropagation()}>
-            <View style={{ alignItems: "center", gap: 8 }}>
-              <View style={styles.planIconBig}>
-                <MaterialCommunityIcons
-                  name={
-                    subStatus?.isAnTam ? "shield-check" : "shield-account-outline"
-                  }
-                  size={28}
-                  color={
-                    subStatus?.isAnTam ? colors.premiumDark : colors.primary
-                  }
-                />
-              </View>
-              <Text style={styles.planInfoTitle}>
-                {localizedPlanName(subStatus?.planCode, tSubscription)}
-              </Text>
-              <Text style={styles.planInfoSubtitle}>
-                {subStatus?.isAnTam
-                  ? t("antamActiveDesc")
-                  : t("freeHealthDesc")}
-              </Text>
-            </View>
-
-            <View style={{ gap: 8, marginTop: 12 }}>
-              {planBenefits.map((b, i) => (
-                <View key={i} style={styles.benefitRow}>
-                  <MaterialCommunityIcons
-                    name={b.icon as any}
-                    size={18}
-                    color={
-                      subStatus?.isAnTam ? colors.premium : colors.success
-                    }
-                  />
-                  <Text style={styles.benefitText}>{b.text}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.planActionsRow}>
-              <Pressable
-                style={styles.planCloseBtn}
-                onPress={() => setShowPlanInfoModal(false)}
-              >
-                <Text style={styles.planCloseBtnText}>{tc("close")}</Text>
-              </Pressable>
-              {!subStatus?.isAnTam && (
-                <Pressable
-                  style={styles.planUpgradeBtn}
-                  onPress={() => {
-                    setShowPlanInfoModal(false);
-                    router.push("/subscription");
-                  }}
-                >
-                  <Text style={styles.planUpgradeBtnText}>
-                    {t("chooseAnTam")}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {showPlanInfoModal && subStatus && (
+        <PlanDetailsModal
+          visible
+          premium={subStatus.isAnTam}
+          currentPlanCode={subStatus.planCode}
+          expiresAt={subStatus.expiresAt}
+          onClose={() => setShowPlanInfoModal(false)}
+          onChoosePlan={() => {
+            setShowPlanInfoModal(false);
+            router.push("/subscription/plans");
+          }}
+        />
+      )}
 
       {/* ==================== EDIT PROFILE MODAL ==================== */}
       <Modal
@@ -2667,74 +2597,6 @@ function createStyles(
       alignItems: "center",
       padding: 24,
     },
-    planInfoCard: {
-      backgroundColor: cardBg,
-      borderRadius: 22,
-      padding: 24,
-      width: "100%",
-      maxWidth: 360,
-    },
-    planIconBig: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    planInfoTitle: {
-      fontSize: 20,
-      fontWeight: "800",
-      color: textPrimaryCol,
-    },
-    planInfoSubtitle: {
-      fontSize: 13,
-      color: textSecondaryCol,
-      textAlign: "center",
-    },
-    benefitRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      paddingVertical: 4,
-    },
-    benefitText: {
-      flex: 1,
-      fontSize: 14,
-      color: textPrimaryCol,
-      fontWeight: "600",
-    },
-    planActionsRow: {
-      flexDirection: "row",
-      gap: 8,
-      marginTop: 16,
-    },
-    planCloseBtn: {
-      flex: 1,
-      paddingVertical: 12,
-      borderRadius: 12,
-      alignItems: "center",
-      backgroundColor: colors.surfaceMuted,
-    },
-    planCloseBtnText: {
-      color: textPrimaryCol,
-      fontWeight: "600",
-      fontSize: 14,
-    },
-    planUpgradeBtn: {
-      flex: 1,
-      paddingVertical: 12,
-      borderRadius: 12,
-      alignItems: "center",
-      backgroundColor: colors.premiumLight,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    planUpgradeBtnText: {
-      color: colors.premiumDark,
-      fontWeight: "700",
-      fontSize: 14,
-    },
-
     // Redesigned Edit Profile Bottom Sheet
     sheetOverlay: {
       flex: 1,

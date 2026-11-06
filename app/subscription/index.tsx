@@ -26,7 +26,7 @@ import { ScaledText as Text } from "../../src/components/ScaledText";
 import { Screen } from "../../src/components/Screen";
 import { ScreenBackButton } from "../../src/components/ScreenHeaderButton";
 import { SubscriptionFAQ } from "../../src/components/SubscriptionFAQ";
-import { ProfilePreferenceModal } from "../../src/features/profile/ProfilePreferenceModal";
+import { PlanDetailsModal } from "../../src/features/subscription/components/PlanDetailsModal";
 import { localizedPlanName } from "../../src/features/subscription/planName";
 import { SubscriptionScenarioComparison } from "../../src/features/subscription/components/SubscriptionScenarioComparison";
 import { CarePlanBackground } from "../../src/features/subscription/components/CarePlanBackground";
@@ -100,27 +100,6 @@ type Household = {
   members: ProtectedMember[];
 };
 
-const FREE_FEATURES = [
-  "v2FreeFeature1",
-  "v2FreeFeature2",
-  "v2FreeFeature3",
-  "v2FreeFeature4",
-  "v2FreeFeature5",
-  "v2FreeFeature6",
-];
-
-const AN_TAM_FEATURES = [
-  "v2AnTamFeature1",
-  "v2AnTamFeature2",
-  "v2AnTamFeature3",
-  "v2AnTamFeature4",
-  "v2AnTamFeature5",
-  "v2AnTamFeature6",
-];
-
-const FEATURE_TITLE_FONT_SIZE = 17;
-const FEATURE_CHECK_SIZE = 16;
-
 function formatDate(value: string | null, language: string) {
   if (!value) {
     return "";
@@ -137,6 +116,7 @@ type CurrentPlanCardProps = {
   loading: boolean;
   language: string;
   userName?: string;
+  onPress: () => void;
   avatarUrl?: string;
   t: (key: string, options?: Record<string, unknown>) => string;
   styles: ReturnType<typeof createStyles>;
@@ -146,6 +126,7 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
   status,
   loading,
   language,
+  onPress,
   t,
   styles,
 }: CurrentPlanCardProps) {
@@ -153,7 +134,15 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
   const currentPlanImage = getPlanImageByCode(status?.planCode, isAnTam);
 
   return (
-    <View style={styles.currentPlanCard}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${t("v2CurrentPlan")}${status ? `. ${localizedPlanName(status.planCode, t)}` : ""}`}
+      accessibilityHint={t("v2ViewBenefits")}
+      accessibilityState={{ disabled: loading || !status }}
+      disabled={loading || !status}
+      onPress={onPress}
+      style={({ pressed }) => [styles.currentPlanCard, pressed && styles.planChoicePressed]}
+    >
       <View
         style={[
           styles.currentAvatarWrap,
@@ -206,19 +195,12 @@ const CurrentPlanCard = memo(function CurrentPlanCard({
           </Text>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 });
 
-type FeatureItem = {
-  icon?: React.ReactNode;
-  text: string;
-  description: string;
-};
-
 type PlanComparisonProps = {
-  freeFeatures: FeatureItem[];
-  anTamFeatures: FeatureItem[];
+  status?: SubscriptionStatus | null;
   freeIsCurrent: boolean;
   purchaseDisabled?: boolean;
   onChoosePlan: () => void;
@@ -227,8 +209,7 @@ type PlanComparisonProps = {
 };
 
 const PlanComparison = memo(function PlanComparison({
-  freeFeatures,
-  anTamFeatures,
+  status,
   freeIsCurrent,
   purchaseDisabled = false,
   onChoosePlan,
@@ -245,29 +226,10 @@ const PlanComparison = memo(function PlanComparison({
     setSelectedPlan(null);
   }, []);
   useFocusEffect(useCallback(() => closeDetails, [closeDetails]));
-  const titleFontSize = useScaledFontSize(FEATURE_TITLE_FONT_SIZE);
-  const checkFontSize = useScaledFontSize(FEATURE_CHECK_SIZE);
-  const stacked = width < 350 || (fontScale || 1) * titleFontSize / FEATURE_TITLE_FONT_SIZE > 1.2;
-  // Match ScaledText's first line, not the height of the entire title/description.
-  const titleLineHeight = Math.round(titleFontSize * (Platform.OS === "android" ? 1.6 : 1.5)) * (fontScale || 1);
-  const checkSize = Math.round(checkFontSize * (fontScale || 1));
-  const featureIconStyle = { height: titleLineHeight, width: checkSize + 2 };
-  const checkStyle = { lineHeight: checkSize, includeFontPadding: false };
-  const renderFeatures = (items: FeatureItem[], premium: boolean) => (
-    <View style={styles.featureList}>
-      {items.map((item) => (
-        <View key={item.text} style={styles.comparisonFeatureRow}>
-          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.featureIconWrap, featureIconStyle]}>
-            <Ionicons allowFontScaling={false} name="checkmark-circle" size={checkSize} color={premium ? "#ea580c" : "#059669"} style={checkStyle} />
-          </View>
-          <View style={styles.featureCopy}>
-            <Text allowFontScaling style={premium ? styles.premiumFeatureText : styles.featureText}>{item.text}</Text>
-            <Text allowFontScaling style={styles.featureDescription}>{item.description}</Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
+  const titleFontSize = useScaledFontSize(17);
+  const stacked = width < 350 || (fontScale || 1) * titleFontSize / 17 > 1.2;
+  const currentPlanCode = status && (premium ? status.isAnTam : status.planCode === "free")
+    ? status.planCode : undefined;
 
   return (
     <View style={[styles.comparisonRow, stacked && styles.comparisonStacked]}>
@@ -336,47 +298,19 @@ const PlanComparison = memo(function PlanComparison({
         </View>
       ))}
       {selectedPlan && (
-        <ProfilePreferenceModal
+        <PlanDetailsModal
           visible
-          title={t(premium ? "v2AnTamPlanName" : "v2FreePlan")}
+          premium={premium}
+          currentPlanCode={currentPlanCode}
+          expiresAt={currentPlanCode ? status?.expiresAt : undefined}
+          disabled={purchaseDisabled}
           onClose={closeDetails}
-        >
-          <View>
-            {premium && <View style={styles.popularBadge}>
-              <Text allowFontScaling style={styles.popularBadgeText}>{t("comparison.anTamBadge")}</Text>
-            </View>}
-            <View style={styles.planPriceWrap}>
-              {premium ? <Text allowFontScaling style={styles.planPeriodOptions}>
-                {t("iapMonthly")} · {t("iapYearly")}
-              </Text> : <>
-                <Text allowFontScaling style={styles.freePrice}>{t("freePrice")}</Text>
-                <Text allowFontScaling style={styles.perMonthText}>{t("freeForever")}</Text>
-              </>}
-            </View>
-            <Text allowFontScaling style={styles.planIntroduction}>
-              {t(premium ? "comparison.anTamIntroduction" : "comparison.freeIntroduction")}
-            </Text>
-            {renderFeatures(premium ? anTamFeatures : freeFeatures, premium)}
-            {premium ? <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("iapChooseTitle")}
-              accessibilityState={{ disabled: purchaseDisabled }}
-              disabled={purchaseDisabled}
-              onPress={() => {
-                if (activePlan.current !== "anTam") return;
-                closeDetails();
-                onChoosePlan();
-              }}
-              style={({ pressed }) => [styles.premiumCTABtn, { opacity: pressed ? 0.85 : 1 }]}
-            >
-              <Text allowFontScaling style={styles.premiumCTAText}>{t("iapChooseTitle")}</Text>
-            </Pressable> : <View style={styles.freeCTABox}>
-              <Text allowFontScaling style={styles.freeCTAText}>
-                {freeIsCurrent ? t("currentlyUsing") : t("v2FreeTitle")}
-              </Text>
-            </View>}
-          </View>
-        </ProfilePreferenceModal>
+          onChoosePlan={premium || freeIsCurrent ? () => {
+            if (activePlan.current !== selectedPlan) return;
+            closeDetails();
+            onChoosePlan();
+          } : undefined}
+        />
       )}
     </View>
   );
@@ -424,6 +358,7 @@ export default function SubscriptionScreen() {
   const [connections, setConnections] = useState<CareCircleConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [memberModal, setMemberModal] = useState(false);
+  const [currentPlanModal, setCurrentPlanModal] = useState(false);
   const [memberBusy, setMemberBusy] = useState<number | null>(null);
 
   const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
@@ -447,7 +382,7 @@ export default function SubscriptionScreen() {
   useFocusEffect(useCallback(() => {
     let active = true;
     void refresh(() => active);
-    return () => { active = false; };
+    return () => { active = false; setCurrentPlanModal(false); };
   }, [currentUserId, refresh]));
 
   const connectionAvatarMap = useMemo(() => {
@@ -543,16 +478,6 @@ export default function SubscriptionScreen() {
     [refresh, t]
   );
 
-  const freeFeatures = useMemo<FeatureItem[]>(
-    () => FREE_FEATURES.map((feature) => ({ text: t(feature), description: t(`${feature}Description`) })),
-    [t]
-  );
-
-  const anTamFeatures = useMemo<FeatureItem[]>(
-    () => AN_TAM_FEATURES.map((feature) => ({ text: t(feature), description: t(`${feature}Description`) })),
-    [t]
-  );
-
   const handleChoosePlan = useCallback(() => {
     router.push("/subscription/plans");
   }, [router]);
@@ -623,6 +548,7 @@ export default function SubscriptionScreen() {
             avatarUrl={profile?.avatarUrl}
             language={i18n.language}
             loading={loading}
+            onPress={() => setCurrentPlanModal(true)}
             status={status}
             styles={styles}
             t={t}
@@ -636,8 +562,7 @@ export default function SubscriptionScreen() {
           <SubscriptionScenarioComparison />
 
           <PlanComparison
-            anTamFeatures={anTamFeatures}
-            freeFeatures={freeFeatures}
+            status={status}
             freeIsCurrent={status?.planCode === "free"}
             purchaseDisabled={loading || !status}
             onChoosePlan={handleChoosePlan}
@@ -647,6 +572,21 @@ export default function SubscriptionScreen() {
 
         </Animated.View>
       </ScrollView>
+
+      {currentPlanModal && status && (
+        <PlanDetailsModal
+          visible
+          premium={status.isAnTam}
+          currentPlanCode={status.planCode}
+          expiresAt={status.expiresAt}
+          disabled={loading}
+          onClose={() => setCurrentPlanModal(false)}
+          onChoosePlan={() => {
+            setCurrentPlanModal(false);
+            handleChoosePlan();
+          }}
+        />
+      )}
 
       <Modal
         visible={memberModal}
@@ -1117,18 +1057,6 @@ function createStyles(
     upgradeButton: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 24, overflow: "hidden", alignItems: "center", justifyContent: "center" },
     upgradeButtonText: { color: "#f5fcff", fontWeight: "700", fontSize: 13, textAlign: "center" },
     planChoicePressed: { opacity: 0.65 },
-    popularBadge: {
-      backgroundColor: colors.primaryLight,
-      borderColor: colors.primaryDark,
-      borderWidth: 1,
-      borderRadius: 10,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      alignSelf: "flex-start",
-      maxWidth: "100%",
-      marginBottom: 8,
-    },
-    popularBadgeText: { color: colors.primaryText, fontSize: 13, fontWeight: "700", flexShrink: 1 },
     freePlanTitle: {
       color: isDark ? "#edf5ff" : "#19325e",
       fontSize: 22,
@@ -1138,84 +1066,6 @@ function createStyles(
     premiumPlanTitle: {
       color: isDark ? "#8bd4dc" : "#2c7e8b",
       fontSize: 22,
-      fontWeight: "700",
-      textAlign: "center",
-    },
-    planPriceWrap: {
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: 40,
-      paddingVertical: 2,
-    },
-    freePrice: {
-      color: isDark ? "#f8fafc" : "#0f172a",
-      fontSize: 20,
-      fontWeight: "800",
-      letterSpacing: -0.5,
-    },
-    perMonthText: { color: colors.textSecondary, fontSize: 15 },
-    planPeriodOptions: {
-      color: "#ea580c",
-      fontSize: 15,
-      textAlign: "center",
-      opacity: 0.9,
-    },
-    planIntroduction: { color: colors.textPrimary, fontSize: 16, marginBottom: 8 },
-    featureList: { gap: 18, marginVertical: 14 },
-    featureCopy: { flex: 1, minWidth: 0, gap: 4 },
-    featureDescription: { color: colors.textPrimary, fontSize: 16 },
-    comparisonFeatureRow: {
-      alignItems: "flex-start",
-      flexDirection: "row",
-      minHeight: 38,
-    },
-    featureIconWrap: {
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0,
-      marginRight: 8,
-    },
-    featureText: {
-      color: colors.textPrimary,
-      fontSize: FEATURE_TITLE_FONT_SIZE,
-      fontWeight: "700",
-    },
-    premiumFeatureText: {
-      color: isDark ? "#f8fafc" : "#1e293b",
-      fontSize: FEATURE_TITLE_FONT_SIZE,
-      fontWeight: "700",
-    },
-    freeCTABox: {
-      alignItems: "center",
-      backgroundColor: isDark ? "#1e293b" : "#f1f5f9",
-      borderRadius: 12,
-      marginTop: 6,
-      minHeight: 42,
-      justifyContent: "center",
-      paddingHorizontal: 6,
-      paddingVertical: 8,
-    },
-    freeCTAText: {
-      color: "#64748b",
-      fontSize: 12,
-      fontWeight: "600",
-      textAlign: "center",
-    },
-    premiumCTABtn: {
-      alignItems: "center",
-      backgroundColor: colors.primaryLight,
-      borderColor: colors.primaryDark,
-      borderRadius: 12,
-      borderWidth: 1,
-      justifyContent: "center",
-      marginTop: 6,
-      minHeight: 56,
-      paddingHorizontal: 6,
-      paddingVertical: 8,
-    },
-    premiumCTAText: {
-      color: colors.primaryText,
-      fontSize: 18,
       fontWeight: "700",
       textAlign: "center",
     },

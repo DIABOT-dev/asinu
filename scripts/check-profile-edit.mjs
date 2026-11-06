@@ -124,6 +124,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/logs/logs.store': { useLogsStore: selector => selector({ fetchRecent: async () => {} }) },
     '../../../src/features/missions/missions.store': { useMissionsStore: selector => selector({ fetchMissions: async () => {} }) },
     '../../../src/features/subscription/planName': { localizedPlanName: () => 'Fixture plan' },
+    '../../../src/features/subscription/components/PlanDetailsModal': { PlanDetailsModal: 'PlanDetailsModal' },
     '../../../src/stores/font-size.store': { useFontSizeStore: () => ({ scale: preferences.fontScale, multiplier,
       setScale(value) { preferences.fontScale = value; calls.fontSizes.push(value); } }) },
     '../../../src/stores/language.store': { useLanguageStore: () => ({ language: preferences.language,
