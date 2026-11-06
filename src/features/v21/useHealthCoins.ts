@@ -37,7 +37,7 @@ export function useHealthCoins() {
   const operating = useRef<{ owner?: string } | null>(null);
   const current = useCallback(
     () => focused.current && useAuthStore.getState().profile?.id === owner,
-    [owner]
+    [owner],
   );
 
   const refresh = useCallback(async () => {
@@ -79,7 +79,7 @@ export function useHealthCoins() {
         focused.current = false;
         generation.current++;
       };
-    }, [refresh, owner])
+    }, [refresh, owner]),
   );
 
   const selectReward = (reward: Reward) => {
@@ -152,7 +152,7 @@ export function useHealthCoins() {
         history: [
           ...previous.history,
           ...page.items.filter(
-            (entry) => !previous.history.some((old) => old.id === entry.id)
+            (entry) => !previous.history.some((old) => old.id === entry.id),
           ),
         ],
       }));
@@ -180,6 +180,14 @@ export function useHealthCoins() {
     hasMore,
     refresh,
     selectReward,
+    openCard: (id: string) => {
+      if (!current() || operating.current?.owner === owner) return;
+      setVisible(false);
+      router.push({
+        pathname: "/coins/card/[cardId]",
+        params: { cardId: id },
+      } as any);
+    },
     selectRecipient: (id: number) => {
       if (operating.current?.owner !== owner) setRecipient(id);
     },

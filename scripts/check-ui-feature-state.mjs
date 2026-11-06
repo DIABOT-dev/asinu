@@ -1234,6 +1234,100 @@ await test("an older reminder preference result cannot undo a newer withdrawal",
   assert.equal(h.read().props.disabled, true); h.blur();
 });
 
+await test("the real card reward view allows a free preview with insufficient coins but keeps redemption disabled", () => {
+  const r = runtime();
+  const recipient = { id: 7, name: "Fixture family" };
+  const template = { code: "MISS_YOU", title: "Fixture card", title_en: "Fixture card", body: "Fixture greeting" };
+  const reward = { code: "GREETING_CARD", cost: 50 };
+  const coins = {
+    busy: false, selected: null, recipient: recipient.id, template: template.code,
+    data: { balance: 12 }, catalog: { items: [reward], recipients: [recipient], templates: [template] },
+    selectReward: item => { coins.selected = item; }, cancelReward() {},
+  };
+  const { CoinSpendTab } = evaluate("src/features/v21/CoinDetailsContent.tsx", {
+    react: r.hooks,
+    "@expo/vector-icons": { Ionicons: "Icon", MaterialCommunityIcons: "Icon" },
+    "react-native": { ActivityIndicator: "Spinner", Pressable: "Pressable", View: "View", useWindowDimensions: () => ({ width: 393 }) },
+    "react-i18next": { useTranslation: () => ({ t: key => key, i18n: { language: "vi" } }) },
+    "../../components/ScaledText": { ScaledText: "Text" },
+    "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+    "../../hooks/useScaledTypography": { useScaledFontSize: n => n },
+    "./HealthCoinIcon": { HealthCoinIcon: "Coin" },
+    "./coin-details.styles": { coinDetailsStyles: {} },
+    "./GreetingCard": { GreetingCard: "GreetingCard" },
+  });
+  const preview = journeyNodes(r.render(() => CoinSpendTab({ coins }))).find(node => node.props?.label === "greetingPreview");
+  assert.equal(preview.props.disabled, false); preview.props.onPress();
+  const selection = r.render(() => CoinSpendTab({ coins }));
+  const readSelection = () => r.render(() => selection.type(selection.props));
+  const review = journeyNodes(readSelection()).find(node => node.props?.label === "coinsReviewAction");
+  assert.equal(review.props.disabled, false); review.props.onPress();
+  const nodes = journeyNodes(readSelection());
+  assert.equal(nodes.find(node => node.type === "GreetingCard").props.template, template);
+  assert.equal(nodes.find(node => node.props?.label === "redeem").props.disabled, true);
+  coins.data.balance = 50;
+  assert.equal(journeyNodes(readSelection()).find(node => node.props?.label === "redeem").props.disabled, false);
+});
+
+function greetingHarness() {
+  const r = runtime();
+  const auth = { profile: { id: "recipient" } };
+  const session = { token: "session-a" };
+  const params = { cardId: "11111111-2222-4333-8444-555555555555" };
+  const server = { pending: null, fail: false };
+  const calls = [];
+  const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
+  const { default: Screen } = evaluate("app/coins/card/[cardId].tsx", {
+    react: r.hooks,
+    "expo-router": { ...r.router, useLocalSearchParams: () => params },
+    "react-i18next": { useTranslation: () => ({ t: key => key }) },
+    "react-native": { ActivityIndicator: "ActivityIndicator" },
+    "../../../src/features/v21/GreetingCard": { GreetingCard: "GreetingCard" },
+    "../../../src/features/v21/V21Layout": { V21Layout: "Layout", Note: "Note", Action: "Action" },
+    "../../../src/features/auth/auth.store": { useAuthStore },
+    "../../../src/lib/tokenStore": { tokenStore: { getToken: () => session.token } },
+    "../../../src/hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+    "../../../src/features/v21/v21.api": { v21Api: { openCard: async id => {
+      calls.push(id);
+      if (server.pending) return server.pending;
+      if (server.fail) throw new Error("fixture offline");
+      return { card: { id, template: { code: "MISS_YOU" }, senderName: "Fixture sender", status: "DELIVERED", isRecipient: true } };
+    } } },
+  });
+  return { ...r, auth, params, server, session, calls,
+    read: () => r.render(Screen), settle: () => r.settle(Screen),
+    cards: () => journeyNodes(r.render(Screen)).filter(node => node.type === "GreetingCard"),
+  };
+}
+await test("the received card screen loads the selected redemption and displays its saved template", async () => {
+  const h = greetingHarness(); await h.settle();
+  assert.deepEqual(h.calls, [h.params.cardId]);
+  assert.equal(h.cards()[0].props.senderName, "Fixture sender");
+  assert.equal(h.cards()[0].props.template.code, "MISS_YOU"); h.blur();
+});
+await test("an invalid card link does not make a request and offers retry", async () => {
+  const h = greetingHarness(); h.params.cardId = "invalid"; await h.settle();
+  assert.equal(h.calls.length, 0); assert.equal(h.cards().length, 0);
+  assert.ok(journeyNodes(h.read()).some(node => node.type === "Action")); h.blur();
+});
+await test("retrying a failed card read recovers without leaving the screen", async () => {
+  const h = greetingHarness(); h.server.fail = true; await h.settle();
+  assert.equal(h.cards().length, 0); h.server.fail = false;
+  journeyNodes(h.read()).find(node => node.type === "Action").props.onPress(); await flush();
+  assert.equal(h.cards().length, 1); h.blur();
+});
+for (const event of ["account", "token", "blur"]) {
+  await test(`${event}: a late card response cannot expose another session's family message`, async () => {
+    const h = greetingHarness(); let finish;
+    h.server.pending = new Promise(resolve => { finish = resolve; }); await h.settle();
+    if (event === "account") h.auth.profile.id = "outsider";
+    else if (event === "token") h.session.token = "session-b";
+    else h.blur();
+    finish({ card: { template: { code: "PRIVATE_FIXTURE" }, senderName: "Private fixture" } });
+    await flush(); assert.equal(h.cards().length, 0); h.blur();
+  });
+}
+
 function taskReminderHarness() {
   const r = runtime();
   const auth = { token: "session-a" };

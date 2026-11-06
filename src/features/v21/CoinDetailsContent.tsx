@@ -14,6 +14,7 @@ import { HealthCoinIcon } from "./HealthCoinIcon";
 import { coinDetailsStyles as s } from "./coin-details.styles";
 import type { HealthCoinsController } from "./useHealthCoins";
 import type { CoinTask } from "./v21.api";
+import { GreetingCard } from "./GreetingCard";
 
 type Icon = ComponentProps<typeof Ionicons>["name"];
 function useCompactRows() {
@@ -128,7 +129,7 @@ export function CoinEarnTab({ coins }: { coins: HealthCoinsController }) {
   const tasks =
     coins.data?.tasks.filter(
       (task) =>
-        task.coins > 0 && (task.daily_limit > 0 || task.weekly_limit > 0)
+        task.coins > 0 && (task.daily_limit > 0 || task.weekly_limit > 0),
     ) ?? [];
   return (
     <View style={s.content}>
@@ -156,7 +157,7 @@ export function CoinEarnTab({ coins }: { coins: HealthCoinsController }) {
                       task.task_code === "WEEKLY"
                         ? task.weekly_limit
                         : task.daily_limit,
-                  }
+                  },
                 )}
               </Text>
               {compact && (
@@ -249,16 +250,11 @@ function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
   const [reviewing, setReviewing] = useState(false);
   const reward = coins.selected!;
   const recipient = coins.catalog?.recipients.find(
-    (person) => person.id === coins.recipient
+    (person) => person.id === coins.recipient,
   );
   const template = coins.catalog?.templates.find(
-    (item) => item.code === coins.template
+    (item) => item.code === coins.template,
   );
-  const templateName = template
-    ? i18n.language.startsWith("en")
-      ? template.title_en
-      : template.title
-    : "";
   const missing = Math.max(0, reward.cost - (coins.data?.balance ?? 0));
   const valid =
     !missing &&
@@ -313,14 +309,7 @@ function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
             </View>
           )}
           {template && (
-            <View style={s.reviewRow}>
-              <Text style={[s.caption, { color: colors.textSecondary }]}>
-                {t("chooseTemplate")}
-              </Text>
-              <Text style={[s.title, { color: colors.textPrimary }]}>
-                {templateName}
-              </Text>
-            </View>
+            <GreetingCard template={template} recipientName={recipient?.name} />
           )}
           <CoinButton
             label={t("redeem")}
@@ -366,24 +355,42 @@ function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
                   {t("chooseTemplate")}
                 </Text>
                 {coins.catalog?.templates.map((item) => (
-                  <RadioOption
+                  <Pressable
                     key={item.code}
-                    label={
+                    accessibilityRole="radio"
+                    accessibilityLabel={
                       i18n.language.startsWith("en")
                         ? item.title_en
                         : item.title
                     }
-                    selected={coins.template === item.code}
+                    accessibilityState={{
+                      checked: coins.template === item.code,
+                      disabled: coins.busy,
+                    }}
                     onPress={() => coins.selectTemplate(item.code)}
                     disabled={coins.busy}
-                  />
+                    style={({ pressed }) => ({
+                      opacity: pressed || coins.busy ? 0.65 : 1,
+                    })}
+                  >
+                    <GreetingCard
+                      template={item}
+                      compact
+                      selected={coins.template === item.code}
+                    />
+                  </Pressable>
                 ))}
               </View>
             </>
           )}
           <CoinButton
             label={t("coinsReviewAction")}
-            disabled={!valid || coins.busy}
+            disabled={
+              coins.busy ||
+              (reward.code === "GREETING_CARD"
+                ? !recipient || !template
+                : !valid)
+            }
             onPress={() => setReviewing(true)}
           />
         </>
@@ -448,6 +455,14 @@ export function CoinSpendTab({ coins }: { coins: HealthCoinsController }) {
                 disabled={coins.busy || missing > 0}
                 onPress={() => coins.selectReward(reward)}
               />
+              {reward.code === "GREETING_CARD" && missing > 0 && (
+                <CoinButton
+                  secondary
+                  label={t("greetingPreview")}
+                  disabled={coins.busy}
+                  onPress={() => coins.selectReward(reward)}
+                />
+              )}
             </View>
           );
         })}
@@ -506,6 +521,31 @@ export function CoinHistoryTab({ coins }: { coins: HealthCoinsController }) {
                   {t(entry.reward_status)}
                 </Text>
               )}
+              {entry.reason === "REDEEM" &&
+                entry.catalog_code === "GREETING_CARD" && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("greetingOpen")}
+                    onPress={() => coins.openCard(entry.ref_id)}
+                    style={{
+                      minHeight: 44,
+                      justifyContent: "center",
+                      alignSelf: "flex-start",
+                    }}
+                  >
+                    <Text
+                      style={[
+                        s.caption,
+                        {
+                          color: colors.primaryText,
+                          textDecorationLine: "underline",
+                        },
+                      ]}
+                    >
+                      {t("greetingOpen")}
+                    </Text>
+                  </Pressable>
+                )}
               {entry.ticket_no && (
                 <Text style={[s.caption, { color: colors.textSecondary }]}>
                   {t("ticketNumber", { number: entry.ticket_no })}

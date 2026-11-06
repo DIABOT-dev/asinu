@@ -486,6 +486,9 @@ export function routeFromNotificationData(
     if(dose)return {pathname:'/medication/call/[doseId]',params:{doseId:dose,attemptId:String(data.attemptId||''),...(['MED_TAKEN','MED_SKIP','MED_OUT'].includes(actionIdentifier||'')?{quickButton:String(['MED_TAKEN','MED_SKIP','MED_OUT'].indexOf(actionIdentifier!)+1)}:{})}};
     return '/medication';
   }
+  if (data?.type === 'coin_card' && typeof data.redemptionId === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(data.redemptionId))
+    return { pathname: '/coins/card/[cardId]', params: { cardId: data.redemptionId } };
   if(typeof data?.type==='string'&&data.type.startsWith('coin_'))return '/coins';
   if(typeof data?.type==='string'&&data.type.startsWith('med_'))return '/medication';
   if (data?.callType === "doctor_ivr" || data?.type === "doctor_ivr_call") {

@@ -50,9 +50,25 @@ export type Reward = {
 };
 export type RewardCatalog = {
   items: Reward[];
-  templates: { code: string; title: string; title_en: string }[];
+  templates: GreetingTemplate[];
   recipients: Patient[];
   drawPeriodId?: string | null;
+};
+export type GreetingTemplate = {
+  code: string;
+  title: string;
+  title_en: string;
+  body?: string;
+  body_en?: string;
+};
+export type FamilyGreetingCard = {
+  id: string;
+  template: GreetingTemplate;
+  senderName: string;
+  createdAt: string;
+  status: "PENDING" | "DELIVERED" | "REFUNDED";
+  isSender: boolean;
+  isRecipient: boolean;
 };
 export type CoinEntry = {
   id: string;
@@ -63,6 +79,7 @@ export type CoinEntry = {
   ref_id: string;
   ticket_no?: string;
   reward_status?: string;
+  catalog_code?: string;
 };
 export type MedKind = "MEDICINE" | "SUPPLEMENT";
 export type MedPurposeCode =
@@ -208,6 +225,9 @@ export const v21Api = {
       `/api/mobile/coins/history?before=${encodeURIComponent(before || "")}`,
     ),
   rewards: () => apiClient<RewardCatalog>("/api/mobile/rewards"),
+  openCard: (id: string) => apiClient<{ card: FamilyGreetingCard; received: boolean }>(
+    `/api/mobile/rewards/cards/${encodeURIComponent(id)}/open`, { method: "POST", body: {} },
+  ),
   redeem: (
     code: string,
     request_id: string,
